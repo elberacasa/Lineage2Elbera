@@ -20,6 +20,7 @@
   <label>Scene <select id="scene-picker"></select></label>
   <label>Character <select id="char-picker"></select></label>
   <label id="online-label"><input type="checkbox" id="online-toggle"> Online</label>
+  <button id="settings-btn" title="Settings">⚙</button>
   <span id="status">loading…</span>
 </div>
 <div id="chat">
@@ -41,6 +42,30 @@
   <div class="bar self-mp"><div id="self-mp-fill"></div></div>
   <span id="self-exp">exp 0%</span>
 </div>
+<div id="skill-bar"></div>
+<div id="hotbar"></div>
+<div id="cast-bar"><div class="bar cast"><div id="cast-fill"></div></div><span id="cast-name"></span></div>
+<div id="charsheet-panel">
+  <div class="inv-header">Character <button class="inv-close">×</button></div>
+  <div class="sheet-body"></div>
+</div>
+<div id="settings-panel">
+  <div class="inv-header">Settings <button class="inv-close">×</button></div>
+  <div class="settings-body">
+    <p class="settings-note">No login needed — this code <b>is</b> your
+    account. Save it somewhere safe; it restores your characters on any
+    device.</p>
+    <div class="deviceid-row">
+      <code id="deviceid-text"></code>
+      <button id="deviceid-copy">Copy</button>
+    </div>
+  </div>
+</div>
+<div id="inventory-panel">
+  <div class="inv-header">Inventory <button class="inv-close">×</button></div>
+  <div id="inventory-grid"></div>
+</div>
+<div id="loot-toasts"></div>
 <div id="death-overlay">
   <div class="death-box">
     <div class="death-title">You have died</div>

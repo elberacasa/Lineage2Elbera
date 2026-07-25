@@ -167,7 +167,8 @@ cp geodata-staging/geodata/*_conv.dat aCis_gameserver/build/dist/gameserver/data
 ### 4.1 Bridge WebSocket ops (browser ⇄ ElberaGate, JSON)
 
 Client → server: `login{deviceId}` · `enterChar{slot}` · `moveTo{x,y,z}` ·
-`say{channel,text}` · `target{id}` · `attack{id}`.
+`say{channel,text}` · `target{id}` · `attack{id}` · `useSkill{skillId,
+targetId?}` · `useItem{objectId}`.
 
 Server → client: `auth_ok{chars[]}` · `enterWorld{char{id,name,race,classId,
 x,y,z,heading}}` (exactly once per session) · `addNpc{id,npcId,name,x,y,z,
@@ -175,9 +176,20 @@ heading}` · `addPlayer{id,name,race,classId,x,y,z,heading}` ·
 `move{id,tx,ty,tz}` · `remove{id}` · `chat{from,channel,text}` ·
 `status{id,hp,maxHp,mp,maxMp}` · `selfStatus{hp,maxHp,mp,maxMp,cp,maxCp,
 level,exp,sp}` · `attack{id,targetId,damage,critical,miss}` · `die{id}` ·
-`revive{id}` · `target_ok{id}`.
+`revive{id}` · `target_ok{id}` · `skillList{skills[{id,level}]}` and
+`itemList{items[{objectId,itemId,count,slot,equipped,enchant}]}` (both
+queued and flushed right after `enterWorld`) · `skillCast{casterId,targetId,
+skillId,level,hitTime}` · `skillLaunch{casterId,targetId,skillId,level}` ·
+`invUpdate{updated[{change,objectId,itemId,count,slot,equipped,enchant}]}`
+(change: add/modify/remove/unchanged) · `addDrop{id,itemId,count,x,y,z}` ·
+`sysMsg{id,params[]}`.
 
-`SystemMessage` is decoded to the gateway log only — NOT in the contract.
+Loot: no dedicated op — `target{id}` on a corpse or drop sends Action(0x04),
+which aCis routes to pickup (`.autoloot` mod bypasses this server-side).
+`SystemMessage` IS in the contract as `sysMsg`.
+Skill/item display metadata: `assets/gamedata/skillmeta.json` (2,694),
+`itemmeta.json` (9,238), icons `assets/gamedata/icons/` (2,777) — generator
+`tools/dat/build_meta.py --check` must pass (11,901 refs, 0 missing).
 Full field semantics and packet ids: `gateway/README.md`.
 
 ### 4.2 `assets/world/<tile>/scene.json`
@@ -289,23 +301,40 @@ transform in `docs/tile-map.md`), `assets/gamedata/*.json` (schemas in
 
 ## 6. Prioritized next tasks
 
-1. **M4 — skills & items** (client + gateway): decode/encode
-   `MagicSkillUse`/`MagicSkillLaunched`, `ItemList`/`InventoryUpdate`;
-   casting bar + skill animations on existing clips; loot flow; surface
-   `SystemMessage` (already shallow-decoded in the gateway log) in the UI.
-   Spec: `docs/web-port-architecture.md` §2.4 step 3, aCis sources as
-   packet reference.
-2. **M5 — chat & core UI**: all `Say2` channels, DOM inventory/character
-   sheet, hotbar, `.menu` passthrough (server mod exists — send `Say2`
-   with `.menu`), recovery-code export for deviceId accounts, WASD
-   refinement.
-3. **Dungeon-interior rendering mode** in ElberaClient (hide terrain /
-   spawn below plane for 19_16, 21_25; enables the Seven Signs tiles later).
-4. **Server ops backlog** (`docs/README-ADMIN.md` §8): in-game test of the
+1. **M4 — DONE 2026-07-25** (skills & items): ops in §4.1, live proof
+   `gateway/test/verify-m4.js` PASS, UI in ElberaClient (skill bar, casting
+   bar, inventory, sysMsg feed, loot via `target{id}` on corpses/drops),
+   meta layer `tools/dat/build_meta.py` (`--check` PASS).
+2. **M5 — DONE 2026-07-25** (chat & core UI): Say2 channels (whisper/shout/
+   trade, channel table in gateway/README.md), `charSheet{...}` op (UserInfo,
+   18 fields, verified vs `classes/humanFighter.xml`), `say{channel,text,
+   target?}`, `.menu` → NpcHtmlMessage decoded (log only, not a contract op).
+   `assets/gamedata/systemmsg.json` (2,083 entries, protocol 413 NOT 121,
+   ids have gaps — it's a map; extractor in extract_gamedata.py). Client:
+   chat tabs+L2 colors, char sheet (C), hotbar (skills+items, localStorage
+   per char, Digit1-0), settings panel with deviceId recovery code, WASD
+   documented as cosmetic-only. Proofs: `gateway/test/verify-m5.js`,
+   `editor/world/verify_m5.js` + shots.
+3. **NPC civilian models — DONE 2026-07-25**: 55 civilians merged into
+   `editor/characters/monsters/manifest.json` (83 total; builder
+   `tools/src/char_pipeline/build_npcs.py`, roster from aCis spawn XMLs,
+   TI village fully covered). Client resolves npcId → npcgrp (prefix
+   stripped server-side) → mesh → manifest; unmapped npcIds keep capsules.
+   Live proof: `editor/world/verify_shots/live_01_A_ti_village.png`.
+4. **Dungeon-interior rendering — DONE 2026-07-25**: `scene.json
+   "interior": true` for exactly three flat-plane dungeon tiles (19_16
+   Pagan Temple, 21_25 Elven Ruins, 25_21 Antharas' Nest — evidence-based
+   `INTERIOR_TILES` in convert.py, re-validated at conversion time; mixed
+   tiles like Cruma/Giran Castle deliberately NOT flagged). Client skips
+   the terrain mesh, spawns at the prop-density peak, dark fog + torch
+   point-light follows the player (tuned to 3.2/60 m — 19_16's textures
+   are authentically near-black, mean luminance 56). Proof:
+   `editor/world/verify_interior.js` + `verify_shots/int_*.png`.
+5. **Server ops backlog** (`docs/README-ADMIN.md` §8): in-game test of the
    custom mods (`.menu`, `.autoloot`, `.expon/.expoff`, `.offline` +
    restore), rate balancing after playtest, geodata in-game confirmation,
    backup automation, VPS migration (§7 of that doc).
-5. **Later**: KTX2 compression, WebGPU eval, mobile layout, full-library
+6. **Later**: KTX2 compression, WebGPU eval, mobile layout, full-library
    HD upscale (~24–48 h GPU, shard with `xargs -P`, skip `*_sp`),
    Seven Signs catacomb tiles (16_12/18_10/19_10/20_10).
 

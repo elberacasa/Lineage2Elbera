@@ -199,15 +199,29 @@ def resolve_tex_png(texpkg, obj_name, tmp_dir, keep_alpha=False):
     """-> (png_path, resolved_name) for a utx material object, or None.
 
     Library export first (verified), l2lib decode otherwise (the
-    LineageMonstersTex packages are not in the library).
-    """
+    LineageMonstersTex packages are not in the library).  L2 *_sp
+    textures carry the diffuse in RGB with a specular mask in alpha
+    (verified channel-by-channel): prefer the non-suffixed sibling when
+    exported, otherwise decode the _sp RGB from the .utx (that IS the
+    diffuse)."""
     try:
         resolved = resolve_diffuse(texpkg, obj_name)
     except Exception:
         resolved = obj_name
+    if resolved.lower().endswith('_sp'):
+        sib = resolved[:-3]
+        png = library_png(texpkg, sib)
+        if png:
+            return png, sib
+        os.makedirs(tmp_dir, exist_ok=True)
+        out = os.path.join(tmp_dir, resolved + '.png')
+        if decode_texture_png(texpkg, resolved, out, keep_alpha=False):
+            return out, resolved
+        return None, resolved
     png = library_png(texpkg, resolved)
     if png:
         return png, resolved
+    os.makedirs(tmp_dir, exist_ok=True)
     out = os.path.join(tmp_dir, resolved + '.png')
     if decode_texture_png(texpkg, resolved, out, keep_alpha=keep_alpha):
         return out, resolved
@@ -230,16 +244,16 @@ def monster_texture(mesh_id, tmp_dir):
 
 def npc_sections(pkg, mesh_name, psk_path, tmp_dir):
     """Per-section textures for a LineageNpcs mesh, from its own .ukx
-    material slots.  These V2+ meshes store their sections in the
-    LODModels SoftSections (FStaticLODModel) which we do not parse; the
-    section order in the umodel psk matches the Materials slot order for
-    these NPC meshes (verified visually per NPC against the slot names —
-    b00/b01 body variants + h head)."""
+    material slots (ordinal section order — verified visually), with
+    npcgrp texture refs as fallback when a slot is null (some NPC meshes
+    carry no in-package reference, e.g. a_mageguild_teacher_FElf_m00)."""
     ukx_pkg = load_ukx(pkg)
     ex = ukx_pkg.find_export(mesh_name)
     if ex is None:
         raise RuntimeError('mesh %s not in %s' % (mesh_name, ukx_pkg.path))
     _ver, tex_refs, mats = up.mesh_material_slots(ukx_pkg, ex)
+    grp = npcgrp_bindings().get(mesh_name.lower())
+    grp_texs = grp[1] if grp else []
     data = assemble.parse_psk(psk_path)
     nsec = max(1, len(data['materials']))
     sections = []
@@ -247,6 +261,9 @@ def npc_sections(pkg, mesh_name, psk_path, tmp_dir):
         ref = None
         if si < len(mats) and 0 <= mats[si] < len(tex_refs):
             ref = tex_refs[mats[si]]
+        if (not ref or not ref[0]) and si < len(grp_texs):
+            tp, tn = grp_texs[si].split('.', 1)
+            ref = (tp, tn)
         if ref and ref[0]:
             png, resolved = resolve_tex_png(ref[0], ref[1], tmp_dir,
                                             keep_alpha=True)

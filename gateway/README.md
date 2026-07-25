@@ -28,6 +28,8 @@ node test/verify-one.js [deviceId]   # login -> enterChar -> enterWorld + NPC st
 node test/verify-two.js [suffix]     # two clients: addPlayer both ways + movement + chat relay
 node test/verify-combat.js [deviceId] # target a Gremlin, kill it: target_ok/attack/status/die/remove/exp
 node test/verify-observer.js [suffix] # client B watches client A fight: attack + die broadcasts
+node test/verify-m4.js [deviceId]    # skills+items: skillList/itemList, self-cast, nuke kill, manual loot
+node test/verify-m5.js [suffix]      # chat channels (TELL target, SHOUT), charSheet, .menu passthrough
 node test/smoke-protocol.js          # same as verify-one but without the WS layer (raw protocol)
 ```
 
@@ -64,11 +66,122 @@ Also: `enterWorld.char` now includes `id` (own objectId, for self-reconcile).
 `enterWorld` fires exactly once per session; later UserInfo re-sends
 (level up etc.) only update `selfStatus`.
 
-SystemMessage(0x64) is decoded shallowly (id + typed params: 0 TEXT, 1
-NUMBER, 2 NPC_NAME, 3 ITEM_NAME, 4 SKILL_NAME, 5 CASTLE_NAME, 6 ITEM_NUMBER,
-7 ZONE_NAME-loc) and written to the gateway log only — it is NOT part of the
-frozen contract. Example evidence: `sysmsg id=95 params=145,10` ("You have
-earned 145 exp and 10 SP").
+SystemMessage(0x64) is shallow-decoded into the contract op
+`{"op":"sysMsg","id":N,"params":[...]}` (param types: 0 TEXT, 1 NUMBER,
+2 NPC_NAME, 3 ITEM_NAME, 4 SKILL_NAME, 5 CASTLE_NAME, 6 ITEM_NUMBER,
+7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
+"You have earned 145 exp and 10 SP".
+
+## M5: chat channels & character sheet (added to the frozen contract)
+
+### Chat channels (SayType ordinals, enums/SayType.java)
+
+The `channel` field in `chat` / `say` is the aCis SayType ordinal:
+
+| id | channel | client prefix |
+|---:|---|---|
+| 0 | ALL | (plain) |
+| 1 | SHOUT | `!` |
+| 2 | TELL (whisper) | `"name` |
+| 3 | PARTY | `#` |
+| 4 | CLAN | `@` |
+| 5 | GM | |
+| 6 | PETITION_PLAYER | |
+| 7 | PETITION_GM | |
+| 8 | TRADE | `+` |
+| 9 | ALLIANCE | `$` |
+| 10 | ANNOUNCEMENT | |
+| 11 | BOAT | |
+| 12 | L2FRIEND | |
+| 13 | MSNCHAT | |
+| 14 | PARTYMATCH_ROOM | |
+| 15 | PARTYROOM_COMMANDER | |
+| 16 | PARTYROOM_ALL | |
+| 17 | HERO_VOICE | `%` |
+| 18 | CRITICAL_ANNOUNCE | |
+
+- C→S `{"op":"say","channel":N,"text":"..","target":".."?}` — Say2(0x38).
+  When channel is TELL(2) and `target` is present, the packet appends
+  `S target` (clientpackets/Say2.java reads it only for TELL).
+- S→C `chat` on TELL includes `target` = the other party's name. Wire
+  detail (chathandlers/ChatTell.java): the receiver's packet carries the
+  sender name (so `from == target == sender`); the sender's own echo
+  carries `"->targetName"`, which the bridge strips into `target`.
+
+### charSheet
+
+`{"op":"charSheet","str":N,"dex":N,"con":N,"int":N,"wit":N,"men":N,"pAtk":N,"pDef":N,"mAtk":N,"mDef":N,"accuracy":N,"evasion":N,"critical":N,"runSpeed":N,"walkSpeed":N,"pAtkSpd":N,"mAtkSpd":N,"maxLoad":N}`
+
+Decoded from UserInfo(0x04) (field order verified against
+serverpackets/UserInfo.java; remember writeF = 8-byte double). Sent right
+after enterWorld and again on every UserInfo re-send (stat changes).
+`maxLoad` = weight limit. Live human fighter lvl 1 values match the
+datapack template exactly: str=40 dex=30 con=43 int=21 wit=11 men=25,
+runSpeed=115 walkSpeed=80 (classes/humanFighter.xml).
+
+### .menu / voice commands passthrough
+
+`{"op":"say","channel":0,"text":".menu"}` reaches the server mod
+(Say2 → VoicedCommandHandler). The response is an **NpcHtmlMessage(0x0f)**
+HTML window (data/html/mods/menu.htm) — NOT a chat/sysMsg. The gateway
+decodes 0x0f and logs it (`html window (1457 chars): <html><body>
+<title>L2Vzla - Menu del jugador</title>...`); it is deliberately not a
+contract op (the web client renders its own menu). Toggle responses from
+`.autoloot`/`.expon`/`.expoff` arrive as `sysMsg` (SystemMessage.sendString,
+id 1 with a TEXT param).
+
+## M4: skills & items ops (added to the frozen contract)
+
+Server -> client:
+- `{"op":"skillList","skills":[{"id":N,"level":N}]}` — SkillList(0x58), sent
+  once right after enterWorld (server sends it BEFORE UserInfo during
+  EnterWorld; the bridge queues and flushes after enterWorld to keep the
+  contract order).
+- `{"op":"skillCast","casterId":N,"targetId":N,"skillId":N,"level":N,"hitTime":N}`
+  — MagicSkillUse(0x48), cast start (hitTime in ms).
+- `{"op":"skillLaunch","casterId":N,"targetId":N,"skillId":N,"level":N}` —
+  MagicSkillLaunched(0x76). The packet carries a target list; the bridge
+  emits one op per target.
+- `{"op":"itemList","items":[{"objectId":N,"itemId":N,"count":N,"slot":N,"equipped":N,"enchant":N}]}`
+  — ItemList(0x1b), once right after enterWorld. `slot` = bodyPart.
+- `{"op":"invUpdate","updated":[{"change":"add|modify|remove|unchanged","objectId":N,"itemId":N,"count":N,"slot":N,"equipped":N,"enchant":N}]}`
+  — InventoryUpdate(0x27). change maps aCis ItemState ordinals
+  (0 UNCHANGED, 1 ADDED, 2 MODIFIED, 3 REMOVED).
+- `{"op":"addDrop","id":N,"itemId":N,"count":N,"x":N,"y":N,"z":N}` —
+  SpawnItem(0x0b) / DropItem(0x0c): a lootable item on the ground.
+- `{"op":"sysMsg","id":N,"params":[...]}` — SystemMessage(0x64), see above.
+
+Client -> server:
+- `{"op":"useSkill","skillId":N,"targetId":N?}` — RequestMagicSkillUse(0x2f),
+  ctrl/shift false. The server casts on the CURRENT target; if `targetId` is
+  given and differs, the bridge sends Action(0x04) first, then the skill
+  400ms later. TARGET_SELF skills need no targetId.
+- `{"op":"useItem","objectId":N}` — UseItem(0x14), ctrl false.
+
+### Loot flow (verified live)
+
+- This server has global **AutoLoot = True** (config/server.properties), so
+  most kill loot goes straight to inventory: you only see `invUpdate` +
+  `sysMsg` (earned item) events.
+- With autoloot off (per-player `.autoloot` voice command toggles it), drops
+  spawn on the ground as `addDrop`. **To loot manually: `{"op":"target","id":<dropId>}`**
+  — Action on an ItemInstance walks the player there and picks it up
+  (`PlayerAI.thinkPickUp`); pickup arrives as `remove` + `invUpdate`
+  (add/modify) + `sysMsg`. There is no sweep packet in aCis 409.
+- Gotcha: herb drops fire instant `skillCast` events (skills 2278-2284)
+  when consumed on pickup — expected server behavior, not a parse bug.
+
+### M4 packet notes
+
+- SkillList(0x58): D count, per skill D passive, D level, D id, C disabled.
+- MagicSkillUse(0x48): after caster xyz comes D success-flag; only when 1 an
+  extra H follows, then target xyz — parse carefully.
+- Item entry (ItemList/InventoryUpdate share layout after the leading Hs):
+  H type1, D objectId, D itemId, D count, H type2, H custom1, H equipped,
+  D bodyPart, H enchant, H custom2, D augmentation, D manaLeft.
+- ItemList(0x1b) starts H showWindow, H count; InventoryUpdate(0x27) starts
+  H count and each entry leads with H ItemState-ordinal.
+
 
 
 ## Frozen bridge contract (WS JSON)
@@ -185,13 +298,15 @@ PlayFail 0x06, PlayOk 0x07, GGAuth 0x0b.
 Game (C→S): SendProtocolVersion 0x00 (v746), AuthLogin 0x08,
 RequestCharacterCreate 0x0b, RequestGameStart 0x0d, EnterWorld 0x03,
 MoveBackwardToLocation 0x01, Action 0x04, AttackRequest 0x0a, Say2 0x38,
-ValidatePosition 0x48.
+RequestMagicSkillUse 0x2f, UseItem 0x14, ValidatePosition 0x48.
 Game (S→C, decoded): VersionCheck 0x00, CharSelectInfo 0x13,
 CharSelected 0x15, CharCreateOk 0x19, CharCreateFail 0x1a, UserInfo 0x04,
 CharInfo 0x03, NpcInfo 0x16, MoveToLocation 0x01, DeleteObject 0x12,
 CreatureSay 0x4a, TeleportToLocation 0x28, ValidateLocation 0x61,
 Attack 0x05, Die 0x06, Revive 0x07, StatusUpdate 0x0e,
-MyTargetSelected 0xa6, SystemMessage 0x64 (log only).
+MyTargetSelected 0xa6, SystemMessage 0x64, SkillList 0x58,
+MagicSkillUse 0x48, MagicSkillLaunched 0x76, ItemList 0x1b,
+InventoryUpdate 0x27, SpawnItem 0x0b, DropItem 0x0c.
 
 ## Files
 

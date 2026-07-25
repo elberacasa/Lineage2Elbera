@@ -62,6 +62,20 @@ PLACEHOLDER_PACKAGES = ("Texture", "Height", "Engine", "Lineage2Ver")
 
 _SIZE_SEL = {0: 1, 1: 2, 2: 4, 3: 12, 4: 16}
 
+# Interior (dungeon) tiles — explicit VERIFIED list, see tools/world/README.md.
+# A tile is interior when its .unr map is a dungeon: the terrain is a flat
+# dummy plane (relief == 0) and every StaticMeshActor sits far below it.
+# Verified against the full converted set (terrain relief + prop z-ranges
+# for all 100 tiles) and named zones in assets/world/tile-map.json:
+#   19_16  Pagan Temple (Rune)        terrain flat -4704.0, 579 props -11329..-8276
+#   21_25  Elven Ruins (Talking Isl.) terrain flat -4704.0, 1110 props -6689..-5357
+#   25_21  Antharas' Nest (Giran)     terrain flat -3753.3, 36 props -7825..-5292
+# Tiles with real terrain that merely CONTAIN underground zones (Cruma Tower
+# 20_21, Giran Castle + Necropolis of Martyrdom 23_22, Garden of Eva 22_25,
+# the Necropolis/Catacomb entrance tiles, ...) are OUTDOOR/mixed and are
+# deliberately NOT flagged.
+INTERIOR_TILES = frozenset(("19_16", "21_25", "25_21"))
+
 
 def read_props_ordered(pkg, pos):
     """Packed (UE1-style) property list starting at absolute offset `pos`.
@@ -934,6 +948,8 @@ def validate_scene(scene, out_dir):
                  and lay["splat"].startswith("textures/")),
              "layer %d splat" % i)
     need("water" in scene, "water key")
+    need("interior" not in scene or scene["interior"] is True,
+         "interior must be exactly true when present")
     need(isinstance(scene.get("props"), list), "props list")
     for i, p in enumerate(scene.get("props", [])):
         need(isinstance(p.get("mesh"), str) and "." in p["mesh"],
@@ -1065,6 +1081,18 @@ def convert_tile(tile, with_props=True):
         "water": None,
         "props": props,
     }
+    if tile in INTERIOR_TILES:
+        # sanity-check the listing against the data (flat dummy terrain,
+        # props far below it) so the explicit list cannot silently rot
+        relief = z_max - z_min
+        pz = [p["position"][2] for p in props]
+        n_deep = sum(1 for z in pz if z < z_min - 500)
+        if relief > 5.0 or (pz and n_deep * 100 // len(pz) < 95):
+            raise L2Error(
+                "%s listed as interior but data disagrees (relief %.1f, "
+                "%d/%d props deep) — re-verify INTERIOR_TILES"
+                % (tile, relief, n_deep, len(pz)))
+        scene["interior"] = True
     validate_scene(scene, out_dir)
     with open(os.path.join(out_dir, "scene.json"), "w") as f:
         json.dump(scene, f, indent=1)

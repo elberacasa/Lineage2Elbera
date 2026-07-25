@@ -116,8 +116,12 @@ class GameSession extends EventEmitter {
     );
   }
 
-  say(channel, text) {
-    this._send(new PacketWriter().writeC(0x38).writeS(text).writeD(channel).build());
+  say(channel, text, target) {
+    // Say2 (0x38): S text, D type, and S target only when type == TELL (2)
+    // (clientpackets/Say2.java).
+    const w = new PacketWriter().writeC(0x38).writeS(text).writeD(channel);
+    if (channel === 2 && target) w.writeS(String(target));
+    this._send(w.build());
   }
 
   // Action (0x04): plain click — target/interact (shift=0).
@@ -144,6 +148,62 @@ class GameSession extends EventEmitter {
         .writeC(0)
         .build()
     );
+  }
+
+  // RequestMagicSkillUse (0x2f): D skillId, D ctrlPressed, C shiftPressed.
+  // The server casts on the CURRENT target; the bridge sets it beforehand
+  // with Action when a targetId is given.
+  useSkill(skillId) {
+    this._send(
+      new PacketWriter()
+        .writeC(0x2f)
+        .writeD(skillId | 0)
+        .writeD(0) // ctrlPressed = false
+        .writeC(0) // shiftPressed = false
+        .build()
+    );
+  }
+
+  // UseItem (0x14): D objectId, D ctrlPressed.
+  useItem(objectId) {
+    this._send(
+      new PacketWriter()
+        .writeC(0x14)
+        .writeD(objectId | 0)
+        .writeD(0) // ctrlPressed = false
+        .build()
+    );
+  }
+
+  // RequestPrivateStoreManageSell (0x73): opens the sell-store management.
+  requestPrivateStoreManageSell() {
+    this._send(new PacketWriter().writeC(0x73).build());
+  }
+
+  // SetPrivateStoreListSell (0x74): D packageSale, D count, per item
+  // D objectId, D count, D price. Opens the store on success.
+  setPrivateStoreListSell(items, packageSale = false) {
+    const w = new PacketWriter()
+      .writeC(0x74)
+      .writeD(packageSale ? 1 : 0)
+      .writeD(items.length);
+    for (const it of items) w.writeD(it.objectId | 0).writeD(it.count | 0).writeD(it.price | 0);
+    this._send(w.build());
+  }
+
+  // RequestPrivateStoreManageBuy (0x90): opens the buy-store management.
+  requestPrivateStoreManageBuy() {
+    this._send(new PacketWriter().writeC(0x90).build());
+  }
+
+  // SetPrivateStoreListBuy (0x91): D count, per item (16 bytes)
+  // D itemId, H enchant, H 0, D count, D price.
+  setPrivateStoreListBuy(items) {
+    const w = new PacketWriter().writeC(0x91).writeD(items.length);
+    for (const it of items) {
+      w.writeD(it.itemId | 0).writeH(it.enchant || 0).writeH(0).writeD(it.count | 0).writeD(it.price | 0);
+    }
+    this._send(w.build());
   }
 
   validatePosition() {
@@ -242,8 +302,91 @@ class GameSession extends EventEmitter {
         this.emit('myTarget', { id: objectId, color });
         break;
       }
-      case 0x64: { // SystemMessage: decoded shallowly for logs
+      case 0x64: { // SystemMessage: shallow typed decode
         this.emit('systemMessage', parseSystemMessage(r));
+        break;
+      }
+      // --------------------------------------------------------- M4: skills & items
+      case 0x58: { // SkillList: D count, per skill D passive, D level, D id, C disabled
+        const count = r.readD();
+        const skills = [];
+        for (let i = 0; i < count; i++) {
+          const passive = r.readD();
+          const level = r.readD();
+          const id = r.readD();
+          const disabled = r.readC();
+          skills.push({ id, level, passive: passive === 1, disabled: disabled === 1 });
+        }
+        this.emit('skillList', skills);
+        break;
+      }
+      case 0x48: { // MagicSkillUse (cast start)
+        const casterId = r.readD();
+        const targetId = r.readD();
+        const skillId = r.readD();
+        const level = r.readD();
+        const hitTime = r.readD();
+        r.readD(); // reuse delay
+        r.readD(); r.readD(); r.readD(); // caster x,y,z
+        const success = r.readD();
+        if (success === 1) r.readH();
+        r.readD(); r.readD(); r.readD(); // target x,y,z
+        this.emit('skillUse', { casterId, targetId, skillId, level, hitTime });
+        break;
+      }
+      case 0x76: { // MagicSkillLaunched
+        const casterId = r.readD();
+        const skillId = r.readD();
+        const level = r.readD();
+        const count = r.readD();
+        const targetIds = [];
+        if (count === 0) r.readD(); // trailing 0 when no targets
+        for (let i = 0; i < count; i++) targetIds.push(r.readD());
+        this.emit('skillLaunch', { casterId, skillId, level, targetIds });
+        break;
+      }
+      case 0x1b: { // ItemList: H showWindow, H count, per item see parseItem*
+        r.readH(); // showWindow
+        const count = r.readH();
+        const items = [];
+        for (let i = 0; i < count; i++) items.push(parseItemEntry(r, false));
+        this.emit('itemList', items);
+        break;
+      }
+      case 0x27: { // InventoryUpdate (player): H count, per item H change + entry
+        const count = r.readH();
+        const updated = [];
+        for (let i = 0; i < count; i++) {
+          const change = r.readH(); // ItemState ordinal: 0 unchanged, 1 added, 2 modified, 3 removed
+          updated.push({ change, ...parseItemEntry(r, true) });
+        }
+        this.emit('invUpdate', updated);
+        break;
+      }
+      case 0x0f: { // NpcHtmlMessage: D objectId, S html, D itemId (e.g. .menu window)
+        const objectId = r.readD();
+        const html = r.readS();
+        this.emit('html', { objectId, html });
+        break;
+      }
+      case 0x0b: { // SpawnItem (ground drop)        const id = r.readD();
+        const itemId = r.readD();
+        const x = r.readD(); const y = r.readD(); const z = r.readD();
+        r.readD(); // stackable flag
+        const count = r.readD();
+        r.readD(); // 0
+        this.emit('drop', { id, itemId, count, x, y, z });
+        break;
+      }
+      case 0x0c: { // DropItem (player-dropped, has dropper id)
+        r.readD(); // dropper object id
+        const id = r.readD();
+        const itemId = r.readD();
+        const x = r.readD(); const y = r.readD(); const z = r.readD();
+        r.readD(); // stackable flag
+        const count = r.readD();
+        r.readD(); // 1
+        this.emit('drop', { id, itemId, count, x, y, z });
         break;
       }
       case 0x03: // CharInfo (other player)
@@ -408,13 +551,20 @@ function parseUserInfo(r) {
   const classId = r.readD();
   const level = r.readD();
   const exp = Number(r.readQ());
-  for (let j = 0; j < 6; j++) r.readD(); // STR DEX CON INT WIT MEN
+  const str = r.readD();
+  const dex = r.readD();
+  const con = r.readD();
+  const int = r.readD();
+  const wit = r.readD();
+  const men = r.readD();
   const maxHp = r.readD();
   const hp = r.readD();
   const maxMp = r.readD();
   const mp = r.readD();
   const sp = r.readD();
-  r.readD(); r.readD(); r.readD(); // current weight, weight limit, weapon timer
+  const currentWeight = r.readD();
+  const maxLoad = r.readD(); // weight limit
+  r.readD(); // weapon timer
   for (let j = 0; j < 17; j++) r.readD(); // paperdoll object ids
   for (let j = 0; j < 17; j++) r.readD(); // paperdoll item ids
   for (let j = 0; j < 14; j++) r.readH();
@@ -422,9 +572,22 @@ function parseUserInfo(r) {
   for (let j = 0; j < 12; j++) r.readH();
   r.readD(); // lhand augmentation
   for (let j = 0; j < 4; j++) r.readH();
-  for (let j = 0; j < 10; j++) r.readD(); // pAtk pAtkSpd pDef evasion accuracy critical mAtk mAtkSpd pAtkSpd mDef
+  const pAtk = r.readD();
+  const pAtkSpd = r.readD();
+  const pDef = r.readD();
+  const evasion = r.readD();
+  const accuracy = r.readD();
+  const critical = r.readD();
+  const mAtk = r.readD();
+  const mAtkSpd = r.readD();
+  r.readD(); // pAtkSpd (again)
+  const mDef = r.readD();
   r.readD(); r.readD(); // pvp flag, karma
-  for (let j = 0; j < 8; j++) r.readD(); // speeds
+  const runSpeed = r.readD();
+  const walkSpeed = r.readD();
+  r.readD(); r.readD(); // swim speed x2
+  r.readD(); r.readD(); // 0, 0
+  r.readD(); r.readD(); // fly run/walk speed
   r.readF(); r.readF(); // speed multipliers
   r.readF(); r.readF(); // collision radius/height
   r.readD(); r.readD(); r.readD(); // hairStyle, hairColor, face
@@ -449,7 +612,12 @@ function parseUserInfo(r) {
   const cp = r.readD();
   // enchant, team, crestLarge, noble, hero, fishing(+loc), nameColor, running,
   // pledgeClass, pledgeType, titleColor, cursed stage follow; not needed.
-  return { id: objectId, name, race, sex, classId, level, exp, sp, hp, maxHp, mp, maxMp, cp, maxCp, x, y, z, heading };
+  return {
+    id: objectId, name, race, sex, classId, level, exp, sp, hp, maxHp, mp, maxMp, cp, maxCp, x, y, z, heading,
+    str, dex, con, int, wit, men, currentWeight, maxLoad,
+    pAtk, pAtkSpd, pDef, evasion, accuracy, critical, mAtk, mAtkSpd, mDef,
+    runSpeed, walkSpeed,
+  };
 }
 
 // Shallow SystemMessage decode (serverpackets/SystemMessage.java):
@@ -478,6 +646,25 @@ function parseSystemMessage(r) {
     }
   }
   return { id: smId, params };
+}
+
+// Shared item entry layout (ItemList / InventoryUpdate):
+// H type1, D objectId, D itemId, D count, H type2, H customType1, H equipped,
+// D bodyPart(=slot), H enchant, H customType2, D augmentation, D manaLeft.
+function parseItemEntry(r) {
+  r.readH(); // type1
+  const objectId = r.readD();
+  const itemId = r.readD();
+  const count = r.readD();
+  r.readH(); // type2
+  r.readH(); // custom type 1
+  const equipped = r.readH();
+  const slot = r.readD(); // body part
+  const enchant = r.readH();
+  r.readH(); // custom type 2
+  r.readD(); // augmentation id
+  r.readD(); // mana left
+  return { objectId, itemId, count, slot, equipped, enchant };
 }
 
 module.exports = { GameSession };

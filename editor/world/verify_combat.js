@@ -45,14 +45,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     }));
 
     // frame the gremlin: zoom in, then aim the follow camera straight at it
-    for (let i = 0; i < 5; i++) { await page.mouse.move(640, 450); await page.mouse.wheel({ deltaY: -160 }); }
-    await sleep(800);
     await page.evaluate((id) => {
       const w = window.__world;
       const e = w.entities.getEntity(id);
       const c = w.character.group.position;
       w.followCam.yaw = Math.atan2(e.group.position.x - c.x, e.group.position.z - c.z);
-      w.followCam.pitch = 0.35;
+      w.followCam.pitch = 0.3;
+      w.followCam.dist = Math.max(w.followCam.minDist, 4);
     }, GREMLIN);
     await sleep(1500);
     const gp = await page.evaluate((id) => {
@@ -60,7 +59,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       const e = w.entities.getEntity(id);
       if (!e) return null;
       const V = e.group.position.constructor;
-      return w.project(new V(e.group.position.x, e.group.position.y + 0.6, e.group.position.z));
+      return w.project(new V(e.group.position.x, e.group.position.y + 0.3, e.group.position.z));
     }, GREMLIN);
     summary.gremlinScreen = gp;
 

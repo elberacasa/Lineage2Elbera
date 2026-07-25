@@ -39,6 +39,40 @@ export class Terrain {
     this.mesh = null;
     this.group = new THREE.Group();
     this.props = [];
+    // dungeon-interior mode (M5): scene.json "interior": true is the
+    // contract; the fallback detects props sitting below the terrain plane
+    this.interior = false;
+    this.floorY = 0;        // three.js Y of the dungeon floor when interior
+  }
+
+  // fallback interior detection: tiles whose props are (almost) all below
+  // the terrain surface are dungeon interiors (19_16, 21_25, ...). The
+  // walkable floor and spawn come from the densest prop cluster: spawn =
+  // densest 20 m bin center, floor = bin median z (floor-slab level).
+  _detectInterior() {
+    const props = (this.def.props || []).filter(p => p.gltf && p.position);
+    if (props.length < 20) return false;
+    let minH = Infinity;
+    for (let i = 0; i < this.heights.length; i++) minH = Math.min(minH, this.heights[i]);
+    const terrainMinZ = this.origin[2] + (minH - 32768) * this.heightScale;
+    const zs = props.map(p => p.position[2]).sort((a, b) => a - b);
+    if (zs[Math.floor(zs.length * 0.06)] >= terrainMinZ - 500) return false;
+
+    // spawn = local prop-density peak (the built-up room, not the void
+    // between dungeon modules); floor = that prop's z — the walk level
+    // right at the spawn point
+    let peak = null, peakN = -1;
+    for (const p of props) {
+      const [x, y] = p.position;
+      let n = 0;
+      for (const q of props) {
+        if (Math.abs(q.position[0] - x) < 1500 && Math.abs(q.position[1] - y) < 1500) n++;
+      }
+      if (n > peakN) { peakN = n; peak = p; }
+    }
+    this.spawnL2 = [peak.position[0], peak.position[1]];
+    this.floorY = peak.position[2] * L2_TO_M;
+    return true;
   }
 
   async load() {
@@ -49,7 +83,19 @@ export class Terrain {
     const view = new DataView(buf);
     this.heights = new Uint16Array(n);
     for (let i = 0; i < n; i++) this.heights[i] = view.getUint16(i * 2, true);
-    this._buildMesh();
+
+    if (this.def.interior === true) {
+      this.interior = true;
+      this._detectInterior() || (() => {
+        const zs = (this.def.props || []).filter(p => p.gltf && p.position)
+          .map(p => p.position[2]).sort((a, b) => a - b);
+        this.floorY = (zs.length ? zs[Math.floor(zs.length * 0.06)] : this.origin[2]) * L2_TO_M;
+      })();
+    } else {
+      this.interior = this._detectInterior();
+    }
+
+    if (!this.interior) this._buildMesh();   // interiors: no terrain plane
     await this._loadProps();
   }
 
@@ -66,8 +112,11 @@ export class Terrain {
     );
   }
 
-  // bilinear height (three.js Y, meters) at three.js world (x, z)
+  // bilinear height (three.js Y, meters) at three.js world (x, z);
+  // interior tiles have no heightfield — everything walks on the
+  // estimated dungeon floor
   heightAtWorld(x, z) {
+    if (this.interior) return this.floorY;
     const s = L2_TO_M;
     const fx = (x / s - this.origin[0]) / this.spacing;
     const fy = (-z / s - this.origin[1]) / this.spacing;

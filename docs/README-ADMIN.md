@@ -246,7 +246,13 @@ Rellena los placeholders de `docs/GUIA-JUGADORES.md` antes de difundirla:
 
 ## 8. TODO — lo que falta
 
-- [ ] **Prueba en juego de los mods:** entrar con cliente real y verificar `.menu` (ventana HTML en español, bypasses funcionando), `.autoloot` (toggle por jugador persistido tras relog), `.expon`/`.expoff` (bloqueo de exp), `.offline` (tienda sigue activa con la PC "desconectada") y el restore al login (`OfflineRestoreOnLogin`). Hasta ahora solo está verificado a nivel de compilación/jar, no en gameplay.
+- [x] **Prueba en juego de los mods — VERIFICADO 2026-07-25** vía protocolo real (gateway ElberaGate, `gateway/test/verify-mods.js`, sin consola GM ni tocar la DB). Resultados:
+  - **`.menu` VERIFICADO:** llega la ventana NpcHtmlMessage con el menú en español y los comandos listados (`.menu .autoloot .expon .expoff .offline`).
+  - **`.autoloot` VERIFICADO:** por defecto ON (el loot de un Gremlin entró directo por InventoryUpdate); `.autoloot` lo apaga (drop cae al suelo como SpawnItem y el loot manual con click funciona); otro `.autoloot` lo reactiva. Persistido por memo por jugador.
+  - **`.expon`/`.expoff` VERIFICADO:** con exp bloqueada una kill dio 435→435 exp; con `.expon` la siguiente dio 435→580.
+  - **`.offline` VERIFICADO (con matices):** sin tienda responde la guardia «Necesitas una tienda privada activa…»; con tienda de compra abierta, `.offline` desconecta y el personaje **queda visible en el mundo** para otro cliente (observado en -71406,258212); al re-entrar, el restore deja al personaje **exactamente en el mismo punto** (dist 0) y consistente.
+  - **Desviaciones/notas encontradas (comportamiento del pack, no bugs):** (1) `canPassBuyProcess` exige **poseer un item de referencia** del que quieres comprar, y todo el gear inicial es `is_tradable=false` — la tienda de la prueba se abrió referenciando adena (57); (2) no se puede abrir tienda con el flag de combate activo (sysMsg 1135, dura ~10 s tras la pelea); (3) el mensaje de confirmación de `.offline` puede no llegar antes del cierre del socket — la señal real es la desconexión.
+  - El governor anti-flood del gateway se respetó en toda la corrida (0 rechazos).
 - [ ] **Balanceo de rates tras el playtest:** decidir rates finales de XP/SP/drop/adena/spoil con datos reales de juego (hoy todo x1).
 - [ ] **Geodata:** confirmar en juego que pathfinding y geo-checks funcionan con los 139 archivos L2OFF (el servidor arranca sin geodata pero sin validación de terreno).
 - [ ] **Eventos:** definir calendario (TvT y demás módulos de `events.properties`, eventos manuales con GM de eventos nivel 5).

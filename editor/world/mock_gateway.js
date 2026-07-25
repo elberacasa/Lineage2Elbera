@@ -20,6 +20,12 @@
 //   say "/die"      -> selfStatus hp 0 (death overlay test)
 //   say "/revive"   -> selfStatus full (overlay clears)
 //   selfStatus      -> sent once after enterChar
+// M4 ops emitted by the mock:
+//   enterChar   -> skillList + itemList (after enterWorld/selfStatus)
+//   useSkill    -> skillCast(hitTime 1500) -> skillLaunch; gremlin hit if
+//                  it is the target; gremlin also casts back periodically
+//   useItem     -> sysMsg + invUpdate (decrement/remove consumable)
+//   loot{id}    -> invUpdate add (adena) + sysMsg, only for dead mobs
 //
 // Coordinates are L2 world units. Tile 17_24 center: origin
 // [-98304, 196608] + 127.5*128 = (-81984, 212928).
@@ -40,6 +46,11 @@ const NPCS = [
   { id: 70002, npcId: 20003, name: 'Goblin', x: SPAWN.x - 600, y: SPAWN.y + 900, z: SPAWN.z, heading: 16384 },
   // name intentionally blank: exercises the client's /gamedata/npcname.json enrichment
   { id: 70003, npcId: 20004, name: '', x: SPAWN.x + 300, y: SPAWN.y - 700, z: SPAWN.z, heading: 49152 },
+  // M4: mapped civilian (a_common_peopleA_MHuman_m00 is in the monsters
+  // manifest) -> renders as a real model
+  { id: 70004, npcId: 30050, name: 'Elias', x: SPAWN.x - 300, y: SPAWN.y - 400, z: SPAWN.z, heading: 16384 },
+  // unmapped npcId (no npcgrp entry at all) -> capsule fallback
+  { id: 70005, npcId: 99999, name: 'Mystery Man', x: SPAWN.x + 500, y: SPAWN.y - 200, z: SPAWN.z, heading: 0 },
 ];
 
 const PLAYERS = [
@@ -74,7 +85,13 @@ wss.on('connection', (ws) => {
   const timers = [];
   const self = { id: nextPlayerId++, name: `WebTester${Math.floor(Math.random() * 900 + 100)}` };
   const selfStats = { ...SELF_BASE };
+  const items = [];
+  let lastTarget = null;
+  let lootCounter = 0;
   let combatTimer = null;
+  // mobs are module-level (shared): reset per session so a killed mob
+  // from a previous run (respawn cancelled on disconnect) can't leak
+  for (const id of Object.keys(MOBS)) MOBS[id] = { hp: 500, maxHp: 500, dead: false };
   console.log(`+ connection, player id ${self.id}`);
 
   const send = (op, fields = {}) => {
@@ -101,6 +118,13 @@ wss.on('connection', (ws) => {
         send('attack', { id: mobId, targetId: self.id, damage: md, critical: false, miss: false });
         selfStats.hp = Math.max(240, selfStats.hp - md);
         send('selfStatus', selfStats);
+      }
+      // and casts its special every 6th tick
+      if (tick % 6 === 0 && !mob.dead) {
+        send('skillCast', { casterId: mobId, targetId: self.id, skillId: 45, level: 1, hitTime: 900 });
+        timers.push(setTimeout(() => {
+          send('skillLaunch', { casterId: mobId, targetId: self.id, skillId: 45, level: 1 });
+        }, 900));
       }
       if (mob.hp <= 0) {
         mob.dead = true;
@@ -141,6 +165,29 @@ wss.on('connection', (ws) => {
       send('addPlayer', WALKER);
       send('selfStatus', selfStats);
 
+      // M4: skills + inventory snapshots
+      send('skillList', { skills: [
+        { id: 3, level: 1 }, { id: 1043, level: 1 }, { id: 28, level: 1 },
+      ] });
+      items.push(
+        { objectId: 90001, itemId: 57, count: 1200, slot: 0, equipped: 0, enchant: 0 },
+        { objectId: 90002, itemId: 1147, count: 5, slot: 0, equipped: 0, enchant: 0 },
+        { objectId: 90003, itemId: 2369, count: 1, slot: 5, equipped: 1, enchant: 3 },
+        { objectId: 90004, itemId: 2509, count: 1, slot: 0, equipped: 0, enchant: 0 },
+        { objectId: 90005, itemId: 1060, count: 12, slot: 0, equipped: 0, enchant: 0 },
+        { objectId: 90006, itemId: 1835, count: 7, slot: 0, equipped: 0, enchant: 0 },
+        { objectId: 90007, itemId: 734, count: 2, slot: 0, equipped: 0, enchant: 0 },
+      );
+      send('itemList', { items });
+
+      // M5: character sheet + welcome sysmsg + whisper demo
+      send('charSheet', {
+        str: 35, dex: 26, con: 32, int: 21, wit: 19, men: 25,
+        pAtk: 42, pDef: 36, mAtk: 28, mDef: 31, accuracy: 33, evasion: 29,
+        critical: 44, runSpeed: 126, walkSpeed: 88, pAtkSpd: 300, mAtkSpd: 333,
+      });
+      send('sysMsg', { id: 1087, params: [] });
+
       // walker: patrol a square, one move op per side
       let corner = 0;
       const corners = [
@@ -164,15 +211,63 @@ wss.on('connection', (ws) => {
       // server-authoritative echo: client reconciles its own movement
       send('move', { id: self.id, tx: msg.x, ty: msg.y, tz: msg.z });
     } else if (msg.op === 'say') {
-      send('chat', { from: self.name, channel: msg.channel || 'all', text: msg.text });
+      // whisper (channel 2) carries a target; echo + fake reply
+      if (msg.channel === 2 && msg.target) {
+        // mirror the real bridge: own echo as "->target", reply from sender
+        send('chat', { from: '->' + msg.target, channel: 2, target: msg.target, text: msg.text });
+        timers.push(setTimeout(() => {
+          send('chat', {
+            from: msg.target, channel: 2, target: self.name,
+            text: `psst — hi from ${msg.target}`,
+          });
+        }, 1200));
+      } else {
+        send('chat', { from: self.name, channel: msg.channel ?? 0, text: msg.text });
+      }
       if (msg.text === '/die') send('selfStatus', { ...selfStats, hp: 0 });
       if (msg.text === '/revive') send('selfStatus', selfStats);
     } else if (msg.op === 'target') {
+      // loot (mirror of the real bridge: Action on a dead mob = pickup)
+      const deadMob = MOBS[msg.id];
+      if (deadMob && deadMob.dead) {
+        lootCounter++;
+        const adena = { objectId: 90100 + lootCounter, itemId: 57, count: 23, slot: 0, equipped: 0, enchant: 0 };
+        items.push(adena);
+        send('invUpdate', { updated: [{ change: 'add', ...adena }] });
+        send('sysMsg', { id: 28, params: ['adena', 23] });
+        return;
+      }
+      lastTarget = msg.id;
       send('target_ok', { id: msg.id });
       const mob = MOBS[msg.id];
       send('status', { id: msg.id, hp: mob ? mob.hp : 300, maxHp: mob ? mob.maxHp : 300 });
     } else if (msg.op === 'attack') {
       startCombat(msg.id);
+    } else if (msg.op === 'useSkill') {
+      const targetId = msg.targetId ?? lastTarget;
+      send('skillCast', {
+        casterId: self.id, targetId, skillId: msg.skillId, level: 1, hitTime: 1500,
+      });
+      timers.push(setTimeout(() => {
+        send('skillLaunch', { casterId: self.id, targetId, skillId: msg.skillId, level: 1 });
+        const mob = MOBS[targetId];
+        if (mob && !mob.dead) {
+          const damage = 60 + Math.round(Math.random() * 40);
+          send('attack', { id: self.id, targetId, damage, critical: false, miss: false });
+          mob.hp = Math.max(0, mob.hp - damage);
+          send('status', { id: targetId, hp: mob.hp, maxHp: mob.maxHp });
+        }
+      }, 1500));
+    } else if (msg.op === 'useItem') {
+      const it = items.find(i => i.objectId === msg.objectId);
+      send('sysMsg', { id: 46, params: [it ? `item:${it.itemId}` : `${msg.objectId}`] });
+      if (it && it.count > 1) {
+        it.count -= 1;
+        send('invUpdate', { updated: [{ change: 'modify', ...it }] });
+      } else if (it) {
+        items.splice(items.indexOf(it), 1);
+        send('invUpdate', { updated: [{ change: 'remove', objectId: it.objectId, itemId: it.itemId }] });
+      }
     }
   });
 

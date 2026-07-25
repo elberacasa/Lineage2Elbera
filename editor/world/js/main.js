@@ -5,10 +5,15 @@ import { Terrain } from './terrain.js';
 import { Character } from './character.js';
 import { FollowCamera } from './camera.js';
 import { l2ToThree, threeToL2, l2HeadingToThreeYaw } from './coords.js';
-import { NetClient, gatewayUrl } from './net.js';
+import { NetClient, gatewayUrl, deviceId } from './net.js';
 import { EntityManager } from './entities.js';
 import { ChatBox } from './chat.js';
 import { CombatUI, bindProjection } from './combat.js';
+import { SkillBar, SkillFx } from './skills.js';
+import { Inventory } from './inventory.js';
+import { skillMeta, skillInfo, sysMsgMeta, renderSysMsg } from './gamedata.js';
+import { CharSheet } from './charsheet.js';
+import { Hotbar } from './hotbar.js';
 
 const canvas = document.getElementById('view');
 const statusEl = document.getElementById('status');
@@ -80,6 +85,36 @@ sun.shadow.bias = -0.0005;
 const SUN_DIR = new THREE.Vector3(0.5, 1.0, 0.35).normalize();
 scene.add(sun, sun.target);
 
+// M5 interior (dungeon) rendering mode: dark warm ambience, no sky, no
+// sun; a warm point light travels with the player (torch feel)
+const ambient = scene.children.find(o => o.isAmbientLight);
+const hemi = scene.children.find(o => o.isHemisphereLight);
+const OUTDOOR = {
+  fog: scene.fog.clone(),
+  ambient: { color: ambient.color.getHex(), intensity: ambient.intensity },
+  hemi: { sky: hemi.color.getHex(), ground: hemi.groundColor.getHex(), intensity: hemi.intensity },
+  sun: sun.intensity,
+};
+const torch = new THREE.PointLight(0xffb070, 0, 60, 1.3);
+scene.add(torch);
+
+function applyInteriorMode(interior) {
+  sky.visible = !interior;
+  sun.intensity = interior ? 0 : OUTDOOR.sun;
+  sun.castShadow = !interior;
+  torch.intensity = interior ? 3.2 : 0;
+  if (interior) {
+    scene.fog = new THREE.Fog(0x0a0806, 6, 220);
+    ambient.color.setHex(0x6a5138); ambient.intensity = 1.15;
+    hemi.color.setHex(0x5a4630); hemi.groundColor.setHex(0x1a140e); hemi.intensity = 1.7;
+  } else {
+    scene.fog = OUTDOOR.fog.clone();
+    ambient.color.setHex(OUTDOOR.ambient.color); ambient.intensity = OUTDOOR.ambient.intensity;
+    hemi.color.setHex(OUTDOOR.hemi.sky); hemi.groundColor.setHex(OUTDOOR.hemi.ground);
+    hemi.intensity = OUTDOOR.hemi.intensity;
+  }
+}
+
 // --- state -----------------------------------------------------------------
 
 let terrain = null;
@@ -109,8 +144,9 @@ const chat = new ChatBox(
   document.getElementById('chat-log'),
   document.getElementById('chat-input'),
   {
-    onSend: (text) => {
-      if (online && net.send('say', { channel: 0, text })) return;
+    onSend: ({ channel = 0, text, target }) => {
+      if (!text) return;
+      if (online && net.send('say', { channel, text, ...(target ? { target } : {}) })) return;
       chat.addSystem('not connected — message not sent');
     },
   },
@@ -134,9 +170,14 @@ function entityHeadPos(id) {
 function clickEntity(id) {
   const e = entities.getEntity(id);
   if (!e) return;
+  if (e.dead) {
+    // M4 loot UX: click a corpse -> loot op (F key does the same)
+    if (online) net.send(LOOT_OP, { id });
+    return;
+  }
   if (combat.targetId === id) {
     // already targeted: second click attacks
-    if (!e.dead && online) net.send('attack', { id });
+    if (online) net.send('attack', { id });
   } else {
     combat.setTarget(id, e.name || `#${id}`);
     if (online) net.send('target', { id });
@@ -146,6 +187,107 @@ function clickEntity(id) {
 document.getElementById('respawn-btn').addEventListener('click', () => {
   console.log('respawn requested (no respawn op in the M3 bridge contract yet)');
   chat.addSystem('respawn: not supported by the gateway yet (no op in contract)');
+});
+
+// --- M4 skills & items ---------------------------------------------------------
+
+// loot UX: clicking a corpse sends Action (the `target` op) — in L2,
+// Action on a corpse/drop walks there and picks it up. No separate op
+// exists in the bridge contract (confirmed in gateway/src/bridge.js).
+const LOOT_OP = 'target';
+
+const skillFx = new SkillFx(scene);
+const skillBar = new SkillBar(
+  document.getElementById('skill-bar'),
+  document.getElementById('cast-bar'),
+  document.getElementById('cast-fill'),
+  document.getElementById('cast-name'),
+  {
+    onCast: (skillId) => {
+      if (!online) return false;
+      net.send('useSkill', {
+        skillId,
+        ...(combat.targetId != null ? { targetId: combat.targetId } : {}),
+      });
+    },
+  },
+);
+const inventory = new Inventory(
+  document.getElementById('inventory-panel'),
+  document.getElementById('inventory-grid'),
+  document.getElementById('loot-toasts'),
+  { onUse: (objectId) => { if (online) net.send('useItem', { objectId }); } },
+);
+
+// --- M5: char sheet, hotbar, settings ----------------------------------------
+
+let charSheetData = null;
+const sheetPanel = new CharSheet(
+  document.getElementById('charsheet-panel'),
+  {
+    getSelf: () => combat.self,
+    getSheet: () => charSheetData,
+    getEquipped: () => [...inventory.items.values()].filter(it => it.equipped),
+  },
+);
+net.on('charSheet', (msg) => {
+  charSheetData = msg;
+  if (document.getElementById('charsheet-panel').classList.contains('visible')) {
+    sheetPanel.render();
+  }
+});
+
+const hotbar = new Hotbar(document.getElementById('hotbar'), {
+  getCharName: () => selfName || 'default',
+  onTrigger: ({ type, id }) => {
+    if (!online) return;
+    if (type === 'skill') skillBar.castSkill(id);
+    else net.send('useItem', { objectId: id });
+  },
+});
+skillBar.onAssign = (data) => hotbar.assignFirstFree(data);
+inventory.onAssign = (data) => hotbar.assignFirstFree(data);
+
+// settings / account panel
+const settingsPanel = document.getElementById('settings-panel');
+settingsPanel.querySelector('.inv-close').addEventListener('click', () => {
+  settingsPanel.classList.remove('visible');
+});
+document.getElementById('settings-btn').addEventListener('click', () => {
+  document.getElementById('deviceid-text').textContent = deviceId();
+  settingsPanel.classList.toggle('visible');
+});
+document.getElementById('deviceid-copy').addEventListener('click', async (e) => {
+  const id = deviceId();
+  try {
+    await navigator.clipboard.writeText(id);
+    e.target.textContent = 'Copied!';
+  } catch {
+    e.target.textContent = id.slice(0, 8) + '…';
+  }
+  setTimeout(() => { e.target.textContent = 'Copy'; }, 1500);
+});
+
+net.on('skillList', (msg) => skillBar.populate(msg.skills || []));
+net.on('itemList', (msg) => inventory.setItems(msg.items || []));
+net.on('invUpdate', (msg) => inventory.applyUpdate(msg.updated || []));
+net.on('skillCast', (msg) => {
+  entities.skillFlash(msg.casterId);
+  if (msg.casterId === selfId) {
+    skillMeta().then(meta => {
+      const info = skillInfo(meta, msg.skillId);
+      skillBar.startCastBar(msg.skillId, msg.level, msg.hitTime, info.name);
+    });
+  }
+});
+net.on('skillLaunch', (msg) => {
+  skillBar.finishCast(msg.skillId);
+  entities.skillFlash(msg.casterId);
+  const pos = entityHeadPos(msg.targetId);
+  if (pos) {
+    const hue = (msg.skillId * 47 % 360) / 360;
+    skillFx.flash(pos, new THREE.Color().setHSL(hue, 0.8, 0.6).getHex());
+  }
 });
 
 // L2 world tile name for absolute L2 coords: tiles span 32768 units,
@@ -174,6 +316,12 @@ function setOnline(on) {
     net.disconnect();
     entities.clear();
     combat.clear();
+    skillBar.clear();
+    inventory.clear();
+    skillFx.clear();
+    hotbar.clear();
+    sheetPanel.clear();
+    charSheetData = null;
     selfId = null;
     selfName = '';
     chat.addSystem('offline mode (solo)');
@@ -224,6 +372,7 @@ net.on('enterWorld', async (msg) => {
   }
   setStatus(`online: ${selfName} @ ${currentTile}`);
   chat.addSystem(`entered world as ${selfName} (${currentTile})`);
+  hotbar.load();
 });
 net.on('addPlayer', (msg) => {
   // contract ambiguity: server may also announce our own char via addPlayer
@@ -241,8 +390,19 @@ net.on('addNpc', (msg) => {
 });
 net.on('move', (msg) => {
   if (msg.id === selfId && character) {
-    // server-authoritative reconcile of our own movement
-    character.setTarget(l2ToThree(msg.tx || 0, msg.ty || 0, msg.tz || 0));
+    // Self-reconcile policy (WASD is strictly cosmetic, no ops are sent):
+    // - while a click-walk target is active, the server broadcast is a
+    //   walk order -> adopt it as our target (server-adjusted destination)
+    // - if the server position disagrees by > 5 m (teleport/enterWorld),
+    //   snap to it
+    // - otherwise (ValidateLocation drift from cosmetic WASD) ignore it
+    const p = l2ToThree(msg.tx || 0, msg.ty || 0, msg.tz || 0);
+    const d = p.distanceTo(character.group.position);
+    if (character.target) character.setTarget(p);
+    else if (d > 5) {
+      character.group.position.copy(p);
+      character.clearTarget();
+    }
     return;
   }
   entities.move(msg);
@@ -251,7 +411,11 @@ net.on('remove', (msg) => {
   if (combat.targetId === msg.id) combat.clearTarget();
   entities.remove(msg.id);
 });
-net.on('chat', (msg) => chat.addChat(msg.from ?? '?', msg.channel, msg.text ?? ''));
+net.on('chat', (msg) => chat.addChat(msg.from ?? '?', msg.channel, msg.text ?? '', msg.target));
+net.on('sysMsg', (msg) => {
+  sysMsgMeta().then(meta =>
+    chat.addSysMsg(renderSysMsg(meta, msg.id, msg.params || []), msg.id, msg.params || []));
+});
 
 // --- M3 combat ops ------------------------------------------------------------
 net.on('target_ok', (msg) => {
@@ -292,6 +456,10 @@ window.__world = {
   entities,
   chat,
   combat,
+  skillBar,
+  inventory,
+  hotbar,
+  get charSheet() { return charSheetData; },
   followCam,   // exposed for verification/camera staging
   // verification helper: world position -> screen px
   project(v) {
@@ -329,9 +497,16 @@ async function loadScene(tile) {
   terrain = t;
   scene.add(t.group);
   currentTile = tile;
+  applyInteriorMode(!!t.interior);
 
   if (character) {
-    const c = t.center();
+    let c;
+    if (t.interior && t.spawnL2) {
+      // dungeons: spawn inside the densest prop cluster, not tile center
+      c = l2ToThree(t.spawnL2[0], t.spawnL2[1], 0);
+    } else {
+      c = t.center();
+    }
     c.y = t.heightAtWorld(c.x, c.z);
     character.group.position.copy(c);
     character.clearTarget();
@@ -423,7 +598,7 @@ canvas.addEventListener('pointerup', e => {
     if (best != null) { clickEntity(best); return; }
   }
 
-  const hit = ray.intersectObject(terrain.mesh, false)[0];
+  const hit = terrain.mesh ? ray.intersectObject(terrain.mesh, false)[0] : null;
   if (hit) {
     character.setTarget(hit.point);
     if (online) net.send('moveTo', threeToL2(hit.point));
@@ -443,6 +618,28 @@ window.addEventListener('keydown', e => {
       if (t && !t.dead) net.send('attack', { id: combat.targetId });
     }
     e.preventDefault();
+    return;
+  }
+  if (e.code === 'KeyF') {
+    // loot current target corpse
+    if (online && combat.targetId != null) {
+      const t = entities.getEntity(combat.targetId);
+      if (t && t.dead) net.send(LOOT_OP, { id: combat.targetId });
+    }
+    return;
+  }
+  if (e.code === 'KeyI') {
+    inventory.toggle();
+    return;
+  }
+  if (/^Digit[0-9]$/.test(e.code)) {
+    // number keys drive the M5 hotbar (skills AND items); the skill
+    // palette above is click-to-cast
+    hotbar.trigger((Number(e.code[5]) + 9) % 10);
+    return;
+  }
+  if (e.code === 'KeyC') {
+    sheetPanel.toggle();
     return;
   }
   if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) keys.add(e.code);
@@ -479,6 +676,12 @@ renderer.setAnimationLoop(() => {
     character.update(dt, terrain, wasdDir());
     entities.update(dt, terrain);
     combat.update(entityHeadPos);
+    skillFx.update();
+    // interior torch light follows the player
+    if (terrain.interior) {
+      torch.position.copy(character.group.position);
+      torch.position.y += (character.heightM || 1.75) * 2.2;
+    }
     // prop draw distance, reevaluated at 2 Hz
     propDistTimer += dt;
     if (PROP_DRAW_DIST && propDistTimer > 0.5) {

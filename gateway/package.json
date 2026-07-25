@@ -12,7 +12,10 @@
     "verify-two": "node test/verify-two.js",
     "smoke": "node test/smoke-protocol.js",
     "verify-combat": "node test/verify-combat.js",
-    "verify-observer": "node test/verify-observer.js"
+    "verify-observer": "node test/verify-observer.js",
+    "verify-m4": "node test/verify-m4.js",
+    "verify-m5": "node test/verify-m5.js",
+    "verify-mods": "node test/verify-mods.js"
   },
   "keywords": [],
   "author": "",

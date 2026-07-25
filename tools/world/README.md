@@ -68,6 +68,18 @@ world Z = z0 + (h - 32768) * heightScale        (heightScale = 76/256 = 0.296875
 - `layers[].splat` is `null` for the UE2 **base layer** (weight 255 over the
   whole tile). `layers[].diffuse` is `null` never happened in practice;
   placeholder layers (`Texture.Base` with no real texture) are dropped.
+- **`interior`** (optional, contract addition): present and `true` only on
+  dungeon tiles — maps whose terrain is a flat dummy plane with all content
+  (props) far below it. Absent = normal outdoor tile. Verified set:
+  `19_16` (Pagan Temple), `21_25` (Elven Ruins), `25_21` (Antharas' Nest).
+  Tiles that merely *contain* underground zones but have real outdoor
+  terrain (Cruma Tower 20_21, Giran Castle 23_22, Garden of Eva 22_25, the
+  Necropolis/Catacomb entrance tiles 18_24/19_20/22_24/23_23/24_20/25_17,
+  Forge of the Gods 25_14, Imperial Tomb 25_15, Ant Nest 19_23, School of
+  Dark Arts 18_19) are NOT flagged. The list is an explicit constant
+  (`INTERIOR_TILES` in convert.py), re-validated against the data at
+  conversion time (flat terrain + ≥95% of props ≥500 below the plane);
+  `assets/world/tile-map.json` carries the same flag.
 - The contract layer objects carry exactly `name`/`diffuse`/`splat`. The
   TerrainLayer `UScale`/`VScale` tiling factors are parsed by the converter
   (used for the basecolor preview) but deliberately omitted from scene.json

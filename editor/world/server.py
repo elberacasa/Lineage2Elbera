@@ -175,6 +175,13 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(npc_meshes())
             return
 
+        # M4: static gamedata (skillmeta.json, itemmeta.json, icons/*.png);
+        # 404 when the pipeline hasn't delivered yet — client degrades
+        if path.startswith("/gamedata/"):
+            rel = path[len("/gamedata/"):]
+            self._send_file(safe_join(GAMEDATA_DIR, rel))
+            return
+
         if path == "/" or path == "":
             path = "/index.html"
         self._send_file(safe_join(BASE_DIR, path.lstrip("/")))

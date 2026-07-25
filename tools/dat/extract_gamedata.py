@@ -14,6 +14,7 @@ Data sources (all real, in this repo):
   - assets/interlude/system/skillname-e.dat   -> skillname.json   (skill names/descs)
   - assets/interlude/system/actionname-e.dat  -> actionname.json  (UI actions)
   - assets/interlude/system/sysstring-e.dat   -> sysstring.json   (UI strings)
+  - assets/interlude/system/systemmsg-e.dat   -> systemmsg.json   (system messages)
 
 Field layouts follow the L2ClientDat (majestic-world) Interlude definitions
 (dist/data/structure/06_interlude.xml + dats/*.xml, "Interlude"/"ScionsOfDestiny"
@@ -24,6 +25,7 @@ including which fields are verified vs guessed.
 
 import json
 import os
+import struct
 import subprocess
 import sys
 import tempfile
@@ -76,7 +78,8 @@ def read_rgba(r: Reader) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Per-file parsers. Each returns a list of record dicts.
+# Per-file parsers. Each returns a list of record dicts, except
+# parse_systemmsg which returns an id -> record map.
 # ---------------------------------------------------------------------------
 
 def parse_npcgrp(data: bytes):
@@ -370,6 +373,80 @@ def parse_sysstring(data: bytes):
     return records
 
 
+def _looks_like_sysmsg_record(buf: bytes, p: int, expect_id: int) -> bool:
+    """Probe: does buf[p:] start a systemmsg record with id == expect_id?
+
+    Checked against the first records of the real file: id u32, group u32
+    (small, 1 everywhere seen), then a printable ASCF message."""
+    if p + 9 > len(buf):
+        return False
+    if struct.unpack_from("<I", buf, p)[0] != expect_id:
+        return False
+    if struct.unpack_from("<I", buf, p + 4)[0] > 20:  # group
+        return False
+    try:
+        text = Reader(buf[p + 8:], "systemmsg-probe").ascf()
+    except (EOFError, ValueError, UnicodeDecodeError):
+        return False
+    return all(ord(c) >= 32 for c in text)
+
+
+def _find_next_sysmsg_record(buf: bytes, start: int, prev_id: int) -> tuple:
+    """Locate the record following prev_id. Ids are mostly sequential but have
+    genuine gaps (e.g. 2048-2050 do not exist), and tails can embed u32s that
+    mimic a record header (record 1's tail holds an extra message string), so:
+    for each candidate id prev_id+1, prev_id+2, ... find the first valid
+    header position; return the candidate with the earliest position."""
+    best = None
+    for cand in range(prev_id + 1, prev_id + 65):
+        needle = struct.pack("<I", cand)
+        p = buf.find(needle, start)
+        while p != -1:
+            if _looks_like_sysmsg_record(buf, p, cand):
+                if best is None or p < best[0]:
+                    best = (p, cand)
+                break
+            p = buf.find(needle, p + 1)
+        if best is not None and best[1] == prev_id + 1:
+            break  # exact successor found; can't do better
+    if best is None:
+        raise ValueError(f"systemmsg-e.dat: cannot locate record after "
+                         f"id {prev_id} from offset {start}")
+    return best
+
+
+def parse_systemmsg(data: bytes):
+    """systemmsg-e.dat: count u32, then records keyed by a u32 id (mostly
+    sequential from 0, but with genuine gaps, e.g. 2048-2050 do not exist):
+    [id u32, group u32, message ascf, unk_0 u32, color u32 (RGBA as AARRGGBB)]
+    followed by a variable-length tail (sound name, param-type strings,
+    zero-filled reserved blocks) that is not needed here and is skipped by
+    scanning for the next record header. Verified on ids 0-13 against aCis
+    SystemMessageId.java; see docs/dat-format-notes.md."""
+    r = open_dat(data, "systemmsg-e.dat")
+    buf = r.data
+    records = {}
+    count = r.u32()
+    for i in range(count):
+        rid = r.u32()
+        group = r.u32()
+        text = r.ascf()
+        r.u32()  # unk_0: 2 for ids 0-1, 0 afterwards
+        color = r.u32()
+        records[str(rid)] = {
+            "text": text,
+            "group": group,
+            "color": f"#{color & 0xFFFFFF:06X}",
+        }
+        if i < count - 1:
+            r.pos, _ = _find_next_sysmsg_record(buf, r.pos, rid)
+        else:
+            r.pos = len(buf)  # last record's tail runs to the trailer
+    assert r.done()
+    assert len(records) == count, f"systemmsg: duplicate ids, {len(records)} != {count}"
+    return records
+
+
 FILES = [
     ("npcgrp.dat",        "npcgrp.json",      parse_npcgrp),
     ("NpcName-e.dat",     "npcname.json",     parse_npcname),
@@ -381,6 +458,7 @@ FILES = [
     ("skillname-e.dat",   "skillname.json",   parse_skillname),
     ("actionname-e.dat",  "actionname.json",  parse_actionname),
     ("sysstring-e.dat",   "sysstring.json",   parse_sysstring),
+    ("systemmsg-e.dat",   "systemmsg.json",   parse_systemmsg),
 ]
 
 

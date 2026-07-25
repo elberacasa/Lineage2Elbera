@@ -56,6 +56,7 @@ function mapAnimations(actions) {
     walk: find('walk') || first,
     run: find('run') || find('walk') || first,
     attack: find('attack', 'atk', 'hit') || first,
+    special: find('special') || find('attack') || first,
     die: find('die', 'death', 'dead') || first,
   };
 }
@@ -170,6 +171,18 @@ class NpcEntity {
       if (this.label) this.setLabel(this.name);   // re-anchor to true height
       root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
 
+      // invisible pick proxy: skinned meshes raycast against bind pose,
+      // so clicks target a plain cylinder around the model instead
+      const proxy = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+          Math.max(0.12, this.heightM * 0.3), Math.max(0.14, this.heightM * 0.35),
+          this.heightM, 8),
+        new THREE.MeshBasicMaterial({ visible: false }),
+      );
+      proxy.position.y = this.heightM / 2;
+      proxy.name = 'pick-proxy';
+      this.group.add(proxy);
+
       for (const m of this.capsuleMeshes) this.group.remove(m);
       this.capsuleMeshes = [];
       this.group.add(root);
@@ -204,6 +217,17 @@ class NpcEntity {
     this._play('attack', 0.1, true);
     // back to idle after the swing
     const dur = this.actions.attack.getClip().duration;
+    clearTimeout(this._attackTimer);
+    this._attackTimer = setTimeout(() => {
+      if (!this.dead) this._play(this.target ? 'walk' : 'idle');
+    }, Math.max(300, dur * 1000 - 100));
+  }
+
+  // M4: skill cast visual — monsters prefer their 'special' clip
+  skillFlash() {
+    if (!this.actions || this.dead) return;
+    this._play('special', 0.1, true);
+    const dur = this.actions.special.getClip().duration;
     clearTimeout(this._attackTimer);
     this._attackTimer = setTimeout(() => {
       if (!this.dead) this._play(this.target ? 'walk' : 'idle');
@@ -339,6 +363,14 @@ export class EntityManager {
     }
   }
 
+  skillFlash(id) {
+    const e = this.entities.get(id);
+    if (e && !e.dead) {
+      if (e.kind === 'npc') e.skillFlash();
+      else { e.play('attack', 0.1); setTimeout(() => !e.dead && e.play('idle'), 700); }
+    }
+  }
+
   die(id) {
     const e = this.entities.get(id);
     if (!e) return;
@@ -410,6 +442,9 @@ export class EntityManager {
     for (const [id, e] of this.entities) {
       out.push({
         id, kind: e.kind, name: e.name,
+        npcId: e.npcId,
+        hasModel: !!e.mixer,
+        heightM: e.heightM ? +e.heightM.toFixed(3) : null,
         pos: e.group.position.toArray().map(v => +v.toFixed(2)),
         moving: e.kind === 'player' ? !!e.target : !!e.target,
       });

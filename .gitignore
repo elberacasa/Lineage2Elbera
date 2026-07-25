@@ -13,9 +13,11 @@ db-credentials.txt
 *.log
 
 # Copyrighted NCSoft client assets + converted outputs (regenerable via tools/)
+# (assets/gamedata/*.json text catalogs stay tracked; icons/ are NCSoft PNGs)
 assets/interlude/
 assets/library/
 assets/world/
+assets/gamedata/icons/
 Screenshots/
 
 # aCis server — separate git repo with its own history (see server/.git)

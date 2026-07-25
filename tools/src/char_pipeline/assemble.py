@@ -556,9 +556,7 @@ def merge_parts(parts, out_path):
         return len(g['skins']) - 1
 
     # ---- meshes
-    if head_ci is None:
-        head_ci = skel.head_index()
-    head_bind = world[head_ci][0]
+    head_bind = None
     anchored = {'verts': 0}
     for (p, data), perm in zip(parsed, perms):
         points, wedges, faces = data['points'], data['wedges'], data['faces']
@@ -575,6 +573,9 @@ def merge_parts(parts, out_path):
         # Bind pose is bit-identical either way (identity skinning).
         lname = p['name'].lower()
         head_part = lname.endswith(('_f', '_ah', '_bh'))
+        if (hair or head_part) and head_ci is None:
+            head_ci = skel.head_index()
+            head_bind = world[head_ci][0]
         normals = _point_normals(points, wedges, faces)
 
         # per-vertex joint/weight tuples (keyed by wedge point)

@@ -346,3 +346,66 @@ ASCII keywords in `cmd`).
 | skillname | 29812 | 6 | none |
 | actionname | 102 | 10 | type/category/category2 enum values |
 | sysstring | 2083 | 2 | none |
+| systemmsg | 2083 | 4 (+skipped tail) | unk_0, tail contents (sounds/params/reserved) |
+
+## 21. Icon + metadata layer (M4) — build_meta.py
+
+`tools/dat/build_meta.py` generates the runtime-free metadata the web
+client needs for the skill bar and inventory:
+
+- `assets/gamedata/skillmeta.json` — `{ "<skillId>": { "name", "icon",
+  "desc", "levels" } }`. Name/desc from `skillname.json`, icon from
+  `skillgrp.json` (lowest-level entry per skill id; `levels` = max level).
+- `assets/gamedata/itemmeta.json` — `{ "<itemId>": { "name", "icon",
+  "type", "grade" } }`. Name from `itemname.json`; icon/type from
+  weapongrp/armorgrp/etcitemgrp (`object_id` join); grade from
+  `crystal_type` mapped `{0:NG, 1:D, 2:C, 3:B, 4:A, 5:S}`. Items present
+  in itemname but no grp table are kept with `type: "etc"`, name only.
+- `assets/gamedata/icons/*.png` — the referenced icons copied from
+  `assets/library/icon/`, lowercased. Icon refs (`icon.<name>`) map to
+  `<name>.png`.
+
+Edge cases handled: the `ect_piece_of_paper_white_i00` ref is a
+source-data typo (real texture `etc_piece_of_paper_white_i00`, verified
+in icon.utx) and is aliased in the script; 5 skill icon refs
+(skill1404, skill4712/4713/4717/4718) are dangling in the source data
+(textures never shipped in icon.utx) — the icon field is dropped for
+those entries (name/desc kept).
+
+Re-run: `/usr/bin/python3 tools/dat/build_meta.py`; verify:
+`/usr/bin/python3 tools/dat/build_meta.py --check` (fails if any
+referenced icon path is missing on disk). Last run: 2694 skills, 9238
+items, 2777 icons, 11901 refs, 0 missing.
+
+## 22. systemmsg-e.dat → systemmsg.json (2083 records)
+
+Decrypts with protocol **413** (like every other file here — protocol 121
+produces garbage). Layout: `count` UINT, then that many records:
+
+`id` UINT, `group` UINT, `message` ASCF, `unk_0` UINT, `color` UINT
+(RGBA as AARRGGBB; emitted as `#RRGGBB`), then a variable-length tail
+that is **skipped**: param-type strings (`none`, `server`, ...), an
+optional sound name (e.g. `ItemSound3.sys_impossible`), zero-filled
+reserved blocks (16/24/36 bytes), and — in record 1 — one extra embedded
+message string (`Exit Game: $s1 second(s)`).
+
+Because the tail length is not stored, the parser skips it by scanning
+forward for the next record header (id UINT + small group + printable
+ASCF). Ids are mostly sequential from 0 but have genuine gaps — 2048-2050,
+2058-2085, 2087-2090, 2096-2107, 2111-2114, 2129-2131, 2136-2152 do not
+exist — so the scan tries id+1, id+2, ... and takes the earliest valid
+header (exact successor preferred; this also dodges false headers inside
+tails, e.g. record 1's embedded string). Output shape differs from the
+other files: a map `"<id>": {"text", "group", "color"}` since lookup is
+always by id. Text keeps L2's `$s1`/`$c1` placeholders verbatim.
+
+Verified against aCis `SystemMessageId.java`: 0 = "You have been
+disconnected from the server.", 34 = `WELCOME_TO_LINEAGE` ("Welcome to
+the World of Lineage II."), 52 = `EARNED_S1_ADENA` ("You have earned $s1
+adena."), 53 = `EARNED_S2_S1_S`, 54 = `EARNED_ITEM_S1` ("You have earned
+$s1."), 55 = `FAILED_TO_PICKUP_S1_ADENA`. Note: the older-chronicle
+phrasing "$s1 has been added to your inventory." does not exist in
+Interlude — id 54/30 ("You have earned/obtained $s1.") is the equivalent.
+Stats: group = 1 for all 2083; colors: 2014× `#B09B79` (default), 30×
+`#FFFF00` (loot/adena), 21× `#5AB0B2` (Seven Signs), 11× `#FED7A0`, 5×
+`#FF0000`, 1× `#FF00FF`, 1× `#FF00F0`; no empty texts.

@@ -81,3 +81,33 @@ has the full set).
   idle+attack (`tools/src/char_pipeline/verify/after/monsters/`); live
   world smoke test (real gateway on :8083) shows gremlins as real models
   with `capsuleMeshes: 0` (see `app_gremlin.png`).
+
+## Civilian NPCs (M-next: towns without capsules)
+
+`tools/src/char_pipeline/build_npcs.py` converts civilian NPCs into the
+same manifest.  Roster = aCis spawn ground truth
+(`server/aCis_datapack/data/xml/spawnlist/17_2*.xml`, Talking Island)
+cross-referenced with `assets/gamedata/npcgrp.json` (npcId →
+`LineageNPCs.<mesh>`, `LineageNPC` class only): **56 distinct meshes
+covering 146 civilian spawns** (Roien 30008, Newbie Helper 30009,
+traders, warehouse keepers, guild masters/teachers, priests, guards,
+fishermen, priests of dawn/dusk, heroes obelisk, pig ball).
+
+- Packages: `LineageNpcs.ukx` (a_* + e_* + priests/obelisk),
+  `LineageNPCs2.ukx` (pig_ball).  Textures: mesh's own .ukx material
+  slots (ordinal), falling back to the npcgrp texture refs when a slot
+  is null (e.g. `a_mageguild_teacher_FElf_m00`).  `_sp` textures handled
+  per the L2 convention (diffuse in RGB) — non-suffixed sibling from the
+  library when exported, else RGB decoded from the .utx.
+- Animations: per-mesh `<name>_anim`.  Guards/fighters carry the full
+  combat set (idle/walk/run/attack/die/corpse/special); most civilians
+  idle/walk/social; three retail-static NPCs (fisherA, traderC, heroes
+  obelisk) ship with `animations: []` (no anim set exists in the package
+  — authentic; the client keeps the static pose).
+- Entries merge into `editor/characters/monsters/manifest.json` with the
+  same shape and `nativeHeight` (computed per build: bind extent ×100 ×
+  MeshScale; obelisk = 137.0 units tall, humans 43–48, dwarves ~36).
+  Merge discipline: never rewrite the manifest wholesale; single-id
+  rebuilds supported (`build_npcs.py <mesh_id> ...`).
+- Status: 83/83 entries valid, 83/83 with nativeHeight.  Renders:
+  `verify/after/monsters/{roien,newbie_helper,trader,warehouse_dwarf,priest_dawn,mage_teacher}.png`.

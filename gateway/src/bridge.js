@@ -32,6 +32,12 @@ class Bridge {
     this.statusById = new Map(); // id -> {hp, maxHp, mp, maxMp}
     this.self = null; // {hp, maxHp, mp, maxMp, cp, maxCp, level, exp, sp}
     this.entered = false; // enterWorld must fire exactly once
+    // M4: current target (for useSkill) and login-time list ordering. The
+    // server sends SkillList/ItemList BEFORE UserInfo during EnterWorld, but
+    // the contract wants them right AFTER enterWorld: queue and flush.
+    this.currentTarget = 0;
+    this.pendingSkillList = null;
+    this.pendingItemList = null;
 
     ws.on('message', (data) => this._onMessage(data));
     ws.on('close', () => this._shutdown());
@@ -64,15 +70,32 @@ class Bridge {
           }
           break;
         case 'say':
-          if (this.game) this.game.say(msg.channel | 0, String(msg.text || '').slice(0, 100));
+          if (this.game) this.game.say(msg.channel | 0, String(msg.text || '').slice(0, 100), msg.target ? String(msg.target) : null);
           break;
         case 'target':
-          // Action (0x04): plain click — target/interact.
+          // Action (0x04): plain click — target/interact. Also used to loot:
+          // targeting a ground drop walks there and picks it up.
           if (this.game) this.game.action(msg.id | 0);
           break;
         case 'attack':
           // AttackRequest (0x0a): ctrl+click — force attack.
           if (this.game) this.game.attackRequest(msg.id | 0);
+          break;
+        case 'useSkill':
+          // RequestMagicSkillUse. Optional targetId presets the target first.
+          if (this.game) {
+            const skillId = msg.skillId | 0;
+            const targetId = msg.targetId | 0;
+            if (targetId && targetId !== this.currentTarget) {
+              this.game.action(targetId);
+              setTimeout(() => { if (this.game) this.game.useSkill(skillId); }, 400);
+            } else {
+              this.game.useSkill(skillId);
+            }
+          }
+          break;
+        case 'useItem':
+          if (this.game) this.game.useItem(msg.objectId | 0);
           break;
       }
     } catch (e) {
@@ -163,8 +186,28 @@ class Bridge {
           op: 'enterWorld',
           char: { id: u.id, name: u.name, race: u.race, classId: u.classId, x: u.x, y: u.y, z: u.z, heading: u.heading },
         });
+        // Flush login-time lists right after enterWorld (contract order).
+        if (this.pendingSkillList) {
+          this.send({ op: 'skillList', skills: this.pendingSkillList });
+          this.pendingSkillList = null;
+        }
+        if (this.pendingItemList) {
+          this.send({ op: 'itemList', items: this.pendingItemList });
+          this.pendingItemList = null;
+        }
       }
       this.send({ op: 'selfStatus', ...this.self });
+      // charSheet: sent right after enterWorld (first UserInfo) and again on
+      // every UserInfo re-send (stat changes).
+      this.send({
+        op: 'charSheet',
+        str: u.str, dex: u.dex, con: u.con, int: u.int, wit: u.wit, men: u.men,
+        pAtk: u.pAtk, pDef: u.pDef, mAtk: u.mAtk, mDef: u.mDef,
+        accuracy: u.accuracy, evasion: u.evasion, critical: u.critical,
+        runSpeed: u.runSpeed, walkSpeed: u.walkSpeed,
+        pAtkSpd: u.pAtkSpd, mAtkSpd: u.mAtkSpd,
+        maxLoad: u.maxLoad,
+      });
     });
 
     game.on('npcInfo', (n) => {
@@ -210,7 +253,11 @@ class Bridge {
     game.on('delete', (id) => this.send({ op: 'remove', id }));
 
     game.on('say', (s) => {
-      this.send({ op: 'chat', from: s.name, channel: s.channel, text: s.text });
+      const msg = { op: 'chat', from: s.name, channel: s.channel, text: s.text };
+      // TELL (2): the packet's name is the other party. The sender's own echo
+      // arrives as "->targetName" (chathandlers/ChatTell.java); strip it.
+      if (s.channel === 2) msg.target = s.name.startsWith('->') ? s.name.slice(2) : s.name;
+      this.send(msg);
     });
 
     // ---------------------------------------------------------- M3 combat
@@ -266,12 +313,72 @@ class Bridge {
 
     game.on('die', (id) => this.send({ op: 'die', id }));
     game.on('revive', (id) => this.send({ op: 'revive', id }));
-    game.on('myTarget', (t) => this.send({ op: 'target_ok', id: t.id }));
+    game.on('myTarget', (t) => {
+      this.currentTarget = t.id;
+      this.send({ op: 'target_ok', id: t.id });
+    });
 
     game.on('systemMessage', (sm) => {
-      // Not part of the frozen contract: logged for debugging (combat-
-      // relevant ids e.g. 95 = "You have earned $s1 exp and $s2 SP").
-      this.log(`sysmsg id=${sm.id} params=${sm.params.map((p) => p.value).join(',')}`);
+      this.send({ op: 'sysMsg', id: sm.id, params: sm.params.map((p) => p.value) });
+    });
+
+    // ------------------------------------------------------ M4: skills & items
+
+    game.on('skillList', (skills) => {
+      const mapped = skills.map((s) => ({ id: s.id, level: s.level }));
+      if (this.entered) this.send({ op: 'skillList', skills: mapped });
+      else this.pendingSkillList = mapped;
+    });
+
+    game.on('skillUse', (s) => {
+      this.send({
+        op: 'skillCast',
+        casterId: s.casterId,
+        targetId: s.targetId,
+        skillId: s.skillId,
+        level: s.level,
+        hitTime: s.hitTime,
+      });
+    });
+
+    game.on('skillLaunch', (s) => {
+      // Contract shape carries a single targetId; emit one op per target.
+      for (const targetId of (s.targetIds.length ? s.targetIds : [0])) {
+        this.send({ op: 'skillLaunch', casterId: s.casterId, targetId, skillId: s.skillId, level: s.level });
+      }
+    });
+
+    game.on('itemList', (items) => {
+      if (this.entered) this.send({ op: 'itemList', items });
+      else this.pendingItemList = items;
+    });
+
+    // ItemState ordinals (enums/items/ItemState.java): 0 UNCHANGED,
+    // 1 ADDED, 2 MODIFIED, 3 REMOVED.
+    game.on('invUpdate', (updated) => {
+      const CHANGE = ['unchanged', 'add', 'modify', 'remove'];
+      this.send({
+        op: 'invUpdate',
+        updated: updated.map((it) => ({
+          change: CHANGE[it.change] || String(it.change),
+          objectId: it.objectId,
+          itemId: it.itemId,
+          count: it.count,
+          slot: it.slot,
+          equipped: it.equipped,
+          enchant: it.enchant,
+        })),
+      });
+    });
+
+    game.on('drop', (d) => {
+      this.send({ op: 'addDrop', id: d.id, itemId: d.itemId, count: d.count, x: d.x, y: d.y, z: d.z });
+    });
+
+    // NpcHtmlMessage (0x0f) — e.g. the .menu window. Not a contract op;
+    // logged for debugging (the web client implements its own menu).
+    game.on('html', (h) => {
+      this.log(`html window (${h.html.length} chars) >>>${h.html.replace(/\s+/g, ' ')}<<<`);
     });
   }
 
