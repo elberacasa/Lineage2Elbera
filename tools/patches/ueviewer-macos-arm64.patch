@@ -1,0 +1,158 @@
+diff --git a/Core/MathSSE.h b/Core/MathSSE.h
+index 43e4c70..fad892a 100644
+--- a/Core/MathSSE.h
++++ b/Core/MathSSE.h
+@@ -1,7 +1,13 @@
+ #ifndef __MATH_SSE_H__
+ #define __MATH_SSE_H__
+ 
++#if defined(__aarch64__) || defined(__arm64__)
++// ARM64 (Apple Silicon, linux/arm64): translate SSE intrinsics to NEON.
++// sse2neon.h is vendored at tools/vendor/sse2neon.h (MIT license).
++#include "sse2neon.h"
++#else
+ #include <xmmintrin.h>
++#endif
+ 
+ struct CVec4
+ {
+diff --git a/Exporters/ExportMaterial.cpp b/Exporters/ExportMaterial.cpp
+index 527d6a2..567c700 100644
+--- a/Exporters/ExportMaterial.cpp
++++ b/Exporters/ExportMaterial.cpp
+@@ -12,6 +12,26 @@ void ExportMaterial(const UUnrealMaterial* Mat)
+ {
+ 	guard(ExportMaterial);
+ 
++	// l2vzla: on macOS RENDERING is disabled (Build.h), which compiled this whole
++	// function away and made CLI texture export a silent no-op. Texture/cubemap
++	// export does not need the renderer, so handle it via IsA() when RENDERING
++	// is off (IsTexture()/IsTextureCube() are RENDERING-only virtuals).
++#if !RENDERING
++	if (!Mat) return;
++
++	if (Mat->IsA("Cubemap") || Mat->IsA("TextureCube3") || Mat->IsA("TextureCube4"))
++	{
++		ExportCubemap(Mat);
++		return;
++	}
++
++	if (Mat->IsA("Texture") || Mat->IsA("Texture2D"))
++	{
++		ExportTexture(Mat);
++		return;
++	}
++#endif
++
+ #if RENDERING				// requires UUnrealMaterial::GetParams()
+ 
+ 	if (!Mat) return;
+diff --git a/Unreal/FileSystem/GameFileSystem.cpp b/Unreal/FileSystem/GameFileSystem.cpp
+index f77fbea..d420dc2 100644
+--- a/Unreal/FileSystem/GameFileSystem.cpp
++++ b/Unreal/FileSystem/GameFileSystem.cpp
+@@ -752,8 +752,14 @@ static bool ScanGameDirectory(const char *dir, bool recurse)
+ 		appSprintf(ARRAY_ARG(Path), "%s/%s", dir, ent->d_name);
+ 		// directory -> recurse
+ 		// note: using 'stat64' here because 'stat' ignores large files
++		// (on macOS there is no stat64; plain 'stat' is already 64-bit)
++#if __APPLE__
++		struct stat buf;
++		if (stat(Path, &buf) < 0) continue;				// or break?
++#else
+ 		struct stat64 buf;
+ 		if (stat64(Path, &buf) < 0) continue;			// or break?
++#endif
+ 		if (S_ISDIR(buf.st_mode))
+ 		{
+ 			if (recurse)
+diff --git a/common.project b/common.project
+index 3daade5..52522eb 100644
+--- a/common.project
++++ b/common.project
+@@ -68,7 +68,9 @@ CPP_STD = c++14				# allow modern C++ features
+ 	!endif
+ 
+ 	LIBC      = shared
+-	OPTIONS   = -msse2									# enable SSE instructions
++	!if "$PLATFORM" ne "osx"
++		OPTIONS   = -msse2								# enable SSE instructions (x86 only; osx/arm64 clang rejects it)
++	!endif
+ 	OPTIONS   += -fno-strict-aliasing					# required for our uint_cast()-based FP hacks (check!! taken from my Quake2)
+ 	OPTIONS   += -fno-stack-protector					# this will remove GLIBC_2.4 dependency
+ 	OPTIONS   += {
+@@ -78,7 +80,12 @@ CPP_STD = c++14				# allow modern C++ features
+ 	}
+ 	CPP_OPTIONS += -std=$CPP_STD
+ 	CPP_OPTIONS += -Wno-invalid-offsetof
+-	USE_SYSTEM_LIBS = 1
++	!if "$PLATFORM" eq "osx"
++		# macOS has no system libpng headers; build bundled zlib+libpng instead
++		USE_SYSTEM_LIBS = 0
++	!else
++		USE_SYSTEM_LIBS = 1
++	!endif
+ !endif
+ 
+ # GCC debug build
+@@ -98,6 +105,9 @@ DEFINES = $STDDEFS
+ 
+ LIBINCLUDES = $R/libs/include $R/libs
+ 
++# l2vzla: sse2neon.h vendored outside the repo (tools/vendor)
++INCLUDES += $R/../../vendor
++
+ OBJDIR = $R/obj/libs-$PLATFORM
+ 
+ !if ("$OLDCRT" eq "1") && ("$COMPILER" eq "VisualC")
+diff --git a/libs/libpng/pngpriv.h b/libs/libpng/pngpriv.h
+index 1f2e90f..b5f93fd 100644
+--- a/libs/libpng/pngpriv.h
++++ b/libs/libpng/pngpriv.h
+@@ -509,7 +509,7 @@
+ #  include <float.h>
+ 
+ #  if (defined(__MWERKS__) && defined(macintosh)) || defined(applec) || \
+-    defined(THINK_C) || defined(__SC__) || defined(TARGET_OS_MAC)
++    defined(THINK_C) || defined(__SC__) || (defined(TARGET_OS_MAC) && !defined(__APPLE__))
+    /* We need to check that <math.h> hasn't already been included earlier
+     * as it seems it doesn't agree with <fp.h>, yet we should really use
+     * <fp.h> if possible.
+diff --git a/libs/libpng/pngusr.h b/libs/libpng/pngusr.h
+index 949bf8c..1d6110c 100644
+--- a/libs/libpng/pngusr.h
++++ b/libs/libpng/pngusr.h
+@@ -2,3 +2,7 @@
+ #if _MSC_VER
+ #pragma warning(disable : 4005)
+ #endif
++
++// l2vzla: bundled build compiles only top-level *.c, so the ARM NEON
++// filter sources (arm/*.c) are not available; disable NEON optimizations.
++#define PNG_ARM_NEON_OPT 0
+diff --git a/libs/nvtt/nvcore/nvcore.h b/libs/nvtt/nvcore/nvcore.h
+index 469f6ad..9c3de78 100644
+--- a/libs/nvtt/nvcore/nvcore.h
++++ b/libs/nvtt/nvcore/nvcore.h
+@@ -70,6 +70,8 @@
+ #	define NV_CPU_X86 1
+ #elif defined POSH_CPU_PPC
+ #	define NV_CPU_PPC 1
++#elif defined POSH_CPU_STRONGARM
++#	define NV_CPU_ARM 1
+ #else
+ #	error "Unsupported CPU"
+ #endif
+diff --git a/libs/nvtt/nvcore/poshlib/posh.h b/libs/nvtt/nvcore/poshlib/posh.h
+index 47b305d..97fd51b 100644
+--- a/libs/nvtt/nvcore/poshlib/posh.h
++++ b/libs/nvtt/nvcore/poshlib/posh.h
+@@ -470,7 +470,7 @@ Metrowerks:
+ #  define POSH_CPU_SPARC 1
+ #endif
+ 
+-#if defined ARM || defined __arm__ || defined _ARM
++#if defined ARM || defined __arm__ || defined _ARM || defined __aarch64__ || defined __arm64__
+ #  define POSH_CPU_STRONGARM 1
+ #  define POSH_CPU_STRING "ARM"
+ #endif

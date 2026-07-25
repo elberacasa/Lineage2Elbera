@@ -1,0 +1,49 @@
+<!doctype html><html><body style="margin:0">
+<script type="importmap">
+{"imports": {"three": "/node_modules/three/build/three.module.js",
+             "three/addons/": "/node_modules/three/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setSize(600, 800);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05060a);
+// exact app.js lighting
+scene.add(new THREE.AmbientLight(0x2a3040, 1.4));
+const keyLight = new THREE.SpotLight(0xffe8c0, 60, 30, Math.PI / 5, 0.45, 1.6);
+keyLight.position.set(3.5, 6, 3);
+scene.add(keyLight);
+const rimLight = new THREE.DirectionalLight(0x6f87c9, 2.4);
+rimLight.position.set(-4, 3.5, -4);
+scene.add(rimLight);
+const fillLight = new THREE.PointLight(0xc9a959, 6, 10, 1.8);
+fillLight.position.set(0, 0.4, 2.4);
+scene.add(fillLight);
+const camera = new THREE.PerspectiveCamera(35, 600 / 800, 0.01, 100);
+window.__done = false; window.__err = null;
+new GLTFLoader().load(q.get('gltf'), (g) => {
+  scene.add(g.scene);
+  const mixer = new THREE.AnimationMixer(g.scene);
+  const clip = g.animations.find(a => a.name === 'idle') || g.animations[0];
+  mixer.clipAction(clip).play();
+  mixer.update(0.5);
+  // app frameModel(): normalize height to 1.7
+  const box = new THREE.Box3().setFromObject(g.scene);
+  const size = box.getSize(new THREE.Vector3());
+  const k = 1.7 / size.y;
+  g.scene.scale.setScalar(k);
+  const box2 = new THREE.Box3().setFromObject(g.scene);
+  const c = box2.getCenter(new THREE.Vector3());
+  camera.position.set(c.x, c.y, box2.max.z + size.y * k * 1.35);
+  camera.lookAt(c);
+  renderer.render(scene, camera);
+  window.__done = true;
+}, undefined, (e) => { window.__err = String(e); window.__done = true; });
+</script></body></html>

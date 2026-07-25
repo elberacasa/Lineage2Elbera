@@ -1,0 +1,192 @@
+diff --git a/Core/CoreGL.h b/Core/CoreGL.h
+index 3140c16..93a2ad2 100644
+--- a/Core/CoreGL.h
++++ b/Core/CoreGL.h
+@@ -11,6 +11,17 @@
+ #else
+ #include <OpenGL/gl.h>
+ #include <OpenGL/glext.h>
++// l2vzla: macOS OpenGL headers don't define APIENTRY (used by GLBind.h)
++#ifndef APIENTRY
++#define APIENTRY
++#endif
++// l2vzla: macOS glext.h predates ARB_texture_compression_bptc
++#ifndef GL_COMPRESSED_RGBA_BPTC_UNORM_ARB
++#define GL_COMPRESSED_RGBA_BPTC_UNORM_ARB			0x8E8C
++#define GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_ARB	0x8E8D
++#define GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_ARB	0x8E8E
++#define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_ARB	0x8E8F
++#endif
+ #endif
+ 
+ #define USE_SDL			1
+diff --git a/Core/GlWindow.cpp b/Core/GlWindow.cpp
+index cf2bab8..cd51c17 100644
+--- a/Core/GlWindow.cpp
++++ b/Core/GlWindow.cpp
+@@ -525,9 +525,24 @@ static void Init(const char *caption)
+ 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+ //	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
+ 
++	// l2vzla: headless/batch capture support
++	// UMODEL_WINSIZE=WxH overrides the default 800x600 viewport
++	if (const char* sz = getenv("UMODEL_WINSIZE"))
++	{
++		int w = 0, h = 0;
++		if (sscanf(sz, "%dx%d", &w, &h) == 2 && w > 0 && h > 0)
++		{
++			Viewport::Size.X = w;
++			Viewport::Size.Y = h;
++		}
++	}
++	// UMODEL_HIDDEN=1 creates an invisible window (GL rendering still works)
++	Uint32 windowFlags = SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE;
++	windowFlags |= getenv("UMODEL_HIDDEN") ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN;
++
+ 	sdlWindow = SDL_CreateWindow(caption,
+ 		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, Viewport::Size.X, Viewport::Size.Y,
+-		SDL_WINDOW_OPENGL|SDL_WINDOW_SHOWN|SDL_WINDOW_RESIZABLE);
++		windowFlags);
+ 	if (!sdlWindow)
+ 	{
+ 		const char* errorString = SDL_GetError();
+@@ -978,6 +993,19 @@ void CApplication::VisualizerLoop(const char *caption)
+ #endif // SMART_RESIZE
+ 	if (viewDist == 0)
+ 		ResetView();			// may be initialized before VisualizerLoop call
++	// l2vzla: UMODEL_YAW/UMODEL_PITCH rotate the initial camera (degrees, added to defaults)
++	if (getenv("UMODEL_YAW") || getenv("UMODEL_PITCH") || getenv("UMODEL_DIST"))
++	{
++		if (const char* e = getenv("UMODEL_YAW"))   viewAngles[YAW]   += atof(e);
++		if (const char* e = getenv("UMODEL_PITCH")) viewAngles[PITCH] += atof(e);
++		if (const char* e = getenv("UMODEL_DIST"))  viewDist *= atof(e);
++		// recompute camera origin for the new angles (same math as FocusCameraOnPoint)
++		CAxis axis;
++		axis.FromEuler(viewAngles);
++		VectorScale(axis[0], -viewDist, viewOrigin);
++		viewOrigin.Add(rotOrigin);
++		viewOrigin.Add(viewOffset);
++	}
+ 	// main loop
+ 	SDL_Event evt;
+ 	bool disableUpdate = false;
+diff --git a/UmodelTool/Build.h b/UmodelTool/Build.h
+index ca68d1a..f755214 100644
+--- a/UmodelTool/Build.h
++++ b/UmodelTool/Build.h
+@@ -12,7 +12,8 @@
+ #include "GameDefines.h"
+ 
+ #ifdef __APPLE__
+-#undef RENDERING //todo?
++// l2vzla: RENDERING re-enabled on macOS (works with vendored SDL2 + legacy GL context).
++// THREADING stays disabled (not needed for rendering, untested on this port).
+ #undef THREADING //todo?
+ #endif
+ 
+diff --git a/UmodelTool/UmodelApp.cpp b/UmodelTool/UmodelApp.cpp
+index b62ac60..975ab8a 100644
+--- a/UmodelTool/UmodelApp.cpp
++++ b/UmodelTool/UmodelApp.cpp
+@@ -520,6 +520,39 @@ void CUmodelApp::BeforeSwap()
+ {
+ 	guard(CUmodelApp::BeforeSwap);
+ 
++	// l2vzla: headless batch capture — UMODEL_AUTOSHOT=N screenshots frame N and exits
++	static int autoShot = -1;
++	if (autoShot < 0)
++	{
++		const char* env = getenv("UMODEL_AUTOSHOT");
++		autoShot = env ? atoi(env) : 0;
++		if (env) appPrintf("UMODEL_AUTOSHOT: will screenshot at frame %d\n", autoShot);
++	}
++	if (autoShot > 0 && --autoShot == 0)
++	{
++		UObject *Obj = UObject::GObjObjects[ObjIndex];
++		TakeScreenshot(Obj->Name, false);
++		// l2vzla: UMODEL_SHOTALL=1 advances to the next SkeletalMesh and keeps shooting
++		if (getenv("UMODEL_SHOTALL"))
++		{
++			static TArray<const UObject*> shotObjects;
++			shotObjects.Add(Obj);
++			int n = UObject::GObjObjects.Num();
++			for (int i = 0; i < n; i++)
++			{
++				UObject *o = UObject::GObjObjects[i];
++				if (o && o->IsA("SkeletalMesh") && shotObjects.FindItem(o) < 0)
++				{
++					VisualizeObject(i);
++					autoShot = 5;	// settle a few frames before the next shot
++					return;
++				}
++			}
++		}
++		Exit();
++		return;
++	}
++
+ 	if (DoScreenshot)
+ 	{
+ 		// take regular screenshot
+diff --git a/Viewers/SkelMeshViewer.cpp b/Viewers/SkelMeshViewer.cpp
+index c14c7cf..0c208de 100644
+--- a/Viewers/SkelMeshViewer.cpp
++++ b/Viewers/SkelMeshViewer.cpp
+@@ -104,6 +104,26 @@ CSkelMeshViewer::CSkelMeshViewer(CSkeletalMesh* Mesh0, CApplication* Window)
+ 	if (AttachAnim)
+ 		SetAnim(AttachAnim);
+ 
++	// l2vzla: UMODEL_ANIM=<seq> starts looping the named sequence immediately (headless pose capture)
++	if (const char* seqName = getenv("UMODEL_ANIM"))
++	{
++		for (int i = 0; i < SkelInst->GetAnimCount(); i++)
++		{
++			const char* name = SkelInst->GetAnimName(i);
++			if (name && !stricmp(name, seqName))
++			{
++				AnimIndex = i;
++				SkelInst->LoopAnim(name);
++				for (CSkelMeshInstance* mesh : TaggedMeshes)
++					mesh->LoopAnim(name);
++				appPrintf("UMODEL_ANIM: playing %s\n", name);
++				break;
++			}
++		}
++		if (AnimIndex < 0)
++			appPrintf("WARNING: UMODEL_ANIM sequence '%s' not found\n", seqName);
++	}
++
+ 	// compute bounds for the current mesh
+ 	CVec3 Mins, Maxs;
+ 	if (Mesh0->Lods.Num())
+diff --git a/common.project b/common.project
+index 52522eb..1ef8b47 100644
+--- a/common.project
++++ b/common.project
+@@ -65,6 +65,7 @@ CPP_STD = c++14				# allow modern C++ features
+ 		STDLIBS += GL
+ 	!else
+ 		CPP_STD = c++2a									# https://github.com/gildor2/UEViewer/issues/183#issuecomment-846745134
++		LINKFLAGS += -framework OpenGL					# l2vzla: needed for RENDERING build on macOS
+ 	!endif
+ 
+ 	LIBC      = shared
+diff --git a/libs/SDL2/SDL2.project b/libs/SDL2/SDL2.project
+index 2462f5d..2100072 100644
+--- a/libs/SDL2/SDL2.project
++++ b/libs/SDL2/SDL2.project
+@@ -4,6 +4,14 @@
+ STDLIBS += SDL2		# disabled in macOS build
+ !endif
+ 
++!if "$PLATFORM" eq "osx"
++	# l2vzla: vendored SDL2 (built by tools/build-tools.sh into tools/vendor/SDL2)
++	INCLUDES += $R/../../vendor/SDL2/include
++	LIBRARIES += $R/../../vendor/SDL2/lib
++	STDLIBS += SDL2
++	LINKFLAGS += -Wl,-rpath,@executable_path/../vendor/SDL2/lib
++!endif
++
+ !if "$PLATFORM" eq "win32"
+ 	INCLUDES += $R/libs/includewin32
+ 	LIBRARIES += $R/libs/SDL2/x86

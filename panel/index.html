@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L2Vzla Panel</title>
+<style>
+:root {
+  --bg: #0b0e14;
+  --bg-panel: #11151f;
+  --bg-card: #151a26;
+  --bg-hover: #1a2030;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #e6e9f0;
+  --text-muted: #8b93a7;
+  --text-faint: #5d6579;
+  --accent: #e0a63c;
+  --accent-dim: rgba(224, 166, 60, 0.14);
+  --green: #3ecf8e;
+  --red: #f2555a;
+  --radius: 10px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+  overflow: hidden;
+}
+button { font-family: inherit; cursor: pointer; }
+
+/* ---------- Header ---------- */
+header {
+  height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.2px; }
+.brand h1 em { font-style: normal; color: var(--accent); }
+.brand .sub { font-size: 12px; color: var(--text-faint); }
+.status-pills { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0; transition: background .3s, box-shadow .3s; }
+.pill.online .dot { background: var(--green); box-shadow: 0 0 6px rgba(62, 207, 142, 0.7); }
+.pill.online { color: var(--text); }
+.pill.offline .dot { background: var(--red); box-shadow: 0 0 6px rgba(242, 85, 90, 0.6); }
+.pill.offline { color: var(--text); }
+
+/* Language toggle */
+.lang-toggle {
+  display: flex;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.lang-toggle button {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 11px;
+  letter-spacing: 0.4px;
+  transition: background .12s, color .12s;
+}
+.lang-toggle button + button { border-left: 1px solid var(--border-strong); }
+.lang-toggle button:hover { color: var(--text); background: var(--bg-hover); }
+.lang-toggle button.active { background: var(--accent-dim); color: var(--accent); }
+
+/* ---------- Layout ---------- */
+#app { display: flex; flex-direction: column; height: 100vh; }
+#body { display: flex; flex: 1; min-height: 0; }
+
+aside {
+  width: 272px;
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.search-wrap { padding: 14px 14px 10px; position: relative; }
+#search {
+  width: 100%;
+  padding: 9px 12px 9px 34px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color .15s;
+}
+#search:focus { border-color: var(--accent); }
+.search-wrap::before {
+  content: "";
+  position: absolute;
+  left: 26px; top: 50%;
+  width: 13px; height: 13px;
+  transform: translateY(-62%);
+  background: var(--text-faint);
+  -webkit-mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>') center/contain no-repeat;
+  mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>') center/contain no-repeat;
+  pointer-events: none;
+}
+#cat-list { flex: 1; overflow-y: auto; padding: 4px 8px 16px; }
+.cat-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: left;
+  transition: background .12s, color .12s;
+}
+.cat-item:hover { background: var(--bg-hover); color: var(--text); }
+.cat-item.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+.cat-item .count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-faint);
+  background: rgba(255,255,255,0.05);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-variant-numeric: tabular-nums;
+}
+.cat-item.active .count { color: var(--accent); background: rgba(224,166,60,0.12); }
+.cat-item.pinned { margin-bottom: 6px; border: 1px solid var(--border); background: var(--bg-card); }
+.cat-item.pinned.active { border-color: rgba(224,166,60,0.4); }
+.cat-sep { height: 1px; background: var(--border); margin: 6px 10px 10px; }
+
+main { flex: 1; overflow-y: auto; min-width: 0; padding: 26px 30px 120px; }
+.view-head { margin-bottom: 18px; }
+.view-head h2 { font-size: 20px; font-weight: 700; }
+.view-head p { color: var(--text-muted); font-size: 13px; margin-top: 3px; }
+
+/* ---------- Config cards ---------- */
+.cfg-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 13px 16px;
+  margin-bottom: 8px;
+  transition: border-color .15s, box-shadow .15s;
+  position: relative;
+}
+.cfg-row:hover { border-color: var(--border-strong); }
+.cfg-row.modified { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(224,166,60,0.35); }
+.cfg-row.modified::before {
+  content: "";
+  position: absolute;
+  left: -4px; top: 50%;
+  transform: translateY(-50%);
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.cfg-info { flex: 1; min-width: 0; }
+.cfg-label { font-weight: 600; font-size: 13.5px; }
+.cfg-label-sec { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+.badge-offdef {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: 1px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid rgba(224,166,60,0.35);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+.cfg-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  word-break: break-all;
+}
+.cfg-meta .file { color: var(--text-muted); }
+.cfg-default { font-size: 11.5px; color: var(--text-faint); margin-top: 4px; }
+.cfg-default code {
+  font-family: var(--mono);
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  border-radius: 4px;
+  padding: 0 5px;
+  word-break: break-all;
+}
+.cfg-desc { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+.cfg-control { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+
+/* Reset-to-default button */
+.reset-btn {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  transition: background .12s, color .12s;
+  flex-shrink: 0;
+}
+.reset-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--accent); border-color: rgba(224,166,60,0.4); }
+.reset-btn:disabled { opacity: 0.28; cursor: default; }
+.reset-btn.mini { width: 22px; height: 22px; font-size: 12px; border-radius: 6px; }
+
+/* Toggle switch */
+.toggle { position: relative; width: 42px; height: 24px; display: inline-block; }
+.toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle .track {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.12);
+  border-radius: 999px;
+  transition: background .18s;
+  cursor: pointer;
+}
+.toggle .track::after {
+  content: "";
+  position: absolute;
+  left: 3px; top: 3px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #d5d9e3;
+  transition: transform .18s, background .18s;
+}
+.toggle input:checked + .track { background: var(--accent); }
+.toggle input:checked + .track::after { transform: translateX(18px); background: #1a1408; }
+.toggle input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Inputs */
+.txt-input, .num-input {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: var(--mono);
+  outline: none;
+  transition: border-color .15s;
+}
+.txt-input { width: 300px; font-family: var(--font); }
+.num-input { width: 110px; text-align: right; }
+.txt-input:focus, .num-input:focus { border-color: var(--accent); }
+.stepper {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  transition: background .12s, color .12s;
+}
+.stepper:hover { background: var(--bg-hover); color: var(--text); }
+
+/* Geoengine region grid */
+.region-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 8px;
+}
+.region-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  transition: border-color .15s;
+}
+.region-chip:hover { border-color: var(--border-strong); }
+.region-chip.modified { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(224,166,60,0.35); }
+.region-chip .rid { font-family: var(--mono); font-size: 12px; color: var(--text-muted); margin-right: auto; }
+.region-chip.on .rid { color: var(--text); }
+.region-chip.off-default .rid::before {
+  content: "";
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+.region-chip .toggle { transform: scale(0.82); transform-origin: right center; }
+
+/* ---------- Save bar ---------- */
+#savebar {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translate(-50%, 80px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #1b2130;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 10px 14px 10px 18px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .25s cubic-bezier(.2,.9,.3,1.2), opacity .2s;
+  z-index: 50;
+}
+#savebar.visible { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+#savebar .n { font-size: 13px; color: var(--text); }
+#savebar .n b { color: var(--accent); }
+.btn {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.btn:hover { color: var(--text); background: var(--bg-hover); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #1a1408; }
+.btn.primary:hover { background: #f0b84e; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---------- Modal & toast ---------- */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(5, 7, 11, 0.7);
+  backdrop-filter: blur(3px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  padding: 26px 28px;
+  max-width: 460px;
+  width: calc(100% - 40px);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+}
+.modal h3 { font-size: 16px; margin-bottom: 10px; }
+.modal p { color: var(--text-muted); font-size: 13.5px; margin-bottom: 20px; white-space: pre-line; }
+.modal .actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+#toast {
+  position: fixed;
+  top: 70px; left: 50%;
+  transform: translate(-50%, -16px);
+  background: #1b2130;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 13px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  z-index: 120;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#toast.error { border-color: rgba(242,85,90,0.5); color: #ffb4b6; }
+#toast.ok { border-color: rgba(62,207,142,0.5); color: #a9ecd0; }
+
+/* ---------- Load / error states ---------- */
+#center-state {
+  position: fixed; inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--bg);
+  z-index: 90;
+  text-align: center;
+  padding: 20px;
+}
+#center-state.visible { display: flex; }
+.spinner {
+  width: 34px; height: 34px;
+  border: 3px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#center-state h2 { font-size: 17px; }
+#center-state p { color: var(--text-muted); font-size: 13px; max-width: 420px; }
+.empty-note { color: var(--text-faint); font-size: 13px; padding: 30px 0; text-align: center; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 5px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+
+@media (max-width: 860px) {
+  aside { width: 210px; }
+  main { padding: 18px 16px 120px; }
+  .txt-input { width: 180px; }
+  .cfg-row { flex-wrap: wrap; }
+  .brand .sub { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <h1>L2<em>Vzla</em> Panel</h1>
+      <span class="sub">aCis Interlude · rev 409</span>
+    </div>
+    <div class="status-pills">
+      <span class="pill" id="pill-login"><span class="dot"></span>Login server · <span class="st">…</span></span>
+      <span class="pill" id="pill-game"><span class="dot"></span>Game server · <span class="st">…</span></span>
+      <div class="lang-toggle" role="group" aria-label="Language / Idioma">
+        <button type="button" id="lang-en" class="active">EN</button>
+        <button type="button" id="lang-es">ES</button>
+      </div>
+    </div>
+  </header>
+  <div id="body">
+    <aside>
+      <div class="search-wrap">
+        <input id="search" type="search" placeholder="Search key, label or description…" autocomplete="off">
+      </div>
+      <nav id="cat-list"></nav>
+    </aside>
+    <main id="main"></main>
+  </div>
+</div>
+
+<div id="savebar">
+  <span class="n"><b id="chg-count">0</b> <span id="chg-label">unsaved changes</span></span>
+  <button class="btn" id="btn-discard">Discard</button>
+  <button class="btn primary" id="btn-save">Save</button>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="modal-title"></h3>
+    <p id="modal-msg"></p>
+    <div class="actions">
+      <button class="btn primary" id="modal-ok">Got it</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="center-state" class="visible">
+  <div class="spinner" id="cs-spinner"></div>
+  <h2 id="cs-title">Loading configuration…</h2>
+  <p id="cs-msg"></p>
+  <button class="btn" id="cs-retry" style="display:none">Retry</button>
+</div>
+
+<script>
+"use strict";
+
+/* ================= i18n ================= */
+var I18N = {
+  en: {
+    searchPh: "Search key, label or description…",
+    essentials: "Essentials",
+    essentialsSub: "The highest-impact server settings, grouped in one place.",
+    searchResults: "Search results",
+    keysFor: function (n, q) { return n + " key" + (n === 1 ? "" : "s") + " for “" + q + "”"; },
+    settingsCount: function (n) { return n + " setting" + (n === 1 ? "" : "s"); },
+    noKeys: "No settings found.",
+    regionsNote: "Each enabled region loads its geodata file. The server will not start if an enabled region's file is missing; disabled regions run in “allow all” mode (no pathfinding).",
+    unsaved: function (n) { return "unsaved change" + (n === 1 ? "" : "s"); },
+    save: "Save",
+    discard: "Discard",
+    ok: "Got it",
+    savedTitle: "Changes saved",
+    savedMsg: "Changes were saved. Most of them require a server restart to take effect.",
+    savedMsgFallback: "Changes were saved successfully. Remember to restart the server to apply them.",
+    saveErr: "Error saving: ",
+    discarded: "Changes discarded.",
+    loadTitle: "Loading configuration…",
+    loadFail: "Could not load the panel",
+    loadFailMsg: function (err) {
+      return "Error contacting the backend (" + err + "). Make sure server.py is running and try again.";
+    },
+    retry: "Retry",
+    online: "online",
+    offline: "offline",
+    unknown: "unknown",
+    defaultWord: "Default",
+    modifiedBadge: "Modified from default",
+    resetTitle: "Reset to default"
+  },
+  es: {
+    searchPh: "Buscar clave, etiqueta o descripción…",
+    essentials: "Esenciales",
+    essentialsSub: "Las claves de mayor impacto para el servidor, agrupadas en un solo lugar.",
+    searchResults: "Resultados de búsqueda",
+    keysFor: function (n, q) { return n + " clave" + (n === 1 ? "" : "s") + " para “" + q + "”"; },
+    settingsCount: function (n) { return n + " clave" + (n === 1 ? "" : "s"); },
+    noKeys: "No se encontraron claves.",
+    regionsNote: "Cada región activa carga su archivo de geodata. El servidor no arranca si falta alguna región activada; las desactivadas funcionan en modo «todo permitido» (sin pathfinding).",
+    unsaved: function (n) { return n === 1 ? "cambio sin guardar" : "cambios sin guardar"; },
+    save: "Guardar",
+    discard: "Descartar",
+    ok: "Entendido",
+    savedTitle: "Cambios guardados",
+    savedMsg: "Los cambios se guardaron. La mayoría requiere reiniciar el servidor para aplicarse.",
+    savedMsgFallback: "Los cambios se guardaron correctamente. Recuerda reiniciar el servidor para aplicarlos.",
+    saveErr: "Error al guardar: ",
+    discarded: "Cambios descartados.",
+    loadTitle: "Cargando configuración…",
+    loadFail: "No se pudo cargar el panel",
+    loadFailMsg: function (err) {
+      return "Error contactando con el backend (" + err + "). Comprueba que server.py está en ejecución y vuelve a intentarlo.";
+    },
+    retry: "Reintentar",
+    online: "en línea",
+    offline: "detenido",
+    unknown: "desconocido",
+    defaultWord: "Por defecto",
+    modifiedBadge: "Distinto del valor por defecto",
+    resetTitle: "Restablecer al valor por defecto"
+  }
+};
+function t(k) {
+  var v = I18N[state.lang][k];
+  if (typeof v === "function") return v.apply(null, Array.prototype.slice.call(arguments, 1));
+  return v;
+}
+
+/* ================= State ================= */
+var state = {
+  catalog: [],        // catalog entries
+  values: {},         // {"file:key": "rawvalue"} — /api/values always returns the 493 keys
+  defaults: {},       // {"file:key": "stock rawvalue"} — /api/defaults (empty if unavailable)
+  changes: new Map(), // id -> {file, key, value}
+  view: "esenciales", // "esenciales" | category name
+  search: "",
+  saving: false,
+  lang: (function () {
+    try { return localStorage.getItem("l2vzla-lang") === "es" ? "es" : "en"; }
+    catch (e) { return "en"; }
+  })()
+};
+
+var els = {
+  main: document.getElementById("main"),
+  catList: document.getElementById("cat-list"),
+  search: document.getElementById("search"),
+  savebar: document.getElementById("savebar"),
+  chgCount: document.getElementById("chg-count"),
+  chgLabel: document.getElementById("chg-label"),
+  overlay: document.getElementById("overlay"),
+  modalTitle: document.getElementById("modal-title"),
+  modalMsg: document.getElementById("modal-msg"),
+  toast: document.getElementById("toast"),
+  center: document.getElementById("center-state"),
+  csSpinner: document.getElementById("cs-spinner"),
+  csTitle: document.getElementById("cs-title"),
+  csMsg: document.getElementById("cs-msg"),
+  csRetry: document.getElementById("cs-retry")
+};
+
+/* Readable category names, bilingual (fallback: prettified id) */
+var CAT_NAMES = {
+  "ai":               { en: "NPC AI",            es: "IA de NPCs" },
+  "augmentation":     { en: "Augmentation",      es: "Augmentación" },
+  "buffer":           { en: "Buffer",            es: "Buffer" },
+  "buffs":            { en: "Buffs",             es: "Buffs" },
+  "clan-hall-siege":  { en: "Clan hall siege",   es: "Asedio de clan hall" },
+  "clans":            { en: "Clans & alliances", es: "Clanes y alianzas" },
+  "class-master":     { en: "Class Master",      es: "Class Master" },
+  "community":        { en: "Community",         es: "Comunidad" },
+  "crafting":         { en: "Crafting & shops",  es: "Crafteo y tiendas" },
+  "custom-mods":      { en: "Custom mods",       es: "Mods personalizados" },
+  "database":         { en: "Database",          es: "Base de datos" },
+  "debug":            { en: "Debug",             es: "Depuración" },
+  "dimension-rift":   { en: "Dimensional Rift",  es: "Rift dimensional" },
+  "enchant":          { en: "Enchanting",        es: "Encantamiento" },
+  "features":         { en: "Server features",   es: "Funciones del servidor" },
+  "fishing":          { en: "Fishing",           es: "Pesca" },
+  "flood-protection": { en: "Flood protection",  es: "Protección anti-flood" },
+  "four-sepulchers":  { en: "Four Sepulchers",   es: "Cuatro Sepulcros" },
+  "gameplay":         { en: "Gameplay",          es: "Jugabilidad" },
+  "geoengine":        { en: "Geoengine",         es: "Geoengine" },
+  "geoengine-regions":{ en: "Geodata regions",   es: "Regiones de geodata" },
+  "gm-admin":         { en: "GM & admin",        es: "GM / administración" },
+  "grand-bosses":     { en: "Grand bosses",      es: "Grand bosses" },
+  "inventory":        { en: "Inventory",         es: "Inventario" },
+  "items":            { en: "Items",             es: "Ítems" },
+  "karma-pvp":        { en: "Karma & PvP",       es: "Karma y PvP" },
+  "logging":          { en: "Logging",           es: "Registros (logs)" },
+  "login":            { en: "Login",             es: "Login" },
+  "lottery":          { en: "Lottery",           es: "Lotería" },
+  "manor":            { en: "Manor",             es: "Manor" },
+  "misc":             { en: "Misc",              es: "Varios" },
+  "network":          { en: "Network",           es: "Red" },
+  "npcs":             { en: "NPCs",              es: "NPCs" },
+  "olympiad":         { en: "Olympiad",          es: "Olimpiada" },
+  "party":            { en: "Party",             es: "Party" },
+  "petitions":        { en: "Petitions",         es: "Peticiones" },
+  "players":          { en: "Players",           es: "Jugadores" },
+  "raid-bosses":      { en: "Raid bosses",       es: "Raid bosses" },
+  "rates":            { en: "Rates",             es: "Rates" },
+  "security":         { en: "Security",          es: "Seguridad" },
+  "server-list":      { en: "Server list",       es: "Lista de servidores" },
+  "seven-signs":      { en: "Seven Signs",       es: "Seven Signs" },
+  "siege":            { en: "Castle sieges",     es: "Asedios de castillo" },
+  "skills-classes":   { en: "Skills & classes",  es: "Skills y clases" },
+  "spawns":           { en: "Spawns",            es: "Spawns" },
+  "wedding":          { en: "Weddings",          es: "Bodas" },
+  "wyvern":           { en: "Wyvern",            es: "Wyvern" }
+};
+function catName(id) {
+  var m = CAT_NAMES[id];
+  if (m) return m[state.lang] || m.en;
+  return id.replace(/-/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+}
+
+/* ================= Utilities ================= */
+function eid(e) { return e.file + ":" + e.key; }
+
+/* Effective original value: /api/values wins; falls back to the catalog value. */
+function originalValue(e) {
+  var id = eid(e);
+  if (Object.prototype.hasOwnProperty.call(state.values, id)) return state.values[id];
+  return e.value;
+}
+/* Current value (pending changes applied). */
+function currentValue(e) {
+  var id = eid(e);
+  if (state.changes.has(id)) return state.changes.get(id).value;
+  return originalValue(e);
+}
+/* Stock default value, or undefined when /api/defaults has no entry. */
+function defaultOf(e) {
+  var id = eid(e);
+  if (Object.prototype.hasOwnProperty.call(state.defaults, id)) return state.defaults[id];
+  return undefined;
+}
+/* bool: backend returns "True"/"False" (and regions "true"/"false"); any case accepted. */
+function boolOf(v) {
+  if (typeof v === "boolean") return v;
+  return /^t(rue)?$/i.test(String(v).trim());
+}
+/* Type-aware equality between two raw values. */
+function sameVal(e, a, b) {
+  if (e.type === "bool") return boolOf(a) === boolOf(b);
+  return String(a) === String(b);
+}
+/* Whether the CURRENT SAVED value differs from the stock default. */
+function differsFromDefault(e) {
+  var d = defaultOf(e);
+  if (d === undefined) return false;
+  return !sameVal(e, originalValue(e), d);
+}
+
+/* ================= API ================= */
+function api(path, opts) {
+  return fetch(path, opts).then(function (r) {
+    if (!r.ok) throw new Error("HTTP " + r.status + " en " + path);
+    return r.json();
+  });
+}
+/* Defaults are optional: an old backend (404) or missing data file (503)
+   must not break the panel — the default/reset UI just stays hidden. */
+function apiDefaults() {
+  return api("/api/defaults").then(function (d) {
+    return (d && typeof d === "object" && !Array.isArray(d)) ? d : {};
+  }).catch(function () { return {}; });
+}
+
+/* ================= Render: sidebar ================= */
+function visibleCatalog() {
+  return state.catalog.filter(function (e) { return !e.dead; });
+}
+function categories() {
+  var seen = new Map();
+  visibleCatalog().forEach(function (e) {
+    seen.set(e.category, (seen.get(e.category) || 0) + 1);
+  });
+  return Array.from(seen.entries()); // [category, count] in order of appearance
+}
+function esenciales() {
+  /* priority:true, deduplicated by key name (the same key may exist in
+     several files; the first one is kept). */
+  var seen = new Set(), out = [];
+  visibleCatalog().forEach(function (e) {
+    if (e.priority && !seen.has(e.key)) { seen.add(e.key); out.push(e); }
+  });
+  return out;
+}
+
+function renderSidebar() {
+  var html = "";
+  var ess = esenciales();
+  html += '<button class="cat-item pinned' + (state.view === "esenciales" ? " active" : "") +
+    '" data-view="esenciales">★ ' + esc(t("essentials")) + '<span class="count">' + ess.length + "</span></button>";
+  html += '<div class="cat-sep"></div>';
+  categories().forEach(function (pair) {
+    var cat = pair[0], count = pair[1];
+    html += '<button class="cat-item' + (state.view === cat ? " active" : "") +
+      '" data-view="' + esc(cat) + '">' + esc(catName(cat)) +
+      '<span class="count">' + count + "</span></button>";
+  });
+  els.catList.innerHTML = html;
+}
+
+/* ================= Render: main view ================= */
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+/* Primary label follows the active language; secondary line shows the other one. */
+function labelPrimary(e) {
+  if (state.lang === "es") return e.label_es || e.label_en || e.key;
+  return e.label_en || e.label_es || e.key;
+}
+function labelSecondary(e) {
+  var en = e.label_en, es = e.label_es;
+  if (!en || !es || en === es) return null;
+  return state.lang === "es" ? en : es;
+}
+
+function matchesSearch(e, q) {
+  q = q.toLowerCase();
+  return ((e.label_en || "") + " " + (e.label_es || "") + " " + e.key + " " + e.file + " " + (e.description || ""))
+    .toLowerCase().indexOf(q) !== -1;
+}
+
+function controlHtml(e) {
+  var id = eid(e), v = currentValue(e);
+  if (e.type === "bool") {
+    return '<label class="toggle"><input type="checkbox" data-id="' + esc(id) + '" data-type="bool"' +
+      (boolOf(v) ? " checked" : "") + '><span class="track"></span></label>';
+  }
+  if (e.type === "int" || e.type === "float") {
+    var step = e.type === "int" ? "1" : "any";
+    return '<button class="stepper" data-step="-1" data-id="' + esc(id) + '" data-type="' + e.type + '">−</button>' +
+      '<input class="num-input" type="number" step="' + step + '" data-id="' + esc(id) + '" data-type="' + e.type +
+      '" value="' + esc(v) + '">' +
+      '<button class="stepper" data-step="1" data-id="' + esc(id) + '" data-type="' + e.type + '">+</button>';
+  }
+  return '<input class="txt-input" type="text" data-id="' + esc(id) + '" data-type="string" value="' + esc(v) + '">';
+}
+
+function resetBtnHtml(e, mini) {
+  var d = defaultOf(e);
+  if (d === undefined) return "";
+  var dis = sameVal(e, currentValue(e), d);
+  return '<button type="button" class="reset-btn' + (mini ? " mini" : "") + '" data-reset="' + esc(eid(e)) +
+    '" title="' + esc(t("resetTitle")) + '"' + (dis ? " disabled" : "") + '>↺</button>';
+}
+
+function rowHtml(e) {
+  var id = eid(e), mod = state.changes.has(id);
+  var sec = labelSecondary(e);
+  var d = defaultOf(e);
+  var badge = differsFromDefault(e)
+    ? '<span class="badge-offdef">' + esc(t("modifiedBadge")) + "</span>" : "";
+  var secLine = sec ? '<div class="cfg-label-sec">' + esc(sec) + "</div>" : "";
+  var defLine = d === undefined ? "" :
+    '<div class="cfg-default">' + esc(t("defaultWord")) + ': <code>' + esc(d) + "</code></div>";
+  var desc = e.description ? '<div class="cfg-desc">' + esc(e.description) + "</div>" : "";
+  return '<div class="cfg-row' + (mod ? " modified" : "") + '" data-row="' + esc(id) + '">' +
+    '<div class="cfg-info">' +
+      '<div class="cfg-label">' + esc(labelPrimary(e)) + badge + "</div>" +
+      secLine +
+      '<div class="cfg-meta">' + esc(e.key) + ' · <span class="file">' + esc(e.file) + "</span></div>" +
+      defLine +
+      desc +
+    "</div>" +
+    '<div class="cfg-control">' + resetBtnHtml(e) + controlHtml(e) + "</div>" +
+  "</div>";
+}
+
+function regionChipHtml(e) {
+  var id = eid(e), on = boolOf(currentValue(e)), mod = state.changes.has(id);
+  var d = defaultOf(e);
+  var title = e.description || "";
+  if (d !== undefined) title += (title ? "\n" : "") + t("defaultWord") + ": " + d;
+  return '<div class="region-chip' + (on ? " on" : "") + (mod ? " modified" : "") +
+    (differsFromDefault(e) ? " off-default" : "") + '" data-row="' + esc(id) + '" title="' + esc(title) + '">' +
+    '<span class="rid">' + esc(e.key) + "</span>" +
+    resetBtnHtml(e, true) +
+    '<label class="toggle"><input type="checkbox" data-id="' + esc(id) + '" data-type="bool"' + (on ? " checked" : "") + '><span class="track"></span></label>' +
+  "</div>";
+}
+
+function renderMain() {
+  var q = state.search.trim(), entries, title, subtitle;
+
+  if (q) {
+    entries = visibleCatalog().filter(function (e) { return matchesSearch(e, q); });
+    title = t("searchResults");
+    subtitle = t("keysFor", entries.length, q);
+  } else if (state.view === "esenciales") {
+    entries = esenciales();
+    title = t("essentials");
+    subtitle = t("essentialsSub");
+  } else {
+    entries = visibleCatalog().filter(function (e) { return e.category === state.view; });
+    title = catName(state.view);
+    subtitle = state.view + " · " + t("settingsCount", entries.length);
+  }
+
+  var html = '<div class="view-head"><h2>' + esc(title) + "</h2><p>" + esc(subtitle) + "</p></div>";
+  if (!entries.length) {
+    html += '<div class="empty-note">' + esc(t("noKeys")) + "</div>";
+  } else if (!q && state.view === "geoengine-regions") {
+    html += '<div class="view-head" style="margin:-8px 0 12px"><p>' + esc(t("regionsNote")) + "</p></div>";
+    html += '<div class="region-grid">' + entries.map(regionChipHtml).join("") + "</div>";
+  } else {
+    html += entries.map(rowHtml).join("");
+  }
+  els.main.innerHTML = html;
+}
+
+function renderAll() { renderSidebar(); renderMain(); updateSavebar(); }
+
+/* ================= Pending changes ================= */
+function entryById(id) {
+  for (var i = 0; i < state.catalog.length; i++) {
+    if (eid(state.catalog[i]) === id) return state.catalog[i];
+  }
+  return null;
+}
+
+function setValue(id, newVal) {
+  var e = entryById(id);
+  if (!e) return;
+  var orig = originalValue(e);
+  var same;
+  if (e.type === "bool") same = boolOf(orig) === boolOf(newVal);
+  else same = String(orig) === String(newVal);
+  if (same) state.changes.delete(id);
+  else state.changes.set(id, { file: e.file, key: e.key, value: String(newVal) });
+  refreshRow(id);
+  updateSavebar();
+}
+
+/* Repaint only the affected row (modified state / chip on / reset button). */
+function refreshRow(id) {
+  var row = els.main.querySelector('[data-row="' + cssEscape(id) + '"]');
+  if (!row) return;
+  var e = entryById(id);
+  var mod = state.changes.has(id);
+  row.classList.toggle("modified", mod);
+  if (row.classList.contains("region-chip")) row.classList.toggle("on", boolOf(currentValue(e)));
+  var rb = row.querySelector("[data-reset]");
+  if (rb) {
+    var d = defaultOf(e);
+    rb.disabled = d === undefined || sameVal(e, currentValue(e), d);
+  }
+}
+function cssEscape(s) {
+  if (window.CSS && CSS.escape) return CSS.escape(s);
+  return s.replace(/"/g, '\\"');
+}
+
+function updateSavebar() {
+  var n = state.changes.size;
+  els.chgCount.textContent = n;
+  els.chgLabel.textContent = t("unsaved", n);
+  els.savebar.classList.toggle("visible", n > 0);
+}
+
+/* ================= Language ================= */
+function applyLang() {
+  document.documentElement.lang = state.lang;
+  els.search.placeholder = t("searchPh");
+  document.getElementById("btn-discard").textContent = t("discard");
+  document.getElementById("btn-save").textContent = t("save");
+  document.getElementById("modal-ok").textContent = t("ok");
+  els.csRetry.textContent = t("retry");
+  document.getElementById("lang-en").classList.toggle("active", state.lang === "en");
+  document.getElementById("lang-es").classList.toggle("active", state.lang === "es");
+  renderAll();
+  pollStatus();
+}
+function setLang(lang) {
+  if (lang !== "en" && lang !== "es") return;
+  state.lang = lang;
+  try { localStorage.setItem("l2vzla-lang", lang); } catch (e) { /* private mode */ }
+  applyLang();
+}
+document.getElementById("lang-en").addEventListener("click", function () { setLang("en"); });
+document.getElementById("lang-es").addEventListener("click", function () { setLang("es"); });
+
+/* ================= Events ================= */
+els.catList.addEventListener("click", function (ev) {
+  var btn = ev.target.closest(".cat-item");
+  if (!btn) return;
+  state.view = btn.getAttribute("data-view");
+  state.search = "";
+  els.search.value = "";
+  renderAll();
+  els.main.scrollTop = 0;
+});
+
+els.search.addEventListener("input", function () {
+  state.search = els.search.value;
+  renderMain();
+});
+
+els.main.addEventListener("change", function (ev) {
+  var el = ev.target;
+  var id = el.getAttribute("data-id");
+  if (!id) return;
+  var type = el.getAttribute("data-type");
+  if (type === "bool") {
+    setValue(id, el.checked ? "True" : "False");
+  } else {
+    setValue(id, el.value);
+  }
+});
+els.main.addEventListener("input", function (ev) {
+  var el = ev.target;
+  if (!el.getAttribute("data-id") || el.type === "checkbox") return;
+  setValue(el.getAttribute("data-id"), el.value);
+});
+els.main.addEventListener("click", function (ev) {
+  /* Reset-to-default button (rows and region chips). */
+  var rbtn = ev.target.closest("[data-reset]");
+  if (rbtn) {
+    var rid = rbtn.getAttribute("data-reset");
+    var re = entryById(rid);
+    if (!re) return;
+    var d = defaultOf(re);
+    if (d === undefined) return;
+    var input = els.main.querySelector('[data-id="' + cssEscape(rid) + '"]');
+    if (input) {
+      if (input.type === "checkbox") input.checked = boolOf(d);
+      else input.value = d;
+    }
+    setValue(rid, d);
+    return;
+  }
+  var btn = ev.target.closest(".stepper");
+  if (!btn) return;
+  var id = btn.getAttribute("data-id"), type = btn.getAttribute("data-type");
+  var numInput = els.main.querySelector('input.num-input[data-id="' + cssEscape(id) + '"]');
+  if (!numInput) return;
+  var cur = parseFloat(numInput.value);
+  if (isNaN(cur)) cur = 0;
+  var delta = parseFloat(btn.getAttribute("data-step"));
+  var next = cur + delta;
+  var val = type === "int" ? String(Math.round(next)) : String(Math.round(next * 1000) / 1000);
+  numInput.value = val;
+  setValue(id, val);
+});
+
+document.getElementById("btn-discard").addEventListener("click", function () {
+  state.changes.clear();
+  renderAll();
+  toast(t("discarded"), "ok");
+});
+
+document.getElementById("btn-save").addEventListener("click", function () {
+  if (state.saving || !state.changes.size) return;
+  state.saving = true;
+  var payload = { changes: Array.from(state.changes.values()) };
+  api("/api/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  }).then(function (res) {
+    return api("/api/values").then(function (values) {
+      state.values = values || {};
+      state.changes.clear();
+      renderAll();
+      return api("/api/restart-hint", { method: "POST" }).then(function (hint) {
+        showModal(t("savedTitle"), (hint && hint.message) || t("savedMsg"));
+      }).catch(function () {
+        showModal(t("savedTitle"), t("savedMsgFallback"));
+      });
+    });
+  }).catch(function (err) {
+    toast(t("saveErr") + err.message, "error");
+  }).then(function () {
+    state.saving = false;
+  });
+});
+
+document.getElementById("modal-ok").addEventListener("click", function () {
+  els.overlay.classList.remove("open");
+});
+
+window.addEventListener("beforeunload", function (ev) {
+  if (state.changes.size) { ev.preventDefault(); ev.returnValue = ""; }
+});
+
+/* ================= Modal / toast ================= */
+function showModal(title, msg) {
+  els.modalTitle.textContent = title;
+  els.modalMsg.textContent = msg;
+  els.overlay.classList.add("open");
+}
+var toastTimer = null;
+function toast(msg, kind) {
+  els.toast.textContent = msg;
+  els.toast.className = "show " + (kind || "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { els.toast.className = ""; }, 3800);
+}
+
+/* ================= Service status ================= */
+function updatePill(el, svc) {
+  var st = el.querySelector(".st");
+  if (!svc || typeof svc.running === "undefined") {
+    el.className = "pill"; st.textContent = t("unknown"); return;
+  }
+  var up = svc.running && svc.port_open;
+  el.className = "pill " + (up ? "online" : "offline");
+  st.textContent = up ? t("online") : t("offline");
+}
+function pollStatus() {
+  api("/api/status").then(function (s) {
+    updatePill(document.getElementById("pill-login"), s.loginserver);
+    updatePill(document.getElementById("pill-game"), s.gameserver);
+  }).catch(function () {
+    updatePill(document.getElementById("pill-login"), null);
+    updatePill(document.getElementById("pill-game"), null);
+  });
+}
+setInterval(pollStatus, 15000);
+pollStatus();
+
+/* ================= Initial load ================= */
+function load() {
+  els.center.classList.add("visible");
+  els.csSpinner.style.display = "";
+  els.csTitle.textContent = t("loadTitle");
+  els.csMsg.textContent = "";
+  els.csRetry.style.display = "none";
+  Promise.all([api("/api/catalog"), api("/api/values"), apiDefaults()]).then(function (res) {
+    state.catalog = res[0] || [];
+    state.values = res[1] || {};
+    state.defaults = res[2] || {};
+    els.center.classList.remove("visible");
+    renderAll();
+  }).catch(function (err) {
+    els.csSpinner.style.display = "none";
+    els.csTitle.textContent = t("loadFail");
+    els.csMsg.textContent = t("loadFailMsg", err.message);
+    els.csRetry.style.display = "";
+  });
+}
+els.csRetry.addEventListener("click", load);
+applyLang(); // paints static chrome in the persisted language before data arrives
+load();
+</script>
+</body>
+</html>

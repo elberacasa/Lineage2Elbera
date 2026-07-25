@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L2Vzla Asset Editor</title>
+<style>
+:root {
+  --bg: #0b0e14;
+  --bg-panel: #11151f;
+  --bg-card: #151a26;
+  --bg-hover: #1a2030;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #e6e9f0;
+  --text-muted: #8b93a7;
+  --text-faint: #5d6579;
+  --accent: #e0a63c;
+  --accent-dim: rgba(224, 166, 60, 0.14);
+  --green: #3ecf8e;
+  --red: #f2555a;
+  --radius: 10px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+  overflow: hidden;
+}
+button { font-family: inherit; cursor: pointer; }
+
+/* ---------- Header ---------- */
+header {
+  height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.2px; }
+.brand h1 em { font-style: normal; color: var(--accent); }
+.brand .sub { font-size: 12px; color: var(--text-faint); }
+.status-pills { margin-left: auto; display: flex; gap: 10px; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0; }
+.pill.online .dot { background: var(--green); box-shadow: 0 0 6px rgba(62, 207, 142, 0.7); }
+.pill.online { color: var(--text); }
+.pill.offline .dot { background: var(--red); box-shadow: 0 0 6px rgba(242, 85, 90, 0.6); }
+.pill.offline { color: var(--text); }
+.pill.warn .dot { background: var(--accent); box-shadow: 0 0 6px rgba(224, 166, 60, 0.6); }
+.pill.warn { color: var(--text); }
+
+/* ---------- Layout ---------- */
+#app { display: flex; flex-direction: column; height: 100vh; }
+#body { display: flex; flex: 1; min-height: 0; }
+
+aside {
+  width: 288px;
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.section-label {
+  padding: 12px 14px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.root-form { display: flex; gap: 6px; padding: 0 14px 10px; }
+.root-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--mono);
+  outline: none;
+}
+.root-form input:focus { border-color: var(--accent); }
+.btn {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background .12s, border-color .12s;
+}
+.btn:hover { background: var(--bg-hover); }
+.btn.primary { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.btn.primary:hover { background: rgba(224, 166, 60, 0.25); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.search-wrap { padding: 4px 14px 10px; }
+#search {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+#search:focus { border-color: var(--accent); }
+#pkg-list { flex: 1; overflow-y: auto; padding: 4px 8px 16px; }
+.pkg-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: left;
+  transition: background .12s, color .12s;
+}
+.pkg-item:hover { background: var(--bg-hover); color: var(--text); }
+.pkg-item.active { background: var(--accent-dim); color: var(--accent); }
+.pkg-item .name { display: block; font-family: var(--mono); font-size: 12.5px; }
+.pkg-item .meta { display: block; font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+.pkg-empty { padding: 18px 14px; font-size: 12.5px; color: var(--text-faint); line-height: 1.6; }
+.pkg-empty code { font-family: var(--mono); color: var(--text-muted); }
+
+/* ---------- Main ---------- */
+main { flex: 1; overflow-y: auto; padding: 18px 22px; min-width: 0; }
+.main-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.main-head h2 { font-size: 16px; font-weight: 700; font-family: var(--mono); }
+.main-head .hint { font-size: 12px; color: var(--text-faint); }
+#tex-filter {
+  margin-left: auto;
+  padding: 7px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  width: 220px;
+}
+#tex-filter:focus { border-color: var(--accent); }
+.placeholder {
+  margin-top: 80px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.placeholder .big { font-size: 15px; color: var(--text-muted); font-weight: 600; }
+#grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 14px;
+}
+.tex-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .12s, transform .12s;
+}
+.tex-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.tex-card .thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  background:
+    repeating-conic-gradient(#1a2030 0% 25%, #11151f 0% 50%) 50% / 16px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tex-card .thumb img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+.tex-card .label {
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spinner-note { padding: 30px 0; color: var(--text-faint); font-size: 13px; }
+
+/* ---------- Modal ---------- */
+#modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 10, 0.78);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 30px;
+}
+#modal-backdrop.open { display: flex; }
+#modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  max-width: 1060px;
+  max-height: 100%;
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+}
+#modal .view {
+  background:
+    repeating-conic-gradient(#161b28 0% 25%, #0e121c 0% 50%) 50% / 20px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 320px;
+  max-width: 640px;
+}
+#modal .view img { max-width: 100%; max-height: 76vh; object-fit: contain; image-rendering: pixelated; }
+#modal .side {
+  width: 300px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+#modal .side h3 { font-size: 15px; font-family: var(--mono); word-break: break-all; }
+.kv { font-size: 12px; color: var(--text-muted); }
+.kv b { color: var(--text-faint); font-weight: 600; display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 2px; }
+.kv code { font-family: var(--mono); color: var(--text); word-break: break-all; }
+.replace-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  background: var(--bg-card);
+}
+.replace-box h4 { font-size: 12.5px; margin-bottom: 4px; }
+.replace-box .es { font-size: 11px; color: var(--text-faint); margin-bottom: 10px; }
+.replace-box input[type=file] {
+  width: 100%;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.notice {
+  border: 1px solid rgba(224, 166, 60, 0.4);
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.notice.error { border-color: rgba(242, 85, 90, 0.45); background: rgba(242, 85, 90, 0.12); color: var(--red); }
+.notice.ok { border-color: rgba(62, 207, 142, 0.45); background: rgba(62, 207, 142, 0.1); color: var(--green); }
+.modal-close {
+  align-self: flex-end;
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+}
+.modal-close:hover { color: var(--text); }
+#toast {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 12.5px;
+  display: none;
+  z-index: 100;
+  max-width: 70vw;
+}
+#toast.show { display: block; }
+#toast.error { border-color: rgba(242, 85, 90, 0.5); color: var(--red); }
+#toast.ok { border-color: rgba(62, 207, 142, 0.5); color: var(--green); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <h1>L2Vzla <em>Asset Editor</em></h1>
+      <span class="sub">Editor de assets · Lineage 2 Interlude · Phase A spike</span>
+    </div>
+    <div class="status-pills">
+      <span class="pill" id="pill-umodel"><span class="dot"></span>umodel</span>
+      <span class="pill" id="pill-writer"><span class="dot"></span>writer</span>
+      <span class="pill" id="pill-root" title=""><span class="dot"></span><span id="pill-root-text"></span></span>
+    </div>
+  </header>
+  <div id="body">
+    <aside>
+      <div class="section-label">Asset root / Carpeta de assets</div>
+      <div class="root-form">
+        <input id="asset-root" type="text" spellcheck="false" placeholder="tools/samples">
+        <button class="btn" id="set-root">Set</button>
+      </div>
+      <div class="section-label">Packages / Paquetes .utx</div>
+      <div class="search-wrap">
+        <input id="search" type="text" placeholder="Filter packages…">
+      </div>
+      <div id="pkg-list"></div>
+    </aside>
+    <main>
+      <div class="main-head">
+        <h2 id="pkg-title">—</h2>
+        <span class="hint" id="pkg-hint"></span>
+        <input id="tex-filter" type="text" placeholder="Filter textures…" style="display:none">
+      </div>
+      <div id="content">
+        <div class="placeholder">
+          <p class="big">Select a .utx package on the left</p>
+          <p>Selecciona un paquete .utx a la izquierda para ver sus texturas.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="modal-backdrop">
+  <div id="modal">
+    <div class="view"><img id="modal-img" alt=""></div>
+    <div class="side">
+      <button class="modal-close" id="modal-close" title="Close">✕</button>
+      <h3 id="modal-name"></h3>
+      <div class="kv"><b>Package</b><code id="modal-pkg"></code></div>
+      <div class="kv"><b>Serialized size</b><span id="modal-size"></span></div>
+      <div class="replace-box">
+        <h4>Replace texture</h4>
+        <div class="es">Reemplazar textura (PNG, mismas dimensiones) · Phase B</div>
+        <div id="writer-notice"></div>
+        <input type="file" id="replace-file" accept="image/png">
+        <button class="btn primary" id="replace-btn" style="width:100%">Replace in package</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+const state = {
+  config: null,
+  packages: [],
+  currentPkg: null,      // relPath
+  textures: [],          // [{name, size, hasThumb}]
+  writerReady: false,
+  pendingFile: null,
+};
+
+const $ = (id) => document.getElementById(id);
+
+function toast(msg, kind) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.className = "show " + (kind || "");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.className = ""; }, 4200);
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* image endpoints etc. */ }
+  if (!res.ok) {
+    const err = new Error((data && data.error) || ("HTTP " + res.status));
+    err.status = res.status;
+    err.code = data && data.code;
+    throw err;
+  }
+  return data;
+}
+
+function fmtBytes(n) {
+  if (n == null) return "—";
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+  return (n / 1024 / 1024).toFixed(2) + " MB";
+}
+
+function setPill(id, cls, text) {
+  const el = $(id);
+  el.className = "pill " + cls;
+  const label = el.querySelector("span:last-child");
+  if (label && label.className !== "dot") label.textContent = text;
+  else el.childNodes[1].textContent = text;
+}
+
+/* ---------- config / header ---------- */
+
+async function loadConfig() {
+  const cfg = await api("/api/config");
+  state.config = cfg;
+  state.writerReady = !!cfg.writerReady;
+  setPill("pill-umodel", cfg.umodelReady ? "online" : "offline",
+    cfg.umodelReady ? "umodel ready" : "umodel missing");
+  setPill("pill-writer", cfg.writerReady ? "online" : "warn",
+    cfg.writerReady ? "writer ready" : "writer not ready");
+  const rootText = cfg.assetRoot + (cfg.assetRootExists ? "" : " (missing)");
+  setPill("pill-root", cfg.assetRootExists ? "online" : "offline", rootText);
+  $("pill-root").title = cfg.assetRootAbs;
+  $("asset-root").value = cfg.assetRoot;
+  renderWriterNotice();
+}
+
+async function setAssetRoot() {
+  const raw = $("asset-root").value.trim();
+  try {
+    await api("/api/config", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({assetRoot: raw}),
+    });
+    state.currentPkg = null;
+    await loadConfig();
+    await loadPackages();
+    showPlaceholder();
+    toast("Asset root updated / Carpeta actualizada", "ok");
+  } catch (err) {
+    toast("Could not set asset root: " + err.message, "error");
+  }
+}
+
+/* ---------- package list ---------- */
+
+async function loadPackages() {
+  const data = await api("/api/packages");
+  state.packages = data.packages;
+  renderPackages();
+}
+
+function renderPackages() {
+  const filter = $("search").value.toLowerCase();
+  const list = $("pkg-list");
+  list.innerHTML = "";
+  const visible = state.packages.filter(p =>
+    p.relPath.toLowerCase().includes(filter));
+  if (!state.packages.length) {
+    const root = state.config ? state.config.assetRootAbs : "";
+    list.innerHTML =
+      '<div class="pkg-empty">No .utx packages found under<br><code>' +
+      escapeHtml(root) + '</code>.<br><br>' +
+      'Copy your client files into <code>assets/interlude/</code> ' +
+      'or point the asset root elsewhere.<br><br>' +
+      '<span style="color:var(--text-faint)">No se encontraron paquetes .utx; ' +
+      'la carpeta está vacía o no existe.</span></div>';
+    return;
+  }
+  for (const pkg of visible) {
+    const btn = document.createElement("button");
+    btn.className = "pkg-item" + (pkg.relPath === state.currentPkg ? " active" : "");
+    btn.innerHTML =
+      '<span class="name"></span><span class="meta">' +
+      fmtBytes(pkg.sizeBytes) + '</span>';
+    btn.querySelector(".name").textContent = pkg.relPath;
+    btn.addEventListener("click", () => selectPackage(pkg.relPath));
+    list.appendChild(btn);
+  }
+}
+
+function showPlaceholder() {
+  $("pkg-title").textContent = "—";
+  $("pkg-hint").textContent = "";
+  $("tex-filter").style.display = "none";
+  $("content").innerHTML =
+    '<div class="placeholder"><p class="big">Select a .utx package on the left</p>' +
+    '<p>Selecciona un paquete .utx a la izquierda para ver sus texturas.</p></div>';
+}
+
+/* ---------- textures ---------- */
+
+async function selectPackage(relPath) {
+  state.currentPkg = relPath;
+  renderPackages();
+  $("pkg-title").textContent = relPath;
+  $("pkg-hint").textContent = "loading texture list…";
+  $("tex-filter").style.display = "none";
+  $("content").innerHTML = '<div class="spinner-note">Running umodel -list…</div>';
+  try {
+    const contents = await api("/api/contents?pkg=" + encodeURIComponent(relPath));
+    const n = contents.textures.length;
+    $("pkg-hint").textContent =
+      n + " textures · ver " + (contents.info.ver ?? "?") +
+      (contents.cachedAt ? " · cached " + contents.cachedAt : "");
+    $("content").innerHTML =
+      '<div class="spinner-note">Exporting package and building thumbnails ' +
+      '(first open only; results are cached)…</div>';
+    const thumbs = await api("/api/thumbs?pkg=" + encodeURIComponent(relPath));
+    state.textures = thumbs.textures;
+    $("tex-filter").style.display = "";
+    renderGrid();
+  } catch (err) {
+    $("pkg-hint").textContent = "";
+    $("content").innerHTML =
+      '<div class="placeholder"><p class="big">Failed to load package</p><p>' +
+      escapeHtml(err.message) + "</p></div>";
+  }
+}
+
+function renderGrid() {
+  const filter = $("tex-filter").value.toLowerCase();
+  const grid = document.createElement("div");
+  grid.id = "grid";
+  const visible = state.textures.filter(t =>
+    t.name.toLowerCase().includes(filter));
+  if (!visible.length) {
+    $("content").innerHTML =
+      '<div class="placeholder"><p class="big">No textures match</p></div>';
+    return;
+  }
+  for (const tex of visible) {
+    const card = document.createElement("div");
+    card.className = "tex-card";
+    const img = document.createElement("img");
+    img.loading = "lazy";
+    img.src = "/api/image?pkg=" + encodeURIComponent(state.currentPkg) +
+      "&name=" + encodeURIComponent(tex.name) + "&kind=thumb";
+    img.alt = tex.name;
+    const thumb = document.createElement("div");
+    thumb.className = "thumb";
+    thumb.appendChild(img);
+    const label = document.createElement("div");
+    label.className = "label";
+    label.textContent = tex.name;
+    label.title = tex.name + " · " + fmtBytes(tex.size);
+    card.appendChild(thumb);
+    card.appendChild(label);
+    card.addEventListener("click", () => openModal(tex));
+    grid.appendChild(card);
+  }
+  const content = $("content");
+  content.innerHTML = "";
+  content.appendChild(grid);
+}
+
+/* ---------- modal / replace ---------- */
+
+function renderWriterNotice() {
+  const box = $("writer-notice");
+  if (!box) return;
+  if (state.writerReady) {
+    box.innerHTML = "";
+    $("replace-btn").disabled = !state.pendingFile;
+    $("replace-file").disabled = false;
+  } else {
+    box.innerHTML =
+      '<div class="notice">Texture writer not ready yet — ' +
+      '<code>tools/utx/utxedit.py</code> does not exist (Phase B is being ' +
+      'built separately). Browsing and viewing work fully.</div>';
+    $("replace-btn").disabled = true;
+    $("replace-file").disabled = true;
+  }
+}
+
+function openModal(tex) {
+  state.pendingFile = null;
+  $("replace-file").value = "";
+  $("modal-name").textContent = tex.name;
+  $("modal-pkg").textContent = state.currentPkg;
+  $("modal-size").textContent = fmtBytes(tex.size);
+  $("modal-img").src = "/api/image?pkg=" + encodeURIComponent(state.currentPkg) +
+    "&name=" + encodeURIComponent(tex.name) + "&kind=full";
+  renderWriterNotice();
+  $("modal-backdrop").classList.add("open");
+}
+
+function closeModal() {
+  $("modal-backdrop").classList.remove("open");
+  $("modal-img").src = "";
+}
+
+async function doReplace() {
+  const file = $("replace-file").files[0];
+  if (!file) { toast("Choose a PNG first", "error"); return; }
+  const btn = $("replace-btn");
+  btn.disabled = true;
+  btn.textContent = "Replacing…";
+  try {
+    const buf = await file.arrayBuffer();
+    const b64 = arrayBufferToBase64(buf);
+    await api("/api/replace", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        pkg: state.currentPkg,
+        texture: $("modal-name").textContent,
+        imageBase64: b64,
+      }),
+    });
+    toast("Texture replaced (backup .bak created) / Textura reemplazada", "ok");
+    closeModal();
+    selectPackage(state.currentPkg);   // rebuild cache view
+  } catch (err) {
+    if (err.code === "writer-not-ready") {
+      toast("Writer not ready: tools/utx/utxedit.py is missing (Phase B pending)", "error");
+    } else {
+      toast("Replace failed: " + err.message, "error");
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Replace in package";
+    renderWriterNotice();
+  }
+}
+
+function arrayBufferToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+/* ---------- wiring ---------- */
+
+$("search").addEventListener("input", renderPackages);
+$("tex-filter").addEventListener("input", renderGrid);
+$("set-root").addEventListener("click", setAssetRoot);
+$("asset-root").addEventListener("keydown", e => { if (e.key === "Enter") setAssetRoot(); });
+$("modal-close").addEventListener("click", closeModal);
+$("modal-backdrop").addEventListener("click", e => {
+  if (e.target === $("modal-backdrop")) closeModal();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+$("replace-file").addEventListener("change", () => {
+  state.pendingFile = $("replace-file").files[0] || null;
+  if (state.writerReady) $("replace-btn").disabled = !state.pendingFile;
+});
+$("replace-btn").addEventListener("click", doReplace);
+
+(async function init() {
+  try {
+    await loadConfig();
+    await loadPackages();
+  } catch (err) {
+    toast("Failed to initialize: " + err.message, "error");
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html><body style="margin:0">
+<script type="importmap">
+{"imports": {"three": "/node_modules/three/build/three.module.js",
+             "three/addons/": "/node_modules/three/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search);
+window.__done = false; window.__err = null; window.__report = null;
+new GLTFLoader().load(q.get('gltf'), (g) => {
+  const mixer = new THREE.AnimationMixer(g.scene);
+  const clip = g.animations.find(a => a.name === (q.get('anim') || 'idle')) || g.animations[0];
+  mixer.clipAction(clip).play();
+  mixer.update(parseFloat(q.get('t') || '0.5'));
+  g.scene.updateMatrixWorld(true);
+  const meshName = q.get('mesh');
+  const report = [];
+  g.scene.traverse(o => {
+    if (!o.isSkinnedMesh) return;
+    if (meshName && o.name !== meshName && (o.parent||{}).name !== meshName) return;
+    const pos = o.geometry.attributes.position;
+    const v = new THREE.Vector3();
+    const rows = [];
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i);
+      o.applyBoneTransform(i, v);     // skinned position in mesh local space
+      v.applyMatrix4(o.matrixWorld);  // to world
+      rows.push([i, v.x, v.y, v.z]);
+    }
+    // outliers: farthest from the median center
+    const cx = rows.reduce((s,r)=>s+r[1],0)/rows.length;
+    const cy = rows.reduce((s,r)=>s+r[2],0)/rows.length;
+    const cz = rows.reduce((s,r)=>s+r[3],0)/rows.length;
+    rows.forEach(r => { r.push(Math.hypot(r[1]-cx, r[2]-cy, r[3]-cz)); });
+    rows.sort((a,b)=>b[4]-a[4]);
+    const ji = o.geometry.attributes.skinIndex;
+    const wi = o.geometry.attributes.skinWeight;
+    const out = rows.slice(0, 12).map(r => {
+      const i = r[0];
+      const joints = [];
+      for (let k = 0; k < 4; k++) {
+        if (wi.getComponent(i, k) > 0.01) {
+          const node = o.skeleton.bones[ji.getComponent(i, k)];
+          joints.push([node ? node.name : ji.getComponent(i, k), +wi.getComponent(i, k).toFixed(3)]);
+        }
+      }
+      return {i, p: [+r[1].toFixed(4), +r[2].toFixed(4), +r[3].toFixed(4)], d: +r[4].toFixed(4), joints};
+    });
+    report.push({mesh: o.name, parent: (o.parent||{}).name, count: pos.count,
+                 center: [+cx.toFixed(3), +cy.toFixed(3), +cz.toFixed(3)], outliers: out});
+  });
+  window.__report = report;
+  const bw = {};
+  g.scene.traverse(o => {
+    if (['Bip01','Bip01_Pelvis','bip01_spine2','Bip01_Neck','Bip01_head'].includes(o.name)) {
+      const p = new THREE.Vector3(), qq = new THREE.Quaternion(), s = new THREE.Vector3();
+      o.matrixWorld.decompose(p, qq, s);
+      bw[o.name] = {pos: [+p.x.toFixed(4), +p.y.toFixed(4), +p.z.toFixed(4)],
+                    quat: [+qq.x.toFixed(4), +qq.y.toFixed(4), +qq.z.toFixed(4), +qq.w.toFixed(4)]};
+    }
+  });
+  window.__boneworld = bw;
+  window.__done = true;
+}, undefined, (e) => { window.__err = String(e); window.__done = true; });
+</script></body></html>

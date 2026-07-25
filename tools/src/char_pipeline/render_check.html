@@ -1,0 +1,70 @@
+<!doctype html>
+<html><body style="margin:0">
+<script type="importmap">
+{"imports": {"three": "/node_modules/three/build/three.module.js",
+             "three/addons/": "/node_modules/three/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setSize(600, 800);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x223344);
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+const dir = new THREE.DirectionalLight(0xffffff, 2.0);
+dir.position.set(1, 2, 3);
+scene.add(dir);
+const camera = new THREE.PerspectiveCamera(35, 600 / 800, 0.01, 100);
+window.__done = false; window.__err = null;
+new GLTFLoader().load(q.get('gltf'), (g) => {
+  scene.add(g.scene);
+  const hide = (q.get('hide') || '').split(',').filter(Boolean);
+  if (hide.length) g.scene.traverse(o => {
+    if (o.isMesh && hide.some(h => (o.name || '').toLowerCase().includes(h.toLowerCase())
+        || (o.parent && (o.parent.name || '').toLowerCase().includes(h.toLowerCase()))))
+      o.visible = false;
+  });
+  g.scene.rotation.y = parseFloat(q.get('ry') || '0');
+  // frame AFTER posing (bind pose may differ wildly from posed bounds)
+  const view = q.get('view') || 'full';
+  const frame = () => {
+    const box = new THREE.Box3().setFromObject(g.scene);
+    const c = box.getCenter(new THREE.Vector3());
+    const s = box.getSize(new THREE.Vector3());
+    if (view === 'face') {
+      // head = top ~12% of the posed bounding box
+      const hy = box.max.y - s.y * 0.06;
+      camera.position.set(c.x, hy, box.max.z + s.y * 0.35);
+      camera.lookAt(c.x, hy, c.z);
+    } else if (view === 'neck') {
+      // tight closeup on the head/body junction
+      const hy = box.max.y - s.y * 0.14;
+      camera.position.set(c.x, hy, box.max.z + s.y * 0.30);
+      camera.lookAt(c.x, hy - s.y * 0.02, c.z);
+    } else if (view === 'top' || view === 'topback') {
+      // high camera looking down at the head, from front ('top') or
+      // behind ('topback'): catches open-skull defects
+      const d = s.y;
+      const zsign = view === 'topback' ? -1 : 1;
+      camera.position.set(c.x, box.max.y + d * 0.8, c.z + zsign * d * 0.25);
+      camera.lookAt(c.x, box.max.y - d * 0.05, c.z);
+    } else {
+      camera.position.set(c.x, c.y, box.max.z + s.y * 1.35);
+      camera.lookAt(c);
+    }
+  };
+  if (g.animations.length) {
+    const mixer = new THREE.AnimationMixer(g.scene);
+    const clip = g.animations.find(a => a.name === q.get('anim')) || g.animations[0];
+    mixer.clipAction(clip).play();
+    mixer.update(parseFloat(q.get('t') || '0.5'));
+  }
+  frame();
+  renderer.render(scene, camera);
+  window.__animCount = g.animations.length;
+  window.__done = true;
+}, undefined, (e) => { window.__err = String(e); window.__done = true; });
+</script></body></html>

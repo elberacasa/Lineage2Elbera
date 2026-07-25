@@ -1,0 +1,642 @@
+{
+  "models": {
+    "darkelf_f": {
+      "kind": "character",
+      "package": "DarkElf",
+      "mesh": "FDarkElf_m001_u",
+      "gltfExtent": 0.4455,
+      "meshScale": 1.0,
+      "nativeHeight": 44.6
+    },
+    "darkelf_m": {
+      "kind": "character",
+      "package": "DarkElf",
+      "mesh": "MDarkElf_m001_u",
+      "gltfExtent": 0.4431,
+      "meshScale": 1.03,
+      "nativeHeight": 45.6
+    },
+    "dwarf_f": {
+      "kind": "character",
+      "package": "Dwarf",
+      "mesh": "FDwarf_m001_u",
+      "gltfExtent": 0.3446,
+      "meshScale": 1.0,
+      "nativeHeight": 34.5
+    },
+    "dwarf_m": {
+      "kind": "character",
+      "package": "Dwarf",
+      "mesh": "MDwarf_m001_u",
+      "gltfExtent": 0.3423,
+      "meshScale": 1.0,
+      "nativeHeight": 34.2
+    },
+    "elf_f": {
+      "kind": "character",
+      "package": "Elf",
+      "mesh": "FElf_m001_u",
+      "gltfExtent": 0.4356,
+      "meshScale": 1.0,
+      "nativeHeight": 43.6
+    },
+    "elf_m": {
+      "kind": "character",
+      "package": "Elf",
+      "mesh": "MElf_m001_u",
+      "gltfExtent": 0.4493,
+      "meshScale": 1.03,
+      "nativeHeight": 46.3
+    },
+    "human_fighter_f": {
+      "kind": "character",
+      "package": "Fighter",
+      "mesh": "FFighter_m001_u",
+      "gltfExtent": 0.442,
+      "meshScale": 1.0,
+      "nativeHeight": 44.2
+    },
+    "human_fighter_m": {
+      "kind": "character",
+      "package": "Fighter",
+      "mesh": "MFighter_m001_u",
+      "gltfExtent": 0.4462,
+      "meshScale": 1.03,
+      "nativeHeight": 46.0
+    },
+    "human_mystic_f": {
+      "kind": "character",
+      "package": "Magic",
+      "mesh": "FMagic_m003_u",
+      "gltfExtent": 0.4127,
+      "meshScale": 1.0,
+      "nativeHeight": 41.3
+    },
+    "human_mystic_m": {
+      "kind": "character",
+      "package": "Magic",
+      "mesh": "MMagic_M005_u",
+      "gltfExtent": 0.4214,
+      "meshScale": 1.0,
+      "nativeHeight": 42.1
+    },
+    "orc_fighter_f": {
+      "kind": "character",
+      "package": "Orc",
+      "mesh": "FOrc_m001_u",
+      "gltfExtent": 0.5387,
+      "meshScale": 1.0,
+      "nativeHeight": 53.9
+    },
+    "orc_fighter_m": {
+      "kind": "character",
+      "package": "Orc",
+      "mesh": "MOrc_m001_u",
+      "gltfExtent": 0.5243,
+      "meshScale": 1.0,
+      "nativeHeight": 52.4
+    },
+    "orc_mystic_f": {
+      "kind": "character",
+      "package": "Shaman",
+      "mesh": "FShaman_m001_u",
+      "gltfExtent": 0.5004,
+      "meshScale": 1.0,
+      "nativeHeight": 50.0
+    },
+    "orc_mystic_m": {
+      "kind": "character",
+      "package": "Shaman",
+      "mesh": "MShaman_m001_u",
+      "gltfExtent": 0.501,
+      "meshScale": 1.0,
+      "nativeHeight": 50.1
+    },
+    "gremlin_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "gremlin_m00",
+      "gltfExtent": 0.3148,
+      "meshScale": 1.0,
+      "nativeHeight": 31.5,
+      "npcIds": [
+        20001,
+        20334,
+        18342,
+        27149,
+        30940
+      ],
+      "collisionHeight": 15.0,
+      "collisionRadius": 10.0,
+      "collisionHeightRatio": 0.477
+    },
+    "rabbit_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "rabbit_m00",
+      "gltfExtent": 0.1162,
+      "meshScale": 1.0,
+      "nativeHeight": 11.6,
+      "npcIds": [
+        20002,
+        30741,
+        30943,
+        31016
+      ],
+      "collisionHeight": 4.5,
+      "collisionRadius": 5.0,
+      "collisionHeightRatio": 0.387
+    },
+    "fox_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "fox_m00",
+      "gltfExtent": 0.2154,
+      "meshScale": 1.0,
+      "nativeHeight": 21.5,
+      "npcIds": [
+        20091,
+        20116,
+        20119,
+        20309,
+        20337,
+        20391
+      ],
+      "collisionHeight": 9.8,
+      "collisionRadius": 11.2,
+      "collisionHeightRatio": 0.453
+    },
+    "wolf_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "wolf_m00",
+      "gltfExtent": 0.2238,
+      "meshScale": 0.8,
+      "nativeHeight": 17.9,
+      "npcIds": [
+        20120,
+        20317,
+        20318,
+        20399,
+        20442,
+        20456
+      ],
+      "collisionHeight": 9.5,
+      "collisionRadius": 13.0,
+      "collisionHeightRatio": 0.529
+    },
+    "dire_wolf_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "dire_wolf_m00",
+      "gltfExtent": 0.2757,
+      "meshScale": 1.0,
+      "nativeHeight": 27.6,
+      "npcIds": [
+        20205,
+        20494,
+        20527,
+        20783,
+        20815,
+        20929
+      ],
+      "collisionHeight": 11.0,
+      "collisionRadius": 13.0,
+      "collisionHeightRatio": 0.399
+    },
+    "werewolf_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "werewolf_m00",
+      "gltfExtent": 0.7012,
+      "meshScale": 1.0,
+      "nativeHeight": 70.1,
+      "npcIds": [
+        20012,
+        20049,
+        20132,
+        20206,
+        20307,
+        20342
+      ],
+      "collisionHeight": 27.3,
+      "collisionRadius": 10.3,
+      "collisionHeightRatio": 0.389
+    },
+    "goblin_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "goblin_m00",
+      "gltfExtent": 0.2984,
+      "meshScale": 1.0,
+      "nativeHeight": 29.8,
+      "npcIds": [
+        20003,
+        20319,
+        20320,
+        20321,
+        20322,
+        20323
+      ],
+      "collisionHeight": 17.7,
+      "collisionRadius": 10.0,
+      "collisionHeightRatio": 0.592
+    },
+    "hobgoblin_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "hobgoblin_m00",
+      "gltfExtent": 0.4658,
+      "meshScale": 1.0,
+      "nativeHeight": 46.6,
+      "npcIds": [
+        20147,
+        20945,
+        21119
+      ],
+      "collisionHeight": 24.0,
+      "collisionRadius": 12.0,
+      "collisionHeightRatio": 0.515
+    },
+    "giant_spider_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "giant_spider_m00",
+      "gltfExtent": 0.6598,
+      "meshScale": 1.0,
+      "nativeHeight": 66.0,
+      "npcIds": [
+        20028,
+        20032,
+        20034,
+        20103,
+        20106,
+        20108
+      ],
+      "collisionHeight": 26.3,
+      "collisionRadius": 26.9,
+      "collisionHeightRatio": 0.398
+    },
+    "poison_spider_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "poison_spider_m00",
+      "gltfExtent": 0.6598,
+      "meshScale": 1.0,
+      "nativeHeight": 66.0,
+      "npcIds": [
+        20038,
+        20043,
+        20050,
+        20233,
+        20561,
+        20649
+      ],
+      "collisionHeight": 26.4,
+      "collisionRadius": 27.9,
+      "collisionHeightRatio": 0.4
+    },
+    "skeleton_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "skeleton_m00",
+      "gltfExtent": 0.5394,
+      "meshScale": 1.0,
+      "nativeHeight": 53.9,
+      "npcIds": [
+        20022,
+        20035,
+        20042,
+        20099,
+        20104,
+        20191
+      ],
+      "collisionHeight": 25.6,
+      "collisionRadius": 11.1,
+      "collisionHeightRatio": 0.475
+    },
+    "skeleton_archer_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "skeleton_archer_m00",
+      "gltfExtent": 0.5394,
+      "meshScale": 1.0,
+      "nativeHeight": 53.9,
+      "npcIds": [
+        20045,
+        20051,
+        20100,
+        20102,
+        20190,
+        20237
+      ],
+      "collisionHeight": 27.3,
+      "collisionRadius": 11.1,
+      "collisionHeightRatio": 0.505
+    },
+    "zombie_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "zombie_m00",
+      "gltfExtent": 0.4193,
+      "meshScale": 1.0,
+      "nativeHeight": 41.9,
+      "npcIds": [
+        20015,
+        20020,
+        20026,
+        20029,
+        20041,
+        20046
+      ],
+      "collisionHeight": 21.3,
+      "collisionRadius": 13.0,
+      "collisionHeightRatio": 0.508
+    },
+    "pirates_zombie_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "pirates_zombie_m00",
+      "gltfExtent": 0.4616,
+      "meshScale": 1.0,
+      "nativeHeight": 46.2,
+      "npcIds": [
+        20836,
+        29027
+      ],
+      "collisionHeight": 23.0,
+      "collisionRadius": 10.0,
+      "collisionHeightRatio": 0.498
+    },
+    "imp_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "imp_m00",
+      "gltfExtent": 0.3344,
+      "meshScale": 1.0,
+      "nativeHeight": 33.4,
+      "npcIds": [
+        20004,
+        20005,
+        20311,
+        20312,
+        20313,
+        20506
+      ],
+      "collisionHeight": 26.6,
+      "collisionRadius": 10.0,
+      "collisionHeightRatio": 0.796
+    },
+    "pixy_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "pixy_m00",
+      "gltfExtent": 0.1723,
+      "meshScale": 1.0,
+      "nativeHeight": 17.2,
+      "npcIds": [
+        21083,
+        21797,
+        25100,
+        25121,
+        25293,
+        25423
+      ],
+      "collisionHeight": 29.8,
+      "collisionRadius": 5.8,
+      "collisionHeightRatio": 1.731
+    },
+    "dryad_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "dryad_m00",
+      "gltfExtent": 0.4416,
+      "meshScale": 1.0,
+      "nativeHeight": 44.2,
+      "npcIds": [
+        20013,
+        20019,
+        20336,
+        25012,
+        27121,
+        31020
+      ],
+      "collisionHeight": 19.2,
+      "collisionRadius": 8.5,
+      "collisionHeightRatio": 0.434
+    },
+    "bugbear_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "bugbear_m00",
+      "gltfExtent": 0.7173,
+      "meshScale": 1.0,
+      "nativeHeight": 71.7,
+      "npcIds": [
+        20062,
+        20064,
+        20133,
+        20248,
+        20249,
+        20401
+      ],
+      "collisionHeight": 35.0,
+      "collisionRadius": 17.0,
+      "collisionHeightRatio": 0.488
+    },
+    "troll_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "troll_m00",
+      "gltfExtent": 0.7216,
+      "meshScale": 1.0,
+      "nativeHeight": 72.2,
+      "npcIds": [
+        20173,
+        20218,
+        20568,
+        20569,
+        20620,
+        20946
+      ],
+      "collisionHeight": 35.0,
+      "collisionRadius": 21.0,
+      "collisionHeightRatio": 0.485
+    },
+    "batur_orc_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "batur_orc_m00",
+      "gltfExtent": 0.4412,
+      "meshScale": 1.0,
+      "nativeHeight": 44.1,
+      "npcIds": [
+        20255,
+        20267,
+        20583,
+        20585,
+        20601,
+        22029
+      ],
+      "collisionHeight": 22.3,
+      "collisionRadius": 9.2,
+      "collisionHeightRatio": 0.505
+    },
+    "wererat_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "wererat_m00",
+      "gltfExtent": 0.5109,
+      "meshScale": 1.0,
+      "nativeHeight": 51.1,
+      "npcIds": [
+        20039,
+        20040,
+        20047,
+        20107,
+        20111,
+        20358
+      ],
+      "collisionHeight": 26.1,
+      "collisionRadius": 14.9,
+      "collisionHeightRatio": 0.511
+    },
+    "crimson_bear_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "crimson_bear_m00",
+      "gltfExtent": 0.4408,
+      "meshScale": 1.0,
+      "nativeHeight": 44.1,
+      "npcIds": [
+        20650,
+        20667,
+        20932,
+        25091,
+        25175,
+        25442
+      ],
+      "collisionHeight": 36.0,
+      "collisionRadius": 19.0,
+      "collisionHeightRatio": 0.817
+    },
+    "virud_lizardman_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "virud_lizardman_m00",
+      "gltfExtent": 0.4764,
+      "meshScale": 1.0,
+      "nativeHeight": 47.6,
+      "npcIds": [
+        20008,
+        20010,
+        20027,
+        20030,
+        20069,
+        20152
+      ],
+      "collisionHeight": 23.0,
+      "collisionRadius": 10.0,
+      "collisionHeightRatio": 0.483
+    },
+    "stone_golem_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "stone_golem_m00",
+      "gltfExtent": 0.6304,
+      "meshScale": 1.0,
+      "nativeHeight": 63.0,
+      "npcIds": [
+        20016,
+        20083,
+        20085,
+        20101,
+        20213,
+        20217
+      ],
+      "collisionHeight": 33.4,
+      "collisionRadius": 20.0,
+      "collisionHeightRatio": 0.529
+    },
+    "harpy_m00": {
+      "kind": "monster",
+      "package": "LineageMonsters",
+      "mesh": "harpy_m00",
+      "gltfExtent": 0.5634,
+      "meshScale": 1.0,
+      "nativeHeight": 56.3,
+      "npcIds": [
+        20145,
+        20942,
+        20943,
+        25053,
+        25062,
+        27088
+      ],
+      "collisionHeight": 42.0,
+      "collisionRadius": 10.0,
+      "collisionHeightRatio": 0.745
+    },
+    "a_guard_MElf_m00": {
+      "kind": "npc",
+      "package": "LineageNpcs",
+      "mesh": "a_guard_MElf_m00",
+      "gltfExtent": 0.4946,
+      "meshScale": 1.0,
+      "nativeHeight": 49.5,
+      "npcIds": [
+        27287,
+        30216,
+        30217,
+        30218,
+        30219,
+        30220
+      ],
+      "collisionHeight": 23.5,
+      "collisionRadius": 8.0,
+      "collisionHeightRatio": 0.475
+    },
+    "a_common_peopleA_MHuman_m00": {
+      "kind": "npc",
+      "package": "LineageNpcs",
+      "mesh": "a_common_peopleA_MHuman_m00",
+      "gltfExtent": 0.4301,
+      "meshScale": 1.0,
+      "nativeHeight": 43.0,
+      "npcIds": [
+        30050,
+        30078,
+        30312,
+        30406,
+        30408,
+        30633
+      ],
+      "collisionHeight": 21.5,
+      "collisionRadius": 8.0,
+      "collisionHeightRatio": 0.5
+    },
+    "Black_Market_Trader_MDwarf_m00": {
+      "kind": "npc",
+      "package": "LineageNpcs",
+      "mesh": "Black_Market_Trader_MDwarf_m00",
+      "gltfExtent": 0.3598,
+      "meshScale": 1.0,
+      "nativeHeight": 36.0,
+      "npcIds": [
+        31092
+      ],
+      "collisionHeight": 18.0,
+      "collisionRadius": 8.0,
+      "collisionHeightRatio": 0.5
+    }
+  },
+  "notes": [],
+  "scale": {
+    "unit": "L2 world unit (== source psk cm, as used by the L2 client and geodata; 1 geodata cell = 16 units)",
+    "worldToMeters": 0.01,
+    "anchorHumanMale": 46.0,
+    "modelScaleFormula": "scale = nativeHeight * 0.01 / gltfBindExtent (gltf units); == meshScale * 0.01 for this pipeline since gltf extent*100 == raw units",
+    "collisionConvention": "aCis/retail collision height ~= 0.4-0.55 x visual nativeHeight (flying creatures bigger)",
+    "propCalibration": "17_25 props measured in the same units: H_Door_MV_01 = 80.0 tall, O_Fence01 = 50.0, SI_Fighter_torchlight = 90.0; human male 46.0 (57% of door height), elf guard 49.5"
+  }
+}

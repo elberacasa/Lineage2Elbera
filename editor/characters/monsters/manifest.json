@@ -1,0 +1,386 @@
+{
+  "models": [
+    {
+      "id": "gremlin_m00",
+      "gltf": "models/gremlin_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 31.5
+    },
+    {
+      "id": "rabbit_m00",
+      "gltf": "models/rabbit_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 11.6
+    },
+    {
+      "id": "fox_m00",
+      "gltf": "models/fox_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 21.5
+    },
+    {
+      "id": "wolf_m00",
+      "gltf": "models/wolf_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 17.9
+    },
+    {
+      "id": "dire_wolf_m00",
+      "gltf": "models/dire_wolf_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 27.6
+    },
+    {
+      "id": "werewolf_m00",
+      "gltf": "models/werewolf_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 70.1
+    },
+    {
+      "id": "goblin_m00",
+      "gltf": "models/goblin_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 29.8
+    },
+    {
+      "id": "hobgoblin_m00",
+      "gltf": "models/hobgoblin_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 46.6
+    },
+    {
+      "id": "giant_spider_m00",
+      "gltf": "models/giant_spider_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 66.0
+    },
+    {
+      "id": "poison_spider_m00",
+      "gltf": "models/poison_spider_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 66.0
+    },
+    {
+      "id": "skeleton_m00",
+      "gltf": "models/skeleton_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 53.9
+    },
+    {
+      "id": "skeleton_archer_m00",
+      "gltf": "models/skeleton_archer_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 53.9
+    },
+    {
+      "id": "zombie_m00",
+      "gltf": "models/zombie_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 41.9
+    },
+    {
+      "id": "pirates_zombie_m00",
+      "gltf": "models/pirates_zombie_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 46.2
+    },
+    {
+      "id": "imp_m00",
+      "gltf": "models/imp_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 33.4
+    },
+    {
+      "id": "pixy_m00",
+      "gltf": "models/pixy_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 17.2
+    },
+    {
+      "id": "dryad_m00",
+      "gltf": "models/dryad_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 44.2
+    },
+    {
+      "id": "bugbear_m00",
+      "gltf": "models/bugbear_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 71.7
+    },
+    {
+      "id": "troll_m00",
+      "gltf": "models/troll_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 72.2
+    },
+    {
+      "id": "batur_orc_m00",
+      "gltf": "models/batur_orc_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 44.1
+    },
+    {
+      "id": "wererat_m00",
+      "gltf": "models/wererat_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 51.1
+    },
+    {
+      "id": "crimson_bear_m00",
+      "gltf": "models/crimson_bear_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 44.1
+    },
+    {
+      "id": "virud_lizardman_m00",
+      "gltf": "models/virud_lizardman_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 47.6
+    },
+    {
+      "id": "stone_golem_m00",
+      "gltf": "models/stone_golem_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 63.0
+    },
+    {
+      "id": "harpy_m00",
+      "gltf": "models/harpy_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 56.3
+    },
+    {
+      "id": "a_guard_MElf_m00",
+      "gltf": "models/a_guard_MElf_m00.gltf",
+      "animations": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "die",
+        "corpse",
+        "special"
+      ],
+      "nativeHeight": 49.5
+    },
+    {
+      "id": "a_common_peopleA_MHuman_m00",
+      "gltf": "models/a_common_peopleA_MHuman_m00.gltf",
+      "animations": [
+        "idle",
+        "special"
+      ],
+      "nativeHeight": 43.0
+    },
+    {
+      "id": "Black_Market_Trader_MDwarf_m00",
+      "gltf": "models/Black_Market_Trader_MDwarf_m00.gltf",
+      "animations": [
+        "idle",
+        "special"
+      ],
+      "nativeHeight": 36.0
+    }
+  ]
+}

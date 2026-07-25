@@ -1,0 +1,56 @@
+# Elbera root repo — ignore copyrighted assets, binaries, caches, secrets
+# Tracked: our source code (panel/, editor/ apps, gateway/src, tools/ code,
+# deploy/, docs/), manifests and JSON data catalogs (assets/gamedata/,
+# editor/characters/*.json, panel/config-*.json).
+
+# macOS
+.DS_Store
+
+# Secrets
+db-credentials.txt
+
+# Logs
+*.log
+
+# Copyrighted NCSoft client assets + converted outputs (regenerable via tools/)
+assets/interlude/
+assets/library/
+assets/world/
+Screenshots/
+
+# aCis server — separate git repo with its own history (see server/.git)
+server/
+
+# Node dependencies (anywhere)
+node_modules/
+
+# Editor — regenerable model binaries, caches, verify screenshots
+# (manifests / *.json configs in editor/characters/ stay tracked)
+editor/cache/
+editor/characters/models/
+editor/characters/models_lq/
+editor/characters/monsters/models/
+editor/charcreate/verify_shots/
+editor/world/verify_shots/
+
+# Tools — built binaries, vendored third-party source, build outputs,
+# samples, reference images, verify renders (our code stays tracked)
+tools/bin/
+tools/vendor/
+tools/samples/
+tools/reference/
+tools/src/UEViewer/
+tools/src/open-l2encdec/build/
+tools/src/char_pipeline/verify/
+tools/utx/test/
+tools/upscale/bin/
+tools/maps/out/
+
+# Panel — runtime backups
+panel/backups/
+
+# Temp artifacts
+tmp/
+
+# Vendored third-party clones (own .git)
+tools/src/open-l2encdec/

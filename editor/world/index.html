@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>L2Vzla — Walkable World (M2)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js",
+    "three/addons/": "./vendor/addons/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="hud">
+  <span class="brand">L2Vzla World</span>
+  <label>Scene <select id="scene-picker"></select></label>
+  <label>Character <select id="char-picker"></select></label>
+  <label id="online-label"><input type="checkbox" id="online-toggle"> Online</label>
+  <span id="status">loading…</span>
+</div>
+<div id="chat">
+  <div id="chat-log"></div>
+  <input id="chat-input" type="text" maxlength="200" placeholder="say… (Enter to send, Esc to close)">
+</div>
+<div id="help">left-click: walk &nbsp;·&nbsp; WASD: run &nbsp;·&nbsp; right-drag: orbit &nbsp;·&nbsp; wheel: zoom &nbsp;·&nbsp; Enter: chat &nbsp;·&nbsp; click mob: target &nbsp;·&nbsp; F1: attack</div>
+<div id="target-frame">
+  <div id="target-name">—</div>
+  <div class="bar target-hp"><div id="target-hp-fill"></div></div>
+  <div id="target-hp-text"></div>
+</div>
+<div id="overlays"></div>
+<div id="damage-floats"></div>
+<div id="self-status">
+  <span id="self-level">Lv 1</span>
+  <div class="bar self-cp"><div id="self-cp-fill"></div></div>
+  <div class="bar self-hp"><div id="self-hp-fill"></div></div>
+  <div class="bar self-mp"><div id="self-mp-fill"></div></div>
+  <span id="self-exp">exp 0%</span>
+</div>
+<div id="death-overlay">
+  <div class="death-box">
+    <div class="death-title">You have died</div>
+    <button id="respawn-btn">Respawn</button>
+  </div>
+</div>
+<div id="loading"><div class="spin"></div><div id="loading-text">loading…</div></div>
+<canvas id="view"></canvas>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

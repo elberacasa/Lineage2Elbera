@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>prop preview</title>
+<style>body{margin:0;background:#223}</style>
+<script type="importmap">
+{"imports":{
+  "three": "/tools/src/char_pipeline/node_modules/three/build/three.module.js",
+  "three/addons/": "/tools/src/char_pipeline/node_modules/three/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const params = new URLSearchParams(location.search);
+const src = params.get('src');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x223344);
+const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+renderer.setSize(640, 640);
+document.body.appendChild(renderer.domElement);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1e7);
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+sun.position.set(1, 2, 1.5);
+scene.add(sun);
+
+window.__status = 'loading';
+new GLTFLoader().load(src, (g) => {
+  scene.add(g.scene);
+  const box = new THREE.Box3().setFromObject(g.scene);
+  const size = box.getSize(new THREE.Vector3()).length() || 1;
+  const center = box.getCenter(new THREE.Vector3());
+  camera.position.set(center.x + size*0.8, center.y + size*0.6, center.z + size*0.8);
+  camera.near = size/100; camera.far = size*10;
+  camera.updateProjectionMatrix();
+  camera.lookAt(center);
+  renderer.render(scene, camera);
+  window.__status = 'done';
+}, undefined, (err) => { window.__status = 'error: ' + err; });
+</script>
+</body>
+</html>

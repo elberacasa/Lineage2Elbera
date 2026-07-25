@@ -1,0 +1,24 @@
+{
+  "name": "l2vzla-gateway",
+  "version": "1.0.0",
+  "description": "M2 WebSocket gateway: browser WS <-> aCis L2 protocol bridge",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "verify-one": "node test/verify-one.js",
+    "verify-two": "node test/verify-two.js",
+    "smoke": "node test/smoke-protocol.js",
+    "verify-combat": "node test/verify-combat.js",
+    "verify-observer": "node test/verify-observer.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "ws": "^8.21.1"
+  }
+}

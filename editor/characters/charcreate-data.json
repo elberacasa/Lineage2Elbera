@@ -1,0 +1,1033 @@
+{
+  "races": [
+    {
+      "id": "human",
+      "name": "Human",
+      "genders": [
+        "male",
+        "female"
+      ],
+      "classes": [
+        {
+          "id": "human_fighter",
+          "name": "Human Fighter",
+          "type": "fighter",
+          "classId": 0,
+          "baseStats": {
+            "STR": 40,
+            "DEX": 30,
+            "CON": 43,
+            "INT": 21,
+            "WIT": 11,
+            "MEN": 25
+          },
+          "description": "\"Even if my heart should cease to beat, my sword and honor shall live forever!\"\r\n\r\nFighters possess superior strength and dexterity. They pride themselves as being the most skilled in close-range physical combat, mainly using swords and other handheld weapons.  They may also choose to focus on long-range attacks to develop into archers later in their careers."
+        },
+        {
+          "id": "human_mystic",
+          "name": "Human Mystic",
+          "type": "mage",
+          "classId": 10,
+          "baseStats": {
+            "STR": 22,
+            "DEX": 21,
+            "CON": 27,
+            "INT": 41,
+            "WIT": 20,
+            "MEN": 39
+          },
+          "description": "\"Burn, burn bright, my fierce white flames. Illuminate the darkness and destroy those who dare to attack us.\"\r\n\r\nMystics study the ways of sorcery, and may summon magical creatures, cure grievous wounds, cast deadly attack spells, and create other wondrous miracles through the power of their intellect."
+        }
+      ],
+      "appearance": {
+        "faces": 3,
+        "hairStyles": 7,
+        "hairColors": [
+          "#675647",
+          "#7b6454",
+          "#553529",
+          "#7b5b3c"
+        ]
+      },
+      "appearanceDetail": {
+        "male": {
+          "fighter": {
+            "hairStyles": 5,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "paintedOnly": [
+              "m003"
+            ],
+            "attachedMesh": [
+              "m000",
+              "m001",
+              "m002",
+              "m004"
+            ],
+            "hairColorCount": 4,
+            "package": "MFighter.utx"
+          },
+          "mage": {
+            "hairStyles": 5,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "paintedOnly": [],
+            "attachedMesh": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "hairColorCount": 4,
+            "package": "MMagic.utx"
+          }
+        },
+        "female": {
+          "fighter": {
+            "hairStyles": 7,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "paintedOnly": [
+              "m004",
+              "m006"
+            ],
+            "attachedMesh": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m005"
+            ],
+            "hairColorCount": 4,
+            "package": "FFighter.utx"
+          },
+          "mage": {
+            "hairStyles": 7,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "paintedOnly": [],
+            "attachedMesh": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "hairColorCount": 4,
+            "package": "FMagic.utx"
+          }
+        }
+      },
+      "creationAssets": {
+        "male": {
+          "fighter": {
+            "faceIcon": "sek.cbui29",
+            "faceMesh": [
+              "Fighter.MFighter_m000_f"
+            ],
+            "faceTextures": [
+              "MFighter.MFighter_m000_t00_f",
+              "MFighter.MFighter_m000_t01_f",
+              "MFighter.MFighter_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "Fighter.MFighter_m001_u",
+              "Fighter.MFighter_m001_l",
+              "Fighter.MFighter_m001_g",
+              "Fighter.MFighter_m001_b"
+            ],
+            "bodyTextures": [
+              "MFighter.MFighter_m001_t02_u",
+              "MFighter.MFighter_m001_t02_l",
+              "MFighter.MFighter_m001_t02_g",
+              "MFighter.MFighter_m001_t02_b"
+            ],
+            "animationPackage": "Fighter.ukx"
+          },
+          "mage": {
+            "faceIcon": "sek.cbui29",
+            "faceMesh": [
+              "Magic.MMagic_m000_f"
+            ],
+            "faceTextures": [
+              "MMagic.MMagic_m000_t00_f",
+              "MMagic.MMagic_m000_t01_f",
+              "MMagic.MMagic_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "Magic.MMagic_m005_u",
+              "Magic.MMagic_m003_l",
+              "Magic.MMagic_m005_g",
+              "Magic.MMagic_m003_b"
+            ],
+            "bodyTextures": [
+              "MMagic.MMagic_m005_t02_u",
+              "MMagic.MMagic_m003_t02_l",
+              "MMagic.MMagic_m005_t02_g",
+              "MMagic.MMagic_m003_t02_b"
+            ],
+            "animationPackage": "Magic.ukx"
+          }
+        },
+        "female": {
+          "fighter": {
+            "faceIcon": "sek.cbui22",
+            "faceMesh": [
+              "Fighter.FFighter_m000_f"
+            ],
+            "faceTextures": [
+              "FFighter.FFighter_m000_t00_f",
+              "FFighter.FFighter_m000_t01_f",
+              "FFighter.FFighter_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "Fighter.FFighter_m001_u",
+              "Fighter.FFighter_m001_l",
+              "Fighter.FFighter_m001_g",
+              "Fighter.FFighter_m001_b"
+            ],
+            "bodyTextures": [
+              "FFighter.FFighter_m001_t02_u",
+              "FFighter.FFighter_m001_t02_l",
+              "FFighter.FFighter_m001_t02_g",
+              "FFighter.FFighter_m001_t02_b"
+            ],
+            "animationPackage": "Fighter.ukx"
+          },
+          "mage": {
+            "faceIcon": "sek.cbui22",
+            "faceMesh": [
+              "Magic.FMagic_m000_f"
+            ],
+            "faceTextures": [
+              "FMagic.FMagic_m000_t00_f",
+              "FMagic.FMagic_m000_t01_f",
+              "FMagic.FMagic_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "Magic.FMagic_m003_u",
+              "Magic.FMagic_m002_l",
+              "Magic.FMagic_m003_g",
+              "Magic.FMagic_m002_b"
+            ],
+            "bodyTextures": [
+              "FMagic.FMagic_m003_t02_u",
+              "FMagic.FMagic_m002_t02_l",
+              "FMagic.FMagic_m003_t02_g",
+              "FMagic.FMagic_m002_t02_b"
+            ],
+            "animationPackage": "Magic.ukx"
+          }
+        }
+      }
+    },
+    {
+      "id": "elf",
+      "name": "Elf",
+      "genders": [
+        "male",
+        "female"
+      ],
+      "classes": [
+        {
+          "id": "elven_fighter",
+          "name": "Elven Fighter",
+          "type": "fighter",
+          "classId": 18,
+          "baseStats": {
+            "STR": 36,
+            "DEX": 35,
+            "CON": 36,
+            "INT": 23,
+            "WIT": 14,
+            "MEN": 26
+          },
+          "description": "\"My blade sings like the wind and will carry you to a place of eternal peace, where tranquil waters run soft into the great ocean.\"\r\nDelicate, willowy, and graceful, Elven Fighters are adept warriors that practice precise, deadly swordsmanship. The mere sight of them wielding their long, slender whip-like swords has led some scholars to call it the \"beautiful dance.\""
+        },
+        {
+          "id": "elven_mystic",
+          "name": "Elven Mystic",
+          "type": "mage",
+          "classId": 25,
+          "baseStats": {
+            "STR": 21,
+            "DEX": 24,
+            "CON": 25,
+            "INT": 37,
+            "WIT": 23,
+            "MEN": 40
+          },
+          "description": "\"Spirits, I seek the aid that was promised, forged in the pact of our friendship, solemnly sworn in the year of my birth!\"\r\nMagic runs deep in Elven blood, and as such the Elven Mystics are perhaps the mightiest sorcerers in Aden. They focus on the strength of their mind, often to the detriment of their constitution, and therefore may be weak in physical combat. Yet their command of the elemental forces makes them formidable opponents."
+        }
+      ],
+      "appearance": {
+        "faces": 3,
+        "hairStyles": 7,
+        "hairColors": [
+          "#a9a677",
+          "#a09b88",
+          "#b39b8c",
+          "#8a8583"
+        ]
+      },
+      "appearanceDetail": {
+        "male": {
+          "fighter": {
+            "hairStyles": 5,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "paintedOnly": [],
+            "attachedMesh": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "hairColorCount": 4,
+            "package": "melf.utx"
+          },
+          "mage": {
+            "hairStyles": 5,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "paintedOnly": [],
+            "attachedMesh": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "hairColorCount": 4,
+            "package": "melf.utx"
+          }
+        },
+        "female": {
+          "fighter": {
+            "hairStyles": 7,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "paintedOnly": [],
+            "attachedMesh": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "hairColorCount": 4,
+            "package": "felf.utx"
+          },
+          "mage": {
+            "hairStyles": 7,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "paintedOnly": [],
+            "attachedMesh": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "hairColorCount": 4,
+            "package": "felf.utx"
+          }
+        }
+      },
+      "creationAssets": {
+        "male": {
+          "fighter": {
+            "faceIcon": "sek.cbui31",
+            "faceMesh": [
+              "Elf.MElf_m000_f"
+            ],
+            "faceTextures": [
+              "Melf.MElf_m000_t00_f",
+              "Melf.MElf_m000_t01_f",
+              "Melf.MElf_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "Elf.MElf_m001_u",
+              "Elf.MElf_m001_l",
+              "Elf.MElf_m001_g",
+              "Elf.MElf_m001_b"
+            ],
+            "bodyTextures": [
+              "MElf.MElf_m001_t02_u",
+              "MElf.MElf_m001_t02_l",
+              "MElf.MElf_m001_t02_g",
+              "MElf.MElf_m001_t02_b"
+            ],
+            "animationPackage": "Elf.ukx"
+          }
+        },
+        "female": {
+          "fighter": {
+            "faceIcon": "sek.cbui30",
+            "faceMesh": [
+              "Elf.FElf_m000_f"
+            ],
+            "faceTextures": [
+              "FElf.FElf_m000_t00_f",
+              "FElf.FElf_m000_t01_f",
+              "FElf.FElf_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "Elf.FElf_m001_u",
+              "Elf.FElf_m001_l",
+              "Elf.FElf_m001_g",
+              "Elf.FElf_m001_b"
+            ],
+            "bodyTextures": [
+              "FElf.FElf_m001_t02_u",
+              "FElf.FElf_m001_t02_l",
+              "FElf.FElf_m001_t02_g",
+              "FElf.FElf_m001_t02_b"
+            ],
+            "animationPackage": "Elf.ukx"
+          }
+        }
+      }
+    },
+    {
+      "id": "darkelf",
+      "name": "Dark Elf",
+      "genders": [
+        "male",
+        "female"
+      ],
+      "classes": [
+        {
+          "id": "dark_fighter",
+          "name": "Dark Fighter",
+          "type": "fighter",
+          "classId": 31,
+          "baseStats": {
+            "STR": 41,
+            "DEX": 34,
+            "CON": 32,
+            "INT": 25,
+            "WIT": 12,
+            "MEN": 26
+          },
+          "description": "\"…Quiet. Why do you talk so much? There's no need for strategy or plans-you need just slay the enemy without a word.\"\r\n\r\nDark Elf Fighters are dangerous close-combat fighters who rely on their speed and agility to give them an edge in battle. Letting down one’s guard when facing them may lead to a quick and painful death from their flashing cold blades."
+        },
+        {
+          "id": "dark_mystic",
+          "name": "Dark Mystic",
+          "type": "mage",
+          "classId": 38,
+          "baseStats": {
+            "STR": 23,
+            "DEX": 23,
+            "CON": 24,
+            "INT": 44,
+            "WIT": 19,
+            "MEN": 37
+          },
+          "description": "\"I call upon the awesome energies of the great Gran Kain to annihilate my enemies and erase their names from the world!\"\r\n\r\nDark Elf Mystics are infamous for their ability to command dark magic. They relish  their powerful attack spells that can smite an enemy with a single word. Some say that their innate magical abilities surpass even those of the Elves."
+        }
+      ],
+      "appearance": {
+        "faces": 3,
+        "hairStyles": 7,
+        "hairColors": [
+          "#535759",
+          "#999d9f",
+          "#4e4f53",
+          "#4f5254"
+        ]
+      },
+      "appearanceDetail": {
+        "male": {
+          "fighter": {
+            "hairStyles": 5,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "paintedOnly": [
+              "m000",
+              "m002"
+            ],
+            "attachedMesh": [
+              "m001",
+              "m003",
+              "m004"
+            ],
+            "hairColorCount": 4,
+            "package": "mdarkelf.utx"
+          },
+          "mage": {
+            "hairStyles": 5,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "paintedOnly": [],
+            "attachedMesh": [
+              "m001",
+              "m003",
+              "m004"
+            ],
+            "hairColorCount": 4,
+            "package": "mdarkelf.utx"
+          }
+        },
+        "female": {
+          "fighter": {
+            "hairStyles": 7,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "paintedOnly": [
+              "m006"
+            ],
+            "attachedMesh": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005"
+            ],
+            "hairColorCount": 4,
+            "package": "fdarkelf.utx"
+          },
+          "mage": {
+            "hairStyles": 7,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "paintedOnly": [],
+            "attachedMesh": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005"
+            ],
+            "hairColorCount": 4,
+            "package": "fdarkelf.utx"
+          }
+        }
+      },
+      "creationAssets": {
+        "male": {
+          "fighter": {
+            "faceIcon": "sek.cbui23",
+            "faceMesh": [
+              "DarkElf.MDarkElf_m000_f"
+            ],
+            "faceTextures": [
+              "MDarkElf.MDarkElf_m000_t00_f",
+              "MDarkElf.MDarkElf_m000_t01_f",
+              "MDarkElf.MDarkElf_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "DarkElf.MDarkElf_m001_u",
+              "DarkElf.MDarkElf_m001_l",
+              "DarkElf.MDarkElf_m001_g",
+              "DarkElf.MDarkElf_m001_b"
+            ],
+            "bodyTextures": [
+              "MDarkElf.MDarkElf_m001_t02_u",
+              "MDarkElf.MDarkElf_m001_t02_l",
+              "MDarkElf.MDarkElf_m001_t02_g",
+              "MDarkElf.MDarkElf_m001_t02_b"
+            ],
+            "animationPackage": "DarkElf.ukx"
+          }
+        },
+        "female": {
+          "fighter": {
+            "faceIcon": "sek.cbui23",
+            "faceMesh": [
+              "DarkElf.FDarkElf_m000_f"
+            ],
+            "faceTextures": [
+              "FdarkElf.FDarkElf_m000_t00_f",
+              "FdarkElf.FDarkElf_m000_t01_f",
+              "FdarkElf.FDarkElf_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "DarkElf.FDarkElf_m001_u",
+              "DarkElf.FDarkElf_m001_l",
+              "DarkElf.FDarkElf_m001_g",
+              "DarkElf.FDarkElf_m001_b"
+            ],
+            "bodyTextures": [
+              "FDarkElf.FDarkElf_m001_t02_u",
+              "FDarkElf.FDarkElf_m001_t02_l",
+              "FDarkElf.FDarkElf_m001_t02_g",
+              "FDarkElf.FDarkElf_m001_t02_b"
+            ],
+            "animationPackage": "DarkElf.ukx"
+          }
+        }
+      }
+    },
+    {
+      "id": "orc",
+      "name": "Orc",
+      "genders": [
+        "male",
+        "female"
+      ],
+      "classes": [
+        {
+          "id": "orc_fighter",
+          "name": "Orc Fighter",
+          "type": "fighter",
+          "classId": 44,
+          "baseStats": {
+            "STR": 40,
+            "DEX": 26,
+            "CON": 47,
+            "INT": 18,
+            "WIT": 12,
+            "MEN": 27
+          },
+          "description": "\"You fools dare to block my path?! Do you truly believe that your puny bodies and those flimsy scraps of metal will withstand my attack?\"\r\n\r\nNo one can match the might of an Orc Fighter when it comes to pure physical strength. With their unflagging endurance and their incredible stubbornness, they are a fearful presence on the battlefield that no one wishes to face."
+        },
+        {
+          "id": "orc_mystic",
+          "name": "Orc Mystic",
+          "type": "mage",
+          "classId": 49,
+          "baseStats": {
+            "STR": 27,
+            "DEX": 24,
+            "CON": 31,
+            "INT": 31,
+            "WIT": 15,
+            "MEN": 42
+          },
+          "description": "\"In the name of the eternal fire, may our enemies be burned, boiled, and roasted! Scour them mercilessly with flame, and drive them from our path!\"\r\nTheir command of ancient magics has given Orc Mystics tremendous political influence within Orc society. As Orcs, they are physically stronger than Mages of other races, but most believe their magic effects to be weaker."
+        }
+      ],
+      "appearance": {
+        "faces": 3,
+        "hairStyles": 7,
+        "hairColors": [
+          "#2b2824",
+          "#2c1f1d",
+          "#50453f",
+          "#261a18"
+        ]
+      },
+      "appearanceDetail": {
+        "male": {
+          "fighter": {
+            "hairStyles": 5,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "paintedOnly": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "attachedMesh": [],
+            "hairColorCount": 4,
+            "package": "MOrc.utx"
+          },
+          "mage": {
+            "hairStyles": 5,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "paintedOnly": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "attachedMesh": [],
+            "hairColorCount": 4,
+            "package": "MShaman.utx"
+          }
+        },
+        "female": {
+          "fighter": {
+            "hairStyles": 7,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "paintedOnly": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "attachedMesh": [],
+            "hairColorCount": 4,
+            "package": "FOrc.utx"
+          },
+          "mage": {
+            "hairStyles": 7,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "paintedOnly": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "attachedMesh": [],
+            "hairColorCount": 4,
+            "package": "FShaman.utx"
+          }
+        }
+      },
+      "creationAssets": {
+        "male": {
+          "fighter": {
+            "faceIcon": "sek.cbui23",
+            "faceMesh": [
+              "Orc.MOrc_m000_f"
+            ],
+            "faceTextures": [
+              "Morc.MOrc_m000_t00_f",
+              "Morc.MOrc_m000_t01_f",
+              "Morc.MOrc_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "Orc.MOrc_m001_u",
+              "Orc.MOrc_m001_l",
+              "Orc.MOrc_m001_g",
+              "Orc.MOrc_m001_b"
+            ],
+            "bodyTextures": [
+              "MOrc.MOrc_m001_t02_u",
+              "MOrc.MOrc_m001_t02_l",
+              "MOrc.MOrc_m001_t02_g",
+              "MOrc.MOrc_m001_t02_b"
+            ],
+            "animationPackage": "Orc.ukx"
+          },
+          "mage": {
+            "faceIcon": "sek.cbui23",
+            "faceMesh": [
+              "Shaman.MShaman_m000_f"
+            ],
+            "faceTextures": [
+              "Mshaman.MShaman_m000_t00_f",
+              "Mshaman.MShaman_m000_t01_f",
+              "Mshaman.MShaman_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "Shaman.MShaman_m001_u",
+              "Shaman.MShaman_m001_l",
+              "Shaman.MShaman_m001_g",
+              "Shaman.MShaman_m001_b"
+            ],
+            "bodyTextures": [
+              "MShaman.MShaman_m001_t02_u",
+              "MShaman.MShaman_m001_t02_l",
+              "MShaman.MShaman_m001_t02_g",
+              "MShaman.MShaman_m001_t02_b"
+            ],
+            "animationPackage": "Shaman.ukx"
+          }
+        },
+        "female": {
+          "fighter": {
+            "faceIcon": "sek.cbui23",
+            "faceMesh": [
+              "Orc.FOrc_m000_f"
+            ],
+            "faceTextures": [
+              "Forc.FOrc_m000_t00_f",
+              "Forc.FOrc_m000_t01_f",
+              "Forc.FOrc_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "Orc.FOrc_m001_u",
+              "Orc.FOrc_m001_l",
+              "Orc.FOrc_m001_g",
+              "Orc.FOrc_m001_b"
+            ],
+            "bodyTextures": [
+              "FOrc.FOrc_m001_t02_u",
+              "FOrc.FOrc_m001_t02_l",
+              "FOrc.FOrc_m001_t02_g",
+              "FOrc.FOrc_m001_t02_b"
+            ],
+            "animationPackage": "Orc.ukx"
+          },
+          "mage": {
+            "faceIcon": "sek.cbui23",
+            "faceMesh": [
+              "Shaman.FShaman_m000_f"
+            ],
+            "faceTextures": [
+              "Fshaman.FShaman_m000_t00_f",
+              "Fshaman.FShaman_m000_t01_f",
+              "Fshaman.FShaman_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "Shaman.FShaman_m001_u",
+              "Shaman.FShaman_m001_l",
+              "Shaman.FShaman_m001_g",
+              "Shaman.FShaman_m001_b"
+            ],
+            "bodyTextures": [
+              "FShaman.FShaman_m001_t02_u",
+              "FShaman.FShaman_m001_t02_l",
+              "FShaman.FShaman_m001_t02_g",
+              "FShaman.FShaman_m001_t02_b"
+            ],
+            "animationPackage": "Shaman.ukx"
+          }
+        }
+      }
+    },
+    {
+      "id": "dwarf",
+      "name": "Dwarf",
+      "genders": [
+        "male",
+        "female"
+      ],
+      "classes": [
+        {
+          "id": "dwarven_fighter",
+          "name": "Dwarven Fighter",
+          "type": "fighter",
+          "classId": 53,
+          "baseStats": {
+            "STR": 39,
+            "DEX": 29,
+            "CON": 45,
+            "INT": 20,
+            "WIT": 10,
+            "MEN": 27
+          },
+          "description": "\"I’ll fight when I have to. Lemme see that sword. Hmm. Good balance, fine work. Listen, fetch me a drink and I'll tell you the history of this fine blade.\"\r\n\r\nDwarves make solid Fighters, but they are more renowned for their craftsmanship, scavenging, and trade skills. Dwarves work tirelessly to create wondrous objects, and maintain a reputation as the greatest traders in the land."
+        }
+      ],
+      "appearance": {
+        "faces": 3,
+        "hairStyles": 7,
+        "hairColors": [
+          "#5b5449",
+          "#574f43",
+          "#666056",
+          "#474034"
+        ]
+      },
+      "appearanceDetail": {
+        "male": {
+          "fighter": {
+            "hairStyles": 5,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004"
+            ],
+            "paintedOnly": [
+              "m000",
+              "m001",
+              "m002",
+              "m003"
+            ],
+            "attachedMesh": [
+              "m004"
+            ],
+            "hairColorCount": 4,
+            "package": "mdwarf.utx"
+          }
+        },
+        "female": {
+          "fighter": {
+            "hairStyles": 7,
+            "styleMeshes": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "paintedOnly": [],
+            "attachedMesh": [
+              "m000",
+              "m001",
+              "m002",
+              "m003",
+              "m004",
+              "m005",
+              "m006"
+            ],
+            "hairColorCount": 4,
+            "package": "fdwarf.utx"
+          }
+        }
+      },
+      "creationAssets": {
+        "male": {
+          "fighter": {
+            "faceIcon": "sek.cbui23",
+            "faceMesh": [
+              "Dwarf.MDwarf_m000_f"
+            ],
+            "faceTextures": [
+              "Mdwarf.MDwarf_m000_t00_f",
+              "Mdwarf.MDwarf_m000_t01_f",
+              "Mdwarf.MDwarf_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "Dwarf.MDwarf_m001_u",
+              "Dwarf.MDwarf_m001_l",
+              "Dwarf.MDwarf_m001_g",
+              "Dwarf.MDwarf_m001_b"
+            ],
+            "bodyTextures": [
+              "MDwarf.MDwarf_m001_t02_u",
+              "MDwarf.MDwarf_m001_t02_l",
+              "MDwarf.MDwarf_m001_t02_g",
+              "MDwarf.MDwarf_m001_t02_b"
+            ],
+            "animationPackage": "Dwarf.ukx"
+          }
+        },
+        "female": {
+          "fighter": {
+            "faceIcon": "sek.cbui28",
+            "faceMesh": [
+              "Dwarf.FDwarf_m000_f"
+            ],
+            "faceTextures": [
+              "FDwarf.FDwarf_m000_t00_f",
+              "FDwarf.FDwarf_m000_t01_f",
+              "FDwarf.FDwarf_m000_t02_f"
+            ],
+            "bodyMeshes": [
+              "Dwarf.FDwarf_m001_u",
+              "Dwarf.FDwarf_m001_l",
+              "Dwarf.FDwarf_m001_g",
+              "Dwarf.FDwarf_m001_b"
+            ],
+            "bodyTextures": [
+              "FDwarf.FDwarf_m001_t02_u",
+              "FDwarf.FDwarf_m001_t02_l",
+              "FDwarf.FDwarf_m001_t02_g",
+              "FDwarf.FDwarf_m001_t02_b"
+            ],
+            "animationPackage": "Dwarf.ukx"
+          }
+        }
+      }
+    }
+  ]
+}

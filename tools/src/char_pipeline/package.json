@@ -1,0 +1,17 @@
+{
+  "name": "char_pipeline",
+  "version": "1.0.0",
+  "description": "",
+  "main": "render_check.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "puppeteer-core": "^25.3.0",
+    "three": "^0.185.1"
+  }
+}

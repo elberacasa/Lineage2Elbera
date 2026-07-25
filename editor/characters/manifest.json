@@ -1,0 +1,228 @@
+{
+  "models": [
+    {
+      "id": "human_fighter_m",
+      "race": "Human",
+      "gender": "male",
+      "className": "Human Fighter",
+      "gltf": "models/human_fighter_m.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 46.0
+    },
+    {
+      "id": "human_fighter_f",
+      "race": "Human",
+      "gender": "female",
+      "className": "Human Fighter",
+      "gltf": "models/human_fighter_f.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 44.2
+    },
+    {
+      "id": "human_mystic_m",
+      "race": "Human",
+      "gender": "male",
+      "className": "Human Mystic",
+      "gltf": "models/human_mystic_m.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 42.1
+    },
+    {
+      "id": "human_mystic_f",
+      "race": "Human",
+      "gender": "female",
+      "className": "Human Mystic",
+      "gltf": "models/human_mystic_f.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 41.3
+    },
+    {
+      "id": "elf_m",
+      "race": "Elf",
+      "gender": "male",
+      "className": "Elf",
+      "gltf": "models/elf_m.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 46.3
+    },
+    {
+      "id": "elf_f",
+      "race": "Elf",
+      "gender": "female",
+      "className": "Elf",
+      "gltf": "models/elf_f.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 43.6
+    },
+    {
+      "id": "darkelf_m",
+      "race": "DarkElf",
+      "gender": "male",
+      "className": "Dark Elf",
+      "gltf": "models/darkelf_m.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 45.6
+    },
+    {
+      "id": "darkelf_f",
+      "race": "DarkElf",
+      "gender": "female",
+      "className": "Dark Elf",
+      "gltf": "models/darkelf_f.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 44.6
+    },
+    {
+      "id": "orc_fighter_m",
+      "race": "Orc",
+      "gender": "male",
+      "className": "Orc Fighter",
+      "gltf": "models/orc_fighter_m.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 52.4
+    },
+    {
+      "id": "orc_fighter_f",
+      "race": "Orc",
+      "gender": "female",
+      "className": "Orc Fighter",
+      "gltf": "models/orc_fighter_f.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 53.9
+    },
+    {
+      "id": "orc_mystic_m",
+      "race": "Orc",
+      "gender": "male",
+      "className": "Orc Mystic",
+      "gltf": "models/orc_mystic_m.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 50.1
+    },
+    {
+      "id": "orc_mystic_f",
+      "race": "Orc",
+      "gender": "female",
+      "className": "Orc Mystic",
+      "gltf": "models/orc_mystic_f.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 50.0
+    },
+    {
+      "id": "dwarf_m",
+      "race": "Dwarf",
+      "gender": "male",
+      "className": "Dwarf",
+      "gltf": "models/dwarf_m.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 34.2
+    },
+    {
+      "id": "dwarf_f",
+      "race": "Dwarf",
+      "gender": "female",
+      "className": "Dwarf",
+      "gltf": "models/dwarf_f.gltf",
+      "animations": [
+        "attack",
+        "dance",
+        "idle",
+        "run",
+        "sit",
+        "walk"
+      ],
+      "nativeHeight": 34.5
+    }
+  ]
+}

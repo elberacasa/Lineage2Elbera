@@ -1,0 +1,888 @@
+{
+ "tile": "16_10",
+ "protocol": 111,
+ "package_version": 123,
+ "licensee_version": 25,
+ "counts": {
+  "names": 832,
+  "imports": 113,
+  "exports": 556
+ },
+ "imports": [
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "Engine"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "oren_ded_t"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "TerrainSector"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "L2_Skies"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "Brush"
+  },
+  {
+   "package": "L2_Skies",
+   "class": "Package",
+   "name": "Shaders"
+  },
+  {
+   "package": "oren_ded_t",
+   "class": "Texture",
+   "name": "dark_dgn_001_1"
+  },
+  {
+   "package": "Shaders",
+   "class": "ColorModifier",
+   "name": "HazeRing_Final"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "Light"
+  },
+  {
+   "package": "oren_ded_t",
+   "class": "Texture",
+   "name": "dark_dgn_009"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "StaticMeshActor"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "AmbSound"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "AmbientSoundObject"
+  },
+  {
+   "package": "oren_ded_t",
+   "class": "Texture",
+   "name": "dark_dgn_029"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "Polys"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "Model"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "Camera"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Dungeon"
+  },
+  {
+   "package": "oren_ded_t",
+   "class": "Texture",
+   "name": "dark_dgn_031"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "BlockingVolume"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "StaticMeshInstance"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "Oren_ded_s"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "T_texture"
+  },
+  {
+   "package": "T_texture",
+   "class": "Package",
+   "name": "Texture"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "PlayerStart"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "ZoneInfo"
+  },
+  {
+   "package": "Texture",
+   "class": "Texture",
+   "name": "g_01"
+  },
+  {
+   "package": "Shaders",
+   "class": "ColorModifier",
+   "name": "SkybackgroundColor"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "Projector"
+  },
+  {
+   "package": "oren_ded_t",
+   "class": "Shader",
+   "name": "dark_dgn_103_shader"
+  },
+  {
+   "package": "L2_Skies",
+   "class": "Package",
+   "name": "FlareSet"
+  },
+  {
+   "package": "oren_ded_t",
+   "class": "Texture",
+   "name": "dark_dgn_006"
+  },
+  {
+   "package": "Oren_ded_s",
+   "class": "StaticMesh",
+   "name": "altar_deco03"
+  },
+  {
+   "package": "FX_E_T",
+   "class": "Package",
+   "name": "LightGlowSet"
+  },
+  {
+   "package": "LightGlowSet",
+   "class": "Texture",
+   "name": "glow_red01"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "FX_E_T"
+  },
+  {
+   "package": "Oren_ded_s",
+   "class": "StaticMesh",
+   "name": "wall_deco_09"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_wind_loop_06"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Cruma_Dungeon"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_wind_loop_21"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_wind_loop_19"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_wind_loop_02"
+  },
+  {
+   "package": "Flameset",
+   "class": "StaticMesh",
+   "name": "Default_Flame01"
+  },
+  {
+   "package": "FX_E_S",
+   "class": "Package",
+   "name": "Flameset"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Fire"
+  },
+  {
+   "package": "oren_ded_t",
+   "class": "Texture",
+   "name": "ssq_1610mask"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "FX_E_S"
+  },
+  {
+   "package": "Oren_ded_s",
+   "class": "StaticMesh",
+   "name": "wall_deco_11"
+  },
+  {
+   "package": "FlareSet",
+   "class": "Texture",
+   "name": "Flare02"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "NMovableSunLight"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "SkyZoneInfo"
+  },
+  {
+   "package": "oren_ded_t",
+   "class": "Texture",
+   "name": "dark_dgn_021"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "LevelInfo"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "NSun"
+  },
+  {
+   "package": "Shaders",
+   "class": "ColorModifier",
+   "name": "Cloud_Final"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "DarkElven_Dungeon"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "NMoon"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "PhysicsVolume"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "TerrainInfo"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_wind_loop_08"
+  },
+  {
+   "package": "FlareSet",
+   "class": "Texture",
+   "name": "Flare06"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_wind_loop_12"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_wind_loop_17"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_wind_loop_05"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_wind_loop_01"
+  },
+  {
+   "package": "DarkElven_Dungeon",
+   "class": "Sound",
+   "name": "dd_horror_03"
+  },
+  {
+   "package": "Cruma_Dungeon",
+   "class": "Sound",
+   "name": "cd_drone_01"
+  },
+  {
+   "package": "Cruma_Dungeon",
+   "class": "Sound",
+   "name": "cd_horror_04"
+  },
+  {
+   "package": "Cruma_Dungeon",
+   "class": "Sound",
+   "name": "cd_drone_02"
+  },
+  {
+   "package": "Cruma_Dungeon",
+   "class": "Sound",
+   "name": "cd_stonedoor_01"
+  },
+  {
+   "package": "Cruma_Dungeon",
+   "class": "Sound",
+   "name": "cd_horror_05"
+  },
+  {
+   "package": "Fire",
+   "class": "Sound",
+   "name": "fire_04"
+  },
+  {
+   "package": "Shilen_Temple",
+   "class": "Sound",
+   "name": "st_drone_02"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Shilen_Temple"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_horror_03"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "DarkElven_Town"
+  },
+  {
+   "package": "Speaking_Island_Dungeon",
+   "class": "Sound",
+   "name": "sd_horror_02"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Speaking_Island_Dungeon"
+  },
+  {
+   "package": "Elven_Dungeon",
+   "class": "Sound",
+   "name": "ed_horror_01"
+  },
+  {
+   "package": "DarkElven_Dungeon",
+   "class": "Sound",
+   "name": "dd_wind_01"
+  },
+  {
+   "package": "DarkElven_Dungeon",
+   "class": "Sound",
+   "name": "dd_drone_01"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_water_drop_03"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_water_drop_06"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_water_drop_04"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_water_drop_07"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_horror_04"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_horror_22"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Elven_Dungeon"
+  },
+  {
+   "package": "L2_Skies",
+   "class": "Package",
+   "name": "moon"
+  },
+  {
+   "package": "FlareSet",
+   "class": "Texture",
+   "name": "Sun01"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_water_drop_08"
+  },
+  {
+   "package": "FlareSet",
+   "class": "Texture",
+   "name": "Flare04"
+  },
+  {
+   "package": "FlareSet",
+   "class": "Texture",
+   "name": "Flare03"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "LevelSummary"
+  },
+  {
+   "package": "FlareSet",
+   "class": "Texture",
+   "name": "Flare01"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_horror_15"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_horror_13"
+  },
+  {
+   "package": "Texture",
+   "class": "Texture",
+   "name": "Base"
+  },
+  {
+   "package": "Height",
+   "class": "Texture",
+   "name": "16_10"
+  },
+  {
+   "package": "T_16_10",
+   "class": "Package",
+   "name": "Height"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "T_16_10"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_horror_16"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "Level"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_horror_19"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_horror_06"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_water_drop_02"
+  },
+  {
+   "package": "Texture",
+   "class": "Texture",
+   "name": "layer0"
+  },
+  {
+   "package": "DarkElven_Town",
+   "class": "Sound",
+   "name": "dt_horror_01"
+  },
+  {
+   "package": "Dungeon",
+   "class": "Sound",
+   "name": "d_horror_14"
+  },
+  {
+   "package": "moon",
+   "class": "Texture",
+   "name": "moon"
+  },
+  {
+   "package": "Fire",
+   "class": "Sound",
+   "name": "fire_03"
+  },
+  {
+   "package": "Fire",
+   "class": "Sound",
+   "name": "fire_02"
+  },
+  {
+   "package": "Fire",
+   "class": "Sound",
+   "name": "fire_06"
+  }
+ ],
+ "terrain_layers": [],
+ "static_mesh_actors": [
+  {
+   "name": "StaticMeshActor21",
+   "mesh": {
+    "package": "Flameset",
+    "class": "StaticMesh",
+    "name": "Default_Flame01"
+   },
+   "location": [
+    -115051.0,
+    -248856.0,
+    -2816.0
+   ],
+   "draw_scale": 1.5
+  },
+  {
+   "name": "StaticMeshActor10",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "wall_deco_09"
+   },
+   "location": [
+    -113969.0,
+    -250362.0,
+    -2949.0
+   ],
+   "rotation": [
+    0,
+    16384,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor27",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "wall_deco_11"
+   },
+   "location": [
+    -114480.96875,
+    -250732.015625,
+    -2843.0
+   ],
+   "rotation": [
+    0,
+    65536,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor12",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "wall_deco_09"
+   },
+   "location": [
+    -114672.0,
+    -250361.0,
+    -2949.0
+   ],
+   "rotation": [
+    0,
+    16384,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor20",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "altar_deco03"
+   },
+   "location": [
+    -115051.0,
+    -248856.0,
+    -2890.0
+   ],
+   "draw_scale": 0.30000001192092896
+  },
+  {
+   "name": "StaticMeshActor15",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "wall_deco_09"
+   },
+   "location": [
+    -115121.0,
+    -250361.0,
+    -2949.0
+   ],
+   "rotation": [
+    0,
+    16384,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor22",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "altar_deco03"
+   },
+   "location": [
+    -114043.0,
+    -248856.0,
+    -2890.0
+   ],
+   "draw_scale": 0.30000001192092896
+  },
+  {
+   "name": "StaticMeshActor25",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "wall_deco_11"
+   },
+   "location": [
+    -114609.0,
+    -250650.0,
+    -2843.0
+   ],
+   "rotation": [
+    0,
+    32768,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor14",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "wall_deco_09"
+   },
+   "location": [
+    -115377.0,
+    -250361.0,
+    -2949.0
+   ],
+   "rotation": [
+    0,
+    16384,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor11",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "wall_deco_09"
+   },
+   "location": [
+    -113713.0,
+    -250362.0,
+    -2949.0
+   ],
+   "rotation": [
+    0,
+    16384,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor13",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "wall_deco_09"
+   },
+   "location": [
+    -114416.0,
+    -250361.0,
+    -2949.0
+   ],
+   "rotation": [
+    0,
+    16384,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor23",
+   "mesh": {
+    "package": "Flameset",
+    "class": "StaticMesh",
+    "name": "Default_Flame01"
+   },
+   "location": [
+    -114043.0,
+    -248856.0,
+    -2816.0
+   ],
+   "draw_scale": 1.5
+  },
+  {
+   "name": "StaticMeshActor26",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "wall_deco_11"
+   },
+   "location": [
+    -114609.0,
+    -250731.984375,
+    -2843.0
+   ],
+   "rotation": [
+    0,
+    65536,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor16",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "altar_deco03"
+   },
+   "location": [
+    -114043.0,
+    -249864.0,
+    -2890.0
+   ],
+   "draw_scale": 0.30000001192092896
+  },
+  {
+   "name": "StaticMeshActor24",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "wall_deco_11"
+   },
+   "location": [
+    -114481.0,
+    -250650.0,
+    -2843.0
+   ],
+   "rotation": [
+    0,
+    32768,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor19",
+   "mesh": {
+    "package": "Flameset",
+    "class": "StaticMesh",
+    "name": "Default_Flame01"
+   },
+   "location": [
+    -115051.0,
+    -249864.0,
+    -2816.0
+   ],
+   "draw_scale": 1.5
+  },
+  {
+   "name": "StaticMeshActor0",
+   "mesh": {
+    "package": "Oren_ded_s",
+    "class": "StaticMesh",
+    "name": "altar_deco03"
+   },
+   "location": [
+    -115051.0,
+    -249864.0,
+    -2890.0
+   ],
+   "draw_scale": 0.30000001192092896
+  },
+  {
+   "name": "StaticMeshActor17",
+   "mesh": {
+    "package": "Flameset",
+    "class": "StaticMesh",
+    "name": "Default_Flame01"
+   },
+   "location": [
+    -114043.0,
+    -249864.0,
+    -2816.0
+   ],
+   "draw_scale": 1.5
+  }
+ ],
+ "terrain_map_ref": {
+  "package": "Height",
+  "class": "Texture",
+  "name": "16_10"
+ },
+ "terrain_scale": [
+  128.0,
+  128.0,
+  76.0
+ ],
+ "terrain_location": [
+  -114688.0,
+  -245760.0,
+  -160.6513214111328
+ ]
+}

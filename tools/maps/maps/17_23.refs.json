@@ -1,0 +1,9069 @@
+{
+ "tile": "17_23",
+ "protocol": 111,
+ "package_version": 123,
+ "licensee_version": 23,
+ "counts": {
+  "names": 2554,
+  "imports": 239,
+  "exports": 2131
+ },
+ "imports": [
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "Engine"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "StaticMeshActor"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "AmbientSoundObject"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "AmbSound"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "ChrSound"
+  },
+  {
+   "package": "ChrSound",
+   "class": "Package",
+   "name": "Step_Wood"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "StaticMeshInstance"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Insect_Night"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Insect_Day"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "TerrainSector"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "Ruins_Renewal_s"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "field_deco_S"
+  },
+  {
+   "package": "field_deco_S",
+   "class": "Package",
+   "name": "Gludio_Stone"
+  },
+  {
+   "package": "Step_Wood",
+   "class": "Sound",
+   "name": "wood_walk_01"
+  },
+  {
+   "package": "Step_Wood",
+   "class": "Sound",
+   "name": "Wood_Walk_03"
+  },
+  {
+   "package": "Step_Wood",
+   "class": "Sound",
+   "name": "wood_walk_02"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Rebuild_Etc03"
+  },
+  {
+   "package": "gludio_tree_S",
+   "class": "Package",
+   "name": "General"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "gludio_tree_S"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "L2_Skies"
+  },
+  {
+   "package": "L2_Skies",
+   "class": "Package",
+   "name": "Shaders"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Waves"
+  },
+  {
+   "package": "Shaders",
+   "class": "ColorModifier",
+   "name": "HazeRing_Final"
+  },
+  {
+   "package": "Insect_Day",
+   "class": "Sound",
+   "name": "id_cicada_02"
+  },
+  {
+   "package": "Insect_Day",
+   "class": "Sound",
+   "name": "id_cicada_03"
+  },
+  {
+   "package": "ChrSound",
+   "class": "Package",
+   "name": "Step_Stone_Gritty"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Ship"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Animal_Day"
+  },
+  {
+   "package": "Insect_Night",
+   "class": "Sound",
+   "name": "in_cricket_01"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Animal_Night"
+  },
+  {
+   "package": "Insect_Night",
+   "class": "Sound",
+   "name": "in_cricket_04"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Neutral_Zone"
+  },
+  {
+   "package": "Insect_Night",
+   "class": "Sound",
+   "name": "in_cricket_03"
+  },
+  {
+   "package": "Insect_Night",
+   "class": "Sound",
+   "name": "in_cricket_02"
+  },
+  {
+   "package": "Insect_Night",
+   "class": "Sound",
+   "name": "in_cricket_05"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Harbor"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "Camera"
+  },
+  {
+   "package": "Insect_Day",
+   "class": "Sound",
+   "name": "id_cicada_04"
+  },
+  {
+   "package": "General",
+   "class": "StaticMesh",
+   "name": "generaltree1LC"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "Field_Deco_Artifact_S"
+  },
+  {
+   "package": "General",
+   "class": "StaticMesh",
+   "name": "Generaltree2LC"
+  },
+  {
+   "package": "green_h",
+   "class": "StaticMesh",
+   "name": "woodfence"
+  },
+  {
+   "package": "Field_Deco_Artifact_S",
+   "class": "Package",
+   "name": "green_h"
+  },
+  {
+   "package": "Neutral_Zone",
+   "class": "Sound",
+   "name": "nz_cricket_02"
+  },
+  {
+   "package": "Insect_Day",
+   "class": "Sound",
+   "name": "id_cicada_01"
+  },
+  {
+   "package": "Step_Stone_Gritty",
+   "class": "Sound",
+   "name": "Stone_Gritty_Run_01"
+  },
+  {
+   "package": "Step_Stone_Gritty",
+   "class": "Sound",
+   "name": "Stone_Gritty_Run_02"
+  },
+  {
+   "package": "Step_Stone_Gritty",
+   "class": "Sound",
+   "name": "Stone_Gritty_Run_03"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "Brush"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Gludio_Forest"
+  },
+  {
+   "package": "General",
+   "class": "StaticMesh",
+   "name": "Generaltree3LC"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone005"
+  },
+  {
+   "package": "Ship",
+   "class": "Sound",
+   "name": "ship_creak_large"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "T_texture"
+  },
+  {
+   "package": "Ship",
+   "class": "Sound",
+   "name": "ship_creak_small"
+  },
+  {
+   "package": "Insect_Night",
+   "class": "Sound",
+   "name": "in_mosquito_01"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone015"
+  },
+  {
+   "package": "Neutral_Zone",
+   "class": "Sound",
+   "name": "nz_cricket_01"
+  },
+  {
+   "package": "T_texture",
+   "class": "Package",
+   "name": "Texture"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone009"
+  },
+  {
+   "package": "Ship",
+   "class": "Sound",
+   "name": "ship_creak_01"
+  },
+  {
+   "package": "Neutral_Zone",
+   "class": "Sound",
+   "name": "nz_cricket_03"
+  },
+  {
+   "package": "Animal_Night",
+   "class": "Sound",
+   "name": "an_bird_09"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone004"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "middle_04"
+  },
+  {
+   "package": "Texture",
+   "class": "Texture",
+   "name": "g_01"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "small_02"
+  },
+  {
+   "package": "Ship",
+   "class": "Sound",
+   "name": "ship_sail"
+  },
+  {
+   "package": "Shaders",
+   "class": "ColorModifier",
+   "name": "SkybackgroundColor"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "Polys"
+  },
+  {
+   "package": "Ship",
+   "class": "Sound",
+   "name": "ship_creak_small1"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "Model"
+  },
+  {
+   "package": "Animal_Night",
+   "class": "Sound",
+   "name": "an_bird_01"
+  },
+  {
+   "package": "Insect_Day",
+   "class": "Sound",
+   "name": "id_fly_03"
+  },
+  {
+   "package": "L2_Skies",
+   "class": "Package",
+   "name": "FlareSet"
+  },
+  {
+   "package": "Insect_Day",
+   "class": "Sound",
+   "name": "id_fly_02"
+  },
+  {
+   "package": "General",
+   "class": "StaticMesh",
+   "name": "Generaltree3"
+  },
+  {
+   "package": "Insect_Day",
+   "class": "Sound",
+   "name": "id_fly_01"
+  },
+  {
+   "package": "Gludio_Forest",
+   "class": "Sound",
+   "name": "gf_horn_01"
+  },
+  {
+   "package": "Harbor",
+   "class": "Sound",
+   "name": "h_seagull_02"
+  },
+  {
+   "package": "Field_Deco_Artifact_S",
+   "class": "Package",
+   "name": "human_ruin"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "middle_01"
+  },
+  {
+   "package": "Harbor",
+   "class": "Sound",
+   "name": "h_seagull_05"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "middle_02"
+  },
+  {
+   "package": "Harbor",
+   "class": "Sound",
+   "name": "h_seagull_04"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "large_05"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "large_03"
+  },
+  {
+   "package": "Insect_Day",
+   "class": "Sound",
+   "name": "id_fly_04"
+  },
+  {
+   "package": "Animal_Night",
+   "class": "Sound",
+   "name": "an_bird_04"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone2_2"
+  },
+  {
+   "package": "Harbor",
+   "class": "Sound",
+   "name": "h_seagull_01"
+  },
+  {
+   "package": "Animal_Night",
+   "class": "Sound",
+   "name": "an_bird_10"
+  },
+  {
+   "package": "Animal_Night",
+   "class": "Sound",
+   "name": "an_bird_02"
+  },
+  {
+   "package": "Gludio_Forest",
+   "class": "Sound",
+   "name": "gf_animal_crying_01"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "T_17_23"
+  },
+  {
+   "package": "General",
+   "class": "StaticMesh",
+   "name": "Generaltree1"
+  },
+  {
+   "package": "T_17_23",
+   "class": "Package",
+   "name": "Height"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_hoonstone3"
+  },
+  {
+   "package": "Harbor",
+   "class": "Sound",
+   "name": "h_seagull_03"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone012"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone014"
+  },
+  {
+   "package": "Gludio_Forest",
+   "class": "Sound",
+   "name": "gf_animal_crying_02"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone2_1"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone007"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone1_2"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone3_2"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "small_03"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone016"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "large_01"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "middle_03"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "large_04"
+  },
+  {
+   "package": "Animal_Night",
+   "class": "Sound",
+   "name": "an_bird_06"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "T_Gludio"
+  },
+  {
+   "package": "General",
+   "class": "StaticMesh",
+   "name": "GeneralBigtreeLC"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "small_05"
+  },
+  {
+   "package": "Animal_Night",
+   "class": "Sound",
+   "name": "an_bird_11"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_04"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_14"
+  },
+  {
+   "package": "Animal_Night",
+   "class": "Sound",
+   "name": "an_bird_12"
+  },
+  {
+   "package": "FlareSet",
+   "class": "Texture",
+   "name": "Flare02"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_22"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "large_02"
+  },
+  {
+   "package": "Harbor",
+   "class": "Sound",
+   "name": "h_seagull_06"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone1_3"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "small_01"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "small_06"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_hoonstone1"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_18"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_03"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_01"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone2_3"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_10"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "V_Obj_S"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_07"
+  },
+  {
+   "package": "L2DecoLayer",
+   "class": "Package",
+   "name": "Gludio"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_06"
+  },
+  {
+   "package": "FX_E_T",
+   "class": "Package",
+   "name": "WaterSurfaceShaderSet"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_17"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "FX_E_T"
+  },
+  {
+   "package": "Gameplay",
+   "class": "Class",
+   "name": "WaterVolume"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "Gameplay"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "LevelInfo"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_13"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "SkyZoneInfo"
+  },
+  {
+   "package": "L2_ETC_Textures",
+   "class": "Texture",
+   "name": "WaterAntiportal"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone011"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_19"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone013"
+  },
+  {
+   "package": "Shaders",
+   "class": "ColorModifier",
+   "name": "Cloud_Final"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "TerrainInfo"
+  },
+  {
+   "package": "WaterSurfaceShaderSet",
+   "class": "Shader",
+   "name": "WaterShader01"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "ZoneInfo"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "PlayerStart"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone3_1"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "PhysicsVolume"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "NMovableSunLight"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone1_1"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "L2_ETC_Textures"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_02"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "NSun"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "L2DecoLayer"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_hoonstone2"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_05"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "MusicVolume"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "NMoon"
+  },
+  {
+   "package": "Gludio_Stone",
+   "class": "StaticMesh",
+   "name": "Gludio_general_stone3_3"
+  },
+  {
+   "package": "FlareSet",
+   "class": "Texture",
+   "name": "Flare06"
+  },
+  {
+   "package": "V_Obj_S",
+   "class": "Package",
+   "name": "Speaking_Town_S"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Cracked_wall01"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Stream"
+  },
+  {
+   "package": "human_ruin",
+   "class": "StaticMesh",
+   "name": "world_obj15"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_15"
+  },
+  {
+   "package": "Stream",
+   "class": "Sound",
+   "name": "stream_small_07"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_08"
+  },
+  {
+   "package": "human_ruin",
+   "class": "StaticMesh",
+   "name": "world_obj16"
+  },
+  {
+   "package": "field_deco_S",
+   "class": "Package",
+   "name": "Gludio_Grass"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Waste"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_21"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Rebuild_BrokenStone04"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_20"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_09"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_16"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_12"
+  },
+  {
+   "package": "Animal_Day",
+   "class": "Sound",
+   "name": "ad_bird_11"
+  },
+  {
+   "package": "L2_Skies",
+   "class": "Package",
+   "name": "moon"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Rebuild_support"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Rebuild_Etc01"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Rebuild_waterTank02"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Rebuild_Etc10"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "LevelSummary"
+  },
+  {
+   "package": "V_Obj_S",
+   "class": "Package",
+   "name": "H_Wares"
+  },
+  {
+   "package": "Engine",
+   "class": "Class",
+   "name": "Level"
+  },
+  {
+   "package": "field_deco_S",
+   "class": "Package",
+   "name": "grass_flower"
+  },
+  {
+   "package": "T_Gludio",
+   "class": "Texture",
+   "name": "GUG02"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Cracked_Board02"
+  },
+  {
+   "package": "T_Gludio",
+   "class": "Texture",
+   "name": "GUS05"
+  },
+  {
+   "package": "Core",
+   "class": "Package",
+   "name": "T_sland"
+  },
+  {
+   "package": "human_ruin",
+   "class": "StaticMesh",
+   "name": "loghouse"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Rebuild_house05_obj02"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Rebuild_house03"
+  },
+  {
+   "package": "human_ruin",
+   "class": "StaticMesh",
+   "name": "world_obj08"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Cracked_Deco01"
+  },
+  {
+   "package": "FlareSet",
+   "class": "Texture",
+   "name": "Sun01"
+  },
+  {
+   "package": "moon",
+   "class": "Texture",
+   "name": "moon"
+  },
+  {
+   "package": "Speaking_Town_S",
+   "class": "StaticMesh",
+   "name": "O_Cart02"
+  },
+  {
+   "package": "Speaking_Island_Village",
+   "class": "Sound",
+   "name": "sv_flog_01"
+  },
+  {
+   "package": "AmbSound",
+   "class": "Package",
+   "name": "Speaking_Island_Village"
+  },
+  {
+   "package": "Texture",
+   "class": "Texture",
+   "name": "Base"
+  },
+  {
+   "package": "Texture",
+   "class": "Texture",
+   "name": "layer0"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Cracked_Slav02"
+  },
+  {
+   "package": "human_ruin",
+   "class": "StaticMesh",
+   "name": "world_obj13"
+  },
+  {
+   "package": "General",
+   "class": "StaticMesh",
+   "name": "GeneralBigtree"
+  },
+  {
+   "package": "H_Wares",
+   "class": "StaticMesh",
+   "name": "O_Chair02"
+  },
+  {
+   "package": "human_ruin",
+   "class": "StaticMesh",
+   "name": "world_obj32"
+  },
+  {
+   "package": "Speaking_Town_S",
+   "class": "StaticMesh",
+   "name": "O_Tank03"
+  },
+  {
+   "package": "FlareSet",
+   "class": "Texture",
+   "name": "Flare01"
+  },
+  {
+   "package": "human_ruin",
+   "class": "StaticMesh",
+   "name": "world_obj29"
+  },
+  {
+   "package": "grass_flower",
+   "class": "StaticMesh",
+   "name": "Grass009"
+  },
+  {
+   "package": "Waves",
+   "class": "Sound",
+   "name": "small_04"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Cracked_WaterTank01"
+  },
+  {
+   "package": "Ruins_Renewal_s",
+   "class": "StaticMesh",
+   "name": "Cracked_house04"
+  },
+  {
+   "package": "Gludio_Grass",
+   "class": "StaticMesh",
+   "name": "Gludio_General_grass002"
+  },
+  {
+   "package": "Gludio",
+   "class": "Texture",
+   "name": "17_23_Deco03"
+  },
+  {
+   "package": "Gludio_Grass",
+   "class": "StaticMesh",
+   "name": "Gludio_General_grass012"
+  },
+  {
+   "package": "Gludio",
+   "class": "Texture",
+   "name": "17_23_Deco02"
+  },
+  {
+   "package": "Gludio",
+   "class": "Texture",
+   "name": "17_23_Deco01"
+  },
+  {
+   "package": "Height",
+   "class": "Texture",
+   "name": "17_23_R"
+  },
+  {
+   "package": "T_Gludio",
+   "class": "Texture",
+   "name": "GUS108"
+  },
+  {
+   "package": "Height",
+   "class": "Texture",
+   "name": "17_23_ST"
+  },
+  {
+   "package": "T_sland",
+   "class": "Texture",
+   "name": "SL_C"
+  },
+  {
+   "package": "Height",
+   "class": "Texture",
+   "name": "17_23_G1_C"
+  },
+  {
+   "package": "T_Gludio",
+   "class": "Texture",
+   "name": "GUG107"
+  },
+  {
+   "package": "Height",
+   "class": "Texture",
+   "name": "17_23_G_C"
+  },
+  {
+   "package": "Height",
+   "class": "Texture",
+   "name": "17_23_S1_C"
+  },
+  {
+   "package": "T_Gludio",
+   "class": "Texture",
+   "name": "GUS103"
+  },
+  {
+   "package": "Height",
+   "class": "Texture",
+   "name": "17_23_S_C"
+  },
+  {
+   "package": "Height",
+   "class": "Texture",
+   "name": "17_23"
+  },
+  {
+   "package": "FlareSet",
+   "class": "Texture",
+   "name": "Flare04"
+  },
+  {
+   "package": "FlareSet",
+   "class": "Texture",
+   "name": "Flare03"
+  }
+ ],
+ "terrain_layers": [],
+ "static_mesh_actors": [
+  {
+   "name": "StaticMeshActor230",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_2"
+   },
+   "location": [
+    -72227.5234375,
+    177879.625,
+    -3604.395263671875
+   ]
+  },
+  {
+   "name": "StaticMeshActor414",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -70644.7421875,
+    174853.28125,
+    -3614.343505859375
+   ],
+   "rotation": [
+    -664,
+    25496,
+    -24
+   ]
+  },
+  {
+   "name": "StaticMeshActor415",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -70833.0703125,
+    174636.265625,
+    -3610.343505859375
+   ],
+   "rotation": [
+    -664,
+    25496,
+    -24
+   ]
+  },
+  {
+   "name": "StaticMeshActor333",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone011"
+   },
+   "location": [
+    -81846.9375,
+    165894.25,
+    -3603.872802734375
+   ],
+   "rotation": [
+    -24536,
+    -3848,
+    -952
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor334",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -82430.7265625,
+    164722.140625,
+    -3478.677490234375
+   ],
+   "rotation": [
+    -15184,
+    -8640,
+    608
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor412",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -69787.171875,
+    176287.515625,
+    -3644.343505859375
+   ],
+   "rotation": [
+    -664,
+    27352,
+    -24
+   ]
+  },
+  {
+   "name": "StaticMeshActor413",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -70740.921875,
+    174743.609375,
+    -3606.343505859375
+   ],
+   "rotation": [
+    -664,
+    25496,
+    -24
+   ]
+  },
+  {
+   "name": "StaticMeshActor417",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67677.796875,
+    178530.140625,
+    -3712.343505859375
+   ],
+   "rotation": [
+    -664,
+    21392,
+    -352
+   ]
+  },
+  {
+   "name": "StaticMeshActor379",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -77970.5390625,
+    168759.28125,
+    -3684.786865234375
+   ],
+   "rotation": [
+    0,
+    -152,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor340",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -82247.4765625,
+    164504.96875,
+    -3179.34033203125
+   ],
+   "rotation": [
+    -920,
+    -20344,
+    520
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor337",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone011"
+   },
+   "location": [
+    -81843.2890625,
+    164930.390625,
+    -3121.872802734375
+   ],
+   "rotation": [
+    -592,
+    -5032,
+    -952
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor277",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -76159.4375,
+    165486.28125,
+    -3647.24365234375
+   ],
+   "rotation": [
+    0,
+    3736,
+    0
+   ],
+   "draw_scale": 1.5
+  },
+  {
+   "name": "StaticMeshActor94",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.78125,
+    177788.484375,
+    -3653.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor99",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.1953125,
+    177852.796875,
+    -3653.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor100",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.8671875,
+    177863.625,
+    -3653.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor425",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68174.7578125,
+    176838.953125,
+    -3633.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor146",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.4921875,
+    177845.5,
+    -3628.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor29",
+   "mesh": {
+    "package": "H_Wares",
+    "class": "StaticMesh",
+    "name": "O_Chair02"
+   },
+   "location": [
+    -68061.6015625,
+    177283.15625,
+    -3643.556640625
+   ]
+  },
+  {
+   "name": "StaticMeshActor28",
+   "mesh": {
+    "package": "Speaking_Town_S",
+    "class": "StaticMesh",
+    "name": "O_Cart02"
+   },
+   "location": [
+    -67896.7109375,
+    177556.03125,
+    -3642.712158203125
+   ]
+  },
+  {
+   "name": "StaticMeshActor9",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Cracked_Board02"
+   },
+   "location": [
+    -72403.125,
+    174290.46875,
+    -3623.6044921875
+   ],
+   "rotation": [
+    0,
+    7112,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor31",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -68335.375,
+    180865.828125,
+    -3712.554443359375
+   ],
+   "rotation": [
+    0,
+    27560,
+    0
+   ],
+   "draw_scale": 1.2000000476837158
+  },
+  {
+   "name": "StaticMeshActor134",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67830.75,
+    177859.78125,
+    -3636.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor26",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -66439.3828125,
+    178976.328125,
+    -3698.9091796875
+   ],
+   "rotation": [
+    0,
+    5072,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor2",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Cracked_wall01"
+   },
+   "location": [
+    -74277.25,
+    165628.21875,
+    -3684.1337890625
+   ],
+   "rotation": [
+    0,
+    43392,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor395",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -77131.96875,
+    168754.828125,
+    -3726.899169921875
+   ],
+   "rotation": [
+    0,
+    -1240,
+    0
+   ],
+   "draw_scale": 1.100000023841858
+  },
+  {
+   "name": "StaticMeshActor372",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -80199.9296875,
+    165783.359375,
+    -3208.336669921875
+   ],
+   "rotation": [
+    0,
+    -13040,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor259",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -74537.9375,
+    173110.6875,
+    -3696.863037109375
+   ],
+   "rotation": [
+    0,
+    -18288,
+    0
+   ],
+   "draw_scale": 1.0499999523162842
+  },
+  {
+   "name": "StaticMeshActor68",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.8671875,
+    177734.203125,
+    -3660.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor25",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -66884.65625,
+    177950.75,
+    -3657.596923828125
+   ],
+   "rotation": [
+    0,
+    -5088,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor65",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67835.59375,
+    177697.375,
+    -3660.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor42",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_1"
+   },
+   "location": [
+    -68197.421875,
+    181933.3125,
+    -3776.297119140625
+   ],
+   "rotation": [
+    -1576,
+    6248,
+    4584
+   ]
+  },
+  {
+   "name": "StaticMeshActor35",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -66987.453125,
+    180470.75,
+    -3680.823974609375
+   ],
+   "rotation": [
+    0,
+    27576,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor37",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -68400.6640625,
+    179937.1875,
+    -3720.380615234375
+   ],
+   "rotation": [
+    0,
+    -12640,
+    0
+   ],
+   "draw_scale": 1.2000000476837158
+  },
+  {
+   "name": "StaticMeshActor90",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.7421875,
+    177739.046875,
+    -3651.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor23",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_BrokenStone04"
+   },
+   "location": [
+    -74422.109375,
+    174114.890625,
+    -3677.224609375
+   ]
+  },
+  {
+   "name": "StaticMeshActor21",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Cracked_wall01"
+   },
+   "location": [
+    -73661.234375,
+    173658.625,
+    -3628.970458984375
+   ],
+   "rotation": [
+    0,
+    -23328,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor386",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone3_2"
+   },
+   "location": [
+    -70321.0,
+    175973.390625,
+    -3694.44775390625
+   ],
+   "rotation": [
+    0,
+    -6472,
+    0
+   ],
+   "draw_scale": 0.30000001192092896
+  },
+  {
+   "name": "StaticMeshActor232",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_2"
+   },
+   "location": [
+    -70221.0390625,
+    178079.390625,
+    -3736.737060546875
+   ],
+   "rotation": [
+    0,
+    -9280,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor316",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone3"
+   },
+   "location": [
+    -72375.3671875,
+    166983.8125,
+    -3795.8779296875
+   ],
+   "rotation": [
+    0,
+    17280,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor421",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68183.1484375,
+    176916.1875,
+    -3614.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor404",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -82554.375,
+    164154.90625,
+    -3366.677490234375
+   ],
+   "rotation": [
+    -14016,
+    -7408,
+    608
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor367",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone016"
+   },
+   "location": [
+    -79697.265625,
+    168886.90625,
+    -3366.344482421875
+   ],
+   "rotation": [
+    -7016,
+    -6432,
+    0
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor366",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone014"
+   },
+   "location": [
+    -79201.703125,
+    169783.921875,
+    -3412.046630859375
+   ],
+   "rotation": [
+    -1736,
+    24816,
+    -3496
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor420",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68185.1484375,
+    176941.375,
+    -3628.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor1694",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone1_2"
+   },
+   "location": [
+    -74577.7265625,
+    174767.140625,
+    -3738.3935546875
+   ]
+  },
+  {
+   "name": "StaticMeshActor222",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone014"
+   },
+   "location": [
+    -80268.2890625,
+    167806.53125,
+    -3239.84814453125
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor217",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone1_1"
+   },
+   "location": [
+    -71584.5546875,
+    177407.71875,
+    -3649.21923828125
+   ],
+   "rotation": [
+    0,
+    36376,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor238",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -73259.8203125,
+    172746.953125,
+    -3650.3896484375
+   ],
+   "rotation": [
+    0,
+    -25280,
+    0
+   ],
+   "draw_scale": 1.0499999523162842
+  },
+  {
+   "name": "StaticMeshActor78",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.5,
+    177862.234375,
+    -3662.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor80",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.59375,
+    177884.78125,
+    -3662.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor10",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_house03"
+   },
+   "location": [
+    -73674.0859375,
+    173923.5,
+    -3582.640625
+   ],
+   "rotation": [
+    0,
+    9968,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor36",
+   "mesh": {
+    "package": "human_ruin",
+    "class": "StaticMesh",
+    "name": "loghouse"
+   },
+   "location": [
+    -67881.1796875,
+    177278.078125,
+    -3553.739013671875
+   ],
+   "rotation": [
+    -152,
+    -15576,
+    856
+   ]
+  },
+  {
+   "name": "StaticMeshActor405",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -83114.1171875,
+    164056.609375,
+    -3484.677490234375
+   ],
+   "rotation": [
+    -15184,
+    -8640,
+    608
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor390",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree1"
+   },
+   "location": [
+    -67622.7734375,
+    168722.796875,
+    -3642.17529296875
+   ],
+   "rotation": [
+    0,
+    -6752,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor318",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_2"
+   },
+   "location": [
+    -72553.5625,
+    173869.84375,
+    -3690.943603515625
+   ],
+   "rotation": [
+    0,
+    18064,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor44",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_1"
+   },
+   "location": [
+    -68029.28125,
+    181901.625,
+    -3685.552734375
+   ],
+   "rotation": [
+    0,
+    -10528,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor47",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.6796875,
+    177801.1875,
+    -3597.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor376",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone014"
+   },
+   "location": [
+    -78119.8046875,
+    166567.578125,
+    -3721.074462890625
+   ],
+   "rotation": [
+    1392,
+    0,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor427",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68172.5859375,
+    176867.78125,
+    -3617.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor434",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68180.375,
+    176889.09375,
+    -3638.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor291",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -67705.484375,
+    168938.75,
+    -3717.13330078125
+   ],
+   "rotation": [
+    0,
+    6864,
+    0
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor428",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68172.8984375,
+    176880.09375,
+    -3614.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor317",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -72759.5859375,
+    172092.921875,
+    -3567.81005859375
+   ],
+   "rotation": [
+    0,
+    -36512,
+    0
+   ],
+   "draw_scale": 1.0499999523162842
+  },
+  {
+   "name": "StaticMeshActor419",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.1953125,
+    177910.78125,
+    -3662.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor410",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone3"
+   },
+   "location": [
+    -73242.6640625,
+    168532.53125,
+    -3708.8779296875
+   ]
+  },
+  {
+   "name": "StaticMeshActor233",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone3_2"
+   },
+   "location": [
+    -70351.7109375,
+    177742.0625,
+    -3741.44775390625
+   ],
+   "rotation": [
+    0,
+    -6472,
+    0
+   ],
+   "draw_scale": 0.30000001192092896
+  },
+  {
+   "name": "StaticMeshActor85",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone3_3"
+   },
+   "location": [
+    -66215.9453125,
+    182847.71875,
+    -3723.9521484375
+   ],
+   "rotation": [
+    0,
+    25320,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor234",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone3_2"
+   },
+   "location": [
+    -70378.265625,
+    176049.84375,
+    -3681.44775390625
+   ],
+   "draw_scale": 0.5
+  },
+  {
+   "name": "StaticMeshActor377",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone014"
+   },
+   "location": [
+    -78293.171875,
+    166474.46875,
+    -3673.835693359375
+   ],
+   "rotation": [
+    0,
+    11104,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor383",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone3"
+   },
+   "location": [
+    -70825.625,
+    169109.765625,
+    -3726.8779296875
+   ],
+   "rotation": [
+    -584,
+    2688,
+    -536
+   ]
+  },
+  {
+   "name": "StaticMeshActor409",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -71119.2890625,
+    169463.40625,
+    -3717.183349609375
+   ],
+   "rotation": [
+    0,
+    -2904,
+    0
+   ],
+   "draw_scale": 1.0499999523162842
+  },
+  {
+   "name": "StaticMeshActor369",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone013"
+   },
+   "location": [
+    -78359.4375,
+    166514.796875,
+    -3673.591064453125
+   ],
+   "rotation": [
+    -3696,
+    -1976,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor67",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67835.1953125,
+    177723.375,
+    -3660.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor365",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -79035.6640625,
+    168328.46875,
+    -3454.845458984375
+   ],
+   "rotation": [
+    0,
+    -9128,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor363",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone012"
+   },
+   "location": [
+    -79837.5078125,
+    168815.65625,
+    -3339.750732421875
+   ],
+   "rotation": [
+    0,
+    -23352,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor91",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.953125,
+    177751.359375,
+    -3651.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor215",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -71004.1328125,
+    168650.1875,
+    -3673.209228515625
+   ],
+   "rotation": [
+    0,
+    -28880,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor371",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone013"
+   },
+   "location": [
+    -80240.4921875,
+    166045.28125,
+    -3176.113037109375
+   ],
+   "rotation": [
+    0,
+    13040,
+    0
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor89",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.3203125,
+    177727.328125,
+    -3651.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor71",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67835.6796875,
+    177772.515625,
+    -3660.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor375",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone014"
+   },
+   "location": [
+    -80220.9609375,
+    165113.640625,
+    -3271.90625
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor87",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.46875,
+    177702.21875,
+    -3651.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor27",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -66437.890625,
+    181028.28125,
+    -3670.260986328125
+   ],
+   "rotation": [
+    0,
+    30208,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor88",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.140625,
+    177713.046875,
+    -3651.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor237",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -71592.7109375,
+    169242.8125,
+    -3725.450439453125
+   ],
+   "rotation": [
+    0,
+    -14912,
+    0
+   ],
+   "draw_scale": 0.8500000238418579
+  },
+  {
+   "name": "StaticMeshActor236",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_1"
+   },
+   "location": [
+    -71517.921875,
+    178931.640625,
+    -3706.250732421875
+   ],
+   "rotation": [
+    2464,
+    10056,
+    3688
+   ]
+  },
+  {
+   "name": "StaticMeshActor235",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone1_2"
+   },
+   "location": [
+    -71409.8359375,
+    179100.671875,
+    -3751.313720703125
+   ],
+   "rotation": [
+    0,
+    7752,
+    6984
+   ]
+  },
+  {
+   "name": "StaticMeshActor360",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -80929.375,
+    166795.1875,
+    -3098.0654296875
+   ]
+  },
+  {
+   "name": "StaticMeshActor231",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone1_3"
+   },
+   "location": [
+    -70285.140625,
+    177999.40625,
+    -3712.62548828125
+   ],
+   "rotation": [
+    0,
+    8544,
+    0
+   ],
+   "draw_scale": 1.5
+  },
+  {
+   "name": "StaticMeshActor176",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -68780.5078125,
+    170776.65625,
+    -3650.946044921875
+   ],
+   "rotation": [
+    0,
+    22088,
+    0
+   ],
+   "draw_scale": 1.5
+  },
+  {
+   "name": "StaticMeshActor116",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.2578125,
+    177843.75,
+    -3643.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor239",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -73058.671875,
+    171787.640625,
+    -3599.393798828125
+   ],
+   "rotation": [
+    0,
+    -10392,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor364",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone016"
+   },
+   "location": [
+    -79339.6953125,
+    168347.703125,
+    -3451.344482421875
+   ],
+   "rotation": [
+    6920,
+    -4216,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor13",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_support"
+   },
+   "location": [
+    -74774.5625,
+    174160.84375,
+    -3580.792236328125
+   ],
+   "rotation": [
+    0,
+    25064,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor324",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -78837.5703125,
+    164801.71875,
+    -3670.087646484375
+   ],
+   "draw_scale": 1.100000023841858
+  },
+  {
+   "name": "StaticMeshActor320",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -78328.359375,
+    164101.796875,
+    -3767.002685546875
+   ],
+   "rotation": [
+    0,
+    13088,
+    0
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor319",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -78232.2265625,
+    164077.96875,
+    -3733.002685546875
+   ],
+   "rotation": [
+    0,
+    8,
+    0
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor279",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -76286.0859375,
+    165374.28125,
+    -3622.8583984375
+   ],
+   "rotation": [
+    0,
+    21560,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor276",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone3"
+   },
+   "location": [
+    -75640.2890625,
+    171894.515625,
+    -3780.60693359375
+   ],
+   "rotation": [
+    -4672,
+    14856,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor275",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone3"
+   },
+   "location": [
+    -75522.921875,
+    171894.109375,
+    -3806.60693359375
+   ],
+   "rotation": [
+    -4672,
+    -17232,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor8",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Cracked_Slav02"
+   },
+   "location": [
+    -74340.25,
+    166003.578125,
+    -3741.2099609375
+   ]
+  },
+  {
+   "name": "StaticMeshActor82",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68180.484375,
+    177026.1875,
+    -3637.5751953125
+   ],
+   "rotation": [
+    -200,
+    12552,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor49",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_3"
+   },
+   "location": [
+    -66001.703125,
+    181271.296875,
+    -3714.358642578125
+   ]
+  },
+  {
+   "name": "StaticMeshActor223",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone3_2"
+   },
+   "location": [
+    -71480.140625,
+    177565.234375,
+    -3690.42919921875
+   ],
+   "rotation": [
+    0,
+    -10968,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor41",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone3_1"
+   },
+   "location": [
+    -68094.765625,
+    182095.0625,
+    -3816.34423828125
+   ],
+   "rotation": [
+    1296,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor40",
+   "mesh": {
+    "package": "human_ruin",
+    "class": "StaticMesh",
+    "name": "world_obj15"
+   },
+   "location": [
+    -67008.4921875,
+    177043.78125,
+    -3525.759033203125
+   ]
+  },
+  {
+   "name": "StaticMeshActor45",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone1_2"
+   },
+   "location": [
+    -65982.7890625,
+    180807.34375,
+    -3718.529296875
+   ]
+  },
+  {
+   "name": "StaticMeshActor154",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.984375,
+    177794.875,
+    -3619.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor53",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.78125,
+    177659.0625,
+    -3660.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor54",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.9609375,
+    177673.34375,
+    -3660.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor57",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.53125,
+    177693.171875,
+    -3641.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor370",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone013"
+   },
+   "location": [
+    -80211.6640625,
+    166189.046875,
+    -3209.113037109375
+   ],
+   "rotation": [
+    1728,
+    -18776,
+    0
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor112",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.265625,
+    177791.15625,
+    -3643.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor97",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.59375,
+    177826.796875,
+    -3653.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor96",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.3828125,
+    177814.484375,
+    -3653.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor98",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.7734375,
+    177841.078125,
+    -3653.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor111",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67835.0390625,
+    177780.03125,
+    -3641.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor95",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67830.9609375,
+    177802.765625,
+    -3653.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor378",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -77339.4296875,
+    168575.0625,
+    -3796.786865234375
+   ],
+   "rotation": [
+    0,
+    -25408,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor345",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone007"
+   },
+   "location": [
+    -81685.578125,
+    165918.65625,
+    -3313.101318359375
+   ],
+   "rotation": [
+    20192,
+    -37920,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor4",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_BrokenStone04"
+   },
+   "location": [
+    -74265.6796875,
+    165787.796875,
+    -3747.0859375
+   ]
+  },
+  {
+   "name": "StaticMeshActor83",
+   "mesh": {
+    "package": "Speaking_Town_S",
+    "class": "StaticMesh",
+    "name": "O_Tank03"
+   },
+   "location": [
+    -67546.8203125,
+    177792.46875,
+    -3679.29150390625
+   ]
+  },
+  {
+   "name": "StaticMeshActor48",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67830.859375,
+    177815.46875,
+    -3597.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor51",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone3_1"
+   },
+   "location": [
+    -65916.46875,
+    182698.53125,
+    -3789.63916015625
+   ],
+   "rotation": [
+    0,
+    18560,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor15",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Waste"
+   },
+   "location": [
+    -74331.0625,
+    173711.890625,
+    -3667.201171875
+   ]
+  },
+  {
+   "name": "StaticMeshActor39",
+   "mesh": {
+    "package": "human_ruin",
+    "class": "StaticMesh",
+    "name": "world_obj15"
+   },
+   "location": [
+    -67031.546875,
+    177202.984375,
+    -3528.759033203125
+   ],
+   "rotation": [
+    0,
+    12776,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor43",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_2"
+   },
+   "location": [
+    -68191.6484375,
+    181874.625,
+    -3665.03125
+   ],
+   "rotation": [
+    0,
+    1576,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor12",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_house05_obj02"
+   },
+   "location": [
+    -73994.421875,
+    173602.953125,
+    -3619.380859375
+   ],
+   "rotation": [
+    0,
+    -7248,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor69",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.046875,
+    177748.484375,
+    -3660.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor30",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -67600.8515625,
+    180822.53125,
+    -3671.876708984375
+   ],
+   "rotation": [
+    0,
+    22280,
+    0
+   ],
+   "draw_scale": 1.2000000476837158
+  },
+  {
+   "name": "StaticMeshActor3",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Cracked_WaterTank01"
+   },
+   "location": [
+    -74146.2734375,
+    165162.75,
+    -3732.837646484375
+   ],
+   "rotation": [
+    0,
+    11080,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor18",
+   "mesh": {
+    "package": "human_ruin",
+    "class": "StaticMesh",
+    "name": "world_obj32"
+   },
+   "location": [
+    -73902.7421875,
+    174002.4375,
+    -3702.647705078125
+   ]
+  },
+  {
+   "name": "StaticMeshActor79",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.921875,
+    177873.953125,
+    -3662.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor64",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.453125,
+    177790.0625,
+    -3595.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor271",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone1"
+   },
+   "location": [
+    -78369.4296875,
+    171301.875,
+    -3679.32373046875
+   ],
+   "rotation": [
+    -3032,
+    14912,
+    -2512
+   ]
+  },
+  {
+   "name": "StaticMeshActor269",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone3"
+   },
+   "location": [
+    -78226.984375,
+    171367.109375,
+    -3534.592041015625
+   ],
+   "rotation": [
+    0,
+    5840,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor261",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -73975.890625,
+    172924.875,
+    -3662.55224609375
+   ],
+   "rotation": [
+    0,
+    -16232,
+    0
+   ],
+   "draw_scale": 1.0499999523162842
+  },
+  {
+   "name": "StaticMeshActor267",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone2"
+   },
+   "location": [
+    -78347.484375,
+    171078.796875,
+    -3635.772705078125
+   ],
+   "rotation": [
+    0,
+    -12184,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor266",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone2"
+   },
+   "location": [
+    -78073.90625,
+    171212.859375,
+    -3646.772705078125
+   ],
+   "rotation": [
+    0,
+    3824,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor156",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.5859375,
+    177820.875,
+    -3619.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor75",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.6875,
+    177823.921875,
+    -3662.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor260",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -75085.421875,
+    174102.828125,
+    -3671.363525390625
+   ],
+   "rotation": [
+    0,
+    3416,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor161",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.5625,
+    177760.296875,
+    -3609.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor113",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.4453125,
+    177805.4375,
+    -3643.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor244",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -77622.703125,
+    165046.046875,
+    -3661.411865234375
+   ],
+   "rotation": [
+    0,
+    14856,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor115",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67835.078125,
+    177829.46875,
+    -3643.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor130",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67830.265625,
+    177810.640625,
+    -3636.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor50",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone3_1"
+   },
+   "location": [
+    -65890.8203125,
+    182932.421875,
+    -3829.63916015625
+   ],
+   "rotation": [
+    0,
+    -4592,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor252",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_2"
+   },
+   "location": [
+    -72984.6171875,
+    175132.0,
+    -3762.542724609375
+   ],
+   "rotation": [
+    0,
+    20328,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor251",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -76274.921875,
+    165495.703125,
+    -3607.650146484375
+   ],
+   "rotation": [
+    0,
+    21104,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor248",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -71830.5546875,
+    175060.625,
+    -3685.422119140625
+   ],
+   "rotation": [
+    0,
+    -11608,
+    0
+   ],
+   "draw_scale": 1.149999976158142
+  },
+  {
+   "name": "StaticMeshActor250",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -71553.328125,
+    169615.296875,
+    -3722.1630859375
+   ],
+   "rotation": [
+    0,
+    4200,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor249",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -72162.0859375,
+    174856.890625,
+    -3675.784912109375
+   ],
+   "rotation": [
+    0,
+    744,
+    0
+   ],
+   "draw_scale": 0.9800000190734863
+  },
+  {
+   "name": "StaticMeshActor219",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone1_1"
+   },
+   "location": [
+    -71369.5390625,
+    177396.25,
+    -3738.21923828125
+   ],
+   "rotation": [
+    0,
+    4536,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor206",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -66997.3984375,
+    179146.078125,
+    -3741.343505859375
+   ],
+   "rotation": [
+    -664,
+    24912,
+    -352
+   ]
+  },
+  {
+   "name": "StaticMeshActor204",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -66690.046875,
+    179355.90625,
+    -3738.343505859375
+   ],
+   "rotation": [
+    -664,
+    22424,
+    -352
+   ]
+  },
+  {
+   "name": "StaticMeshActor205",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67376.796875,
+    178750.0625,
+    -3724.343505859375
+   ],
+   "rotation": [
+    -664,
+    22240,
+    -352
+   ]
+  },
+  {
+   "name": "StaticMeshActor46",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone1_3"
+   },
+   "location": [
+    -65857.78125,
+    180972.5625,
+    -3696.466552734375
+   ],
+   "rotation": [
+    0,
+    -12072,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor200",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -80935.9921875,
+    166546.515625,
+    -3107.478759765625
+   ],
+   "rotation": [
+    0,
+    6104,
+    0
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor201",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67933.6484375,
+    178136.25,
+    -3659.343505859375
+   ],
+   "rotation": [
+    -664,
+    48168,
+    128
+   ]
+  },
+  {
+   "name": "StaticMeshActor199",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67463.375,
+    178100.125,
+    -3672.343505859375
+   ],
+   "rotation": [
+    -664,
+    48168,
+    128
+   ]
+  },
+  {
+   "name": "StaticMeshActor198",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67385.03125,
+    178016.828125,
+    -3678.343505859375
+   ],
+   "rotation": [
+    -664,
+    33120,
+    128
+   ]
+  },
+  {
+   "name": "StaticMeshActor38",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -68733.34375,
+    179181.34375,
+    -3730.47412109375
+   ],
+   "rotation": [
+    0,
+    -12352,
+    0
+   ],
+   "draw_scale": 0.8600000143051147
+  },
+  {
+   "name": "StaticMeshActor197",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_3"
+   },
+   "location": [
+    -68632.2109375,
+    178495.859375,
+    -3700.26416015625
+   ]
+  },
+  {
+   "name": "StaticMeshActor293",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -66234.875,
+    171750.671875,
+    -3491.128173828125
+   ]
+  },
+  {
+   "name": "StaticMeshActor0",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Cracked_Deco01"
+   },
+   "location": [
+    -74322.0546875,
+    164908.671875,
+    -3669.706787109375
+   ],
+   "rotation": [
+    0,
+    -6936,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor449",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68183.515625,
+    176896.84375,
+    -3623.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor382",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -77321.890625,
+    168495.5625,
+    -3819.786865234375
+   ],
+   "rotation": [
+    0,
+    -16096,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor307",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -66910.09375,
+    175830.71875,
+    -3776.740478515625
+   ],
+   "rotation": [
+    0,
+    21008,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor202",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone012"
+   },
+   "location": [
+    -79258.0625,
+    168324.5625,
+    -3389.750732421875
+   ],
+   "rotation": [
+    1560,
+    -27192,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor451",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68183.3046875,
+    176920.28125,
+    -3622.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor308",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -66999.0390625,
+    176589.34375,
+    -3576.79736328125
+   ],
+   "rotation": [
+    0,
+    17152,
+    0
+   ],
+   "draw_scale": 0.8600000143051147
+  },
+  {
+   "name": "StaticMeshActor411",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -69857.140625,
+    176165.1875,
+    -3652.343505859375
+   ],
+   "rotation": [
+    -664,
+    27512,
+    -24
+   ]
+  },
+  {
+   "name": "StaticMeshActor355",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone012"
+   },
+   "location": [
+    -78145.4375,
+    168837.765625,
+    -3606.750732421875
+   ],
+   "rotation": [
+    2256,
+    -32424,
+    592
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor393",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -76193.78125,
+    168550.703125,
+    -3727.210205078125
+   ]
+  },
+  {
+   "name": "StaticMeshActor356",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone012"
+   },
+   "location": [
+    -80814.6640625,
+    166873.828125,
+    -3110.750732421875
+   ],
+   "rotation": [
+    0,
+    -14784,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor394",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -76934.1875,
+    168116.453125,
+    -3732.669921875
+   ],
+   "rotation": [
+    0,
+    20200,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor354",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone012"
+   },
+   "location": [
+    -80811.78125,
+    167325.140625,
+    -3205.750732421875
+   ],
+   "rotation": [
+    872,
+    -19976,
+    -9128
+   ],
+   "draw_scale": 3.5
+  },
+  {
+   "name": "StaticMeshActor447",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68172.7421875,
+    176871.875,
+    -3625.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor349",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -81614.515625,
+    165400.015625,
+    -3185.34033203125
+   ],
+   "rotation": [
+    0,
+    11272,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor442",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68174.125,
+    176880.3125,
+    -3630.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor429",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68183.359375,
+    176892.75,
+    -3615.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor357",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone012"
+   },
+   "location": [
+    -78910.8671875,
+    167337.4375,
+    -3449.750732421875
+   ],
+   "rotation": [
+    1104,
+    -37384,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor437",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68190.625,
+    176925.1875,
+    -3638.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor446",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68184.6875,
+    176928.71875,
+    -3630.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor353",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -81927.7109375,
+    164809.453125,
+    -3284.34033203125
+   ],
+   "rotation": [
+    0,
+    53296,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor436",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68189.1484375,
+    176915.0625,
+    -3638.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor400",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -77323.0546875,
+    168542.234375,
+    -3713.786865234375
+   ],
+   "rotation": [
+    0,
+    -8536,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor350",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -81599.7421875,
+    165515.296875,
+    -3324.34033203125
+   ],
+   "rotation": [
+    0,
+    11272,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor351",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -81738.53125,
+    165189.953125,
+    -3451.34033203125
+   ],
+   "rotation": [
+    0,
+    11272,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor348",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone007"
+   },
+   "location": [
+    -80939.28125,
+    167655.015625,
+    -3685.101318359375
+   ],
+   "rotation": [
+    88624,
+    -25280,
+    14528
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor448",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68173.0546875,
+    176884.1875,
+    -3622.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor347",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone007"
+   },
+   "location": [
+    -81653.3984375,
+    166805.90625,
+    -3746.101318359375
+   ],
+   "rotation": [
+    98416,
+    -21808,
+    14528
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor341",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -81107.6796875,
+    166889.828125,
+    -3267.34033203125
+   ],
+   "rotation": [
+    1272,
+    48232,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor426",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68172.0,
+    176856.140625,
+    -3624.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor452",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68179.7109375,
+    176963.46875,
+    -3638.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor338",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone011"
+   },
+   "location": [
+    -82187.1484375,
+    164980.40625,
+    -3369.872802734375
+   ],
+   "rotation": [
+    -17232,
+    -5032,
+    -952
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor443",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68184.5859375,
+    176892.96875,
+    -3631.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor396",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone012"
+   },
+   "location": [
+    -79560.2265625,
+    169255.046875,
+    -3307.750732421875
+   ],
+   "rotation": [
+    0,
+    -21016,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor311",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -66263.2734375,
+    176109.734375,
+    -3699.030517578125
+   ],
+   "rotation": [
+    0,
+    11128,
+    0
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor315",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone2"
+   },
+   "location": [
+    -73399.375,
+    168198.046875,
+    -3753.54736328125
+   ]
+  },
+  {
+   "name": "StaticMeshActor208",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -68069.71875,
+    176773.671875,
+    -3650.343505859375
+   ],
+   "rotation": [
+    -664,
+    17624,
+    -672
+   ]
+  },
+  {
+   "name": "StaticMeshActor441",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68173.8125,
+    176868.0,
+    -3633.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor440",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68173.0703125,
+    176852.265625,
+    -3632.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor438",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68190.9375,
+    176937.5,
+    -3638.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor391",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree1"
+   },
+   "location": [
+    -69775.078125,
+    168646.15625,
+    -3587.17529296875
+   ],
+   "rotation": [
+    0,
+    5384,
+    0
+   ],
+   "draw_scale": 0.8500000238418579
+  },
+  {
+   "name": "StaticMeshActor385",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_2"
+   },
+   "location": [
+    -73896.8046875,
+    176115.546875,
+    -3642.542724609375
+   ],
+   "rotation": [
+    0,
+    -5528,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor359",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone016"
+   },
+   "location": [
+    -78355.0703125,
+    168988.515625,
+    -3856.176025390625
+   ],
+   "rotation": [
+    -3304,
+    44072,
+    1336
+   ],
+   "draw_scale": 5.0
+  },
+  {
+   "name": "StaticMeshActor243",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -77909.375,
+    164672.390625,
+    -3676.0927734375
+   ],
+   "rotation": [
+    0,
+    216,
+    0
+   ],
+   "draw_scale": 1.100000023841858
+  },
+  {
+   "name": "StaticMeshActor424",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68180.546875,
+    176835.078125,
+    -3640.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor1970",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -70113.0390625,
+    168443.21875,
+    -3601.892333984375
+   ],
+   "rotation": [
+    0,
+    -13488,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor1976",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -72553.640625,
+    172665.421875,
+    -3594.34033203125
+   ],
+   "rotation": [
+    0,
+    -29288,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor1988",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -78192.2734375,
+    166058.109375,
+    -3712.80859375
+   ],
+   "draw_scale": 0.8899999856948853
+  },
+  {
+   "name": "StaticMeshActor1975",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -72693.7421875,
+    166311.890625,
+    -3756.45068359375
+   ],
+   "rotation": [
+    0,
+    -39304,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor1973",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -71168.046875,
+    170093.875,
+    -3733.9931640625
+   ],
+   "rotation": [
+    0,
+    14760,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor1945",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -67045.28125,
+    169368.890625,
+    -3719.92626953125
+   ],
+   "rotation": [
+    0,
+    13808,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor1946",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -66747.1875,
+    170558.171875,
+    -3570.67333984375
+   ],
+   "rotation": [
+    0,
+    -12080,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor2039",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -70367.2265625,
+    179288.40625,
+    -3628.8603515625
+   ],
+   "rotation": [
+    0,
+    -15856,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor1920",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -67527.9765625,
+    165833.46875,
+    -3564.800048828125
+   ],
+   "rotation": [
+    0,
+    16120,
+    0
+   ],
+   "draw_scale": 0.949999988079071
+  },
+  {
+   "name": "StaticMeshActor1919",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -67512.21875,
+    167206.515625,
+    -3660.14990234375
+   ],
+   "rotation": [
+    0,
+    35208,
+    0
+   ],
+   "draw_scale": 0.9599999785423279
+  },
+  {
+   "name": "StaticMeshActor1924",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "GeneralBigtree"
+   },
+   "location": [
+    -66677.46875,
+    167795.15625,
+    -3476.765869140625
+   ],
+   "rotation": [
+    0,
+    21712,
+    0
+   ],
+   "draw_scale": 1.100000023841858
+  },
+  {
+   "name": "StaticMeshActor2021",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -73338.90625,
+    173226.984375,
+    -3649.989013671875
+   ],
+   "rotation": [
+    0,
+    8224,
+    0
+   ],
+   "draw_scale": 0.8899999856948853
+  },
+  {
+   "name": "StaticMeshActor2047",
+   "mesh": {
+    "package": "human_ruin",
+    "class": "StaticMesh",
+    "name": "world_obj29"
+   },
+   "location": [
+    -74706.484375,
+    165428.96875,
+    -3618.739013671875
+   ],
+   "rotation": [
+    40,
+    -6224,
+    328
+   ]
+  },
+  {
+   "name": "StaticMeshActor2044",
+   "mesh": {
+    "package": "human_ruin",
+    "class": "StaticMesh",
+    "name": "world_obj08"
+   },
+   "location": [
+    -74528.8515625,
+    164914.28125,
+    -3681.063720703125
+   ],
+   "rotation": [
+    -792,
+    0,
+    208
+   ]
+  },
+  {
+   "name": "StaticMeshActor2041",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3"
+   },
+   "location": [
+    -69218.390625,
+    172351.140625,
+    -3721.43994140625
+   ],
+   "rotation": [
+    0,
+    17160,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor2042",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree1"
+   },
+   "location": [
+    -66949.984375,
+    170108.359375,
+    -3709.168212890625
+   ],
+   "rotation": [
+    0,
+    -480,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor2027",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -68786.3515625,
+    180172.375,
+    -3710.259521484375
+   ],
+   "rotation": [
+    0,
+    -1200,
+    0
+   ],
+   "draw_scale": 1.059999942779541
+  },
+  {
+   "name": "StaticMeshActor2038",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -68674.828125,
+    178613.34375,
+    -3702.1171875
+   ],
+   "rotation": [
+    0,
+    -22048,
+    0
+   ],
+   "draw_scale": 0.8199999928474426
+  },
+  {
+   "name": "StaticMeshActor2036",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -67026.34375,
+    179872.046875,
+    -3721.109619140625
+   ],
+   "rotation": [
+    0,
+    -31152,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor2037",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -67436.0390625,
+    179559.4375,
+    -3718.531494140625
+   ],
+   "rotation": [
+    0,
+    -17672,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor2030",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -66974.2421875,
+    180535.171875,
+    -3676.558837890625
+   ],
+   "rotation": [
+    0,
+    -20088,
+    0
+   ],
+   "draw_scale": 0.0
+  },
+  {
+   "name": "StaticMeshActor2024",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -70510.078125,
+    178084.53125,
+    -3703.4765625
+   ],
+   "rotation": [
+    0,
+    -22944,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor2014",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -72905.703125,
+    173315.328125,
+    -3653.868408203125
+   ],
+   "draw_scale": 0.8600000143051147
+  },
+  {
+   "name": "StaticMeshActor2008",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -75542.3203125,
+    168644.375,
+    -3653.272216796875
+   ],
+   "rotation": [
+    0,
+    -22296,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor2007",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -77848.9140625,
+    168932.296875,
+    -3669.812255859375
+   ],
+   "rotation": [
+    0,
+    -11464,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor2020",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -76793.8671875,
+    171082.90625,
+    -3739.382080078125
+   ]
+  },
+  {
+   "name": "StaticMeshActor2019",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -76220.2265625,
+    171763.046875,
+    -3744.4765625
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor2016",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -73610.8671875,
+    172300.125,
+    -3653.24365234375
+   ]
+  },
+  {
+   "name": "StaticMeshActor2018",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -76052.78125,
+    171379.140625,
+    -3751.63671875
+   ],
+   "draw_scale": 1.2000000476837158
+  },
+  {
+   "name": "StaticMeshActor1994",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -76803.859375,
+    165950.953125,
+    -3664.3662109375
+   ],
+   "rotation": [
+    0,
+    21104,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor2045",
+   "mesh": {
+    "package": "human_ruin",
+    "class": "StaticMesh",
+    "name": "world_obj13"
+   },
+   "location": [
+    -74159.5234375,
+    165055.5,
+    -3727.13427734375
+   ],
+   "rotation": [
+    -280,
+    0,
+    688
+   ]
+  },
+  {
+   "name": "StaticMeshActor210",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -68648.5,
+    176721.75,
+    -3568.343505859375
+   ],
+   "rotation": [
+    -664,
+    17624,
+    -1016
+   ]
+  },
+  {
+   "name": "StaticMeshActor1938",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3"
+   },
+   "location": [
+    -68885.0625,
+    171909.625,
+    -3656.306396484375
+   ],
+   "rotation": [
+    0,
+    5240,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor306",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -66553.3515625,
+    173907.359375,
+    -3727.740478515625
+   ],
+   "rotation": [
+    0,
+    21008,
+    0
+   ],
+   "draw_scale": 1.5
+  },
+  {
+   "name": "StaticMeshActor141",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.2734375,
+    177781.78125,
+    -3626.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor142",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.5,
+    177792.90625,
+    -3628.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor152",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.3359375,
+    177772.03125,
+    -3617.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor153",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.7578125,
+    177783.75,
+    -3617.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor150",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.9453125,
+    177745.4375,
+    -3617.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor148",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -74440.25,
+    170245.5,
+    -3707.786865234375
+   ],
+   "rotation": [
+    0,
+    6128,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor151",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.15625,
+    177757.75,
+    -3617.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor133",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.078125,
+    177848.953125,
+    -3636.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor147",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -76159.3828125,
+    169382.390625,
+    -3784.786865234375
+   ],
+   "rotation": [
+    0,
+    6128,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor155",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.1640625,
+    177809.15625,
+    -3619.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor55",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.3828125,
+    177685.0625,
+    -3660.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor211",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -69132.4921875,
+    176690.375,
+    -3561.343505859375
+   ],
+   "rotation": [
+    -664,
+    17624,
+    1912
+   ]
+  },
+  {
+   "name": "StaticMeshActor1989",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -78371.046875,
+    165235.4375,
+    -3737.062744140625
+   ],
+   "draw_scale": 1.0499999523162842
+  },
+  {
+   "name": "StaticMeshActor1991",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -74870.203125,
+    164491.0625,
+    -3618.978515625
+   ],
+   "rotation": [
+    0,
+    8592,
+    0
+   ],
+   "draw_scale": 0.8600000143051147
+  },
+  {
+   "name": "StaticMeshActor1992",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -77559.640625,
+    166040.921875,
+    -3720.88232421875
+   ],
+   "rotation": [
+    0,
+    27904,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor1993",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -76944.7421875,
+    165329.859375,
+    -3630.898193359375
+   ],
+   "rotation": [
+    0,
+    -7656,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor1926",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree1"
+   },
+   "location": [
+    -70131.0,
+    169039.109375,
+    -3618.7958984375
+   ],
+   "rotation": [
+    0,
+    28544,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor305",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -66306.4296875,
+    174128.671875,
+    -3731.3828125
+   ],
+   "rotation": [
+    0,
+    -7968,
+    0
+   ],
+   "draw_scale": 1.25
+  },
+  {
+   "name": "StaticMeshActor131",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.4765625,
+    177822.953125,
+    -3636.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor304",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -66108.5078125,
+    174045.671875,
+    -3713.740478515625
+   ],
+   "rotation": [
+    0,
+    -21856,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor84",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone3_3"
+   },
+   "location": [
+    -65876.7421875,
+    182501.8125,
+    -3733.580078125
+   ],
+   "draw_scale": 1.5
+  },
+  {
+   "name": "StaticMeshActor195",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67398.25,
+    177599.46875,
+    -3642.343505859375
+   ],
+   "rotation": [
+    -664,
+    32272,
+    -1896
+   ]
+  },
+  {
+   "name": "StaticMeshActor196",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67395.1953125,
+    177738.25,
+    -3660.343505859375
+   ],
+   "rotation": [
+    -664,
+    32272,
+    -984
+   ]
+  },
+  {
+   "name": "StaticMeshActor256",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -75779.515625,
+    164235.5625,
+    -3585.24365234375
+   ],
+   "rotation": [
+    0,
+    3736,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor423",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68180.234375,
+    176822.765625,
+    -3643.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor129",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67829.84375,
+    177798.921875,
+    -3636.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor295",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -66036.796875,
+    174173.3125,
+    -3722.740478515625
+   ],
+   "rotation": [
+    0,
+    -11176,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor182",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3"
+   },
+   "location": [
+    -66445.4296875,
+    177729.65625,
+    -3546.4404296875
+   ]
+  },
+  {
+   "name": "StaticMeshActor181",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -67273.75,
+    181037.484375,
+    -3669.68994140625
+   ],
+   "rotation": [
+    0,
+    15192,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor187",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67787.2109375,
+    176805.984375,
+    -3637.343505859375
+   ],
+   "rotation": [
+    -664,
+    17624,
+    1536
+   ]
+  },
+  {
+   "name": "StaticMeshActor108",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.2265625,
+    177741.71875,
+    -3641.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor107",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.8046875,
+    177730.0,
+    -3641.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor103",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_3"
+   },
+   "location": [
+    -66032.6015625,
+    185163.0,
+    -3733.063720703125
+   ],
+   "rotation": [
+    0,
+    -5976,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor191",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67434.203125,
+    176933.6875,
+    -3573.343505859375
+   ],
+   "rotation": [
+    -664,
+    32272,
+    848
+   ]
+  },
+  {
+   "name": "StaticMeshActor102",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.46875,
+    177889.625,
+    -3653.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor190",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67504.4375,
+    176840.875,
+    -3592.343505859375
+   ],
+   "rotation": [
+    -664,
+    17624,
+    2208
+   ]
+  },
+  {
+   "name": "StaticMeshActor175",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -68796.6875,
+    170822.765625,
+    -3627.0341796875
+   ],
+   "rotation": [
+    3216,
+    34352,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor179",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc10"
+   },
+   "location": [
+    -67786.8828125,
+    177611.421875,
+    -3661.4931640625
+   ]
+  },
+  {
+   "name": "StaticMeshActor173",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67830.796875,
+    177809.265625,
+    -3604.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor174",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.21875,
+    177820.984375,
+    -3604.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor185",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67926.640625,
+    176788.796875,
+    -3652.343505859375
+   ],
+   "rotation": [
+    -664,
+    17624,
+    656
+   ]
+  },
+  {
+   "name": "StaticMeshActor192",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67425.640625,
+    177069.96875,
+    -3569.343505859375
+   ],
+   "rotation": [
+    -664,
+    32272,
+    24
+   ]
+  },
+  {
+   "name": "StaticMeshActor213",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -68985.21875,
+    176702.71875,
+    -3548.343505859375
+   ],
+   "rotation": [
+    -664,
+    16856,
+    -24
+   ]
+  },
+  {
+   "name": "StaticMeshActor184",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone1_3"
+   },
+   "location": [
+    -68694.4296875,
+    178491.421875,
+    -3683.560546875
+   ],
+   "rotation": [
+    0,
+    6304,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor105",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.953125,
+    177704.890625,
+    -3641.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor241",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -73424.484375,
+    171299.75,
+    -3609.517822265625
+   ],
+   "rotation": [
+    0,
+    -17936,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor119",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone1_2"
+   },
+   "location": [
+    -67151.890625,
+    182269.078125,
+    -3715.091064453125
+   ]
+  },
+  {
+   "name": "StaticMeshActor245",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -73918.671875,
+    171926.046875,
+    -3673.519775390625
+   ],
+   "rotation": [
+    0,
+    -2928,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor289",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -66717.5859375,
+    167922.75,
+    -3496.349365234375
+   ],
+   "rotation": [
+    4704,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor288",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -66018.5,
+    167076.296875,
+    -3474.16552734375
+   ],
+   "rotation": [
+    3568,
+    15704,
+    0
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor104",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_1"
+   },
+   "location": [
+    -66796.8828125,
+    183184.671875,
+    -3750.980712890625
+   ],
+   "rotation": [
+    0,
+    5432,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor106",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.625,
+    177715.71875,
+    -3641.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor101",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.046875,
+    177877.90625,
+    -3653.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor422",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68183.6171875,
+    176932.59375,
+    -3622.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor433",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68180.0625,
+    176876.78125,
+    -3641.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor265",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone1"
+   },
+   "location": [
+    -78525.1171875,
+    171152.859375,
+    -3757.326171875
+   ],
+   "rotation": [
+    0,
+    -16208,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor164",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.390625,
+    177797.421875,
+    -3611.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor209",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -68303.234375,
+    176752.59375,
+    -3618.343505859375
+   ],
+   "rotation": [
+    -664,
+    17624,
+    -1968
+   ]
+  },
+  {
+   "name": "StaticMeshActor406",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -82622.734375,
+    164618.59375,
+    -3510.677490234375
+   ],
+   "rotation": [
+    -15184,
+    -8640,
+    608
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor407",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -83106.6953125,
+    163903.65625,
+    -3396.677490234375
+   ],
+   "rotation": [
+    -17472,
+    -7408,
+    608
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor408",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -77066.9921875,
+    168421.078125,
+    -3732.182373046875
+   ],
+   "rotation": [
+    0,
+    7632,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor246",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -74554.0078125,
+    173463.75,
+    -3686.223388671875
+   ],
+   "rotation": [
+    0,
+    18064,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor301",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -66193.734375,
+    174271.765625,
+    -3742.3828125
+   ],
+   "rotation": [
+    0,
+    5344,
+    0
+   ],
+   "draw_scale": 1.25
+  },
+  {
+   "name": "StaticMeshActor430",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68181.671875,
+    176906.0625,
+    -3614.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor374",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -80274.09375,
+    165131.359375,
+    -3299.4677734375
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor212",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -69510.484375,
+    176548.515625,
+    -3627.343505859375
+   ],
+   "rotation": [
+    -664,
+    22512,
+    944
+   ]
+  },
+  {
+   "name": "StaticMeshActor117",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.6796875,
+    177855.46875,
+    -3643.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor183",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -66885.4609375,
+    178698.828125,
+    -3694.9091796875
+   ],
+   "rotation": [
+    0,
+    14480,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor162",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.7421875,
+    177774.578125,
+    -3609.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor186",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -71012.1171875,
+    174457.234375,
+    -3615.343505859375
+   ],
+   "rotation": [
+    -664,
+    24552,
+    -24
+   ]
+  },
+  {
+   "name": "StaticMeshActor242",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -77245.6796875,
+    164708.796875,
+    -3606.489013671875
+   ],
+   "rotation": [
+    0,
+    4824,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor118",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.3515625,
+    177866.296875,
+    -3643.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor287",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -66714.4140625,
+    167924.15625,
+    -3486.349365234375
+   ],
+   "rotation": [
+    4704,
+    -19536,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor297",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -66854.2578125,
+    175773.609375,
+    -3757.740478515625
+   ],
+   "rotation": [
+    0,
+    12632,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor294",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -66456.8671875,
+    174195.484375,
+    -3743.3828125
+   ],
+   "rotation": [
+    0,
+    2312,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor300",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -66195.9609375,
+    174202.984375,
+    -3725.740478515625
+   ],
+   "rotation": [
+    0,
+    8720,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor299",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -66091.171875,
+    174145.15625,
+    -3672.3828125
+   ],
+   "rotation": [
+    0,
+    5344,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor296",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -66077.8125,
+    174154.296875,
+    -3762.740478515625
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor298",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -65978.859375,
+    174042.328125,
+    -3734.740478515625
+   ],
+   "rotation": [
+    2448,
+    -21856,
+    -2872
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor132",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67830.65625,
+    177837.234375,
+    -3636.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor124",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67830.625,
+    177735.203125,
+    -3634.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor125",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.8359375,
+    177747.515625,
+    -3634.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor123",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67830.203125,
+    177723.484375,
+    -3634.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor290",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -67793.6953125,
+    168976.8125,
+    -3748.13330078125
+   ],
+   "rotation": [
+    0,
+    19696,
+    0
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor121",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_1"
+   },
+   "location": [
+    -67094.203125,
+    182986.53125,
+    -3811.552734375
+   ],
+   "rotation": [
+    0,
+    8040,
+    11176
+   ]
+  },
+  {
+   "name": "StaticMeshActor120",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone1_2"
+   },
+   "location": [
+    -69142.09375,
+    180699.84375,
+    -3739.30810546875
+   ]
+  },
+  {
+   "name": "StaticMeshActor160",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -69042.28125,
+    167691.484375,
+    -3685.617919921875
+   ]
+  },
+  {
+   "name": "StaticMeshActor157",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.796875,
+    177833.1875,
+    -3619.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor128",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67830.6640625,
+    177784.640625,
+    -3636.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor127",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.4375,
+    177773.515625,
+    -3634.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor126",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.015625,
+    177761.796875,
+    -3634.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor140",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.8515625,
+    177770.0625,
+    -3626.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor138",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.4609375,
+    177743.46875,
+    -3626.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor81",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.7734375,
+    177899.0625,
+    -3662.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor135",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone1_3"
+   },
+   "location": [
+    -65911.625,
+    186255.796875,
+    -3736.50146484375
+   ],
+   "rotation": [
+    0,
+    16008,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor109",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67835.4375,
+    177754.03125,
+    -3641.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor110",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.6171875,
+    177768.3125,
+    -3641.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor137",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.0390625,
+    177731.75,
+    -3626.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor136",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -77695.3046875,
+    168639.78125,
+    -3757.786865234375
+   ],
+   "rotation": [
+    0,
+    6128,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor144",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.1015625,
+    177818.90625,
+    -3628.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor143",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.6796875,
+    177807.1875,
+    -3628.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor431",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68181.0078125,
+    176847.734375,
+    -3641.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor1983",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -72120.2421875,
+    165561.4375,
+    -3697.4443359375
+   ],
+   "rotation": [
+    0,
+    -50280,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor1929",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree1"
+   },
+   "location": [
+    -66672.6171875,
+    171194.953125,
+    -3550.42724609375
+   ],
+   "rotation": [
+    0,
+    8392,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor1928",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree1"
+   },
+   "location": [
+    -66527.78125,
+    170364.421875,
+    -3522.7724609375
+   ],
+   "rotation": [
+    0,
+    22240,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor1941",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3"
+   },
+   "location": [
+    -66492.8046875,
+    177070.0,
+    -3493.005859375
+   ],
+   "rotation": [
+    0,
+    -13424,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor1942",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3"
+   },
+   "location": [
+    -66183.7421875,
+    178487.65625,
+    -3674.39697265625
+   ],
+   "rotation": [
+    0,
+    19760,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor1943",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -66809.0625,
+    169122.421875,
+    -3664.45654296875
+   ],
+   "rotation": [
+    0,
+    -14808,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor1944",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -68012.296875,
+    166891.734375,
+    -3679.91064453125
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor1947",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -68241.8984375,
+    172511.765625,
+    -3625.170166015625
+   ],
+   "rotation": [
+    0,
+    19952,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor1949",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -67850.9921875,
+    173232.609375,
+    -3640.93701171875
+   ],
+   "rotation": [
+    0,
+    -21072,
+    0
+   ],
+   "draw_scale": 1.149999976158142
+  },
+  {
+   "name": "StaticMeshActor1952",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -68540.21875,
+    172936.65625,
+    -3663.248779296875
+   ],
+   "rotation": [
+    0,
+    -5976,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor1958",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -69688.4140625,
+    171837.46875,
+    -3740.203857421875
+   ],
+   "rotation": [
+    0,
+    -19176,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor2023",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -71839.0,
+    175444.90625,
+    -3728.450439453125
+   ],
+   "rotation": [
+    0,
+    -8112,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor2025",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -69671.0859375,
+    179507.8125,
+    -3692.606201171875
+   ]
+  },
+  {
+   "name": "StaticMeshActor1918",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -66701.34375,
+    166509.71875,
+    -3557.09033203125
+   ],
+   "rotation": [
+    0,
+    7584,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor1917",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -67429.0390625,
+    166904.59375,
+    -3668.515869140625
+   ],
+   "rotation": [
+    0,
+    -8392,
+    0
+   ],
+   "draw_scale": 1.100000023841858
+  },
+  {
+   "name": "StaticMeshActor1916",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -67792.03125,
+    165529.84375,
+    -3615.1318359375
+   ],
+   "rotation": [
+    0,
+    32736,
+    0
+   ],
+   "draw_scale": 1.0499999523162842
+  },
+  {
+   "name": "StaticMeshActor1915",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -68279.6328125,
+    164773.734375,
+    -3708.1337890625
+   ],
+   "rotation": [
+    0,
+    6736,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor1914",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -76876.2890625,
+    164831.140625,
+    -3606.137939453125
+   ],
+   "rotation": [
+    0,
+    3640,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor1911",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -72656.0703125,
+    164831.78125,
+    -3714.950439453125
+   ],
+   "rotation": [
+    0,
+    -2432,
+    0
+   ],
+   "draw_scale": 0.8999999761581421
+  },
+  {
+   "name": "StaticMeshActor1908",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "GeneralBigtreeLC"
+   },
+   "location": [
+    -70804.8828125,
+    168956.3125,
+    -3679.19189453125
+   ],
+   "rotation": [
+    0,
+    37128,
+    0
+   ],
+   "draw_scale": 1.2000000476837158
+  },
+  {
+   "name": "StaticMeshActor1898",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "GeneralBigtreeLC"
+   },
+   "location": [
+    -66712.6640625,
+    166005.703125,
+    -3491.837890625
+   ],
+   "rotation": [
+    0,
+    -5736,
+    0
+   ],
+   "draw_scale": 0.9599999785423279
+  },
+  {
+   "name": "StaticMeshActor1897",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "GeneralBigtreeLC"
+   },
+   "location": [
+    -67358.9140625,
+    165160.15625,
+    -3606.51123046875
+   ],
+   "rotation": [
+    0,
+    14848,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor1937",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3"
+   },
+   "location": [
+    -67728.7109375,
+    172640.75,
+    -3626.824462890625
+   ],
+   "rotation": [
+    0,
+    -6144,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor1939",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3"
+   },
+   "location": [
+    -67805.4140625,
+    174047.34375,
+    -3689.534912109375
+   ],
+   "rotation": [
+    0,
+    13896,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor1950",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -68720.40625,
+    174967.203125,
+    -3673.89013671875
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor1953",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -69575.65625,
+    172870.046875,
+    -3727.80908203125
+   ],
+   "rotation": [
+    0,
+    -27128,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor1954",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -68921.6015625,
+    173593.375,
+    -3727.91845703125
+   ],
+   "rotation": [
+    0,
+    -19720,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor1955",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -68249.390625,
+    173908.234375,
+    -3707.36328125
+   ],
+   "rotation": [
+    0,
+    -7728,
+    0
+   ],
+   "draw_scale": 1.100000023841858
+  },
+  {
+   "name": "StaticMeshActor1957",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3"
+   },
+   "location": [
+    -68051.21875,
+    171876.40625,
+    -3612.94287109375
+   ],
+   "rotation": [
+    0,
+    -1560,
+    0
+   ],
+   "draw_scale": 0.7799999713897705
+  },
+  {
+   "name": "StaticMeshActor1959",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3"
+   },
+   "location": [
+    -67258.1640625,
+    173571.1875,
+    -3652.5810546875
+   ],
+   "rotation": [
+    0,
+    -5672,
+    0
+   ],
+   "draw_scale": 0.8899999856948853
+  },
+  {
+   "name": "StaticMeshActor1963",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -66593.65625,
+    180184.578125,
+    -3710.5556640625
+   ],
+   "rotation": [
+    0,
+    12800,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor1964",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -67923.2421875,
+    176952.703125,
+    -3657.243896484375
+   ],
+   "rotation": [
+    0,
+    -2160,
+    0
+   ],
+   "draw_scale": 0.699999988079071
+  },
+  {
+   "name": "StaticMeshActor1965",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3LC"
+   },
+   "location": [
+    -67550.109375,
+    178322.140625,
+    -3680.223388671875
+   ],
+   "rotation": [
+    0,
+    27296,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor1966",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree3"
+   },
+   "location": [
+    -66865.40625,
+    172699.515625,
+    -3669.817138671875
+   ],
+   "rotation": [
+    0,
+    2624,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor1978",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -71803.5859375,
+    166450.0625,
+    -3682.116455078125
+   ],
+   "rotation": [
+    0,
+    -53280,
+    0
+   ],
+   "draw_scale": 0.8899999856948853
+  },
+  {
+   "name": "StaticMeshActor1979",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -71023.8671875,
+    166295.265625,
+    -3656.251953125
+   ],
+   "rotation": [
+    0,
+    -57840,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor1980",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "generaltree1LC"
+   },
+   "location": [
+    -70371.8046875,
+    165570.53125,
+    -3623.7041015625
+   ],
+   "rotation": [
+    0,
+    -31112,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor1987",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -77116.4453125,
+    166472.25,
+    -3719.411865234375
+   ],
+   "draw_scale": 0.8899999856948853
+  },
+  {
+   "name": "StaticMeshActor149",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_waterTank02"
+   },
+   "location": [
+    -74178.515625,
+    165210.46875,
+    -3731.025146484375
+   ]
+  },
+  {
+   "name": "StaticMeshActor257",
+   "mesh": {
+    "package": "human_ruin",
+    "class": "StaticMesh",
+    "name": "world_obj16"
+   },
+   "location": [
+    -74412.3515625,
+    165167.0625,
+    -3721.598388671875
+   ],
+   "rotation": [
+    -472,
+    0,
+    1200
+   ]
+  },
+  {
+   "name": "StaticMeshActor381",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -77291.0546875,
+    168574.234375,
+    -3797.786865234375
+   ],
+   "rotation": [
+    0,
+    -8536,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor342",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -81098.9375,
+    166438.203125,
+    -3223.34033203125
+   ],
+   "rotation": [
+    -328,
+    15496,
+    -1600
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor389",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "GeneralBigtreeLC"
+   },
+   "location": [
+    -71295.515625,
+    165981.265625,
+    -3662.90185546875
+   ],
+   "rotation": [
+    0,
+    17600,
+    0
+   ],
+   "draw_scale": 1.100000023841858
+  },
+  {
+   "name": "StaticMeshActor346",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone007"
+   },
+   "location": [
+    -81495.7734375,
+    166360.0625,
+    -3332.101318359375
+   ],
+   "rotation": [
+    98416,
+    -20048,
+    14528
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor416",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67792.8125,
+    178478.28125,
+    -3715.343505859375
+   ],
+   "rotation": [
+    -664,
+    21392,
+    -352
+   ]
+  },
+  {
+   "name": "StaticMeshActor418",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -66873.390625,
+    179244.390625,
+    -3748.343505859375
+   ],
+   "rotation": [
+    -664,
+    22424,
+    -352
+   ]
+  },
+  {
+   "name": "StaticMeshActor325",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -79479.6015625,
+    164302.59375,
+    -3446.32275390625
+   ],
+   "rotation": [
+    0,
+    14200,
+    0
+   ],
+   "draw_scale": 0.800000011920929
+  },
+  {
+   "name": "StaticMeshActor258",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone1"
+   },
+   "location": [
+    -73412.25,
+    168142.796875,
+    -3745.997802734375
+   ]
+  },
+  {
+   "name": "StaticMeshActor278",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -75747.5234375,
+    164183.359375,
+    -3565.345947265625
+   ],
+   "rotation": [
+    0,
+    3736,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor435",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68190.8359375,
+    176901.75,
+    -3639.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor122",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.0234375,
+    177709.203125,
+    -3634.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor5",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Waste"
+   },
+   "location": [
+    -74089.8125,
+    165864.328125,
+    -3722.848876953125
+   ]
+  },
+  {
+   "name": "StaticMeshActor432",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68179.3203125,
+    176861.046875,
+    -3640.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor145",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.3125,
+    177831.21875,
+    -3628.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor273",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone3"
+   },
+   "location": [
+    -75544.15625,
+    170266.09375,
+    -3783.72119140625
+   ]
+  },
+  {
+   "name": "StaticMeshActor272",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_hoonstone1"
+   },
+   "location": [
+    -78244.921875,
+    171232.546875,
+    -3613.326171875
+   ],
+   "rotation": [
+    0,
+    5184,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor403",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -79584.8984375,
+    164520.0,
+    -3430.428955078125
+   ],
+   "rotation": [
+    0,
+    32280,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor392",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -75471.9296875,
+    168957.21875,
+    -3684.377197265625
+   ],
+   "rotation": [
+    0,
+    -10400,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor399",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone016"
+   },
+   "location": [
+    -79307.8671875,
+    169639.078125,
+    -3676.176025390625
+   ],
+   "rotation": [
+    320,
+    11928,
+    2464
+   ],
+   "draw_scale": 5.0
+  },
+  {
+   "name": "StaticMeshActor444",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68182.8984375,
+    176906.28125,
+    -3630.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor402",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -82853.7890625,
+    164250.984375,
+    -3437.677490234375
+   ],
+   "rotation": [
+    -17472,
+    -8984,
+    608
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor397",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone015"
+   },
+   "location": [
+    -77404.875,
+    168528.734375,
+    -3749.786865234375
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor445",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68184.375,
+    176916.40625,
+    -3630.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor439",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68191.3984375,
+    176950.15625,
+    -3636.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor450",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -68181.828125,
+    176910.15625,
+    -3622.5751953125
+   ],
+   "rotation": [
+    -200,
+    16920,
+    -1232
+   ]
+  },
+  {
+   "name": "StaticMeshActor170",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.96875,
+    177772.140625,
+    -3602.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor180",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc01"
+   },
+   "location": [
+    -67974.1484375,
+    177702.46875,
+    -3646.27880859375
+   ],
+   "rotation": [
+    -456,
+    0,
+    40
+   ]
+  },
+  {
+   "name": "StaticMeshActor1",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Cracked_house04"
+   },
+   "location": [
+    -74390.0859375,
+    165928.96875,
+    -3617.94873046875
+   ],
+   "rotation": [
+    0,
+    26624,
+    136
+   ]
+  },
+  {
+   "name": "StaticMeshActor2032",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -67486.515625,
+    179905.953125,
+    -3709.2158203125
+   ],
+   "rotation": [
+    0,
+    6416,
+    0
+   ],
+   "draw_scale": 0.8600000143051147
+  },
+  {
+   "name": "StaticMeshActor194",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67409.3984375,
+    177462.34375,
+    -3617.343505859375
+   ],
+   "rotation": [
+    -664,
+    32272,
+    -2560
+   ]
+  },
+  {
+   "name": "StaticMeshActor193",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -67418.828125,
+    177323.484375,
+    -3595.343505859375
+   ],
+   "rotation": [
+    -664,
+    32272,
+    -368
+   ]
+  },
+  {
+   "name": "StaticMeshActor228",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_1"
+   },
+   "location": [
+    -72542.6328125,
+    177660.3125,
+    -3627.9111328125
+   ],
+   "rotation": [
+    0,
+    -4672,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor165",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67830.5703125,
+    177811.703125,
+    -3611.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor166",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67830.9921875,
+    177823.421875,
+    -3611.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor168",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -66342.8359375,
+    169898.625,
+    -3599.990966796875
+   ],
+   "rotation": [
+    0,
+    12232,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor214",
+   "mesh": {
+    "package": "green_h",
+    "class": "StaticMesh",
+    "name": "woodfence"
+   },
+   "location": [
+    -70152.6484375,
+    175657.65625,
+    -3630.343505859375
+   ],
+   "rotation": [
+    -664,
+    27512,
+    -24
+   ]
+  },
+  {
+   "name": "StaticMeshActor169",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -66361.2890625,
+    169823.078125,
+    -3619.990966796875
+   ]
+  },
+  {
+   "name": "StaticMeshActor163",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.1640625,
+    177786.296875,
+    -3609.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor171",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67832.390625,
+    177783.859375,
+    -3602.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor218",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone1_1"
+   },
+   "location": [
+    -71525.484375,
+    177171.65625,
+    -3802.21923828125
+   ],
+   "rotation": [
+    0,
+    -13376,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor172",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67831.6171875,
+    177794.984375,
+    -3604.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor339",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -82773.734375,
+    164298.96875,
+    -3176.34033203125
+   ],
+   "rotation": [
+    -920,
+    -20464,
+    1560
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor139",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67834.671875,
+    177755.78125,
+    -3626.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  },
+  {
+   "name": "StaticMeshActor302",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -65800.1640625,
+    173935.609375,
+    -3738.3828125
+   ],
+   "rotation": [
+    0,
+    -7968,
+    0
+   ],
+   "draw_scale": 1.0499999523162842
+  },
+  {
+   "name": "StaticMeshActor292",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone004"
+   },
+   "location": [
+    -66158.1484375,
+    171842.71875,
+    -3534.128173828125
+   ],
+   "rotation": [
+    0,
+    14120,
+    0
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor226",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "Generaltree2LC"
+   },
+   "location": [
+    -69923.40625,
+    179439.375,
+    -3646.03271484375
+   ],
+   "rotation": [
+    0,
+    -9568,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor225",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone3_2"
+   },
+   "location": [
+    -71081.90625,
+    177203.875,
+    -3727.680908203125
+   ],
+   "draw_scale": 0.6000000238418579
+  },
+  {
+   "name": "StaticMeshActor224",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone3_2"
+   },
+   "location": [
+    -71777.1796875,
+    177508.609375,
+    -3640.112060546875
+   ]
+  },
+  {
+   "name": "StaticMeshActor388",
+   "mesh": {
+    "package": "General",
+    "class": "StaticMesh",
+    "name": "GeneralBigtreeLC"
+   },
+   "location": [
+    -73821.421875,
+    164516.03125,
+    -3723.73046875
+   ],
+   "rotation": [
+    0,
+    11088,
+    0
+   ],
+   "draw_scale": 1.100000023841858
+  },
+  {
+   "name": "StaticMeshActor387",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone2_2"
+   },
+   "location": [
+    -72902.5625,
+    175073.0,
+    -3731.542724609375
+   ],
+   "rotation": [
+    0,
+    4768,
+    0
+   ]
+  },
+  {
+   "name": "StaticMeshActor352",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone009"
+   },
+   "location": [
+    -82146.0078125,
+    164471.796875,
+    -3316.34033203125
+   ],
+   "rotation": [
+    0,
+    26784,
+    0
+   ],
+   "draw_scale": 2.0
+  },
+  {
+   "name": "StaticMeshActor303",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone005"
+   },
+   "location": [
+    -66064.25,
+    173951.125,
+    -3736.740478515625
+   ],
+   "rotation": [
+    6056,
+    -13200,
+    0
+   ],
+   "draw_scale": 3.0
+  },
+  {
+   "name": "StaticMeshActor247",
+   "mesh": {
+    "package": "Gludio_Stone",
+    "class": "StaticMesh",
+    "name": "Gludio_general_stone007"
+   },
+   "location": [
+    -81137.2734375,
+    167484.90625,
+    -3549.101318359375
+   ],
+   "rotation": [
+    97856,
+    -23592,
+    14528
+   ],
+   "draw_scale": 2.5
+  },
+  {
+   "name": "StaticMeshActor114",
+   "mesh": {
+    "package": "Ruins_Renewal_s",
+    "class": "StaticMesh",
+    "name": "Rebuild_Etc03"
+   },
+   "location": [
+    -67833.8671875,
+    177817.15625,
+    -3643.5751953125
+   ],
+   "rotation": [
+    784,
+    16920,
+    -776
+   ]
+  }
+ ],
+ "terrain_map_ref": {
+  "package": "Height",
+  "class": "Texture",
+  "name": "17_23"
+ },
+ "terrain_scale": [
+  128.0,
+  128.0,
+  76.0
+ ],
+ "terrain_location": [
+  -81920.0,
+  180224.0,
+  160.65126037597656
+ ]
+}

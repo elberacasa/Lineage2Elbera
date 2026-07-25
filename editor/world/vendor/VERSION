@@ -1,0 +1,6 @@
+three.js r160 (npm package three@0.160.0), downloaded 2026-07-23 from jsdelivr:
+  build/three.module.min.js
+  examples/jsm/controls/OrbitControls.js
+  examples/jsm/loaders/GLTFLoader.js
+  examples/jsm/utils/BufferGeometryUtils.js  (dependency of GLTFLoader)
+Layout mirrors "three/addons/" so the importmap in index.html resolves addon imports.

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L2Vzla — Character Creation</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js",
+    "three/addons/": "./vendor/addons/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app">
+
+  <!-- 3D viewport -->
+  <div id="viewport">
+    <canvas id="scene"></canvas>
+    <div id="viewport-overlay">
+      <div class="brand">
+        <span class="brand-l2">L2</span><span class="brand-name">Vzla</span>
+        <span class="brand-sub">Character Creation</span>
+      </div>
+      <div id="model-status" class="model-status hidden"></div>
+    </div>
+    <div id="loading" class="loading">
+      <div class="loading-ring"></div>
+      <div class="loading-text">Summoning assets…</div>
+    </div>
+  </div>
+
+  <!-- Creation panel -->
+  <aside id="panel">
+    <div class="panel-scroll">
+
+      <section class="step">
+        <h2><span class="step-num">1</span> Race</h2>
+        <div id="race-list" class="option-grid races"></div>
+      </section>
+
+      <section class="step">
+        <h2><span class="step-num">2</span> Gender</h2>
+        <div id="gender-list" class="segmented"></div>
+      </section>
+
+      <section class="step">
+        <h2><span class="step-num">3</span> Class</h2>
+        <div id="class-list" class="option-list"></div>
+      </section>
+
+      <section class="step" id="appearance-section">
+        <h2><span class="step-num">4</span> Appearance</h2>
+        <div class="appearance-group" id="face-group">
+          <label>Face</label>
+          <div id="face-list" class="chip-row"></div>
+        </div>
+        <div class="appearance-group" id="hairstyle-group">
+          <label>Hair Style</label>
+          <div id="hairstyle-list" class="chip-row"></div>
+        </div>
+        <div class="appearance-group" id="haircolor-group">
+          <label>Hair Color</label>
+          <div id="haircolor-list" class="chip-row swatches"></div>
+        </div>
+      </section>
+
+      <section class="step">
+        <h2><span class="step-num">5</span> Name</h2>
+        <input id="name-input" type="text" maxlength="16" placeholder="Enter a name…"
+               autocomplete="off" spellcheck="false">
+        <div id="name-hint" class="hint">1–16 letters, no numbers.</div>
+      </section>
+
+      <button id="create-btn" disabled>Create Character</button>
+      <div id="combo-note" class="combo-note hidden"></div>
+
+    </div>
+  </aside>
+
+  <!-- Summary card after creation -->
+  <div id="summary-overlay" class="summary-overlay hidden">
+    <div class="summary-card">
+      <div class="summary-crest">✦</div>
+      <h1 id="summary-name">—</h1>
+      <div id="summary-sub" class="summary-sub">—</div>
+      <div id="summary-details" class="summary-details"></div>
+      <p class="summary-flavor">Your legend begins in Aden.</p>
+      <button id="summary-close">Create Another</button>
+    </div>
+  </div>
+
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

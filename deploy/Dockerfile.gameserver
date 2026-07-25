@@ -1,0 +1,15 @@
+# Gameserver aCis (rev 409) — JRE 21 multi-arch (amd64/arm64)
+FROM eclipse-temurin:21-jre
+
+WORKDIR /opt/l2/gameserver
+
+# "dist" es un build context nombrado (ver docker-compose.yml -> additional_contexts)
+# que apunta a server/aCis_gameserver/build/dist (incluye config/, data/ con geodata, libs/)
+COPY --from=dist gameserver/ /opt/l2/gameserver/
+
+COPY entrypoint-gameserver.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh && mkdir -p /opt/l2/gameserver/log
+
+EXPOSE 7777
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -1,0 +1,15 @@
+# Loginserver aCis (rev 409) — JRE 21 multi-arch (amd64/arm64)
+FROM eclipse-temurin:21-jre
+
+WORKDIR /opt/l2/login
+
+# "dist" es un build context nombrado (ver docker-compose.yml -> additional_contexts)
+# que apunta a server/aCis_gameserver/build/dist
+COPY --from=dist login/ /opt/l2/login/
+
+COPY entrypoint-loginserver.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh && mkdir -p /opt/l2/login/log
+
+EXPOSE 2106 9014
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

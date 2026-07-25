@@ -1,0 +1,76 @@
+name: l2vzla
+
+services:
+  mariadb:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE: l2jdb
+      MARIADB_USER: l2j
+      MARIADB_PASSWORD: l2jpass
+    volumes:
+      - dbdata:/var/lib/mysql
+      # Esquema (65 tablas) y semilla del gameserver se montan solo-lectura y el
+      # entrypoint los copia a /docker-entrypoint-initdb.d antes de inicializar
+      # (zz- corre al final). No se montan archivos dentro de initdb.d porque
+      # virtiofs no admite bind-mounts anidados en Docker Desktop.
+      - ../server/aCis_datapack/sql:/schema:ro
+      - ./initdb:/seed:ro
+    entrypoint: /bin/bash -c 'cp /schema/*.sql /seed/*.sql /docker-entrypoint-initdb.d/ && exec docker-entrypoint.sh mariadbd'
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-p$${MARIADB_ROOT_PASSWORD}", "--silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    # No se publica 3306: el host ya corre un MariaDB local.
+    expose:
+      - "3306"
+
+  loginserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.loginserver
+      additional_contexts:
+        dist: ../server/aCis_gameserver/build/dist
+    restart: unless-stopped
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: "3306"
+      DB_NAME: l2jdb
+      DB_USER: l2j
+      DB_PASS: l2jpass
+    ports:
+      - "2106:2106"   # clientes L2
+    expose:
+      - "9014"        # registro de gameservers (solo red interna)
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  gameserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.gameserver
+      additional_contexts:
+        dist: ../server/aCis_gameserver/build/dist
+    restart: unless-stopped
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: "3306"
+      DB_NAME: l2jdb
+      DB_USER: l2j
+      DB_PASS: l2jpass
+      LOGIN_HOST: loginserver
+      GS_XMX: 2g
+      # EXTERNAL_HOSTNAME: tu.dominio.com  # host que reciben los clientes en la lista de servidores
+    ports:
+      - "7777:7777"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      loginserver:
+        condition: service_started
+
+volumes:
+  dbdata:
