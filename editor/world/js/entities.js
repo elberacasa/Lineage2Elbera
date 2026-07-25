@@ -16,6 +16,9 @@ const PLAYER_LABEL = '#c9a959'; // HUD gold
 const NPC_LABEL = '#9ce8a9';    // npcname nickcolor green
 const MONSTER_HEIGHT = 1.2;     // m — npcgrp carries no scale; plausible default
 
+// label text scale relative to a 1.85 m human, clamped for readability
+const labelScale = H => Math.min(1, Math.max(0.25, (H || 1.85) / 1.85));
+
 // monster manifest + npcId->mesh map, fetched lazily once
 let _monsterManifest = null;    // Promise<array|null>
 let _npcMeshes = null;          // Promise<map>
@@ -104,22 +107,23 @@ class NpcEntity {
     this.actions = null;          // {idle,walk,run,attack,die} after model upgrade
     this.current = null;
     this.capsuleMeshes = [];
+    this.heightM = 0.46;          // capsule = human-sized placeholder
     this.group = new THREE.Group();
     const body = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.35, 1.0, 4, 12),
+      new THREE.CapsuleGeometry(0.1, 0.26, 4, 12),
       new THREE.MeshLambertMaterial({ color: npcColor(npcId) }),
     );
-    body.position.y = 0.85;       // capsule center at half height
+    body.position.y = 0.23;       // capsule center at half height
     body.castShadow = true;
     this.group.add(body);
     this.capsuleMeshes.push(body);
     // small dark base ring so the placeholder reads as grounded
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.4, 0.52, 24),
+      new THREE.RingGeometry(0.11, 0.14, 24),
       new THREE.MeshBasicMaterial({ color: 0x10131a, side: THREE.DoubleSide }),
     );
     ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.02;
+    ring.position.y = 0.01;
     this.group.add(ring);
     this.capsuleMeshes.push(ring);
   }
@@ -127,8 +131,8 @@ class NpcEntity {
   setLabel(text) {
     if (this.label) this.group.remove(this.label);
     this.name = text;
-    this.label = makeLabel(text, NPC_LABEL);
-    this.label.position.y = 1.85;
+    this.label = makeLabel(text, NPC_LABEL, labelScale(this.heightM));
+    this.label.position.y = this.heightM * 1.25;
     this.group.add(this.label);
   }
 
@@ -162,6 +166,8 @@ class NpcEntity {
       root.position.x -= center.x;
       root.position.z -= center.z;
       root.position.y -= box2.min.y;
+      this.heightM = box2.getSize(new THREE.Vector3()).y;
+      if (this.label) this.setLabel(this.name);   // re-anchor to true height
       root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
 
       for (const m of this.capsuleMeshes) this.group.remove(m);
@@ -289,9 +295,10 @@ export class EntityManager {
         ch.group.position.x, ch.group.position.z, ch.serverZ, terrain);
       ch.group.rotation.y = l2HeadingToThreeYaw(msg.heading);
       ch.group.userData.entityId = id;
-      const label = makeLabel(ch.name, PLAYER_LABEL);
-      label.position.y = 2.2;
+      const label = makeLabel(ch.name, PLAYER_LABEL, labelScale(ch.heightM));
+      label.position.y = (ch.heightM || 1.75) * 1.2;
       ch.group.add(label);
+      ch.heightM = ch.heightM || 1.75;
       this.entities.set(id, ch);
       this.scene.add(ch.group);
     } catch (e) {

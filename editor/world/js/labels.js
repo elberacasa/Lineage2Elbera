@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 
-export function makeLabel(text, color = '#ffffff') {
+export function makeLabel(text, color = '#ffffff', worldScale = 1) {
   const pad = 8, fontSize = 26;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -29,7 +29,7 @@ export function makeLabel(text, color = '#ffffff') {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: tex, transparent: true, depthWrite: false,
   }));
-  const scale = 0.0055;             // canvas px -> meters
+  const scale = 0.0055 * worldScale;   // canvas px -> meters
   sprite.scale.set(w * scale, h * scale, 1);
   sprite.center.set(0.5, 0);        // anchor at bottom-center: position = top of head
   return sprite;
