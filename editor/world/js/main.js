@@ -127,7 +127,7 @@ function entityHeadPos(id) {
   const e = entities.getEntity(id);
   if (!e) return null;
   _headPos.copy(e.group.position);
-  _headPos.y += e.kind === 'npc' ? 1.5 : 1.9;
+  _headPos.y += (e.heightM || 1.75) * 1.1;
   return _headPos;
 }
 
@@ -362,6 +362,10 @@ async function loadCharacter(id) {
   }
   character = ch;
   scene.add(ch.group);
+  // camera parameters are character-relative (true L2 scale)
+  followCam.setScale(ch.heightM || 1.75);
+  camera.near = Math.max(0.02, (ch.heightM || 1.75) * 0.1);
+  camera.updateProjectionMatrix();
   sun.position.copy(SUN_DIR).multiplyScalar(150).add(ch.group.position);
   sun.target.position.copy(ch.group.position);
 

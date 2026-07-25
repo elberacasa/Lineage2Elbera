@@ -51,23 +51,19 @@ export class FollowCamera {
   // Derive every length parameter from the character's world height H.
   // Ratios are fixed against the retail tuning (H_ref = 1.85 m):
   //   default 14 m / 1.85 = 7.6 H   (same relative framing as before)
-  //   min     ~1.6 H                (close-up: character fills ~half the
+  //   min     ~2.4 H                (close-up: character fills ~half the
   //                                  frame at FOV 35: H/(2*d*tan17.5) = .5)
   //   max     80 m / 1.85 = 43 H
   setScale(H) {
     if (!(H > 0.01)) H = REF_H;
     this.charH = H;
-    this.minDist = 1.6 * H;
+    this.minDist = 2.4 * H;
     this.maxDist = 43 * H;
     this.defaultDist = 7.6 * H;
     this.headOffset = 0.9 * H;
     this.groundClearance = 0.3 * H;
-    // reframe on (re)scale: reset to default distance, clamped
-    this.dist = THREE.MathUtils.clamp(
-      this.dist ?? this.defaultDist, this.minDist, this.maxDist);
-    if (this.dist > this.defaultDist * 1.5 || this.dist < this.defaultDist / 1.5) {
-      this.dist = this.defaultDist;
-    }
+    // reframe on (re)scale
+    this.dist = this.defaultDist;
   }
 
   update(dt, focus, terrain) {
