@@ -205,6 +205,28 @@ class GameSession extends EventEmitter {
     this._send(new PacketWriter().writeC(0x21).writeS(String(command)).build());
   }
 
+  // RequestActionUse (0x45): D actionId, D ctrlPressed, C shiftPressed.
+  // Ids (this rev's switch): 0 Sit/Stand, 1 Walk/Run, 10 Store Sell,
+  // 28 Store Buy, 37 Dwarven Manufacture, 51 General Manufacture,
+  // 61 Package Sell, pet/summon ids...
+  requestActionUse(actionId) {
+    this._send(
+      new PacketWriter()
+        .writeC(0x45)
+        .writeD(actionId | 0)
+        .writeD(0) // ctrlPressed = false
+        .writeC(0) // shiftPressed = false
+        .build()
+    );
+  }
+
+  // RequestSocialAction (0x1b): D actionId. aCis accepts ids 2..13
+  // (2 Greeting, 3 Victory, 4 Advance, 5 No, 6 Yes, 7 Bow, 8 Unaware,
+  // 9 Waiting, 10 Laugh, 11 Applaud, 12 Dance, 13 Sorrow).
+  requestSocialAction(actionId) {
+    this._send(new PacketWriter().writeC(0x1b).writeD(actionId | 0).build());
+  }
+
   // RequestPrivateStoreManageSell (0x73): opens the sell-store management.
   requestPrivateStoreManageSell() {
     this._send(new PacketWriter().writeC(0x73).build());
@@ -404,6 +426,27 @@ class GameSession extends EventEmitter {
       case 0x25: // ActionFailed (no payload)
         this.emit('actionFailed');
         break;
+      case 0x2d: { // SocialAction: D objectId, D actionId
+        const id = r.readD();
+        const actionId = r.readD();
+        this.emit('socialAction', { id, actionId });
+        break;
+      }
+      case 0x2e: { // ChangeMoveType: D objectId, D running, D swimming
+        const id = r.readD();
+        const running = r.readD();
+        r.readD(); // swimming
+        this.emit('changeMove', { id, running });
+        break;
+      }
+      case 0x2f: { // ChangeWaitType: D objectId, D waitType (0 sit, 1 stand,
+        // 2 start fake death, 3 stop fake death), D x,y,z
+        const id = r.readD();
+        const waitType = r.readD();
+        const x = r.readD(); const y = r.readD(); const z = r.readD();
+        this.emit('changeWait', { id, waitType, x, y, z });
+        break;
+      }
       case 0x0b: { // SpawnItem (ground drop)        const id = r.readD();
         const itemId = r.readD();
         const x = r.readD(); const y = r.readD(); const z = r.readD();

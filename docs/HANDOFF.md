@@ -168,7 +168,16 @@ cp geodata-staging/geodata/*_conv.dat aCis_gameserver/build/dist/gameserver/data
 
 Client → server: `login{deviceId}` · `enterChar{slot}` · `moveTo{x,y,z}` ·
 `say{channel,text,target?}` · `target{id}` · `attack{id}` · `useSkill{skillId,
-targetId?}` · `useItem{objectId}` · `talk{id}` · `bypass{command}`.
+targetId?}` · `useItem{objectId}` · `talk{id}` · `bypass{command}` ·
+`action{actionId}`.
+
+Actions (added 2026-07-26): `action{actionId}` routes ids 2..13 to
+RequestSocialAction (emotes) and everything else verbatim to
+RequestActionUse(0 Sit/Stand, 1 Walk/Run, 10/28/61 stores, manufactures) —
+id spaces verified against aCis source and assets/gamedata/actionname.json;
+social UI-id → social-id mapping table in gateway/README.md. `/sit` via
+Say2 does nothing in aCis — RequestActionUse is canonical.
+
 
 Server → client: `auth_ok{chars[]}` · `enterWorld{char{id,name,race,classId,
 x,y,z,heading}}` (exactly once per session) · `addNpc{id,npcId,name,level,
@@ -185,7 +194,9 @@ queued and flushed right after `enterWorld`) · `skillCast{casterId,targetId,
 skillId,level,hitTime}` · `skillLaunch{casterId,targetId,skillId,level}` ·
 `invUpdate{updated[{change,objectId,itemId,count,slot,equipped,enchant}]}`
 (change: add/modify/remove/unchanged) · `addDrop{id,itemId,count,x,y,z}` ·
-`sysMsg{id,params[]}` · `npcHtml{html}` · `actionFailed{}`.
+`sysMsg{id,params[]}` · `npcHtml{html}` · `actionFailed{}` ·
+`socialAction{id,actionId}` · `changeWait{id,waitType}` ·
+`changeMove{id,running}`.
 
 NPC dialog (added 2026-07-26): `talk{id}` sends Action(0x04); aCis routes by
 Creature.onAction — first Action only targets, second Action INTERACTS for

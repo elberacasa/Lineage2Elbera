@@ -5,6 +5,7 @@
 let _skillMeta = null;
 let _itemMeta = null;
 let _sysMsgMeta = null;
+let _actionMeta = null;
 
 function loadMeta(path) {
   return fetch(path)
@@ -25,6 +26,32 @@ export function itemMeta() {
 export function sysMsgMeta() {
   if (!_sysMsgMeta) _sysMsgMeta = loadMeta('/gamedata/systemmsg.json');
   return _sysMsgMeta;
+}
+
+// actionname.json is a LIST (not a map): index it once by action id.
+// {list, byId} so ActionWnd can keep retail order while slot lookups stay O(1).
+export function actionMeta() {
+  if (!_actionMeta) {
+    _actionMeta = loadMeta('/gamedata/actionname.json')
+      .then(list => {
+        const byId = {};
+        for (const a of list || []) byId[a.id] = a;
+        return { list: list || [], byId };
+      });
+  }
+  return _actionMeta;
+}
+
+export function actionInfo(meta, id) {
+  const m = meta && meta.byId[String(id)];
+  // icons are named icon.actionNNN but only action102.png was mined; the
+  // url is returned anyway and callers degrade on <img> error
+  const icon = m && m.icon ? m.icon.replace(/^icon\./, '') : null;
+  return {
+    name: (m && m.name) || `Action #${id}`,
+    icon: icon ? `/gamedata/icons/${icon}.png` : null,
+    desc: (m && m.desc) || '',
+  };
 }
 
 // render SystemMessage text: positional substitution of $s1/$s2/$c1/$c2

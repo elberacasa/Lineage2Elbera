@@ -69,6 +69,16 @@ export class Character {
     this.current = next;
   }
 
+  // One-shot emote (socialAction broadcast): play the clip and hold it
+  // against the per-frame idle fallback for its own duration; real
+  // movement still cancels it, as it should.
+  emote(name) {
+    const clip = this.actions[name];
+    if (!clip) return;
+    this.play(name, 0.15);
+    this.emoteUntil = performance.now() + clip.getClip().duration * 1000;
+  }
+
   setTarget(point) {
     this.target = point.clone();
     const d = this._planarDist(this.target);
@@ -121,9 +131,11 @@ export class Character {
       this.group.rotation.y += Math.abs(dy) < maxTurn ? dy : Math.sign(dy) * maxTurn;
       this.play(running ? 'run' : 'walk');
       this.speed = Math.hypot(vx, vz);
-    } else {
-      this.play('idle');
+    } else if (performance.now() >= (this.emoteUntil || 0)) {
+      this.play(this.sitting ? 'sit' : 'idle');
       this.speed = 0;
+    } else {
+      this.speed = 0;   // emoting: held by emote(), not re-idled
     }
 
     this.mixer.update(dt);

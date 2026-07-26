@@ -116,6 +116,17 @@ class Bridge {
           // RequestBypassToServer(0x21) with the raw bypass command string.
           if (this.game) this.game.bypass(String(msg.command || '').slice(0, 200));
           break;
+        case 'action':
+          // Character action. Routing (aCis reality): ids 2..13 are SOCIAL
+          // actions -> RequestSocialAction(0x1b); everything else goes
+          // verbatim to RequestActionUse(0x45) (0 sit/stand, 1 walk/run,
+          // 10/28/61 stores, manufactures...). ctrl/shift always false.
+          if (this.game) {
+            const actionId = msg.actionId | 0;
+            if (actionId >= 2 && actionId <= 13) this.game.requestSocialAction(actionId);
+            else this.game.requestActionUse(actionId);
+          }
+          break;
         case 'destroyItem':
           // inventory TrashButton (aCis RequestDestroyItem)
           if (this.game) this.game.destroyItem(msg.objectId | 0, msg.count | 0 || 1);
@@ -423,6 +434,11 @@ class Bridge {
 
     // ActionFailed (0x25) — talk/action rejected.
     game.on('actionFailed', () => this.send({ op: 'actionFailed' }));
+
+    // Action broadcasts (additive): social emotes, sit/stand, walk/run.
+    game.on('socialAction', (s) => this.send({ op: 'socialAction', id: s.id, actionId: s.actionId }));
+    game.on('changeWait', (c) => this.send({ op: 'changeWait', id: c.id, waitType: c.waitType }));
+    game.on('changeMove', (c) => this.send({ op: 'changeMove', id: c.id, running: c.running }));
   }
 
   _shutdown() {

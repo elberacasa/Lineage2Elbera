@@ -105,9 +105,21 @@ BBS/Macro/Help/Petition disabled (no backend).
 **Retail Alt+ keymap (delivered)** — evidence: 5 independent L2 references
 (pmfun.com/list/key, maxcheaters topic 7183, l2topzone, onlinegamecommands,
 legacy-lineage2) + `SystemMenuWnd.uc:122-123`: Alt+K SkillWnd, Alt+T
-Character Status, Alt+V & Tab Inventory, Alt+X SystemMenuWnd, Alt+Enter
-layout reset (pre-existing). Alt+C unbound (ActionWnd not built);
-Alt+B/R/U unbound. Never fires while typing in chat.
+Character Status, Alt+V & Tab Inventory, Alt+X SystemMenuWnd, Alt+C
+ActionWnd, Alt+Enter layout reset (pre-existing). Alt+B/R/U unbound.
+Never fires while typing in chat.
+
+**C.6 ActionWnd** (256×335) — the retail actions window, three sections
+(Basic 17 / Party 7 / Social 12) filtered from `actionname.json` categories
+1/2/3 into the xdat's three ItemWindows (`ActionBasicItem` /
+`ActionPartyItem` / `ActionSocialItem`, mined positions + 37×35 grid).
+Categories 0/4/5 (special/pet/servitor) stay out — they belong to the pet
+UIs. Click sends the `action` op (gateway routes ids 2..13 to
+RequestSocialAction, the rest to RequestActionUse); right-click/drag assigns
+an ACTION slot on the shortcut bar. Action icons were never mined (only
+`action102.png` exists), so cells are text-labelled with the icon layered
+in when the png resolves. `socialAction` broadcasts emote the local
+character (`dance` clip); `changeWait` drives the sit/stand pose.
 
 ### 1.4 Changes to pre-existing code
 

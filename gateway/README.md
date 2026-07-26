@@ -72,6 +72,37 @@ SystemMessage(0x64) is shallow-decoded into the contract op
 7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
 "You have earned 145 exp and 10 SP".
 
+## M7: character actions / ActionWnd (added 2026-07-26)
+
+Client -> server:
+- `{"op":"action","actionId":N}` — character action, ctrl/shift always false.
+  Routing (aCis reality, two different packets share the op):
+  - ids 2..13 -> **RequestSocialAction(0x1b)**, social emotes:
+    2 Greeting, 3 Victory, 4 Advance, 5 No, 6 Yes, 7 Bow, 8 Unaware,
+    9 Waiting, 10 Laugh, 11 Applaud, 12 Dance, 13 Sorrow.
+  - anything else -> **RequestActionUse(0x45)** verbatim; handled ids in
+    this rev's switch: 0 Sit/Stand, 1 Walk/Run, 10 Private Store Sell,
+    28 Private Store Buy, 37 Dwarven Manufacture, 51 General Manufacture,
+    61 Package Sell, 15-27/38/52-54 pet/summon actions, 1000+ specials.
+  actionname-e.dat ids (assets/gamedata/actionname.json, schema
+  {tag,id,type,category,category2,name,icon,desc,cmd}) ALIGN with
+  RequestActionUse ids (0 sitstand, 1 walkrun, 10 sell, 28 buy, 37/51
+  manufactures) — but NOT for socials: UI action 12 Greeting (cmd
+  `socialhello`) must be sent as social id 2. Mapping:
+  12→2, 13→3, 14→4, 25→5, 24→6, 26→7, 29→8, 30→9, 31→10, 33→11, 34→12, 35→13.
+
+Server -> client (additive):
+- `{"op":"socialAction","id":N,"actionId":N}` — SocialAction(0x2d) broadcast.
+- `{"op":"changeWait","id":N,"waitType":N}` — ChangeWaitType(0x2f):
+  0 sitting, 1 standing, 2 start fake death, 3 stop fake death.
+- `{"op":"changeMove","id":N,"running":N}` — ChangeMoveType(0x2e):
+  0 walking, 1 running.
+
+Canonical path note: `/sit` via Say2 does NOTHING in aCis (no voiced/user
+command for it; Say2 only routes `.`-prefixed voiced commands and
+RequestUserCommand has no sit handler). RequestActionUse is THE path.
+Verified live: broadcasts observed by BOTH the actor and an observer.
+
 ## M6: NPC dialog ops (added 2026-07-26 to the frozen contract)
 
 Server -> client:

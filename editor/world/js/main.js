@@ -23,6 +23,7 @@ import { Layout } from './ui/layout.js';
 import { StatusWnd, loadExpTable } from './ui/statuswnd.js';
 import { WndMgr } from './ui/wndmgr.js';
 import { SkillWnd, loadSkillTypes, skillType } from './ui/skillwnd.js';
+import { ActionWnd } from './ui/actionwnd.js';
 
 const canvas = document.getElementById('view');
 const statusEl = document.getElementById('status');
@@ -153,6 +154,7 @@ let npcNamesPromise = null; // lazy /gamedata/npcname.json fetch
 // has loaded (see boot()). Null until then; every call site guards.
 let statusWnd = null;
 let skillWnd = null;
+let actionWnd = null;
 let menuWnd = null;
 let systemMenuWnd = null;
 
@@ -371,6 +373,23 @@ net.on('skillLaunch', (msg) => {
     skillFx.flash(pos, new THREE.Color().setHSL(hue, 0.8, 0.6).getHex());
   }
 });
+// Social action broadcast (gateway op socialAction{id, actionId}, decoded
+// from gameclient 0x2d). Other entities flash their 'special' clip; when
+// it's us, dance on the local character model ('dance' exists on all 14
+// models; play() falls back to idle if a clip is ever absent).
+net.on('socialAction', (msg) => {
+  entities.skillFlash(msg.id);
+  if (msg.id === selfId && character) character.emote('dance');
+});
+// ChangeWaitType broadcast (gateway op changeWait{id, waitType}): sit/stand
+// toggle state — waitType 0 = sitting, 1 = standing (aCis ChangeWaitType).
+// Local character only: remote entities have no sit-state plumbing yet.
+net.on('changeWait', (msg) => {
+  if (msg.id === selfId && character) character.sitting = msg.waitType === 0;
+});
+// ActionFailed (0x25) is the server's routine "no" (action while sitting,
+// target out of range...); retail surfaces nothing for it either.
+net.on('actionFailed', () => {});
 
 // L2 world tile name for absolute L2 coords: tiles span 32768 units,
 // name = (20 + x/32768)_(18 + y/32768) (validated against tile-map.json,
@@ -562,6 +581,7 @@ window.__world = {
   get charSheet() { return charSheetData; },
   get statusWnd() { return statusWnd; },
   get skillWnd() { return skillWnd; },
+  get actionWnd() { return actionWnd; },
   get menuWnd() { return menuWnd; },
   get systemMenuWnd() { return systemMenuWnd; },
   wndMgr: WndMgr,
@@ -747,7 +767,7 @@ window.addEventListener('keydown', e => {
       case 'KeyT': sheetPanel.toggle(); break;               // retail "Character Status" (our CharSheet)
       case 'KeyV': inventory.toggle(); break;                // InventoryWnd
       case 'KeyX': if (systemMenuWnd) systemMenuWnd.toggle(); break;  // SystemMenuWnd
-      // Alt+C: retail opens ActionWnd — NOT built; deliberately unbound.
+      case 'KeyC': if (actionWnd) actionWnd.toggle(); break; // ActionWnd
       // Alt+B / Alt+R / Alt+U: BBS / Macro / Quest windows — not built; unbound.
       default: return;
     }
@@ -847,6 +867,16 @@ renderer.setAnimationLoop(() => {
     skillWnd.place({ right: 12, top: 60 });
     WndMgr.register('MagicSkillWnd', skillWnd, { handle: skillWnd.win.bar });
     WndMgr.bindResetKey();
+
+    // Phase C.5: the retail actions window (Alt+C). Three sections
+    // (Basic/Party/Social) straight from actionname.json categories.
+    actionWnd = new ActionWnd(document.body, {
+      onUse: (id) => { if (online) net.send('action', { actionId: id }); },
+    });
+    actionWnd.onAssign = (data) => shortcutWnd && shortcutWnd.assignFirstFree(data);
+    actionWnd.setActions();
+    actionWnd.place(actionWnd.defaultPlace);
+    WndMgr.register('ActionWnd', actionWnd, { handle: actionWnd.win.bar });
     // StatusWnd.uc OnLButtonDown: clicking the window targets yourself
     statusWnd.onSelfTargetClick(() => {
       if (online && selfId != null) net.send('target', { id: selfId });
@@ -893,6 +923,7 @@ renderer.setAnimationLoop(() => {
     shortcutWnd = new ShortcutWnd(document.body, {
       onUseSkill: (id) => { if (online) skillBar.castSkill(id); },
       onUseItem: (oid) => { if (online) net.send('useItem', { objectId: oid }); },
+      onUseAction: (id) => { if (online) net.send('action', { actionId: id }); },
       onNote: (text) => chat.addSystem(text),
     });
     // the lock button blocks dragging (Option.ini default: unlocked)

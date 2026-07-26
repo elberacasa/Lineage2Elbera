@@ -17,7 +17,8 @@
     "verify-m5": "node test/verify-m5.js",
     "verify-mods": "node test/verify-mods.js",
     "verify-level": "node test/verify-level.js",
-    "verify-dialog": "node test/verify-dialog.js"
+    "verify-dialog": "node test/verify-dialog.js",
+    "verify-action": "node test/verify-action.js"
   },
   "keywords": [],
   "author": "",

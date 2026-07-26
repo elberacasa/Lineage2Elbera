@@ -10,15 +10,17 @@
 // (5,32)). Option.ini defaults: horizontal, not expanded, not locked.
 //
 // Slot types: EShortCutItemType {NONE, ITEM, SKILL, ACTION, MACRO, RECIPE}.
-// ITEM and SKILL are wired (useItem/useSkill). ACTION/MACRO/RECIPE are
-// recognized but dropping them is rejected — AUTHORED: nothing in the web
-// port produces those types yet, so the slots exist in the type model only.
+// ITEM, SKILL and ACTION are wired (useItem/useSkill/action). MACRO/RECIPE
+// are recognized but dropping them is rejected — AUTHORED: nothing in the
+// web port produces those types yet, so the slots exist in the type model
+// only.
 
 import { Layout } from './layout.js';
 import { Skin } from './skin.js';
 import { Font } from './font.js';
 import { WndMgr } from './wndmgr.js';
-import { skillMeta, skillInfo, itemMeta, itemInfo } from '../gamedata.js';
+import { skillMeta, skillInfo, itemMeta, itemInfo, actionMeta, actionInfo }
+  from '../gamedata.js';
 import { skillType } from './skillwnd.js';
 
 const MAX_PAGE = 10;          // ShortcutWnd.uc:3
@@ -37,18 +39,20 @@ const SLOT_Y = [32, 69, 106, 143, 185, 222, 259, 296, 338, 375, 412, 449];
 const SLOT = 36;
 const SLOT_Y0 = 5, SLOT_V_X0 = 5;
 
-const ALLOWED_TYPES = new Set(['skill', 'item']);
+const ALLOWED_TYPES = new Set(['skill', 'item', 'action']);
 
 // The bar may only hold castable skills — passives are rejected at every
 // entry point (MagicSkillWnd.uc keeps them in a separate pane for exactly
-// this reason; the old invented hotbar enforced the same rule).
+// this reason; the old invented hotbar enforced the same rule). Actions
+// carry no such restriction (ActionWnd.uc hands every cell to DoAction).
 const acceptable = (s) => s && ALLOWED_TYPES.has(s.type)
   && !(s.type === 'skill' && skillType(s.id) === 'PASSIVE');
 
 export class ShortcutWnd {
-  constructor(parent = document.body, { onUseSkill, onUseItem, onNote } = {}) {
+  constructor(parent = document.body, { onUseSkill, onUseItem, onUseAction, onNote } = {}) {
     this.onUseSkill = onUseSkill || (() => {});
     this.onUseItem = onUseItem || (() => {});
+    this.onUseAction = onUseAction || (() => {});
     this.onNote = onNote || (() => {});
     this.page = 0;
     this.expanded = false;    // Option.ini default
@@ -130,7 +134,7 @@ export class ShortcutWnd {
 
   assignFirstFree(slot) {
     if (!acceptable(slot)) {
-      // ACTION/MACRO/RECIPE slots render but reject drops (see header note);
+      // MACRO/RECIPE slots render but reject drops (see header note);
       // passives are not usable and never reach the bar
       this.onNote(`shortcut: ${slot.type} slots are not supported yet`);
       return -1;
@@ -151,6 +155,7 @@ export class ShortcutWnd {
     if (!s) return;
     if (s.type === 'skill') this.onUseSkill(s.id);
     else if (s.type === 'item') this.onUseItem(s.id);
+    else if (s.type === 'action') this.onUseAction(s.id);
   }
 
   triggerF(i) {
@@ -189,6 +194,33 @@ export class ShortcutWnd {
   }
 
   async _slotContent(el, s) {
+    if (s.type === 'action') {
+      const am = await actionMeta();
+      const info = actionInfo(am, s.id);
+      el.title = info.name;
+      // action icons were not mined (only action102.png exists) — label
+      // first, icon layered on top only if the png resolves (same degrade
+      // as ActionWnd's cells)
+      const label = document.createElement('div');
+      label.style.cssText = 'position:absolute;inset:0;font:8px sans-serif;'
+        + 'color:#d8cba6;text-align:center;line-height:9px;overflow:hidden;'
+        + 'display:flex;align-items:center;justify-content:center;'
+        + 'text-shadow:0 1px 1px #000;pointer-events:none;';
+      label.textContent = info.name;
+      el.appendChild(label);
+      if (info.icon) {
+        const img = document.createElement('img');
+        img.src = info.icon;
+        img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:none;';
+        img.addEventListener('load', () => {
+          img.style.display = 'block';
+          label.style.display = 'none';
+        });
+        img.addEventListener('error', () => img.remove());
+        el.appendChild(img);
+      }
+      return;
+    }
     const [sm, im] = await Promise.all([skillMeta(), itemMeta()]);
     const info = s.type === 'skill' ? skillInfo(sm, s.id) : itemInfo(im, s.id);
     el.title = info.name;

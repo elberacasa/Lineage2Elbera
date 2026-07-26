@@ -25,6 +25,7 @@
 //   useSkill    -> skillCast(hitTime 1500) -> skillLaunch; gremlin hit if
 //                  it is the target; gremlin also casts back periodically
 //   useItem     -> sysMsg + invUpdate (decrement/remove consumable)
+//   action      -> sysMsg; ids 2..13 also echo socialAction (bridge routing)
 //   loot{id}    -> invUpdate add (adena) + sysMsg, only for dead mobs
 //
 // Coordinates are L2 world units. Tile 17_24 center: origin
@@ -332,6 +333,13 @@ wss.on('connection', (ws) => {
       } else if (it) {
         items.splice(items.indexOf(it), 1);
         send('invUpdate', { updated: [{ change: 'remove', objectId: it.objectId, itemId: it.itemId }] });
+      }
+    } else if (msg.op === 'action') {
+      // mirror the real bridge's routing: ids 2..13 are social actions and
+      // get a SocialAction broadcast back; the rest is fire-and-forget
+      send('sysMsg', { id: 46, params: [`action:${msg.actionId}`] });
+      if (msg.actionId >= 2 && msg.actionId <= 13) {
+        send('socialAction', { id: self.id, actionId: msg.actionId });
       }
     }
   });
