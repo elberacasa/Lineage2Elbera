@@ -97,6 +97,25 @@ class Bridge {
         case 'useItem':
           if (this.game) this.game.useItem(msg.objectId | 0);
           break;
+        case 'talk':
+          // Talk/interact with an NPC. aCis Creature.onAction: first Action
+          // only TARGETS; a second Action on the current target INTERACTS
+          // (dialog) for non-attackable NPCs — and ATTACKS for attackable
+          // ones (attackable-without-force) or with ctrl. So talk sends
+          // Action twice; on attackable NPCs the second Action is a swing
+          // (aCis routing, not packet-level — use the attack op for those).
+          if (this.game) {
+            const id = msg.id | 0;
+            this.game.action(id);
+            if (id !== this.currentTarget) {
+              setTimeout(() => { if (this.game) this.game.action(id); }, 400);
+            }
+          }
+          break;
+        case 'bypass':
+          // RequestBypassToServer(0x21) with the raw bypass command string.
+          if (this.game) this.game.bypass(String(msg.command || '').slice(0, 200));
+          break;
         case 'destroyItem':
           // inventory TrashButton (aCis RequestDestroyItem)
           if (this.game) this.game.destroyItem(msg.objectId | 0, msg.count | 0 || 1);
@@ -396,11 +415,14 @@ class Bridge {
       this.send({ op: 'addDrop', id: d.id, itemId: d.itemId, count: d.count, x: d.x, y: d.y, z: d.z });
     });
 
-    // NpcHtmlMessage (0x0f) — e.g. the .menu window. Not a contract op;
-    // logged for debugging (the web client implements its own menu).
+    // NpcHtmlMessage (0x0f) — villager dialogs, .menu, teleporters, shops.
     game.on('html', (h) => {
-      this.log(`html window (${h.html.length} chars) >>>${h.html.replace(/\s+/g, ' ')}<<<`);
+      this.send({ op: 'npcHtml', html: h.html });
+      this.log(`npcHtml (html window, ${h.html.length} chars, objectId ${h.objectId}) >>>${h.html.replace(/\s+/g, ' ')}<<<`);
     });
+
+    // ActionFailed (0x25) — talk/action rejected.
+    game.on('actionFailed', () => this.send({ op: 'actionFailed' }));
   }
 
   _shutdown() {

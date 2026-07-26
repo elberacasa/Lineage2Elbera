@@ -167,15 +167,17 @@ cp geodata-staging/geodata/*_conv.dat aCis_gameserver/build/dist/gameserver/data
 ### 4.1 Bridge WebSocket ops (browser ⇄ ElberaGate, JSON)
 
 Client → server: `login{deviceId}` · `enterChar{slot}` · `moveTo{x,y,z}` ·
-`say{channel,text}` · `target{id}` · `attack{id}` · `useSkill{skillId,
-targetId?}` · `useItem{objectId}`.
+`say{channel,text,target?}` · `target{id}` · `attack{id}` · `useSkill{skillId,
+targetId?}` · `useItem{objectId}` · `talk{id}` · `bypass{command}`.
 
 Server → client: `auth_ok{chars[]}` · `enterWorld{char{id,name,race,classId,
 x,y,z,heading}}` (exactly once per session) · `addNpc{id,npcId,name,level,
 x,y,z,heading}` · `addPlayer{id,name,race,classId,level,x,y,z,heading}` ·
-`move{id,tx,ty,tz}` · `remove{id}` · `chat{from,channel,text}` ·
+`move{id,tx,ty,tz}` · `remove{id}` · `chat{from,channel,text,target?}` ·
 `status{id,hp,maxHp,mp,maxMp}` · `selfStatus{hp,maxHp,mp,maxMp,cp,maxCp,
-level,exp,sp}` · `attack{id,targetId,damage,critical,miss}` · `die{id}` ·
+level,exp,sp}` · `charSheet{str,dex,con,int,wit,men,pAtk,pDef,mAtk,mDef,
+accuracy,evasion,critical,runSpeed,walkSpeed,pAtkSpd,mAtkSpd,maxLoad}` ·
+`attack{id,targetId,damage,critical,miss}` · `die{id}` ·
 `revive{id}` · `target_ok{id,color}` · `skillList{skills[{id,level,passive,
 disabled}]}` and
 `itemList{items[{objectId,itemId,count,slot,equipped,enchant}]}` (both
@@ -183,7 +185,20 @@ queued and flushed right after `enterWorld`) · `skillCast{casterId,targetId,
 skillId,level,hitTime}` · `skillLaunch{casterId,targetId,skillId,level}` ·
 `invUpdate{updated[{change,objectId,itemId,count,slot,equipped,enchant}]}`
 (change: add/modify/remove/unchanged) · `addDrop{id,itemId,count,x,y,z}` ·
-`sysMsg{id,params[]}`.
+`sysMsg{id,params[]}` · `npcHtml{html}` · `actionFailed{}`.
+
+NPC dialog (added 2026-07-26): `talk{id}` sends Action(0x04); aCis routes by
+Creature.onAction — first Action only targets, second Action INTERACTS for
+non-attackable NPCs (dialog opens) but ATTACKS for attackable ones
+(isAttackableWithoutForceBy or ctrl). The bridge sends Action twice (400ms
+apart) when `id` isn't the current target. Use `attack{id}` for monsters —
+there is no packet-level talk-vs-attack distinction, aCis decides by
+attackability. `bypass{command}` forwards the raw string to
+RequestBypassToServer(0x21): dialog hrefs arrive as `bypass -h <cmd>`
+(e.g. `npc_<objectId>_Quest`) and the `.menu` buttons as
+`bypass voiced_<cmd>` — send `<cmd>` verbatim. `npcHtml{html}` is the full
+NpcHtmlMessage(0x0f) body (villager dialogs, `.menu`, teleporters, shops).
+`actionFailed{}` = ActionFailed(0x25).
 
 Level semantics (added 2026-07-26, additive): aCis 409's NpcInfo/CharInfo
 packets carry NO level field — `addNpc.level` comes from the datapack NPC

@@ -234,6 +234,16 @@ wss.on('connection', (ws) => {
       }
       if (msg.text === '/die') send('selfStatus', { ...selfStats, hp: 0 });
       if (msg.text === '/revive') send('selfStatus', selfStats);
+      if (msg.text === '.menu') {
+        send('npcHtml', { html:
+          `<html><body><title>L2Vzla - Player menu</title><br><br><center>` +
+          `<font color="LEVEL">Server menu</font><br><br>` +
+          `<button value="Auto-loot ON" action="bypass -h menu_loot_on" width="110" height="18"><br>` +
+          `<button value="Auto-loot OFF" action="bypass -h menu_loot_off" width="110" height="18"><br>` +
+          `<button value="Sanitize test" action="bypass -h evil" width="110" height="18"><br>` +
+          `<button value="Close" action="bypass -h npc_bye" width="110" height="18">` +
+          `</center></body></html>` });
+      }
     } else if (msg.op === 'target') {
       // loot (mirror of the real bridge: Action on a dead mob = pickup)
       const deadMob = MOBS[msg.id];
@@ -271,6 +281,48 @@ wss.on('connection', (ws) => {
           send('status', { id: targetId, hp: mob.hp, maxHp: mob.maxHp });
         }
       }, 1500));
+    } else if (msg.op === 'talk') {
+      // villager dialog (representative L2 markup: title, colored fonts,
+      // a table, links, a button)
+      const npc = NPCS.find(n => n.id === msg.id) || { name: 'NPC' };
+      send('npcHtml', { html:
+        `<html><body><title>${npc.name}</title><br><br><center>` +
+        `<font color="LEVEL">${npc.name}</font><br><br>` +
+        `Welcome, traveler. What brings you to our village?<br><br>` +
+        `<table width="260"><tr><td width="120"><font color="BROWN">Services</font></td>` +
+        `<td><a action="bypass -h npc_services">Ask about services</a></td></tr>` +
+        `<tr><td><font color="BROWN">Quests</font></td>` +
+        `<td><a action="bypass -h npc_quests">Ask about quests</a></td></tr></table><br>` +
+        `<button value="Farewell" action="bypass -h npc_bye" width="80" height="18">` +
+        `</center></body></html>` });
+    } else if (msg.op === 'bypass') {
+      const cmd = String(msg.command || '');
+      if (cmd === 'npc_services') {
+        send('npcHtml', { html:
+          `<html><body><title>Services</title><br><br><center>` +
+          `We offer <font color="YELLOW">supplies</font> and guidance.<br><br>` +
+          `<a action="bypass -h npc_back">Back</a></center></body></html>` });
+      } else if (cmd === 'npc_quests') {
+        send('npcHtml', { html:
+          `<html><body><title>Quests</title><br><br><center>` +
+          `Hunt <font color="RED">gremlins</font> in the fields nearby.<br><br>` +
+          `<a action="bypass -h npc_back">Back</a></center></body></html>` });
+      } else if (cmd === 'npc_back') {
+        send('npcHtml', { html:
+          `<html><body><title>Gremlin</title><br><br><center>` +
+          `<a action="bypass -h npc_services">Services</a> · ` +
+          `<a action="bypass -h npc_quests">Quests</a></center></body></html>` });
+      } else if (cmd === 'evil') {
+        // sanitize test fixture: script tag + javascript: href must die
+        send('npcHtml', { html:
+          `<html><body><title>Evil</title>` +
+          `<script>window.__pwned = true;</script>` +
+          `<a action="javascript:window.__pwned2 = true">bad link</a>` +
+          `<a action="bypass -h npc_back">safe link</a>` +
+          `<img src="https://evil.example/x.png">` +
+          `</body></html>` });
+      }
+      // npc_bye and unknown commands: no response (retail silence)
     } else if (msg.op === 'useItem') {
       const it = items.find(i => i.objectId === msg.objectId);
       send('sysMsg', { id: 46, params: [it ? `item:${it.itemId}` : `${msg.objectId}`] });

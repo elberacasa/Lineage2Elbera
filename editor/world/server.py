@@ -57,9 +57,13 @@ _NPC_BLOCK_RE = re.compile(r'<npc id="\d+"[^>]*>.*?</npc>', re.S)
 _NPC_HEIGHT_RE = re.compile(r'height" val="([\d.]+)"')
 
 
-def _server_heights():
-    """npcId -> server collision height, from the aCis npc XMLs
-    (docs/npc-visual-data.md §3: 100% of NPCs carry it; visual = 2x it)."""
+_NPC_TYPE_RE = re.compile(r'type" val="([^"]+)"')
+
+
+def _server_npc_meta():
+    """npcId -> {height, type} from the aCis npc XMLs
+    (height per docs/npc-visual-data.md §3; type = Monster/Folk/... used
+    to decide the talk-vs-attack path for NPC clicks)."""
     out = {}
     if not os.path.isdir(NPCS_XML_DIR):
         return out
@@ -73,16 +77,21 @@ def _server_heights():
             continue
         for block in _NPC_BLOCK_RE.findall(src):
             m = _NPC_HEIGHT_RE.search(block)
+            t = _NPC_TYPE_RE.search(block)
             if m:
-                out[block.split('"')[1]] = float(m.group(1))
+                out[block.split('"')[1]] = {
+                    "height": float(m.group(1)),
+                    "type": t.group(1) if t else None,
+                }
     return out
 
 
 def npc_meshes():
-    """npcId -> {mesh, height}: npcgrp mesh name + server collision height."""
+    """npcId -> {mesh, height, type}: npcgrp mesh name + server collision
+    height + server NPC type (Monster/Folk/...)."""
     global _npc_meshes
     if _npc_meshes is None:
-        heights = _server_heights()
+        meta = _server_npc_meta()
         _npc_meshes = {}
         src = os.path.join(GAMEDATA_DIR, "npcgrp.json")
         try:
@@ -91,9 +100,11 @@ def npc_meshes():
                     mesh = entry.get("mesh_name") or ""
                     # "LineageMonsters.gremlin_m00" -> "gremlin_m00"
                     nid = str(entry["npc_id"])
+                    m = meta.get(nid) or {}
                     _npc_meshes[nid] = {
                         "mesh": mesh.rsplit(".", 1)[-1],
-                        "height": heights.get(nid),
+                        "height": m.get("height"),
+                        "type": m.get("type"),
                     }
         except (OSError, ValueError, KeyError):
             pass

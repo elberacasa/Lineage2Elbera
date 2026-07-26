@@ -199,6 +199,12 @@ class GameSession extends EventEmitter {
     );
   }
 
+  // RequestBypassToServer (0x21): S command — raw bypass string from dialog
+  // links ("bypass -h <cmd>", e.g. npc_<objectId>_Chat 1) or voiced bypasses.
+  bypass(command) {
+    this._send(new PacketWriter().writeC(0x21).writeS(String(command)).build());
+  }
+
   // RequestPrivateStoreManageSell (0x73): opens the sell-store management.
   requestPrivateStoreManageSell() {
     this._send(new PacketWriter().writeC(0x73).build());
@@ -387,12 +393,17 @@ class GameSession extends EventEmitter {
         this.emit('invUpdate', updated);
         break;
       }
-      case 0x0f: { // NpcHtmlMessage: D objectId, S html, D itemId (e.g. .menu window)
+      case 0x0f: { // NpcHtmlMessage: D objectId, S html, D itemId (villager
+        // dialogs, .menu, teleporters, shops)
         const objectId = r.readD();
         const html = r.readS();
-        this.emit('html', { objectId, html });
+        const itemId = r.remaining() >= 4 ? r.readD() : 0;
+        this.emit('html', { objectId, html, itemId });
         break;
       }
+      case 0x25: // ActionFailed (no payload)
+        this.emit('actionFailed');
+        break;
       case 0x0b: { // SpawnItem (ground drop)        const id = r.readD();
         const itemId = r.readD();
         const x = r.readD(); const y = r.readD(); const z = r.readD();

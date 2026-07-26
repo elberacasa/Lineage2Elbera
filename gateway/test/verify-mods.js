@@ -243,16 +243,30 @@ async function partB() {
   // combat flag outlives the kill by ~10s.
   console.log('   waiting for combat flag to fade...');
   await sleep(15000);
-  console.log('   opening BUY store (adena reference, 1x @ 1a)...');
-  O.game.requestPrivateStoreManageBuy();
-  await sleep(1200);
-  O.game.setPrivateStoreListBuy([{ itemId: 57, count: 1, price: 1 }]);
-  await sleep(1500);
-
   // .offline WITH store -> disconnect is the real signal (the confirmation
-  // message may not flush before the logout close).
-  O.game.say(0, '.offline');
-  await waitFor(() => O.closed, 20000, 'O socket closed (offline logout)');
+  // message may not flush before the logout close). Retry once if the store
+  // didn't open (residual combat flag, sysMsg 1135).
+  let opened = false;
+  for (let attempt = 1; attempt <= 2 && !opened; attempt++) {
+    console.log(`   opening BUY store (adena reference, 1x @ 1a), attempt ${attempt}...`);
+    const guardMark = O.sysTexts.length;
+    O.game.requestPrivateStoreManageBuy();
+    await sleep(1200);
+    O.game.setPrivateStoreListBuy([{ itemId: 57, count: 1, price: 1 }]);
+    await sleep(1500);
+    O.game.say(0, '.offline');
+    const t0 = Date.now();
+    while (!O.closed && Date.now() - t0 < 20000) {
+      if (O.sysTexts.slice(guardMark).some((t) => t.includes('tienda privada'))) break; // store didn't open
+      await sleep(500);
+    }
+    opened = O.closed;
+    if (!opened && attempt === 1) {
+      console.log('   store did not open (combat flag?), waiting 12s before retry...');
+      await sleep(12000);
+    }
+  }
+  if (!opened) throw new Error('O socket did not close after .offline with store (2 attempts)');
   VERDICT.offlineStore = true;
   console.log('   .offline with BUY store -> disconnected (offline trader left in world)');
   await sleep(10000);

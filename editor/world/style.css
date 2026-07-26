@@ -217,3 +217,18 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 /* TargetStatusWnd bar fills (art is native BarCtrl, colors AUTHORED) */
 .target-bar-hp > div { background: linear-gradient(#e05656, #a02828); }
 .target-bar-mp > div { background: linear-gradient(#5a7fe0, #2c4aa0); }
+
+/* NPC dialog (js/ui/npcdialog.js) */
+.npc-dialog-body { font: 12px/1.5 -apple-system, "Segoe UI", sans-serif; color: #cfd4de; }
+.npc-dialog-title { color: #c9a959; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+.npc-link { color: #7fb3ff; text-decoration: underline; cursor: pointer; }
+.npc-link:hover { color: #a9ccff; }
+.npc-btn {
+  display: inline-block; margin: 2px 4px 2px 0; padding: 3px 14px;
+  background: #241f14; color: #e6dcc0; border: 1px solid #c9a959;
+  border-radius: 3px; cursor: pointer; font: 12px -apple-system, sans-serif;
+}
+.npc-btn:hover { background: #322a18; }
+.npc-btn:disabled { opacity: .45; cursor: default; }
+.npc-table { border-collapse: collapse; }
+.npc-table td, .npc-table th { padding: 1px 6px; }

@@ -23,6 +23,7 @@ const R = {
   targetRemoved: false,
   selfDied: false,
   sysDmg: 0,
+  moves: new Map(), // id -> last move target {x,y,z}
 };
 
 const ws = new WebSocket(url);
@@ -69,6 +70,9 @@ ws.on('message', async (data) => {
       R.attacks.push(msg);
       if (R.attacks.length <= 5) console.log('attack:', JSON.stringify(msg));
       break;
+    case 'move':
+      R.moves.set(msg.id, { x: msg.tx, y: msg.ty, z: msg.tz });
+      break;
     case 'die':
       console.log('die:', msg.id, msg.id === R.targetId ? '(TARGET)' : msg.id === R.me.id ? '(SELF)' : '');
       if (msg.id === R.targetId) R.targetDied = true;
@@ -99,14 +103,22 @@ async function startCombat() {
   console.log(`targeting Gremlin id=${g.id} at ${g.x},${g.y} (dist ${g.dist | 0})`);
   ws.send(JSON.stringify({ op: 'target', id: g.id }));
   await sleep(1000);
-  console.log('attacking...');
-  ws.send(JSON.stringify({ op: 'attack', id: g.id }));
 
-  // Re-issue attack every 5s in case the intention got cancelled; give up after 150s.
+  // With geodata active the ranged auto-approach on AttackRequest can
+  // stall: walk NEXT to the gremlin first, then attack (same approach as
+  // verify-mods killGremlin). The gremlin wanders; re-approach as needed.
   const t0 = Date.now();
   while (!R.targetDied && !R.selfDied && Date.now() - t0 < 150000) {
-    await sleep(5000);
-    if (!R.targetDied) ws.send(JSON.stringify({ op: 'attack', id: g.id }));
+    const pos = R.moves.get(g.id) || g;
+    const mePos = R.moves.get(R.me.id) || R.me;
+    ws.send(JSON.stringify({ op: 'moveTo', x: pos.x + 20, y: pos.y, z: pos.z }));
+    const walkMs = Math.min(12000, (Math.hypot(pos.x - mePos.x, pos.y - mePos.y) / 115) * 1000 + 2500);
+    await sleep(walkMs);
+    const t1 = Date.now();
+    while (!R.targetDied && !R.selfDied && Date.now() - t1 < 15000) {
+      ws.send(JSON.stringify({ op: 'attack', id: g.id }));
+      await sleep(4000);
+    }
   }
   console.log(R.targetDied ? 'gremlin dead, waiting for corpse decay...' : 'combat ended without kill');
   // Wait for decay (remove op) up to 20s.

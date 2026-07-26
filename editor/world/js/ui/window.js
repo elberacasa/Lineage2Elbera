@@ -97,7 +97,11 @@ export class L2Window {
       Skin.apply(btn, ref('close'));
       btn.addEventListener('mouseenter', () => Skin.apply(btn, ref('closeOn')));
       btn.addEventListener('mouseleave', () => Skin.apply(btn, ref('close')));
-      btn.addEventListener('click', (e) => { e.stopPropagation(); this.hide(); });
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.hide();
+        if (this.onClose) this.onClose();
+      });
       bar.appendChild(btn);
       this.closeBtn = btn;
     }

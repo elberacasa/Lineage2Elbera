@@ -16,6 +16,7 @@ import { skillMeta, skillInfo, itemMeta, itemInfo, sysMsgMeta, renderSysMsg, sys
 import { CharSheet } from './charsheet.js';
 import { MenuWnd, SystemMenuWnd } from './ui/menuwnd.js';
 import { TargetStatusWnd } from './ui/targetstatuswnd.js';
+import { NpcDialog } from './ui/npcdialog.js';
 import { Skin } from './ui/skin.js';
 import { Font } from './ui/font.js';
 import { Layout } from './ui/layout.js';
@@ -226,8 +227,15 @@ function clickEntity(id) {
     return;
   }
   if (combat.targetId === id) {
-    // already targeted: second click attacks
-    if (online) net.send('attack', { id });
+    // already targeted: second click interacts — attackable targets keep
+    // the combat path; non-attackable NPCs (server type != Monster, from
+    // the aCis XMLs via /gamedata/npcgrp.json) open the dialog instead
+    if (!online) return;
+    if (e.kind === 'npc' && e.npcType && e.npcType !== 'Monster') {
+      net.send('talk', { id });
+    } else {
+      net.send('attack', { id });
+    }
   } else {
     combat.setTarget(id, e.name || `#${id}`,
       { kind: e.kind, level: e.level ?? null, color: e.kind === 'npc' && e.level != null && combat.self
@@ -277,6 +285,7 @@ function lootToast(text) {
 }
 
 let inventory = null;   // InventoryWnd, constructed in boot (needs skin/layout)
+let npcDialog = null;     // NpcDialog, constructed in boot (needs skin/layout)
 
 // --- M5: char sheet, shortcut bar, settings -----------------------------------
 
@@ -289,6 +298,9 @@ const sheetPanel = new CharSheet(
     getEquipped: () => [...inventory.items.values()].filter(it => it.equipped),
   },
 );
+net.on('npcHtml', (msg) => {
+  if (npcDialog) npcDialog.showHtml(msg.html || '');
+});
 net.on('charSheet', (msg) => {
   charSheetData = msg;
   if (document.getElementById('charsheet-panel').classList.contains('visible')) {
@@ -536,6 +548,8 @@ window.__world = {
     get selfId() { return selfId; },
     get url() { return net.url; },
     get log() { return net.log; },
+    // verification helper: raw op send (walkTo is the movement equivalent)
+    sendOp: (op, fields = {}) => net.send(op, fields),
   },
   entities,
   get chat() { return chat; },
@@ -544,6 +558,7 @@ window.__world = {
   get inventory() { return inventory; },
   get shortcutWnd() { return shortcutWnd; },
   get targetWnd() { return combat.targetWnd; },
+  get npcDialog() { return npcDialog; },
   get charSheet() { return charSheetData; },
   get statusWnd() { return statusWnd; },
   get skillWnd() { return skillWnd; },
@@ -871,6 +886,9 @@ renderer.setAnimationLoop(() => {
     });
 
     combat.targetWnd = new TargetStatusWnd(document.body);
+    npcDialog = new NpcDialog(document.body, {
+      onBypass: (command) => { if (online) net.send('bypass', { command }); },
+    });
 
     shortcutWnd = new ShortcutWnd(document.body, {
       onUseSkill: (id) => { if (online) skillBar.castSkill(id); },

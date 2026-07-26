@@ -143,6 +143,7 @@ class NpcEntity {
     const [manifest, meshes] = await Promise.all([monsterManifest(), npcMeshes()]);
     if (!manifest) return;                     // pipeline hasn't landed: keep capsule
     const grp = meshes[String(this.npcId)] || {};
+    this.npcType = grp.type || null;   // server NPC type (Monster/Folk/...)
     const meshName = grp.mesh;
     const entry = manifest.find(m => m.id === meshName)
       || manifest.find(m => m.id.toLowerCase() === String(meshName).toLowerCase());
@@ -351,6 +352,11 @@ export class EntityManager {
     const id = msg.id;
     if (this.has(id)) return;
     const npc = new NpcEntity(msg);
+    // type (Monster/Folk) resolves with the async npcgrp fetch
+    npcMeshes().then(map => {
+      const grp = map[String(npc.npcId)];
+      if (grp) npc.npcType = grp.type || null;
+    });
     l2ToThree(msg.x || 0, msg.y || 0, msg.z || 0, npc.group.position);
     npc.serverZ = (msg.z || 0) * L2_TO_M;
     npc.group.position.y = this._groundY(

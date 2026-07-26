@@ -72,6 +72,37 @@ SystemMessage(0x64) is shallow-decoded into the contract op
 7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
 "You have earned 145 exp and 10 SP".
 
+## M6: NPC dialog ops (added 2026-07-26 to the frozen contract)
+
+Server -> client:
+- `{"op":"npcHtml","html":"..."}` — full NpcHtmlMessage(0x0f) body
+  (D objectId, S html, D itemId in this rev). Arrives for villager dialogs,
+  `.menu`, teleporters, shop lists — send whenever the server sends it.
+- `{"op":"actionFailed"}` — ActionFailed(0x25), no payload: a talk/action
+  was rejected.
+
+Client -> server:
+- `{"op":"talk","id":N}` — talk/interact with an NPC. Semantics (aCis
+  Creature.onAction): the FIRST Action(0x04) only sets the target; a second
+  Action on the current target INTERACTS (dialog) for non-attackable NPCs,
+  but ATTACKS for attackable ones (isAttackableWithoutForceBy, or ctrl via
+  AttackRequest). The bridge sends Action twice (400ms apart) when `id` is
+  not the current target. There is NO packet-level talk-vs-attack flag —
+  aCis decides by attackability: on attackable NPCs `talk` swings the
+  weapon, so use the existing `attack{id}` op for monsters and `talk` for
+  villagers/folks.
+- `{"op":"bypass","command":".."}` — RequestBypassToServer(0x21) with the
+  raw command string. Dialog hrefs arrive as `bypass -h <cmd>` (send `<cmd>`
+  verbatim, e.g. `npc_268451849_Quest`); the `.menu` mod buttons use
+  `bypass voiced_<cmd>` (e.g. `voiced_menu autoloot`). Governor-paced like
+  everything else.
+
+Verified live (test/verify-dialog.js): talk to Roien -> real dialog html ->
+followed its own `npc_..._Quest` bypass -> quest page; `.menu` -> mod menu
+html -> `voiced_menu autoloot` bypass -> menu refreshed. Note: the Newbie
+Helper shows link-less tutorial-chain html for fresh chars (Tutorial quest
+behavior server-side, not a bridge issue).
+
 ## M5: chat channels & character sheet (added to the frozen contract)
 
 ### Chat channels (SayType ordinals, enums/SayType.java)
