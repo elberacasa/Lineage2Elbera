@@ -56,3 +56,15 @@ tmp/
 
 # Vendored third-party clones (own .git)
 tools/src/open-l2encdec/
+
+# ElberaSkin staged UI art — NCSoft PNGs extracted from your own client
+# (regenerate: tools/ui/build_uiskin.py, tools/ui/build_font.py).
+# The manifests beside them are text catalogs and stay tracked.
+editor/world/ui/skin/
+editor/world/ui/font/
+editor/world/ui/atlas/
+
+# ElberaScript output — UnrealScript sources recovered from your own client's
+# Interface.u / NWindow.u. NCSoft's code: reference only, never committed.
+# (regenerate: tools/uscript/extract_uscript.py)
+assets/uscript/

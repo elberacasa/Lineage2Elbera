@@ -13,7 +13,14 @@ import { SkillBar, SkillFx } from './skills.js';
 import { Inventory } from './inventory.js';
 import { skillMeta, skillInfo, sysMsgMeta, renderSysMsg } from './gamedata.js';
 import { CharSheet } from './charsheet.js';
+import { MenuWnd, SystemMenuWnd } from './ui/menuwnd.js';
 import { Hotbar } from './hotbar.js';
+import { Skin } from './ui/skin.js';
+import { Font } from './ui/font.js';
+import { Layout } from './ui/layout.js';
+import { StatusWnd, loadExpTable } from './ui/statuswnd.js';
+import { WndMgr } from './ui/wndmgr.js';
+import { SkillWnd, loadSkillTypes, skillType } from './ui/skillwnd.js';
 
 const canvas = document.getElementById('view');
 const statusEl = document.getElementById('status');
@@ -138,6 +145,43 @@ let online = false;
 let selfId = null;          // server object id of our own character
 let selfName = '';
 let npcNamesPromise = null; // lazy /gamedata/npcname.json fetch
+
+// --- Phase C.1: the retail player status window ------------------------------
+// Built from Interface.xdat geometry + the client's own art once the skin
+// has loaded (see boot()). Null until then; every call site guards.
+let statusWnd = null;
+let skillWnd = null;
+let menuWnd = null;
+let systemMenuWnd = null;
+
+// Dev controls have no retail equivalent, so the bar is not part of the
+// retail view. But it carries the Online toggle, which is the only way into
+// the game -- hiding it behind an undiscoverable key locks the user out. So:
+// F9 toggles, ?dev=1 forces it open, the choice PERSISTS across reloads, and
+// it defaults to open until deliberately dismissed once.
+const hudEl = document.getElementById('hud');
+const DEV_KEY = 'l2vzla.devbar';
+function setDevBar(on) {
+  hudEl.classList.toggle('dev-visible', on);
+  try { localStorage.setItem(DEV_KEY, on ? '1' : '0'); } catch { /* ignore */ }
+}
+{
+  const forced = new URLSearchParams(location.search).get('dev') === '1';
+  let stored = null;
+  try { stored = localStorage.getItem(DEV_KEY); } catch { /* ignore */ }
+  hudEl.classList.toggle('dev-visible', forced || stored !== '0');
+  if (stored === null) showDevHint();
+}
+
+// One-time nudge so F9 is discoverable instead of tribal knowledge.
+function showDevHint() {
+  const tip = document.createElement('div');
+  tip.id = 'dev-hint';
+  tip.textContent = 'F9 — show / hide the dev bar (not part of the retail UI)';
+  document.body.appendChild(tip);
+  setTimeout(() => tip.classList.add('fade'), 4000);
+  setTimeout(() => tip.remove(), 5200);
+}
 
 const chat = new ChatBox(
   document.getElementById('chat'),
@@ -268,7 +312,14 @@ document.getElementById('deviceid-copy').addEventListener('click', async (e) => 
   setTimeout(() => { e.target.textContent = 'Copy'; }, 1500);
 });
 
-net.on('skillList', (msg) => skillBar.populate(msg.skills || []));
+net.on('skillList', (msg) => {
+  const all = msg.skills || [];
+  if (skillWnd) skillWnd.setSkills(all);
+  // The shortcut bar may only hold castable skills — passives are not usable
+  // (MagicSkillWnd.uc keeps them in a separate pane for exactly this reason).
+  skillBar.populate(all.filter(
+    s => skillType(s.id, s.passive) !== 'PASSIVE' && !s.disabled));
+});
 net.on('itemList', (msg) => inventory.setItems(msg.items || []));
 net.on('invUpdate', (msg) => inventory.applyUpdate(msg.updated || []));
 net.on('skillCast', (msg) => {
@@ -321,6 +372,8 @@ function setOnline(on) {
     skillFx.clear();
     hotbar.clear();
     sheetPanel.clear();
+    if (statusWnd) statusWnd.clear();
+    if (skillWnd) skillWnd.clear();
     charSheetData = null;
     selfId = null;
     selfName = '';
@@ -370,6 +423,7 @@ net.on('enterWorld', async (msg) => {
     character.group.rotation.y = l2HeadingToThreeYaw(c.heading);
     character.clearTarget();
   }
+  if (statusWnd) statusWnd.setName(selfName);
   setStatus(`online: ${selfName} @ ${currentTile}`);
   chat.addSystem(`entered world as ${selfName} (${currentTile})`);
   hotbar.load();
@@ -423,7 +477,10 @@ net.on('target_ok', (msg) => {
   combat.setTarget(msg.id, (e && e.name) || `#${msg.id}`);
 });
 net.on('status', (msg) => combat.updateStatus(msg.id, msg.hp, msg.maxHp));
-net.on('selfStatus', (msg) => combat.updateSelf(msg));
+net.on('selfStatus', (msg) => {
+  combat.updateSelf(msg);
+  if (statusWnd) statusWnd.update({ ...msg, name: selfName });
+});
 net.on('attack', (msg) => {
   entities.attackFlash(msg.id);
   // damage float over the victim (self hits are unknowable: no self id in M2)
@@ -460,6 +517,11 @@ window.__world = {
   inventory,
   hotbar,
   get charSheet() { return charSheetData; },
+  get statusWnd() { return statusWnd; },
+  get skillWnd() { return skillWnd; },
+  get menuWnd() { return menuWnd; },
+  get systemMenuWnd() { return systemMenuWnd; },
+  wndMgr: WndMgr,
   followCam,   // exposed for verification/camera staging
   // verification helper: world position -> screen px
   project(v) {
@@ -628,18 +690,40 @@ window.addEventListener('keydown', e => {
     }
     return;
   }
-  if (e.code === 'KeyI') {
+  if (e.code === 'F9') {
+    setDevBar(!hudEl.classList.contains('dev-visible'));
+    e.preventDefault();
+    return;
+  }
+  // Retail Alt+ keymap. Evidence: 5 independent L2 references
+  // (pmfun.com/list/key, maxcheaters topic 7183, l2topzone,
+  // onlinegamecommands, legacy-lineage2) agree on the set, and
+  // SystemMenuWnd.uc:122-123 internally confirms the Alt+ pattern for B/R.
+  // chat.isTyping returned above, so Alt+letter never fires while typing.
+  if (e.altKey) {
+    switch (e.code) {
+      case 'KeyK': if (skillWnd) skillWnd.toggle(); break;   // SkillWnd
+      case 'KeyT': sheetPanel.toggle(); break;               // retail "Character Status" (our CharSheet)
+      case 'KeyV': inventory.toggle(); break;                // InventoryWnd
+      case 'KeyX': if (systemMenuWnd) systemMenuWnd.toggle(); break;  // SystemMenuWnd
+      // Alt+C: retail opens ActionWnd — NOT built; deliberately unbound.
+      // Alt+B / Alt+R / Alt+U: BBS / Macro / Quest windows — not built; unbound.
+      default: return;
+    }
+    e.preventDefault();   // browsers reserve several Alt combos
+    return;
+  }
+  // retail Tab also opens the inventory (5 refs); safe here because
+  // chat.isTyping returned earlier, so chat focus is untouched
+  if (e.code === 'Tab') {
     inventory.toggle();
+    e.preventDefault();
     return;
   }
   if (/^Digit[0-9]$/.test(e.code)) {
     // number keys drive the M5 hotbar (skills AND items); the skill
     // palette above is click-to-cast
     hotbar.trigger((Number(e.code[5]) + 9) % 10);
-    return;
-  }
-  if (e.code === 'KeyC') {
-    sheetPanel.toggle();
     return;
   }
   if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) keys.add(e.code);
@@ -701,6 +785,54 @@ renderer.setAnimationLoop(() => {
 
 (async function boot() {
   try {
+    // The retail skin must be resident before any window is constructed.
+    await Promise.all([Skin.load(), Font.load(), Layout.load(),
+                       loadExpTable(), loadSkillTypes()]);
+    statusWnd = new StatusWnd(document.body);
+    statusWnd.show();     // retail keeps it on screen; gauges fill on selfStatus
+
+    // Every retail window is movable and participates in the interface
+    // reset (Alt+Enter) — see docs/ui-reverse-engineering.md §2-3.
+    WndMgr.register('StatusWnd', statusWnd);
+
+    // Phase C.3: the retail skill window (K). Two panes, Active+Toggle vs
+    // Passive, exactly as MagicSkillWnd.uc routes them.
+    skillWnd = new SkillWnd(document.body, {
+      onCast: (id) => { if (online) skillBar.castSkill(id); },
+    });
+    skillWnd.onAssign = (data) => hotbar.assignFirstFree(data);
+    skillWnd.place({ right: 12, top: 60 });
+    WndMgr.register('MagicSkillWnd', skillWnd, { handle: skillWnd.win.bar });
+    WndMgr.bindResetKey();
+    // StatusWnd.uc OnLButtonDown: clicking the window targets yourself
+    statusWnd.onSelfTargetClick(() => {
+      if (online && selfId != null) net.send('target', { id: selfId });
+    });
+
+    // MenuWnd (bottom-right, retail default) + SystemMenuWnd (centered).
+    // Button behavior mirrors MenuWnd.uc / SystemMenuWnd.uc; rows with no
+    // backend are disabled inside the window (see js/ui/menuwnd.js).
+    systemMenuWnd = new SystemMenuWnd(document.body, {
+      onAction: (id) => {
+        if (id === 'btnOption') settingsPanel.classList.toggle('visible');
+        else if (id === 'btnRestart') location.reload();   // clean re-login
+        else if (id === 'btnQuit') {
+          // Quit = disconnect: go offline (no protocol quit op exists)
+          onlineToggle.checked = false;
+          setOnline(false);
+          systemMenuWnd.toggle(false);
+        }
+      },
+    });
+    menuWnd = new MenuWnd(document.body, {
+      onAction: (id) => {
+        if (id === 'BtnCharInfo') sheetPanel.toggle();
+        else if (id === 'BtnInventory') inventory.toggle();
+        else if (id === 'BtnSystemMenu') systemMenuWnd.toggle();
+        // BtnMap: disabled in the window (no minimap in the web port)
+      },
+    });
+
     const [scenes, mf] = await Promise.all([
       fetch('/scenes').then(r => r.json()),
       fetch('/characters/manifest.json').then(r => r.json()).catch(() => ({ models: [] })),

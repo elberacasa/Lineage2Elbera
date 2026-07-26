@@ -176,7 +176,8 @@ heading}` · `addPlayer{id,name,race,classId,x,y,z,heading}` ·
 `move{id,tx,ty,tz}` · `remove{id}` · `chat{from,channel,text}` ·
 `status{id,hp,maxHp,mp,maxMp}` · `selfStatus{hp,maxHp,mp,maxMp,cp,maxCp,
 level,exp,sp}` · `attack{id,targetId,damage,critical,miss}` · `die{id}` ·
-`revive{id}` · `target_ok{id}` · `skillList{skills[{id,level}]}` and
+`revive{id}` · `target_ok{id}` · `skillList{skills[{id,level,passive,
+disabled}]}` and
 `itemList{items[{objectId,itemId,count,slot,equipped,enchant}]}` (both
 queued and flushed right after `enterWorld`) · `skillCast{casterId,targetId,
 skillId,level,hitTime}` · `skillLaunch{casterId,targetId,skillId,level}` ·
@@ -351,6 +352,10 @@ follow it.
 | What | Where |
 |---|---|
 | Master plan + milestones | `docs/web-port-architecture.md` |
+| **Mined game data (reviewed) — start here for values** | **`docs/research-index.md`** |
+| **UI port — continue from zero context** | **`docs/ui-port-handoff.md`** |
+| How the client's UI is built (3 layers, RE method) | `docs/ui-reverse-engineering.md` |
+| `Interface.xdat` layout file, byte level | `docs/xdat-format.md` |
 | Protocol contract + crypto gotchas | `gateway/README.md` |
 | scene.json contract | `tools/world/README.md` |
 | Model pipeline + output contract | `docs/character-pipeline.md`, `docs/monster-pipeline.md` |

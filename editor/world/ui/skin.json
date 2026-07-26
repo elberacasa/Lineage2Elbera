@@ -1,0 +1,4285 @@
+{
+ "scale": 1,
+ "sprites": {
+  "Default.BlackTexture": {
+   "file": "Default__BlackTexture.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "Icon.skill_i.skill1313": {
+   "file": "Icon__skill1313.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "Icon.skill_i.skill1314": {
+   "file": "Icon__skill1314.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI.MacroWnd.Macro_Icon1": {
+   "file": "L2UI__Macro_Icon1.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI.MinimapWnd.MinimapBack": {
+   "file": "L2UI__MinimapBack.png",
+   "w": 512,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 334,
+   "ch": 333
+  },
+  "L2UI.WindowIcon.WindowIconAdena": {
+   "file": "L2UI__WindowIconAdena.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 12
+  },
+  "L2UI.control.DefaultButton": {
+   "file": "L2UI__DefaultButton.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 67,
+   "ch": 19
+  },
+  "L2UI.control.DefaultButton_click": {
+   "file": "L2UI__DefaultButton_click.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 67,
+   "ch": 19
+  },
+  "L2UI.etcwnd.Petitionback": {
+   "file": "L2UI__Petitionback.png",
+   "w": 512,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 300,
+   "ch": 280
+  },
+  "L2UI_CH3.ActionWnd.Action_Back": {
+   "file": "L2UI_CH3__Action_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 335
+  },
+  "L2UI_CH3.BUTTON.BTN1_normal": {
+   "file": "L2UI_CH3__BTN1_normal.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 76,
+   "ch": 23
+  },
+  "L2UI_CH3.BUTTON.BTN1_normalon": {
+   "file": "L2UI_CH3__BTN1_normalon.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 21
+  },
+  "L2UI_CH3.BUTTON.Btn1_normal": {
+   "file": "L2UI_CH3__Btn1_normal.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 76,
+   "ch": 23
+  },
+  "L2UI_CH3.BUTTON.Btn1_normalOn": {
+   "file": "L2UI_CH3__Btn1_normalOn.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 21
+  },
+  "L2UI_CH3.BUTTON.Btn1_normalon": {
+   "file": "L2UI_CH3__Btn1_normalon.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 21
+  },
+  "L2UI_CH3.BloodHoodWnd.bloodhood_back": {
+   "file": "L2UI_CH3__bloodhood_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 335
+  },
+  "L2UI_CH3.BloodHoodWnd.bloodhoodsub6_tab1": {
+   "file": "L2UI_CH3__bloodhoodsub6_tab1.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 94,
+   "ch": 23
+  },
+  "L2UI_CH3.BloodHoodWnd.bloodhoodsub6_tab2": {
+   "file": "L2UI_CH3__bloodhoodsub6_tab2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 94,
+   "ch": 23
+  },
+  "L2UI_CH3.BoardWnd.Board_tab1": {
+   "file": "L2UI_CH3__Board_tab1.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 23
+  },
+  "L2UI_CH3.BoardWnd.Board_tab2": {
+   "file": "L2UI_CH3__Board_tab2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 23
+  },
+  "L2UI_CH3.BoardWnd.board_back1": {
+   "file": "L2UI_CH3__board_back1.png",
+   "w": 1024,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 646,
+   "ch": 28
+  },
+  "L2UI_CH3.BoardWnd.board_back2": {
+   "file": "L2UI_CH3__board_back2.png",
+   "w": 1024,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 646,
+   "ch": 482
+  },
+  "L2UI_CH3.BroadcastObs.br_bar1_cp": {
+   "file": "L2UI_CH3__br_bar1_cp.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.BroadcastObs.br_bar1_hp": {
+   "file": "L2UI_CH3__br_bar1_hp.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.BroadcastObs.br_bar1_mp": {
+   "file": "L2UI_CH3__br_bar1_mp.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.BroadcastObs.br_bar1back_cp": {
+   "file": "L2UI_CH3__br_bar1back_cp.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.BroadcastObs.br_bar1back_hp": {
+   "file": "L2UI_CH3__br_bar1back_hp.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.BroadcastObs.br_bar1back_mp": {
+   "file": "L2UI_CH3__br_bar1back_mp.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.BroadcastObs.br_msg1_back1": {
+   "file": "L2UI_CH3__br_msg1_back1.png",
+   "w": 32,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 320
+  },
+  "L2UI_CH3.BroadcastObs.br_msg1_back3": {
+   "file": "L2UI_CH3__br_msg1_back3.png",
+   "w": 32,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 320
+  },
+  "L2UI_CH3.BroadcastObs.br_msg1_start": {
+   "file": "L2UI_CH3__br_msg1_start.png",
+   "w": 512,
+   "h": 512,
+   "scale": 1,
+   "cx": 37,
+   "cy": 10,
+   "cw": 436,
+   "ch": 270
+  },
+  "L2UI_CH3.BroadcastObs.br_msg2_back1": {
+   "file": "L2UI_CH3__br_msg2_back1.png",
+   "w": 32,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 88
+  },
+  "L2UI_CH3.BroadcastObs.br_msg2_back3": {
+   "file": "L2UI_CH3__br_msg2_back3.png",
+   "w": 32,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 88
+  },
+  "L2UI_CH3.BroadcastObs.br_msg3_back": {
+   "file": "L2UI_CH3__br_msg3_back.png",
+   "w": 32,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 9,
+   "cw": 32,
+   "ch": 227
+  },
+  "L2UI_CH3.BroadcastObs.br_party1_1": {
+   "file": "L2UI_CH3__br_party1_1.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 13,
+   "cy": 2,
+   "cw": 16,
+   "ch": 48
+  },
+  "L2UI_CH3.BroadcastObs.br_party1_back1": {
+   "file": "L2UI_CH3__br_party1_back1.png",
+   "w": 32,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 144
+  },
+  "L2UI_CH3.BroadcastObs.br_party1_back3": {
+   "file": "L2UI_CH3__br_party1_back3.png",
+   "w": 32,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 144
+  },
+  "L2UI_CH3.BroadcastObs.br_party2_1": {
+   "file": "L2UI_CH3__br_party2_1.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 13,
+   "cy": 2,
+   "cw": 16,
+   "ch": 48
+  },
+  "L2UI_CH3.BroadcastObs.br_party2_back1": {
+   "file": "L2UI_CH3__br_party2_back1.png",
+   "w": 32,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 70
+  },
+  "L2UI_CH3.BroadcastObs.br_party2_back3": {
+   "file": "L2UI_CH3__br_party2_back3.png",
+   "w": 32,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 70
+  },
+  "L2UI_CH3.BroadcastObs.br_partyon_back1": {
+   "file": "L2UI_CH3__br_partyon_back1.png",
+   "w": 32,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 70
+  },
+  "L2UI_CH3.BroadcastObs.br_partyon_back3": {
+   "file": "L2UI_CH3__br_partyon_back3.png",
+   "w": 32,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 70
+  },
+  "L2UI_CH3.BroadcastObs.br_score0": {
+   "file": "L2UI_CH3__br_score0.png",
+   "w": 128,
+   "h": 128,
+   "scale": 1,
+   "cx": 7,
+   "cy": 5,
+   "cw": 81,
+   "ch": 73
+  },
+  "L2UI_CH3.BroadcastObs.br_scorecolon": {
+   "file": "L2UI_CH3__br_scorecolon.png",
+   "w": 128,
+   "h": 128,
+   "scale": 1,
+   "cx": 33,
+   "cy": 26,
+   "cw": 31,
+   "ch": 51
+  },
+  "L2UI_CH3.BroadcastObs.br_top_back1": {
+   "file": "L2UI_CH3__br_top_back1.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 1,
+   "cy": 0,
+   "cw": 255,
+   "ch": 91
+  },
+  "L2UI_CH3.BroadcastObs.br_top_back2": {
+   "file": "L2UI_CH3__br_top_back2.png",
+   "w": 32,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 91
+  },
+  "L2UI_CH3.BroadcastObs.br_top_back3": {
+   "file": "L2UI_CH3__br_top_back3.png",
+   "w": 64,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 64,
+   "ch": 113
+  },
+  "L2UI_CH3.BroadcastObs.br_top_back4": {
+   "file": "L2UI_CH3__br_top_back4.png",
+   "w": 32,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 113
+  },
+  "L2UI_CH3.BroadcastObs.br_top_back5": {
+   "file": "L2UI_CH3__br_top_back5.png",
+   "w": 64,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 64,
+   "ch": 113
+  },
+  "L2UI_CH3.BroadcastObs.br_top_back6": {
+   "file": "L2UI_CH3__br_top_back6.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 255,
+   "ch": 91
+  },
+  "L2UI_CH3.Button.BigButton": {
+   "file": "L2UI_CH3__BigButton.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 96,
+   "ch": 23
+  },
+  "L2UI_CH3.Button.BigButton_down": {
+   "file": "L2UI_CH3__BigButton_down.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 94,
+   "ch": 21
+  },
+  "L2UI_CH3.Button.Btn1_Normal": {
+   "file": "L2UI_CH3__Btn1_Normal.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 76,
+   "ch": 23
+  },
+  "L2UI_CH3.Button.Btn1_NormalOn": {
+   "file": "L2UI_CH3__Btn1_NormalOn.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 21
+  },
+  "L2UI_CH3.Button.Btn1_normal": {
+   "file": "L2UI_CH3__Btn1_normal.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 76,
+   "ch": 23
+  },
+  "L2UI_CH3.Button.Btn1_normalOn": {
+   "file": "L2UI_CH3__Btn1_normalOn.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 21
+  },
+  "L2UI_CH3.Button.DownButton": {
+   "file": "L2UI_CH3__DownButton.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.Button.MainWndTabBack": {
+   "file": "L2UI_CH3__MainWndTabBack.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 46
+  },
+  "L2UI_CH3.Button.SmallButton1": {
+   "file": "L2UI_CH3__SmallButton1.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 49,
+   "ch": 23
+  },
+  "L2UI_CH3.Button.SmallButton1_down": {
+   "file": "L2UI_CH3__SmallButton1_down.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 47,
+   "ch": 21
+  },
+  "L2UI_CH3.Button.SmallButton2": {
+   "file": "L2UI_CH3__SmallButton2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 66,
+   "ch": 21
+  },
+  "L2UI_CH3.Button.SmallButton2_down": {
+   "file": "L2UI_CH3__SmallButton2_down.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 64,
+   "ch": 19
+  },
+  "L2UI_CH3.Button.UpButton": {
+   "file": "L2UI_CH3__UpButton.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.Button.btn1_normal": {
+   "file": "L2UI_CH3__btn1_normal.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 76,
+   "ch": 23
+  },
+  "L2UI_CH3.Button.btn1_normalon": {
+   "file": "L2UI_CH3__btn1_normalon.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 21
+  },
+  "L2UI_CH3.Button.slider_back": {
+   "file": "L2UI_CH3__slider_back.png",
+   "w": 128,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 5,
+   "cw": 125,
+   "ch": 5
+  },
+  "L2UI_CH3.Button.slider_mark": {
+   "file": "L2UI_CH3__slider_mark.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 3,
+   "cy": 1,
+   "cw": 2,
+   "ch": 13
+  },
+  "L2UI_CH3.Button.smallbutton2": {
+   "file": "L2UI_CH3__smallbutton2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 66,
+   "ch": 21
+  },
+  "L2UI_CH3.Button.smallbutton2_down": {
+   "file": "L2UI_CH3__smallbutton2_down.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 64,
+   "ch": 19
+  },
+  "L2UI_CH3.Calculate.Calculate1_0": {
+   "file": "L2UI_CH3__Calculate1_0.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_0_down": {
+   "file": "L2UI_CH3__Calculate1_0_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 27,
+   "ch": 27
+  },
+  "L2UI_CH3.Calculate.Calculate1_0_over": {
+   "file": "L2UI_CH3__Calculate1_0_over.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_1": {
+   "file": "L2UI_CH3__Calculate1_1.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_1_down": {
+   "file": "L2UI_CH3__Calculate1_1_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 27,
+   "ch": 27
+  },
+  "L2UI_CH3.Calculate.Calculate1_1_over": {
+   "file": "L2UI_CH3__Calculate1_1_over.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_2": {
+   "file": "L2UI_CH3__Calculate1_2.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_2_down": {
+   "file": "L2UI_CH3__Calculate1_2_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 27,
+   "ch": 27
+  },
+  "L2UI_CH3.Calculate.Calculate1_2_over": {
+   "file": "L2UI_CH3__Calculate1_2_over.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_3": {
+   "file": "L2UI_CH3__Calculate1_3.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_3_down": {
+   "file": "L2UI_CH3__Calculate1_3_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 27,
+   "ch": 27
+  },
+  "L2UI_CH3.Calculate.Calculate1_3_over": {
+   "file": "L2UI_CH3__Calculate1_3_over.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_4": {
+   "file": "L2UI_CH3__Calculate1_4.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_4_down": {
+   "file": "L2UI_CH3__Calculate1_4_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 27,
+   "ch": 27
+  },
+  "L2UI_CH3.Calculate.Calculate1_4_over": {
+   "file": "L2UI_CH3__Calculate1_4_over.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_5": {
+   "file": "L2UI_CH3__Calculate1_5.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_5_down": {
+   "file": "L2UI_CH3__Calculate1_5_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 27,
+   "ch": 27
+  },
+  "L2UI_CH3.Calculate.Calculate1_5_over": {
+   "file": "L2UI_CH3__Calculate1_5_over.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_6": {
+   "file": "L2UI_CH3__Calculate1_6.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_6_down": {
+   "file": "L2UI_CH3__Calculate1_6_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 27,
+   "ch": 27
+  },
+  "L2UI_CH3.Calculate.Calculate1_6_over": {
+   "file": "L2UI_CH3__Calculate1_6_over.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_7": {
+   "file": "L2UI_CH3__Calculate1_7.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_7_down": {
+   "file": "L2UI_CH3__Calculate1_7_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_7_over": {
+   "file": "L2UI_CH3__Calculate1_7_over.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_8": {
+   "file": "L2UI_CH3__Calculate1_8.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_8_down": {
+   "file": "L2UI_CH3__Calculate1_8_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 27,
+   "ch": 27
+  },
+  "L2UI_CH3.Calculate.Calculate1_8_over": {
+   "file": "L2UI_CH3__Calculate1_8_over.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_9": {
+   "file": "L2UI_CH3__Calculate1_9.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_9_down": {
+   "file": "L2UI_CH3__Calculate1_9_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 27,
+   "ch": 27
+  },
+  "L2UI_CH3.Calculate.Calculate1_9_over": {
+   "file": "L2UI_CH3__Calculate1_9_over.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_all": {
+   "file": "L2UI_CH3__Calculate1_all.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 57,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_all_down": {
+   "file": "L2UI_CH3__Calculate1_all_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 56,
+   "ch": 27
+  },
+  "L2UI_CH3.Calculate.Calculate1_all_over": {
+   "file": "L2UI_CH3__Calculate1_all_over.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 57,
+   "ch": 28
+  },
+  "L2UI_CH3.Calculate.Calculate1_bs": {
+   "file": "L2UI_CH3__Calculate1_bs.png",
+   "w": 32,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 57
+  },
+  "L2UI_CH3.Calculate.Calculate1_bs_down": {
+   "file": "L2UI_CH3__Calculate1_bs_down.png",
+   "w": 32,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 27,
+   "ch": 56
+  },
+  "L2UI_CH3.Calculate.Calculate1_bs_over": {
+   "file": "L2UI_CH3__Calculate1_bs_over.png",
+   "w": 32,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 57
+  },
+  "L2UI_CH3.Calculate.Calculate1_c": {
+   "file": "L2UI_CH3__Calculate1_c.png",
+   "w": 32,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 57
+  },
+  "L2UI_CH3.Calculate.Calculate1_c_down": {
+   "file": "L2UI_CH3__Calculate1_c_down.png",
+   "w": 32,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 27,
+   "ch": 56
+  },
+  "L2UI_CH3.Calculate.Calculate1_c_over": {
+   "file": "L2UI_CH3__Calculate1_c_over.png",
+   "w": 32,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 28,
+   "ch": 57
+  },
+  "L2UI_CH3.Calculate.Calculate2_0": {
+   "file": "L2UI_CH3__Calculate2_0.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_00": {
+   "file": "L2UI_CH3__Calculate2_00.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 73,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_00_down": {
+   "file": "L2UI_CH3__Calculate2_00_down.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 72,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_0_down": {
+   "file": "L2UI_CH3__Calculate2_0_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_1": {
+   "file": "L2UI_CH3__Calculate2_1.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_1_down": {
+   "file": "L2UI_CH3__Calculate2_1_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_2": {
+   "file": "L2UI_CH3__Calculate2_2.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_2_down": {
+   "file": "L2UI_CH3__Calculate2_2_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_3": {
+   "file": "L2UI_CH3__Calculate2_3.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_3_down": {
+   "file": "L2UI_CH3__Calculate2_3_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_4": {
+   "file": "L2UI_CH3__Calculate2_4.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_4_down": {
+   "file": "L2UI_CH3__Calculate2_4_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_5": {
+   "file": "L2UI_CH3__Calculate2_5.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_5_down": {
+   "file": "L2UI_CH3__Calculate2_5_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_6": {
+   "file": "L2UI_CH3__Calculate2_6.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_6_down": {
+   "file": "L2UI_CH3__Calculate2_6_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_7": {
+   "file": "L2UI_CH3__Calculate2_7.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_7_down": {
+   "file": "L2UI_CH3__Calculate2_7_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_8": {
+   "file": "L2UI_CH3__Calculate2_8.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_8_down": {
+   "file": "L2UI_CH3__Calculate2_8_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_9": {
+   "file": "L2UI_CH3__Calculate2_9.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_9_down": {
+   "file": "L2UI_CH3__Calculate2_9_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_add": {
+   "file": "L2UI_CH3__Calculate2_add.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_add_down": {
+   "file": "L2UI_CH3__Calculate2_add_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_bs": {
+   "file": "L2UI_CH3__Calculate2_bs.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_bs_down": {
+   "file": "L2UI_CH3__Calculate2_bs_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_c": {
+   "file": "L2UI_CH3__Calculate2_c.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_c_down": {
+   "file": "L2UI_CH3__Calculate2_c_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_ce": {
+   "file": "L2UI_CH3__Calculate2_ce.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_ce_down": {
+   "file": "L2UI_CH3__Calculate2_ce_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_div": {
+   "file": "L2UI_CH3__Calculate2_div.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_div_down": {
+   "file": "L2UI_CH3__Calculate2_div_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_eq": {
+   "file": "L2UI_CH3__Calculate2_eq.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_eq_down": {
+   "file": "L2UI_CH3__Calculate2_eq_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_mul": {
+   "file": "L2UI_CH3__Calculate2_mul.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_mul_down": {
+   "file": "L2UI_CH3__Calculate2_mul_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.Calculate.Calculate2_sub": {
+   "file": "L2UI_CH3__Calculate2_sub.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 24
+  },
+  "L2UI_CH3.Calculate.Calculate2_sub_down": {
+   "file": "L2UI_CH3__Calculate2_sub_down.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 23
+  },
+  "L2UI_CH3.ChatWnd.Chatting_Back1": {
+   "file": "L2UI_CH3__Chatting_Back1.png",
+   "w": 512,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 348,
+   "ch": 46
+  },
+  "L2UI_CH3.ChatWnd.Chatting_Back2": {
+   "file": "L2UI_CH3__Chatting_Back2.png",
+   "w": 512,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 348,
+   "ch": 18
+  },
+  "L2UI_CH3.ChatWnd.Chatting_Back4": {
+   "file": "L2UI_CH3__Chatting_Back4.png",
+   "w": 512,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 348,
+   "ch": 18
+  },
+  "L2UI_CH3.ChatWnd.Chatting_Back5": {
+   "file": "L2UI_CH3__Chatting_Back5.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 296
+  },
+  "L2UI_CH3.ChatWnd.Chatting_IMEkr": {
+   "file": "L2UI_CH3__Chatting_IMEkr.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ChatWnd.Chatting_Tab1": {
+   "file": "L2UI_CH3__Chatting_Tab1.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 64,
+   "ch": 23
+  },
+  "L2UI_CH3.ChatWnd.Chatting_Tab2": {
+   "file": "L2UI_CH3__Chatting_Tab2.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 64,
+   "ch": 23
+  },
+  "L2UI_CH3.Etc.TextBox1": {
+   "file": "L2UI_CH3__TextBox1.png",
+   "w": 8,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 17
+  },
+  "L2UI_CH3.Etc.TextBox2": {
+   "file": "L2UI_CH3__TextBox2.png",
+   "w": 8,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 17
+  },
+  "L2UI_CH3.Etc.TextBox3": {
+   "file": "L2UI_CH3__TextBox3.png",
+   "w": 8,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 17
+  },
+  "L2UI_CH3.Etc.menu_outline": {
+   "file": "L2UI_CH3__menu_outline.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.Etc.onscrmsg_pattern01_1": {
+   "file": "L2UI_CH3__onscrmsg_pattern01_1.png",
+   "w": 512,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 1,
+   "cw": 295,
+   "ch": 30
+  },
+  "L2UI_CH3.Etc.pet_button_down": {
+   "file": "L2UI_CH3__pet_button_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 13
+  },
+  "L2UI_CH3.Etc.textbox1": {
+   "file": "L2UI_CH3__textbox1.png",
+   "w": 8,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 17
+  },
+  "L2UI_CH3.Etc.textbox2": {
+   "file": "L2UI_CH3__textbox2.png",
+   "w": 8,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 17
+  },
+  "L2UI_CH3.Etc.textbox3": {
+   "file": "L2UI_CH3__textbox3.png",
+   "w": 8,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 17
+  },
+  "L2UI_CH3.EventWnd.couponevent_back": {
+   "file": "L2UI_CH3__couponevent_back.png",
+   "w": 512,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 300,
+   "ch": 241
+  },
+  "L2UI_CH3.FishingWnd.fishing_back": {
+   "file": "L2UI_CH3__fishing_back.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 256
+  },
+  "L2UI_CH3.FishingWnd.fishing_bar1": {
+   "file": "L2UI_CH3__fishing_bar1.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.FishingWnd.fishing_bar2": {
+   "file": "L2UI_CH3__fishing_bar2.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.FishingWnd.fishing_clockicon": {
+   "file": "L2UI_CH3__fishing_clockicon.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 12,
+   "ch": 16
+  },
+  "L2UI_CH3.FishingWnd.fishing_effect": {
+   "file": "L2UI_CH3__fishing_effect.png",
+   "w": 512,
+   "h": 64,
+   "scale": 1,
+   "cx": 8,
+   "cy": 2,
+   "cw": 281,
+   "ch": 37
+  },
+  "L2UI_CH3.FrameCtrl.Bar_Shadow": {
+   "file": "L2UI_CH3__Bar_Shadow.png",
+   "w": 32,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 9
+  },
+  "L2UI_CH3.FrameCtrl.FrameCloseBtn": {
+   "file": "L2UI_CH3__FrameCloseBtn.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.FrameCtrl.FrameCloseOnBtn": {
+   "file": "L2UI_CH3__FrameCloseOnBtn.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.GuideWnd.guide_tab1": {
+   "file": "L2UI_CH3__guide_tab1.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 94,
+   "ch": 23
+  },
+  "L2UI_CH3.GuideWnd.guide_tab2": {
+   "file": "L2UI_CH3__guide_tab2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 94,
+   "ch": 23
+  },
+  "L2UI_CH3.HeroTower.herotower1_back": {
+   "file": "L2UI_CH3__herotower1_back.png",
+   "w": 1024,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 600,
+   "ch": 306
+  },
+  "L2UI_CH3.InventoryWnd.Inventory_Back": {
+   "file": "L2UI_CH3__Inventory_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.InventoryWnd.Inventory_tab1": {
+   "file": "L2UI_CH3__Inventory_tab1.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 94,
+   "ch": 23
+  },
+  "L2UI_CH3.InventoryWnd.Inventory_tab2": {
+   "file": "L2UI_CH3__Inventory_tab2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 94,
+   "ch": 23
+  },
+  "L2UI_CH3.InventoryWnd.Inventory_trash_Drag": {
+   "file": "L2UI_CH3__Inventory_trash_Drag.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.InventoryWnd.Inventory_trash_drag": {
+   "file": "L2UI_CH3__Inventory_trash_drag.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.InventoryWnd.itemenchant_back": {
+   "file": "L2UI_CH3__itemenchant_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.Joypad.joypad2_back": {
+   "file": "L2UI_CH3__joypad2_back.png",
+   "w": 512,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 420,
+   "ch": 82
+  },
+  "L2UI_CH3.Joypad.joypad_back": {
+   "file": "L2UI_CH3__joypad_back.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 160,
+   "ch": 82
+  },
+  "L2UI_CH3.LobbyWnd.lobby_menuback": {
+   "file": "L2UI_CH3__lobby_menuback.png",
+   "w": 128,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 120,
+   "ch": 138
+  },
+  "L2UI_CH3.LoginWnd.logon_back": {
+   "file": "L2UI_CH3__logon_back.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 108
+  },
+  "L2UI_CH3.Manor.manor1_back1": {
+   "file": "L2UI_CH3__manor1_back1.png",
+   "w": 1024,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 600,
+   "ch": 28
+  },
+  "L2UI_CH3.Manor.manor1_back2": {
+   "file": "L2UI_CH3__manor1_back2.png",
+   "w": 1024,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 600,
+   "ch": 278
+  },
+  "L2UI_CH3.Manor.manor1_tab1": {
+   "file": "L2UI_CH3__manor1_tab1.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 94,
+   "ch": 23
+  },
+  "L2UI_CH3.Manor.manor1_tab2": {
+   "file": "L2UI_CH3__manor1_tab2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 94,
+   "ch": 23
+  },
+  "L2UI_CH3.Manor.manor2_back": {
+   "file": "L2UI_CH3__manor2_back.png",
+   "w": 1024,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 600,
+   "ch": 306
+  },
+  "L2UI_CH3.Manor.manor3_back": {
+   "file": "L2UI_CH3__manor3_back.png",
+   "w": 512,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 336,
+   "ch": 286
+  },
+  "L2UI_CH3.Manor.manor4_back": {
+   "file": "L2UI_CH3__manor4_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 181
+  },
+  "L2UI_CH3.Minimap.MapBack": {
+   "file": "L2UI_CH3__MapBack.png",
+   "w": 512,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 334,
+   "ch": 393
+  },
+  "L2UI_CH3.Minimap.MapButton_ZoomOut1": {
+   "file": "L2UI_CH3__MapButton_ZoomOut1.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 24,
+   "ch": 24
+  },
+  "L2UI_CH3.Minimap.MapButton_ZoomOut2": {
+   "file": "L2UI_CH3__MapButton_ZoomOut2.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 2,
+   "cy": 2,
+   "cw": 20,
+   "ch": 20
+  },
+  "L2UI_CH3.Minimap.MapShadow": {
+   "file": "L2UI_CH3__MapShadow.png",
+   "w": 512,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 2,
+   "cw": 329,
+   "ch": 30
+  },
+  "L2UI_CH3.Minimap.MapWnd_back_max": {
+   "file": "L2UI_CH3__MapWnd_back_max.png",
+   "w": 4,
+   "h": 4,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 4,
+   "ch": 4
+  },
+  "L2UI_CH3.Minimap.Map_Moon": {
+   "file": "L2UI_CH3__Map_Moon.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 24,
+   "ch": 25
+  },
+  "L2UI_CH3.Minimap.Map_Sun": {
+   "file": "L2UI_CH3__Map_Sun.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 24,
+   "ch": 26
+  },
+  "L2UI_CH3.Minimap.mapinfo_back": {
+   "file": "L2UI_CH3__mapinfo_back.png",
+   "w": 512,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 466,
+   "ch": 393
+  },
+  "L2UI_CH3.Olympiad.olympiad_back": {
+   "file": "L2UI_CH3__olympiad_back.png",
+   "w": 128,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 90,
+   "ch": 56
+  },
+  "L2UI_CH3.PARTYWND.Partywindow_option_back": {
+   "file": "L2UI_CH3__Partywindow_option_back.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 131
+  },
+  "L2UI_CH3.PartyMatchWnd.PartyMatch1_Back": {
+   "file": "L2UI_CH3__PartyMatch1_Back.png",
+   "w": 1024,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 550,
+   "ch": 466
+  },
+  "L2UI_CH3.PartyMatchWnd.PartyMatch2_Back": {
+   "file": "L2UI_CH3__PartyMatch2_Back.png",
+   "w": 1024,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 550,
+   "ch": 466
+  },
+  "L2UI_CH3.PartyMatchWnd.PartyMatch3_Back": {
+   "file": "L2UI_CH3__PartyMatch3_Back.png",
+   "w": 512,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 356,
+   "ch": 141
+  },
+  "L2UI_CH3.PartyMatchWnd.PartyMatch4_Back": {
+   "file": "L2UI_CH3__PartyMatch4_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 246,
+   "ch": 466
+  },
+  "L2UI_CH3.PetWnd.Petinterface_back1": {
+   "file": "L2UI_CH3__Petinterface_back1.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 95
+  },
+  "L2UI_CH3.PetWnd.Petinterface_back2": {
+   "file": "L2UI_CH3__Petinterface_back2.png",
+   "w": 256,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 23
+  },
+  "L2UI_CH3.PetitionWnd.petition_fb_back": {
+   "file": "L2UI_CH3__petition_fb_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.PlayerStatusWnd.myinfo_back": {
+   "file": "L2UI_CH3__myinfo_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 335
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_ExPbar": {
+   "file": "L2UI_CH3__ps_ExPbar.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_HPbar": {
+   "file": "L2UI_CH3__ps_HPbar.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_MPbar": {
+   "file": "L2UI_CH3__ps_MPbar.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_cpbar": {
+   "file": "L2UI_CH3__ps_cpbar.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_cpbar_back": {
+   "file": "L2UI_CH3__ps_cpbar_back.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_expbar": {
+   "file": "L2UI_CH3__ps_expbar.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_expbar_back": {
+   "file": "L2UI_CH3__ps_expbar_back.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_foodbar": {
+   "file": "L2UI_CH3__ps_foodbar.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_hpbar_back": {
+   "file": "L2UI_CH3__ps_hpbar_back.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_hpbarfill": {
+   "file": "L2UI_CH3__ps_hpbarfill.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_hpbarwarn1": {
+   "file": "L2UI_CH3__ps_hpbarwarn1.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_levelback": {
+   "file": "L2UI_CH3__ps_levelback.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 22,
+   "ch": 20
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_mpbar": {
+   "file": "L2UI_CH3__ps_mpbar.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_mpbar_back": {
+   "file": "L2UI_CH3__ps_mpbar_back.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_sizecontrol1": {
+   "file": "L2UI_CH3__ps_sizecontrol1.png",
+   "w": 8,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 4,
+   "ch": 76
+  },
+  "L2UI_CH3.PlayerStatusWnd.ps_weightbar1": {
+   "file": "L2UI_CH3__ps_weightbar1.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
+  "L2UI_CH3.QUESTWND.QuestWndBack": {
+   "file": "L2UI_CH3__QuestWndBack.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 335
+  },
+  "L2UI_CH3.QUESTWND.questinfo_back": {
+   "file": "L2UI_CH3__questinfo_back.png",
+   "w": 1024,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 600,
+   "ch": 306
+  },
+  "L2UI_CH3.RecipeWnd.Recipe1_Back": {
+   "file": "L2UI_CH3__Recipe1_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.RecipeWnd.Recipe2_Back": {
+   "file": "L2UI_CH3__Recipe2_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.RecipeWnd.Recipe3_Back": {
+   "file": "L2UI_CH3__Recipe3_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.RecipeWnd.Recipe4_Back": {
+   "file": "L2UI_CH3__Recipe4_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.RecipeWnd.Recipe5_Back": {
+   "file": "L2UI_CH3__Recipe5_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.RefineryWnd.refinegage": {
+   "file": "L2UI_CH3__refinegage.png",
+   "w": 4,
+   "h": 4,
+   "scale": 1
+  },
+  "L2UI_CH3.RefineryWnd.refinegage_back": {
+   "file": "L2UI_CH3__refinegage_back.png",
+   "w": 4,
+   "h": 4,
+   "scale": 1
+  },
+  "L2UI_CH3.ReplayListWnd.replay_back": {
+   "file": "L2UI_CH3__replay_back.png",
+   "w": 512,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 316,
+   "ch": 350
+  },
+  "L2UI_CH3.SSQWnd.SSQ_back1": {
+   "file": "L2UI_CH3__SSQ_back1.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 353
+  },
+  "L2UI_CH3.SSQWnd.SSQ_back1_1": {
+   "file": "L2UI_CH3__SSQ_back1_1.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 353
+  },
+  "L2UI_CH3.SSQWnd.ssq_back2": {
+   "file": "L2UI_CH3__ssq_back2.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 353
+  },
+  "L2UI_CH3.SSQWnd.ssq_bar12": {
+   "file": "L2UI_CH3__ssq_bar12.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 11
+  },
+  "L2UI_CH3.SSQWnd.ssq_bar1back": {
+   "file": "L2UI_CH3__ssq_bar1back.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 11
+  },
+  "L2UI_CH3.SSQWnd.ssq_bar22": {
+   "file": "L2UI_CH3__ssq_bar22.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 11
+  },
+  "L2UI_CH3.SSQWnd.ssq_bar2back": {
+   "file": "L2UI_CH3__ssq_bar2back.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 11
+  },
+  "L2UI_CH3.ScrollBar.ScrollBarDownBtn": {
+   "file": "L2UI_CH3__ScrollBarDownBtn.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.ScrollBar.ScrollBarDownOnBtn": {
+   "file": "L2UI_CH3__ScrollBarDownOnBtn.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ScrollBar.ScrollBarUpBtn": {
+   "file": "L2UI_CH3__ScrollBarUpBtn.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.ScrollBar.ScrollBarUpOnBtn": {
+   "file": "L2UI_CH3__ScrollBarUpOnBtn.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.joypad2_back_over1": {
+   "file": "L2UI_CH3__joypad2_back_over1.png",
+   "w": 128,
+   "h": 128,
+   "scale": 1,
+   "cx": 5,
+   "cy": 2,
+   "cw": 118,
+   "ch": 79
+  },
+  "L2UI_CH3.ShortcutWnd.joypad_change": {
+   "file": "L2UI_CH3__joypad_change.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.ShortcutWnd.joypad_change_down": {
+   "file": "L2UI_CH3__joypad_change_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.joypad_lock": {
+   "file": "L2UI_CH3__joypad_lock.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.ShortcutWnd.joypad_lock_down": {
+   "file": "L2UI_CH3__joypad_lock_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.joypad_unlock": {
+   "file": "L2UI_CH3__joypad_unlock.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.ShortcutWnd.joypad_unlock_down": {
+   "file": "L2UI_CH3__joypad_unlock_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_back": {
+   "file": "L2UI_CH3__shortcut_back.png",
+   "w": 512,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 492,
+   "ch": 46
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_backv": {
+   "file": "L2UI_CH3__shortcut_backv.png",
+   "w": 64,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 46,
+   "ch": 492
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_expand": {
+   "file": "L2UI_CH3__shortcut_expand.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_expand_down": {
+   "file": "L2UI_CH3__shortcut_expand_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_expandv": {
+   "file": "L2UI_CH3__shortcut_expandv.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_expandv_down": {
+   "file": "L2UI_CH3__shortcut_expandv_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_f01": {
+   "file": "L2UI_CH3__shortcut_f01.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 6,
+   "ch": 10
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_f02": {
+   "file": "L2UI_CH3__shortcut_f02.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 10
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_f03": {
+   "file": "L2UI_CH3__shortcut_f03.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 10
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_f04": {
+   "file": "L2UI_CH3__shortcut_f04.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 10
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_f05": {
+   "file": "L2UI_CH3__shortcut_f05.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 10
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_f06": {
+   "file": "L2UI_CH3__shortcut_f06.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 10
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_f07": {
+   "file": "L2UI_CH3__shortcut_f07.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 10
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_f08": {
+   "file": "L2UI_CH3__shortcut_f08.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 10
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_f09": {
+   "file": "L2UI_CH3__shortcut_f09.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 10
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_f10": {
+   "file": "L2UI_CH3__shortcut_f10.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 10
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_f11": {
+   "file": "L2UI_CH3__shortcut_f11.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 13,
+   "ch": 10
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_f12": {
+   "file": "L2UI_CH3__shortcut_f12.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 10
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_joypad": {
+   "file": "L2UI_CH3__shortcut_joypad.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_joypad_down": {
+   "file": "L2UI_CH3__shortcut_joypad_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_minimize": {
+   "file": "L2UI_CH3__shortcut_minimize.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_minimize_down": {
+   "file": "L2UI_CH3__shortcut_minimize_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_minimizev": {
+   "file": "L2UI_CH3__shortcut_minimizev.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_minimizev_down": {
+   "file": "L2UI_CH3__shortcut_minimizev_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_next": {
+   "file": "L2UI_CH3__shortcut_next.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_next_down": {
+   "file": "L2UI_CH3__shortcut_next_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_nextv": {
+   "file": "L2UI_CH3__shortcut_nextv.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_nextv_down": {
+   "file": "L2UI_CH3__shortcut_nextv_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_prev": {
+   "file": "L2UI_CH3__shortcut_prev.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_prev_down": {
+   "file": "L2UI_CH3__shortcut_prev_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_prevv": {
+   "file": "L2UI_CH3__shortcut_prevv.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_prevv_down": {
+   "file": "L2UI_CH3__shortcut_prevv_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_rotate": {
+   "file": "L2UI_CH3__shortcut_rotate.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.ShortcutWnd.shortcut_rotate_down": {
+   "file": "L2UI_CH3__shortcut_rotate_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.SkillTrainWnd.SkillTrain1": {
+   "file": "L2UI_CH3__SkillTrain1.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.SkillTrainWnd.SkillTrain2": {
+   "file": "L2UI_CH3__SkillTrain2.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.SkillWnd.skill_back": {
+   "file": "L2UI_CH3__skill_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 335
+  },
+  "L2UI_CH3.SmallWnd.CpBar": {
+   "file": "L2UI_CH3__CpBar.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 6
+  },
+  "L2UI_CH3.SmallWnd.CpBar_back": {
+   "file": "L2UI_CH3__CpBar_back.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 6
+  },
+  "L2UI_CH3.SmallWnd.FATIGUEBAR": {
+   "file": "L2UI_CH3__FATIGUEBAR.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 6
+  },
+  "L2UI_CH3.SmallWnd.HpBar": {
+   "file": "L2UI_CH3__HpBar.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 6
+  },
+  "L2UI_CH3.SmallWnd.HpBar_back": {
+   "file": "L2UI_CH3__HpBar_back.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 6
+  },
+  "L2UI_CH3.SmallWnd.MpBar": {
+   "file": "L2UI_CH3__MpBar.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 6
+  },
+  "L2UI_CH3.SmallWnd.MpBar_back": {
+   "file": "L2UI_CH3__MpBar_back.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 6
+  },
+  "L2UI_CH3.SmallWnd.SmallWindow2_Back1": {
+   "file": "L2UI_CH3__SmallWindow2_Back1.png",
+   "w": 16,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 76
+  },
+  "L2UI_CH3.SmallWnd.SmallWindow2_Back3_ex": {
+   "file": "L2UI_CH3__SmallWindow2_Back3_ex.png",
+   "w": 32,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 20,
+   "ch": 76
+  },
+  "L2UI_CH3.SmallWnd.SmallWindow_Back1": {
+   "file": "L2UI_CH3__SmallWindow_Back1.png",
+   "w": 16,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 46
+  },
+  "L2UI_CH3.SmallWnd.SmallWindow_Back3_ex": {
+   "file": "L2UI_CH3__SmallWindow_Back3_ex.png",
+   "w": 32,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 20,
+   "ch": 46
+  },
+  "L2UI_CH3.SmallWnd.Smallwindow2_back1": {
+   "file": "L2UI_CH3__Smallwindow2_back1.png",
+   "w": 16,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 76
+  },
+  "L2UI_CH3.SmallWnd.cpBar": {
+   "file": "L2UI_CH3__cpBar.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 6
+  },
+  "L2UI_CH3.SummonWnd.summon_back1": {
+   "file": "L2UI_CH3__summon_back1.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 67
+  },
+  "L2UI_CH3.SummonWnd.summon_back2": {
+   "file": "L2UI_CH3__summon_back2.png",
+   "w": 256,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 23
+  },
+  "L2UI_CH3.SystemMenuWnd.system2_back": {
+   "file": "L2UI_CH3__system2_back.png",
+   "w": 128,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 128,
+   "ch": 128
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon1": {
+   "file": "L2UI_CH3__systemicon1.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon1_down": {
+   "file": "L2UI_CH3__systemicon1_down.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon2": {
+   "file": "L2UI_CH3__systemicon2.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon2_down": {
+   "file": "L2UI_CH3__systemicon2_down.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon3": {
+   "file": "L2UI_CH3__systemicon3.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon3_down": {
+   "file": "L2UI_CH3__systemicon3_down.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon4": {
+   "file": "L2UI_CH3__systemicon4.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon4_down": {
+   "file": "L2UI_CH3__systemicon4_down.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon5": {
+   "file": "L2UI_CH3__systemicon5.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon5_down": {
+   "file": "L2UI_CH3__systemicon5_down.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon6": {
+   "file": "L2UI_CH3__systemicon6.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon6_down": {
+   "file": "L2UI_CH3__systemicon6_down.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon7": {
+   "file": "L2UI_CH3__systemicon7.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.SystemMenuWnd.systemicon7_down": {
+   "file": "L2UI_CH3__systemicon7_down.png",
+   "w": 256,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.SystemMenuWnd.systemmenu_back": {
+   "file": "L2UI_CH3__systemmenu_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 172,
+   "ch": 275
+  },
+  "L2UI_CH3.TabButton.MainWndTabBtn1": {
+   "file": "L2UI_CH3__MainWndTabBtn1.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 44,
+   "ch": 41
+  },
+  "L2UI_CH3.TabButton.MainWndTabBtn1On": {
+   "file": "L2UI_CH3__MainWndTabBtn1On.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 44,
+   "ch": 41
+  },
+  "L2UI_CH3.TabButton.MainWndTabBtn2": {
+   "file": "L2UI_CH3__MainWndTabBtn2.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 44,
+   "ch": 41
+  },
+  "L2UI_CH3.TabButton.MainWndTabBtn2On": {
+   "file": "L2UI_CH3__MainWndTabBtn2On.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 44,
+   "ch": 41
+  },
+  "L2UI_CH3.TabButton.MainWndTabBtn3": {
+   "file": "L2UI_CH3__MainWndTabBtn3.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 44,
+   "ch": 41
+  },
+  "L2UI_CH3.TabButton.MainWndTabBtn3On": {
+   "file": "L2UI_CH3__MainWndTabBtn3On.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 44,
+   "ch": 41
+  },
+  "L2UI_CH3.TabButton.MainWndTabBtn4": {
+   "file": "L2UI_CH3__MainWndTabBtn4.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 44,
+   "ch": 41
+  },
+  "L2UI_CH3.TabButton.MainWndTabBtn4On": {
+   "file": "L2UI_CH3__MainWndTabBtn4On.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 44,
+   "ch": 41
+  },
+  "L2UI_CH3.TabButton.MainWndTabBtn5": {
+   "file": "L2UI_CH3__MainWndTabBtn5.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 44,
+   "ch": 41
+  },
+  "L2UI_CH3.TabButton.MainWndTabBtn5On": {
+   "file": "L2UI_CH3__MainWndTabBtn5On.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 44,
+   "ch": 41
+  },
+  "L2UI_CH3.button.bigbutton": {
+   "file": "L2UI_CH3__bigbutton.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 96,
+   "ch": 23
+  },
+  "L2UI_CH3.button.bigbutton_down": {
+   "file": "L2UI_CH3__bigbutton_down.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 94,
+   "ch": 21
+  },
+  "L2UI_CH3.button.slider_cursor": {
+   "file": "L2UI_CH3__slider_cursor.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 15
+  },
+  "L2UI_CH3.button.slider_cursor_down": {
+   "file": "L2UI_CH3__slider_cursor_down.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 15
+  },
+  "L2UI_CH3.skillwnd.skill_tab1": {
+   "file": "L2UI_CH3__skill_tab1.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 94,
+   "ch": 23
+  },
+  "L2UI_CH3.skillwnd.skill_tab2": {
+   "file": "L2UI_CH3__skill_tab2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 94,
+   "ch": 23
+  },
+  "L2UI_Ch3.BUTTON.btn1_normal": {
+   "file": "L2UI_Ch3__btn1_normal.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 76,
+   "ch": 23
+  },
+  "L2UI_Ch3.BUTTON.btn1_normalon": {
+   "file": "L2UI_Ch3__btn1_normalon.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 21
+  },
+  "L2UI_Ch3.PetWnd.petinterface_tab1": {
+   "file": "L2UI_Ch3__petinterface_tab1.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 23
+  },
+  "L2UI_Ch3.PetWnd.petinterface_tab2": {
+   "file": "L2UI_Ch3__petinterface_tab2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 23
+  },
+  "L2UI_Ch3.SummonWnd.summon_tab1": {
+   "file": "L2UI_Ch3__summon_tab1.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 23
+  },
+  "L2UI_Ch3.SummonWnd.summon_tab2": {
+   "file": "L2UI_Ch3__summon_tab2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 23
+  },
+  "L2UI_ch3.Button.Prev1": {
+   "file": "L2UI_ch3__Prev1.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_ch3.Button.Prev1_Down": {
+   "file": "L2UI_ch3__Prev1_Down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_ch3.Button.next1": {
+   "file": "L2UI_ch3__next1.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_ch3.Button.next1_down": {
+   "file": "L2UI_ch3__next1_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_ch3.Calculate.Calculate1_back": {
+   "file": "L2UI_ch3__Calculate1_back.png",
+   "w": 128,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 128,
+   "ch": 128
+  },
+  "L2UI_ch3.ConsoleBtn.MailBtn": {
+   "file": "L2UI_ch3__MailBtn.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_ch3.ConsoleBtn.MailBtn_down": {
+   "file": "L2UI_ch3__MailBtn_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_ch3.ConsoleBtn.MailBtn_light": {
+   "file": "L2UI_ch3__MailBtn_light.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_ch3.ConsoleBtn.QuestBtn": {
+   "file": "L2UI_ch3__QuestBtn.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_ch3.ConsoleBtn.QuestBtn_down": {
+   "file": "L2UI_ch3__QuestBtn_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_ch3.ConsoleBtn.QuestBtn_light": {
+   "file": "L2UI_ch3__QuestBtn_light.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_ch3.ConsoleBtn.TutorialBtn": {
+   "file": "L2UI_ch3__TutorialBtn.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_ch3.ConsoleBtn.TutorialBtn_down": {
+   "file": "L2UI_ch3__TutorialBtn_down.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_ch3.ConsoleBtn.TutorialBtn_light": {
+   "file": "L2UI_ch3__TutorialBtn_light.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_ch3.HennaWnd.Henna2_back": {
+   "file": "L2UI_ch3__Henna2_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_ch3.HennaWnd.henna1_back": {
+   "file": "L2UI_ch3__henna1_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_ch3.Joypad.joypad_L": {
+   "file": "L2UI_ch3__joypad_L.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 14
+  },
+  "L2UI_ch3.Joypad.joypad_R": {
+   "file": "L2UI_ch3__joypad_R.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 14
+  },
+  "L2UI_ch3.NpcWnd.Npc1_back": {
+   "file": "L2UI_ch3__Npc1_back.png",
+   "w": 512,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 310,
+   "ch": 381
+  },
+  "L2UI_ch3.NpcWnd.Npc2_back": {
+   "file": "L2UI_ch3__Npc2_back.png",
+   "w": 512,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 310,
+   "ch": 291
+  },
+  "L2UI_ch3.PartyCommandWnd.Herochat1_back": {
+   "file": "L2UI_ch3__Herochat1_back.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 226,
+   "ch": 251
+  },
+  "L2UI_ch3.PartyCommandWnd.Herochat2_back": {
+   "file": "L2UI_ch3__Herochat2_back.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 226,
+   "ch": 251
+  },
+  "L2UI_ch3.PetWnd.petinterface_back31": {
+   "file": "L2UI_ch3__petinterface_back31.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 91
+  },
+  "L2UI_ch3.PetWnd.petinterface_back32": {
+   "file": "L2UI_ch3__petinterface_back32.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 91
+  },
+  "L2UI_ch3.PetWnd.petinterface_back33": {
+   "file": "L2UI_ch3__petinterface_back33.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 91
+  },
+  "L2UI_ch3.PetitionWnd.petition1_back": {
+   "file": "L2UI_ch3__petition1_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_ch3.PetitionWnd.petition2_back": {
+   "file": "L2UI_ch3__petition2_back.png",
+   "w": 512,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 310,
+   "ch": 391
+  },
+  "L2UI_ch3.RefineEffect.refinegrade1_00": {
+   "file": "L2UI_ch3__refinegrade1_00.png",
+   "w": 128,
+   "h": 128,
+   "scale": 1
+  },
+  "L2UI_ch3.RefineEffect.refinegrade2_00": {
+   "file": "L2UI_ch3__refinegrade2_00.png",
+   "w": 128,
+   "h": 128,
+   "scale": 1
+  },
+  "L2UI_ch3.RefineEffect.refinegrade3_00": {
+   "file": "L2UI_ch3__refinegrade3_00.png",
+   "w": 128,
+   "h": 128,
+   "scale": 1
+  },
+  "L2UI_ch3.RefineEffect.refineloading_01": {
+   "file": "L2UI_ch3__refineloading_01.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 122,
+   "cy": 122,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_ch3.RefineryWnd.RefineSlot_Item": {
+   "file": "L2UI_ch3__RefineSlot_Item.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 35
+  },
+  "L2UI_ch3.RefineryWnd.RefineSlot_Jemstone": {
+   "file": "L2UI_ch3__RefineSlot_Jemstone.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 35
+  },
+  "L2UI_ch3.RefineryWnd.RefineSlot_Mineral": {
+   "file": "L2UI_ch3__RefineSlot_Mineral.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 35
+  },
+  "L2UI_ch3.RefineryWnd.RefineWnd_back": {
+   "file": "L2UI_ch3__RefineWnd_back.png",
+   "w": 512,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 266,
+   "ch": 222
+  },
+  "L2UI_ch3.RefineryWnd.RefineWnd_back_pattern": {
+   "file": "L2UI_ch3__RefineWnd_back_pattern.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 2,
+   "cy": 1,
+   "cw": 246,
+   "ch": 135
+  },
+  "L2UI_ch3.RefineryWnd.refineslot1": {
+   "file": "L2UI_ch3__refineslot1.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 43
+  },
+  "L2UI_ch3.RefineryWnd.refineslot2": {
+   "file": "L2UI_ch3__refineslot2.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 9,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_ch3.SSQWnd.ssq_back": {
+   "file": "L2UI_ch3__ssq_back.png",
+   "w": 256,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 28
+  },
+  "L2UI_ch3.SiegeWnd.siege_Tab1": {
+   "file": "L2UI_ch3__siege_Tab1.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 23
+  },
+  "L2UI_ch3.SiegeWnd.siege_Tab2": {
+   "file": "L2UI_ch3__siege_Tab2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 23
+  },
+  "L2UI_ch3.SiegeWnd.siege_Tab3": {
+   "file": "L2UI_ch3__siege_Tab3.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 23
+  },
+  "L2UI_ch3.SiegeWnd.siege_back31": {
+   "file": "L2UI_ch3__siege_back31.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 253
+  },
+  "L2UI_ch3.SiegeWnd.siege_back32": {
+   "file": "L2UI_ch3__siege_back32.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 253
+  },
+  "L2UI_ch3.SmallWnd.Smallwindow3_back1": {
+   "file": "L2UI_ch3__Smallwindow3_back1.png",
+   "w": 16,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 126
+  },
+  "L2UI_ch3.SmallWnd.Smallwindow3_back2": {
+   "file": "L2UI_ch3__Smallwindow3_back2.png",
+   "w": 16,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 126
+  },
+  "L2UI_ch3.SmallWnd.Smallwindow3_back3": {
+   "file": "L2UI_ch3__Smallwindow3_back3.png",
+   "w": 16,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 126
+  },
+  "L2UI_ch3.SmallWnd.Smallwindow_back1": {
+   "file": "L2UI_ch3__Smallwindow_back1.png",
+   "w": 16,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 46
+  },
+  "L2UI_ch3.SmallWnd.Smallwindow_back2": {
+   "file": "L2UI_ch3__Smallwindow_back2.png",
+   "w": 16,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 46
+  },
+  "L2UI_ch3.SmallWnd.Smallwindow_back3": {
+   "file": "L2UI_ch3__Smallwindow_back3.png",
+   "w": 16,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 46
+  },
+  "L2UI_ch3.SummonedWnd.petinterface_back31": {
+   "file": "L2UI_ch3__petinterface_back31.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 91
+  },
+  "L2UI_ch3.SummonedWnd.petinterface_back32": {
+   "file": "L2UI_ch3__petinterface_back32.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 91
+  },
+  "L2UI_ch3.button.SmallButton2": {
+   "file": "L2UI_ch3__SmallButton2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 66,
+   "ch": 21
+  },
+  "L2UI_ch3.button.SmallButton2_Down": {
+   "file": "L2UI_ch3__SmallButton2_Down.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 64,
+   "ch": 19
+  },
+  "L2UI_ch3.button.btn1_normal": {
+   "file": "L2UI_ch3__btn1_normal.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 76,
+   "ch": 23
+  },
+  "L2UI_ch3.button.btn1_normalon": {
+   "file": "L2UI_ch3__btn1_normalon.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 21
+  },
+  "L2UI_ch3.button.smallbutton2": {
+   "file": "L2UI_ch3__smallbutton2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 66,
+   "ch": 21
+  },
+  "L2UI_ch3.button.smallbutton2_down": {
+   "file": "L2UI_ch3__smallbutton2_down.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 64,
+   "ch": 19
+  },
+  "L2UI_ch3.dialog.minibar_back": {
+   "file": "L2UI_ch3__minibar_back.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 8
+  },
+  "L2UI_ch3.dialog.minibar_time1": {
+   "file": "L2UI_ch3__minibar_time1.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 4
+  },
+  "L2UI_ch3.etc.broadcast_back": {
+   "file": "L2UI_ch3__broadcast_back.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 90,
+   "ch": 32
+  },
+  "L2ui_ch3.OptionWnd.option1_back": {
+   "file": "L2ui_ch3__option1_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 432
+  },
+  "L2ui_ch3.OptionWnd.option2_back": {
+   "file": "L2ui_ch3__option2_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 432
+  },
+  "L2ui_ch3.OptionWnd.option3_back": {
+   "file": "L2ui_ch3__option3_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 432
+  },
+  "L2ui_ch3.PlayerStatusWnd.fontdeco": {
+   "file": "L2ui_ch3__fontdeco.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 25,
+   "cy": 20,
+   "cw": 161,
+   "ch": 155
+  },
+  "L2ui_ch3.button.btn1_normal": {
+   "file": "L2ui_ch3__btn1_normal.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 76,
+   "ch": 23
+  },
+  "L2ui_ch3.button.btn1_normalon": {
+   "file": "L2ui_ch3__btn1_normalon.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 21
+  },
+  "l2ui.nwindow.icon_back": {
+   "file": "l2ui__icon_back.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "l2ui.nwindow.icon_click": {
+   "file": "l2ui__icon_click.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "l2ui_ch3.InventoryWnd.Inventory_OutLine": {
+   "file": "l2ui_ch3__Inventory_OutLine.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 35,
+   "ch": 35
+  },
+  "l2ui_ch3.button.downbutton": {
+   "file": "l2ui_ch3__downbutton.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "l2ui_ch3.button.smallbutton2": {
+   "file": "l2ui_ch3__smallbutton2.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 66,
+   "ch": 21
+  },
+  "l2ui_ch3.button.smallbutton2_down": {
+   "file": "l2ui_ch3__smallbutton2_down.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 64,
+   "ch": 19
+  },
+  "l2ui_ch3.calculate.calculate2_back": {
+   "file": "l2ui_ch3__calculate2_back.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 191
+  },
+  "l2ui_ch3.etc.glowbtn1": {
+   "file": "l2ui_ch3__glowbtn1.png",
+   "w": 128,
+   "h": 128,
+   "scale": 1,
+   "cx": 24,
+   "cy": 24,
+   "cw": 80,
+   "ch": 80
+  },
+  "l2ui_ch3.etc.glowbtn2": {
+   "file": "l2ui_ch3__glowbtn2.png",
+   "w": 128,
+   "h": 128,
+   "scale": 1,
+   "cx": 34,
+   "cy": 35,
+   "cw": 60,
+   "ch": 57
+  },
+  "l2ui_ch3.macrownd.macro1_back": {
+   "file": "l2ui_ch3__macro1_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "l2ui_ch3.macrownd.macro2_back": {
+   "file": "l2ui_ch3__macro2_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "l2ui_ch3.macrownd.macro3_back": {
+   "file": "l2ui_ch3__macro3_back.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 141
+  },
+  "l2ui_ch3.siegewnd.siege_back31": {
+   "file": "l2ui_ch3__siege_back31.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 253
+  },
+  "l2ui_ch3.tabbutton.normal_tab": {
+   "file": "l2ui_ch3__normal_tab.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 23
+  },
+  "l2ui_ch3.tabbutton.normal_tab_on": {
+   "file": "l2ui_ch3__normal_tab_on.png",
+   "w": 128,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 74,
+   "ch": 23
+  },
+  "l2ui_ch3.tutorialwnd.tutorial_back1": {
+   "file": "l2ui_ch3__tutorial_back1.png",
+   "w": 512,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 310,
+   "ch": 12
+  },
+  "l2ui_ch3.tutorialwnd.tutorial_back2": {
+   "file": "l2ui_ch3__tutorial_back2.png",
+   "w": 512,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 310,
+   "ch": 15
+  },
+  "l2ui_ch3.tutorialwnd.tutorial_back3": {
+   "file": "l2ui_ch3__tutorial_back3.png",
+   "w": 512,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 310,
+   "ch": 9
+  },
+  "sek.cbui91": {
+   "file": "sek__cbui91.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 54,
+   "ch": 18
+  },
+  "sek.cbui93": {
+   "file": "sek__cbui93.png",
+   "w": 64,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 54,
+   "ch": 18
+  },
+  "town_map.icon_i00": {
+   "file": "town_map__icon_i00.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 4,
+   "cy": 0,
+   "cw": 27,
+   "ch": 32
+  },
+  "L2UI_CH3.FrameCtrl.FrameBackLeft": {
+   "file": "L2UI_CH3__FrameBackLeft.png",
+   "w": 16,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 20
+  },
+  "L2UI_CH3.FrameCtrl.FrameBackMid": {
+   "file": "L2UI_CH3__FrameBackMid.png",
+   "w": 16,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 20
+  },
+  "L2UI_CH3.FrameCtrl.FrameBackRight": {
+   "file": "L2UI_CH3__FrameBackRight.png",
+   "w": 16,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 20
+  },
+  "L2UI_CH3.FrameCtrl.FrameMiniBtn": {
+   "file": "L2UI_CH3__FrameMiniBtn.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.FrameCtrl.FrameMiniOnBtn": {
+   "file": "L2UI_CH3__FrameMiniOnBtn.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  }
+ }
+}

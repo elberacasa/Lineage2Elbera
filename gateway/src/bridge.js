@@ -325,7 +325,13 @@ class Bridge {
     // ------------------------------------------------------ M4: skills & items
 
     game.on('skillList', (skills) => {
-      const mapped = skills.map((s) => ({ id: s.id, level: s.level }));
+      // SkillList (0x58) carries per skill: passive flag, level, id, disabled
+      // flag. The retail client keys its skill window off exactly these --
+      // ESkillCategory{SKILL_Active, SKILL_Passive} and the `Lock` field --
+      // so both are forwarded rather than dropped.
+      const mapped = skills.map((s) => ({
+        id: s.id, level: s.level, passive: !!s.passive, disabled: !!s.disabled,
+      }));
       if (this.entered) this.send({ op: 'skillList', skills: mapped });
       else this.pendingSkillList = mapped;
     });

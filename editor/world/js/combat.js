@@ -23,7 +23,6 @@ export class CombatUI {
       targetHpText: document.getElementById('target-hp-text'),
       overlays: document.getElementById('overlays'),
       floats: document.getElementById('damage-floats'),
-      selfBar: document.getElementById('self-status'),
       deathOverlay: document.getElementById('death-overlay'),
     };
     this._v = new THREE.Vector3();
@@ -69,19 +68,12 @@ export class CombatUI {
     this._ensureBar(id);
   }
 
+  // Phase C.1: the player status readout moved to the retail StatusWnd
+  // (js/ui/statuswnd.js). CombatUI keeps the authoritative `self` payload and
+  // owns the death overlay; rendering is the window's job. main.js forwards
+  // the same payload to it.
   updateSelf(s) {
     this.self = s;
-    const bar = this.el.selfBar;
-    bar.classList.add('visible');
-    const pct = (v, m) => (m ? Math.max(0, Math.min(100, v / m * 100)) : 0);
-    document.getElementById('self-hp-fill').style.width = pct(s.hp, s.maxHp) + '%';
-    document.getElementById('self-cp-fill').style.width = pct(s.cp, s.maxCp) + '%';
-    document.getElementById('self-mp-fill').style.width = pct(s.mp, s.maxMp) + '%';
-    document.getElementById('self-level').textContent = `Lv ${s.level ?? 1}`;
-    // mock sends exp as a 0..1 fraction; real aCis sends absolute exp
-    const expText = s.exp == null ? '0'
-      : (s.exp > 0 && s.exp < 1 ? (s.exp * 100).toFixed(1) + '%' : String(s.exp));
-    document.getElementById('self-exp').textContent = `exp ${expText}`;
     if ((s.hp ?? 1) <= 0) this.showDeathOverlay();
     else this.el.deathOverlay.classList.remove('visible');
   }
@@ -141,7 +133,6 @@ export class CombatUI {
     this.clearTarget();
     this.hp.clear();
     for (const id of [...this.bars.keys()]) this._removeBar(id);
-    this.el.selfBar.classList.remove('visible');
     this.el.deathOverlay.classList.remove('visible');
   }
 

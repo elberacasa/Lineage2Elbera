@@ -5,6 +5,7 @@
 // Persisted per character name in localStorage.
 
 import { skillMeta, skillInfo, itemMeta, itemInfo } from './gamedata.js';
+import { skillType } from './ui/skillwnd.js';
 
 const SLOTS = 10;
 
@@ -64,6 +65,8 @@ export class Hotbar {
   }
 
   assign(i, data) {
+    // Passive skills cannot occupy a shortcut slot — they are not castable.
+    if (data && data.type === 'skill' && skillType(data.id) === 'PASSIVE') return;
     this.slots[i] = data;   // null clears
     this.render();
     try { localStorage.setItem(this._key(), JSON.stringify(this.slots)); } catch {}

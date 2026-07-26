@@ -3,13 +3,14 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 
 #hud {
   position: fixed; top: 0; left: 0; right: 0; z-index: 10;
-  display: flex; align-items: center; gap: 14px;
+  display: none; align-items: center; gap: 14px;
   padding: 8px 14px;
   font: 13px/1.4 -apple-system, "Segoe UI", sans-serif;
   color: #cfd4de;
   background: linear-gradient(rgba(8,10,14,.85), rgba(8,10,14,0));
   pointer-events: none;
 }
+#hud.dev-visible { display: flex; }
 #hud .brand { font-weight: 600; color: #c9a959; letter-spacing: .04em; }
 #hud label { pointer-events: auto; display: flex; align-items: center; gap: 6px; }
 #hud select {
@@ -88,21 +89,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 .target-hp > div, #target-hp-fill { background: #c33; }
 #target-hp-fill { background: linear-gradient(#e05656, #a02828); }
 
-#self-status {
-  position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
-  z-index: 12; display: none; align-items: center; gap: 8px;
-  padding: 6px 12px; border-radius: 8px;
-  background: rgba(10,12,17,.72); border: 1px solid #3a4254;
-  font: 11px -apple-system, "Segoe UI", sans-serif; color: #cfd4de;
-  pointer-events: none;
-}
-#self-status.visible { display: flex; }
-#self-status .bar { width: 130px; }
-#self-cp-fill { background: #e8e8e8; }
-#self-hp-fill { background: linear-gradient(#e05656, #a02828); }
-#self-mp-fill { background: linear-gradient(#5a7fe0, #2c4aa0); }
-#self-level { color: #c9a959; font-weight: 600; }
-#self-exp { color: #8a93a5; }
+/* #self-status retired in Phase C.1 — the player status window is now the
+   retail StatusWnd, built by js/ui/statuswnd.js from Interface.xdat
+   geometry and the client's own ps_*bar art. */
 
 #overlays, #damage-floats { position: fixed; inset: 0; z-index: 11; pointer-events: none; }
 
@@ -144,6 +133,14 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
   background: #241f14; color: #c9a959; font: inherit; cursor: pointer;
 }
 #respawn-btn:hover { background: #322a18; }
+
+/* MenuWnd / SystemMenuWnd buttons (js/ui/menuwnd.js) */
+.menu-btn { border-radius: 4px; }
+.menu-btn:hover { background: rgba(201,169,89,.18); }
+.menu-btn.disabled { opacity: .35; cursor: default; pointer-events: none; }
+.sysmenu-btn { border-radius: 4px; }
+.sysmenu-btn:hover { filter: brightness(1.25); }
+.sysmenu-btn.disabled { opacity: .35; cursor: default; }
 
 /* M4: skill bar + casting bar + inventory + loot ---------------------------*/
 
@@ -284,3 +281,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
   font-size: 14px; cursor: pointer; padding: 0 2px;
 }
 #settings-btn:hover { color: #c9a959; }
+
+/* One-time discoverability nudge for the dev bar (F9). */
+#dev-hint {
+  position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+  z-index: 30; padding: 6px 14px; border-radius: 4px;
+  background: rgba(10,12,17,.85); border: 1px solid #3a4254;
+  color: #c9a959; font: 12px -apple-system, "Segoe UI", sans-serif;
+  pointer-events: none; transition: opacity .8s;
+}
+#dev-hint.fade { opacity: 0; }

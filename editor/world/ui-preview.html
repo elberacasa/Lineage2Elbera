@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ElberaSkin — retail UI foundation preview</title>
+<style>
+  html,body { margin:0; height:100%; background:#20252c; font-family:monospace; }
+  /* A mid-grey field, not black: the retail art is drawn over the 3D scene,
+     so its own edges must be visible against something neutral. */
+  #sheet { padding: 24px; color:#7f8894; }
+  h2 { color:#8fa0b4; font:12px monospace; margin: 22px 0 8px; font-weight:normal; }
+  .row { display:flex; gap:26px; align-items:flex-start; flex-wrap:wrap; }
+  .cell { position:relative; }
+  .note { font:10px monospace; color:#5f6874; margin-top:4px; }
+</style>
+</head>
+<body>
+<div id="sheet">
+  <h2>loading…</h2>
+</div>
+<script type="module">
+import { Skin } from './js/ui/skin.js';
+import { Font } from './js/ui/font.js';
+import { Layout } from './js/ui/layout.js';
+import { L2Window } from './js/ui/window.js';
+import { StatusWnd } from './js/ui/statuswnd.js';
+
+const sheet = document.getElementById('sheet');
+const result = { ok: false, checks: {} };
+
+function section(title) {
+  const h = document.createElement('h2');
+  h.textContent = title;
+  sheet.appendChild(h);
+  const row = document.createElement('div');
+  row.className = 'row';
+  sheet.appendChild(row);
+  return row;
+}
+
+function labelled(row, el, note) {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  cell.appendChild(el);
+  const n = document.createElement('div');
+  n.className = 'note';
+  n.textContent = note;
+  cell.appendChild(n);
+  row.appendChild(cell);
+  return cell;
+}
+
+(async function () {
+  await Promise.all([Skin.load(), Font.load(), Layout.load()]);
+  sheet.querySelector('h2').remove();
+
+  // ---- 1. the bitmap fonts, straight off the retail glyph sheets --------
+  {
+    const row = section('1 · SmallFont / LargeFont (system/*.gly + l2font sheets)');
+    for (const f of ['small', 'large']) {
+      const d = document.createElement('div');
+      d.appendChild(Font.canvas('Talking Island  Lv 12  0123456789', { font: f }));
+      d.appendChild(document.createElement('br'));
+      d.appendChild(Font.canvas('same, with the HUD drop shadow',
+                                { font: f, shadow: true }));
+      labelled(row, d, `${f} — lineHeight ${Font.lineHeight(f)}px`);
+    }
+    const colors = document.createElement('div');
+    for (const [c, name] of [['#ff9c40', 'shout'], ['#e07fe8', 'tell'],
+                             ['#7fe87f', 'party'], ['#e8d57f', 'system']]) {
+      colors.appendChild(Font.canvas(`${name} channel`, { color: c }));
+      colors.appendChild(document.createElement('br'));
+    }
+    labelled(row, colors, 'tinted via source-in, as the client recolours chat');
+    result.checks.fonts = Font.measure('Talking Island', 'small') > 0;
+  }
+
+  // ---- 2. the window frame ------------------------------------------------
+  {
+    const row = section('2 · L2Window — FrameBackLeft/Mid/Right + FrameCloseBtn');
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:relative;width:520px;height:200px;';
+    const w = new L2Window({ title: 'Inventory', width: 248, height: 140 });
+    w.root.style.position = 'absolute';
+    w.root.style.left = '0'; w.root.style.top = '0';
+    w.show();
+    holder.appendChild(w.root);
+    labelled(row, holder, 'draggable by the titlebar, close button swaps on hover');
+    result.checks.window = !!Skin.sprite('L2UI_CH3.FrameCtrl.FrameBackMid')
+      && !!Skin.sprite('L2UI_CH3.FrameCtrl.FrameCloseBtn');
+  }
+
+  // ---- 3. StatusWnd, at its real geometry --------------------------------
+  {
+    const row = section('3 · StatusWnd gauges — geometry and art from the xdat');
+    const def = Layout.window('StatusWnd');
+    const holder = document.createElement('div');
+    holder.style.cssText =
+      `position:relative;width:${Skin.px(def ? def.width : 176)}px;`;
+
+    const bars = [
+      ['CPBar', 0.72], ['HPBar', 0.55], ['MPBar', 0.31], ['EXPBar', 0.86],
+    ];
+    for (const [name, frac] of bars) {
+      const refs = Layout.tex('StatusWnd', name);
+      const back = refs.find(r => /back/i.test(r)) || refs[0];
+      const fill = refs.find(r => r !== back) || back;
+      const g = document.createElement('div');
+      g.style.marginBottom = '3px';
+      // StatusWnd is 176 wide; its gauges span it inside a 4px inset,
+      // which is what the left/right caps in the xdat leave free.
+      const set = Skin.gauge(g, fill, back, { width: (def ? def.width : 176) - 8 });
+      set(frac);
+      holder.appendChild(g);
+    }
+    labelled(row, holder,
+      `StatusWnd is ${def ? def.width + '×' + def.height : '?'} retail px`);
+    result.checks.gauges = !!def && def.width === 176;
+  }
+
+  // ---- 4. the shortcut bar strip ------------------------------------------
+  {
+    const row = section('4 · ShortcutWnd — 504×46, the one true retail hotbar');
+    const holder = document.createElement('div');
+    const back = Layout.tex('ShortcutWnd', 'ShortcutWndHorizontal')
+      .find(r => Skin.sprite(r));
+    const bar = document.createElement('div');
+    const sz = Layout.size('ShortcutWnd', 'ShortcutWndHorizontal') || { w: 504, h: 46 };
+    bar.style.width = `${Skin.px(sz.w)}px`;
+    bar.style.height = `${Skin.px(sz.h)}px`;
+    if (back) Skin.apply(bar, back, { stretch: true });
+    holder.appendChild(bar);
+    labelled(row, holder,
+      `${sz.w}×${sz.h} · 12 slots of 36px · art ${back || '(none)'}`);
+    result.checks.shortcut = sz.w === 504;
+  }
+
+  // ---- 5. StatusWnd, assembled ------------------------------------------
+  {
+    const row = section('5 · StatusWnd — the assembled window (Phase C.1)');
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:relative;width:420px;height:200px;';
+    const sw = new StatusWnd(holder);
+    sw.root.style.position = 'absolute';
+    sw.place({ left: 0, top: 0 });
+    sw.update({ name: 'Elbera', level: 12,
+                hp: 342, maxHp: 620, mp: 118, maxMp: 380,
+                cp: 210, maxCp: 240, exp: 0.63 });
+    holder.appendChild(sw.root);
+    labelled(row, holder, `176×84 · replaces the invented #self-status pill`);
+
+    const low = document.createElement('div');
+    low.style.cssText = 'position:relative;width:420px;height:200px;';
+    const sw2 = new StatusWnd(low);
+    sw2.root.style.position = 'absolute';
+    sw2.place({ left: 0, top: 0 });
+    sw2.update({ name: 'Elbera', level: 12,
+                 hp: 92, maxHp: 620, mp: 40, maxMp: 380,
+                 cp: 0, maxCp: 240, exp: 0.63 });
+    low.appendChild(sw2.root);
+    labelled(row, low, 'low HP — the client swaps in the ps_hpbarwarn texture');
+    result.checks.statuswnd = sw.w === 176 && sw.h === 84;
+  }
+
+  // ---- 6. coverage --------------------------------------------------------
+  {
+    const row = section('6 · coverage');
+    const d = document.createElement('div');
+    const names = Layout.windowNames;
+    d.appendChild(Font.canvas(`${names.length} windows decoded`, { font: 'small' }));
+    labelled(row, d, names.slice(0, 8).join(', ') + ' …');
+    result.checks.layout = names.length > 100;
+  }
+
+  result.ok = Object.values(result.checks).every(Boolean);
+  window.__uiPreview = result;
+})().catch(e => {
+  sheet.innerHTML = '<h2 style="color:#e05656">' + e.message + '</h2>';
+  window.__uiPreview = { ok: false, error: e.message };
+});
+</script>
+</body>
+</html>

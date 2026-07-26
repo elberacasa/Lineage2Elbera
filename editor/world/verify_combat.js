@@ -38,11 +38,16 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
        && window.__world.net.log.some(m => m.op === 'selfStatus')`, { timeout: 20000 });
     await sleep(1500);
 
-    // self status bar visible from the initial selfStatus
-    summary.selfBarInitial = await page.evaluate(() => ({
-      visible: document.getElementById('self-status').classList.contains('visible'),
-      level: document.getElementById('self-level').textContent,
-    }));
+    // StatusWnd (retail window) present and its gauges fill on selfStatus
+    summary.selfBarInitial = await page.evaluate(() => {
+      const w = window.__world.statusWnd;
+      return {
+        // offsetParent is null for position:fixed; use the rendered rect
+        visible: !!w && !!w.root && w.root.getBoundingClientRect().width > 0,
+        level: w ? w.set && w.rows && 'hp' in w.rows : false,
+        hpFrac: w ? w.rows.hp.frac : null,
+      };
+    });
 
     // frame the gremlin: zoom in, then aim the follow camera straight at it
     await page.evaluate((id) => {
@@ -89,7 +94,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         text: e.textContent, cls: e.className })),
       hpBars: document.querySelectorAll('.hp-bar').length,
       targetHpFillWidth: document.getElementById('target-hp-fill').style.width,
-      selfHpWidth: document.getElementById('self-hp-fill').style.width,
+      selfHpFrac: window.__world.statusWnd.rows.hp.frac,
     }));
     await page.screenshot({ path: path.join(OUT, 'm3_02_combat.png') });
 
@@ -100,8 +105,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     summary.death = await page.evaluate(() => ({
       targetDead: document.getElementById('target-frame').classList.contains('dead'),
       targetHpText: document.getElementById('target-hp-text').textContent,
-      exp: document.getElementById('self-exp').textContent,
-      selfHp: document.getElementById('self-hp-fill').style.width,
+      exp: window.__world.combat.self.exp,
+      selfHp: window.__world.statusWnd.rows.hp.frac,
     }));
     await page.screenshot({ path: path.join(OUT, 'm3_03_death.png') });
 
