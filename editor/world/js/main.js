@@ -24,6 +24,7 @@ import { StatusWnd, loadExpTable } from './ui/statuswnd.js';
 import { WndMgr } from './ui/wndmgr.js';
 import { SkillWnd, loadSkillTypes, skillType } from './ui/skillwnd.js';
 import { ActionWnd } from './ui/actionwnd.js';
+import { MinimapWnd } from './ui/minimapwnd.js';
 
 const canvas = document.getElementById('view');
 const statusEl = document.getElementById('status');
@@ -155,6 +156,7 @@ let npcNamesPromise = null; // lazy /gamedata/npcname.json fetch
 let statusWnd = null;
 let skillWnd = null;
 let actionWnd = null;
+let minimapWnd = null;
 let menuWnd = null;
 let systemMenuWnd = null;
 
@@ -582,6 +584,7 @@ window.__world = {
   get statusWnd() { return statusWnd; },
   get skillWnd() { return skillWnd; },
   get actionWnd() { return actionWnd; },
+  get minimapWnd() { return minimapWnd; },
   get menuWnd() { return menuWnd; },
   get systemMenuWnd() { return systemMenuWnd; },
   wndMgr: WndMgr,
@@ -839,6 +842,7 @@ renderer.setAnimationLoop(() => {
     sun.target.position.copy(character.group.position);
     followCam.update(dt, character.group.position, terrain);
     sky.position.copy(camera.position);
+    if (minimapWnd) minimapWnd.tick(character, entities);
   }
   renderer.render(scene, camera);
 });
@@ -877,6 +881,13 @@ renderer.setAnimationLoop(() => {
     actionWnd.setActions();
     actionWnd.place(actionWnd.defaultPlace);
     WndMgr.register('ActionWnd', actionWnd, { handle: actionWnd.win.bar });
+
+    // Phase C.7: the retail map window (MenuWnd's Map button). Markers
+    // feed from the live scene every frame (throttled inside tick()).
+    minimapWnd = new MinimapWnd(document.body);
+    minimapWnd.setMeta();
+    minimapWnd.place(minimapWnd.defaultPlace);
+    WndMgr.register('MinimapWnd', minimapWnd, { handle: minimapWnd.win.bar });
     // StatusWnd.uc OnLButtonDown: clicking the window targets yourself
     statusWnd.onSelfTargetClick(() => {
       if (online && selfId != null) net.send('target', { id: selfId });
@@ -901,8 +912,8 @@ renderer.setAnimationLoop(() => {
       onAction: (id) => {
         if (id === 'BtnCharInfo') sheetPanel.toggle();
         else if (id === 'BtnInventory') inventory.toggle();
+        else if (id === 'BtnMap' && minimapWnd) minimapWnd.toggle();
         else if (id === 'BtnSystemMenu') systemMenuWnd.toggle();
-        // BtnMap: disabled in the window (no minimap in the web port)
       },
     });
 

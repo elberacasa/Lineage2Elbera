@@ -12,6 +12,10 @@ Routes:
                                  (manifest.json, models/*.gltf/bin/png)
   GET /gamedata/npcname.json  -> compact {npcId: name} map from
                                  assets/gamedata/npcname.json (M2 NPC labels)
+  GET /minimap/<path>         -> static minimap imagery under
+                                 assets/world/minimap/ (worldmap.png,
+                                 tiles/*.png, towns/*.png — gitignored, staged
+                                 by tools/maps/build_minimap.py)
   GET /<path>                 -> the app itself, served from this directory
 
 All filesystem access is confined to its root (path-traversal safe).
@@ -28,6 +32,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORLD_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "world"))
 CHARACTERS_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "characters"))
 GAMEDATA_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "gamedata"))
+MINIMAP_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "world", "minimap"))
 NPCS_XML_DIR = os.path.normpath(os.path.join(
     BASE_DIR, "..", "..", "server", "aCis_gameserver", "build", "dist",
     "gameserver", "data", "xml", "npcs"))
@@ -226,6 +231,12 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/gamedata/"):
             rel = path[len("/gamedata/"):]
             self._send_file(safe_join(GAMEDATA_DIR, rel))
+            return
+
+        # minimap imagery (gitignored; 404 until build_minimap.py stages it)
+        if path.startswith("/minimap/"):
+            rel = path[len("/minimap/"):]
+            self._send_file(safe_join(MINIMAP_DIR, rel))
             return
 
         if path == "/" or path == "":

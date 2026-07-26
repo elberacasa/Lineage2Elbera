@@ -43,9 +43,15 @@ export class L2Window {
    * @param {number} o.height     retail px, body only (titlebar is extra)
    * @param {boolean} o.closable  show the close button
    * @param {boolean} o.draggable drag by the titlebar
+   * @param {string}  o.back      body background override: a texture ref, or
+   *                              'none' when the caller paints its own (e.g.
+   *                              MinimapWnd's MapBack via its measured content
+   *                              rect — nine-slicing the padded export would
+   *                              distort the frame)
    */
   constructor({ title = '', width = 200, height = 120,
-                closable = true, draggable = true, winName = null } = {}) {
+                closable = true, draggable = true, winName = null,
+                back } = {}) {
     this.title = title;
     this.width = width;
     this.height = height;
@@ -121,8 +127,10 @@ export class L2Window {
     // content 310x381 in a 512x512 export, 2px border (dark outline x=0,
     // highlight x=1), interior alpha ~221. (The handoff names the atlas
     // file L2UI_CH3/npc1_back.png; this is its manifest ref.)
-    const backRef = winName && Layout.tex0(winName, 'BackTexture');
-    Skin.nine(body, backRef || 'L2UI_ch3.NpcWnd.Npc1_back', 2);
+    const backRef = back !== undefined ? back
+      : (winName && Layout.tex0(winName, 'BackTexture'))
+        || 'L2UI_ch3.NpcWnd.Npc1_back';
+    if (backRef !== 'none') Skin.nine(body, backRef, 2);
 
     if (draggable) this._makeDraggable(bar);
     this.setTitle(title);

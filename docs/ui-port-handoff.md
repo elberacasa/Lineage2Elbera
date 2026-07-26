@@ -98,9 +98,28 @@ the shortcut bar. Disabled skills render inert. Toggles are marked.
 **C.5 MenuWnd + SystemMenuWnd** (173×46 / 172×295) — the L2 menu bar
 (bottom-right) and system menu (centered), decoded from `MenuWnd.uc` /
 `SystemMenuWnd.uc` + Interface.xdat geometry. Menu buttons: Stat→CharSheet,
-Inv→Inventory, Map→disabled (no minimap), Menu→SystemMenuWnd. System rows:
+Inv→Inventory, Map→MinimapWnd (C.7), Menu→SystemMenuWnd. System rows:
 Option→settings panel, Restart→`location.reload()`, Quit→disconnect;
 BBS/Macro/Help/Petition disabled (no backend).
+
+**C.7 MinimapWnd** (334×413) — the retail map window, opened from
+MenuWnd's Map button (DEVIATION: retail sends RequestOpenMinimap; the
+port's window is client-side — imagery + georeference are staged locally).
+Spec `docs/minimap-mapping.md`, manifest `assets/gamedata/minimap.json`.
+The viewport (the xdat's 328×328 MinimapCtrl rect at (3,51)) composes the
+3×3 neighbourhood of per-tile world-map crops around the player's tile
+and pans to keep the player centered; markers are AUTHORED (the native
+control owned them — no art/colours in script): white heading arrow for
+self, yellow dots players, grey dots NPCs. ExpandButton opens
+MinimapWnd_Expand: the assembled 2048×3072 world map fit into the
+xdat's (screenW−3%)×(screenH−90) cap 1016×934, markers projected with
+the manifest georeference (X0/Y0/S — read, never retyped). Fixed zoom
+(native, undocumented). Omitted for lack of backend: cursed-weapon
+tracker, guide button, game-time sun/moon, zone label, quest TargetButton
+(disabled). TownMapWnd (server-driven ShowTownMap) and RadarWnd skipped.
+Imagery served at `/minimap/` from `assets/world/minimap/` (gitignored;
+`tools/maps/build_minimap.py`). Self-test: the manifest's 6 anchors must
+project ≤15 px (verify_minimap.js, measured max 0.06 px).
 
 **Retail Alt+ keymap (delivered)** — evidence: 5 independent L2 references
 (pmfun.com/list/key, maxcheaters topic 7183, l2topzone, onlinegamecommands,

@@ -94,15 +94,18 @@ export class MenuWnd {
         + `height:${Skin.px(bw)}px;display:flex;align-items:center;`
         + 'justify-content:center;cursor:pointer;';
       Font.set(el, b.label, { color: '#c9a959' });
+      // claim the press: WndMgr makes the whole bar draggable, and an
+      // unclaimed pointerdown would capture the pointer and eat the click
+      el.addEventListener('pointerdown', (e) => e.preventDefault());
       el.addEventListener('click', () => this.onAction(b.id));
       root.appendChild(el);
       this.buttons[b.id] = el;
     });
 
-    // BtnMap: retail calls RequestOpenMinimap — the web port has NO
-    // minimap, so the button renders disabled (AUTHORED; do not fake one).
-    this.buttons.BtnMap.classList.add('disabled');
-    this.buttons.BtnMap.title = 'Minimap: not available in the web port';
+    // BtnMap: retail calls RequestOpenMinimap (MenuWnd.uc). DEVIATION: the
+    // port's MinimapWnd is client-side (the imagery + georeference are
+    // staged locally), so the button just toggles it — no round trip.
+    if (this.buttons.BtnMap) this.buttons.BtnMap.title = 'Map (MinimapWnd)';
 
     parent.appendChild(root);
     WndMgr.register('MenuWnd', this);
@@ -170,6 +173,8 @@ export class SystemMenuWnd {
         + 'cursor:pointer;';
       const tex = Layout.tex(WND, r.id);
       if (tex && tex[0]) Skin.apply(btn, tex[0], { content: { w: rowH, h: rowH }, stretch: true });
+      // claim the press so the window drag (WndMgr) cannot eat the click
+      btn.addEventListener('pointerdown', (e) => e.preventDefault());
       btn.addEventListener('click', () => { if (r.enabled) this.onAction(r.id); });
       root.appendChild(btn);
       this.buttons[r.id] = btn;
