@@ -42,20 +42,24 @@ const PORT = Number(process.argv[2]) || 8085;
 const SPAWN = { x: -81984, y: 212928, z: -100000 };
 
 const NPCS = [
-  { id: 70001, npcId: 20001, name: 'Gremlin', x: SPAWN.x + 800, y: SPAWN.y + 400, z: SPAWN.z, heading: 32768 },
-  { id: 70002, npcId: 20003, name: 'Goblin', x: SPAWN.x - 600, y: SPAWN.y + 900, z: SPAWN.z, heading: 16384 },
+  { id: 70001, npcId: 20001, name: 'Gremlin', level: 1, x: SPAWN.x + 800, y: SPAWN.y + 400, z: SPAWN.z, heading: 32768 },
+  { id: 70002, npcId: 20003, name: 'Goblin', level: 1, x: SPAWN.x - 600, y: SPAWN.y + 900, z: SPAWN.z, heading: 16384 },
   // name intentionally blank: exercises the client's /gamedata/npcname.json enrichment
-  { id: 70003, npcId: 20004, name: '', x: SPAWN.x + 300, y: SPAWN.y - 700, z: SPAWN.z, heading: 49152 },
+  { id: 70003, npcId: 20004, name: '', level: 1, x: SPAWN.x + 300, y: SPAWN.y - 700, z: SPAWN.z, heading: 49152 },
   // M4: mapped civilian (a_common_peopleA_MHuman_m00 is in the monsters
   // manifest) -> renders as a real model
-  { id: 70004, npcId: 30050, name: 'Elias', x: SPAWN.x - 300, y: SPAWN.y - 400, z: SPAWN.z, heading: 16384 },
+  { id: 70004, npcId: 30050, name: 'Elias', x: SPAWN.x + 300, y: SPAWN.y - 400, z: SPAWN.z, heading: 16384 },
   // unmapped npcId (no npcgrp entry at all) -> capsule fallback
   { id: 70005, npcId: 99999, name: 'Mystery Man', x: SPAWN.x + 500, y: SPAWN.y - 200, z: SPAWN.z, heading: 0 },
+  // renderScale demo (docs/npc-visual-data.md §4): same wererat mesh,
+  // server heights 18.7 vs 50.0 -> visibly different sizes
+  { id: 70006, npcId: 20360, name: 'Ratman Spy', x: SPAWN.x - 500, y: SPAWN.y - 300, z: SPAWN.z, heading: 0 },
+  { id: 70007, npcId: 25438, name: 'Thief Kelbar', x: SPAWN.x - 900, y: SPAWN.y - 300, z: SPAWN.z, heading: 0 },
 ];
 
 const PLAYERS = [
-  { id: 80001, name: 'Aria', race: 'Elf', classId: 25, x: SPAWN.x + 1000, y: SPAWN.y + 1200, z: SPAWN.z, heading: 32768 },
-  { id: 80002, name: 'Borg', race: 'Orc', classId: 44, x: SPAWN.x - 1100, y: SPAWN.y - 500, z: SPAWN.z, heading: 0 },
+  { id: 80001, name: 'Aria', race: 'Elf', classId: 25, level: null, x: SPAWN.x + 1000, y: SPAWN.y + 1200, z: SPAWN.z, heading: 32768 },
+  { id: 80002, name: 'Borg', race: 'Orc', classId: 44, level: null, x: SPAWN.x - 1100, y: SPAWN.y - 500, z: SPAWN.z, heading: 0 },
 ];
 const WALKER = { id: 80003, name: 'Cora', race: 'Human', classId: 0, x: SPAWN.x - 400, y: SPAWN.y + 400, z: SPAWN.z, heading: 0 };
 const SQUARE = 800;        // L2 units per side (8 m -> ~5 s per side at walk speed)
@@ -72,9 +76,13 @@ const AMBIENT = [
 const MOBS = {
   70001: { hp: 500, maxHp: 500, dead: false },
 };
+// viewer level: seedable for con-color tests (default 1; MOCK_LEVEL=40
+// makes target_ok.color strongly negative vs level-1 gremlins)
+const SELF_LEVEL = Number(process.env.MOCK_LEVEL) || 1;
+
 const SELF_BASE = {
   hp: 800, maxHp: 800, mp: 200, maxMp: 200,
-  cp: 400, maxCp: 400, level: 1, exp: 0, sp: 0,
+  cp: 400, maxCp: 400, level: SELF_LEVEL, exp: 0, sp: 0,
 };
 
 let nextPlayerId = 1000001;
@@ -238,7 +246,12 @@ wss.on('connection', (ws) => {
         return;
       }
       lastTarget = msg.id;
-      send('target_ok', { id: msg.id });
+      const targetNpc = NPCS.find(n => n.id === msg.id);
+      // aCis MyTargetSelected color semantics: viewer level - target level
+      // for attackable targets (all our NPCs count as attackable), 0 else
+      const color = targetNpc && targetNpc.level != null
+        ? selfStats.level - targetNpc.level : 0;
+      send('target_ok', { id: msg.id, color });
       const mob = MOBS[msg.id];
       send('status', { id: msg.id, hp: mob ? mob.hp : 300, maxHp: mob ? mob.maxHp : 300 });
     } else if (msg.op === 'attack') {

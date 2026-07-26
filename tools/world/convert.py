@@ -42,6 +42,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 from l2lib import (L2Error, Reader, load_package, parse_texture,  # noqa: E402
                    extract_texture_rgba, resolve_material, write_png)
+import geodata  # noqa: E402  (tools/world sibling module)
 
 CLIENT = os.path.join(ROOT, "assets", "interlude")
 LIBRARY = os.path.join(ROOT, "assets", "library")
@@ -925,6 +926,7 @@ def validate_scene(scene, out_dir):
     def need(cond, msg):
         if not cond:
             errs.append(msg)
+        return cond
     need(scene.get("tile") and isinstance(scene["tile"], str), "tile str")
     need(isinstance(scene.get("origin"), list)
          and len(scene["origin"]) == 3
@@ -950,6 +952,28 @@ def validate_scene(scene, out_dir):
     need("water" in scene, "water key")
     need("interior" not in scene or scene["interior"] is True,
          "interior must be exactly true when present")
+    # optional geodata pointer (FROZEN contract, tools/world/README.md)
+    if "geodata" in scene:
+        need(scene["geodata"] == "geodata.json", "geodata pointer")
+        gpath = os.path.join(out_dir, "geodata.json")
+        if need(os.path.exists(gpath), "missing geodata.json"):
+            try:
+                with open(gpath) as f:
+                    g = json.load(f)
+                need(g.get("cellSize") == 16, "geodata cellSize 16")
+                need(g.get("origin") == scene["origin"][:2],
+                     "geodata origin matches scene origin")
+                need(g.get("cells") == 2048, "geodata cells 2048")
+                lay = (g.get("layers") or [{}])[0]
+                need(lay.get("encoding") == "blockstream-v1",
+                     "geodata encoding")
+                bpath = os.path.join(out_dir, lay.get("data", ""))
+                need(os.path.exists(bpath), "missing geodata.bin")
+                if os.path.exists(bpath):
+                    need(os.path.getsize(bpath) == lay.get("bytes"),
+                         "geodata.bin byte count")
+            except (OSError, ValueError) as exc:
+                need(False, "geodata.json unreadable: %s" % exc)
     need(isinstance(scene.get("props"), list), "props list")
     for i, p in enumerate(scene.get("props", [])):
         need(isinstance(p.get("mesh"), str) and "." in p["mesh"],
@@ -1093,6 +1117,10 @@ def convert_tile(tile, with_props=True):
                 "%d/%d props deep) — re-verify INTERIOR_TILES"
                 % (tile, relief, n_deep, len(pz)))
         scene["interior"] = True
+    # per-tile geodata (true ground heights, multi-level floors) — written
+    # before scene.json so validate_scene can check the files exist
+    if geodata.write_tile_geodata(tile, out_dir) is not None:
+        scene["geodata"] = "geodata.json"
     validate_scene(scene, out_dir)
     with open(os.path.join(out_dir, "scene.json"), "w") as f:
         json.dump(scene, f, indent=1)

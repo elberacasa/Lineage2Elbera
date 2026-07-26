@@ -5,7 +5,7 @@
 const crypto = require('crypto');
 const { login } = require('./loginclient.js');
 const { GameSession } = require('./gameclient.js');
-const { npcName } = require('./npcnames.js');
+const { npcName, npcLevel } = require('./npcnames.js');
 
 function deriveCredentials(deviceId) {
   const id = String(deviceId || 'anonymous');
@@ -96,6 +96,14 @@ class Bridge {
           break;
         case 'useItem':
           if (this.game) this.game.useItem(msg.objectId | 0);
+          break;
+        case 'destroyItem':
+          // inventory TrashButton (aCis RequestDestroyItem)
+          if (this.game) this.game.destroyItem(msg.objectId | 0, msg.count | 0 || 1);
+          break;
+        case 'crystallizeItem':
+          // inventory CrystallizeButton (aCis RequestCrystallizeItem)
+          if (this.game) this.game.crystallizeItem(msg.objectId | 0, msg.count | 0 || 1);
           break;
       }
     } catch (e) {
@@ -216,6 +224,9 @@ class Bridge {
         id: n.id,
         npcId: n.npcId,
         name: n.name || npcName(n.npcId),
+        // aCis 409 NpcInfo carries no level: prefer the live "Lv N" title
+        // prefix (ShowNpcLevel), else the datapack template level, else null.
+        level: n.level ?? npcLevel(n.npcId),
         x: n.x, y: n.y, z: n.z, heading: n.heading,
       });
     });
@@ -228,6 +239,8 @@ class Bridge {
         name: c.name,
         race: c.race,
         classId: c.classId,
+        // aCis 409 CharInfo carries no level field; unavailable in-protocol.
+        level: null,
         x: c.x, y: c.y, z: c.z, heading: c.heading,
       });
     });
@@ -315,7 +328,9 @@ class Bridge {
     game.on('revive', (id) => this.send({ op: 'revive', id }));
     game.on('myTarget', (t) => {
       this.currentTarget = t.id;
-      this.send({ op: 'target_ok', id: t.id });
+      // color = MyTargetSelected color: viewer level - target level for
+      // attackable targets (the retail con-color basis), 0 otherwise.
+      this.send({ op: 'target_ok', id: t.id, color: t.color });
     });
 
     game.on('systemMessage', (sm) => {

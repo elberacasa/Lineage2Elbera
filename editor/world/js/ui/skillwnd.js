@@ -27,9 +27,11 @@ import { L2Window } from './window.js';
 import { skillMeta, skillInfo } from '../gamedata.js';
 
 const WND = 'MagicSkillWnd';
-// Icon cell pitch: MEASURED from the cell background the xdat names for
-// SkillItem (l2ui.nwindow.icon_back is 34x34 of art in a 64x64 export).
-// 239px pane / 34 = 7 columns exactly, which is how retail lays it out.
+// Icon cell geometry: DATA-DRIVEN from the xdat grid block
+// (docs/ui-mined-native.md §1): SkillItem carries cell 32x32 + gap (5,3)
+// => pitch 37x35. The slot ART is hardcoded in NCItemWnd at 34x34 drawn at
+// (x-1, y-1) with the 32x32 icon at (x, y) — 1px inset (0x101827a3/c9 in
+// the doc). This replaces the earlier MEASURED-34 assumption.
 const CELL_REF = 'l2ui.nwindow.icon_back';
 
 let _types = null;
@@ -60,11 +62,17 @@ export class SkillWnd {
 
     const pane = Layout.size(WND, 'ASkill') || { w: 239, h: 280 };
     this.pane = pane;
-    const cellArt = Skin.content(CELL_REF);
-    this.cell = cellArt ? cellArt.w : 34;
+    this.cellArt = Skin.content(CELL_REF);
+    const cellArt = this.cellArt;
+    const grid = Layout.grid(WND, 'SkillItem')
+      || { cellX: 32, cellY: 32, gapX: 5, gapY: 3 };
+    this.cellIcon = grid.cellX;                       // 32 icon
+    this.pitch = { x: grid.cellX + grid.gapX, y: grid.cellY + grid.gapY };  // 37 x 35
+    this.cell = cellArt ? cellArt.w : this.cellIcon + 2;   // 34 slot art
 
     const win = new L2Window({
       title: 'Skill', width: this.w, height: this.h, closable: true,
+      winName: WND,
     });
     win.root.id = 'l2-skillwnd';
     this.win = win;
@@ -174,18 +182,27 @@ export class SkillWnd {
 
       const cell = document.createElement('div');
       cell.className = 'l2-skill-cell';
-      cell.style.cssText = 'position:relative;overflow:hidden;';
-      cell.style.width = `${Skin.px(this.cell)}px`;
-      cell.style.height = `${Skin.px(this.cell)}px`;
+      // slot art (34) sits at (x-1, y-1) around the 32px icon; the pitch
+      // advances by icon+gap (37x35) — emulate with a padded cell
+      cell.style.cssText = 'position:relative;overflow:visible;'
+        + `width:${Skin.px(this.pitch.x)}px;height:${Skin.px(this.pitch.y)}px;`
+        + 'display:flex;align-items:center;justify-content:center;';
+      const inner = document.createElement('div');
+      inner.style.cssText = `position:relative;width:${Skin.px(this.cell)}px;`
+        + `height:${Skin.px(this.cell)}px;overflow:hidden;`
+        + 'display:flex;align-items:center;justify-content:center;';
+      if (this.cellArt) Skin.apply(inner, CELL_REF, { content: { w: this.cell, h: this.cell } });
+      cell.appendChild(inner);
       cell.title = `${info.name} (Lv ${s.level}) — ${type}`
         + (s.disabled ? ' — unavailable' : '');
 
       if (info.icon) {
         const img = document.createElement('img');
         img.src = info.icon;
-        img.style.cssText = 'width:100%;height:100%;display:block;';
+        img.style.cssText = `width:${Skin.px(this.cellIcon)}px;`
+          + `height:${Skin.px(this.cellIcon)}px;display:block;`;
         img.draggable = false;
-        cell.appendChild(img);
+        inner.appendChild(img);
       }
 
       // Passive skills are not usable and never reach the shortcut bar --

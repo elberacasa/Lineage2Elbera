@@ -10,11 +10,12 @@ import { EntityManager } from './entities.js';
 import { ChatBox } from './chat.js';
 import { CombatUI, bindProjection } from './combat.js';
 import { SkillBar, SkillFx } from './skills.js';
-import { Inventory } from './inventory.js';
-import { skillMeta, skillInfo, sysMsgMeta, renderSysMsg } from './gamedata.js';
+import { InventoryWnd } from './ui/inventorywnd.js';
+import { ShortcutWnd } from './ui/shortcutwnd.js';
+import { skillMeta, skillInfo, itemMeta, itemInfo, sysMsgMeta, renderSysMsg, sysMsgColor } from './gamedata.js';
 import { CharSheet } from './charsheet.js';
 import { MenuWnd, SystemMenuWnd } from './ui/menuwnd.js';
-import { Hotbar } from './hotbar.js';
+import { TargetStatusWnd } from './ui/targetstatuswnd.js';
 import { Skin } from './ui/skin.js';
 import { Font } from './ui/font.js';
 import { Layout } from './ui/layout.js';
@@ -183,18 +184,23 @@ function showDevHint() {
   setTimeout(() => tip.remove(), 5200);
 }
 
-const chat = new ChatBox(
-  document.getElementById('chat'),
-  document.getElementById('chat-log'),
-  document.getElementById('chat-input'),
-  {
-    onSend: ({ channel = 0, text, target }) => {
-      if (!text) return;
-      if (online && net.send('say', { channel, text, ...(target ? { target } : {}) })) return;
-      chat.addSystem('not connected — message not sent');
+// ChatWnd is constructed in boot() — its chrome needs Layout/Skin/Font
+// resident first. Handlers below reference `chat` but only run afterwards.
+let chat = null;
+function makeChat() {
+  chat = new ChatBox(
+    document.getElementById('chat'),
+    document.getElementById('chat-log'),
+    document.getElementById('chat-input'),
+    {
+      onSend: ({ channel = 0, text, target }) => {
+        if (!text) return;
+        if (online && net.send('say', { channel, text, ...(target ? { target } : {}) })) return;
+        chat.addSystem('not connected — message not sent');
+      },
     },
-  },
-);
+  );
+}
 
 // --- M3 combat ---------------------------------------------------------------
 
@@ -223,7 +229,9 @@ function clickEntity(id) {
     // already targeted: second click attacks
     if (online) net.send('attack', { id });
   } else {
-    combat.setTarget(id, e.name || `#${id}`);
+    combat.setTarget(id, e.name || `#${id}`,
+      { kind: e.kind, level: e.level ?? null, color: e.kind === 'npc' && e.level != null && combat.self
+        ? (combat.self.level ?? 1) - e.level : null });
     if (online) net.send('target', { id });
   }
 }
@@ -256,14 +264,21 @@ const skillBar = new SkillBar(
     },
   },
 );
-const inventory = new Inventory(
-  document.getElementById('inventory-panel'),
-  document.getElementById('inventory-grid'),
-  document.getElementById('loot-toasts'),
-  { onUse: (objectId) => { if (online) net.send('useItem', { objectId }); } },
-);
+// loot toasts (kept from the retired panel): shown on invUpdate 'add'
+function lootToast(text) {
+  const host = document.getElementById('loot-toasts');
+  if (!host) return;
+  const el = document.createElement('div');
+  el.className = 'loot-toast';
+  el.textContent = text;
+  host.appendChild(el);
+  setTimeout(() => el.classList.add('show'), 16);
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 2600);
+}
 
-// --- M5: char sheet, hotbar, settings ----------------------------------------
+let inventory = null;   // InventoryWnd, constructed in boot (needs skin/layout)
+
+// --- M5: char sheet, shortcut bar, settings -----------------------------------
 
 let charSheetData = null;
 const sheetPanel = new CharSheet(
@@ -281,16 +296,12 @@ net.on('charSheet', (msg) => {
   }
 });
 
-const hotbar = new Hotbar(document.getElementById('hotbar'), {
-  getCharName: () => selfName || 'default',
-  onTrigger: ({ type, id }) => {
-    if (!online) return;
-    if (type === 'skill') skillBar.castSkill(id);
-    else net.send('useItem', { objectId: id });
-  },
-});
-skillBar.onAssign = (data) => hotbar.assignFirstFree(data);
-inventory.onAssign = (data) => hotbar.assignFirstFree(data);
+// The retail shortcut bar (replaces BOTH invented bars: the M4 palette and
+// the M5 hotbar). Skills/items assign from the SkillWnd or inventory by
+// drag&drop or right-click; F1..F12 (and Digit1-0 as an AUTHORED alias,
+// see the keymap) trigger the current page's slots.
+let shortcutWnd = null;
+skillBar.onAssign = (data) => shortcutWnd && shortcutWnd.assignFirstFree(data);
 
 // settings / account panel
 const settingsPanel = document.getElementById('settings-panel');
@@ -317,11 +328,19 @@ net.on('skillList', (msg) => {
   if (skillWnd) skillWnd.setSkills(all);
   // The shortcut bar may only hold castable skills — passives are not usable
   // (MagicSkillWnd.uc keeps them in a separate pane for exactly this reason).
-  skillBar.populate(all.filter(
+  skillBar.register(all.filter(
     s => skillType(s.id, s.passive) !== 'PASSIVE' && !s.disabled));
 });
 net.on('itemList', (msg) => inventory.setItems(msg.items || []));
-net.on('invUpdate', (msg) => inventory.applyUpdate(msg.updated || []));
+net.on('invUpdate', (msg) => {
+  inventory.applyUpdate(msg.updated || []);
+  for (const u of msg.updated || []) {
+    if (u.change === 'add' || u.change === 1) {
+      itemMeta().then(meta =>
+        lootToast(`Looted: ${itemInfo(meta, u.itemId).name}${u.count > 1 ? ' ×' + u.count : ''}`));
+    }
+  }
+});
 net.on('skillCast', (msg) => {
   entities.skillFlash(msg.casterId);
   if (msg.casterId === selfId) {
@@ -368,9 +387,9 @@ function setOnline(on) {
     entities.clear();
     combat.clear();
     skillBar.clear();
-    inventory.clear();
+    if (inventory) inventory.toggle(false);
     skillFx.clear();
-    hotbar.clear();
+    if (shortcutWnd) { shortcutWnd.data = {}; shortcutWnd.render(); }
     sheetPanel.clear();
     if (statusWnd) statusWnd.clear();
     if (skillWnd) skillWnd.clear();
@@ -415,18 +434,19 @@ net.on('enterWorld', async (msg) => {
   }
   if (character && terrain) {
     l2ToThree(c.x || 0, c.y || 0, c.z || 0, character.group.position);
-    // indoors the walkable floor is a prop above the heightmap; the
-    // server z (geodata) is authoritative there — take the max
-    character.group.position.y = Math.max(
-      terrain.heightAtWorld(character.group.position.x, character.group.position.z),
-      (c.z || 0) * 0.01);
+    // server z is authoritative: the geodata layer NEAREST to it (bridges
+    // keep their floor; without geodata the older max() rule applies
+    const p = character.group.position;
+    p.y = terrain.geodata
+      ? terrain.heightAtWorld(p.x, p.z, (c.z || 0) * 0.01)
+      : Math.max(terrain.heightAtWorld(p.x, p.z), (c.z || 0) * 0.01);
     character.group.rotation.y = l2HeadingToThreeYaw(c.heading);
     character.clearTarget();
   }
   if (statusWnd) statusWnd.setName(selfName);
   setStatus(`online: ${selfName} @ ${currentTile}`);
   chat.addSystem(`entered world as ${selfName} (${currentTile})`);
-  hotbar.load();
+  if (shortcutWnd) shortcutWnd.load(selfName);
 });
 net.on('addPlayer', (msg) => {
   // contract ambiguity: server may also announce our own char via addPlayer
@@ -468,15 +488,22 @@ net.on('remove', (msg) => {
 net.on('chat', (msg) => chat.addChat(msg.from ?? '?', msg.channel, msg.text ?? '', msg.target));
 net.on('sysMsg', (msg) => {
   sysMsgMeta().then(meta =>
-    chat.addSysMsg(renderSysMsg(meta, msg.id, msg.params || []), msg.id, msg.params || []));
+    chat.addSysMsg(renderSysMsg(meta, msg.id, msg.params || []), msg.id, msg.params || [],
+      sysMsgColor(meta, msg.id)));
 });
 
 // --- M3 combat ops ------------------------------------------------------------
 net.on('target_ok', (msg) => {
   const e = entities.getEntity(msg.id);
-  combat.setTarget(msg.id, (e && e.name) || `#${msg.id}`);
+  // target_ok.color is the raw aCis MyTargetSelected color:
+  // viewerLevel - targetLevel for attackable targets, 0 otherwise
+  // (gateway/README.md). Used directly as the con-color diff.
+  const color = typeof msg.color === 'number' ? msg.color
+    : (e && e.level != null && combat.self ? (combat.self.level ?? 1) - e.level : null);
+  combat.setTarget(msg.id, (e && e.name) || `#${msg.id}`,
+    { kind: e ? e.kind : 'npc', level: e ? e.level ?? null : null, color });
 });
-net.on('status', (msg) => combat.updateStatus(msg.id, msg.hp, msg.maxHp));
+net.on('status', (msg) => combat.updateStatus(msg.id, msg.hp, msg.maxHp, msg.mp, msg.maxMp));
 net.on('selfStatus', (msg) => {
   combat.updateSelf(msg);
   if (statusWnd) statusWnd.update({ ...msg, name: selfName });
@@ -511,11 +538,12 @@ window.__world = {
     get log() { return net.log; },
   },
   entities,
-  chat,
+  get chat() { return chat; },
   combat,
   skillBar,
-  inventory,
-  hotbar,
+  get inventory() { return inventory; },
+  get shortcutWnd() { return shortcutWnd; },
+  get targetWnd() { return combat.targetWnd; },
   get charSheet() { return charSheetData; },
   get statusWnd() { return statusWnd; },
   get skillWnd() { return skillWnd; },
@@ -569,7 +597,7 @@ async function loadScene(tile) {
     } else {
       c = t.center();
     }
-    c.y = t.heightAtWorld(c.x, c.z);
+    c.y = t.heightAtWorld(c.x, c.z, character.group.position.y);
     character.group.position.copy(c);
     character.clearTarget();
   }
@@ -673,13 +701,11 @@ window.addEventListener('keydown', e => {
     if (online) { chat.open(); e.preventDefault(); }
     return;
   }
-  if (e.code === 'F1') {
-    // attack current target (L2-style)
-    if (online && combat.targetId != null) {
-      const t = entities.getEntity(combat.targetId);
-      if (t && !t.dead) net.send('attack', { id: combat.targetId });
-    }
-    e.preventDefault();
+  // F1..F12 trigger the shortcut bar's current page (retail behavior —
+  // wins over the old F1-attack binding; double-click still attacks).
+  if (/^F([1-9]|1[0-2])$/.test(e.code)) {
+    if (shortcutWnd) shortcutWnd.triggerF(Number(e.code.slice(1)) - 1);
+    e.preventDefault();   // browsers reserve F-keys (help, reload, devtools)
     return;
   }
   if (e.code === 'KeyF') {
@@ -721,9 +747,10 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (/^Digit[0-9]$/.test(e.code)) {
-    // number keys drive the M5 hotbar (skills AND items); the skill
-    // palette above is click-to-cast
-    hotbar.trigger((Number(e.code[5]) + 9) % 10);
+    // AUTHORED convenience alias: Digit1..0 trigger shortcut slots 1..10 —
+    // retail itself is F-key only, but browsers eat some F-keys and the
+    // old invented hotbar trained this habit (documented in the keymap).
+    if (shortcutWnd) shortcutWnd.triggerF((Number(e.code[5]) + 9) % 10);
     return;
   }
   if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) keys.add(e.code);
@@ -788,6 +815,7 @@ renderer.setAnimationLoop(() => {
     // The retail skin must be resident before any window is constructed.
     await Promise.all([Skin.load(), Font.load(), Layout.load(),
                        loadExpTable(), loadSkillTypes()]);
+    makeChat();
     statusWnd = new StatusWnd(document.body);
     statusWnd.show();     // retail keeps it on screen; gauges fill on selfStatus
 
@@ -800,7 +828,7 @@ renderer.setAnimationLoop(() => {
     skillWnd = new SkillWnd(document.body, {
       onCast: (id) => { if (online) skillBar.castSkill(id); },
     });
-    skillWnd.onAssign = (data) => hotbar.assignFirstFree(data);
+    skillWnd.onAssign = (data) => shortcutWnd && shortcutWnd.assignFirstFree(data);
     skillWnd.place({ right: 12, top: 60 });
     WndMgr.register('MagicSkillWnd', skillWnd, { handle: skillWnd.win.bar });
     WndMgr.bindResetKey();
@@ -832,6 +860,27 @@ renderer.setAnimationLoop(() => {
         // BtnMap: disabled in the window (no minimap in the web port)
       },
     });
+
+    inventory = new InventoryWnd(document.body, {
+      onUse: (oid) => { if (online) net.send('useItem', { objectId: oid }); },
+      onDestroy: (oid) => { if (online) net.send('destroyItem', { objectId: oid, count: 1 }); },
+      onCrystallize: (oid) => { if (online) net.send('crystallizeItem', { objectId: oid, count: 1 }); },
+      onAssign: (data) => shortcutWnd && shortcutWnd.assignFirstFree(data),
+      getItems: () => inventory ? [...inventory.items.values()] : [],
+      getCharSheet: () => charSheetData,
+    });
+
+    combat.targetWnd = new TargetStatusWnd(document.body);
+
+    shortcutWnd = new ShortcutWnd(document.body, {
+      onUseSkill: (id) => { if (online) skillBar.castSkill(id); },
+      onUseItem: (oid) => { if (online) net.send('useItem', { objectId: oid }); },
+      onNote: (text) => chat.addSystem(text),
+    });
+    // the lock button blocks dragging (Option.ini default: unlocked)
+    shortcutWnd.root.addEventListener('pointerdown', (e) => {
+      if (shortcutWnd.locked) e.stopImmediatePropagation();
+    }, true);
 
     const [scenes, mf] = await Promise.all([
       fetch('/scenes').then(r => r.json()),

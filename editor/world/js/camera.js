@@ -79,7 +79,8 @@ export class FollowCamera {
 
     // gentle terrain collision: lift the camera above the surface
     if (terrain) {
-      const ground = terrain.heightAtWorld(desired.x, desired.z) + this.groundClearance;
+      const ground = terrain.heightAtWorld(desired.x, desired.z, desired.y)
+        + this.groundClearance;
       if (desired.y < ground) desired.y = ground;
     }
 

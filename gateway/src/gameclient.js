@@ -164,6 +164,30 @@ class GameSession extends EventEmitter {
     );
   }
 
+  // RequestDestroyItem (0x59): D objectId, D count
+  // (aCis clientpackets/RequestDestroyItem.java readImpl).
+  destroyItem(objectId, count) {
+    this._send(
+      new PacketWriter()
+        .writeC(0x59)
+        .writeD(objectId | 0)
+        .writeD(count | 0)
+        .build()
+    );
+  }
+
+  // RequestCrystallizeItem (0x72): D objectId, D count
+  // (aCis clientpackets/RequestCrystallizeItem.java readImpl).
+  crystallizeItem(objectId, count) {
+    this._send(
+      new PacketWriter()
+        .writeC(0x72)
+        .writeD(objectId | 0)
+        .writeD(count | 0)
+        .build()
+    );
+  }
+
   // UseItem (0x14): D objectId, D ctrlPressed.
   useItem(objectId) {
     this._send(
@@ -536,7 +560,12 @@ function parseNpcInfo(r) {
   r.readC(); r.readC(); r.readC(); r.readC(); // running, combat, alikeDead, summon anim
   const name = r.readS();
   const title = r.readS();
-  return { id: objectId, npcId, isAttackable, name, title, x, y, z, heading };
+  // aCis 409 NpcInfo has NO level field; when Config.ShowNpcLevel is on the
+  // server prepends "Lv N" to the title (AbstractNpcInfo.java:106).
+  let level = null;
+  const lvlMatch = /^Lv (\d+)/.exec(title);
+  if (lvlMatch) level = Number(lvlMatch[1]);
+  return { id: objectId, npcId, isAttackable, name, title, level, x, y, z, heading };
 }
 
 // Full UserInfo layout (serverpackets/UserInfo.java). Remember: writeF is an

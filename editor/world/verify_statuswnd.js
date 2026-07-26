@@ -68,10 +68,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       return {
         heightStable: Math.round(before.height) === Math.round(after.height),
         widthGrew: after.width > before.width,
-        // the gauge spans the window minus the 4px cap inset on each side,
-        // in retail px -- so the expected delta scales with the UI scale
+        // data rule (has0 autosize block): gauge width = window width +
+        // insetA, and insetA = -26 for all four StatusBars
+        // (docs/xdat-tail-has0.md) -- so the expected delta is 26 * scale
         gaugeFollowed:
-          Math.round(gauge.width) === Math.round(after.width) - 8 * Skin.scale,
+          Math.round(gauge.width) === Math.round(after.width) - 26 * Skin.scale,
       };
     });
     await page.evaluate(() => window.__world.statusWnd.setWidth(320));

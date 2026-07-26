@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { L2_TO_M, l2ToThree } from './coords.js';
+import { Geodata } from './geodata.js';
 
 // how many times a layer diffuse texture repeats across the whole tile
 // (before per-layer uscale/vscale)
@@ -43,6 +44,7 @@ export class Terrain {
     // contract; the fallback detects props sitting below the terrain plane
     this.interior = false;
     this.floorY = 0;        // three.js Y of the dungeon floor when interior
+    this.geodata = null;    // blockstream-v1 heights when the tile ships them
   }
 
   // fallback interior detection: tiles whose props are (almost) all below
@@ -96,6 +98,8 @@ export class Terrain {
     }
 
     if (!this.interior) this._buildMesh();   // interiors: no terrain plane
+    this.geodata = await Geodata.load(this.baseUrl, this.def)
+      .catch(() => null);                    // heightmap fallback on failure
     await this._loadProps();
   }
 
@@ -114,9 +118,34 @@ export class Terrain {
 
   // bilinear height (three.js Y, meters) at three.js world (x, z);
   // interior tiles have no heightfield — everything walks on the
-  // estimated dungeon floor
-  heightAtWorld(x, z) {
-    if (this.interior) return this.floorY;
+  // estimated dungeon floor.
+  // currentZ (three.js Y, meters) selects the NEAREST geodata layer —
+  // the multi-layer query rule (a z-less lookup picks the wrong floor in
+  // every bridge/two-floor structure, tools/world/README.md).
+  heightAtWorld(x, z, currentZ = null) {
+    if (this.interior) {
+      // Dungeons: the prop-derived floorY is the walk level (see terrain
+      // interior notes). Geodata carries BOTH the dummy plane AND the real
+      // structure layers (measured: 19_16 [-4672, -10904], 21_25 [-4672,
+      // -6656]) — use the geodata layer only when it agrees with floorY;
+      // the dummy plane must never override the prop floor. currentZ (or
+      // floorY) selects the layer per the multi-layer query rule.
+      const hint = currentZ ?? this.floorY;
+      if (this.geodata) {
+        const h = this.geodata.heightAt(
+          x / L2_TO_M, -z / L2_TO_M, hint / L2_TO_M);
+        if (h != null && Math.abs(h * L2_TO_M - this.floorY) < 2.5) {
+          return h * L2_TO_M;
+        }
+      }
+      return this.floorY;
+    }
+    if (this.geodata) {
+      const h = this.geodata.heightAt(
+        x / L2_TO_M, -z / L2_TO_M,
+        currentZ == null ? null : currentZ / L2_TO_M);
+      if (h != null) return h * L2_TO_M;
+    }
     const s = L2_TO_M;
     const fx = (x / s - this.origin[0]) / this.spacing;
     const fy = (-z / s - this.origin[1]) / this.spacing;

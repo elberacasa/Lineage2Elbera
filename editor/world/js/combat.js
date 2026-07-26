@@ -17,53 +17,43 @@ export class CombatUI {
     this.targetId = null;
 
     this.el = {
-      targetFrame: document.getElementById('target-frame'),
-      targetName: document.getElementById('target-name'),
-      targetHpFill: document.getElementById('target-hp-fill'),
-      targetHpText: document.getElementById('target-hp-text'),
       overlays: document.getElementById('overlays'),
       floats: document.getElementById('damage-floats'),
       deathOverlay: document.getElementById('death-overlay'),
     };
     this._v = new THREE.Vector3();
+    // The retail TargetStatusWnd drives the target display (assigned in
+    // boot); falls back to no-op when unavailable.
+    this.targetWnd = null;
   }
 
   // -- targeting ---------------------------------------------------------
 
-  setTarget(id, name) {
+  setTarget(id, name, opts = {}) {
     this.targetId = id;
     const hp = this.hp.get(id) || {};
     this.target = { id, name, hp: hp.hp, maxHp: hp.maxHp, dead: !!hp.dead };
-    this.el.targetFrame.classList.add('visible');
-    this.el.targetName.textContent = name;
-    this._renderTarget();
+    if (this.targetWnd) this.targetWnd.setTarget(id, name, opts);
+  }
+
+  setTargetColor(diff) {
+    if (this.targetWnd) this.targetWnd.setColor(diff);
   }
 
   clearTarget() {
     this.targetId = null;
     this.target = null;
-    this.el.targetFrame.classList.remove('visible');
-  }
-
-  _renderTarget() {
-    const t = this.target;
-    if (!t) return;
-    const pct = t.maxHp ? Math.max(0, (t.hp ?? t.maxHp) / t.maxHp * 100) : 100;
-    this.el.targetHpFill.style.width = pct + '%';
-    this.el.targetHpText.textContent = t.dead
-      ? 'dead'
-      : (t.hp != null ? `${t.hp} / ${t.maxHp}` : '');
-    this.el.targetFrame.classList.toggle('dead', !!t.dead);
+    if (this.targetWnd) this.targetWnd.hide();
   }
 
   // -- status ops --------------------------------------------------------
 
-  updateStatus(id, hp, maxHp) {
+  updateStatus(id, hp, maxHp, mp, maxMp) {
     const cur = this.hp.get(id) || {};
     this.hp.set(id, { ...cur, hp, maxHp, lastHit: performance.now() / 1000 });
     if (this.targetId === id && this.target) {
       this.target.hp = hp; this.target.maxHp = maxHp;
-      this._renderTarget();
+      if (this.targetWnd) this.targetWnd.updateStatus(hp, maxHp, mp, maxMp);
     }
     this._ensureBar(id);
   }
@@ -97,7 +87,7 @@ export class CombatUI {
     if (cur) { cur.dead = true; cur.hp = 0; }
     if (this.targetId === id && this.target) {
       this.target.dead = true; this.target.hp = 0;
-      this._renderTarget();
+      if (this.targetWnd) this.targetWnd.updateStatus(0, this.target.maxHp, 0, 0);
     }
     this._removeBar(id);
   }

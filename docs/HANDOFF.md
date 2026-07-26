@@ -171,12 +171,12 @@ Client → server: `login{deviceId}` · `enterChar{slot}` · `moveTo{x,y,z}` ·
 targetId?}` · `useItem{objectId}`.
 
 Server → client: `auth_ok{chars[]}` · `enterWorld{char{id,name,race,classId,
-x,y,z,heading}}` (exactly once per session) · `addNpc{id,npcId,name,x,y,z,
-heading}` · `addPlayer{id,name,race,classId,x,y,z,heading}` ·
+x,y,z,heading}}` (exactly once per session) · `addNpc{id,npcId,name,level,
+x,y,z,heading}` · `addPlayer{id,name,race,classId,level,x,y,z,heading}` ·
 `move{id,tx,ty,tz}` · `remove{id}` · `chat{from,channel,text}` ·
 `status{id,hp,maxHp,mp,maxMp}` · `selfStatus{hp,maxHp,mp,maxMp,cp,maxCp,
 level,exp,sp}` · `attack{id,targetId,damage,critical,miss}` · `die{id}` ·
-`revive{id}` · `target_ok{id}` · `skillList{skills[{id,level,passive,
+`revive{id}` · `target_ok{id,color}` · `skillList{skills[{id,level,passive,
 disabled}]}` and
 `itemList{items[{objectId,itemId,count,slot,equipped,enchant}]}` (both
 queued and flushed right after `enterWorld`) · `skillCast{casterId,targetId,
@@ -184,6 +184,13 @@ skillId,level,hitTime}` · `skillLaunch{casterId,targetId,skillId,level}` ·
 `invUpdate{updated[{change,objectId,itemId,count,slot,equipped,enchant}]}`
 (change: add/modify/remove/unchanged) · `addDrop{id,itemId,count,x,y,z}` ·
 `sysMsg{id,params[]}`.
+
+Level semantics (added 2026-07-26, additive): aCis 409's NpcInfo/CharInfo
+packets carry NO level field — `addNpc.level` comes from the datapack NPC
+template (same XML NpcData loads; "Lv N" title prefix wins if ShowNpcLevel
+is ever enabled) · `addPlayer.level` is `null` (unavailable in-protocol) ·
+`target_ok.color` is the aCis MyTargetSelected color = viewer level −
+target level for attackable targets (retail con-color basis), 0 otherwise.
 
 Loot: no dedicated op — `target{id}` on a corpse or drop sends Action(0x04),
 which aCis routes to pickup (`.autoloot` mod bypasses this server-side).

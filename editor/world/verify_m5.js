@@ -52,13 +52,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       lines: window.__world.chat.lines.slice(-7),
       tabs: document.querySelectorAll('#chat-tabs button').length,
       coloredClasses: [...new Set([...document.querySelectorAll('#chat-log .line')]
-        .map(e => e.className.split(' ').find(c => c.startsWith('ch-') || ['sysmsg', 'system'].includes(c)))
+        .map(e => e.style.color || (['sysmsg', 'system'].includes(e.className.split(' ').find(c => c)) ? e.className : null))
         .filter(Boolean))],
     }));
     // whisper tab filter: only tell lines visible
     await page.evaluate(() => {
       [...document.querySelectorAll('#chat-tabs button')]
-        .find(b => b.dataset.tab === 'whisper').click();
+        .find(b => b.dataset.tab === 'party').click();
     });
     await sleep(300);
     summary.whisperTab = await page.evaluate(() =>
@@ -81,14 +81,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await page.screenshot({ path: path.join(OUT, 'm5_02_charsheet.png') });
     await page.keyboard.press('KeyC');
 
-    // -- hotbar: right-click skill slot 1 -> assign; Digit1 casts ------------
+    // -- shortcut bar: right-click skill cell -> assign; Digit1 casts --------
+    await page.keyboard.down('Alt'); await page.keyboard.press('k'); await page.keyboard.up('Alt');
+    await sleep(500);
     await page.evaluate(() => {
-      document.querySelector('.skill-slot')
+      document.querySelector('#l2-skillwnd [draggable="true"]')
         .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     });
     await sleep(300);
+    await page.keyboard.down('Alt'); await page.keyboard.press('k'); await page.keyboard.up('Alt');
     summary.hotbarAssign = await page.evaluate(() => ({
-      slots: window.__world.hotbar.slots.filter(Boolean),
+      slots: Object.values(window.__world.shortcutWnd.data['0'] || {}),
       persisted: localStorage.getItem(Object.keys(localStorage)
         .find(k => k.startsWith('l2vzla.hotbar.')) || ''),
     }));
@@ -101,9 +104,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await page.keyboard.press('KeyI');
     await sleep(400);
     const before = await page.evaluate(() =>
-      document.querySelector('.inv-slot[data-oid="90002"] .count')?.textContent);
+      document.querySelector('.inv-cell[data-oid="90002"] .count')?.textContent);
     await page.evaluate(() => {
-      document.querySelector('.inv-slot[data-oid="90002"]')
+      document.querySelector('.inv-cell[data-oid="90002"]')
         .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     });
     await sleep(300);
@@ -114,8 +117,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await sleep(600);
     summary.hotbarItem = await page.evaluate(() => ({
       countBefore: null, // filled below via closure hack avoided
-      countAfter: document.querySelector('.inv-slot[data-oid="90002"] .count')?.textContent,
-      slots: window.__world.hotbar.slots.filter(Boolean),
+      countAfter: document.querySelector('.inv-cell[data-oid="90002"] .count')?.textContent,
+      slots: Object.values(window.__world.shortcutWnd.data['0'] || {}),
     }));
     summary.hotbarItem.countBefore = before;
     await page.screenshot({ path: path.join(OUT, 'm5_03_hotbar.png') });

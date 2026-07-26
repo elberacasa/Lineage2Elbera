@@ -97,10 +97,11 @@ function npcColor(npcId) {
 }
 
 class NpcEntity {
-  constructor({ id, npcId, name }) {
+  constructor({ id, npcId, name, level }) {
     this.id = id;
     this.kind = 'npc';
     this.npcId = npcId;
+    this.level = level ?? null;   // addNpc.level from the datapack template
     this.name = name;
     this.target = null;
     this.dead = false;
@@ -141,7 +142,8 @@ class NpcEntity {
   async upgradeToMonster() {
     const [manifest, meshes] = await Promise.all([monsterManifest(), npcMeshes()]);
     if (!manifest) return;                     // pipeline hasn't landed: keep capsule
-    const meshName = meshes[String(this.npcId)];
+    const grp = meshes[String(this.npcId)] || {};
+    const meshName = grp.mesh;
     const entry = manifest.find(m => m.id === meshName)
       || manifest.find(m => m.id.toLowerCase() === String(meshName).toLowerCase());
     if (!entry) return;                        // no model for this npcId: keep capsule
@@ -155,7 +157,13 @@ class NpcEntity {
       const box = new THREE.Box3().setFromObject(root);
       const size = box.getSize(new THREE.Vector3());
       if (size.y > 0.001) {
-        if (entry.nativeHeight) {
+        if (entry.nativeHeight && grp.height) {
+          // docs/npc-visual-data.md §4: server height is a HALF-height (aCis
+          // GeoEngine doubles it for full height), so per npcId:
+          // renderScale = (2 x npcgrp height) / mesh.nativeHeight — 32% of
+          // meshes are reused at different sizes, per npcId, not per mesh.
+          root.scale.setScalar((2 * grp.height * L2_TO_M) / size.y);
+        } else if (entry.nativeHeight) {
           root.scale.setScalar((entry.nativeHeight * L2_TO_M) / size.y);
         } else {
           const k = MONSTER_HEIGHT / size.y;
@@ -277,7 +285,7 @@ class NpcEntity {
     const step = Math.min(NPC_SPEED * dt, d);
     pos.x += dx / d * step;
     pos.z += dz / d * step;
-    pos.y = terrain.heightAtWorld(pos.x, pos.z);
+    pos.y = terrain.heightAtWorld(pos.x, pos.z, pos.y);
     this.group.rotation.y = Math.atan2(dx, dz);
   }
 }
@@ -292,11 +300,17 @@ export class EntityManager {
 
   has(id) { return this.entities.has(id) || this.pending.has(id); }
 
-  // Ground rule: outdoors the converted terrain height is right; indoors
-  // (lighthouse, shops) the walkable floor is a PROP above the bare-ground
-  // heightmap, and the server z (real geodata) is the floor. Take the max.
+  // Ground rule: with per-tile geodata present, the height is the layer
+  // NEAREST to the server z (bridges: an entity on a bridge stays on the
+  // bridge; on the road below, on the road). Legacy rule without geodata:
+  // outdoors the converted terrain height is right; indoors the walkable
+  // floor is a PROP above the bare-ground heightmap, and the server z
+  // (real geodata) is the floor — take the max.
   _groundY(x, z, serverZm, terrain) {
-    const t = terrain ? terrain.heightAtWorld(x, z) : -Infinity;
+    if (terrain && terrain.geodata && serverZm != null) {
+      return terrain.heightAtWorld(x, z, serverZm);
+    }
+    const t = terrain ? terrain.heightAtWorld(x, z, serverZm ?? null) : -Infinity;
     return Math.max(t, serverZm ?? -Infinity);
   }
 
@@ -312,6 +326,7 @@ export class EntityManager {
       if (this.entities.has(id)) return;   // raced with a duplicate add
       ch.id = id;
       ch.kind = 'player';
+      ch.level = msg.level ?? null;   // addPlayer.level: null in-protocol (aCis 409)
       ch.name = msg.name || `player#${id}`;
       l2ToThree(msg.x || 0, msg.y || 0, msg.z || 0, ch.group.position);
       ch.serverZ = (msg.z || 0) * L2_TO_M;
@@ -441,7 +456,7 @@ export class EntityManager {
     const out = [];
     for (const [id, e] of this.entities) {
       out.push({
-        id, kind: e.kind, name: e.name,
+        id, kind: e.kind, name: e.name, level: e.level ?? null,
         npcId: e.npcId,
         hasModel: !!e.mixer,
         heightM: e.heightM ? +e.heightM.toFixed(3) : null,

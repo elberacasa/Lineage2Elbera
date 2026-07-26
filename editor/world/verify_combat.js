@@ -73,17 +73,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await page.waitForFunction(
       `window.__world.net.log.some(m => m.dir === 'out' && m.op === 'target' && m.id === ${GREMLIN})
        && window.__world.net.log.some(m => m.op === 'target_ok' && m.id === ${GREMLIN})
-       && document.getElementById('target-frame').classList.contains('visible')`,
+       && window.__world.targetWnd && window.__world.targetWnd.root.style.display !== 'none'`,
       { timeout: 10000 });
     await sleep(400);
     summary.target = await page.evaluate(() => ({
-      name: document.getElementById('target-name').textContent,
-      hpText: document.getElementById('target-hp-text').textContent,
+      name: window.__world.targetWnd.target.name,
+      hpText: `${window.__world.targetWnd.target.hp} / ${window.__world.targetWnd.target.maxHp}`,
     }));
     await page.screenshot({ path: path.join(OUT, 'm3_01_targeting.png') });
 
-    // -- F1 -> attack; combat ticks ----------------------------------------
-    await page.keyboard.press('F1');
+    // -- second click on the target -> attack (F1 is a shortcut key now) ----
+    await page.mouse.click(gp.x, gp.y);
     await page.waitForFunction(
       `window.__world.net.log.filter(m => m.op === 'attack').length >= 2`, { timeout: 10000 });
     // catch a damage float mid-flight + shrunken HP bars
@@ -93,7 +93,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       floats: [...document.querySelectorAll('.dmg-float')].map(e => ({
         text: e.textContent, cls: e.className })),
       hpBars: document.querySelectorAll('.hp-bar').length,
-      targetHpFillWidth: document.getElementById('target-hp-fill').style.width,
+      targetHpFillWidth: window.__world.targetWnd.bars.HP.fill.style.width,
       selfHpFrac: window.__world.statusWnd.rows.hp.frac,
     }));
     await page.screenshot({ path: path.join(OUT, 'm3_02_combat.png') });
@@ -103,8 +103,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       `window.__world.net.log.some(m => m.op === 'die' && m.id === ${GREMLIN})`, { timeout: 30000 });
     await sleep(1200);   // die animation starts, corpse begins to fade
     summary.death = await page.evaluate(() => ({
-      targetDead: document.getElementById('target-frame').classList.contains('dead'),
-      targetHpText: document.getElementById('target-hp-text').textContent,
+      targetDead: window.__world.combat.target && !!window.__world.combat.target.dead,
+      targetHpText: `${window.__world.targetWnd.target.hp} / ${window.__world.targetWnd.target.maxHp}`,
       exp: window.__world.combat.self.exp,
       selfHp: window.__world.statusWnd.rows.hp.frac,
     }));

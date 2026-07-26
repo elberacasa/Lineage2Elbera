@@ -106,10 +106,16 @@ export class StatusWnd {
     // --- background bands ---
     // DEVIATION, flagged: StatusWndCenterTex carries NO texture reference in
     // the xdat — the control exists but names no art — so the middle band
-    // stretches the left cap's content across the gap.
+    // stretches the left cap's content across the gap. Its WIDTH comes from
+    // the has0 auto-size block (docs/xdat-tail-has0.md): width =
+    // parent.width + insetA (insetA = -32 -> 176-32 = 144 at default).
+    // StatusWndRightTex stays AUTHORED (its record is among the 23
+    // hasSize==0 records the decode does not cover).
     this.bandL = this._band(this.lTex, { w: this.lSize.w, h: this.h });
     this.bandC = this._band(this.lTex, { w: this.lSize.w, h: this.h });
     this.bandR = this._band(this.rTex, { w: this.rSize.w, h: this.h });
+    this.centerInset = (Layout.autosize(WND, 'StatusWndCenterTex')
+      || { insets: [0, 0] }).insets[0];
 
     // --- level box ---
     const lvlSize = Layout.size(WND, 'StatusWnd_LevelTextBox_back') || { w: 22, h: 20 };
@@ -129,10 +135,10 @@ export class StatusWnd {
     // --- character name ---
     const name = document.createElement('div');
     name.style.position = 'absolute';
-    // AUTHORED: NameCtrl carries no offset in the xdat (it is laid out by
-    // the native control); placed to clear the level box.
-    name.style.left = `${Skin.px(INSET + lvlSize.w + 4)}px`;
-    name.style.top = `${Skin.px(6)}px`;
+    // MINED (has0 decode): UserName at (40, 9) — replaces the AUTHORED offset.
+    const namePos = Layout.pos(WND, 'UserName') ?? { x: INSET + lvlSize.w + 4, y: 6 };
+    name.style.left = `${Skin.px(namePos.x)}px`;
+    name.style.top = `${Skin.px(namePos.y)}px`;
     root.appendChild(name);
     this.nameEl = name;
 
@@ -142,27 +148,29 @@ export class StatusWnd {
     const rowArt = Skin.content(ROW_REF);
     const ROW_H = rowArt ? rowArt.h : 12;
 
+    // MINED (has0 decode, docs/xdat-tail-has0.md §2 check 1): the four
+    // gauges stack at x=16, y=27/41/55/69 (constant 14px pitch). Width
+    // follows the auto-size rule width = parent.width + insetA (-26).
     this.rows = {};
     this.set = {};
-    let y = 4 + lvlSize.h + 3;
     for (const { key, ctrl } of BARS) {
       const { fill, back, warn } = barTextures(ctrl);
+      const pos = Layout.pos(WND, ctrl) ?? { x: INSET, y: 4 + lvlSize.h + 3 };
       const row = document.createElement('div');
       row.style.position = 'absolute';
-      row.style.left = `${Skin.px(INSET)}px`;
-      row.style.top = `${Skin.px(y)}px`;
+      row.style.left = `${Skin.px(pos.x)}px`;
+      row.style.top = `${Skin.px(pos.y)}px`;
       root.appendChild(row);
       this.set[key] = Skin.gauge(row, fill, back,
                                  { width: this._gaugeW(), height: ROW_H });
       this.rows[key] = { el: row, fill, back, warn, frac: 0 };
-      y += ROW_H + 1;
     }
 
     // --- HP readout, over the gauge stack as the retail window shows ---
     const text = document.createElement('div');
     text.style.position = 'absolute';
-    text.style.left = `${Skin.px(INSET + 3)}px`;
-    text.style.top = `${Skin.px(4 + lvlSize.h + 3)}px`;
+    text.style.left = `${Skin.px((Layout.pos(WND, 'CPBar') ?? { x: INSET }).x + 3)}px`;
+    text.style.top = `${Skin.px((Layout.pos(WND, 'CPBar') ?? { y: 4 + lvlSize.h + 3 }).y)}px`;
     text.style.pointerEvents = 'none';
     root.appendChild(text);
     this.textEl = text;
@@ -186,7 +194,8 @@ export class StatusWnd {
     return d;
   }
 
-  _gaugeW() { return this.w - INSET * 2; }
+  // data rule (has0 autosize): gauge width = parent.width + insetA
+  _gaugeW() { return this.w + ((Layout.autosize(WND, 'CPBar') || { insets: [-2 * INSET, 0] }).insets[0]); }
 
   _loadWidth() {
     try {
@@ -204,8 +213,9 @@ export class StatusWnd {
     this.bandL.style.left = `${Skin.px(this.leftX)}px`;
     this.bandL.style.width = `${Skin.px(this.lSize.w)}px`;
     this.bandC.style.left = `${Skin.px(this.leftX + this.lSize.w)}px`;
-    this.bandC.style.width =
-      `${Skin.px(this.w - this.leftX - this.lSize.w - this.rSize.w)}px`;
+    // data rule (has0 autosize): center band width = parent.width + insetA
+    // (-32) — spans 28..(width-32), tiling exactly into the right cap
+    this.bandC.style.width = `${Skin.px(this.w + this.centerInset)}px`;
     this.bandR.style.left = `${Skin.px(this.w - this.rSize.w)}px`;
     this.bandR.style.width = `${Skin.px(this.rSize.w)}px`;
 

@@ -19,6 +19,7 @@ All filesystem access is confined to its root (path-traversal safe).
 
 import json
 import os
+import re
 import posixpath
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -27,6 +28,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORLD_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "world"))
 CHARACTERS_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "characters"))
 GAMEDATA_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "gamedata"))
+NPCS_XML_DIR = os.path.normpath(os.path.join(
+    BASE_DIR, "..", "..", "server", "aCis_gameserver", "build", "dist",
+    "gameserver", "data", "xml", "npcs"))
 PORT = 8083
 
 # compact npcId -> display name map, built once from assets/gamedata/npcname.json
@@ -49,9 +53,36 @@ def npc_names():
     return _npc_names
 
 
+_NPC_BLOCK_RE = re.compile(r'<npc id="\d+"[^>]*>.*?</npc>', re.S)
+_NPC_HEIGHT_RE = re.compile(r'height" val="([\d.]+)"')
+
+
+def _server_heights():
+    """npcId -> server collision height, from the aCis npc XMLs
+    (docs/npc-visual-data.md §3: 100% of NPCs carry it; visual = 2x it)."""
+    out = {}
+    if not os.path.isdir(NPCS_XML_DIR):
+        return out
+    for name in os.listdir(NPCS_XML_DIR):
+        if not name.endswith(".xml"):
+            continue
+        try:
+            with open(os.path.join(NPCS_XML_DIR, name), "r", encoding="utf-8") as fh:
+                src = fh.read()
+        except OSError:
+            continue
+        for block in _NPC_BLOCK_RE.findall(src):
+            m = _NPC_HEIGHT_RE.search(block)
+            if m:
+                out[block.split('"')[1]] = float(m.group(1))
+    return out
+
+
 def npc_meshes():
+    """npcId -> {mesh, height}: npcgrp mesh name + server collision height."""
     global _npc_meshes
     if _npc_meshes is None:
+        heights = _server_heights()
         _npc_meshes = {}
         src = os.path.join(GAMEDATA_DIR, "npcgrp.json")
         try:
@@ -59,7 +90,11 @@ def npc_meshes():
                 for entry in json.load(fh):
                     mesh = entry.get("mesh_name") or ""
                     # "LineageMonsters.gremlin_m00" -> "gremlin_m00"
-                    _npc_meshes[str(entry["npc_id"])] = mesh.rsplit(".", 1)[-1]
+                    nid = str(entry["npc_id"])
+                    _npc_meshes[nid] = {
+                        "mesh": mesh.rsplit(".", 1)[-1],
+                        "height": heights.get(nid),
+                    }
         except (OSError, ValueError, KeyError):
             pass
     return _npc_meshes

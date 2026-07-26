@@ -38,6 +38,8 @@ Format lore: `docs/map-format.md`.
   "layers": [{"name": "...", "diffuse": "textures/<file>.png"|null,
               "splat": "textures/<file>.png"|null}],
   "water": null,
+  "geodata": "geodata.json",          // optional, see geodata contract below
+  "interior": true,                   // optional, dungeon tiles only (below)
   "props": [{"mesh": "<package>.<name>",
              "gltf": "props/<name>.gltf"|null,
              "position": [x, y, z],
@@ -113,6 +115,61 @@ world Z = z0 + (h - 32768) * heightScale        (heightScale = 76/256 = 0.296875
   → Shader/FinalBlend resolved to diffuse via l2lib and decoded). Rendered
   headless (three.js + puppeteer, `preview.html`/`shot.js`) and eyeballed:
   buildings, fences, boards come out textured and correctly shaped.
+
+## geodata.json contract (FROZEN)
+
+Per-tile ground truth for "height at (x, y, z)" — decoded from the installed
+L2OFF geodata regions (`server/geodata-staging/geodata/<tile>_conv.dat`,
+format: `docs/geodata-format.md`). `scene.json` carries an optional
+`"geodata": "geodata.json"` pointer (present on all 100 converted tiles —
+every tile has a matching region; no heightmap-fallback cases).
+
+```json
+{
+  "tile": "22_22",
+  "cellSize": 16,
+  "origin": [65536.0, 131072.0],
+  "cells": 2048,
+  "blockCells": 8,
+  "blocks": 256,
+  "maxLayers": 5,
+  "layers": [{"data": "geodata.bin", "encoding": "blockstream-v1",
+              "bytes": 5568008}],
+  "stats": {"flat": 26699, "complex": 34495, "multilayer": 4342,
+            "multilayerCells": 89300}
+}
+```
+
+- `origin` = world X/Y of cell (0,0)'s **corner** — identical to
+  `scene.json.origin[:2]`. Cell of a world point:
+  `cx = floor((x - origin[0]) / cellSize)`, same for y (clamp to 0..2047).
+- `layers` lists the payload file(s). Currently one payload holding **all**
+  height layers; the array shape leaves room for future payloads (e.g.
+  dynamic doors).
+
+### geodata.bin — "blockstream-v1"
+
+```
+u32 magic = 0x4C324731 ('L2G1'), u16 tileX, u16 tileY
+256x256 blocks, X outer, Y inner; each block is 8x8 cells, row-major (y inner)
+per block:
+  u8 type = 0  FLAT       -> i16 height        (nswe implied 0x0F, open)
+  u8 type = 1  COMPLEX    -> 64 x i16 packed cell words
+  u8 type = 2  MULTILAYER -> per cell: u8 layerCount (1..127),
+                             layerCount x i16 packed cell words
+packed cell word: nswe = w & 0x000F (E=1, W=2, S=4, N=8; a bit allows
+                 moving OUT of the cell in that direction)
+                 height = int16(w & 0xFFF0) >> 1   (arithmetic shift!)
+```
+
+### Height query (the multi-layer rule)
+
+FLAT/COMPLEX cells have one height. MULTILAYER cells have several stacked
+surfaces (bridge over road, tower floors). **Height is a function of
+(x, y, z)**: collect all layer heights of the cell and pick the one nearest
+the character's current z (`abs(h - z)` minimum). A lookup without z picks
+the wrong floor in multi-level structures — this is the whole point of
+shipping geodata instead of using the terrain heightmap.
 
 ## What is SIMPLIFIED / not done
 
@@ -233,7 +290,13 @@ mesh-and-location-required rule).
 
 ## Files
 
-- `convert.py` — the converter (single file, see module docstring).
+- `convert.py` — the converter (single file, see module docstring). Emits
+  geodata too when a matching region exists.
+- `geodata.py` — per-tile geodata extraction/validation (standalone:
+  `python3 tools/world/geodata.py --all` regenerates geodata + patches the
+  scene.json pointer without a full reconversion; `--check [tiles]` does a
+  full round-trip validation against the source regions + a heightmap
+  cross-check).
 - `batch_convert.sh` — resumable M2 batch driver over tile-map.json
   (logs: `batch_convert.log`, `batch_failures.txt`).
 - `preview.html`, `shot.js` — headless render check for converted props

@@ -319,10 +319,32 @@ Settle it with a live test before shipping.
   window, I inventory, C sheet) are **ours**, not retail.
 - **3 of 140 xdat top-level windows** don't match the header anchor. Reported,
   never invented. None are HUD windows.
-- **The xdat type-dependent tail** is undecoded, which is why per-control x/y
-  offsets are unavailable.
+- **~~The xdat type-dependent tail~~ → RESOLVED.** Per-control x/y is decoded
+  for both record shapes: `hasSize == 1` (24.8 fixed point at body+12/+16,
+  [ui-mined-values.md](ui-mined-values.md)) and `hasSize == 0` (plain ints at
+  body+30/+34 behind an auto-size block, [xdat-tail-has0.md](xdat-tail-has0.md)).
+  StatusWnd gauges, TargetStatusWnd bars/name and ChatWnd panes are all
+  decoded; `parse_xdat.py --check` guards the layouts.
+- **~~ItemWindow/shortcut cell pitch~~ → RESOLVED**
+  ([ui-mined-native.md](ui-mined-native.md) §1): pitch is data-driven —
+  cell+gap from the xdat grid params: **37×35** for every grid (cell 32,
+  gap 5/3); shortcut bar **pitch 37** with +5px separators after slots 4
+  and 8 (all 12 slot positions are in the xdat as nested records).
+  Slot art 34×34, icon 32×32 (1px inset), hardcoded in NCItemWnd's render.
+- **~~Chat channel colors~~ → RESOLVED**
+  ([ui-mined-native.md](ui-mined-native.md) §2): exact per-say-type table
+  from the switch at 0x10141760 in NWindow.dll (SHOUT #FF7200, TELL #FF00FF,
+  PARTY #00FF00, CLAN #7D77FF, TRADE #EAA5F5, ALLIANCE #77FF99,
+  petition/announce #80FFFF, commander #FF9695, partyroom #FFF8B2,
+  critical #7B7DF2, default incl. ALL/HERO #DCDCDC).
 - **`StatusWndCenterTex` names no texture at all** — the middle band currently
-  stretches the left cap (`DEVIATION`, flagged in source).
+  stretches the left cap (`DEVIATION`, flagged in source). Its rect is now
+  decoded (x=28, auto-width 144 — bands tile 176 exactly), only the texture
+  itself is missing.
+- **Engine.dll is Themida-packed** — its code section is ciphertext, so
+  static disassembly of anything living only there (e.g. `?Say2@UNetworkHandler`)
+  is out of reach without unpacking. Everything mined so far lives in
+  NWindow.dll.
 - **CJK/Cyrillic fonts** unhandled: the `-r` variant declares 256 glyphs over
   2 pages with a different record layout. Only the Latin `-e` fonts are parsed.
 - **HD upscale never run.** `build_uiskin.py --hd` exists (same Real-ESRGAN pass
@@ -350,9 +372,10 @@ Note the names are **not** referenced as pointers from `.rdata`, so searching
 for a string xref finds nothing — go through the **export table** instead.
 
 **Highest-value targets:**
-- `execAddItem@UUIAPI_ITEMWINDOW` — the real `ItemWindow` cell layout, which
-  would retire the authored cell/pane offsets (§2.6)
-- the `StatusBar` thunks — real gauge row offsets
+- ~~`execAddItem@UUIAPI_ITEMWINDOW`~~ — done: pitch is data-driven, not in
+  this thunk; full chain and values in [ui-mined-native.md](ui-mined-native.md) §1
+- ~~the `StatusBar` thunks~~ — gauge offsets came from the xdat tail instead:
+  [xdat-tail-has0.md](xdat-tail-has0.md) §4
 - `Window.dll` — window drag/minimise/anchor behaviour
 
 ---

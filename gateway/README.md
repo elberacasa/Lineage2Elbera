@@ -110,6 +110,24 @@ The `channel` field in `chat` / `say` is the aCis SayType ordinal:
 
 ### charSheet
 
+### Level fields (TargetStatusWnd support, 2026-07-26, additive)
+
+- `addNpc` gains `level` — **aCis 409's NpcInfo packet carries NO level
+  field** (verified byte-level against AbstractNpcInfo.java and a live
+  packet dump). The bridge fills it from the datapack NPC template XML
+  (`data/xml/npcs/*.xml`, the same data NpcData loads; Gremlin 18342 = 1).
+  If `Config.ShowNpcLevel` is ever enabled, the live "Lv N" title prefix
+  (AbstractNpcInfo.java:106) takes precedence.
+- `addPlayer` gains `level: null` — aCis 409's CharInfo has no level field
+  either; player levels are unavailable in-protocol. Clients must tolerate
+  null (hide level or show "??" for players).
+- `target_ok` gains `color` — the raw MyTargetSelected color: for
+  attackable targets it is **viewer level − target level** (Player.java
+  setTarget), i.e. the retail con-color basis (negative = target higher
+  level); 0 for non-attackable.
+
+### charSheet
+
 `{"op":"charSheet","str":N,"dex":N,"con":N,"int":N,"wit":N,"men":N,"pAtk":N,"pDef":N,"mAtk":N,"mDef":N,"accuracy":N,"evasion":N,"critical":N,"runSpeed":N,"walkSpeed":N,"pAtkSpd":N,"mAtkSpd":N,"maxLoad":N}`
 
 Decoded from UserInfo(0x04) (field order verified against
@@ -191,6 +209,10 @@ Client -> server:
 - `{"op":"enterChar","slot":0}`
 - `{"op":"moveTo","x":0,"y":0,"z":0}`
 - `{"op":"say","channel":0,"text":".."}`
+- `{"op":"destroyItem","objectId":0,"count":1}` — inventory TrashButton
+  (aCis RequestDestroyItem 0x59, D objectId + D count)
+- `{"op":"crystallizeItem","objectId":0,"count":1}` — inventory
+  CrystallizeButton (aCis RequestCrystallizeItem 0x72, D objectId + D count)
 
 Server -> client:
 - `{"op":"auth_ok","chars":[{"slot":0,"name":"..","race":0,"classId":0}]}`

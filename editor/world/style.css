@@ -20,7 +20,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 #status { margin-left: auto; color: #8a93a5; font-size: 12px; }
 
 #help {
-  position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: 52px; left: 50%; transform: translateX(-50%);
   z-index: 10; padding: 5px 14px; border-radius: 12px;
   font: 12px -apple-system, "Segoe UI", sans-serif; color: #8a93a5;
   background: rgba(10,12,17,.6); pointer-events: none;
@@ -44,50 +44,10 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 #online-label { pointer-events: auto; cursor: pointer; }
 #online-label input { accent-color: #c9a959; cursor: pointer; }
 
-/* M2: chat box, bottom-left. Log is click-through; input only while typing. */
-#chat {
-  position: fixed; left: 10px; bottom: 10px; z-index: 11;
-  width: 340px; max-width: 40vw;
-  font: 12px/1.45 -apple-system, "Segoe UI", sans-serif;
-  pointer-events: none;
-}
-#chat-log {
-  max-height: 170px; overflow-y: auto;
-  padding: 4px 8px; border-radius: 6px;
-  background: rgba(10,12,17,.55);
-  display: none;
-}
-#chat-log.has-lines { display: block; }
-#chat-log .line { color: #cfd4de; text-shadow: 0 1px 2px #000; word-break: break-word; }
-#chat-log .line .from { color: #c9a959; }
-#chat-log .line.system { color: #7fbf7f; font-style: italic; }
-#chat-log .line.shout .from { color: #e0a050; }
-#chat-input {
-  display: none; box-sizing: border-box; width: 100%; margin-top: 4px;
-  padding: 5px 8px; border-radius: 6px; border: 1px solid #333a48;
-  background: rgba(16,19,26,.92); color: #e6eaf2; font: inherit; outline: none;
-}
-#chat.open #chat-input { display: block; pointer-events: auto; }
-#chat.open #chat-log { display: block; }
-
 /* M3: combat UI ----------------------------------------------------------*/
-
-#target-frame {
-  position: fixed; top: 34px; left: 50%; transform: translateX(-50%);
-  z-index: 12; width: 220px; padding: 6px 10px 8px; border-radius: 6px;
-  background: rgba(10,12,17,.72); border: 1px solid #3a4254;
-  font: 12px -apple-system, "Segoe UI", sans-serif; color: #e6eaf2;
-  text-align: center; display: none; pointer-events: none;
-}
-#target-frame.visible { display: block; }
-#target-frame.dead { opacity: .55; }
-#target-name { color: #c9a959; font-weight: 600; margin-bottom: 4px; }
-#target-hp-text { color: #8a93a5; font-size: 10px; margin-top: 2px; }
 
 .bar { position: relative; height: 8px; border-radius: 4px; background: #1a1e28; overflow: hidden; }
 .bar > div { height: 100%; width: 100%; border-radius: 4px; transition: width .25s; }
-.target-hp > div, #target-hp-fill { background: #c33; }
-#target-hp-fill { background: linear-gradient(#e05656, #a02828); }
 
 /* #self-status retired in Phase C.1 — the player status window is now the
    retail StatusWnd, built by js/ui/statuswnd.js from Interface.xdat
@@ -142,43 +102,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 .sysmenu-btn:hover { filter: brightness(1.25); }
 .sysmenu-btn.disabled { opacity: .35; cursor: default; }
 
-/* M4: skill bar + casting bar + inventory + loot ---------------------------*/
-
-#skill-bar {
-  position: fixed; bottom: 72px; left: 50%; transform: translateX(-50%);
-  z-index: 12; display: none; gap: 3px; pointer-events: auto;
-}
-#skill-bar.visible { display: flex; }
-.skill-slot {
-  position: relative; width: 34px; height: 34px; border-radius: 4px;
-  background: rgba(14,16,22,.85); border: 1px solid #3a4254;
-  cursor: pointer; overflow: hidden;
-}
-.skill-slot:hover { border-color: #c9a959; }
-.skill-slot.cooling { opacity: .35; pointer-events: none; }
-.skill-slot img { width: 100%; height: 100%; display: block; }
-.icon-fallback {
-  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-  color: #8a93a5; font: 700 16px -apple-system, sans-serif; background: #1a1e28;
-}
-.slot-key {
-  position: absolute; right: 2px; bottom: 0; font: 9px -apple-system, sans-serif;
-  color: #c9a959; text-shadow: 0 1px 2px #000;
-}
-
-/* M5 hotbar: 10 slots below the skill palette */
-#hotbar {
-  position: fixed; bottom: 34px; left: 50%; transform: translateX(-50%);
-  z-index: 12; display: flex; gap: 3px; pointer-events: auto;
-}
-.hot-slot {
-  position: relative; width: 34px; height: 34px; border-radius: 4px;
-  background: rgba(14,16,22,.85); border: 1px solid #2c3342;
-  cursor: pointer; overflow: hidden;
-}
-.hot-slot.empty { opacity: .45; }
-.hot-slot:hover { border-color: #c9a959; }
-.hot-slot img { width: 100%; height: 100%; display: block; }
+/* M4: casting bar + inventory + loot (bars moved to ShortcutWnd) */
 
 #cast-bar {
   position: fixed; bottom: 114px; left: 50%; transform: translateX(-50%);
@@ -188,34 +112,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 #cast-bar.visible { display: flex; }
 #cast-bar .bar.cast { width: 160px; height: 7px; }
 #cast-fill { background: linear-gradient(#7fb3ff, #3a6fc9); width: 0; }
-
-#inventory-panel {
-  position: fixed; right: 12px; bottom: 90px; z-index: 13; width: 248px;
-  display: none; border-radius: 8px; padding: 8px 10px 10px;
-  background: rgba(10,12,17,.88); border: 1px solid #3a4254;
-  font: 12px -apple-system, sans-serif; color: #cfd4de;
-}
-#inventory-panel.visible { display: block; }
-.inv-header { display: flex; justify-content: space-between; align-items: center;
-  color: #c9a959; font-weight: 600; margin-bottom: 8px; }
-.inv-close { background: none; border: none; color: #8a93a5; font-size: 15px; cursor: pointer; }
-.inv-close:hover { color: #e6eaf2; }
-#inventory-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-.inv-slot {
-  position: relative; aspect-ratio: 1; border-radius: 4px;
-  background: #161a22; border: 1px solid #2a3140; cursor: pointer; overflow: hidden;
-}
-.inv-slot:hover { border-color: #c9a959; }
-.inv-slot.equipped { border-color: #5a7fe0; }
-.inv-slot img { width: 100%; height: 100%; display: block; }
-.inv-slot .count {
-  position: absolute; right: 2px; bottom: 0;
-  font: 10px -apple-system, sans-serif; color: #e6eaf2; text-shadow: 0 1px 2px #000;
-}
-.inv-slot .eq {
-  position: absolute; left: 2px; top: 0;
-  font: 700 10px -apple-system, sans-serif; color: #7fb3ff; text-shadow: 0 1px 2px #000;
-}
 
 #loot-toasts {
   position: fixed; right: 14px; bottom: 14px; z-index: 14;
@@ -233,13 +129,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 #chat-log .line.sysmsg { color: #e8d57f; font-style: italic; }
 
 /* M5 chat channels + tabs (L2 colors) */
-#chat-tabs { display: none; gap: 2px; margin-bottom: 3px; pointer-events: auto; }
-#chat.open #chat-tabs, #chat-log.has-lines ~ #chat-tabs { display: flex; }
-#chat.open #chat-tabs { display: flex; }
-#chat-tabs button {
-  background: rgba(16,19,26,.8); color: #8a93a5; border: 1px solid #333a48;
-  border-radius: 4px; padding: 1px 8px; font: 10px -apple-system, sans-serif; cursor: pointer;
-}
 #chat-tabs button.active { color: #c9a959; border-color: #c9a959; }
 #chat-log .line.ch-all { color: #e6eaf2; }
 #chat-log .line.ch-shout { color: #ff9c40; }
@@ -291,3 +180,40 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
   pointer-events: none; transition: opacity .8s;
 }
 #dev-hint.fade { opacity: 0; }
+
+/* ShortcutWnd slots (js/ui/shortcutwnd.js) */
+.shortcut-slot {
+  position: absolute; border-radius: 3px; cursor: pointer; overflow: visible;
+  background: rgba(12,14,18,.55); border: 1px solid #2a3140;
+}
+.shortcut-slot.empty { background: rgba(12,14,18,.3); }
+.shortcut-slot:hover { border-color: #c9a959; }
+.shortcut-slot img { width: 100%; height: 100%; display: block; }
+.shortcut-btn.disabled { opacity: .35; cursor: default; pointer-events: none; }
+
+/* InventoryWnd paperdoll + cells (js/ui/inventorywnd.js) */
+.doll-slot {
+  border-radius: 3px; background: rgba(12,14,18,.5); border: 1px solid #2a3140;
+  overflow: hidden; cursor: pointer;
+}
+.doll-slot.filled { border-color: #5a7fe0; }
+.doll-slot.henna { cursor: default; opacity: .5; }
+.doll-slot img, .inv-cell img { width: 100%; height: 100%; display: block; }
+.inv-cell {
+  position: relative; border-radius: 3px; background: rgba(12,14,18,.5);
+  border: 1px solid #2a3140; overflow: hidden; cursor: pointer;
+}
+.inv-cell:hover, .doll-slot:hover { border-color: #c9a959; }
+.inv-cell .count {
+  position: absolute; right: 2px; bottom: 0;
+  font: 10px -apple-system, sans-serif; color: #e6eaf2; text-shadow: 0 1px 2px #000;
+}
+.inv-bottom-btn:hover { filter: brightness(1.25); }
+
+/* ChatWnd side buttons */
+.chat-side-btn { pointer-events: auto; cursor: pointer; }
+.chat-side-btn.disabled { opacity: .35; cursor: default; pointer-events: none; }
+
+/* TargetStatusWnd bar fills (art is native BarCtrl, colors AUTHORED) */
+.target-bar-hp > div { background: linear-gradient(#e05656, #a02828); }
+.target-bar-mp > div { background: linear-gradient(#5a7fe0, #2c4aa0); }

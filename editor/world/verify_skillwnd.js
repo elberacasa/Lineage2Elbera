@@ -73,14 +73,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await sleep(400);
     await page.screenshot({ path: path.join(OUT, 'c3_skillwnd_passive.png') });
 
-    // a passive must be refused by the shortcut bar
+    // a passive must be refused by the shortcut bar: dispatch the real drop
+    // event with a passive payload and check the slot stays empty
     const hotbarRefused = await page.evaluate(() => {
       const w = window.__world.skillWnd;
-      const hb = window.__world.hotbar;
       const p = w.skills.find(s => w._bucket(s) === 'passive');
       if (!p) return null;
-      hb.assign(0, { type: 'skill', id: p.id });
-      return hb.slots[0] === null;
+      const slot = document.querySelector('#l2-shortcutwnd .shortcut-slot');
+      const dt = new DataTransfer();
+      dt.setData('application/x-l2vzla', JSON.stringify({ type: 'skill', id: p.id }));
+      slot.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt }));
+      const data = window.__world.shortcutWnd.data['0'] || {};
+      return !Object.values(data).some(s => s.id === p.id);
     });
     summary.hotbarRefused = hotbarRefused;
 

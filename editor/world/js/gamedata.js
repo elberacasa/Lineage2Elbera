@@ -35,10 +35,17 @@ export function renderSysMsg(meta, id, params = []) {
     return `sysmsg ${id}${params.length ? ': ' + params.join(', ') : ''}`;
   }
   let si = 0, ci = 0;
-  return entry.text.replace(/\$([sc])(\d+)/g, (m, kind) => {
+  const text = entry.text.replace(/\$([sc])(\d+)/g, (m, kind) => {
     const idx = kind === 's' ? si++ : ci++;
     return params[idx] != null ? String(params[idx]) : m;
   });
+  return text;
+}
+
+/** The sysmsg's own color from systemmsg-e.dat (tier 4), or null. */
+export function sysMsgColor(meta, id) {
+  const entry = meta && meta[String(id)];
+  return (entry && entry.color) || null;
 }
 
 export function skillInfo(meta, id) {

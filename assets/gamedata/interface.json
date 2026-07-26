@@ -52,7 +52,15 @@
      "x": 18,
      "y": 25,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 3,
+      "capacity": 18,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "txtBasic",
@@ -72,7 +80,15 @@
      "x": 18,
      "y": 155,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 2,
+      "capacity": 12,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "txtBasic",
@@ -92,7 +108,15 @@
      "x": 18,
      "y": 250,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 3,
+      "capacity": 12,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     }
    ]
   },
@@ -101,8 +125,8 @@
    "type": "undefined",
    "width": null,
    "height": null,
-   "x": null,
-   "y": null,
+   "x": 0,
+   "y": 0,
    "textures": [],
    "children": [
     {
@@ -110,10 +134,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "BenchMarkFunctionWnd",
@@ -180,6 +212,14 @@
       }
      ]
     }
+   ],
+   "autosize": [
+    1.0,
+    1.0
+   ],
+   "insets": [
+    0,
+    0
    ]
   },
   {
@@ -781,10 +821,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 18,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      -82
+     ]
     },
     {
      "name": "ChatWndBottomTex",
@@ -867,50 +915,90 @@
      "type": "ChatWindow",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -5,
+      -46
+     ]
     },
     {
      "name": "PartyChat",
      "type": "ChatWindow",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -5,
+      -46
+     ]
     },
     {
      "name": "ClanChat",
      "type": "ChatWindow",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -5,
+      -46
+     ]
     },
     {
      "name": "TradeChat",
      "type": "ChatWindow",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -5,
+      -46
+     ]
     },
     {
      "name": "AllyChat",
      "type": "ChatWindow",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -5,
+      -46
+     ]
     },
     {
      "name": "TabBackgroundTexture",
@@ -955,8 +1043,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
      "children": [
       {
@@ -964,10 +1052,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       },
       {
        "name": "Clan1_AskJoinPartyBtn",
@@ -1454,6 +1550,14 @@
        ],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.8999999761581421
+     ],
+     "insets": [
+      0,
+      0
      ]
     },
     {
@@ -1461,8 +1565,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
      "children": [
       {
@@ -1470,10 +1574,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       },
       {
        "name": "Clan2_CurrentSelectedMemberName",
@@ -1748,6 +1860,14 @@
        "textures": [],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.8999999761581421
+     ],
+     "insets": [
+      0,
+      0
      ]
     },
     {
@@ -1755,8 +1875,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
      "children": [
       {
@@ -1764,10 +1884,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       },
       {
        "name": "Clan3_ClanName",
@@ -1847,7 +1975,15 @@
        "x": 8,
        "y": 268,
        "textures": [],
-       "children": []
+       "children": [],
+       "grid": {
+        "rows": 2,
+        "capacity": 80,
+        "cellX": 32,
+        "cellY": 32,
+        "gapX": 5,
+        "gapY": 3
+       }
       },
       {
        "name": "Clan3_OrgIconWnd1",
@@ -2030,6 +2166,14 @@
        ],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.8999999761581421
+     ],
+     "insets": [
+      0,
+      0
      ]
     },
     {
@@ -2037,8 +2181,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
      "children": [
       {
@@ -2046,10 +2190,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       },
       {
        "name": "Clan4_OKBtn",
@@ -2074,6 +2226,14 @@
        "textures": [],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.8999999761581421
+     ],
+     "insets": [
+      0,
+      0
      ]
     },
     {
@@ -2081,8 +2241,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
      "children": [
       {
@@ -2090,10 +2250,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       },
       {
        "name": "Clan5_ManageBtn",
@@ -2174,6 +2342,14 @@
        "textures": [],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.8999999761581421
+     ],
+     "insets": [
+      0,
+      0
      ]
     },
     {
@@ -2181,8 +2357,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
      "children": [
       {
@@ -2190,10 +2366,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       },
       {
        "name": "Clan6_CurrentSelectedRankName",
@@ -2481,6 +2665,14 @@
        "textures": [],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.8999999761581421
+     ],
+     "insets": [
+      0,
+      0
      ]
     },
     {
@@ -2488,8 +2680,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
      "children": [
       {
@@ -2497,10 +2689,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       },
       {
        "name": "ClanCrestTextureCtrl",
@@ -2637,6 +2837,14 @@
        ],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.8999999761581421
+     ],
+     "insets": [
+      0,
+      0
      ]
     },
     {
@@ -2644,8 +2852,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
      "children": [
       {
@@ -2653,10 +2861,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       },
       {
        "name": "Clan8_DeclaredWnd",
@@ -2778,6 +2994,14 @@
        ],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.8999999761581421
+     ],
+     "insets": [
+      0,
+      0
      ]
     },
     {
@@ -2785,8 +3009,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
      "children": [
       {
@@ -2794,10 +3018,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       },
       {
        "name": "Clan1_ChangeMemberNameWndNobless",
@@ -2902,6 +3134,14 @@
        ],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.8999999761581421
+     ],
+     "insets": [
+      0,
+      0
      ]
     }
    ]
@@ -3450,10 +3690,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "TopList",
@@ -3463,7 +3711,15 @@
      "x": 9,
      "y": 48,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 4,
+      "capacity": 160,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "BottomList",
@@ -3473,7 +3729,15 @@
      "x": 9,
      "y": 215,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 3,
+      "capacity": 160,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "UpButton",
@@ -3611,10 +3875,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "Text1",
@@ -4351,10 +4623,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "DialogBody",
@@ -4672,8 +4952,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 12,
+     "y": 0,
      "textures": [],
      "children": [
       {
@@ -4693,10 +4973,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 16,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        -36,
+        0
+       ]
       },
       {
        "name": "BackTex3",
@@ -4715,10 +5003,18 @@
        "type": "NameCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 8,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -14,
+        14
+       ]
       },
       {
        "name": "ClassIcon",
@@ -4745,30 +5041,54 @@
        "type": "BarCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 4,
+       "y": 21,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -14,
+        5
+       ]
       },
       {
        "name": "barHP",
        "type": "BarCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 4,
+       "y": 28,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -14,
+        5
+       ]
       },
       {
        "name": "barMP",
        "type": "BarCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 4,
+       "y": 35,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -14,
+        5
+       ]
       },
       {
        "name": "BackTex1",
@@ -4787,10 +5107,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 16,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        -36,
+        0
+       ]
       },
       {
        "name": "BackTex3",
@@ -4809,10 +5137,18 @@
        "type": "NameCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 8,
+       "y": 8,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -14,
+        14
+       ]
       },
       {
        "name": "ClassIcon",
@@ -4839,30 +5175,54 @@
        "type": "BarCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 4,
+       "y": 21,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -14,
+        5
+       ]
       },
       {
        "name": "barHP",
        "type": "BarCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 4,
+       "y": 28,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -14,
+        5
+       ]
       },
       {
        "name": "barMP",
        "type": "BarCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 4,
+       "y": 35,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -14,
+        5
+       ]
       },
       {
        "name": "StatusIconBuff",
@@ -4889,30 +5249,54 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        0.0,
+        1.0
+       ],
+       "insets": [
+        16,
+        0
+       ]
       },
       {
        "name": "BackTex2",
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 16,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        -32,
+        0
+       ]
       },
       {
        "name": "BackTex3",
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        0.0,
+        1.0
+       ],
+       "insets": [
+        16,
+        0
+       ]
       },
       {
        "name": "ClassIcon",
@@ -4983,6 +5367,14 @@
        "textures": [],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -12,
+      46
      ]
     }
    ]
@@ -5084,10 +5476,18 @@
      "type": "HtmlCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 7,
+     "y": 30,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -14,
+      -37
+     ]
     }
    ]
   },
@@ -5776,10 +6176,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 32,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -64,
+      128
+     ]
     },
     {
      "name": "BackTex3",
@@ -5798,10 +6206,18 @@
      "type": "TextBox",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      -30
+     ]
     }
    ]
   },
@@ -5810,8 +6226,8 @@
    "type": "Window",
    "width": null,
    "height": null,
-   "x": null,
-   "y": null,
+   "x": 0,
+   "y": 0,
    "textures": [],
    "children": [
     {
@@ -5819,8 +6235,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
      "children": [
       {
@@ -5954,21 +6370,45 @@
        "type": "TextBox",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 180,
+       "y": 40,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        0.5,
+        0.0
+       ],
+       "insets": [
+        -280,
+        100
+       ]
       },
       {
        "name": "TeamName2",
        "type": "TextBox",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": -180,
+       "y": 40,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        0.5,
+        0.0
+       ],
+       "insets": [
+        -280,
+        100
+       ]
       }
+     ],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -120,
+      113
      ]
     },
     {
@@ -5976,8 +6416,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 50,
      "textures": [
       "L2UI_CH3.BroadcastObs.br_msg3_back"
      ],
@@ -5987,8 +6427,8 @@
        "type": "Window",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
        "children": [
         {
@@ -5996,8 +6436,8 @@
          "type": "Window",
          "width": null,
          "height": null,
-         "x": null,
-         "y": null,
+         "x": 20,
+         "y": 30,
          "textures": [],
          "children": [
           {
@@ -6050,10 +6490,34 @@
            "textures": [],
            "children": []
           }
+         ],
+         "autosize": [
+          0.5,
+          0.0
+         ],
+         "insets": [
+          0,
+          30
          ]
         }
+       ],
+       "autosize": [
+        0.5,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
        ]
       }
+     ],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      0,
+      236
      ]
     },
     {
@@ -6082,10 +6546,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 32,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -64,
+        256
+       ]
       },
       {
        "name": "BackTex3",
@@ -6104,50 +6576,90 @@
        "type": "BarCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 98,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -20,
+        12
+       ]
       },
       {
        "name": "HPBar",
        "type": "BarCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 112,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -20,
+        12
+       ]
       },
       {
        "name": "MPBar",
        "type": "BarCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 126,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -20,
+        12
+       ]
       },
       {
        "name": "LvClassTextBox",
        "type": "TextBox",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 20,
+       "y": 10,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.4000000059604645
+       ],
+       "insets": [
+        -40,
+        0
+       ]
       },
       {
        "name": "NameTextBox",
        "type": "TextBox",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 20,
+       "y": 40,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.4000000059604645
+       ],
+       "insets": [
+        -40,
+        0
+       ]
       }
      ]
     },
@@ -6198,10 +6710,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 32,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -64,
+        256
+       ]
       },
       {
        "name": "BackTex3",
@@ -6220,50 +6740,90 @@
        "type": "BarCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 98,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -20,
+        12
+       ]
       },
       {
        "name": "HPBar",
        "type": "BarCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 112,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -20,
+        12
+       ]
       },
       {
        "name": "MPBar",
        "type": "BarCtrl",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 126,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.0
+       ],
+       "insets": [
+        -20,
+        12
+       ]
       },
       {
        "name": "LvClassTextBox",
        "type": "TextBox",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 20,
+       "y": 10,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.4000000059604645
+       ],
+       "insets": [
+        -40,
+        0
+       ]
       },
       {
        "name": "NameTextBox",
        "type": "TextBox",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 20,
+       "y": 40,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        0.4000000059604645
+       ],
+       "insets": [
+        -40,
+        0
+       ]
       }
      ]
     },
@@ -6302,10 +6862,18 @@
          "type": "Texture",
          "width": null,
          "height": null,
-         "x": null,
-         "y": null,
+         "x": 32,
+         "y": 0,
          "textures": [],
-         "children": []
+         "children": [],
+         "autosize": [
+          1.0,
+          0.0
+         ],
+         "insets": [
+          -64,
+          128
+         ]
         },
         {
          "name": "BackTex3",
@@ -6375,28 +6943,44 @@
          "type": "TextBox",
          "width": null,
          "height": null,
-         "x": null,
-         "y": null,
+         "x": 56,
+         "y": 5,
          "textures": [],
-         "children": []
+         "children": [],
+         "autosize": [
+          1.0,
+          0.0
+         ],
+         "insets": [
+          -68,
+          40
+         ]
         },
         {
          "name": "Class",
          "type": "TextBox",
          "width": null,
          "height": null,
-         "x": null,
-         "y": null,
+         "x": 56,
+         "y": 5,
          "textures": [],
-         "children": []
+         "children": [],
+         "autosize": [
+          1.0,
+          0.0
+         ],
+         "insets": [
+          -68,
+          40
+         ]
         },
         {
          "name": "SelectedTex",
          "type": "Window",
          "width": null,
          "height": null,
-         "x": null,
-         "y": null,
+         "x": 0,
+         "y": 0,
          "textures": [],
          "children": [
           {
@@ -6416,10 +7000,18 @@
            "type": "Texture",
            "width": null,
            "height": null,
-           "x": null,
-           "y": null,
+           "x": 32,
+           "y": 0,
            "textures": [],
-           "children": []
+           "children": [],
+           "autosize": [
+            1.0,
+            0.0
+           ],
+           "insets": [
+            -64,
+            128
+           ]
           },
           {
            "name": "SelectedTex3",
@@ -6450,10 +7042,18 @@
            "type": "Texture",
            "width": null,
            "height": null,
-           "x": null,
-           "y": null,
+           "x": 32,
+           "y": 0,
            "textures": [],
-           "children": []
+           "children": [],
+           "autosize": [
+            1.0,
+            0.0
+           ],
+           "insets": [
+            -64,
+            128
+           ]
           },
           {
            "name": "SelectedTex3",
@@ -6467,6 +7067,14 @@
            ],
            "children": []
           }
+         ],
+         "autosize": [
+          1.0,
+          1.0
+         ],
+         "insets": [
+          0,
+          0
          ]
         },
         {
@@ -6486,10 +7094,18 @@
          "type": "Texture",
          "width": null,
          "height": null,
-         "x": null,
-         "y": null,
+         "x": 32,
+         "y": 0,
          "textures": [],
-         "children": []
+         "children": [],
+         "autosize": [
+          1.0,
+          0.0
+         ],
+         "insets": [
+          -64,
+          128
+         ]
         },
         {
          "name": "BackTex3",
@@ -6559,30 +7175,54 @@
          "type": "TextBox",
          "width": null,
          "height": null,
-         "x": null,
-         "y": null,
+         "x": -56,
+         "y": 5,
          "textures": [],
-         "children": []
+         "children": [],
+         "autosize": [
+          1.0,
+          0.0
+         ],
+         "insets": [
+          -68,
+          40
+         ]
         },
         {
          "name": "Class",
          "type": "TextBox",
          "width": null,
          "height": null,
-         "x": null,
-         "y": null,
+         "x": -56,
+         "y": 5,
          "textures": [],
-         "children": []
+         "children": [],
+         "autosize": [
+          1.0,
+          0.0
+         ],
+         "insets": [
+          -68,
+          40
+         ]
         },
         {
          "name": "SelectedTex",
          "type": "Window",
          "width": null,
          "height": null,
-         "x": null,
-         "y": null,
+         "x": 0,
+         "y": 0,
          "textures": [],
-         "children": []
+         "children": [],
+         "autosize": [
+          1.0,
+          1.0
+         ],
+         "insets": [
+          0,
+          0
+         ]
         }
        ]
       }
@@ -6609,6 +7249,14 @@
       }
      ]
     }
+   ],
+   "autosize": [
+    1.0,
+    1.0
+   ],
+   "insets": [
+    0,
+    0
    ]
   },
   {
@@ -6637,10 +7285,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 32,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -64,
+      512
+     ]
     },
     {
      "name": "BackTex3",
@@ -6716,8 +7372,8 @@
    "type": "Window",
    "width": null,
    "height": null,
-   "x": null,
-   "y": null,
+   "x": 0,
+   "y": 0,
    "textures": [],
    "children": [
     {
@@ -6725,61 +7381,117 @@
      "type": "TextBox",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": -28,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "GameTipText1-1",
      "type": "TextBox",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": -1,
+     "y": -29,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "GameTipText1-2",
      "type": "TextBox",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 1,
+     "y": -27,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "GameTipText",
      "type": "TextBox",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "GameTipText-2",
      "type": "TextBox",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": -1,
+     "y": -1,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "GameTipText-1",
      "type": "TextBox",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 1,
+     "y": 1,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     }
+   ],
+   "autosize": [
+    1.0,
+    0.20000000298023224
+   ],
+   "insets": [
+    0,
+    0
    ]
   },
   {
@@ -6787,8 +7499,8 @@
    "type": "Window",
    "width": null,
    "height": null,
-   "x": null,
-   "y": null,
+   "x": 0,
+   "y": 0,
    "textures": [],
    "children": [
     {
@@ -6837,6 +7549,14 @@
       }
      ]
     }
+   ],
+   "autosize": [
+    1.0,
+    1.0
+   ],
+   "insets": [
+    0,
+    0
    ]
   },
   {
@@ -7852,7 +8572,15 @@
      "x": 137,
      "y": 36,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 1,
+      "capacity": 1,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "HennaItem",
@@ -7862,7 +8590,15 @@
      "x": 223,
      "y": 39,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 1,
+      "capacity": 1,
+      "cellX": 24,
+      "cellY": 24,
+      "gapX": 0,
+      "gapY": 3
+     }
     },
     {
      "name": "InventoryItem",
@@ -7872,7 +8608,15 @@
      "x": 9,
      "y": 188,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 4,
+      "capacity": 250,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "QuestItem",
@@ -7882,7 +8626,15 @@
      "x": 9,
      "y": 188,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 4,
+      "capacity": 250,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "InventoryTab",
@@ -7982,7 +8734,15 @@
      "x": 9,
      "y": 48,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 9,
+      "capacity": 250,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "btnOK",
@@ -8017,8 +8777,8 @@
    "type": "Window",
    "width": null,
    "height": null,
-   "x": null,
-   "y": null,
+   "x": 0,
+   "y": 0,
    "textures": [],
    "children": [
     {
@@ -8026,8 +8786,8 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
      "children": [
       {
@@ -8119,10 +8879,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 16,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        -36,
+        0
+       ]
       },
       {
        "name": "BackTex3",
@@ -8153,10 +8921,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 16,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        -36,
+        0
+       ]
       },
       {
        "name": "BackTex3",
@@ -8187,10 +8963,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 16,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        -36,
+        0
+       ]
       },
       {
        "name": "BackTex3",
@@ -8204,8 +8988,24 @@
        ],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
      ]
     }
+   ],
+   "autosize": [
+    1.0,
+    1.0
+   ],
+   "insets": [
+    0,
+    0
    ]
   },
   {
@@ -8720,7 +9520,15 @@
      "x": 6,
      "y": 45,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 8,
+      "capacity": 80,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "btnAdd",
@@ -8803,7 +9611,15 @@
         "l2ui.nwindow.icon_back",
         "l2ui.nwindow.icon_click"
        ],
-       "children": []
+       "children": [],
+       "grid": {
+        "rows": 8,
+        "capacity": 80,
+        "cellX": 32,
+        "cellY": 32,
+        "gapX": 5,
+        "gapY": 3
+       }
       }
      ]
     },
@@ -8824,7 +9640,15 @@
        "x": 0,
        "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "grid": {
+        "rows": 8,
+        "capacity": 80,
+        "cellX": 32,
+        "cellY": 32,
+        "gapX": 5,
+        "gapY": 3
+       }
       }
      ]
     },
@@ -10276,10 +11100,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      20
+     ]
     },
     {
      "name": "Minimap",
@@ -10503,10 +11335,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "Text1",
@@ -10556,7 +11396,15 @@
      "x": 9,
      "y": 48,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 9,
+      "capacity": 800,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "ItemInfo",
@@ -10960,10 +11808,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 16,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        -36,
+        0
+       ]
       },
       {
        "name": "BackExpTex3",
@@ -13436,10 +14292,18 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 12,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -12,
+      46
+     ]
     }
    ]
   },
@@ -13554,10 +14418,18 @@
      "type": "TextBox",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 3,
+     "y": 5,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      0,
+      20
+     ]
     },
     {
      "name": "PointTextBox",
@@ -13847,10 +14719,18 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 12,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -12,
+      0
+     ]
     },
     {
      "name": "btnBuff",
@@ -13869,40 +14749,72 @@
      "type": "NameCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 6,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -26,
+      14
+     ]
     },
     {
      "name": "barHP",
      "type": "BarCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 19,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -26,
+      6
+     ]
     },
     {
      "name": "barMP",
      "type": "BarCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 26,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -26,
+      6
+     ]
     },
     {
      "name": "barFATIGUE",
      "type": "BarCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 33,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -26,
+      6
+     ]
     },
     {
      "name": "StatusIcon",
@@ -14374,7 +15286,15 @@
        "x": 18,
        "y": 9,
        "textures": [],
-       "children": []
+       "children": [],
+       "grid": {
+        "rows": 2,
+        "capacity": 15,
+        "cellX": 32,
+        "cellY": 32,
+        "gapX": 5,
+        "gapY": 3
+       }
       }
      ]
     },
@@ -14397,7 +15317,15 @@
        "x": 18,
        "y": 9,
        "textures": [],
-       "children": []
+       "children": [],
+       "grid": {
+        "rows": 2,
+        "capacity": 160,
+        "cellX": 32,
+        "cellY": 32,
+        "gapX": 5,
+        "gapY": 3
+       }
       }
      ]
     },
@@ -14430,10 +15358,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "TopList",
@@ -14443,7 +15379,15 @@
      "x": 9,
      "y": 48,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 4,
+      "capacity": 160,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "BottomList",
@@ -14453,7 +15397,15 @@
      "x": 9,
      "y": 215,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 3,
+      "capacity": 160,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "UpButton",
@@ -14746,10 +15698,18 @@
      "type": "Radar",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     }
    ]
   },
@@ -14797,10 +15757,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -14818,10 +15786,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -14839,10 +15815,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -14860,10 +15844,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -14881,10 +15873,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -14902,10 +15902,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -14923,10 +15931,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -14944,10 +15960,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -14965,10 +15989,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     }
@@ -15013,7 +16045,15 @@
      "x": 9,
      "y": 48,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 8,
+      "capacity": 160,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "btnTrash",
@@ -15318,7 +16358,15 @@
      "x": 9,
      "y": 140,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 3,
+      "capacity": 160,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "texOutLine",
@@ -15594,7 +16642,15 @@
      "x": 9,
      "y": 140,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 3,
+      "capacity": 160,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "texOutLine",
@@ -15678,7 +16734,15 @@
      "x": 9,
      "y": 48,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 4,
+      "capacity": 160,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "ShopItemWnd",
@@ -15688,7 +16752,15 @@
      "x": 9,
      "y": 215,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 4,
+      "capacity": 160,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "btnMoveUp",
@@ -15995,7 +17067,15 @@
        "x": 0,
        "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "grid": {
+        "rows": 1,
+        "capacity": 1,
+        "cellX": 36,
+        "cellY": 36,
+        "gapX": 0,
+        "gapY": 0
+       }
       },
       {
        "name": "DropHighlight",
@@ -16042,7 +17122,15 @@
        "x": 0,
        "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "grid": {
+        "rows": 1,
+        "capacity": 1,
+        "cellX": 36,
+        "cellY": 36,
+        "gapX": 0,
+        "gapY": 0
+       }
       },
       {
        "name": "DropHighlight",
@@ -16089,7 +17177,15 @@
        "x": 0,
        "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "grid": {
+        "rows": 1,
+        "capacity": 1,
+        "cellX": 36,
+        "cellY": 36,
+        "gapX": 0,
+        "gapY": 0
+       }
       },
       {
        "name": "DropHighlight",
@@ -16134,7 +17230,15 @@
        "x": 0,
        "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "grid": {
+        "rows": 1,
+        "capacity": 1,
+        "cellX": 36,
+        "cellY": 36,
+        "gapX": 0,
+        "gapY": 0
+       }
       },
       {
        "name": "SelectedItemHighlight",
@@ -16382,8 +17486,8 @@
    "type": "Window",
    "width": null,
    "height": null,
-   "x": null,
-   "y": null,
+   "x": 0,
+   "y": 0,
    "textures": [],
    "children": [
     {
@@ -16391,21 +17495,45 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 20,
+     "y": 20,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      0.17000000178813934,
+      0.05999999865889549
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "textureLogoSubtitle",
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": -20,
+     "y": -20,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      0.18000000715255737,
+      0.12999999523162842
+     ],
+     "insets": [
+      0,
+      0
+     ]
     }
+   ],
+   "autosize": [
+    1.0,
+    1.0
+   ],
+   "insets": [
+    0,
+    0
    ]
   },
   {
@@ -16500,10 +17628,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "TopList",
@@ -16513,7 +17649,15 @@
      "x": 9,
      "y": 48,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 4,
+      "capacity": 300,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "BottomList",
@@ -16523,7 +17667,15 @@
      "x": 9,
      "y": 215,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 3,
+      "capacity": 300,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "UpButton",
@@ -16652,18 +17804,26 @@
    "type": "Window",
    "width": null,
    "height": null,
-   "x": null,
-   "y": null,
+   "x": 0,
+   "y": 0,
    "textures": [],
-   "children": []
+   "children": [],
+   "autosize": [
+    0.0,
+    0.0
+   ],
+   "insets": [
+    0,
+    0
+   ]
   },
   {
    "name": "ShortcutWnd",
    "type": "Window",
    "width": null,
    "height": null,
-   "x": null,
-   "y": null,
+   "x": 0,
+   "y": 0,
    "textures": [],
    "children": [
     {
@@ -17652,6 +18812,14 @@
       }
      ]
     }
+   ],
+   "autosize": [
+    1.0,
+    1.0
+   ],
+   "insets": [
+    0,
+    0
    ]
   },
   {
@@ -17668,20 +18836,36 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      0,
+      105
+     ]
     },
     {
      "name": "TabBackTex2",
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 125,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      0,
+      23
+     ]
     },
     {
      "name": "txtCastleName",
@@ -17778,8 +18962,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 148,
      "textures": [
       "L2UI_ch3.SiegeWnd.siege_back31"
      ],
@@ -17834,6 +19018,14 @@
        "textures": [],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      0,
+      253
      ]
     },
     {
@@ -17841,8 +19033,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 148,
      "textures": [
       "L2UI_ch3.SiegeWnd.siege_back32"
      ],
@@ -17893,6 +19085,14 @@
        ],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      0,
+      253
      ]
     },
     {
@@ -17900,8 +19100,8 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 148,
      "textures": [
       "L2UI_ch3.SiegeWnd.siege_back32"
      ],
@@ -17978,6 +19178,14 @@
        ],
        "children": []
       }
+     ],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      0,
+      253
      ]
     },
     {
@@ -18789,10 +19997,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 28,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -32,
+      0
+     ]
     },
     {
      "name": "StatusWndRightTex",
@@ -18834,61 +20050,101 @@
      "type": "StatusBar",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 27,
      "textures": [
       "L2UI_CH3.PlayerStatusWnd.ps_cpbar_back"
      ],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -26,
+      -72
+     ]
     },
     {
      "name": "HPBar",
      "type": "StatusBar",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 41,
      "textures": [
       "L2UI_CH3.PlayerStatusWnd.ps_hpbar_back",
       "L2UI_CH3.PlayerStatusWnd.ps_hpbarwarn1",
       "L2UI_CH3.PlayerStatusWnd.ps_hpbarfill"
      ],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -26,
+      -72
+     ]
     },
     {
      "name": "MPBar",
      "type": "StatusBar",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 55,
      "textures": [
       "L2UI_CH3.PlayerStatusWnd.ps_mpbar_back"
      ],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -26,
+      -72
+     ]
     },
     {
      "name": "EXPBar",
      "type": "StatusBar",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 69,
      "textures": [
       "L2UI_CH3.PlayerStatusWnd.ps_expbar",
       "L2UI_CH3.PlayerStatusWnd.ps_expbar_back"
      ],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -26,
+      -72
+     ]
     },
     {
      "name": "UserName",
      "type": "NameCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 40,
+     "y": 9,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -50,
+      -162
+     ]
     }
    ]
   },
@@ -18906,10 +20162,18 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 12,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -12,
+      0
+     ]
     },
     {
      "name": "btnBuff",
@@ -18928,42 +20192,74 @@
      "type": "NameCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 6,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -26,
+      14
+     ]
     },
     {
      "name": "barHP",
      "type": "BarCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 19,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -26,
+      6
+     ]
     },
     {
      "name": "barMP",
      "type": "BarCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 26,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -26,
+      6
+     ]
     },
     {
      "name": "progFATIGUE",
      "type": "Progress",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 33,
      "textures": [
       "L2UI_CH3.SmallWnd.FATIGUEBAR"
      ],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -26,
+      6
+     ]
     },
     {
      "name": "StatusIcon",
@@ -19346,7 +20642,15 @@
        "x": 18,
        "y": 9,
        "textures": [],
-       "children": []
+       "children": [],
+       "grid": {
+        "rows": 2,
+        "capacity": 15,
+        "cellX": 32,
+        "cellY": 32,
+        "gapX": 5,
+        "gapY": 3
+       }
       }
      ]
     },
@@ -19553,20 +20857,36 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "SystemMsgList",
      "type": "ChatWindow",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     }
    ]
   },
@@ -19584,20 +20904,36 @@
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 12,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -12,
+      0
+     ]
     },
     {
      "name": "BackExpTex",
      "type": "Window",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 12,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      -12,
+      0
+     ]
     },
     {
      "name": "btnClose",
@@ -19617,20 +20953,36 @@
      "type": "NameCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 12,
+     "y": 9,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -33,
+      14
+     ]
     },
     {
      "name": "RankName",
      "type": "NameCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 12,
+     "y": 27,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -33,
+      14
+     ]
     },
     {
      "name": "txtPledge",
@@ -19707,20 +21059,36 @@
      "type": "BarCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 26,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -26,
+      6
+     ]
     },
     {
      "name": "barMP",
      "type": "BarCtrl",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 16,
+     "y": 33,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      0.0
+     ],
+     "insets": [
+      -26,
+      6
+     ]
     }
    ]
   },
@@ -19729,8 +21097,8 @@
    "type": "Window",
    "width": null,
    "height": null,
-   "x": null,
-   "y": null,
+   "x": 0,
+   "y": 0,
    "textures": [],
    "children": [
     {
@@ -19747,10 +21115,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -19768,10 +21144,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -19789,10 +21173,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -19801,10 +21193,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "Main_Frame",
@@ -19820,10 +21220,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -19841,10 +21249,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -19862,10 +21278,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -19883,10 +21307,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -19904,10 +21336,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -19925,10 +21365,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -19946,10 +21394,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -19967,10 +21423,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -19988,10 +21452,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20009,10 +21481,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20030,10 +21510,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20051,10 +21539,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20072,10 +21568,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20093,10 +21597,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20114,10 +21626,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20135,10 +21655,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20156,10 +21684,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20177,10 +21713,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20198,10 +21742,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20219,10 +21771,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20240,10 +21800,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20261,10 +21829,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20282,10 +21858,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20303,10 +21887,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20324,10 +21916,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20345,10 +21945,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20366,10 +21974,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20387,10 +22003,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     },
@@ -20408,13 +22032,29 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       }
      ]
     }
+   ],
+   "autosize": [
+    1.0,
+    1.0
+   ],
+   "insets": [
+    0,
+    0
    ]
   },
   {
@@ -20462,10 +22102,18 @@
        "type": "Texture",
        "width": null,
        "height": null,
-       "x": null,
-       "y": null,
+       "x": 0,
+       "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "autosize": [
+        1.0,
+        1.0
+       ],
+       "insets": [
+        0,
+        0
+       ]
       },
       {
        "name": "UserTex",
@@ -20497,10 +22145,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "TradeNameTextConst",
@@ -20578,7 +22234,15 @@
      "x": 9,
      "y": 35,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 4,
+      "capacity": 160,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "MyList",
@@ -20588,7 +22252,15 @@
      "x": 9,
      "y": 202,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 3,
+      "capacity": 160,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "OtherList",
@@ -20598,7 +22270,15 @@
      "x": 9,
      "y": 329,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 3,
+      "capacity": 160,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     }
    ]
   },
@@ -21478,7 +23158,15 @@
        "x": 0,
        "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "grid": {
+        "rows": 1,
+        "capacity": 1,
+        "cellX": 36,
+        "cellY": 36,
+        "gapX": 0,
+        "gapY": 0
+       }
       },
       {
        "name": "ItemtounrefineAnim",
@@ -21571,10 +23259,18 @@
      "type": "Texture",
      "width": null,
      "height": null,
-     "x": null,
-     "y": null,
+     "x": 0,
+     "y": 20,
      "textures": [],
-     "children": []
+     "children": [],
+     "autosize": [
+      1.0,
+      1.0
+     ],
+     "insets": [
+      0,
+      0
+     ]
     },
     {
      "name": "TopList",
@@ -21584,7 +23280,15 @@
      "x": 9,
      "y": 48,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 4,
+      "capacity": 200,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "BottomList",
@@ -21594,7 +23298,15 @@
      "x": 9,
      "y": 215,
      "textures": [],
-     "children": []
+     "children": [],
+     "grid": {
+      "rows": 3,
+      "capacity": 200,
+      "cellX": 32,
+      "cellY": 32,
+      "gapX": 5,
+      "gapY": 3
+     }
     },
     {
      "name": "UpButton",

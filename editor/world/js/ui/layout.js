@@ -66,6 +66,24 @@ export const Layout = {
     return { x: n.x, y: n.y };
   },
 
+  /** ItemWindow grid params (docs/ui-mined-native.md §1b): {rows,
+   *  capacity, cellX, cellY, gapX, gapY} in retail pixels — the pitch is
+   *  cell + gap (37x35 for every standard grid). Null when the record
+   *  carries no grid block. */
+  grid(winName, ctrlName) {
+    const n = ctrlName ? Layout.find(winName, ctrlName) : Layout.window(winName);
+    return (n && n.grid) || null;
+  },
+
+  /** hasSize==0 auto-size block (docs/xdat-tail-has0.md): {autosize:
+   *  [f1, f2], insets: [A, B]} or null. Width rule when f1 != 0:
+   *  width = parent.width + A; height rule likewise for f2/B. */
+  autosize(winName, ctrlName) {
+    const n = ctrlName ? Layout.find(winName, ctrlName) : Layout.window(winName);
+    if (!n || !n.autosize) return null;
+    return { autosize: n.autosize, insets: n.insets };
+  },
+
   /** Ordered texture references a control paints with (normal, then the
    *  pressed/alternate states the client swaps in). */
   tex(winName, ctrlName) {

@@ -14,6 +14,7 @@
 // Sizes passed in are RETAIL pixels; the frame multiplies by Skin.scale.
 
 import { Skin } from './skin.js';
+import { Layout } from './layout.js';
 import { Font } from './font.js';
 
 const FRAME = {
@@ -44,7 +45,7 @@ export class L2Window {
    * @param {boolean} o.draggable drag by the titlebar
    */
   constructor({ title = '', width = 200, height = 120,
-                closable = true, draggable = true } = {}) {
+                closable = true, draggable = true, winName = null } = {}) {
     this.title = title;
     this.width = width;
     this.height = height;
@@ -108,6 +109,16 @@ export class L2Window {
     body.style.height = `${Skin.px(height)}px`;
     root.appendChild(body);
     this.body = body;
+
+    // Body background (docs/ui-port-handoff.md §2.1): the xdat names a
+    // per-window BackTexture for some windows (e.g. InventoryWnd); where it
+    // names nothing (MagicSkillWnd and most others) the staged flat panel
+    // is used — MEASURED from the skin manifest: L2UI_ch3.NpcWnd.Npc1_back,
+    // content 310x381 in a 512x512 export, 2px border (dark outline x=0,
+    // highlight x=1), interior alpha ~221. (The handoff names the atlas
+    // file L2UI_CH3/npc1_back.png; this is its manifest ref.)
+    const backRef = winName && Layout.tex0(winName, 'BackTexture');
+    Skin.nine(body, backRef || 'L2UI_ch3.NpcWnd.Npc1_back', 2);
 
     if (draggable) this._makeDraggable(bar);
     this.setTitle(title);

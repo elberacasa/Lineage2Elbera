@@ -116,8 +116,10 @@ async function phase2() {
   // .autoloot voiced command (in-protocol) and kill again: the drop must
   // spawn on the ground (addDrop) and be looted manually via target{id}.
   console.log('toggling .autoloot OFF for manual-loot test...');
+  const sysMark = R.sysMsgs.length;
   ws.send(JSON.stringify({ op: 'say', channel: 0, text: '.autoloot' }));
-  await sleep(1500);
+  // Wait for the toggle confirmation so the kill can't race the command.
+  await waitFor(() => R.sysMsgs.slice(sysMark).find((m) => typeof m.params[0] === 'string' && m.params[0].includes('DESACTIVADO')), 10000, 'autoloot OFF confirmation');
   const g2 = R.npcs
     .filter((n) => n.name === 'Gremlin' && !R.diedIds.has(n.id))
     .map((n) => ({ ...n, dist: Math.hypot(n.x - R.me.x, n.y - R.me.y) }))

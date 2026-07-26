@@ -15,7 +15,8 @@
     "verify-observer": "node test/verify-observer.js",
     "verify-m4": "node test/verify-m4.js",
     "verify-m5": "node test/verify-m5.js",
-    "verify-mods": "node test/verify-mods.js"
+    "verify-mods": "node test/verify-mods.js",
+    "verify-level": "node test/verify-level.js"
   },
   "keywords": [],
   "author": "",

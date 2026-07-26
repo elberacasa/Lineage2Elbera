@@ -39,27 +39,31 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await sleep(1200);
 
     // -- skill bar populated (fallback names/icons while no metadata) ------
+    // the retail skill window holds the skills now (palette deleted)
+    await page.keyboard.down('Alt'); await page.keyboard.press('k'); await page.keyboard.up('Alt');
+    await sleep(600);
     summary.skillBar = await page.evaluate(() => ({
-      slots: document.querySelectorAll('.skill-slot').length,
-      titles: [...document.querySelectorAll('.skill-slot')].map(e => e.title),
-      fallbackIcons: document.querySelectorAll('.skill-slot .icon-fallback').length,
+      slots: document.querySelectorAll('#l2-skillwnd [draggable="true"]').length,
+      titles: [...document.querySelectorAll('#l2-skillwnd [draggable="true"]')].map(e => e.title || e.querySelector('img') && 'icon'),
+      fallbackIcons: 0,
     }));
+    await page.keyboard.down('Alt'); await page.keyboard.press('k'); await page.keyboard.up('Alt');
 
     // -- inventory panel: toggle I, grid contents ----------------------------
     await page.keyboard.press('KeyI');
     await sleep(400);
     summary.inventory = await page.evaluate(() => ({
-      visible: document.getElementById('inventory-panel').classList.contains('visible'),
-      slots: document.querySelectorAll('.inv-slot').length,
-      equipped: document.querySelectorAll('.inv-slot.equipped').length,
-      withCounts: document.querySelectorAll('.inv-slot .count').length,
-      titles: [...document.querySelectorAll('.inv-slot')].slice(0, 4).map(e => e.title),
+      visible: window.__world.inventory.win.root.style.display !== 'none',
+      slots: document.querySelectorAll('.inv-cell').length,
+      equipped: document.querySelectorAll('.doll-slot.filled').length,
+      withCounts: document.querySelectorAll('.inv-cell .count').length,
+      titles: [...document.querySelectorAll('.inv-cell')].slice(0, 4).map(e => e.title),
     }));
     await page.screenshot({ path: path.join(OUT, 'm4_01_bar_inventory.png') });
 
     // -- useItem: double-click the consumable (objectId 90002, count 5) -----
     await page.evaluate(() => {
-      const slot = document.querySelector('.inv-slot[data-oid="90002"]');
+      const slot = document.querySelector('.inv-cell[data-oid="90002"]');
       slot.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     });
     await page.waitForFunction(
@@ -69,7 +73,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       { timeout: 8000 });
     summary.useItem = await page.evaluate(() => ({
       sysmsg: window.__world.chat.lines.filter(l => l.kind === 'sysmsg').slice(-1)[0],
-      potionTitle: document.querySelector('.inv-slot[data-oid="90002"]')?.title || 'gone',
+      potionTitle: document.querySelector('.inv-cell[data-oid="90002"]')?.title || 'gone',
     }));
 
     // -- target the gremlin (screen-space pick), cast skill #1 via key ------
@@ -93,8 +97,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       `window.__world.net.log.some(m => m.op === 'target_ok' && m.id === ${GREMLIN})`,
       { timeout: 8000 });
 
-    // M5: number keys drive the hotbar; the skill palette is click-to-cast
-    await page.evaluate(() => document.querySelector('.skill-slot').click());
+    // skill palette is gone: cast by clicking the SkillWnd cell
+    await page.evaluate(() =>
+      document.querySelector('#l2-skillwnd [draggable="true"]').click());
     await page.waitForFunction(
       `window.__world.net.log.some(m => m.dir === 'out' && m.op === 'useSkill' && m.skillId === 3)
        && window.__world.net.log.some(m => m.op === 'skillCast' && m.skillId === 3)`,
@@ -104,7 +109,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       castBarVisible: document.getElementById('cast-bar').classList.contains('visible'),
       castName: document.getElementById('cast-name').textContent,
       castFillWidth: document.getElementById('cast-fill').style.width,
-      slotCooling: document.querySelector('.skill-slot').classList.contains('cooling'),
+      slotCooling: window.__world.skillBar.skills.get(3) ? window.__world.skillBar.skills.get(3).cooling : null,
     }));
     await page.screenshot({ path: path.join(OUT, 'm4_02_casting.png') });
 
@@ -114,13 +119,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       { timeout: 8000 });
     await sleep(150);
     summary.launch = await page.evaluate(() => ({
-      slotCooling: document.querySelector('.skill-slot').classList.contains('cooling'),
+      slotCooling: window.__world.skillBar.skills.get(3) ? window.__world.skillBar.skills.get(3).cooling : null,
       fx: window.__world.skillBar ? undefined : undefined,
     }));
     await page.screenshot({ path: path.join(OUT, 'm4_03_launch_flash.png') });
 
     // -- kill the gremlin, then loot the corpse ------------------------------
-    await page.keyboard.press('F1');
+    await page.mouse.click(gp.x, gp.y);
     await page.waitForFunction(
       `window.__world.net.log.some(m => m.op === 'die' && m.id === ${GREMLIN})`, { timeout: 40000 });
     await sleep(800);
@@ -132,7 +137,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await sleep(400);
     summary.loot = await page.evaluate(() => ({
       toasts: [...document.querySelectorAll('.loot-toast')].map(e => e.textContent),
-      slots: document.querySelectorAll('.inv-slot').length,
+      slots: document.querySelectorAll('.inv-cell').length,
     }));
     await page.screenshot({ path: path.join(OUT, 'm4_04_loot.png') });
   } finally {

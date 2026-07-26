@@ -111,7 +111,7 @@ export class Character {
       const pos = this.group.position;
       pos.x += vx * dt;
       pos.z += vz * dt;
-      pos.y = terrain.heightAtWorld(pos.x, pos.z);
+      pos.y = terrain.heightAtWorld(pos.x, pos.z, pos.y);
       // smooth turn toward heading
       const heading = Math.atan2(vx, vz);
       let dy = heading - this.group.rotation.y;

@@ -64,11 +64,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await page.mouse.click(gp.x, gp.y);
     await page.waitForFunction(
       `window.__world.net.log.some(m => m.op === 'target_ok' && m.id === ${ELIAS})
-       && document.getElementById('target-frame').classList.contains('visible')`,
+       && window.__world.targetWnd && window.__world.targetWnd.root.style.display !== 'none'`,
       { timeout: 8000 });
     summary.clickTarget = await page.evaluate(() => ({
-      name: document.getElementById('target-name').textContent,
-      hpText: document.getElementById('target-hp-text').textContent,
+      name: window.__world.targetWnd.target.name,
+      hpText: `${window.__world.targetWnd.target.hp} / ${window.__world.targetWnd.target.maxHp}`,
     }));
     await page.screenshot({ path: path.join(OUT, 'npc_02_elias_targeted.png') });
   } finally {

@@ -1,71 +1,35 @@
-// M4: L2-style skill bar + casting bar + skill visual effects.
-//
-// SkillBar: slots populated from skillList + skillmeta (fallback names/
-// icons while metadata is absent). Click or number key (1..9,0) casts on
-// the current target; the slot is disabled while a cast of that skill is
-// in flight (until skillLaunch, or a 3 s safety timeout).
-// CastingBar: shown while the local player has a skillCast in flight,
-// filling over hitTime; a new cast restarts it.
-
-import { skillMeta, skillInfo } from './gamedata.js';
-
-const MAX_SLOTS = 10;
+// M4/M5: casting bar + per-skill cooldown state + skill visual effects.
+// The retail shortcut UI lives in js/ui/shortcutwnd.js; the invented
+// 10-slot palette that used to render here is deleted. What remains is
+// what other UI needs: castSkill() (cooldown gate), finishCast(), and the
+// casting bar that fills over hitTime.
 
 export class SkillBar {
   constructor(rootEl, castBarEl, castFillEl, castNameEl, { onCast } = {}) {
-    this.root = rootEl;
+    // rootEl is legacy (the deleted palette container); may be null
     this.castBar = castBarEl;
     this.castFill = castFillEl;
     this.castName = castNameEl;
     this.onCast = onCast || (() => {});
-    this.slots = [];
-    this.skills = new Map();   // skillId -> {slot el, level, cooling}
+    this.skills = new Map();   // skillId -> {level, cooling, timer}
     this.cast = null;          // {skillId, t0, hitTime, raf}
   }
 
-  async populate(skills) {
-    const meta = await skillMeta();
-    this.root.innerHTML = '';
-    this.slots = [];
+  register(skills) {
     this.skills.clear();
-    skills.slice(0, MAX_SLOTS).forEach((s, i) => {
-      const info = skillInfo(meta, s.id);
-      const el = document.createElement('div');
-      el.className = 'skill-slot';
-      el.title = `${info.name} (Lv ${s.level}) [${(i + 1) % 10}]`;
-      el.innerHTML = (info.icon
-        ? `<img src="${info.icon}" alt="">`
-        : '<div class="icon-fallback">?</div>')
-        + `<span class="slot-key">${(i + 1) % 10}</span>`;
-      el.addEventListener('click', () => this.castSkill(s.id));
-      // M5: hotbar assign — drag, or right-click for first free slot
-      el.draggable = true;
-      el.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('application/x-l2vzla',
-          JSON.stringify({ type: 'skill', id: s.id }));
-      });
-      el.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        if (this.onAssign) this.onAssign({ type: 'skill', id: s.id });
-      });
-      this.root.appendChild(el);
-      this.slots.push({ id: s.id, el });
-      this.skills.set(s.id, { el, level: s.level, cooling: false });
-    });
-    this.root.classList.toggle('visible', skills.length > 0);
+    for (const s of skills) this.skills.set(s.id, { level: s.level, cooling: false, timer: null });
   }
-
-  byIndex(i) { return this.slots[i] && this.slots[i].id; }
 
   castSkill(skillId) {
     const s = this.skills.get(skillId);
-    if (!s || s.cooling) return false;
+    if (s && s.cooling) return false;
     if (this.onCast(skillId) === false) return false;
-    s.cooling = true;
-    s.el.classList.add('cooling');
-    // safety: never leave a slot stuck if skillLaunch never comes
-    clearTimeout(s.timer);
-    s.timer = setTimeout(() => this.finishCast(skillId), 3000);
+    if (s) {
+      s.cooling = true;
+      // safety: never leave a skill stuck if skillLaunch never comes
+      clearTimeout(s.timer);
+      s.timer = setTimeout(() => this.finishCast(skillId), 3000);
+    }
     return true;
   }
 
@@ -73,7 +37,6 @@ export class SkillBar {
     const s = this.skills.get(skillId);
     if (!s) return;
     s.cooling = false;
-    s.el.classList.remove('cooling');
   }
 
   // casting bar for the local player's in-flight cast
@@ -99,8 +62,6 @@ export class SkillBar {
   }
 
   clear() {
-    this.root.innerHTML = '';
-    this.root.classList.remove('visible');
     this.skills.clear();
     this.stopCastBar();
   }
