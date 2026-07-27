@@ -27,6 +27,11 @@
 //   useItem     -> sysMsg + invUpdate (decrement/remove consumable)
 //   action      -> sysMsg; ids 2..13 also echo socialAction (bridge routing)
 //                  for self AND Aria (remote-player emote fixture)
+//   buffs       <- 3 timed effects + 1 toggle at enterChar; buffUpdate
+//                  removes the short one at +12s
+//   skillCoolTime <- login snapshot at enterChar (skill 3, 10s reuse, 5s
+//                  left); useSkill's skillCast carries reuse ms (aCis
+//                  sends no SkillCoolTime on cast)
 //   questList   <- sent at enterChar (Q1 cond1 + Q6 cond3, REAL names)
 //   questAbort  -> removes the quest and re-sends questList (server push)
 //   partyAsk    <- incoming invite (Aria), ON DEMAND via say "/partyask"
@@ -238,6 +243,26 @@ wss.on('connection', (ws) => {
       send('changeWait', { id: 80002, waitType: 0 });
       send('changeMove', { id: WALKER.id, running: true });
 
+      // C.10 buff fixture: 3 real effects (icons exist in skillmeta) —
+      // two long buffs + one short "debuff" (Entangle; the strip has no
+      // tint distinction in Interlude, see abnormalwnd.js header). The
+      // short one is removed by a buffUpdate delta at +12s (local
+      // countdown would expire it at the same time — both paths covered).
+      send('buffs', { effects: [
+        { skillId: 1040, level: 3, duration: 120 },
+        { skillId: 1035, level: 4, duration: 20 },
+        { skillId: 102, level: 1, duration: 12 },
+        { skillId: 1043, level: 1, duration: -1 },   // toggle (M10: -1)
+      ] });
+      timers.push(setTimeout(() => {
+        send('buffUpdate', { add: [], remove: [102] });
+      }, 12000));
+
+      // SkillCoolTime arrives at EnterWorld in aCis (login restore of
+      // cooldowns in progress) — reuse + remaining in SECONDS, like M10.
+      // Long times so the verify can observe the sweep any time later.
+      send('skillCoolTime', { skills: [{ id: 3, level: 1, reuse: 600, remaining: 300 }] });
+
       // ambient chat
       let ci = 0;
       timers.push(setInterval(() => {
@@ -299,8 +324,11 @@ wss.on('connection', (ws) => {
       startCombat(msg.id);
     } else if (msg.op === 'useSkill') {
       const targetId = msg.targetId ?? lastTarget;
+      // per-cast reuse rides inside MagicSkillUse itself (aCis sends no
+      // SkillCoolTime on cast; the field is MILLISECONDS)
       send('skillCast', {
         casterId: self.id, targetId, skillId: msg.skillId, level: 1, hitTime: 1500,
+        reuse: 8000,
       });
       timers.push(setTimeout(() => {
         send('skillLaunch', { casterId: self.id, targetId, skillId: msg.skillId, level: 1 });

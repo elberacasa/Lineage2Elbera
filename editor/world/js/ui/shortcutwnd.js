@@ -253,6 +253,7 @@ export class ShortcutWnd {
     for (let i = 0; i < SLOTS_PER_PAGE; i++) {
       const el = document.createElement('div');
       el.className = 'shortcut-slot' + (slots[i] ? '' : ' empty');
+      if (slots[i]) { el.dataset.stype = slots[i].type; el.dataset.sid = slots[i].id; }
       const x = vertical ? x0 : SLOT_X[i];
       const y = vertical ? SLOT_Y[i] : y0;
       el.style.cssText = `position:absolute;left:${Skin.px(x)}px;`
@@ -368,6 +369,26 @@ export class ShortcutWnd {
       this.root.style.marginTop = `${Skin.px(-this.h * 2)}px`;
     } else {
       this.root.style.marginTop = '0';
+    }
+  }
+
+  /** Cooldown sweep, driven from the main loop. TIMING is sourced
+   *  (skillCoolTime reuse ms / the cast lock's hitTime via skillBar.reuse);
+   *  the VISUAL is AUTHORED — the native sweep rendering isn't mineable,
+   *  so a dark overlay drains top-to-bottom over the remaining fraction. */
+  tickCooldowns(skillBar) {
+    for (const el of this.root.querySelectorAll('.shortcut-slot[data-stype="skill"]')) {
+      const left = skillBar.reuseLeft(+el.dataset.sid);
+      let ov = el.querySelector('.l2-cool-overlay');
+      if (!left) { if (ov) ov.remove(); continue; }
+      if (!ov) {
+        ov = document.createElement('div');
+        ov.className = 'l2-cool-overlay';
+        ov.style.cssText = 'position:absolute;left:0;top:0;width:100%;'
+          + 'background:rgba(0,0,0,0.65);pointer-events:none;';
+        el.appendChild(ov);
+      }
+      ov.style.height = `${(left.frac * 100).toFixed(1)}%`;
     }
   }
 

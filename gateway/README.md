@@ -72,6 +72,42 @@ SystemMessage(0x64) is shallow-decoded into the contract op
 7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
 "You have earned 145 exp and 10 SP".
 
+## M10: abnormal status (buffs) + skill cooldowns (added 2026-07-27)
+
+Server -> client:
+- `{"op":"buffs","effects":[{"skillId":N,"level":N,"duration":N}]}` —
+  AbnormalStatusUpdate(0x7f): `H count`, per effect `D skillId, H level,
+  D duration`. SEMANTICS (verified in EffectList.updateEffectIcons): the
+  packet is rebuilt with ALL current effects on every add/remove — it is a
+  FULL SNAPSHOT each time, so removal = effect absent from the next
+  snapshot (no explicit remove flag). `duration` is in SECONDS;
+  -1 = toggle/infinite. Fires on login (EnterWorld) and on every effect
+  add/fade.
+- `{"op":"skillCoolTime","skills":[{"id":N,"level":N,"reuse":N,"remaining":N}]}`
+  — SkillCoolTime(0xc1): `D count`, per skill `D skillId, D level,
+  D reuse, D remaining` — both in SECONDS (packet divides by 1000).
+  IMPORTANT (verified in source): aCis 409 sends this packet ONLY at login
+  (EnterWorld), subclass change, augmentation and item-skill equip —
+  NOT on every cast. It also only contains reuses > 30s
+  (PlayerCast: `addTimeStamp` only when reuseDelay > 30000).
+- Per-cast cooldown: the EXISTING `skillCast` op now also carries
+  `reuse` (additive) — MagicSkillUse(0x48)'s reuseDelay field in
+  MILLISECONDS, present on every cast. Use it for shortcut cooldown
+  overlays.
+- `targetBuffs` — SKIPPED: ExAbnormalStatusUpdateFromTarget does not exist
+  in this rev. Party members' buffs exist as PartySpelled (not bridged).
+- Reuse formula (verified live): applied reuse = skillReuseDelay ×
+  (333 / atkSpd) when the skill is not staticReuse. Evidence: Battle Roar
+  (600000ms) lands as reuse 480s (600000 × 333/416 pAtkSpd); Self Heal
+  (10000ms) shows reuse 15633ms in skillCast (10000 × 333/213 mAtkSpd).
+  skillCast.hitTime and buff durations are NOT scaled (1199s for a 1200s
+  buff, tick rounding).
+
+Verified live (test/verify-buffs.js): Might cast -> buffs
+`[{1068, lvl1, 1199s}]` -> Battle Roar -> login SkillCoolTime
+`[{121, reuse 480, remaining 476}]` -> Herb of Power (120s) present ->
+absent after expiry while Might persists.
+
 ## M9: party protocol / PartyWnd (added 2026-07-27)
 
 Client -> server:

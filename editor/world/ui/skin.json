@@ -4286,6 +4286,16 @@
    "w": 16,
    "h": 16,
    "scale": 1
+  },
+  "L2UI.EtcWndBack.AbnormalBack": {
+   "file": "L2UI__AbnormalBack.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 26,
+   "ch": 26
   }
  }
 }

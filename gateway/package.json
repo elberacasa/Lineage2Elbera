@@ -20,7 +20,8 @@
     "verify-dialog": "node test/verify-dialog.js",
     "verify-action": "node test/verify-action.js",
     "verify-quest": "node test/verify-quest.js",
-    "verify-party": "node test/verify-party.js"
+    "verify-party": "node test/verify-party.js",
+    "verify-buffs": "node test/verify-buffs.js"
   },
   "keywords": [],
   "author": "",

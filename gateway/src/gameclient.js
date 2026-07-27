@@ -410,12 +410,12 @@ class GameSession extends EventEmitter {
         const skillId = r.readD();
         const level = r.readD();
         const hitTime = r.readD();
-        r.readD(); // reuse delay
+        const reuse = r.readD(); // reuse delay, milliseconds
         r.readD(); r.readD(); r.readD(); // caster x,y,z
         const success = r.readD();
         if (success === 1) r.readH();
         r.readD(); r.readD(); r.readD(); // target x,y,z
-        this.emit('skillUse', { casterId, targetId, skillId, level, hitTime });
+        this.emit('skillUse', { casterId, targetId, skillId, level, hitTime, reuse });
         break;
       }
       case 0x76: { // MagicSkillLaunched
@@ -536,6 +536,36 @@ class GameSession extends EventEmitter {
         const mp = r.readD(); const maxMp = r.readD();
         const level = r.readD(); const classId = r.readD();
         this.emit('partyUpdate', { id, name, cp, maxCp, hp, maxHp, mp, maxMp, level, classId });
+        break;
+      }
+      // -------------------------------------------- M10: buffs & cooldowns
+      case 0x7f: { // AbnormalStatusUpdate: H count, per effect
+        // D skillId, H level, D duration (seconds; -1 = toggle/infinite).
+        // Built fresh with ALL current effects on every add/remove — i.e. a
+        // FULL SNAPSHOT each time (EffectList.updateEffectIcons).
+        const count = r.readH();
+        const effects = [];
+        for (let i = 0; i < count; i++) {
+          const skillId = r.readD();
+          const level = r.readH();
+          const duration = r.readD();
+          effects.push({ skillId, level, duration });
+        }
+        this.emit('abnormal', effects);
+        break;
+      }
+      case 0xc1: { // SkillCoolTime: D count, per skill D skillId, D level,
+        // D reuse/1000 (seconds), D remaining/1000 (seconds)
+        const count = r.readD();
+        const skills = [];
+        for (let i = 0; i < count; i++) {
+          const id = r.readD();
+          const level = r.readD();
+          const reuse = r.readD();
+          const remaining = r.readD();
+          skills.push({ id, level, reuse, remaining });
+        }
+        this.emit('coolTime', skills);
         break;
       }
       case 0x0b: { // SpawnItem (ground drop)        const id = r.readD();

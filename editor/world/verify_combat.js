@@ -17,6 +17,33 @@ const OUT = path.join(__dirname, 'verify_shots');
 const GREMLIN = 70001;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// The follow camera converges FRAME-RATE-dependently; under battery load
+// it is still swinging when a stale projection would be used (>40px pick
+// radius -> the click hits terrain). Wait until it stops moving, then
+// always click a FRESH projection.
+async function settleCam(page) {
+  let last = null;
+  for (let i = 0; i < 30; i++) {
+    const p = await page.evaluate(() => {
+      const c = window.__world.camera.position;
+      return [c.x, c.y, c.z];
+    });
+    if (last && Math.hypot(p[0] - last[0], p[1] - last[1], p[2] - last[2]) < 0.005) return;
+    last = p;
+    await sleep(150);
+  }
+}
+
+function projectGremlin(page) {
+  return page.evaluate((id) => {
+    const w = window.__world;
+    const e = w.entities.getEntity(id);
+    if (!e) return null;
+    const V = e.group.position.constructor;
+    return w.project(new V(e.group.position.x, e.group.position.y + 0.3, e.group.position.z));
+  }, GREMLIN);
+}
+
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await puppeteer.launch({
@@ -59,13 +86,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       w.followCam.dist = Math.max(w.followCam.minDist, 4);
     }, GREMLIN);
     await sleep(1500);
-    const gp = await page.evaluate((id) => {
-      const w = window.__world;
-      const e = w.entities.getEntity(id);
-      if (!e) return null;
-      const V = e.group.position.constructor;
-      return w.project(new V(e.group.position.x, e.group.position.y + 0.3, e.group.position.z));
-    }, GREMLIN);
+    await settleCam(page);
+    const gp = await projectGremlin(page);
     summary.gremlinScreen = gp;
 
     // -- click the gremlin -> target ---------------------------------------
@@ -82,8 +104,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     }));
     await page.screenshot({ path: path.join(OUT, 'm3_01_targeting.png') });
 
-    // -- second click on the target -> attack (F1 is a shortcut key now) ----
-    await page.mouse.click(gp.x, gp.y);
+    // -- second click on the target -> attack (F1 is a shortcut key now).
+    // FRESH projection: the camera may still have been converging at gp.
+    const gp2 = await projectGremlin(page);
+    await page.mouse.click(gp2.x, gp2.y);
     await page.waitForFunction(
       `window.__world.net.log.filter(m => m.op === 'attack').length >= 2`, { timeout: 10000 });
     // catch a damage float mid-flight + shrunken HP bars

@@ -444,6 +444,7 @@ class Bridge {
         skillId: s.skillId,
         level: s.level,
         hitTime: s.hitTime,
+        reuse: s.reuse, // reuse delay in MILLISECONDS (MagicSkillUse field)
       });
     });
 
@@ -526,6 +527,15 @@ class Bridge {
         id: u.id, hp: u.hp, maxHp: u.maxHp, mp: u.mp, maxMp: u.maxMp,
       });
     });
+
+    // ------------------------------------------------- M10: buffs & reuse
+    // AbnormalStatusUpdate is a FULL SNAPSHOT of self effects each time
+    // (built fresh with all current buffs+debuffs on every add/remove).
+    // duration is in SECONDS from the packet; -1 = toggle/infinite.
+    game.on('abnormal', (effects) => this.send({ op: 'buffs', effects }));
+
+    // SkillCoolTime: reuse + remaining in SECONDS (packet divides by 1000).
+    game.on('coolTime', (skills) => this.send({ op: 'skillCoolTime', skills }));
 
     // NpcHtmlMessage (0x0f) — villager dialogs, .menu, teleporters, shops.
     game.on('html', (h) => {

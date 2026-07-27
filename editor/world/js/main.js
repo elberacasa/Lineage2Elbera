@@ -27,6 +27,7 @@ import { ActionWnd } from './ui/actionwnd.js';
 import { MinimapWnd } from './ui/minimapwnd.js';
 import { QuestWnd, questCond, questStarted } from './ui/questwnd.js';
 import { PartyWnd } from './ui/partywnd.js';
+import { AbnormalWnd } from './ui/abnormalwnd.js';
 
 const canvas = document.getElementById('view');
 const statusEl = document.getElementById('status');
@@ -161,6 +162,7 @@ let actionWnd = null;
 let minimapWnd = null;
 let questWnd = null;
 let partyWnd = null;
+let abnormalWnd = null;
 let menuWnd = null;
 let systemMenuWnd = null;
 
@@ -365,6 +367,26 @@ net.on('partyMemberStatus', (msg) => {
 net.on('partyAsk', (msg) => {
   if (partyWnd) partyWnd.showAsk(msg.from);
 });
+// Buff strip: `buffs` is a full snapshot, `buffUpdate` the packet-level
+// delta — the client takes both (frozen ops, gateway landing in parallel).
+// `targetBuffs` is tolerated and stored only: TargetStatusWnd.uc has NO
+// buff area in Interlude (checked), so there is nothing retail to render.
+net.on('buffs', (msg) => {
+  if (abnormalWnd) abnormalWnd.setEffects(msg.effects || []);
+});
+net.on('buffUpdate', (msg) => {
+  if (abnormalWnd) abnormalWnd.applyUpdate(msg.add || [], msg.remove || []);
+});
+net.on('targetBuffs', () => {});
+net.on('skillCoolTime', (msg) => {
+  for (const s of msg.skills || []) {
+    // SkillCoolTime(0xc1): reuse + remaining in SECONDS (gateway M10) —
+    // the sweep drains remaining/reuse, so both are converted
+    const total = (s.reuse || 0) * 1000;
+    const left = (s.remaining != null ? s.remaining : s.reuse || 0) * 1000;
+    skillBar.setReuse(s.id, total, left);
+  }
+});
 net.on('invUpdate', (msg) => {
   inventory.applyUpdate(msg.updated || []);
   for (const u of msg.updated || []) {
@@ -377,6 +399,9 @@ net.on('invUpdate', (msg) => {
 net.on('skillCast', (msg) => {
   entities.skillFlash(msg.casterId);
   if (msg.casterId === selfId) {
+    // per-cast reuse: aCis sends NO SkillCoolTime on cast — the reuse
+    // delay rides inside MagicSkillUse itself (ms, gateway M10 bridge)
+    if (msg.reuse > 0) skillBar.setReuse(msg.skillId, msg.reuse);
     skillMeta().then(meta => {
       const info = skillInfo(meta, msg.skillId);
       skillBar.startCastBar(msg.skillId, msg.level, msg.hitTime, info.name);
@@ -607,6 +632,7 @@ window.__world = {
   get questWnd() { return questWnd; },
   questCond, questStarted,   // verification: aCis flags-dword math
   get partyWnd() { return partyWnd; },
+  get abnormalWnd() { return abnormalWnd; },
   get menuWnd() { return menuWnd; },
   get systemMenuWnd() { return systemMenuWnd; },
   wndMgr: WndMgr,
@@ -870,6 +896,10 @@ renderer.setAnimationLoop(() => {
     followCam.update(dt, character.group.position, terrain);
     sky.position.copy(camera.position);
     if (minimapWnd) minimapWnd.tick(character, entities);
+    if (abnormalWnd) abnormalWnd.tick();
+    // cooldown sweeps (skillBar.reuse is fed by skillCoolTime + the cast lock)
+    if (shortcutWnd) shortcutWnd.tickCooldowns(skillBar);
+    if (skillWnd) skillWnd.tickCooldowns(skillBar);
   }
   renderer.render(scene, camera);
 });
@@ -943,6 +973,10 @@ renderer.setAnimationLoop(() => {
       getSelfId: () => selfId,
     });
     WndMgr.register('PartyWnd', partyWnd, { handle: partyWnd.gutter });
+
+    // Phase C.10: the retail buff strip (WindowsInfo.ini dock 348,583).
+    abnormalWnd = new AbnormalWnd(document.body);
+    WndMgr.register('AbnormalStatusWnd', abnormalWnd, { handle: abnormalWnd.root });
     // the invite row follows the current target (target + invite flow)
     const _combatSetTarget = combat.setTarget.bind(combat);
     combat.setTarget = (id, name, opts) => {

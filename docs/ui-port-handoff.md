@@ -173,6 +173,23 @@ port). Kick is a per-row ×, leader-only, immediate (DEVIATION: no kick UI
 exists in PartyWnd.uc, no confirm). LootRule display skipped (invite
 uses rule 0). Row internals AUTHORED (no xdat PartyStatusWnd record).
 
+**C.10 AbnormalStatusWnd + cooldown sweeps** — the retail buff strip,
+docked (348,583) from `WindowsInfo.ini` (SOURCED). Cells are the xdat's
+26×26 StatusIconCtrl frame with the uc:187 `info.Size = 24` icon (1px
+inset, derived) on `L2UI.EtcWndBack.AbnormalBack` (uc:188, staged via
+IMPLICIT — measured 26×26). `buffs` is a full snapshot, `buffUpdate` a
+delta — both handled; `duration` in SECONDS, **-1 = toggle** (no
+countdown, never expires client-side). Local expiry mirrors retail's
+countdown. Evidence deliberately NOT acted on: no debuff tint exists
+(one BackTex for all categories; the AbnormalFrame1/2/3 arts are window
+frame strips) and no under-icon timer (remaining time is tooltip-only).
+`targetBuffs` is tolerated as a no-op — TargetStatusWnd.uc has no buff
+area in Interlude. Cooldowns: aCis sends SkillCoolTime ONLY at
+EnterWorld (login restore, seconds) — per-cast reuse rides inside
+MagicSkillUse (`skillCast.reuse`, ms), and the AUTHORED dark sweep
+drains top-down on shortcut slots AND SkillWnd cells off
+`skillBar.reuse` (timing sourced, visual ours).
+
 **Layout path index** — the xdat reuses control names across sub-windows
 (ShortcutWnd's per-orientation PrevBtn, ChatWindow's 5 panes); the flat
 `Layout.find` stays documented last-wins and every helper now accepts a

@@ -203,7 +203,9 @@ skillId,level,hitTime}` · `skillLaunch{casterId,targetId,skillId,level}` ·
 `socialAction{id,actionId}` · `changeWait{id,waitType}` ·
 `changeMove{id,running}` · `questList{quests[{id,name,progress}]}` ·
 `partyAsk{from}` · `party{members[{id,name,classId,level,hp,maxHp,mp,
-maxMp,leader}]}` · `partyMemberStatus{id,hp,maxHp,mp,maxMp}`.
+maxMp,leader}]}` · `partyMemberStatus{id,hp,maxHp,mp,maxMp}` ·
+`buffs{effects[{skillId,level,duration}]}` ·
+`skillCoolTime{skills[{id,level,reuse,remaining}]}`.
 
 Quests (added 2026-07-26): `questList` = QuestList(0x80, `H count` + per
 quest `D questId, D flags`), queued after enterWorld like the other lists
@@ -225,6 +227,15 @@ All/Add/Delete/DeleteAll (packets exclude the receiver; the bridge
 re-inserts self — documented choice, no incremental ops) ·
 `partyMemberStatus` on PartySmallWindowUpdate(0x52). Change-leader
 (0xd0:4) not exposed.
+
+Buffs & cooldowns (added 2026-07-27): `buffs` = AbnormalStatusUpdate
+(0x7f) FULL SNAPSHOT of self effects each time (duration in SECONDS,
+-1 = toggle) · `skillCoolTime` = SkillCoolTime(0xc1, reuse+remaining in
+SECONDS) — sent by aCis ONLY at login/subclass/augment/item-skill equip,
+never per cast, and only for reuses > 30s · per-cast cooldown rides the
+additive `skillCast.reuse` field (MagicSkillUse reuseDelay, MILLISECONDS).
+Applied reuse = skillReuse × 333/atkSpd unless staticReuse. `targetBuffs`
+does not exist in this rev.
 
 NPC dialog (added 2026-07-26): `talk{id}` sends Action(0x04); aCis routes by
 Creature.onAction — first Action only targets, second Action INTERACTS for

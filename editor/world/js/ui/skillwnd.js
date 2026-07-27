@@ -182,6 +182,7 @@ export class SkillWnd {
 
       const cell = document.createElement('div');
       cell.className = 'l2-skill-cell';
+      cell.dataset.skillId = s.id;
       // slot art (34) sits at (x-1, y-1) around the 32px icon; the pitch
       // advances by icon+gap (37x35) — emulate with a padded cell
       cell.style.cssText = 'position:relative;overflow:visible;'
@@ -248,6 +249,26 @@ export class SkillWnd {
   usableSkills() {
     return this.skills.filter(
       s => skillType(s.id, s.passive) !== 'PASSIVE' && !s.disabled);
+  }
+
+  /** Same cooldown sweep as the shortcut bar (see its tickCooldowns for
+   *  the sourced-timing / AUTHORED-visual split). */
+  tickCooldowns(skillBar) {
+    for (const cell of this.root.querySelectorAll('.l2-skill-cell[data-skill-id]')) {
+      const left = skillBar.reuseLeft(+cell.dataset.skillId);
+      const inner = cell.firstElementChild;
+      if (!inner) continue;
+      let ov = inner.querySelector('.l2-cool-overlay');
+      if (!left) { if (ov) ov.remove(); continue; }
+      if (!ov) {
+        ov = document.createElement('div');
+        ov.className = 'l2-cool-overlay';
+        ov.style.cssText = 'position:absolute;left:0;top:0;width:100%;'
+          + 'background:rgba(0,0,0,0.65);pointer-events:none;';
+        inner.appendChild(ov);
+      }
+      ov.style.height = `${(left.frac * 100).toFixed(1)}%`;
+    }
   }
 
   isPassive(id) {

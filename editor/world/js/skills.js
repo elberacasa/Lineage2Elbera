@@ -13,6 +13,24 @@ export class SkillBar {
     this.onCast = onCast || (() => {});
     this.skills = new Map();   // skillId -> {level, cooling, timer}
     this.cast = null;          // {skillId, t0, hitTime, raf}
+    this.reuse = new Map();    // skillId -> {t0, total} ms (sweep overlays)
+  }
+
+  /** Server-authoritative reuse (skillCoolTime op — total/left in ms
+   *  after the caller's unit conversion) or the cast lock's own hitTime;
+   *  the windows sweep their overlays off this. */
+  setReuse(skillId, ms, leftMs = ms) {
+    if (!(ms > 0)) return;
+    this.reuse.set(skillId, { t0: performance.now() - (ms - leftMs), total: ms });
+  }
+
+  /** {frac, left} for an active cooldown, else null. */
+  reuseLeft(skillId, now = performance.now()) {
+    const r = this.reuse.get(skillId);
+    if (!r) return null;
+    const left = r.total - (now - r.t0);
+    if (left <= 0) { this.reuse.delete(skillId); return null; }
+    return { frac: left / r.total, left };
   }
 
   register(skills) {
@@ -43,6 +61,13 @@ export class SkillBar {
   startCastBar(skillId, level, hitTime, name) {
     this.stopCastBar();
     this.cast = { t0: performance.now(), hitTime: Math.max(100, hitTime || 1000) };
+    // the cast lock also sweeps — but only when no longer server reuse is
+    // already tracked (MagicSkillUse carries the real reuseDelay in ms;
+    // aCis sends no SkillCoolTime on cast, so that op wins when present)
+    const existing = this.reuseLeft(skillId);
+    if (!existing || existing.left < this.cast.hitTime) {
+      this.setReuse(skillId, this.cast.hitTime);
+    }
     this.castName.textContent = name || `Skill #${skillId}`;
     this.castBar.classList.add('visible');
     const tick = () => {
