@@ -171,7 +171,9 @@ Client → server: `login{deviceId}` · `enterChar{slot}` · `moveTo{x,y,z}` ·
 targetId?}` · `useItem{objectId}` · `talk{id}` · `bypass{command}` ·
 `action{actionId}` · `questAbort{id}` · `partyInvite{name}` ·
 `partyAnswer{accept}` · `partyLeave{}` · `partyKick{name}` ·
-`buy{items[{itemId,count}]}` · `sell{items[{objectId,count}]}`.
+`buy{items[{itemId,count}]}` · `sell{items[{objectId,count}]}` ·
+`tradeRequest{name}` · `tradeAnswer{accept}` · `tradeAdd{objectId,count}` ·
+`tradeDone{}` · `tradeCancel{}`.
 
 Actions (fixed 2026-07-27): `action{actionId}` takes actionname-e.dat UI
 ids; SOCIAL-map keys are remapped to aCis social ids and sent via
@@ -208,7 +210,10 @@ maxMp,leader}]}` · `partyMemberStatus{id,hp,maxHp,mp,maxMp}` ·
 `buffs{effects[{skillId,level,duration}]}` ·
 `skillCoolTime{skills[{id,level,reuse,remaining}]}` ·
 `buyList{listId,money,items[{itemId,count,price}]}` ·
-`sellList{money,items[{objectId,itemId,count,price,enchant}]}`.
+`sellList{money,items[{objectId,itemId,count,price,enchant}]}` ·
+`tradeAsk{from}` · `tradeStart{partnerId,partner,items[]}` ·
+`tradeOwn{items[{objectId,itemId,count}]}` ·
+`tradeOther{items[{objectId,itemId,count}]}` · `tradeEnd{reason}`.
 
 Shops (added 2026-07-27): merchant dialog (`npc_<id>_Buy <listId>` /
 `npc_<id>_Sell` bypasses, validated against the last html — talk first) →
@@ -249,6 +254,32 @@ never per cast, and only for reuses > 30s · per-cast cooldown rides the
 additive `skillCast.reuse` field (MagicSkillUse reuseDelay, MILLISECONDS).
 Applied reuse = skillReuse × 333/atkSpd unless staticReuse. `targetBuffs`
 does not exist in this rev.
+
+Trade (added 2026-07-27): `tradeRequest{name}` → TradeRequest(0x15,
+**objectId-based** in this rev — the bridge resolves the name via its
+visible-players map; server requires `knows(target)`, request expires 15s)
+· `tradeAnswer{accept}` → AnswerTradeRequest(0x44, D 1/0) ·
+`tradeAdd{objectId,count}` → AddTradeItem(0x16, D tradeId **read but
+unused** — send 0, D objectId, D count) · `tradeDone{}` → TradeDone(0x17,
+D 1) · `tradeCancel{}` → TradeDone(0x17, D 0, cancels for BOTH sides).
+Server side: `tradeAsk{from}` (SendTradeRequest 0x5e, D senderId → name) ·
+`tradeStart{partnerId,partner,items[]}` (TradeStart 0x1e, D partnerId +
+H count + trade entries — items = own **tradable** inventory snapshot,
+`getAvailableItems(allowAdena, !nonTradeable, !storeBuy)`) · `tradeOwn` /
+`tradeOther` (TradeOwnAdd 0x20 / TradeOtherAdd 0x21, per-add, H count is
+always 1 → forwarded as one-item lists) · `tradeEnd{reason}` (SendTradeDone
+0x22: 1 done / 0 cancel). CONFIRM IS TWO-PHASE (TradeList.confirm): the
+first `tradeDone` only marks that side (TradePressOwnOk 0x75 /
+TradePressOtherOk 0x7c, both empty, decoded but log-only — NOT contract
+ops); the exchange runs on the second confirm. REFUSE = only sysMsg 119
+(S1_DENIED_TRADE_REQUEST) at the requestor, no tradeStart/tradeEnd. Cancel
+= `tradeEnd{cancel}` at both, items never move. Done = `tradeEnd{done}` +
+invUpdate on both sides. Quirk: starter equipment is is_tradable=false —
+only the Tutorial Guide (5588) is tradable on a fresh char.
+TradeItemUpdate/TradeUpdate (0x74) exists (trade-window inventory refresh,
+leading H available-flag 2/3) but is not bridged. Live proof:
+`gateway/test/verify-trade.js` PASS (refuse / cancel / two-phase done with
+real item movement).
 
 NPC dialog (added 2026-07-26): `talk{id}` sends Action(0x04); aCis routes by
 Creature.onAction — first Action only targets, second Action INTERACTS for

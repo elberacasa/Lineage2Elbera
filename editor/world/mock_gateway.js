@@ -41,6 +41,18 @@
 //   buyList     <- on bypass npc_buy; sellList <- npc_sell and after a
 //                  sale; buy/sell validated, results via invUpdate only
 //   loot{id}    -> invUpdate add (adena) + sysMsg, only for dead mobs
+// M12 trade (virtual partner Aria):
+//   tradeRequest{name} -> sysMsg 118, then Aria accepts -> tradeStart
+//                  (items = own tradable snapshot: equipped excluded)
+//   say "/tradeask" -> incoming tradeAsk{from:'Aria'} (on-demand fixture)
+//   tradeAnswer -> accept 1: tradeStart; accept 0: silence (refuse only
+//                  sysMsgs the REQUESTOR, who is virtual here)
+//   tradeAdd    -> tradeOwn echo (per-add, one-item list); Aria answers
+//                  the first add with her own offer via tradeOther
+//   tradeDone   -> TWO-PHASE: marks own confirm; Aria confirms 500 ms
+//                  later -> tradeEnd{done} + sysMsg 123 + item movement
+//                  via invUpdate ONLY
+//   tradeCancel -> tradeEnd{cancel}; offered items never move
 // Remote-anim fixtures at enterChar: changeWait{Borg,sit} + changeMove
 // {Cora,running}.
 //
@@ -114,6 +126,8 @@ wss.on('connection', (ws) => {
   const quests = [];
   let party = [];
   let partyTick = null;
+  // M12 trade state (virtual partner Aria): null = no active trade
+  let trade = null;
   let nextBoughtId = 1;
   let lastTarget = null;
   let lootCounter = 0;
@@ -139,6 +153,47 @@ wss.on('connection', (ws) => {
         price: SELL_PRICES[it.itemId] || 10,
       })),
     });
+  };
+
+  // M12 trade: Aria's standing offer (2 healing potions). Movement on
+  // completion rides invUpdate ONLY — the trade ops never move items.
+  const ARIA_OFFER = { objectId: 95001, itemId: 1060, count: 2, slot: 0, enchant: 0 };
+  const startTrade = () => {
+    trade = { ownOffer: [], ownConfirmed: false, ariaOffered: false };
+    send('tradeStart', {
+      partnerId: 80001, partner: 'Aria',
+      // own tradable snapshot (M12): equipped items excluded
+      items: items.filter(i => !i.equipped).map(i => ({
+        objectId: i.objectId, itemId: i.itemId, count: i.count,
+        slot: i.slot, enchant: i.enchant,
+      })),
+    });
+  };
+  const finishTrade = () => {
+    if (!trade) return;
+    for (const e of trade.ownOffer) {
+      const it = items.find(i => i.objectId === e.objectId);
+      if (!it) continue;
+      it.count -= e.count;
+      if (it.count <= 0) {
+        items.splice(items.indexOf(it), 1);
+        send('invUpdate', { updated: [{ change: 'remove', objectId: it.objectId, itemId: it.itemId }] });
+      } else {
+        send('invUpdate', { updated: [{ change: 'modify', ...it }] });
+      }
+    }
+    const potions = items.find(i => i.itemId === ARIA_OFFER.itemId && !i.equipped);
+    if (potions) {
+      potions.count += ARIA_OFFER.count;
+      send('invUpdate', { updated: [{ change: 'modify', ...potions }] });
+    } else {
+      const it = { ...ARIA_OFFER };
+      items.push(it);
+      send('invUpdate', { updated: [{ change: 'add', ...it }] });
+    }
+    send('sysMsg', { id: 123, params: [] });
+    send('tradeEnd', { reason: 'done' });
+    trade = null;
   };
 
   // M3 combat loop: player whacks the gremlin, gremlin counters
@@ -307,6 +362,8 @@ wss.on('connection', (ws) => {
       // M9 party fixture ON DEMAND — an unsolicited prompt would cover the
       // 3D clicks of unrelated verify suites
       if (msg.text === '/partyask' && !party.length) send('partyAsk', { from: 'Aria' });
+      // M12: incoming trade ask, ON DEMAND (same reason as /partyask)
+      if (msg.text === '/tradeask' && !trade) send('tradeAsk', { from: 'Aria' });
       if (msg.text === '.menu') {
         send('npcHtml', { html:
           `<html><body><title>L2Vzla - Player menu</title><br><br><center>` +
@@ -540,6 +597,44 @@ wss.on('connection', (ws) => {
       }
       // retail sends nothing more: the sell window hides on OK and the
       // list is only re-sent when the dialog asks again
+    } else if (msg.op === 'tradeRequest') {
+      // sysMsg 118 (REQUEST_S1_FOR_TRADE) at the requestor; Aria accepts
+      // after a beat -> tradeStart on both sides (M12)
+      send('sysMsg', { id: 118, params: [String(msg.name || 'Aria')] });
+      timers.push(setTimeout(startTrade, 600));
+    } else if (msg.op === 'tradeAnswer') {
+      // the mock's pending ask (Aria offered): accept opens the trade;
+      // refuse only sysMsgs the REQUESTOR (virtual here) -> silence
+      if (msg.accept === 1) startTrade();
+    } else if (msg.op === 'tradeAdd') {
+      // per-add echo: tradeOwn to the offerer (M12). Aria answers the
+      // first add with her own standing offer via tradeOther.
+      if (!trade || trade.ownConfirmed) return;
+      const it = items.find(i => i.objectId === msg.objectId && !i.equipped);
+      if (!it) return;
+      const n = Math.min(it.count, Math.max(1, msg.count | 0));
+      const entry = { objectId: it.objectId, itemId: it.itemId, count: n, slot: it.slot, enchant: it.enchant };
+      const have = trade.ownOffer.find(e => e.objectId === entry.objectId);
+      if (have) have.count += n;
+      else trade.ownOffer.push(entry);
+      send('tradeOwn', { items: [entry] });
+      if (!trade.ariaOffered) {
+        trade.ariaOffered = true;
+        timers.push(setTimeout(() => {
+          if (trade) send('tradeOther', { items: [{ ...ARIA_OFFER }] });
+        }, 400));
+      }
+    } else if (msg.op === 'tradeDone') {
+      // TWO-PHASE (M12): this only marks our side — Aria confirms 500 ms
+      // later and the exchange runs (invUpdate + tradeEnd{done})
+      if (!trade || trade.ownConfirmed) return;
+      trade.ownConfirmed = true;
+      timers.push(setTimeout(finishTrade, 1500));
+    } else if (msg.op === 'tradeCancel') {
+      // cancel hits BOTH parties; offered items never move (M12)
+      if (!trade) return;
+      trade = null;
+      send('tradeEnd', { reason: 'cancel' });
     }
   });
 

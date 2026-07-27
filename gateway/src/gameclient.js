@@ -10,7 +10,9 @@
 //   C->S EnterWorld(0x03)
 //   S->C ... UserInfo(0x04), NpcInfo(0x16), CharInfo(0x03), ...
 // In game:
-//   C->S MoveBackwardToLocation(0x01), Say2(0x38), ValidatePosition(0x48)
+//   C->S MoveBackwardToLocation(0x01), Say2(0x38), ValidatePosition(0x48),
+//        TradeRequest(0x15), AddTradeItem(0x16), TradeDone(0x17),
+//        AnswerTradeRequest(0x44)
 'use strict';
 
 const net = require('net');
@@ -272,6 +274,37 @@ class GameSession extends EventEmitter {
   // RequestOustPartyMember (0x2c): S targetName.
   oustPartyMember(name) {
     this._send(new PacketWriter().writeC(0x2c).writeS(String(name)).build());
+  }
+
+  // TradeRequest (0x15): D targetObjectId (objectId-based in this rev —
+  // the bridge resolves player names to objectIds for the contract op).
+  tradeRequest(objectId) {
+    this._send(new PacketWriter().writeC(0x15).writeD(objectId | 0).build());
+  }
+
+  // AnswerTradeRequest (0x44): D response (1 accept, 0 refuse).
+  answerTradeRequest(response) {
+    this._send(new PacketWriter().writeC(0x44).writeD(response ? 1 : 0).build());
+  }
+
+  // AddTradeItem (0x16): D tradeId (read but UNUSED in this rev — send 0),
+  // D objectId, D count.
+  addTradeItem(objectId, count) {
+    this._send(
+      new PacketWriter()
+        .writeC(0x16)
+        .writeD(0) // tradeId, unused by aCis
+        .writeD(objectId | 0)
+        .writeD(count | 0)
+        .build()
+    );
+  }
+
+  // TradeDone (0x17): D response. 1 = confirm (two-phase: BOTH sides must
+  // confirm; the exchange happens on the second confirm — TradeList.confirm).
+  // Anything else = cancel the whole trade for both parties.
+  tradeDone(response) {
+    this._send(new PacketWriter().writeC(0x17).writeD(response ? 1 : 0).build());
   }
 
   // RequestPrivateStoreManageSell (0x73): opens the sell-store management.
@@ -596,6 +629,45 @@ class GameSession extends EventEmitter {
         this.emit('partyUpdate', { id, name, cp, maxCp, hp, maxHp, mp, maxMp, level, classId });
         break;
       }
+      // ------------------------------------------------------ M12: trade
+      case 0x5e: { // SendTradeRequest (ask prompt): D senderObjectId
+        this.emit('tradeAsk', { fromId: r.readD() });
+        break;
+      }
+      case 0x1e: { // TradeStart (session opens): D partnerObjectId, H count,
+        // per item the shared trade entry (own tradable inventory snapshot)
+        const partnerId = r.readD();
+        const count = r.readH();
+        const items = [];
+        for (let i = 0; i < count; i++) items.push(parseTradeItem(r));
+        this.emit('tradeStart', { partnerId, items });
+        break;
+      }
+      case 0x20: { // TradeOwnAdd (own offer changed): H count(1), entries
+        const count = r.readH();
+        const items = [];
+        for (let i = 0; i < count; i++) items.push(parseTradeItem(r));
+        this.emit('tradeOwnAdd', items);
+        break;
+      }
+      case 0x21: { // TradeOtherAdd (partner offer changed): same layout
+        const count = r.readH();
+        const items = [];
+        for (let i = 0; i < count; i++) items.push(parseTradeItem(r));
+        this.emit('tradeOtherAdd', items);
+        break;
+      }
+      case 0x22: { // SendTradeDone (session closes): D value
+        // 1 = exchange done, 0 = cancelled/failed
+        this.emit('tradeEnd', { success: r.readD() === 1 });
+        break;
+      }
+      case 0x75: // TradePressOwnOk: empty — you pressed confirm (phase 1)
+        this.emit('tradePressOwnOk');
+        break;
+      case 0x7c: // TradePressOtherOk: empty — partner pressed confirm
+        this.emit('tradePressOtherOk');
+        break;
       // -------------------------------------------- M10: buffs & cooldowns
       case 0x7f: { // AbnormalStatusUpdate: H count, per effect
         // D skillId, H level, D duration (seconds; -1 = toggle/infinite).
@@ -626,7 +698,8 @@ class GameSession extends EventEmitter {
         this.emit('coolTime', skills);
         break;
       }
-      case 0x0b: { // SpawnItem (ground drop)        const id = r.readD();
+      case 0x0b: { // SpawnItem (ground drop)
+        const id = r.readD();
         const itemId = r.readD();
         const x = r.readD(); const y = r.readD(); const z = r.readD();
         r.readD(); // stackable flag
@@ -927,6 +1000,25 @@ function parseItemEntry(r) {
   r.readD(); // augmentation id
   r.readD(); // mana left
   return { objectId, itemId, count, slot, equipped, enchant };
+}
+
+// Shared trade item entry (TradeStart / TradeOwnAdd / TradeOtherAdd —
+// serverpackets/TradeStart.java writeImpl): H type1, D objectId, D itemId,
+// D count, H type2, H customType1, D bodyPart, H enchant, H customType2, H 0.
+// (TradeItemUpdate/TradeUpdate 0x74 add a leading H available-flag and are
+// not bridged — the trade window's own-inventory refresh.)
+function parseTradeItem(r) {
+  r.readH(); // type1
+  const objectId = r.readD();
+  const itemId = r.readD();
+  const count = r.readD();
+  r.readH(); // type2
+  r.readH(); // custom type 1
+  const slot = r.readD(); // body part
+  const enchant = r.readH();
+  r.readH(); // custom type 2
+  r.readH(); // 0
+  return { objectId, itemId, count, slot, enchant };
 }
 
 // Party member entry shared by PartySmallWindowAll (withRace) and

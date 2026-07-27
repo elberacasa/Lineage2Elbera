@@ -29,6 +29,7 @@ import { QuestWnd, questCond, questStarted } from './ui/questwnd.js';
 import { PartyWnd } from './ui/partywnd.js';
 import { AbnormalWnd } from './ui/abnormalwnd.js';
 import { ShopWnd } from './ui/shopwnd.js';
+import { TradeWnd } from './ui/tradewnd.js';
 
 const canvas = document.getElementById('view');
 const statusEl = document.getElementById('status');
@@ -165,6 +166,7 @@ let questWnd = null;
 let partyWnd = null;
 let abnormalWnd = null;
 let shopWnd = null;
+let tradeWnd = null;
 let menuWnd = null;
 let systemMenuWnd = null;
 
@@ -208,6 +210,19 @@ function makeChat() {
     {
       onSend: ({ channel = 0, text, target }) => {
         if (!text) return;
+        // '/trade' with no message body (chat.js parses '/trade <msg>' as
+        // channel 8) invites the CURRENT PLAYER target, like the retail
+        // trade action — aCis TradeRequest is name-based (M12)
+        if (text === '/trade') {
+          const t = combat.target;
+          const e = t && t.id !== selfId ? entities.getEntity(t.id) : null;
+          if (online && e && e.kind === 'player' && t.name) {
+            net.send('tradeRequest', { name: t.name });
+          } else {
+            chat.addSystem('Target a player first');
+          }
+          return;
+        }
         if (online && net.send('say', { channel, text, ...(target ? { target } : {}) })) return;
         chat.addSystem('not connected — message not sent');
       },
@@ -400,6 +415,26 @@ net.on('buyList', (msg) => {
 });
 net.on('sellList', (msg) => {
   if (shopWnd) shopWnd.openSell(msg.items || []);
+});
+// M12 trade: tradeStart opens the window (and retail HIDES the inventory/
+// shop windows, TradeWnd.uc:184-199); tradeOwn/tradeOther are the ONLY
+// pane truth; tradeEnd closes. Refuse surfaces only as sysMsg 119 in chat.
+net.on('tradeAsk', (msg) => {
+  if (tradeWnd) tradeWnd.showAsk(msg.from);
+});
+net.on('tradeStart', (msg) => {
+  if (inventory) inventory.toggle(false);
+  if (shopWnd) shopWnd.hide();
+  if (tradeWnd) tradeWnd.start(msg);
+});
+net.on('tradeOwn', (msg) => {
+  if (tradeWnd) tradeWnd.addOwn(msg.items || []);
+});
+net.on('tradeOther', (msg) => {
+  if (tradeWnd) tradeWnd.addOther(msg.items || []);
+});
+net.on('tradeEnd', (msg) => {
+  if (tradeWnd) tradeWnd.end(msg.reason);
 });
 net.on('invUpdate', (msg) => {
   inventory.applyUpdate(msg.updated || []);
@@ -649,6 +684,7 @@ window.__world = {
   get partyWnd() { return partyWnd; },
   get abnormalWnd() { return abnormalWnd; },
   get shopWnd() { return shopWnd; },
+  get tradeWnd() { return tradeWnd; },
   get menuWnd() { return menuWnd; },
   get systemMenuWnd() { return systemMenuWnd; },
   wndMgr: WndMgr,
@@ -1007,6 +1043,18 @@ renderer.setAnimationLoop(() => {
     });
     shopWnd.place(shopWnd.defaultPlace);
     WndMgr.register('ShopWnd', shopWnd, { handle: shopWnd.win.bar });
+
+    // Phase C.12: player-to-player trade. '/trade' with a player targeted
+    // invites; tradeStart opens the window, tradeOwn/tradeOther are the
+    // ONLY pane truth (server-authoritative), tradeEnd closes.
+    tradeWnd = new TradeWnd(document.body, {
+      onAdd: (objectId, count) => { if (online) net.send('tradeAdd', { objectId, count }); },
+      onDone: () => { if (online) net.send('tradeDone', {}); },
+      onCancel: () => { if (online) net.send('tradeCancel', {}); },
+      onAnswer: (accept) => { if (online) net.send('tradeAnswer', { accept }); },
+    });
+    tradeWnd.place(tradeWnd.defaultPlace);
+    WndMgr.register('TradeWnd', tradeWnd, { handle: tradeWnd.win.bar });
     // the invite row follows the current target (target + invite flow)
     const _combatSetTarget = combat.setTarget.bind(combat);
     combat.setTarget = (id, name, opts) => {

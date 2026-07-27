@@ -33,7 +33,8 @@ fi
 if [ "$MODE" != "--client-only" ]; then
   for t in verify-one verify-two verify-m4 verify-m5 verify-combat \
            verify-mods verify-level verify-dialog verify-action \
-           verify-party verify-quest verify-buffs verify-shop; do
+           verify-party verify-quest verify-buffs verify-shop \
+           verify-trade; do
     run "$t" gateway "test/$t.js"
   done
 fi

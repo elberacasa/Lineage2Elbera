@@ -30,6 +30,8 @@ node test/verify-combat.js [deviceId] # target a Gremlin, kill it: target_ok/att
 node test/verify-observer.js [suffix] # client B watches client A fight: attack + die broadcasts
 node test/verify-m4.js [deviceId]    # skills+items: skillList/itemList, self-cast, nuke kill, manual loot
 node test/verify-m5.js [suffix]      # chat channels (TELL target, SHOUT), charSheet, .menu passthrough
+node test/verify-shop.js [suffix]     # merchant flow: buy list, buy (itemList refresh), sell back
+node test/verify-trade.js [suffix]    # player trade: ask/refuse, accept+cancel, two-phase confirm + item move
 node test/smoke-protocol.js          # same as verify-one but without the WS layer (raw protocol)
 ```
 
@@ -71,6 +73,72 @@ SystemMessage(0x64) is shallow-decoded into the contract op
 2 NPC_NAME, 3 ITEM_NAME, 4 SKILL_NAME, 5 CASTLE_NAME, 6 ITEM_NUMBER,
 7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
 "You have earned 145 exp and 10 SP".
+
+## M12: player-to-player trade (added 2026-07-27)
+
+Flow (verified live, test/verify-trade.js): tradeRequest -> tradeAsk ->
+tradeAnswer -> tradeStart on both -> tradeAdd -> tradeOwn/tradeOther ->
+BOTH tradeDone (two-phase) -> tradeEnd{done} + item movement via invUpdate.
+
+Client -> server:
+- `{"op":"tradeRequest","name":".."}` -> TradeRequest(0x15): `D objectId`.
+  **aCis is objectId-based, not name-based** — the bridge resolves the name
+  through its visible-players map (CharInfo). Server-side prerequisites
+  (clientpackets/TradeRequest.java): the requestor must KNOW the target
+  (`player.knows(target)`), target must not be busy/in a transaction, and
+  the request EXPIRES after 15s (Player.REQUEST_TIMEOUT). Requestor gets
+  sysMsg 118 (REQUEST_S1_FOR_TRADE).
+- `{"op":"tradeAnswer","accept":0|1}` -> AnswerTradeRequest(0x44): `D`
+  (1 accept, 0 refuse).
+- `{"op":"tradeAdd","objectId":N,"count":N}` -> AddTradeItem(0x16):
+  `D tradeId, D objectId, D count`. **tradeId is read but UNUSED in this
+  rev** (@SuppressWarnings) — the bridge sends 0. Only items from the
+  tradeStart snapshot are accepted (not equipped, tradable, not quest).
+- `{"op":"tradeDone"}` -> TradeDone(0x17): `D 1` = confirm. **TWO-PHASE
+  (TradeList.confirm)**: the first confirm only marks that side —
+  confirmer gets TradePressOwnOk(0x75, empty), partner gets
+  TradePressOtherOk(0x7c, empty) + sysMsg 121; NO tradeEnd yet. The
+  exchange runs when BOTH have confirmed. Also confirms are locked: no
+  tradeAdd after either side confirmed.
+- `{"op":"tradeCancel"}` -> TradeDone(0x17): `D 0` — cancels the trade for
+  BOTH parties (Player.cancelActiveTrade).
+
+Server -> client:
+- `{"op":"tradeAsk","from":".."}` — SendTradeRequest(0x5e): `D senderId`;
+  the bridge resolves the id to a name via the visible-players map.
+- `{"op":"tradeStart","partnerId":N,"partner":"..","items":[{objectId,itemId,count,slot,enchant}]}`
+  — TradeStart(0x1e): `D partnerId, H count`, per item `H type1,
+  D objectId, D itemId, D count, H type2, H custom1, D bodyPart, H enchant,
+  H custom2, H 0`. `items` is the receiver's OWN tradable-inventory
+  snapshot — `getAvailableItems(allowAdena=true, allowNonTradeable=false,
+  allowStoreBuy=false)`: equipped items, is_tradable=false items and quest
+  items are EXCLUDED. Quirk: aCis starter equipment (Dagger 10, Squire's
+  set) is is_tradable=false — a fresh char can only offer the Tutorial
+  Guide (5588).
+- `{"op":"tradeOwn","items":[{objectId,itemId,count,slot,enchant}]}` —
+  TradeOwnAdd(0x20): `H count` (always 1 in this rev) + the trade entry
+  layout above. Sent to the offerer when its own offer changes.
+- `{"op":"tradeOther","items":[...]}` — TradeOtherAdd(0x21): same layout,
+  sent to the partner. (The frozen contract allows a `name?` field; not
+  populated — the gateway has no item-name table.)
+- `{"op":"tradeEnd","reason":"done|cancel"}` — SendTradeDone(0x22):
+  `D value` (1 = exchange done, 0 = cancelled/failed). Sent to BOTH
+  parties on confirm-complete (done) and on tradeCancel/disconnect
+  (cancel).
+
+Quirks verified live:
+- REFUSE path: the requestor gets ONLY sysMsg 119 (S1_DENIED_TRADE_REQUEST)
+  — no tradeStart, no tradeEnd anywhere.
+- CANCEL path: both sides get tradeEnd{cancel}; offered items never leave
+  the inventory (no invUpdate).
+- DONE path: both sides get tradeEnd{done} + sysMsg 123 (TRADE_SUCCESSFUL)
+  and the transfer arrives as regular invUpdate (remove at the offerer,
+  add at the partner).
+- TradePressOwnOk(0x75)/TradePressOtherOk(0x7c) are decoded but log-only —
+  NOT contract ops.
+- TradeItemUpdate/TradeUpdate (S->C 0x74, trade-window own-inventory
+  refresh; per item a leading `H` available-flag 2/3, then the trade entry
+  layout) is NOT bridged — the contract needs only tradeOwn/tradeOther.
 
 ## M11: NPC shops / merchants (added 2026-07-27)
 
@@ -544,7 +612,9 @@ PlayFail 0x06, PlayOk 0x07, GGAuth 0x0b.
 Game (C→S): SendProtocolVersion 0x00 (v746), AuthLogin 0x08,
 RequestCharacterCreate 0x0b, RequestGameStart 0x0d, EnterWorld 0x03,
 MoveBackwardToLocation 0x01, Action 0x04, AttackRequest 0x0a, Say2 0x38,
-RequestMagicSkillUse 0x2f, UseItem 0x14, ValidatePosition 0x48.
+RequestMagicSkillUse 0x2f, UseItem 0x14, ValidatePosition 0x48,
+TradeRequest 0x15, AddTradeItem 0x16, TradeDone 0x17, AnswerTradeRequest
+0x44.
 Game (S→C, decoded): VersionCheck 0x00, CharSelectInfo 0x13,
 CharSelected 0x15, CharCreateOk 0x19, CharCreateFail 0x1a, UserInfo 0x04,
 CharInfo 0x03, NpcInfo 0x16, MoveToLocation 0x01, DeleteObject 0x12,
@@ -552,7 +622,9 @@ CreatureSay 0x4a, TeleportToLocation 0x28, ValidateLocation 0x61,
 Attack 0x05, Die 0x06, Revive 0x07, StatusUpdate 0x0e,
 MyTargetSelected 0xa6, SystemMessage 0x64, SkillList 0x58,
 MagicSkillUse 0x48, MagicSkillLaunched 0x76, ItemList 0x1b,
-InventoryUpdate 0x27, SpawnItem 0x0b, DropItem 0x0c.
+InventoryUpdate 0x27, SpawnItem 0x0b, DropItem 0x0c, SendTradeRequest 0x5e,
+TradeStart 0x1e, TradeOwnAdd 0x20, TradeOtherAdd 0x21, SendTradeDone 0x22,
+TradePressOwnOk 0x75, TradePressOtherOk 0x7c.
 
 ## Files
 

@@ -66,6 +66,10 @@ class Bridge {
     // to resolve RequestSellItem entries.
     this.lastBuyListId = 0;
     this.inventory = new Map();
+    // M12 trade state: visible players id -> name (CharInfo). aCis
+    // TradeRequest is objectId-based; the contract op is name-based, and
+    // tradeAsk/tradeStart resolve ids back to names through this map.
+    this.playersByName = new Map();
 
     ws.on('message', (data) => this._onMessage(data));
     ws.on('close', () => this._shutdown());
@@ -207,6 +211,37 @@ class Bridge {
           // inventory CrystallizeButton (aCis RequestCrystallizeItem)
           if (this.game) this.game.crystallizeItem(msg.objectId | 0, msg.count | 0 || 1);
           break;
+        // ---------------------------------------------------- M12: trade
+        case 'tradeRequest': {
+          // TradeRequest(0x15) is objectId-based in this rev; the contract
+          // op is name-based — resolve via the visible-players map (CharInfo).
+          // Server-side the requestor must KNOW the target (Player.knows) and
+          // the target must not be busy; request expires after 15s.
+          const name = String(msg.name || '').slice(0, 16);
+          let id = 0;
+          for (const [pid, pname] of this.playersByName) if (pname === name) { id = pid; break; }
+          if (this.game && id) this.game.tradeRequest(id);
+          else this.log(`tradeRequest: no visible player named "${name}"`);
+          break;
+        }
+        case 'tradeAnswer':
+          // AnswerTradeRequest(0x44): D 1 accept / 0 refuse.
+          if (this.game) this.game.answerTradeRequest(msg.accept ? 1 : 0);
+          break;
+        case 'tradeAdd':
+          // AddTradeItem(0x16): D tradeId(unused, 0), D objectId, D count.
+          if (this.game) this.game.addTradeItem(msg.objectId | 0, msg.count | 0);
+          break;
+        case 'tradeDone':
+          // TradeDone(0x17) response 1 = confirm. TWO-PHASE in aCis: the
+          // first confirm only marks the side (TradePressOwnOk/OtherOk);
+          // the exchange happens when BOTH confirmed (TradeList.confirm).
+          if (this.game) this.game.tradeDone(1);
+          break;
+        case 'tradeCancel':
+          // TradeDone(0x17) response 0 = cancel the trade for BOTH parties.
+          if (this.game) this.game.tradeDone(0);
+          break;
       }
     } catch (e) {
       this.log(`bridge error: ${e.message}`);
@@ -341,6 +376,7 @@ class Bridge {
 
     game.on('charInfo', (c) => {
       if (c.id === this.selfId) return;
+      this.playersByName.set(c.id, c.name);
       this.send({
         op: 'addPlayer',
         id: c.id,
@@ -371,7 +407,10 @@ class Bridge {
       this.send({ op: 'move', id: v.id, tx: v.x, ty: v.y, tz: v.z });
     });
 
-    game.on('delete', (id) => this.send({ op: 'remove', id }));
+    game.on('delete', (id) => {
+      this.playersByName.delete(id);
+      this.send({ op: 'remove', id });
+    });
 
     game.on('say', (s) => {
       const msg = { op: 'chat', from: s.name, channel: s.channel, text: s.text };
@@ -573,6 +612,37 @@ class Bridge {
 
     // SkillCoolTime: reuse + remaining in SECONDS (packet divides by 1000).
     game.on('coolTime', (skills) => this.send({ op: 'skillCoolTime', skills }));
+
+    // ------------------------------------------------------------ M12 trade
+    // SendTradeRequest(0x5e) carries the requestor objectId; resolve to name
+    // via the visible-players map (server guarantees the requestor is known).
+    game.on('tradeAsk', (a) => {
+      this.send({ op: 'tradeAsk', from: this.playersByName.get(a.fromId) || String(a.fromId) });
+    });
+
+    // TradeStart(0x1e): session open. items = own tradable inventory
+    // snapshot (the packet's payload), forwarded uninterpreted.
+    game.on('tradeStart', (t) => {
+      this.send({
+        op: 'tradeStart',
+        partnerId: t.partnerId,
+        partner: this.playersByName.get(t.partnerId) || null,
+        items: t.items,
+      });
+    });
+
+    // TradeOwnAdd(0x20)/TradeOtherAdd(0x21): per-add packets (H count is
+    // always 1 in this rev); forwarded as one-item lists.
+    game.on('tradeOwnAdd', (items) => this.send({ op: 'tradeOwn', items }));
+    game.on('tradeOtherAdd', (items) => this.send({ op: 'tradeOther', items }));
+
+    // SendTradeDone(0x22): 1 = exchange done, 0 = cancelled/failed.
+    game.on('tradeEnd', (e) => this.send({ op: 'tradeEnd', reason: e.success ? 'done' : 'cancel' }));
+
+    // Two-phase confirm markers (TradePressOwnOk 0x75 / TradePressOtherOk
+    // 0x7c, both empty): logged only — not part of the frozen contract.
+    game.on('tradePressOwnOk', () => this.log('trade: own confirm registered (waiting for partner)'));
+    game.on('tradePressOtherOk', () => this.log('trade: partner confirmed'));
 
     // NpcHtmlMessage (0x0f) — villager dialogs, .menu, teleporters, shops.
     game.on('html', (h) => {
