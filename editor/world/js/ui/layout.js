@@ -17,11 +17,19 @@
 const SRC = '/gamedata/interface.json';
 
 let _doc = null;
-const _index = new Map();       // 'Window/Control' -> node
+const _index = new Map();       // 'Window/Control' -> node (FLAT, see below)
+const _pathIndex = new Map();   // 'Window/Sub/.../Control' -> node (full path)
 
+// The xdat reuses control names across sub-windows (ShortcutWnd declares
+// PrevBtn per orientation AND per joypad variant; ChatWindow has 5 panes).
+// The FLAT index keeps only the LAST record for a bare name — documented
+// last-wins, kept for backward compatibility. The path index keeps every
+// record: find()/pos()/size()/tex()/grid() accept a slash path
+// ('ShortcutWndHorizontal/PrevBtn') to reach a specific one.
 function indexTree(winName, node, path) {
-  _index.set(`${winName}/${path}`, node);
-  for (const c of node.children || []) indexTree(winName, c, c.name);
+  _index.set(`${winName}/${node.name}`, node);      // last wins
+  _pathIndex.set(`${winName}/${path}`, node);       // every record
+  for (const c of node.children || []) indexTree(winName, c, `${path}/${c.name}`);
 }
 
 export const Layout = {
@@ -31,6 +39,7 @@ export const Layout = {
     if (!_doc) { _doc = { windows: [], textures: {} }; return Layout; }
     for (const w of _doc.windows) {
       _index.set(`${w.name}/`, w);
+      _pathIndex.set(`${w.name}/`, w);
       for (const c of w.children || []) indexTree(w.name, c, c.name);
     }
     return Layout;
@@ -44,8 +53,12 @@ export const Layout = {
     return (_doc ? _doc.windows : []).find(w => w.name === name) || null;
   },
 
-  /** A control anywhere inside `winName`, by its own name. */
+  /** A control anywhere inside `winName`. A bare name uses the flat
+   *  last-wins index; a slash path ('SubWindow/Control') is exact. */
   find(winName, ctrlName) {
+    if (ctrlName && ctrlName.includes('/')) {
+      return _pathIndex.get(`${winName}/${ctrlName}`) || null;
+    }
     return _index.get(`${winName}/${ctrlName}`) || null;
   },
 

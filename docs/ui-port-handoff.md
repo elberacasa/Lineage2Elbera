@@ -102,6 +102,18 @@ Inv→Inventory, Map→MinimapWnd (C.7), Menu→SystemMenuWnd. System rows:
 Option→settings panel, Restart→`location.reload()`, Quit→disconnect;
 BBS/Macro/Help/Petition disabled (no backend).
 
+**C.6 ActionWnd** (256×335) — the retail actions window, three sections
+(Basic 17 / Party 7 / Social 12) filtered from `actionname.json` categories
+1/2/3 into the xdat's three ItemWindows (`ActionBasicItem` /
+`ActionPartyItem` / `ActionSocialItem`, mined positions + 37×35 grid).
+Categories 0/4/5 (special/pet/servitor) stay out — they belong to the pet
+UIs. Click sends the `action` op (gateway routes ids 2..13 to
+RequestSocialAction, the rest to RequestActionUse); right-click/drag assigns
+an ACTION slot on the shortcut bar. Action icons were never mined (only
+`action102.png` exists), so cells are text-labelled with the icon layered
+in when the png resolves. `socialAction` broadcasts emote the local
+character (`dance` clip); `changeWait` drives the sit/stand pose.
+
 **C.7 MinimapWnd** (334×413) — the retail map window, opened from
 MenuWnd's Map button (DEVIATION: retail sends RequestOpenMinimap; the
 port's window is client-side — imagery + georeference are staged locally).
@@ -125,20 +137,21 @@ project ≤15 px (verify_minimap.js, measured max 0.06 px).
 (pmfun.com/list/key, maxcheaters topic 7183, l2topzone, onlinegamecommands,
 legacy-lineage2) + `SystemMenuWnd.uc:122-123`: Alt+K SkillWnd, Alt+T
 Character Status, Alt+V & Tab Inventory, Alt+X SystemMenuWnd, Alt+C
-ActionWnd, Alt+Enter layout reset (pre-existing). Alt+B/R/U unbound.
-Never fires while typing in chat.
+ActionWnd, Alt+U QuestTreeWnd, Alt+Enter layout reset (pre-existing).
+Alt+B/R unbound. Never fires while typing in chat.
 
-**C.6 ActionWnd** (256×335) — the retail actions window, three sections
-(Basic 17 / Party 7 / Social 12) filtered from `actionname.json` categories
-1/2/3 into the xdat's three ItemWindows (`ActionBasicItem` /
-`ActionPartyItem` / `ActionSocialItem`, mined positions + 37×35 grid).
-Categories 0/4/5 (special/pet/servitor) stay out — they belong to the pet
-UIs. Click sends the `action` op (gateway routes ids 2..13 to
-RequestSocialAction, the rest to RequestActionUse); right-click/drag assigns
-an ACTION slot on the shortcut bar. Action icons were never mined (only
-`action102.png` exists), so cells are text-labelled with the icon layered
-in when the png resolves. `socialAction` broadcasts emote the local
-character (`dance` clip); `changeWait` drives the sit/stand pose.
+**C.8 QuestTreeWnd** (256×335) — the retail quest journal (Alt+U), fed by
+the bridge's `questList` pushes ({id, name, progress}; name from the aCis
+Java sources, progress the raw QuestState flags dword — gateway/README
+M8). Rows show name + derived cond (`flags = ((1<<cond)-1) | 0x80000000`
+per `QuestState.calculateFlags`; cond = highest set bit in the low mask
++ 1). Journal names/descriptions/item lists (UIDATA_QUEST) are NOT in the
+contract and are NOT invented. Select a row + Abort (mined btnClose rect)
+sends `questAbort{id}` — immediate, DEVIATION: retail confirms with
+DIALOG_Warning (sysmsg 182) and the port has no dialog framework.
+chkNpcPosBox skipped (needs UIDATA_QUEST target locations). Empty list is
+the correct fresh-char state (Tutorial is quest id -1, filtered
+server-side). QuestListWnd (600×326, GM/location) not built.
 
 ### 1.4 Changes to pre-existing code
 

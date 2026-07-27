@@ -183,16 +183,13 @@ export class ShortcutWnd {
   // -- rendering ---------------------------------------------------------------
 
   // xdat name collisions: PrevBtn/NextBtn/LockBtn/JoypadBtn/ExpandButton
-  // are declared PER sub-window (horizontal, vertical, joypad variants)
-  // and Layout's flat name index keeps only the LAST record (the joypad
-  // one) — the bar used to render its buttons at joypad coordinates.
-  // Look the control up inside OUR orientation's sub-window instead.
+  // are declared PER sub-window (horizontal, vertical, joypad variants).
+  // Layout's flat index is last-wins (the joypad record) — the slash-path
+  // lookup (Layout.pos with 'Sub/Control') reaches the record inside OUR
+  // orientation's sub-window instead.
   _ctrlPos(subName, ctrlName) {
-    const win = Layout.window(this.H);
-    const sub = ((win && win.children) || []).find(c => c.name === subName);
-    const ctrl = ((sub && sub.children) || []).find(c => c.name === ctrlName);
-    if (ctrl && ctrl.x != null && ctrl.y != null) return { x: ctrl.x, y: ctrl.y };
-    return Layout.pos(this.H, ctrlName);   // flat index as last resort
+    return Layout.pos(this.H, `${subName}/${ctrlName}`)
+      || Layout.pos(this.H, ctrlName);   // flat last-wins as last resort
   }
 
   _btn(ctrlName, onClick, subName) {

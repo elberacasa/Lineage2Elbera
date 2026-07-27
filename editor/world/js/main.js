@@ -25,6 +25,7 @@ import { WndMgr } from './ui/wndmgr.js';
 import { SkillWnd, loadSkillTypes, skillType } from './ui/skillwnd.js';
 import { ActionWnd } from './ui/actionwnd.js';
 import { MinimapWnd } from './ui/minimapwnd.js';
+import { QuestWnd, questCond, questStarted } from './ui/questwnd.js';
 
 const canvas = document.getElementById('view');
 const statusEl = document.getElementById('status');
@@ -157,6 +158,7 @@ let statusWnd = null;
 let skillWnd = null;
 let actionWnd = null;
 let minimapWnd = null;
+let questWnd = null;
 let menuWnd = null;
 let systemMenuWnd = null;
 
@@ -348,6 +350,9 @@ net.on('skillList', (msg) => {
     s => skillType(s.id, s.passive) !== 'PASSIVE' && !s.disabled));
 });
 net.on('itemList', (msg) => inventory.setItems(msg.items || []));
+net.on('questList', (msg) => {
+  if (questWnd) questWnd.setQuests(msg.quests || []);
+});
 net.on('invUpdate', (msg) => {
   inventory.applyUpdate(msg.updated || []);
   for (const u of msg.updated || []) {
@@ -587,6 +592,8 @@ window.__world = {
   get skillWnd() { return skillWnd; },
   get actionWnd() { return actionWnd; },
   get minimapWnd() { return minimapWnd; },
+  get questWnd() { return questWnd; },
+  questCond, questStarted,   // verification: aCis flags-dword math
   get menuWnd() { return menuWnd; },
   get systemMenuWnd() { return systemMenuWnd; },
   wndMgr: WndMgr,
@@ -777,7 +784,8 @@ window.addEventListener('keydown', e => {
       case 'KeyV': inventory.toggle(); break;                // InventoryWnd
       case 'KeyX': if (systemMenuWnd) systemMenuWnd.toggle(); break;  // SystemMenuWnd
       case 'KeyC': if (actionWnd) actionWnd.toggle(); break; // ActionWnd
-      // Alt+B / Alt+R / Alt+U: BBS / Macro / Quest windows — not built; unbound.
+      case 'KeyU': if (questWnd) questWnd.toggle(); break;   // QuestTreeWnd (quest journal)
+      // Alt+B / Alt+R: BBS / Macro windows — not built; unbound.
       default: return;
     }
     e.preventDefault();   // browsers reserve several Alt combos
@@ -894,6 +902,14 @@ renderer.setAnimationLoop(() => {
     minimapWnd.setMeta();
     minimapWnd.place(minimapWnd.defaultPlace);
     WndMgr.register('MinimapWnd', minimapWnd, { handle: minimapWnd.win.bar });
+
+    // Phase C.8: the retail quest journal (Alt+U). Filled by the bridge's
+    // questList pushes (enterWorld + every server-side state change).
+    questWnd = new QuestWnd(document.body, {
+      onAbort: (id) => { if (online) net.send('questAbort', { id }); },
+    });
+    questWnd.place(questWnd.defaultPlace);
+    WndMgr.register('QuestTreeWnd', questWnd, { handle: questWnd.win.bar });
     // StatusWnd.uc OnLButtonDown: clicking the window targets yourself
     statusWnd.onSelfTargetClick(() => {
       if (online && selfId != null) net.send('target', { id: selfId });

@@ -27,6 +27,8 @@
 //   useItem     -> sysMsg + invUpdate (decrement/remove consumable)
 //   action      -> sysMsg; ids 2..13 also echo socialAction (bridge routing)
 //                  for self AND Aria (remote-player emote fixture)
+//   questList   <- sent at enterChar (Q1 cond1 + Q6 cond3, REAL names)
+//   questAbort  -> removes the quest and re-sends questList (server push)
 //   loot{id}    -> invUpdate add (adena) + sysMsg, only for dead mobs
 // Remote-anim fixtures at enterChar: changeWait{Borg,sit} + changeMove
 // {Cora,running}.
@@ -98,6 +100,7 @@ wss.on('connection', (ws) => {
   const self = { id: nextPlayerId++, name: `WebTester${Math.floor(Math.random() * 900 + 100)}` };
   const selfStats = { ...SELF_BASE };
   const items = [];
+  const quests = [];
   let lastTarget = null;
   let lootCounter = 0;
   let combatTimer = null;
@@ -199,6 +202,15 @@ wss.on('connection', (ws) => {
         critical: 44, runSpeed: 126, walkSpeed: 88, pAtkSpd: 300, mAtkSpd: 333,
       });
       send('sysMsg', { id: 1087, params: [] });
+
+      // M8: quest journal — two REAL quests (names from the aCis Java
+      // sources): Q1 cond 1 (0x80000001 signed) and Q6 cond 3 (0x80000007
+      // signed). questAbort removes and re-sends, like the server push.
+      quests.push(
+        { id: 1, name: 'Letters of Love', progress: -2147483647 },
+        { id: 6, name: 'Step into the Future', progress: -2147483641 },
+      );
+      send('questList', { quests });
 
       // walker: patrol a square, one move op per side
       let corner = 0;
@@ -353,6 +365,12 @@ wss.on('connection', (ws) => {
         // dances along (exercises remote-player emotes)
         send('socialAction', { id: 80001, actionId: msg.actionId });
       }
+    } else if (msg.op === 'questAbort') {
+      // mirror the real server: abort removes the quest and the updated
+      // QuestList is pushed back
+      const i = quests.findIndex(q => q.id === msg.id);
+      if (i >= 0) quests.splice(i, 1);
+      send('questList', { quests });
     }
   });
 
