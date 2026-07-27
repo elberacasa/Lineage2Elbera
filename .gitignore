@@ -68,3 +68,6 @@ editor/world/ui/atlas/
 # Interface.u / NWindow.u. NCSoft's code: reference only, never committed.
 # (regenerate: tools/uscript/extract_uscript.py)
 assets/uscript/
+
+# Governor runtime state (cross-process lock)
+gateway/.governor-state
