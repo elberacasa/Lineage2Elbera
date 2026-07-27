@@ -380,15 +380,17 @@ net.on('skillLaunch', (msg) => {
 // it's us, dance on the local character model ('dance' exists on all 14
 // models; play() falls back to idle if a clip is ever absent).
 net.on('socialAction', (msg) => {
-  entities.skillFlash(msg.id);
+  entities.socialFlash(msg.id);
   if (msg.id === selfId && character) character.emote('dance');
 });
 // ChangeWaitType broadcast (gateway op changeWait{id, waitType}): sit/stand
 // toggle state — waitType 0 = sitting, 1 = standing (aCis ChangeWaitType).
-// Local character only: remote entities have no sit-state plumbing yet.
 net.on('changeWait', (msg) => {
   if (msg.id === selfId && character) character.sitting = msg.waitType === 0;
+  entities.setWaitType(msg.id, msg.waitType);
 });
+// ChangeMoveType broadcast (walk/run toggle) — authoritative for remotes.
+net.on('changeMove', (msg) => entities.setMoveMode(msg.id, msg.running));
 // ActionFailed (0x25) is the server's routine "no" (action while sitting,
 // target out of range...); retail surfaces nothing for it either.
 net.on('actionFailed', () => {});
@@ -734,16 +736,20 @@ canvas.addEventListener('pointerup', e => {
 });
 
 window.addEventListener('keydown', e => {
+  // F1..F12 trigger the shortcut bar's current page (retail behavior —
+  // wins over the old F1-attack binding; double-click still attacks).
+  // This guard runs BEFORE chat.isTyping on purpose: browsers reserve
+  // several F-keys (F1 help, F5 reload, F11 fullscreen, F12 devtools) and
+  // losing the page to F5 mid-sentence is worse than losing the key —
+  // preventDefault ALWAYS; the bar itself fires only when not typing.
+  if (/^F([1-9]|1[0-2])$/.test(e.code)) {
+    if (!chat.isTyping && shortcutWnd) shortcutWnd.triggerF(Number(e.code.slice(1)) - 1);
+    e.preventDefault();   // browsers reserve F-keys (help, reload, devtools)
+    return;
+  }
   if (chat.isTyping) return;   // chat input handles its own keys
   if (e.code === 'Enter') {
     if (online) { chat.open(); e.preventDefault(); }
-    return;
-  }
-  // F1..F12 trigger the shortcut bar's current page (retail behavior —
-  // wins over the old F1-attack binding; double-click still attacks).
-  if (/^F([1-9]|1[0-2])$/.test(e.code)) {
-    if (shortcutWnd) shortcutWnd.triggerF(Number(e.code.slice(1)) - 1);
-    e.preventDefault();   // browsers reserve F-keys (help, reload, devtools)
     return;
   }
   if (e.code === 'KeyF') {

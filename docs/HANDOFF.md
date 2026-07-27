@@ -169,14 +169,18 @@ cp geodata-staging/geodata/*_conv.dat aCis_gameserver/build/dist/gameserver/data
 Client → server: `login{deviceId}` · `enterChar{slot}` · `moveTo{x,y,z}` ·
 `say{channel,text,target?}` · `target{id}` · `attack{id}` · `useSkill{skillId,
 targetId?}` · `useItem{objectId}` · `talk{id}` · `bypass{command}` ·
-`action{actionId}`.
+`action{actionId}` · `questAbort{id}`.
 
-Actions (added 2026-07-26): `action{actionId}` routes ids 2..13 to
-RequestSocialAction (emotes) and everything else verbatim to
-RequestActionUse(0 Sit/Stand, 1 Walk/Run, 10/28/61 stores, manufactures) —
-id spaces verified against aCis source and assets/gamedata/actionname.json;
-social UI-id → social-id mapping table in gateway/README.md. `/sit` via
-Say2 does nothing in aCis — RequestActionUse is canonical.
+Actions (fixed 2026-07-27): `action{actionId}` takes actionname-e.dat UI
+ids; SOCIAL-map keys are remapped to aCis social ids and sent via
+RequestSocialAction (12→2 Greeting, 13→3 Victory, 14→4 Advance, 25→5 No,
+24→6 Yes, 26→7 Bow, 29→8 Unaware, 30→9 Waiting, 31→10 Laugh, 33→11
+Applaud, 34→12 Dance, 35→13 Sorrow); everything else goes verbatim to
+RequestActionUse (0 Sit/Stand, 1 Walk/Run, 10/28/61 stores, manufactures).
+Non-social actionname ids 2..13 (Attack 2, Exchange 3, ...) are NOT
+socials — they hit RequestActionUse (aCis warns "Unhandled action type";
+their real packets are AttackRequest/TradeRequest/party packets).
+`/sit` via Say2 does nothing in aCis — RequestActionUse is canonical.
 
 
 Server → client: `auth_ok{chars[]}` · `enterWorld{char{id,name,race,classId,
@@ -196,7 +200,19 @@ skillId,level,hitTime}` · `skillLaunch{casterId,targetId,skillId,level}` ·
 (change: add/modify/remove/unchanged) · `addDrop{id,itemId,count,x,y,z}` ·
 `sysMsg{id,params[]}` · `npcHtml{html}` · `actionFailed{}` ·
 `socialAction{id,actionId}` · `changeWait{id,waitType}` ·
-`changeMove{id,running}`.
+`changeMove{id,running}` · `questList{quests[{id,name,progress}]}`.
+
+Quests (added 2026-07-26): `questList` = QuestList(0x80, `H count` + per
+quest `D questId, D flags`), queued after enterWorld like the other lists
+and re-sent on every change (no separate update packet exists in this
+rev). `name` comes from a gateway-side map mined from the aCis quest Java
+sources — the client needs no datapack files. `progress` is the raw
+QuestState flags dword: `((1 << cond) - 1) | 0x80000000` while started
+(bit31 + cond mask; accept → 0x80000001 = -2147483647, cond 2 →
+0x80000003 = -2147483645). The Tutorial chain (id -1, "feature") is
+filtered by isRealQuest and never appears. `questAbort{id}` →
+RequestQuestAbort(0x64). Accept/advance rides the normal dialog ops
+(talk + `npc_<id>_Quest` + `Quest <Script> <event.htm>` bypasses).
 
 NPC dialog (added 2026-07-26): `talk{id}` sends Action(0x04); aCis routes by
 Creature.onAction — first Action only targets, second Action INTERACTS for

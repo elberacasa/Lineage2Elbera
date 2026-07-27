@@ -282,7 +282,11 @@ class NpcEntity {
     const dx = this.target.x - pos.x, dz = this.target.z - pos.z;
     const d = Math.hypot(dx, dz);
     if (d < 0.1) { this.target = null; if (this.actions) this._play('idle'); return; }
-    if (this.actions && this.current !== this.actions.attack) this._play('walk');
+    // ChangeMoveType override: run vs walk (mapAnimations falls back to
+    // walk/first clip when a monster has no run clip)
+    if (this.actions && this.current !== this.actions.attack) {
+      this._play(this.running ? 'run' : 'walk');
+    }
     const step = Math.min(NPC_SPEED * dt, d);
     pos.x += dx / d * step;
     pos.z += dz / d * step;
@@ -340,6 +344,7 @@ export class EntityManager {
       ch.group.add(label);
       ch.heightM = ch.heightM || 1.75;
       this.entities.set(id, ch);
+      this._applyDeferred(ch);
       this.scene.add(ch.group);
     } catch (e) {
       console.error(`addPlayer ${id} (${msg.name}):`, e);
@@ -389,6 +394,66 @@ export class EntityManager {
     if (e && !e.dead) {
       if (e.kind === 'npc') e.skillFlash();
       else { e.play('attack', 0.1); setTimeout(() => !e.dead && e.play('idle'), 700); }
+    }
+  }
+
+  // Social emote broadcast (SocialAction packet): players dance — every
+  // character-manifest model carries a 'dance' clip; monsters play their
+  // 'special', same as a skill cast.
+  socialFlash(id) {
+    const e = this.entities.get(id);
+    if (!e || e.dead) return;
+    if (e.kind === 'npc') e.skillFlash();
+    else e.emote('dance');
+  }
+
+  // ChangeWaitType broadcast: waitType 0 = sitting, 1 = standing (aCis
+  // ChangeWaitType — validated live: sit click -> 0, stand -> 1). Remote
+  // players hold the 'sit' clip via Character.sitting. Monsters have no
+  // sit clips (mapAnimations maps no sit state) — documented no-op.
+  // Broadcasts can race the async model load: state for a pending id is
+  // deferred and applied when the spawn lands.
+  setWaitType(id, waitType) {
+    const e = this.entities.get(id);
+    if (!e) {
+      if (this.pending.has(id)) {
+        (this._waitState || (this._waitState = new Map())).set(id, waitType);
+      }
+      return;
+    }
+    if (e.dead || e.kind !== 'player') return;
+    e.sitting = waitType === 0;
+  }
+
+  // ChangeMoveType broadcast: authoritative walk/run override. Players
+  // otherwise guess from the leg distance (Character.setTarget); monsters
+  // pick the clip in NpcEntity.update. Same deferral race as setWaitType.
+  setMoveMode(id, running) {
+    const e = this.entities.get(id);
+    if (!e) {
+      if (this.pending.has(id)) {
+        (this._moveState || (this._moveState = new Map())).set(id, !!running);
+      }
+      return;
+    }
+    if (e.dead) return;
+    if (e.kind === 'player') {
+      e.forcedMoveAnim = running ? 'run' : 'walk';
+      if (e.target) e.moveAnim = e.forcedMoveAnim;
+    } else {
+      e.running = !!running;
+    }
+  }
+
+  // apply broadcast state that arrived while the model was still loading
+  _applyDeferred(ch) {
+    if (this._waitState && this._waitState.has(ch.id)) {
+      ch.sitting = this._waitState.get(ch.id) === 0;
+      this._waitState.delete(ch.id);
+    }
+    if (this._moveState && this._moveState.has(ch.id)) {
+      ch.forcedMoveAnim = this._moveState.get(ch.id) ? 'run' : 'walk';
+      this._moveState.delete(ch.id);
     }
   }
 

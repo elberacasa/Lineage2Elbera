@@ -72,24 +72,63 @@ SystemMessage(0x64) is shallow-decoded into the contract op
 7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
 "You have earned 145 exp and 10 SP".
 
+## M8: quest protocol / QuestWnd (added 2026-07-26)
+
+Server -> client:
+- `{"op":"questList","quests":[{"id":N,"name":"..","progress":N}]}` —
+  QuestList(0x80): `H count`, per quest `D questId, D flags`. Sent after
+  enterWorld (queued with skillList/itemList) and on every server re-send
+  (quest state changes). `name` comes from a gateway-side lookup mined from
+  the aCis quest Java sources (scripting/quest/QNNN_*.java `super(id,
+  "Name")` — the client needs NO datapack files). `progress` is the raw
+  QuestState flags dword, UNINTERPRETED: per
+  `QuestState.calculateFlags`, while a quest is started
+  `flags = ((1 << cond) - 1) | 0x80000000` — bit31 = started/active, low
+  bits = cond mask. Live evidence: accept → `-2147483647` (0x80000001,
+  cond 1); advance → `-2147483645` (0x80000003, cond 2).
+- There is NO separate quest-update packet in this rev — QuestList re-send
+  covers updates. `questUpdate` therefore does not exist (documented).
+
+Client -> server:
+- `{"op":"questAbort","id":N}` -> RequestQuestAbort(0x64): `D questId`.
+
+Notes:
+- The Tutorial chain does NOT appear in questList: it is quest id -1, a
+  "feature" script, filtered out by `QuestList.getAllQuests` via
+  `isRealQuest()` (id > 0). Fresh chars get an EMPTY questList — expected.
+- Quest accept/advance goes through the normal dialog ops: talk to the NPC,
+  follow `npc_<objectId>_Quest`, then the `Quest <ScriptName> <event.htm>`
+  bypass links (verified end-to-end on Q006 "Step into the Future": Roxxy
+  accept -> Baulro advance -> abort).
+- `RequestQuestList` (0x63) exists but is unnecessary: the server pushes
+  QuestList on EnterWorld and on every change.
+
 ## M7: character actions / ActionWnd (added 2026-07-26)
 
 Client -> server:
-- `{"op":"action","actionId":N}` — character action, ctrl/shift always false.
-  Routing (aCis reality, two different packets share the op):
-  - ids 2..13 -> **RequestSocialAction(0x1b)**, social emotes:
-    2 Greeting, 3 Victory, 4 Advance, 5 No, 6 Yes, 7 Bow, 8 Unaware,
-    9 Waiting, 10 Laugh, 11 Applaud, 12 Dance, 13 Sorrow.
-  - anything else -> **RequestActionUse(0x45)** verbatim; handled ids in
+- `{"op":"action","actionId":N}` — character action, ctrl/shift always
+  false. `actionId` is an actionname-e.dat UI id
+  (assets/gamedata/actionname.json). Routing (fixed 2026-07-27):
+  - If `actionId` is a SOCIAL-map key -> **RequestSocialAction(0x1b)** with
+    the mapped aCis social id:
+    12→2 Greeting, 13→3 Victory, 14→4 Advance, 25→5 No, 24→6 Yes,
+    26→7 Bow, 29→8 Unaware, 30→9 Waiting, 31→10 Laugh, 33→11 Applaud,
+    34→12 Dance, 35→13 Sorrow.
+  - Everything else -> **RequestActionUse(0x45)** verbatim; handled ids in
     this rev's switch: 0 Sit/Stand, 1 Walk/Run, 10 Private Store Sell,
     28 Private Store Buy, 37 Dwarven Manufacture, 51 General Manufacture,
     61 Package Sell, 15-27/38/52-54 pet/summon actions, 1000+ specials.
-  actionname-e.dat ids (assets/gamedata/actionname.json, schema
-  {tag,id,type,category,category2,name,icon,desc,cmd}) ALIGN with
-  RequestActionUse ids (0 sitstand, 1 walkrun, 10 sell, 28 buy, 37/51
-  manufactures) — but NOT for socials: UI action 12 Greeting (cmd
-  `socialhello`) must be sent as social id 2. Mapping:
-  12→2, 13→3, 14→4, 25→5, 24→6, 26→7, 29→8, 30→9, 31→10, 33→11, 34→12, 35→13.
+  Non-social actionname ids 2..13 (Attack 2, Exchange 3, Next Target 4,
+  Pick Up 5, Assist 6, Invite 7, Leave Party 8, Dismiss 9, Party
+  Matching 11) are NOT socials: they hit RequestActionUse, where aCis just
+  logs "Unhandled action type" — those actions live behind their own
+  protocol packets (AttackRequest, TradeRequest, party packets) and many
+  already have bridge ops (`attack`, party ops TBD).
+  aCis carries NO social names (RequestSocialAction relays the number);
+  the id->name convention is retail socialname-e.dat (verified against
+  source — the gameserver only enforces ids 2..13).
+  Gotcha: back-to-back socials within ~2s are silently ignored (the player
+  intention stays non-IDLE while an emote plays + FloodProtector.SOCIAL).
 
 Server -> client (additive):
 - `{"op":"socialAction","id":N,"actionId":N}` — SocialAction(0x2d) broadcast.

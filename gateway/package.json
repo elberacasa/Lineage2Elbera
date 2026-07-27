@@ -18,7 +18,8 @@
     "verify-mods": "node test/verify-mods.js",
     "verify-level": "node test/verify-level.js",
     "verify-dialog": "node test/verify-dialog.js",
-    "verify-action": "node test/verify-action.js"
+    "verify-action": "node test/verify-action.js",
+    "verify-quest": "node test/verify-quest.js"
   },
   "keywords": [],
   "author": "",

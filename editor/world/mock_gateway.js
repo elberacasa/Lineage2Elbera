@@ -26,7 +26,10 @@
 //                  it is the target; gremlin also casts back periodically
 //   useItem     -> sysMsg + invUpdate (decrement/remove consumable)
 //   action      -> sysMsg; ids 2..13 also echo socialAction (bridge routing)
+//                  for self AND Aria (remote-player emote fixture)
 //   loot{id}    -> invUpdate add (adena) + sysMsg, only for dead mobs
+// Remote-anim fixtures at enterChar: changeWait{Borg,sit} + changeMove
+// {Cora,running}.
 //
 // Coordinates are L2 world units. Tile 17_24 center: origin
 // [-98304, 196608] + 127.5*128 = (-81984, 212928).
@@ -211,6 +214,12 @@ wss.on('connection', (ws) => {
         send('move', { id: WALKER.id, tx, ty, tz: SPAWN.z });
       }, WALK_PERIOD));
 
+      // remote-anim fixtures: Borg sits (ChangeWaitType 0), the walker
+      // runs her square (ChangeMoveType running) — the client must pick
+      // the sit/run clips from these ops alone
+      send('changeWait', { id: 80002, waitType: 0 });
+      send('changeMove', { id: WALKER.id, running: true });
+
       // ambient chat
       let ci = 0;
       timers.push(setInterval(() => {
@@ -340,6 +349,9 @@ wss.on('connection', (ws) => {
       send('sysMsg', { id: 46, params: [`action:${msg.actionId}`] });
       if (msg.actionId >= 2 && msg.actionId <= 13) {
         send('socialAction', { id: self.id, actionId: msg.actionId });
+        // a social in the area is broadcast for everyone present: Aria
+        // dances along (exercises remote-player emotes)
+        send('socialAction', { id: 80001, actionId: msg.actionId });
       }
     }
   });

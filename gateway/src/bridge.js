@@ -6,6 +6,25 @@ const crypto = require('crypto');
 const { login } = require('./loginclient.js');
 const { GameSession } = require('./gameclient.js');
 const { npcName, npcLevel } = require('./npcnames.js');
+const { questName } = require('./questnames.js');
+
+// actionname-e.dat UI id -> aCis RequestSocialAction id. aCis carries no
+// social NAMES (verified: RequestSocialAction relays the number only); the
+// convention is retail socialname-e.dat: 2 Greeting, 3 Victory, 4 Advance,
+// 5 No, 6 Yes, 7 Bow, 8 Unaware, 9 Waiting, 10 Laugh, 11 Applaud,
+// 12 Dance, 13 Sorrow. Everything NOT a key here goes verbatim to
+// RequestActionUse(0x45) — including non-social actionname ids 2..13
+// (Attack 2, Exchange 3, Next Target 4, Pick Up 5, Assist 6, Invite 7,
+// Leave Party 8, Dismiss 9, Party Matching 11), which aCis handles with
+// their own packets (its RequestActionUse switch just warns on them).
+const SOCIAL_UI_TO_ACIS = {
+  12: 2, 13: 3, 14: 4, 25: 5, 24: 6, 26: 7,
+  29: 8, 30: 9, 31: 10, 33: 11, 34: 12, 35: 13,
+};
+const SOCIAL_NAMES = {
+  2: 'Greeting', 3: 'Victory', 4: 'Advance', 5: 'No', 6: 'Yes', 7: 'Bow',
+  8: 'Unaware', 9: 'Waiting', 10: 'Laugh', 11: 'Applaud', 12: 'Dance', 13: 'Sorrow',
+};
 
 function deriveCredentials(deviceId) {
   const id = String(deviceId || 'anonymous');
@@ -38,6 +57,7 @@ class Bridge {
     this.currentTarget = 0;
     this.pendingSkillList = null;
     this.pendingItemList = null;
+    this.pendingQuestList = null;
 
     ws.on('message', (data) => this._onMessage(data));
     ws.on('close', () => this._shutdown());
@@ -117,15 +137,24 @@ class Bridge {
           if (this.game) this.game.bypass(String(msg.command || '').slice(0, 200));
           break;
         case 'action':
-          // Character action. Routing (aCis reality): ids 2..13 are SOCIAL
-          // actions -> RequestSocialAction(0x1b); everything else goes
-          // verbatim to RequestActionUse(0x45) (0 sit/stand, 1 walk/run,
-          // 10/28/61 stores, manufactures...). ctrl/shift always false.
+          // Character action. actionId is an actionname-e.dat UI id.
+          // Social entries are remapped to aCis social ids and sent via
+          // RequestSocialAction(0x1b); everything else goes verbatim to
+          // RequestActionUse(0x45). ctrl/shift always false.
           if (this.game) {
             const actionId = msg.actionId | 0;
-            if (actionId >= 2 && actionId <= 13) this.game.requestSocialAction(actionId);
-            else this.game.requestActionUse(actionId);
+            const socialId = SOCIAL_UI_TO_ACIS[actionId];
+            if (socialId !== undefined) {
+              this.log(`action ${actionId} (UI) -> RequestSocialAction(${socialId}) ${SOCIAL_NAMES[socialId]}`);
+              this.game.requestSocialAction(socialId);
+            } else {
+              this.game.requestActionUse(actionId);
+            }
           }
+          break;
+        case 'questAbort':
+          // RequestQuestAbort(0x64).
+          if (this.game) this.game.requestQuestAbort(msg.id | 0);
           break;
         case 'destroyItem':
           // inventory TrashButton (aCis RequestDestroyItem)
@@ -146,9 +175,10 @@ class Bridge {
     const creds = deriveCredentials(deviceId);
     this.log(`login: device=${deviceId} account=${creds.account}`);
 
-    // Retry the whole login+game-connect flow: the servers' hardcoded
-    // IPv4Filter can still reject a burst (see governor.js), so back off.
-    for (let attempt = 1; attempt <= 4; attempt++) {
+    // Retry the whole login+game-connect flow. The servers' hardcoded
+    // IPv4Filter bans fast reconnects for 300s and every attempt refreshes
+    // the ban — so keep retries few and let it expire instead of hammering.
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         await this._loginOnce(creds);
         return;
@@ -158,7 +188,7 @@ class Bridge {
           this.game.close();
           this.game = null;
         }
-        if (attempt < 4) await new Promise((r) => setTimeout(r, 1500 * attempt));
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 4000));
       }
     }
   }
@@ -232,6 +262,10 @@ class Bridge {
         if (this.pendingItemList) {
           this.send({ op: 'itemList', items: this.pendingItemList });
           this.pendingItemList = null;
+        }
+        if (this.pendingQuestList) {
+          this.send({ op: 'questList', quests: this.pendingQuestList });
+          this.pendingQuestList = null;
         }
       }
       this.send({ op: 'selfStatus', ...this.self });
@@ -424,6 +458,15 @@ class Bridge {
 
     game.on('drop', (d) => {
       this.send({ op: 'addDrop', id: d.id, itemId: d.itemId, count: d.count, x: d.x, y: d.y, z: d.z });
+    });
+
+    // QuestList (0x80): after enterWorld (queued) and on every re-send.
+    // progress = raw QuestState flags dword (bit31 = started, low bits =
+    // cond mask per QuestState.calculateFlags) — passed through uninterpreted.
+    game.on('questList', (quests) => {
+      const mapped = quests.map((q) => ({ id: q.id, name: questName(q.id), progress: q.flags }));
+      if (this.entered) this.send({ op: 'questList', quests: mapped });
+      else this.pendingQuestList = mapped;
     });
 
     // NpcHtmlMessage (0x0f) — villager dialogs, .menu, teleporters, shops.

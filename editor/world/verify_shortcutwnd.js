@@ -76,6 +76,53 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       { timeout: 8000 });
     summary.triggers = { skillCast: true, itemUsed: true };
 
+    // let the F1 cast land (hitTime 1500 in the mock) — castSkill is
+    // client-side locked while a cast is in progress, which would eat the
+    // real-mouse click below and look like the bug being tested for
+    await page.waitForFunction(
+      `window.__world.net.log.some(m => m.op === 'skillLaunch')`, { timeout: 8000 });
+    await sleep(300);
+
+    // -- REAL-mouse interaction (regression: the drag-handle pointer capture
+    // ate real clicks; page.mouse sends a genuine CDP input sequence, so
+    // this fails when the slots don't claim pointerdown) -------------------
+    const slotCenter = i => page.evaluate((idx) => {
+      const el = document.querySelectorAll('.shortcut-slot')[idx];
+      const r = el.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    }, i);
+    const castsBefore = await page.evaluate(
+      () => window.__world.net.log.filter(m => m.dir === 'out' && m.op === 'useSkill').length);
+    const s0 = await slotCenter(0);
+    await page.mouse.click(s0.x, s0.y);                    // real left click casts
+    await page.waitForFunction(
+      `window.__world.net.log.filter(m => m.dir === 'out' && m.op === 'useSkill').length > ${castsBefore}`,
+      { timeout: 8000 });
+    await page.mouse.click(s0.x, s0.y, { button: 'right' });  // real right-click clears
+    await sleep(400);
+    summary.realMouse = await page.evaluate(() => ({
+      clickCast: true,
+      rightClickCleared: !((window.__world.shortcutWnd.data[0] || {})[0]),
+    }));
+    // restore the slot for the page-flip section below
+    await page.evaluate(() => window.__world.shortcutWnd.assign(0, 0, { type: 'skill', id: 3 }));
+    await sleep(300);
+    // real click on the page buttons (they claim the press AND keep the
+    // mousedown art swap — the two mechanisms this fix had to reconcile)
+    const btnCenter = i => page.evaluate((idx) => {
+      const b = document.querySelectorAll('#l2-shortcutwnd .shortcut-btn')[idx];
+      const r = b.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    }, i);
+    const next = await btnCenter(0);
+    await page.mouse.click(next.x, next.y);
+    await sleep(300);
+    const prev = await btnCenter(1);
+    await page.mouse.click(prev.x, prev.y);
+    await sleep(300);
+    summary.realMouse.pageButtons = await page.evaluate(
+      () => window.__world.shortcutWnd.page === 0);   // Next then Prev -> back to 0
+
     // -- page flip: NextBtn shows page 2, F1 does NOT recast (empty page) ----
     await page.evaluate(() => {
       const btns = [...document.querySelectorAll('#l2-shortcutwnd .shortcut-btn')];
@@ -119,6 +166,46 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await page.screenshot({ path: path.join(OUT, 'sw_05_vertical.png') });
     await page.evaluate(() => window.__world.shortcutWnd.toggleRotate());
     await sleep(200);
+
+    // -- F-key browser-conflict guard ---------------------------------------
+    // Synthetic dispatch proves OUR handler preventDefaults every reserved
+    // F-key (dispatchEvent returns false iff preventDefault ran). A real
+    // CDP F5 proves the page actually survives the key. What cannot be
+    // tested headlessly (documented, not a failure): OS-level combos like
+    // macOS Ctrl+Cmd+F never reach the page at all, and headless Chrome
+    // has no devtools/fullscreen chrome for F12/F11 to trigger.
+    summary.fkeys = await page.evaluate(() => {
+      const out = {};
+      for (const code of ['F1', 'F5', 'F11', 'F12']) {
+        out[code] = !window.dispatchEvent(
+          new KeyboardEvent('keydown', { code, cancelable: true, bubbles: true }));
+      }
+      return out;   // true = default prevented by the keymap
+    });
+    // while typing in chat: the guard must STILL hold and the slot must
+    // NOT fire (the guard moved ahead of chat.isTyping for exactly this)
+    await page.keyboard.press('Enter');          // opens chat input (online)
+    await sleep(300);
+    const castsBeforeChat = await page.evaluate(
+      () => window.__world.net.log.filter(m => m.dir === 'out' && m.op === 'useSkill').length);
+    summary.fkeysTyping = await page.evaluate(() => ({
+      typing: window.__world.chat.isTyping,
+      prevented: !window.dispatchEvent(
+        new KeyboardEvent('keydown', { code: 'F1', cancelable: true, bubbles: true })),
+    }));
+    await sleep(300);
+    summary.fkeysTyping.slotDidNotFire = await page.evaluate(
+      (n) => window.__world.net.log.filter(m => m.dir === 'out' && m.op === 'useSkill').length === n,
+      castsBeforeChat);
+    await page.keyboard.press('Escape');         // close chat
+    await sleep(200);
+    // real F5 must NOT reload the page
+    await page.evaluate(() => { window.__stayAlive = (window.__stayAlive || 0) + 1; });
+    await page.keyboard.press('F5');
+    await sleep(800);
+    summary.realF5 = await page.evaluate(() => ({
+      pageSurvived: window.__stayAlive === 1 && !!(window.__world && window.__world.ready),
+    }));
   } finally {
     await browser.close();
   }

@@ -82,7 +82,9 @@ export class Character {
   setTarget(point) {
     this.target = point.clone();
     const d = this._planarDist(this.target);
-    this.moveAnim = d > RUN_THRESHOLD ? 'run' : 'walk';
+    // ChangeMoveType is authoritative when the server sent it; otherwise
+    // guess run/walk from the leg distance
+    this.moveAnim = this.forcedMoveAnim || (d > RUN_THRESHOLD ? 'run' : 'walk');
   }
 
   clearTarget() { this.target = null; }

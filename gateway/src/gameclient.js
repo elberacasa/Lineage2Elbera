@@ -227,6 +227,16 @@ class GameSession extends EventEmitter {
     this._send(new PacketWriter().writeC(0x1b).writeD(actionId | 0).build());
   }
 
+  // RequestQuestAbort (0x64): D questId.
+  requestQuestAbort(questId) {
+    this._send(new PacketWriter().writeC(0x64).writeD(questId | 0).build());
+  }
+
+  // RequestUserCommand (0xaa): D commandId. 52 = /unstuck (Escape skill).
+  userCommand(commandId) {
+    this._send(new PacketWriter().writeC(0xaa).writeD(commandId | 0).build());
+  }
+
   // RequestPrivateStoreManageSell (0x73): opens the sell-store management.
   requestPrivateStoreManageSell() {
     this._send(new PacketWriter().writeC(0x73).build());
@@ -445,6 +455,15 @@ class GameSession extends EventEmitter {
         const waitType = r.readD();
         const x = r.readD(); const y = r.readD(); const z = r.readD();
         this.emit('changeWait', { id, waitType, x, y, z });
+        break;
+      }
+      case 0x80: { // QuestList: H count, per quest D questId, D flags.
+        // flags (QuestState.calculateFlags): while active =
+        // ((1 << cond) - 1) | 0x80000000 — bit31 = started, low bits = cond.
+        const count = r.readH();
+        const quests = [];
+        for (let i = 0; i < count; i++) quests.push({ id: r.readD(), flags: r.readD() });
+        this.emit('questList', quests);
         break;
       }
       case 0x0b: { // SpawnItem (ground drop)        const id = r.readD();

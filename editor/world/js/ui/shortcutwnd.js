@@ -48,6 +48,14 @@ const ALLOWED_TYPES = new Set(['skill', 'item', 'action']);
 const acceptable = (s) => s && ALLOWED_TYPES.has(s.type)
   && !(s.type === 'skill' && skillType(s.id) === 'PASSIVE');
 
+// WndMgr makes the WHOLE bar the drag handle; an unclaimed pointerdown on
+// a slot/button would capture the pointer and retarget the click to the
+// bar root, silently eating real-mouse clicks. Interactive children claim
+// the press with stopPropagation (NOT preventDefault — the buttons' art
+// swap listens to the compatibility mousedown, which preventDefault would
+// suppress). Dragging the bar from empty frame space still works.
+const claimPress = (e) => e.stopPropagation();
+
 export class ShortcutWnd {
   constructor(parent = document.body, { onUseSkill, onUseItem, onUseAction, onNote } = {}) {
     this.onUseSkill = onUseSkill || (() => {});
@@ -174,9 +182,23 @@ export class ShortcutWnd {
 
   // -- rendering ---------------------------------------------------------------
 
-  _btn(ctrlName, onClick) {
+  // xdat name collisions: PrevBtn/NextBtn/LockBtn/JoypadBtn/ExpandButton
+  // are declared PER sub-window (horizontal, vertical, joypad variants)
+  // and Layout's flat name index keeps only the LAST record (the joypad
+  // one) — the bar used to render its buttons at joypad coordinates.
+  // Look the control up inside OUR orientation's sub-window instead.
+  _ctrlPos(subName, ctrlName) {
+    const win = Layout.window(this.H);
+    const sub = ((win && win.children) || []).find(c => c.name === subName);
+    const ctrl = ((sub && sub.children) || []).find(c => c.name === ctrlName);
+    if (ctrl && ctrl.x != null && ctrl.y != null) return { x: ctrl.x, y: ctrl.y };
+    return Layout.pos(this.H, ctrlName);   // flat index as last resort
+  }
+
+  _btn(ctrlName, onClick, subName) {
     const size = Layout.size(this.H, ctrlName);
-    const pos = Layout.pos(this.H, ctrlName);
+    const pos = subName ? this._ctrlPos(subName, ctrlName)
+      : Layout.pos(this.H, ctrlName);
     const tex = Layout.tex(this.H, ctrlName).filter(r => Skin.sprite(r));
     if (!size || !pos || !tex[0]) return null;
     const el = document.createElement('div');
@@ -185,6 +207,7 @@ export class ShortcutWnd {
       + `top:${Skin.px(pos.y)}px;width:${Skin.px(size.w)}px;`
       + `height:${Skin.px(size.h)}px;cursor:pointer;`;
     Skin.apply(el, tex[0]);
+    el.addEventListener('pointerdown', claimPress);
     if (tex[1]) {
       el.addEventListener('mousedown', () => Skin.apply(el, tex[1]));
       el.addEventListener('mouseup', () => Skin.apply(el, tex[0]));
@@ -249,6 +272,7 @@ export class ShortcutWnd {
         el.appendChild(f);
       }
       el.addEventListener('click', () => this.trigger(page, i));
+      el.addEventListener('pointerdown', claimPress);
       el.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         this.assign(page, i, null);   // right-click clears (retail)
@@ -295,6 +319,7 @@ export class ShortcutWnd {
       Font.set(pnum, `${this.page + 1}/${MAX_PAGE}`, { color: '#c9a959' });
       bar.appendChild(pnum);
 
+      const subName = vertical ? 'ShortcutWndVertical' : 'ShortcutWndHorizontal';
       for (const [ctrl, fn] of [
         ['NextBtn', () => this.flipPage(1)],
         ['PrevBtn', () => this.flipPage(-1)],
@@ -302,12 +327,12 @@ export class ShortcutWnd {
         ['RotateBtn', () => this.toggleRotate()],
         [this.locked ? 'UnlockBtn' : 'LockBtn', () => this.toggleLock()],
       ]) {
-        const b = this._btn(ctrl, fn);
+        const b = this._btn(ctrl, fn, subName);
         if (b) bar.appendChild(b);
       }
       // JoypadBtn exists in the layout but is disabled — AUTHORED: the
       // joypad bar modes are not wired (no joypad input in a browser).
-      const j = this._btn('JoypadBtn', () => {});
+      const j = this._btn('JoypadBtn', () => {}, subName);
       if (j) { j.classList.add('disabled'); j.title = 'Joypad mode: not supported'; bar.appendChild(j); }
     }
     return bar;

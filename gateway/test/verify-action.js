@@ -63,23 +63,45 @@ function makeClient(name, deviceId) {
   A.send({ op: 'action', actionId: 1 });
   await sleep(2500);
 
-  // 3. social Bow (social id 7) -> socialAction actionId 7.
-  console.log('3. action 7 (social Bow)...');
-  A.send({ op: 'action', actionId: 7 });
+  // 3. socials via ACTIONNAME UI ids (must map to aCis social ids), and a
+  // non-social actionname id in 2..13 (Attack=2) which must NOT produce a
+  // SocialAction broadcast.
+  const SOCIAL_CASES = [
+    { ui: 12, server: 2, name: 'Greeting' },
+    { ui: 13, server: 3, name: 'Victory' },
+    { ui: 26, server: 7, name: 'Bow' },
+  ];
+  console.log('3. socials (uiId -> packet -> serverId -> name):');
+  for (const c of SOCIAL_CASES) {
+    A.send({ op: 'action', actionId: c.ui });
+    await sleep(3200); // the server ignores socials while a previous emote plays
+    const seen = B.state.socials.find((s) => s.id === aId && s.actionId === c.server);
+    const wrong = B.state.socials.find((s) => s.id === aId && s.actionId === c.ui && c.ui !== c.server);
+    console.log(`   uiId=${c.ui} -> RequestSocialAction -> serverId=${c.server} -> ${c.name}: ${seen ? 'OK' : 'MISSING'}${wrong ? ' (WRONG-ID-LEAK!)' : ''}`);
+    c.ok = !!seen && !wrong;
+  }
+
+  // 4. Attack (actionname id 2) must hit RequestActionUse — never social.
+  const socialMark = B.state.socials.length;
+  console.log('4. non-social uiId=2 (Attack) -> RequestActionUse (expect no SocialAction)...');
+  A.send({ op: 'action', actionId: 2 });
   await sleep(2500);
+  const leaked = B.state.socials.slice(socialMark).find((s) => s.id === aId);
+  console.log(`   SocialAction broadcast from uiId=2: ${leaked ? JSON.stringify(leaked) + ' (BUG)' : 'none (correct)'}`);
 
   const sitSeen = B.state.changeWaits.find((c) => c.id === aId && c.waitType === 0);
   const standSeen = B.state.changeWaits.find((c) => c.id === aId && c.waitType === 1);
   const walkSeen = B.state.changeMoves.find((c) => c.id === aId && c.running === 0);
   const runSeen = B.state.changeMoves.find((c) => c.id === aId && c.running === 1);
-  const bowSeen = B.state.socials.find((s) => s.id === aId && s.actionId === 7);
 
   console.log('---');
   console.log(`/sit via Say2 did nothing: ${!sitViaSay}`);
   console.log(`B saw A sit: ${!!sitSeen} | stand: ${!!standSeen}`);
   console.log(`B saw A walk: ${!!walkSeen} | run: ${!!runSeen}`);
-  console.log(`B saw A social Bow (7): ${!!bowSeen}`);
-  const pass = !sitViaSay && sitSeen && standSeen && walkSeen && runSeen && bowSeen;
+  console.log(`socials mapped correctly: ${SOCIAL_CASES.every((c) => c.ok)}`);
+  console.log(`non-social uiId=2 produced no social broadcast: ${!leaked}`);
+  const pass = !sitViaSay && sitSeen && standSeen && walkSeen && runSeen &&
+    SOCIAL_CASES.every((c) => c.ok) && !leaked;
   console.log(pass ? 'VERIFY-ACTION: PASS' : 'VERIFY-ACTION: FAIL');
   process.exit(pass ? 0 : 1);
 })().catch((e) => { console.error('VERIFY-ACTION: FAIL', e.message); process.exit(1); });

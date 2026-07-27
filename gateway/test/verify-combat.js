@@ -98,27 +98,34 @@ async function startCombat() {
     console.error('no Gremlin found in addNpc stream');
     return finish();
   }
-  const g = gremlins[0];
-  R.targetId = g.id;
-  console.log(`targeting Gremlin id=${g.id} at ${g.x},${g.y} (dist ${g.dist | 0})`);
-  ws.send(JSON.stringify({ op: 'target', id: g.id }));
-  await sleep(1000);
+  // Try up to 2 gremlins: occasionally the first one is contested/dead on
+  // the shared dev server and never produces attack ops.
+  for (const g of gremlins.slice(0, 2)) {
+    R.targetId = g.id;
+    const dealtMark = R.attacks.length;
+    console.log(`targeting Gremlin id=${g.id} at ${g.x},${g.y} (dist ${g.dist | 0})`);
+    ws.send(JSON.stringify({ op: 'target', id: g.id }));
+    await sleep(1000);
 
-  // With geodata active the ranged auto-approach on AttackRequest can
-  // stall: walk NEXT to the gremlin first, then attack (same approach as
-  // verify-mods killGremlin). The gremlin wanders; re-approach as needed.
-  const t0 = Date.now();
-  while (!R.targetDied && !R.selfDied && Date.now() - t0 < 150000) {
-    const pos = R.moves.get(g.id) || g;
-    const mePos = R.moves.get(R.me.id) || R.me;
-    ws.send(JSON.stringify({ op: 'moveTo', x: pos.x + 20, y: pos.y, z: pos.z }));
-    const walkMs = Math.min(12000, (Math.hypot(pos.x - mePos.x, pos.y - mePos.y) / 115) * 1000 + 2500);
-    await sleep(walkMs);
-    const t1 = Date.now();
-    while (!R.targetDied && !R.selfDied && Date.now() - t1 < 15000) {
-      ws.send(JSON.stringify({ op: 'attack', id: g.id }));
-      await sleep(4000);
+    // With geodata active the ranged auto-approach on AttackRequest can
+    // stall: walk NEXT to the gremlin first, then attack. Bail to the next
+    // gremlin if no attack ops appear within 25s of engagement.
+    const t0 = Date.now();
+    while (!R.targetDied && !R.selfDied && Date.now() - t0 < 120000) {
+      if (R.attacks.length === dealtMark && Date.now() - t0 > 25000) break; // unresponsive gremlin
+      const pos = R.moves.get(g.id) || g;
+      const mePos = R.moves.get(R.me.id) || R.me;
+      ws.send(JSON.stringify({ op: 'moveTo', x: pos.x + 20, y: pos.y, z: pos.z }));
+      const walkMs = Math.min(12000, (Math.hypot(pos.x - mePos.x, pos.y - mePos.y) / 115) * 1000 + 2500);
+      await sleep(walkMs);
+      const t1 = Date.now();
+      while (!R.targetDied && !R.selfDied && Date.now() - t1 < 12000) {
+        ws.send(JSON.stringify({ op: 'attack', id: g.id }));
+        await sleep(4000);
+      }
     }
+    if (R.targetDied || R.selfDied || R.attacks.length > dealtMark) break; // engaged or done
+    console.log('gremlin unresponsive, trying another...');
   }
   console.log(R.targetDied ? 'gremlin dead, waiting for corpse decay...' : 'combat ended without kill');
   // Wait for decay (remove op) up to 20s.
