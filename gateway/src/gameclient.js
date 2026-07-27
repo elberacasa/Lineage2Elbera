@@ -237,6 +237,21 @@ class GameSession extends EventEmitter {
     this._send(new PacketWriter().writeC(0xaa).writeD(commandId | 0).build());
   }
 
+  // RequestBuyItem (0x1f): D listId, D count, per item D itemId, D count.
+  requestBuyItem(listId, items) {
+    const w = new PacketWriter().writeC(0x1f).writeD(listId | 0).writeD(items.length);
+    for (const it of items) w.writeD(it.itemId | 0).writeD(it.count | 0);
+    this._send(w.build());
+  }
+
+  // RequestSellItem (0x1e): D listId, D count, per item D objectId,
+  // D itemId, D count.
+  requestSellItem(listId, items) {
+    const w = new PacketWriter().writeC(0x1e).writeD(listId | 0).writeD(items.length);
+    for (const it of items) w.writeD(it.objectId | 0).writeD(it.itemId | 0).writeD(it.count | 0);
+    this._send(w.build());
+  }
+
   // RequestJoinParty (0x29): S targetName, D lootRule
   // (0 ITEM_LOOTER, 1 ITEM_RANDOM, 2 ITEM_RANDOM_SPOIL, 3 ITEM_ORDER,
   // 4 ITEM_ORDER_SPOIL — enums/LootRule.java).
@@ -435,6 +450,49 @@ class GameSession extends EventEmitter {
         const items = [];
         for (let i = 0; i < count; i++) items.push(parseItemEntry(r, false));
         this.emit('itemList', items);
+        break;
+      }
+      case 0x11: { // BuyList (merchant shop): D money, D listId, H count,
+        // per item: H type1, D itemId, D itemId(dup), D count, H type2,
+        // H 0, D bodyPart, H 0, H 0, H 0, D price(taxed)
+        const money = r.readD();
+        const listId = r.readD();
+        const count = r.readH();
+        const items = [];
+        for (let i = 0; i < count; i++) {
+          r.readH(); // type1
+          const itemId = r.readD();
+          r.readD(); // itemId dup
+          const cnt = r.readD();
+          r.readH(); r.readH(); // type2, 0
+          r.readD(); // bodyPart
+          r.readH(); r.readH(); r.readH(); // 0,0,0
+          const price = r.readD();
+          items.push({ itemId, count: cnt, price });
+        }
+        this.emit('buyList', { money, listId, items });
+        break;
+      }
+      case 0x10: { // SellList (player sellables): D money, D 0, H count,
+        // per item: H type1, D objectId, D itemId, D count, H type2,
+        // H custom1, D bodyPart, H enchant, H custom2, H 0, D price(ref/2)
+        const money = r.readD();
+        r.readD(); // 0
+        const count = r.readH();
+        const items = [];
+        for (let i = 0; i < count; i++) {
+          r.readH(); // type1
+          const objectId = r.readD();
+          const itemId = r.readD();
+          const cnt = r.readD();
+          r.readH(); r.readH(); // type2, custom1
+          r.readD(); // bodyPart
+          const enchant = r.readH();
+          r.readH(); r.readH(); // custom2, 0
+          const price = r.readD();
+          items.push({ objectId, itemId, count: cnt, price, enchant });
+        }
+        this.emit('sellList', { money, items });
         break;
       }
       case 0x27: { // InventoryUpdate (player): H count, per item H change + entry

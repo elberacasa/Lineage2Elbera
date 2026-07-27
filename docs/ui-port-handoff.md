@@ -190,6 +190,25 @@ MagicSkillUse (`skillCast.reuse`, ms), and the AUTHORED dark sweep
 drains top-down on shortcut slots AND SkillWnd cells off
 `skillBar.reuse` (timing sourced, visual ours).
 
+**C.11 ShopWnd** (256×401) — the retail NPC shop, dual-pane per the xdat
+(TopList pick-from 239×139 at (9,48), BottomList cart 239×104 at (9,215),
+standard 37×35 pitch) and ShopWnd.uc's model (NOT tabs: ShopBuy vs
+ShopSell modes; double-click or Up/Down moves items, stackables ask the
+amount — our AUTHORED prompt stands in for DIALOG_NumberPad; the cart
+stacks by class id; OK packs and hides, uc:430-501). `buyList` opens buy
+mode, `sellList` sell mode (server-driven; the merchant bypass flows
+through the dialog's existing `bypass` op — nothing client-side to open).
+Prices are server truth; totals render via `costString` (the .uc's
+MakeCostString thousand-separator convention, uc:356/425). Inventory and
+adena change ONLY via `invUpdate` — failures come back as sysMsg in
+chat, never assumed. aCis has NO buy-cancel packet (checked
+clientpackets/): close sends nothing. Live evidence quirks mined the hard
+way: aCis `INTERACTION_DISTANCE` = 150 (the road ends short of every
+merchant — approach arc required), `RequestSellItem`/`RequestBuyItem`
+need the merchant as current TARGET, seeded-DB items can fail
+`checkItemManipulation` (`World.getObject`), and buys answer overload
+with sysMsg 422 (weight limit).
+
 **Layout path index** — the xdat reuses control names across sub-windows
 (ShortcutWnd's per-orientation PrevBtn, ChatWindow's 5 panes); the flat
 `Layout.find` stays documented last-wins and every helper now accepts a

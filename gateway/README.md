@@ -72,6 +72,49 @@ SystemMessage(0x64) is shallow-decoded into the contract op
 7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
 "You have earned 145 exp and 10 SP".
 
+## M11: NPC shops / merchants (added 2026-07-27)
+
+Flow (verified live against Trader Silvia, TI town): talk -> merchant html
+with `bypass -h npc_<objectId>_Buy <listId>` / `npc_<objectId>_Sell` links
+-> BuyList/SellList -> RequestBuyItem/RequestSellItem. The bypass is
+validated against the last html sent (validateBypass) — you MUST open the
+dialog first.
+
+Server -> client:
+- `{"op":"buyList","listId":N,"money":N,"items":[{"itemId":N,"count":N,"price":N}]}`
+  — BuyList(0x11): `D money, D listId, H count`, per item `H type1,
+  D itemId, D itemId(dup), D count, H type2, H 0, D bodyPart, H 0,0,0,
+  D price(taxed)`. count 0 = unlimited stock.
+- `{"op":"sellList","money":N,"items":[{"objectId":N,"itemId":N,"count":N,"price":N,"enchant":N}]}`
+  — SellList(0x10): `D money, D 0, H count`, per item `H type1,
+  D objectId, D itemId, D count, H type2, H custom1, D bodyPart,
+  H enchant, H custom2, H 0, D price` (price = referencePrice/2).
+
+Client -> server:
+- `{"op":"buy","items":[{"itemId":N,"count":N}]}` -> RequestBuyItem(0x1f):
+  `D listId, D count`, per item `D itemId, D count`. Uses the last
+  BuyList's listId. **The merchant must be the CURRENT target**
+  (target{id} first) and within 150 (Npc.INTERACTION_DISTANCE) — else the
+  server silently drops it.
+- `{"op":"sell","items":[{"objectId":N,"count":N}]}` -> RequestSellItem
+  (0x1e): `D listId(0), D count`, per item `D objectId, D itemId, D count`
+  (bridge resolves itemId from its inventory map).
+
+Responses (verified live, important):
+- A successful BUY answers with a FULL **ItemList(0x1b)** refresh (the op
+  `itemList`), NOT InventoryUpdate — RequestBuyItem line ~194 sends
+  ItemList, which also CLEARS the pending update queue. Assert purchases
+  via `itemList` (item present + adena count decreased).
+- A successful SELL queues inventory changes flushed as **invUpdate**
+  (remove + adena modify) + an optional merchant "-sold.htm" NpcHtmlMessage.
+- Buy/sell failures are silent OR a sysMsg (279 = not enough adena).
+- Prices verified against datapack buyLists.xml (list 13 item 116 = 37a
+  exact). TI town castle tax = 0% observed (77->40 exact). Sell-back rate
+  = referencePrice/2 (Magic Ring: buy 37, sell 16).
+- Multisell: TI merchants DO use it (`npc_<id>_Newbie_Exc_Multisell 003`
+  on Silvia = newbie equipment exchange; MultiSellList is opcode 0xd0
+  double). Not bridged in this milestone (shops cover the basic case).
+
 ## M10: abnormal status (buffs) + skill cooldowns (added 2026-07-27)
 
 Server -> client:

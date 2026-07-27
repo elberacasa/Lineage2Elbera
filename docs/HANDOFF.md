@@ -170,7 +170,8 @@ Client → server: `login{deviceId}` · `enterChar{slot}` · `moveTo{x,y,z}` ·
 `say{channel,text,target?}` · `target{id}` · `attack{id}` · `useSkill{skillId,
 targetId?}` · `useItem{objectId}` · `talk{id}` · `bypass{command}` ·
 `action{actionId}` · `questAbort{id}` · `partyInvite{name}` ·
-`partyAnswer{accept}` · `partyLeave{}` · `partyKick{name}`.
+`partyAnswer{accept}` · `partyLeave{}` · `partyKick{name}` ·
+`buy{items[{itemId,count}]}` · `sell{items[{objectId,count}]}`.
 
 Actions (fixed 2026-07-27): `action{actionId}` takes actionname-e.dat UI
 ids; SOCIAL-map keys are remapped to aCis social ids and sent via
@@ -205,7 +206,19 @@ skillId,level,hitTime}` · `skillLaunch{casterId,targetId,skillId,level}` ·
 `partyAsk{from}` · `party{members[{id,name,classId,level,hp,maxHp,mp,
 maxMp,leader}]}` · `partyMemberStatus{id,hp,maxHp,mp,maxMp}` ·
 `buffs{effects[{skillId,level,duration}]}` ·
-`skillCoolTime{skills[{id,level,reuse,remaining}]}`.
+`skillCoolTime{skills[{id,level,reuse,remaining}]}` ·
+`buyList{listId,money,items[{itemId,count,price}]}` ·
+`sellList{money,items[{objectId,itemId,count,price,enchant}]}`.
+
+Shops (added 2026-07-27): merchant dialog (`npc_<id>_Buy <listId>` /
+`npc_<id>_Sell` bypasses, validated against the last html — talk first) →
+`buyList`/`sellList` → `buy`/`sell` (merchant must be the current target
+within 150, else the server silently drops it). A successful BUY answers
+with a FULL `itemList` refresh (NOT invUpdate — the update queue is
+cleared by ItemList); a SELL arrives as invUpdate + optional npcHtml.
+TI castle tax 0% observed; sell-back = referencePrice/2. Multisell
+(`npc_<id>_Newbie_Exc_Multisell`, opcode 0xd0) present on TI merchants,
+not bridged.
 
 Quests (added 2026-07-26): `questList` = QuestList(0x80, `H count` + per
 quest `D questId, D flags`), queued after enterWorld like the other lists

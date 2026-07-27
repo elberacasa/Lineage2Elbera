@@ -146,33 +146,49 @@ export class SystemMenuWnd {
       + `height:${Skin.px(this.h)}px;z-index:13;display:none;pointer-events:auto;`;
     this.root = root;
 
-    const back = Layout.tex0(WND, WND);
+    // The window record ITSELF names the back texture (interface.json:
+    // SystemMenuWnd.textures[0]); Layout.tex0(WND) — tex0(WND, WND) looked
+    // for a same-named CHILD, found nothing, and the window rendered
+    // backgroundless. The sprite's own measured content rect crops the
+    // power-of-two padding.
+    const back = Layout.tex0(WND);
     if (back) {
       const el = document.createElement('div');
       el.style.cssText = 'position:absolute;inset:0;';
-      Skin.apply(el, back, { content: { w: this.w, h: this.h }, stretch: true });
+      const spr = Skin.sprite(back);
+      Skin.apply(el, back, {
+        content: spr && spr.cw ? { w: spr.cw, h: spr.ch } : { w: this.w, h: this.h },
+        stretch: true,
+      });
       root.appendChild(el);
     }
 
-    // seven icon+label rows. AUTHORED: the xdat gives sizes (36x36 button,
-    // 121x25 label) but no offsets (native layout); rows are stacked
-    // centered, which the label width corroborates (36+121+margins ~= 172).
-    // The 8px row margin is part of that AUTHORED layout.
+    // Seven icon+label rows at their MINED positions (interface.json, has0
+    // decode): buttons 36x36 at x=13, y=29+37k; labels 121x25 at x=51,
+    // y=43+37k — the label box sits 14px below the button top, exactly as
+    // the client declares it.
     const rows = SYSMENU_ROWS;
-    const rowH = 36, gap = Math.max(0, (this.h - rows.length * rowH) / (rows.length + 1));
-    const rowX = 8;   // AUTHORED (part of the same un-offset layout)
-    const labelW = (Layout.size(WND, 'txtBBS') || { w: 121 }).w;
     this.buttons = {};
-    rows.forEach((r, i) => {
-      const y = gap + i * (rowH + gap);
+    rows.forEach((r) => {
+      const bp = Layout.pos(WND, r.id) || { x: 13, y: 29 };
+      const bs = Layout.size(WND, r.id) || { w: 36, h: 36 };
+      const lp = Layout.pos(WND, 'txt' + r.id.slice(3)) || null;
+      const ls = Layout.size(WND, 'txt' + r.id.slice(3)) || { w: 121, h: 25 };
+
       const btn = document.createElement('div');
       btn.className = 'sysmenu-btn' + (r.enabled ? '' : ' disabled');
       btn.dataset.id = r.id;
-      btn.style.cssText = `position:absolute;left:${Skin.px(rowX)}px;`
-        + `top:${Skin.px(y)}px;width:${Skin.px(rowH)}px;height:${Skin.px(rowH)}px;`
+      btn.style.cssText = `position:absolute;left:${Skin.px(bp.x)}px;`
+        + `top:${Skin.px(bp.y)}px;width:${Skin.px(bs.w)}px;height:${Skin.px(bs.h)}px;`
         + 'cursor:pointer;';
       const tex = Layout.tex(WND, r.id);
-      if (tex && tex[0]) Skin.apply(btn, tex[0], { content: { w: rowH, h: rowH }, stretch: true });
+      if (tex && tex[0]) {
+        const ts = Skin.sprite(tex[0]);
+        Skin.apply(btn, tex[0], {
+          content: ts && ts.cw ? { w: ts.cw, h: ts.ch } : { w: bs.w, h: bs.h },
+          stretch: true,
+        });
+      }
       // claim the press so the window drag (WndMgr) cannot eat the click
       btn.addEventListener('pointerdown', (e) => e.preventDefault());
       btn.addEventListener('click', () => { if (r.enabled) this.onAction(r.id); });
@@ -180,8 +196,10 @@ export class SystemMenuWnd {
       this.buttons[r.id] = btn;
 
       const label = document.createElement('div');
-      label.style.cssText = `position:absolute;left:${Skin.px(rowX + rowH + 6)}px;`
-        + `top:${Skin.px(y)}px;width:${Skin.px(labelW)}px;height:${Skin.px(rowH)}px;`
+      const lx = lp ? lp.x : bp.x + bs.w + 2;
+      const ly = lp ? lp.y : bp.y;
+      label.style.cssText = `position:absolute;left:${Skin.px(lx)}px;`
+        + `top:${Skin.px(ly)}px;width:${Skin.px(ls.w)}px;height:${Skin.px(ls.h)}px;`
         + 'display:flex;align-items:center;';
       Font.set(label, r.label, { color: r.enabled ? '#cfd4de' : '#5a6274' });
       root.appendChild(label);

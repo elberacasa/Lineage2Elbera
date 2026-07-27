@@ -38,6 +38,8 @@
 //   partyAnswer -> accept forms a 2-member party + status tick
 //   partyInvite -> snapshot with SELF leader; partyKick/partyLeave ->
 //   updated snapshots (party of one disbands, like aCis)
+//   buyList     <- on bypass npc_buy; sellList <- npc_sell and after a
+//                  sale; buy/sell validated, results via invUpdate only
 //   loot{id}    -> invUpdate add (adena) + sysMsg, only for dead mobs
 // Remote-anim fixtures at enterChar: changeWait{Borg,sit} + changeMove
 // {Cora,running}.
@@ -112,6 +114,7 @@ wss.on('connection', (ws) => {
   const quests = [];
   let party = [];
   let partyTick = null;
+  let nextBoughtId = 1;
   let lastTarget = null;
   let lootCounter = 0;
   let combatTimer = null;
@@ -122,6 +125,20 @@ wss.on('connection', (ws) => {
 
   const send = (op, fields = {}) => {
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ op, ...fields }));
+  };
+
+  // M11 shop: the sell list is built from the CURRENT inventory (prices
+  // are the server's truth — the client never computes them; adena
+  // itself is not sellable)
+  let shopStock = [];
+  const SELL_PRICES = { 1147: 60, 2509: 400, 2369: 750, 1060: 120, 1835: 30, 734: 220 };
+  const sendSellList = () => {
+    send('sellList', {
+      items: items.filter(it => it.itemId !== 57).map(it => ({
+        objectId: it.objectId, itemId: it.itemId, count: it.count,
+        price: SELL_PRICES[it.itemId] || 10,
+      })),
+    });
   };
 
   // M3 combat loop: player whacks the gremlin, gremlin counters
@@ -351,13 +368,32 @@ wss.on('connection', (ws) => {
         `<table width="260"><tr><td width="120"><font color="BROWN">Services</font></td>` +
         `<td><a action="bypass -h npc_services">Ask about services</a></td></tr>` +
         `<tr><td><font color="BROWN">Quests</font></td>` +
-        `<td><a action="bypass -h npc_quests">Ask about quests</a></td></tr></table><br>` +
+        `<td><a action="bypass -h npc_quests">Ask about quests</a></td></tr>` +
+        `<tr><td><font color="BROWN">Shop</font></td>` +
+        `<td><a action="bypass -h npc_shop">Buy / sell supplies</a></td></tr></table><br>` +
         `<button value="Farewell" action="bypass -h npc_bye" width="80" height="18">` +
         `</center></body></html>` });
     } else if (msg.op === 'bypass') {
       const cmd = String(msg.command || '');
-      if (cmd === 'npc_services') {
+      if (cmd === 'npc_shop') {
         send('npcHtml', { html:
+          `<html><body><title>Shop</title><br><br><center>` +
+          `<a action="bypass -h npc_buy">Buy supplies</a><br><br>` +
+          `<a action="bypass -h npc_sell">Sell items</a><br><br>` +
+          `<a action="bypass -h npc_back">Back</a></center></body></html>` });
+      } else if (cmd === 'npc_buy') {
+        // merchant stock: price + stock count (-1 = unlimited, like the
+        // merchant's endless potion supply)
+        shopStock = [
+          { itemId: 1060, count: -1, price: 250 },
+          { itemId: 734, count: -1, price: 450 },
+          { itemId: 2509, count: -1, price: 1000 },
+          { itemId: 2369, count: 1, price: 1500 },
+        ];
+        send('buyList', { items: shopStock });
+      } else if (cmd === 'npc_sell') {
+        sendSellList();
+      } else if (cmd === 'npc_services') {        send('npcHtml', { html:
           `<html><body><title>Services</title><br><br><center>` +
           `We offer <font color="YELLOW">supplies</font> and guidance.<br><br>` +
           `<a action="bypass -h npc_back">Back</a></center></body></html>` });
@@ -448,6 +484,62 @@ wss.on('connection', (ws) => {
     } else if (msg.op === 'partyLeave') {
       party = [];
       send('party', { members: party });
+    } else if (msg.op === 'buy') {
+      // validate against the stock the mock last sent + the player's
+      // adena; results arrive ONLY via invUpdate (server truth)
+      const adena = items.find(i => i.itemId === 57);
+      let total = 0;
+      const clean = [];
+      for (const b of msg.items || []) {
+        const stock = shopStock.find(s => s.itemId === b.itemId);
+        if (!stock) continue;
+        const n = Math.max(0, b.count | 0);
+        if (!n) continue;
+        if (stock.count >= 0) stock.count = Math.max(0, stock.count - n);
+        total += stock.price * n;
+        clean.push({ stock, n });
+      }
+      if (!adena || adena.count < total) {
+        send('sysMsg', { id: 279, params: ['not enough adena'] });
+      } else {
+        adena.count -= total;
+        send('invUpdate', { updated: [{ change: 'modify', ...adena }] });
+        for (const { stock, n } of clean) {
+          const have = items.find(i => i.itemId === stock.itemId && !i.equipped);
+          if (have) {
+            have.count += n;
+            send('invUpdate', { updated: [{ change: 'modify', ...have }] });
+          } else {
+            const it = { objectId: 90200 + (nextBoughtId++), itemId: stock.itemId, count: n, slot: 0, equipped: 0, enchant: 0 };
+            items.push(it);
+            send('invUpdate', { updated: [{ change: 'add', ...it }] });
+          }
+        }
+        send('sysMsg', { id: 46, params: [`bought ${clean.length} item(s)`] });
+      }
+    } else if (msg.op === 'sell') {
+      const adena = items.find(i => i.itemId === 57);
+      let total = 0;
+      for (const s of msg.items || []) {
+        const it = items.find(i => i.objectId === s.objectId);
+        if (!it) continue;
+        const n = Math.min(it.count, Math.max(0, s.count | 0));
+        if (!n) continue;
+        total += (SELL_PRICES[it.itemId] || 10) * n;
+        it.count -= n;
+        if (it.count <= 0) {
+          items.splice(items.indexOf(it), 1);
+          send('invUpdate', { updated: [{ change: 'remove', objectId: it.objectId, itemId: it.itemId }] });
+        } else {
+          send('invUpdate', { updated: [{ change: 'modify', ...it }] });
+        }
+      }
+      if (adena && total > 0) {
+        adena.count += total;
+        send('invUpdate', { updated: [{ change: 'modify', ...adena }] });
+      }
+      // retail sends nothing more: the sell window hides on OK and the
+      // list is only re-sent when the dialog asks again
     }
   });
 

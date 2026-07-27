@@ -21,7 +21,8 @@
     "verify-action": "node test/verify-action.js",
     "verify-quest": "node test/verify-quest.js",
     "verify-party": "node test/verify-party.js",
-    "verify-buffs": "node test/verify-buffs.js"
+    "verify-buffs": "node test/verify-buffs.js",
+    "verify-shop": "node test/verify-shop.js"
   },
   "keywords": [],
   "author": "",

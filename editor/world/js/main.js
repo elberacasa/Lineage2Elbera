@@ -28,6 +28,7 @@ import { MinimapWnd } from './ui/minimapwnd.js';
 import { QuestWnd, questCond, questStarted } from './ui/questwnd.js';
 import { PartyWnd } from './ui/partywnd.js';
 import { AbnormalWnd } from './ui/abnormalwnd.js';
+import { ShopWnd } from './ui/shopwnd.js';
 
 const canvas = document.getElementById('view');
 const statusEl = document.getElementById('status');
@@ -163,6 +164,7 @@ let minimapWnd = null;
 let questWnd = null;
 let partyWnd = null;
 let abnormalWnd = null;
+let shopWnd = null;
 let menuWnd = null;
 let systemMenuWnd = null;
 
@@ -353,7 +355,11 @@ net.on('skillList', (msg) => {
   skillBar.register(all.filter(
     s => skillType(s.id, s.passive) !== 'PASSIVE' && !s.disabled));
 });
-net.on('itemList', (msg) => inventory.setItems(msg.items || []));
+net.on('itemList', (msg) => {
+  inventory.setItems(msg.items || []);
+  // aCis answers shop transactions with a FULL ItemList (no InventoryUpdate)
+  if (shopWnd) shopWnd.onInvUpdate();
+});
 net.on('questList', (msg) => {
   if (questWnd) questWnd.setQuests(msg.quests || []);
 });
@@ -387,8 +393,17 @@ net.on('skillCoolTime', (msg) => {
     skillBar.setReuse(s.id, total, left);
   }
 });
+// Shop: the server opens the window by sending the list (merchant bypass
+// flows through the dialog's 'bypass' op; nothing client-side to open)
+net.on('buyList', (msg) => {
+  if (shopWnd) shopWnd.openBuy(msg.items || []);
+});
+net.on('sellList', (msg) => {
+  if (shopWnd) shopWnd.openSell(msg.items || []);
+});
 net.on('invUpdate', (msg) => {
   inventory.applyUpdate(msg.updated || []);
+  if (shopWnd) shopWnd.onInvUpdate();
   for (const u of msg.updated || []) {
     if (u.change === 'add' || u.change === 1) {
       itemMeta().then(meta =>
@@ -633,6 +648,7 @@ window.__world = {
   questCond, questStarted,   // verification: aCis flags-dword math
   get partyWnd() { return partyWnd; },
   get abnormalWnd() { return abnormalWnd; },
+  get shopWnd() { return shopWnd; },
   get menuWnd() { return menuWnd; },
   get systemMenuWnd() { return systemMenuWnd; },
   wndMgr: WndMgr,
@@ -977,6 +993,20 @@ renderer.setAnimationLoop(() => {
     // Phase C.10: the retail buff strip (WindowsInfo.ini dock 348,583).
     abnormalWnd = new AbnormalWnd(document.body);
     WndMgr.register('AbnormalStatusWnd', abnormalWnd, { handle: abnormalWnd.root });
+
+    // Phase C.11: the NPC shop. buyList/sellList open it; results arrive
+    // ONLY via invUpdate (server truth — failures are sysMsg in chat).
+    shopWnd = new ShopWnd(document.body, {
+      onBuy: (items) => { if (online) net.send('buy', { items }); },
+      onSell: (items) => { if (online) net.send('sell', { items }); },
+      getAdena: () => {
+        if (!inventory) return 0;
+        const a = [...inventory.items.values()].find(i => i.itemId === 57);
+        return a ? a.count : 0;
+      },
+    });
+    shopWnd.place(shopWnd.defaultPlace);
+    WndMgr.register('ShopWnd', shopWnd, { handle: shopWnd.win.bar });
     // the invite row follows the current target (target + invite flow)
     const _combatSetTarget = combat.setTarget.bind(combat);
     combat.setTarget = (id, name, opts) => {

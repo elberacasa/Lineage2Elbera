@@ -19,6 +19,7 @@ const SPRITE_DIR = '/ui/skin/';
 
 let _sprites = null;
 let _srcScale = 1;      // 1 when staged 1x, 4 after `build_uiskin.py --hd`
+let _cropCache = null;  // ref -> data: url of the content-cropped sprite
 
 export const Skin = {
   // UI magnification. DEFAULT 1 = pixel-perfect retail.
@@ -119,7 +120,13 @@ export const Skin = {
     return true;
   },
 
-  /** 9-slice through border-image. `insets` are retail pixels. */
+  /** 9-slice through border-image. `insets` are retail pixels.
+   *
+   *  The staged PNGs are power-of-two padded (Npc1_back is 310x381 of art in
+   *  a 512x512 file) and border-image cannot crop its source, so slicing the
+   *  raw file paints the padding inside the window — the "background smaller
+   *  than the window" bug. We crop to the measured content rect (cx,cy,cw,ch)
+   *  on a canvas once per sprite and slice the cropped bitmap instead. */
   nine(el, ref, insets) {
     const s = Skin.sprite(ref);
     if (!s) return false;
@@ -128,10 +135,34 @@ export const Skin = {
     el.style.borderStyle = 'solid';
     el.style.borderWidth =
       `${Skin.px(t)}px ${Skin.px(r)}px ${Skin.px(b)}px ${Skin.px(l)}px`;
-    el.style.borderImageSource = Skin.url(ref);
     el.style.borderImageSlice = `${t} ${r} ${b} ${l} fill`;
     el.style.borderImageRepeat = 'stretch';
+    el.style.imageRendering = _srcScale > 1 ? 'auto' : 'pixelated';
+    Skin._cropped(ref, s, (url) => { el.style.borderImageSource = url; });
     return true;
+  },
+
+  /** data: URL of the sprite cropped to its content rect (async, cached). */
+  _cropped(ref, s, done) {
+    if (!_cropCache) _cropCache = new Map();
+    if (s.cw == null || (s.cw === s.w && s.ch === s.h && !s.cx && !s.cy)) {
+      done(Skin.url(ref));            // no padding: the file IS the art
+      return;
+    }
+    const hit = _cropCache.get(ref);
+    if (hit) { done(hit); return; }
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = s.cw; c.height = s.ch;
+      c.getContext('2d').drawImage(img, s.cx || 0, s.cy || 0, s.cw, s.ch,
+                                   0, 0, s.cw, s.ch);
+      const url = `url("${c.toDataURL()}")`;
+      _cropCache.set(ref, url);
+      done(url);
+    };
+    img.onerror = () => done(Skin.url(ref));
+    img.src = `${SPRITE_DIR}${s.file}`;
   },
 
   /** A retail StatusBar.

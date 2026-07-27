@@ -62,6 +62,10 @@ class Bridge {
     // status updates flow as their own op (see README §M9 for the choice).
     this.party = { leaderId: 0, lootRule: 0, members: new Map() }; // id -> member
     this.selfInfo = null; // {id, name, classId, level, race} from UserInfo
+    // M11 shop state: last merchant list id + inventory (objectId -> itemId)
+    // to resolve RequestSellItem entries.
+    this.lastBuyListId = 0;
+    this.inventory = new Map();
 
     ws.on('message', (data) => this._onMessage(data));
     ws.on('close', () => this._shutdown());
@@ -175,6 +179,25 @@ class Bridge {
         case 'partyKick':
           // RequestOustPartyMember(0x2c): S name.
           if (this.game) this.game.oustPartyMember(String(msg.name || '').slice(0, 16));
+          break;
+        case 'buy':
+          // RequestBuyItem(0x1f) with the last BuyList's listId. Requires the
+          // merchant as current target (client sends target{id} first).
+          if (this.game && Array.isArray(msg.items)) {
+            this.game.requestBuyItem(this.lastBuyListId, msg.items.slice(0, 50));
+          }
+          break;
+        case 'sell':
+          // RequestSellItem(0x1e, listId 0). itemId resolved from the
+          // inventory map (RequestSellItem carries objectId+itemId+count).
+          if (this.game && Array.isArray(msg.items)) {
+            const items = msg.items.slice(0, 50).map((it) => ({
+              objectId: it.objectId | 0,
+              itemId: this.inventory.get(it.objectId | 0) || 0,
+              count: it.count | 0,
+            })).filter((it) => it.itemId > 0);
+            this.game.requestSellItem(0, items);
+          }
           break;
         case 'destroyItem':
           // inventory TrashButton (aCis RequestDestroyItem)
@@ -456,6 +479,7 @@ class Bridge {
     });
 
     game.on('itemList', (items) => {
+      for (const it of items) this.inventory.set(it.objectId, it.itemId);
       if (this.entered) this.send({ op: 'itemList', items });
       else this.pendingItemList = items;
     });
@@ -463,6 +487,10 @@ class Bridge {
     // ItemState ordinals (enums/items/ItemState.java): 0 UNCHANGED,
     // 1 ADDED, 2 MODIFIED, 3 REMOVED.
     game.on('invUpdate', (updated) => {
+      for (const it of updated) {
+        if (it.change === 3) this.inventory.delete(it.objectId);
+        else this.inventory.set(it.objectId, it.itemId);
+      }
       const CHANGE = ['unchanged', 'add', 'modify', 'remove'];
       this.send({
         op: 'invUpdate',
@@ -476,6 +504,15 @@ class Bridge {
           enchant: it.enchant,
         })),
       });
+    });
+
+    // Merchant shops: BuyList (store it for RequestBuyItem) and SellList.
+    game.on('buyList', (b) => {
+      this.lastBuyListId = b.listId;
+      this.send({ op: 'buyList', listId: b.listId, money: b.money, items: b.items });
+    });
+    game.on('sellList', (s) => {
+      this.send({ op: 'sellList', money: s.money, items: s.items });
     });
 
     game.on('drop', (d) => {
