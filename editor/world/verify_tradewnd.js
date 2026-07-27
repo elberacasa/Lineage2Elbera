@@ -38,7 +38,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await page.waitForFunction('window.__world && window.__world.ready', { timeout: 30000 });
     await page.click('#online-toggle');
     await page.waitForFunction(
-      `window.__world.net.log.some(m => m.op === 'itemList')`, { timeout: 20000 });
+      `window.__world.net.log.some(m => m.op === 'itemList')
+       && window.__world.entities.getEntity(80001)`, { timeout: 20000 });
+    // Aria's GLTF loads async — '/trade' needs her entity (kind player) or
+    // the chat handler bails with 'Target a player first'
     await sleep(1200);
 
     const dbl = (sel) => page.evaluate((s) => {

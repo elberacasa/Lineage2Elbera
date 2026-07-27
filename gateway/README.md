@@ -32,6 +32,7 @@ node test/verify-m4.js [deviceId]    # skills+items: skillList/itemList, self-ca
 node test/verify-m5.js [suffix]      # chat channels (TELL target, SHOUT), charSheet, .menu passthrough
 node test/verify-shop.js [suffix]     # merchant flow: buy list, buy (itemList refresh), sell back
 node test/verify-trade.js [suffix]    # player trade: ask/refuse, accept+cancel, two-phase confirm + item move
+node test/verify-store.js [suffix]    # private store: manage/set/title, observer playerStore, buy, stop, .offline
 node test/smoke-protocol.js          # same as verify-one but without the WS layer (raw protocol)
 ```
 
@@ -73,6 +74,97 @@ SystemMessage(0x64) is shallow-decoded into the contract op
 2 NPC_NAME, 3 ITEM_NAME, 4 SKILL_NAME, 5 CASTLE_NAME, 6 ITEM_NUMBER,
 7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
 "You have earned 145 exp and 10 SP".
+
+## M13: private stores (added 2026-07-27)
+
+Flow (verified live, test/verify-store.js): storeManageSell -> storeMsgSell
+-> storeSetSell (title rides along) -> storeState{open} -> observer clicks
+the sitting player (talk) -> playerStore -> storeBuy -> item + adena move
+(exact amounts) -> storeStop / auto-close on sell-out -> storeState{!open}.
+
+**There is NO separate start packet in aCis**: SetPrivateStoreListSell/Buy
+IS the store start (clientpackets: `sitDown()` + `setOperateType(SELL/BUY)`
++ `broadcastUserInfo` + title broadcast). `storeStart{}` is a documented
+no-op.
+
+Client -> server:
+- `{"op":"storeManageSell"}` -> RequestPrivateStoreManageSell(0x73, empty).
+- `{"op":"storeManageBuy"}` -> RequestPrivateStoreManageBuy(0x90, empty).
+- `{"op":"storeTitle","title":".."}` -> SetPrivateStoreMsgSell(0x77) /
+  SetPrivateStoreMsgBuy(0x94): `S title` (max 29 chars server-side), routed
+  by the last manage/set type. **Set the title BEFORE storeSetSell/Buy**:
+  the title rides the TradeList and survives its `clear()`, so the
+  store-open PrivateStoreMsg* broadcast then carries it to observers.
+  (SetPrivateStoreMsg* itself only echoes to the owner — no re-broadcast.)
+- `{"op":"storeSetSell","items":[{"objectId":N,"count":N,"price":N}],"title":".."?,"packageSale":bool?}`
+  -> SetPrivateStoreListSell(0x74): `D packageSale, D count`, per item
+  `D objectId, D count, D price`. Opens the store on success.
+- `{"op":"storeSetBuy","items":[{"itemId":N,"count":N,"price":N}],"title":".."?}`
+  -> SetPrivateStoreListBuy(0x91): `D count`, per item (16 bytes)
+  `D itemId, H enchant, H 0, D count, D price`. Opens the buy-store.
+  Quirk (verify-mods): canPassBuyProcess requires OWNING a reference item
+  of the listed type.
+- `{"op":"storeStart"}` — no-op (see above; kept in the contract for
+  clients that model open explicitly).
+- `{"op":"storeStop"}` -> RequestPrivateStoreQuitSell(0x76) /
+  QuitBuy(0x93), picked by the current store type. Both are empty and just
+  do `setOperateType(NONE)` + broadcastUserInfo — either closes any store.
+- `{"op":"storeBuy","storeId":N,"items":[{"objectId":N,"count":N}]}` ->
+  RequestPrivateStoreBuy(0x79, buy FROM a sell-store): `D storePlayerId,
+  D count`, per item `D objectId, D count, D price`. **The price MUST match
+  the store price** (TradeList.privateStoreBuy validates objectId+price) —
+  the bridge fills it from the last playerStore list it saw for storeId,
+  so click the store (talk) before buying. Buyer must be within 150
+  (Npc.INTERACTION_DISTANCE) of the store.
+- `{"op":"storeSell","storeId":N,"items":[{"objectId":N,"count":N,"price":N}]}`
+  -> RequestPrivateStoreSell(0x96, sell INTO a buy-store): `D storePlayerId,
+  D count`, per item (20 bytes) `D objectId, D itemId, H enchant, H 0,
+  D count, D price`. itemId/enchant are resolved from the last playerStore
+  list (the observer view of a buy-store carries the VIEWER's own items).
+
+Server -> client:
+- `{"op":"storeMsgSell","packageSale":bool,"adena":N,"items":[{objectId,itemId,count,enchant,price,slot,storePrice}],"sellables":[...]}`
+  — PrivateStoreManageListSell(0x9a): `D objectId, D packageSale, D adena,
+  D sellableCount` per item `D type2, D objectId, D itemId, D count, H 0,
+  H enchant, H 0, D bodyPart, D price`, then `D storeCount` + same entry +
+  `D referencePrice`. `items` = current store contents (storePrice =
+  referencePrice); `sellables` (additive) = what can be listed.
+- `{"op":"storeMsgBuy","adena":N,"items":[{itemId,enchant,count,price,slot,storePrice}],"buyables":[...]}`
+  — PrivateStoreManageListBuy(0xb7): `D objectId, D adena, D buyableCount`
+  per item `D itemId, H enchant, D count, D refPrice, H 0, D bodyPart,
+  H type2`, then `D storeCount` + same entry + `D price, D refPrice`.
+  `buyables` (additive) = owned reference items.
+- `{"op":"playerStore","id":N,"type":"sell|buy","title":"..","adena":N,"items":[...]}`
+  — what an observer sees clicking someone's store. Sell:
+  PrivateStoreListSell(0x9b): `D storePlayerId, D packageSale, D viewerAdena,
+  D count`, per item the manage-sell entry + `D price, D referencePrice`
+  (items get `price` and `storePrice`). Buy: PrivateStoreListBuy(0xb8):
+  `D storePlayerId, D viewerAdena, D count`, per item `D objectId, D itemId,
+  H enchant, D count, D refPrice, H 0, D bodyPart, H type2, D price,
+  D quantity` (objectIds are the VIEWER's own matching items — use them
+  verbatim in storeSell). `title` is folded in from the PrivateStoreMsgSell
+  (0x9c)/MsgBuy(0xb9) broadcast (`D objectId, S title`) seen when the store
+  opened — observers out of range at open time get `title: ""`.
+- `{"op":"storeState","open":bool,"type":"sell|buy"?}` — own store state,
+  derived from the UserInfo operateType field (writeC after mountType):
+  1 SELL / 8 PACKAGE_SELL -> 'sell', 3 BUY -> 'buy' are OPEN; 2/4 are the
+  manage views (store not visible to observers); 0 NONE. Emitted on
+  transitions only — covers storeSet*, storeStop and the auto-close when a
+  store sells out (OperateType.NONE + broadcastUserInfo).
+
+Quirks verified live:
+- **After a store closes (storeStop or sell-out) the player stays
+  SITTING**, and canOpenPrivateStore silently refuses to open a store
+  while sitting-and-not-in-store-mode (Player.java:2361, no sysMsg).
+  Stand up first (`action{actionId:0}` toggles) before re-listing.
+- Buying the last item of a sell-store auto-closes it:
+  storeState{open:false} arrives at the owner.
+- A stopped store answers clicks with NOTHING (no playerStore; the target
+  just follows) and storeBuy/storeSell fail silently server-side.
+- `.offline` works with a sell store too (mod checks isInStoreMode):
+  A disconnects, the offline trader stays visible and the store keeps
+  serving playerStore views to observers (re-proven through the new ops).
+- Prices/money verified exact live: guide listed @10, B 39->29, A 0->10.
 
 ## M12: player-to-player trade (added 2026-07-27)
 
@@ -614,7 +706,11 @@ RequestCharacterCreate 0x0b, RequestGameStart 0x0d, EnterWorld 0x03,
 MoveBackwardToLocation 0x01, Action 0x04, AttackRequest 0x0a, Say2 0x38,
 RequestMagicSkillUse 0x2f, UseItem 0x14, ValidatePosition 0x48,
 TradeRequest 0x15, AddTradeItem 0x16, TradeDone 0x17, AnswerTradeRequest
-0x44.
+0x44, RequestPrivateStoreManageSell 0x73, SetPrivateStoreListSell 0x74,
+RequestPrivateStoreQuitSell 0x76, SetPrivateStoreMsgSell 0x77,
+RequestPrivateStoreBuy 0x79, RequestPrivateStoreManageBuy 0x90,
+SetPrivateStoreListBuy 0x91, RequestPrivateStoreQuitBuy 0x93,
+SetPrivateStoreMsgBuy 0x94, RequestPrivateStoreSell 0x96.
 Game (S→C, decoded): VersionCheck 0x00, CharSelectInfo 0x13,
 CharSelected 0x15, CharCreateOk 0x19, CharCreateFail 0x1a, UserInfo 0x04,
 CharInfo 0x03, NpcInfo 0x16, MoveToLocation 0x01, DeleteObject 0x12,
@@ -624,7 +720,10 @@ MyTargetSelected 0xa6, SystemMessage 0x64, SkillList 0x58,
 MagicSkillUse 0x48, MagicSkillLaunched 0x76, ItemList 0x1b,
 InventoryUpdate 0x27, SpawnItem 0x0b, DropItem 0x0c, SendTradeRequest 0x5e,
 TradeStart 0x1e, TradeOwnAdd 0x20, TradeOtherAdd 0x21, SendTradeDone 0x22,
-TradePressOwnOk 0x75, TradePressOtherOk 0x7c.
+TradePressOwnOk 0x75, TradePressOtherOk 0x7c, PrivateStoreManageListSell
+0x9a, PrivateStoreListSell 0x9b, PrivateStoreMsgSell 0x9c,
+PrivateStoreManageListBuy 0xb7, PrivateStoreListBuy 0xb8,
+PrivateStoreMsgBuy 0xb9.
 
 ## Files
 

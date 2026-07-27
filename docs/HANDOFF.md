@@ -173,7 +173,11 @@ targetId?}` · `useItem{objectId}` · `talk{id}` · `bypass{command}` ·
 `partyAnswer{accept}` · `partyLeave{}` · `partyKick{name}` ·
 `buy{items[{itemId,count}]}` · `sell{items[{objectId,count}]}` ·
 `tradeRequest{name}` · `tradeAnswer{accept}` · `tradeAdd{objectId,count}` ·
-`tradeDone{}` · `tradeCancel{}`.
+`tradeDone{}` · `tradeCancel{}` · `storeManageSell{}` · `storeManageBuy{}` ·
+`storeTitle{title}` · `storeSetSell{items[{objectId,count,price}],title?,
+packageSale?}` · `storeSetBuy{items[{itemId,count,price}],title?}` ·
+`storeStart{}` · `storeStop{}` · `storeBuy{storeId,items[{objectId,count}]}` ·
+`storeSell{storeId,items[{objectId,count,price}]}`.
 
 Actions (fixed 2026-07-27): `action{actionId}` takes actionname-e.dat UI
 ids; SOCIAL-map keys are remapped to aCis social ids and sent via
@@ -213,7 +217,11 @@ maxMp,leader}]}` · `partyMemberStatus{id,hp,maxHp,mp,maxMp}` ·
 `sellList{money,items[{objectId,itemId,count,price,enchant}]}` ·
 `tradeAsk{from}` · `tradeStart{partnerId,partner,items[]}` ·
 `tradeOwn{items[{objectId,itemId,count}]}` ·
-`tradeOther{items[{objectId,itemId,count}]}` · `tradeEnd{reason}`.
+`tradeOther{items[{objectId,itemId,count}]}` · `tradeEnd{reason}` ·
+`storeMsgSell{packageSale,adena,items[{objectId,itemId,count,enchant,price,
+slot,storePrice}],sellables[...]}` · `storeMsgBuy{adena,items[{itemId,
+enchant,count,price,slot,storePrice}],buyables[...]}` ·
+`playerStore{id,type,title,adena,items[...]}` · `storeState{open,type?}`.
 
 Shops (added 2026-07-27): merchant dialog (`npc_<id>_Buy <listId>` /
 `npc_<id>_Sell` bypasses, validated against the last html — talk first) →
@@ -280,6 +288,29 @@ TradeItemUpdate/TradeUpdate (0x74) exists (trade-window inventory refresh,
 leading H available-flag 2/3) but is not bridged. Live proof:
 `gateway/test/verify-trade.js` PASS (refuse / cancel / two-phase done with
 real item movement).
+
+Private stores (added 2026-07-27): **SetPrivateStoreListSell(0x74) /
+ListBuy(0x91) IS the store start** in aCis (sitDown + OperateType.SELL/BUY
++ broadcast) — `storeStart{}` is a documented no-op. `storeManageSell/Buy{}`
+→ 0x73/0x90 · `storeTitle{title}` → 0x77/0x94 (set BEFORE the list: the
+title survives TradeList.clear() and then rides the store-open broadcast;
+the msg packet alone only echoes to the owner) · `storeStop{}` →
+QuitSell(0x76)/QuitBuy(0x93), both just set OperateType.NONE ·
+`storeBuy{storeId,items}` → RequestPrivateStoreBuy(0x79, price MUST match
+the store price — bridge fills it from the last playerStore seen for that
+storeId) · `storeSell{storeId,items}` → RequestPrivateStoreSell(0x96,
+itemId/enchant resolved the same way). Server side: `storeMsgSell` /
+`storeMsgBuy` (manage views 0x9a/0xb7, with additive sellables/buyables) ·
+`playerStore{id,type,title,items}` (observer views 0x9b/0xb8; title folded
+in from the 0x9c/0xb9 broadcast seen at store open) · `storeState{open,
+type?}` derived from the UserInfo operateType field (transitions only;
+covers sell-out auto-close). Quirks verified live: after a close the
+player STAYS SITTING and re-listing is silently refused until a stand-up
+(`action{actionId:0}`); a stopped store answers clicks with nothing and
+buys fail silently; `.offline` accepts a sell store — the trader stays
+visible and keeps serving playerStore views. Live proof:
+`gateway/test/verify-store.js` PASS (manage/set/title, observer buy with
+exact item+adena movement, stop, offline persistence).
 
 NPC dialog (added 2026-07-26): `talk{id}` sends Action(0x04); aCis routes by
 Creature.onAction — first Action only targets, second Action INTERACTS for

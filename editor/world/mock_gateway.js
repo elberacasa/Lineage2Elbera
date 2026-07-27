@@ -53,6 +53,25 @@
 //                  later -> tradeEnd{done} + sysMsg 123 + item movement
 //                  via invUpdate ONLY
 //   tradeCancel -> tradeEnd{cancel}; offered items never move
+// M13 private stores (Borg runs the sell-store fixture):
+//   storeManageSell/Buy -> storeMsgSell/storeMsgBuy (sellables/buyables
+//                  from the CURRENT inventory); SILENT while sitting-and-
+//                  not-in-store-mode (the aCis re-list quirk, README M13)
+//   storeSetSell/Buy -> the store OPENS (no start op exists): changeWait
+//                  {self, sit} + storeState{open:true,type}
+//   storeStop    -> storeState{open:false}; NO changeWait (the player
+//                  stays sitting — the quirk)
+//   action{0}    -> sit/stand toggle: changeWait{self, waitType}
+//   talk Borg (80002) -> playerStore of his sell store; a stopped store
+//                  answers with NOTHING (M13)
+//   storeBuy     -> validated against Borg's list (price must match);
+//                  item + adena move via invUpdate only; sell-out
+//                  auto-closes the store (talk then yields nothing)
+//   say "/storeoffline" -> offline-trader fixture: Borg's store (re)opens
+//                  in PERSISTENT mode — it keeps serving playerStore views
+//                  and buys even after sell-out (the mock cannot disconnect
+//                  a virtual owner; persistence of the STORE is the part
+//                  the client can observe, so that is what is modeled)
 // Remote-anim fixtures at enterChar: changeWait{Borg,sit} + changeMove
 // {Cora,running}.
 //
@@ -105,6 +124,19 @@ const AMBIENT = [
 const MOBS = {
   70001: { hp: 500, maxHp: 500, dead: false },
 };
+
+// M13: Borg (80002) is the sitting fixture (changeWait at enterChar) and
+// runs a private sell store. Entries mirror PrivateStoreListSell: price is
+// the store price, storePrice the reference price.
+function freshBorgStore() {
+  return {
+    type: 'sell', title: "Borg's goods",
+    items: [
+      { objectId: 95011, itemId: 2509, count: 1, enchant: 0, price: 400, storePrice: 1500 },
+      { objectId: 95012, itemId: 1060, count: 3, enchant: 0, price: 120, storePrice: 250 },
+    ],
+  };
+}
 // viewer level: seedable for con-color tests (default 1; MOCK_LEVEL=40
 // makes target_ok.color strongly negative vs level-1 gremlins)
 const SELF_LEVEL = Number(process.env.MOCK_LEVEL) || 1;
@@ -132,6 +164,13 @@ wss.on('connection', (ws) => {
   let lastTarget = null;
   let lootCounter = 0;
   let combatTimer = null;
+  // M13 private-store state: own store (null = closed), the sit/stand
+  // toggle the aCis re-list quirk hinges on, and Borg's sell-store fixture
+  let selfSitting = false;
+  let store = null;
+  let storeTitlePending = '';
+  let borgStore = freshBorgStore();
+  let borgOffline = false;
   // mobs are module-level (shared): reset per session so a killed mob
   // from a previous run (respawn cancelled on disconnect) can't leak
   for (const id of Object.keys(MOBS)) MOBS[id] = { hp: 500, maxHp: 500, dead: false };
@@ -364,6 +403,12 @@ wss.on('connection', (ws) => {
       if (msg.text === '/partyask' && !party.length) send('partyAsk', { from: 'Aria' });
       // M12: incoming trade ask, ON DEMAND (same reason as /partyask)
       if (msg.text === '/tradeask' && !trade) send('tradeAsk', { from: 'Aria' });
+      // M13: offline-trader fixture, ON DEMAND — Borg's store (re)opens in
+      // persistent mode (keeps serving playerStore views after sell-out)
+      if (msg.text === '/storeoffline') {
+        borgOffline = true;
+        if (!borgStore) borgStore = freshBorgStore();
+      }
       if (msg.text === '.menu') {
         send('npcHtml', { html:
           `<html><body><title>L2Vzla - Player menu</title><br><br><center>` +
@@ -415,6 +460,19 @@ wss.on('connection', (ws) => {
         }
       }, 1500));
     } else if (msg.op === 'talk') {
+      // M13: clicking Borg opens his private sell store (PrivateStoreListSell
+      // on interact); a stopped store answers with NOTHING (README M13)
+      if (msg.id === 80002) {
+        if (borgStore) {
+          const adena = items.find(i => i.itemId === 57);
+          send('playerStore', {
+            id: 80002, type: borgStore.type, title: borgStore.title,
+            adena: adena ? adena.count : 0,
+            items: borgStore.items.map(i => ({ ...i })),
+          });
+        }
+        return;
+      }
       // villager dialog (representative L2 markup: title, colored fonts,
       // a table, links, a button)
       const npc = NPCS.find(n => n.id === msg.id) || { name: 'NPC' };
@@ -495,6 +553,133 @@ wss.on('connection', (ws) => {
         // dances along (exercises remote-player emotes)
         send('socialAction', { id: 80001, actionId: msg.actionId });
       }
+      // M13: id 0 is the server-side sit/stand toggle (aCis RequestActionUse)
+      if ((msg.actionId | 0) === 0) {
+        selfSitting = !selfSitting;
+        send('changeWait', { id: self.id, waitType: selfSitting ? 0 : 1 });
+      }
+    } else if (msg.op === 'storeManageSell') {
+      // aCis quirk (README M13): sitting-and-not-in-store-mode SILENTLY
+      // refuses (canOpenPrivateStore, no sysMsg) — the client must stand first
+      if (selfSitting && !store) return;
+      const adena = items.find(i => i.itemId === 57);
+      send('storeMsgSell', {
+        packageSale: false,
+        adena: adena ? adena.count : 0,
+        items: store && store.type === 'sell' ? store.items.map(i => ({ ...i })) : [],
+        sellables: items.filter(i => !i.equipped && i.itemId !== 57).map(i => ({
+          objectId: i.objectId, itemId: i.itemId, count: i.count,
+          enchant: i.enchant, slot: i.slot,
+          price: SELL_PRICES[i.itemId] || 10,
+          storePrice: SELL_PRICES[i.itemId] || 10,
+        })),
+      });
+    } else if (msg.op === 'storeManageBuy') {
+      if (selfSitting && !store) return;
+      const adena = items.find(i => i.itemId === 57);
+      // buyables = owned reference items, one per itemId (PrivateStoreManageListBuy)
+      const seen = new Set();
+      send('storeMsgBuy', {
+        adena: adena ? adena.count : 0,
+        items: store && store.type === 'buy' ? store.items.map(i => ({ ...i })) : [],
+        buyables: items.filter(i => !i.equipped && i.itemId !== 57
+          && !seen.has(i.itemId) && seen.add(i.itemId)).map(i => ({
+          itemId: i.itemId, enchant: i.enchant, count: i.count, slot: i.slot,
+          price: SELL_PRICES[i.itemId] || 10,
+          storePrice: SELL_PRICES[i.itemId] || 10,
+        })),
+      });
+    } else if (msg.op === 'storeTitle') {
+      // routed by the last manage type server-side; rides the next storeSet*
+      storeTitlePending = String(msg.title || '').slice(0, 29);
+    } else if (msg.op === 'storeSetSell') {
+      // SetPrivateStoreListSell IS the store start (README M13 — no start op)
+      if (store) return;   // already running: aCis refuses silently
+      const clean = [];
+      for (const s of msg.items || []) {
+        const it = items.find(i => i.objectId === s.objectId);
+        if (!it) continue;
+        const n = Math.min(it.count, Math.max(1, s.count | 0));
+        clean.push({
+          objectId: it.objectId, itemId: it.itemId, count: n,
+          enchant: it.enchant, price: Math.max(0, s.price | 0),
+        });
+      }
+      if (!clean.length) return;
+      store = { type: 'sell', title: String(msg.title ?? storeTitlePending).slice(0, 29), items: clean };
+      selfSitting = true;   // sitDown() + broadcastUserInfo server-side
+      send('changeWait', { id: self.id, waitType: 0 });
+      send('storeState', { open: true, type: 'sell' });
+      send('sysMsg', { id: 46, params: [`private store open: ${store.title}`] });
+    } else if (msg.op === 'storeSetBuy') {
+      if (store) return;
+      const clean = [];
+      for (const s of msg.items || []) {
+        // canPassBuyProcess requires OWNING a reference item of the type
+        if (!items.some(i => i.itemId === s.itemId)) continue;
+        clean.push({
+          itemId: s.itemId, count: Math.max(1, s.count | 0),
+          enchant: 0, price: Math.max(0, s.price | 0),
+        });
+      }
+      if (!clean.length) return;
+      store = { type: 'buy', title: String(msg.title ?? storeTitlePending).slice(0, 29), items: clean };
+      selfSitting = true;
+      send('changeWait', { id: self.id, waitType: 0 });
+      send('storeState', { open: true, type: 'buy' });
+      send('sysMsg', { id: 46, params: [`private buy-store open: ${store.title}`] });
+    } else if (msg.op === 'storeStop') {
+      if (!store) return;
+      store = null;
+      // the quirk (README M13): NO changeWait — the player stays SITTING
+      send('storeState', { open: false });
+    } else if (msg.op === 'storeBuy') {
+      // buy FROM Borg's sell-store. The price MUST match the store's (the
+      // real bridge fills it from its playerStore cache); the mock resolves
+      // the same way and fails silently on unknown entries (aCis behavior)
+      if ((msg.storeId | 0) !== 80002 || !borgStore) return;
+      const adena = items.find(i => i.itemId === 57);
+      let total = 0;
+      const clean = [];
+      for (const b of msg.items || []) {
+        const s = borgStore.items.find(i => i.objectId === b.objectId);
+        if (!s) continue;
+        const n = Math.min(s.count, Math.max(1, b.count | 0));
+        total += s.price * n;
+        clean.push({ s, n });
+      }
+      if (!clean.length) return;
+      if (!adena || adena.count < total) {
+        send('sysMsg', { id: 279, params: ['not enough adena'] });
+        return;
+      }
+      adena.count -= total;
+      send('invUpdate', { updated: [{ change: 'modify', ...adena }] });
+      for (const { s, n } of clean) {
+        s.count -= n;
+        const have = items.find(i => i.itemId === s.itemId && !i.equipped && i.itemId !== 57);
+        if (have) {
+          have.count += n;
+          send('invUpdate', { updated: [{ change: 'modify', ...have }] });
+        } else {
+          const it = { objectId: 90300 + (nextBoughtId++), itemId: s.itemId, count: n, slot: 0, equipped: 0, enchant: s.enchant || 0 };
+          items.push(it);
+          send('invUpdate', { updated: [{ change: 'add', ...it }] });
+        }
+      }
+      send('sysMsg', { id: 46, params: [`bought ${clean.length} item(s) from Borg`] });
+      borgStore.items = borgStore.items.filter(i => i.count > 0);
+      // sell-out auto-closes the store (README M13) — unless the offline
+      // fixture keeps it alive (see '/storeoffline')
+      if (!borgStore.items.length && !borgOffline) borgStore = null;
+      else if (borgOffline) {
+        // persistent stand-in: the offline trader's stock does not deplete
+        borgStore = freshBorgStore();
+      }
+    } else if (msg.op === 'storeSell') {
+      // Borg runs no buy-store fixture: aCis fails silently on an
+      // unresolvable sell — nothing moves, nothing is said
+      return;
     } else if (msg.op === 'questAbort') {
       // mirror the real server: abort removes the quest and the updated
       // QuestList is pushed back

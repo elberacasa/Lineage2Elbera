@@ -30,6 +30,7 @@ import { PartyWnd } from './ui/partywnd.js';
 import { AbnormalWnd } from './ui/abnormalwnd.js';
 import { ShopWnd } from './ui/shopwnd.js';
 import { TradeWnd } from './ui/tradewnd.js';
+import { StoreWnd } from './ui/storewnd.js';
 
 const canvas = document.getElementById('view');
 const statusEl = document.getElementById('status');
@@ -167,6 +168,12 @@ let partyWnd = null;
 let abnormalWnd = null;
 let shopWnd = null;
 let tradeWnd = null;
+let storeWnd = null;
+// M13 own-store state: sitting tracked from changeWait (the sit/stand
+// toggle is server-side); storeOpen from storeState (open sits the seller,
+// close leaves them SITTING — the aCis re-list quirk, gateway README M13)
+let selfSitting = false;
+let selfStoreOpen = false;
 let menuWnd = null;
 let systemMenuWnd = null;
 
@@ -259,6 +266,12 @@ function clickEntity(id) {
     // the aCis XMLs via /gamedata/npcgrp.json) open the dialog instead
     if (!online) return;
     if (e.kind === 'npc' && e.npcType && e.npcType !== 'Monster') {
+      net.send('talk', { id });
+    } else if (e.kind === 'player') {
+      // M13: a second click on a player sends Action (the talk op) — aCis
+      // Player.onAction opens the private store when the target runs one
+      // (playerStore arrives), follows otherwise. Retail never attacks a
+      // player without ctrl; 'attack' stays for monsters/NPCs.
       net.send('talk', { id });
     } else {
       net.send('attack', { id });
@@ -374,6 +387,7 @@ net.on('itemList', (msg) => {
   inventory.setItems(msg.items || []);
   // aCis answers shop transactions with a FULL ItemList (no InventoryUpdate)
   if (shopWnd) shopWnd.onInvUpdate();
+  if (storeWnd) storeWnd.onInvUpdate();
 });
 net.on('questList', (msg) => {
   if (questWnd) questWnd.setQuests(msg.quests || []);
@@ -436,9 +450,58 @@ net.on('tradeOther', (msg) => {
 net.on('tradeEnd', (msg) => {
   if (tradeWnd) tradeWnd.end(msg.reason);
 });
+// M13 private stores: storeMsgSell/storeMsgBuy open the MANAGE views,
+// playerStore opens the OBSERVER view (someone's store), storeState tracks
+// my own store's lifecycle. Retail HIDES the inventory when the store
+// window opens (PrivateShopWnd.uc:870-873). Results (item/adena movement)
+// arrive ONLY via invUpdate — failures are sysMsg lines in chat.
+net.on('storeMsgSell', (msg) => {
+  if (inventory) inventory.toggle(false);
+  if (storeWnd) storeWnd.openManageSell(msg);
+});
+net.on('storeMsgBuy', (msg) => {
+  if (inventory) inventory.toggle(false);
+  if (storeWnd) storeWnd.openManageBuy(msg);
+});
+net.on('playerStore', (msg) => {
+  if (inventory) inventory.toggle(false);
+  if (storeWnd) storeWnd.openObserver(msg);
+});
+net.on('storeState', (msg) => {
+  selfStoreOpen = !!msg.open;
+  // opening the store sits the seller down server-side (SetPrivateStoreList*
+  // does sitDown()); closing leaves them sitting — tracked for the
+  // stand-first quirk in requestStoreManage
+  if (msg.open) selfSitting = true;
+  if (storeWnd) storeWnd.setStoreState(msg);
+});
+/** M13 DECISION: the 'Private Store - Sell/Buy' actions (actionname ids
+ *  10/28) do NOT ride action{actionId} -> RequestActionUse (the native aCis
+ *  path works, but the manage answer then arrives unprompted); the
+ *  deterministic bridge ops storeManageSell{}/storeManageBuy{} drive the
+ *  same packets, and storeMsgSell/storeMsgBuy open the window either way. */
+function requestStoreManage(kind) {
+  const manage = () => net.send(kind === 'sell' ? 'storeManageSell' : 'storeManageBuy', {});
+  // aCis quirk (gateway README M13): after a store closes the player stays
+  // SITTING and canOpenPrivateStore silently refuses — stand up first
+  // (action 0 is the server-side sit/stand toggle)
+  if (selfSitting && !selfStoreOpen) {
+    net.send('action', { actionId: 0 });
+    setTimeout(manage, 600);
+  } else {
+    manage();
+  }
+}
+function useAction(id) {
+  if (!online) return;
+  if (id === 10) { requestStoreManage('sell'); return; }
+  if (id === 28) { requestStoreManage('buy'); return; }
+  net.send('action', { actionId: id });
+}
 net.on('invUpdate', (msg) => {
   inventory.applyUpdate(msg.updated || []);
   if (shopWnd) shopWnd.onInvUpdate();
+  if (storeWnd) storeWnd.onInvUpdate();
   for (const u of msg.updated || []) {
     if (u.change === 'add' || u.change === 1) {
       itemMeta().then(meta =>
@@ -478,7 +541,10 @@ net.on('socialAction', (msg) => {
 // ChangeWaitType broadcast (gateway op changeWait{id, waitType}): sit/stand
 // toggle state — waitType 0 = sitting, 1 = standing (aCis ChangeWaitType).
 net.on('changeWait', (msg) => {
-  if (msg.id === selfId && character) character.sitting = msg.waitType === 0;
+  if (msg.id === selfId) {
+    selfSitting = msg.waitType === 0;
+    if (character) character.sitting = selfSitting;
+  }
   entities.setWaitType(msg.id, msg.waitType);
 });
 // ChangeMoveType broadcast (walk/run toggle) — authoritative for remotes.
@@ -515,6 +581,9 @@ function setOnline(on) {
     combat.clear();
     skillBar.clear();
     if (inventory) inventory.toggle(false);
+    if (storeWnd) storeWnd.hide();
+    selfSitting = false;
+    selfStoreOpen = false;
     skillFx.clear();
     if (shortcutWnd) { shortcutWnd.data = {}; shortcutWnd.render(); }
     sheetPanel.clear();
@@ -685,6 +754,7 @@ window.__world = {
   get abnormalWnd() { return abnormalWnd; },
   get shopWnd() { return shopWnd; },
   get tradeWnd() { return tradeWnd; },
+  get storeWnd() { return storeWnd; },
   get menuWnd() { return menuWnd; },
   get systemMenuWnd() { return systemMenuWnd; },
   wndMgr: WndMgr,
@@ -984,7 +1054,7 @@ renderer.setAnimationLoop(() => {
     // Phase C.5: the retail actions window (Alt+C). Three sections
     // (Basic/Party/Social) straight from actionname.json categories.
     actionWnd = new ActionWnd(document.body, {
-      onUse: (id) => { if (online) net.send('action', { actionId: id }); },
+      onUse: (id) => useAction(id),
     });
     actionWnd.onAssign = (data) => shortcutWnd && shortcutWnd.assignFirstFree(data);
     actionWnd.setActions();
@@ -1055,6 +1125,31 @@ renderer.setAnimationLoop(() => {
     });
     tradeWnd.place(tradeWnd.defaultPlace);
     WndMgr.register('TradeWnd', tradeWnd, { handle: tradeWnd.win.bar });
+
+    // Phase C.13: the private store (PrivateShopWnd). Manage views open
+    // from storeMsgSell/storeMsgBuy (requested via the ActionWnd private-
+    // store actions — bridge ops, see requestStoreManage); the observer
+    // view opens from playerStore when clicking someone's store. The OK
+    // button sends storeSetSell/storeSetBuy — that IS the store start
+    // (M13: storeStart is a no-op, never sent).
+    storeWnd = new StoreWnd(document.body, {
+      onSetSell: (items, title) => {
+        if (online) net.send('storeSetSell', { items, ...(title ? { title } : {}) });
+      },
+      onSetBuy: (items, title) => {
+        if (online) net.send('storeSetBuy', { items, ...(title ? { title } : {}) });
+      },
+      onStop: () => { if (online) net.send('storeStop', {}); },
+      onBuy: (storeId, items) => { if (online) net.send('storeBuy', { storeId, items }); },
+      onSell: (storeId, items) => { if (online) net.send('storeSell', { storeId, items }); },
+      getAdena: () => {
+        if (!inventory) return 0;
+        const a = [...inventory.items.values()].find(i => i.itemId === 57);
+        return a ? a.count : 0;
+      },
+    });
+    storeWnd.place(storeWnd.defaultPlace);
+    WndMgr.register('PrivateShopWnd', storeWnd, { handle: storeWnd.win.bar });
     // the invite row follows the current target (target + invite flow)
     const _combatSetTarget = combat.setTarget.bind(combat);
     combat.setTarget = (id, name, opts) => {
@@ -1112,7 +1207,7 @@ renderer.setAnimationLoop(() => {
     shortcutWnd = new ShortcutWnd(document.body, {
       onUseSkill: (id) => { if (online) skillBar.castSkill(id); },
       onUseItem: (oid) => { if (online) net.send('useItem', { objectId: oid }); },
-      onUseAction: (id) => { if (online) net.send('action', { actionId: id }); },
+      onUseAction: (id) => useAction(id),
       onNote: (text) => chat.addSystem(text),
     });
     // the lock button blocks dragging (Option.ini default: unlocked)

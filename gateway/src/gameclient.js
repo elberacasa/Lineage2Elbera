@@ -338,6 +338,51 @@ class GameSession extends EventEmitter {
     this._send(w.build());
   }
 
+  // SetPrivateStoreMsgSell (0x77): S title (max 29 chars server-side).
+  // The title rides the TradeList and survives clear(), so setting it BEFORE
+  // SetPrivateStoreListSell makes the store-open broadcast carry it.
+  setPrivateStoreMsgSell(title) {
+    this._send(new PacketWriter().writeC(0x77).writeS(String(title).slice(0, 29)).build());
+  }
+
+  // SetPrivateStoreMsgBuy (0x94): S title (max 29 chars server-side).
+  setPrivateStoreMsgBuy(title) {
+    this._send(new PacketWriter().writeC(0x94).writeS(String(title).slice(0, 29)).build());
+  }
+
+  // RequestPrivateStoreQuitSell (0x76): empty. Closes ANY store type
+  // (server just sets OperateType.NONE + broadcastUserInfo).
+  requestPrivateStoreQuitSell() {
+    this._send(new PacketWriter().writeC(0x76).build());
+  }
+
+  // RequestPrivateStoreQuitBuy (0x93): empty — same effect as 0x76.
+  requestPrivateStoreQuitBuy() {
+    this._send(new PacketWriter().writeC(0x93).build());
+  }
+
+  // RequestPrivateStoreBuy (0x79) — buy FROM someone's sell-store:
+  // D storePlayerId, D count, per item (12 bytes) D objectId, D count,
+  // D price. The price MUST match the store price (TradeList.privateStoreBuy
+  // validates objectId+price against the store TradeList).
+  requestPrivateStoreBuy(storeId, items) {
+    const w = new PacketWriter().writeC(0x79).writeD(storeId | 0).writeD(items.length);
+    for (const it of items) w.writeD(it.objectId | 0).writeD(it.count | 0).writeD(it.price | 0);
+    this._send(w.build());
+  }
+
+  // RequestPrivateStoreSell (0x96) — sell INTO someone's buy-store:
+  // D storePlayerId, D count, per item (20 bytes) D objectId, D itemId,
+  // H enchant, H 0, D count, D price. itemId/enchant must match the actual
+  // inventory item, price must match the store price.
+  requestPrivateStoreSell(storeId, items) {
+    const w = new PacketWriter().writeC(0x96).writeD(storeId | 0).writeD(items.length);
+    for (const it of items) {
+      w.writeD(it.objectId | 0).writeD(it.itemId | 0).writeH(it.enchant || 0).writeH(0).writeD(it.count | 0).writeD(it.price | 0);
+    }
+    this._send(w.build());
+  }
+
   validatePosition() {
     const o = this.pos;
     this._send(
@@ -668,6 +713,101 @@ class GameSession extends EventEmitter {
       case 0x7c: // TradePressOtherOk: empty — partner pressed confirm
         this.emit('tradePressOtherOk');
         break;
+      // ------------------------------------------- M13: private stores
+      case 0x9a: { // PrivateStoreManageListSell (own manage view):
+        // D objectId, D packageSale, D adena, D sellableCount, per item
+        // D type2, D objectId, D itemId, D count, H 0, H enchant, H 0,
+        // D bodyPart, D price; then D storeCount + same + D referencePrice
+        const objectId = r.readD();
+        const packageSale = r.readD() === 1;
+        const adena = r.readD();
+        const sellableCount = r.readD();
+        const sellables = [];
+        for (let i = 0; i < sellableCount; i++) sellables.push(parseStoreSellEntry(r));
+        const storeCount = r.readD();
+        const items = [];
+        for (let i = 0; i < storeCount; i++) {
+          const it = parseStoreSellEntry(r);
+          it.storePrice = r.readD(); // reference price
+          items.push(it);
+        }
+        this.emit('storeManageSell', { objectId, packageSale, adena, sellables, items });
+        break;
+      }
+      case 0x9b: { // PrivateStoreListSell (observer view of a sell-store):
+        // D storePlayerId, D packageSale, D viewerAdena, D count, per item
+        // same as manage entry + D price, D referencePrice
+        const storeId = r.readD();
+        const packageSale = r.readD() === 1;
+        const adena = r.readD();
+        const count = r.readD();
+        const items = [];
+        for (let i = 0; i < count; i++) {
+          const it = parseStoreSellEntry(r);
+          it.storePrice = r.readD(); // reference price
+          items.push(it);
+        }
+        this.emit('storeListSell', { storeId, packageSale, adena, items });
+        break;
+      }
+      case 0x9c: { // PrivateStoreMsgSell (store title): D objectId, S title
+        const id = r.readD();
+        const title = r.readS();
+        this.emit('storeTitle', { id, type: 'sell', title });
+        break;
+      }
+      case 0xb7: { // PrivateStoreManageListBuy (own manage view):
+        // D objectId, D adena, D buyableCount, per item D itemId, H enchant,
+        // D count, D referencePrice, H 0, D bodyPart, H type2; then D
+        // storeCount, per item D itemId, H enchant, D quantity, D refPrice,
+        // H 0, D bodyPart, H type2, D price, D refPrice
+        const objectId = r.readD();
+        const adena = r.readD();
+        const buyableCount = r.readD();
+        const buyables = [];
+        for (let i = 0; i < buyableCount; i++) buyables.push(parseStoreBuyRefEntry(r));
+        const storeCount = r.readD();
+        const items = [];
+        for (let i = 0; i < storeCount; i++) {
+          const it = parseStoreBuyRefEntry(r);
+          it.price = r.readD();
+          it.storePrice = r.readD(); // reference price
+          items.push(it);
+        }
+        this.emit('storeManageBuy', { objectId, adena, buyables, items });
+        break;
+      }
+      case 0xb8: { // PrivateStoreListBuy (observer view of a buy-store):
+        // D storePlayerId, D viewerAdena, D count, per item D objectId,
+        // D itemId, H enchant, D count, D refPrice, H 0, D bodyPart,
+        // H type2, D price, D quantity. objectIds are the VIEWER's own
+        // items (getAvailableItems intersects with the viewer inventory).
+        const storeId = r.readD();
+        const adena = r.readD();
+        const count = r.readD();
+        const items = [];
+        for (let i = 0; i < count; i++) {
+          const objectId = r.readD();
+          const itemId = r.readD();
+          const enchant = r.readH();
+          const cnt = r.readD();
+          const storePrice = r.readD(); // reference price
+          r.readH(); // 0
+          const slot = r.readD(); // bodyPart
+          r.readH(); // type2
+          const price = r.readD();
+          const quantity = r.readD();
+          items.push({ objectId, itemId, enchant, count: cnt, price, quantity, storePrice, slot });
+        }
+        this.emit('storeListBuy', { storeId, adena, items });
+        break;
+      }
+      case 0xb9: { // PrivateStoreMsgBuy (store title): D objectId, S title
+        const id = r.readD();
+        const title = r.readS();
+        this.emit('storeTitle', { id, type: 'buy', title });
+        break;
+      }
       // -------------------------------------------- M10: buffs & cooldowns
       case 0x7f: { // AbnormalStatusUpdate: H count, per effect
         // D skillId, H level, D duration (seconds; -1 = toggle/infinite).
@@ -930,7 +1070,9 @@ function parseUserInfo(r) {
   r.readS(); // title
   r.readD(); r.readD(); r.readD(); r.readD(); // clan, clan crest, ally, ally crest
   r.readD(); // relation
-  r.readC(); r.readC(); r.readC(); // mountType, operateType, crystallize
+  r.readC(); // mountType
+  const operateType = r.readC(); // OperateType id (0 NONE, 1 SELL, 2 SELL_MANAGE, 3 BUY, 4 BUY_MANAGE, 8 PACKAGE_SELL)
+  r.readC(); // crystallize
   r.readD(); r.readD(); // pk, pvp kills
   const cubics = r.readH();
   for (let j = 0; j < cubics; j++) r.readH();
@@ -951,7 +1093,7 @@ function parseUserInfo(r) {
     id: objectId, name, race, sex, classId, level, exp, sp, hp, maxHp, mp, maxMp, cp, maxCp, x, y, z, heading,
     str, dex, con, int, wit, men, currentWeight, maxLoad,
     pAtk, pAtkSpd, pDef, evasion, accuracy, critical, mAtk, mAtkSpd, mDef,
-    runSpeed, walkSpeed,
+    runSpeed, walkSpeed, operateType,
   };
 }
 
@@ -1019,6 +1161,38 @@ function parseTradeItem(r) {
   r.readH(); // custom type 2
   r.readH(); // 0
   return { objectId, itemId, count, slot, enchant };
+}
+
+// Shared private-store sell entry (PrivateStoreManageListSell /
+// PrivateStoreListSell): D type2, D objectId, D itemId, D count, H 0,
+// H enchant, H 0, D bodyPart, D price. In the store-list variants a
+// trailing D referencePrice follows (read by the caller).
+function parseStoreSellEntry(r) {
+  r.readD(); // type2
+  const objectId = r.readD();
+  const itemId = r.readD();
+  const count = r.readD();
+  r.readH(); // 0
+  const enchant = r.readH();
+  r.readH(); // 0
+  const slot = r.readD(); // bodyPart
+  const price = r.readD();
+  return { objectId, itemId, count, enchant, price, slot };
+}
+
+// Shared private-store buy reference entry (PrivateStoreManageListBuy lists):
+// D itemId, H enchant, D count, D referencePrice, H 0, D bodyPart, H type2.
+// In the store-list variant a trailing D price + D referencePrice follows
+// (read by the caller).
+function parseStoreBuyRefEntry(r) {
+  const itemId = r.readD();
+  const enchant = r.readH();
+  const count = r.readD();
+  const storePrice = r.readD(); // reference price
+  r.readH(); // 0
+  const slot = r.readD(); // bodyPart
+  r.readH(); // type2
+  return { itemId, enchant, count, storePrice, slot };
 }
 
 // Party member entry shared by PartySmallWindowAll (withRace) and

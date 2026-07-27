@@ -70,6 +70,15 @@ class Bridge {
     // TradeRequest is objectId-based; the contract op is name-based, and
     // tradeAsk/tradeStart resolve ids back to names through this map.
     this.playersByName = new Map();
+    // M13 private-store state: last manage type (routes storeTitle), own
+    // open-store type (routes storeStop, drives storeState), store titles
+    // per objectId (PrivateStoreMsg* broadcasts, folded into playerStore),
+    // and the last observed store lists per storeId (resolve storeBuy
+    // prices and storeSell itemId/enchant).
+    this.storeManageType = null; // 'sell' | 'buy'
+    this.ownStoreType = null; // 'sell' | 'buy' while a store is open
+    this.storeTitles = new Map(); // objectId -> title
+    this.playerStores = new Map(); // storeId -> {type, items}
 
     ws.on('message', (data) => this._onMessage(data));
     ws.on('close', () => this._shutdown());
@@ -242,6 +251,105 @@ class Bridge {
           // TradeDone(0x17) response 0 = cancel the trade for BOTH parties.
           if (this.game) this.game.tradeDone(0);
           break;
+        // ---------------------------------------------- M13: private stores
+        case 'storeManageSell':
+          // RequestPrivateStoreManageSell(0x73): open the sell manage view.
+          if (this.game) {
+            this.storeManageType = 'sell';
+            this.game.requestPrivateStoreManageSell();
+          }
+          break;
+        case 'storeManageBuy':
+          // RequestPrivateStoreManageBuy(0x90): open the buy manage view.
+          if (this.game) {
+            this.storeManageType = 'buy';
+            this.game.requestPrivateStoreManageBuy();
+          }
+          break;
+        case 'storeTitle':
+          // SetPrivateStoreMsgSell(0x77)/Buy(0x94), routed by the last
+          // manage/set type. Set BEFORE storeSetSell/Buy so the store-open
+          // broadcast carries the title (it survives TradeList.clear()).
+          if (this.game) {
+            const title = String(msg.title || '').slice(0, 29);
+            if (this.storeManageType === 'buy') this.game.setPrivateStoreMsgBuy(title);
+            else this.game.setPrivateStoreMsgSell(title);
+          }
+          break;
+        case 'storeSetSell':
+          // SetPrivateStoreListSell(0x74): D packageSale, D count, per item
+          // D objectId, D count, D price. THIS OPENS THE STORE in aCis
+          // (sitDown + OperateType.SELL + broadcast) — there is no separate
+          // start packet. Optional title is sent first (see storeTitle).
+          if (this.game && Array.isArray(msg.items)) {
+            this.storeManageType = 'sell';
+            if (typeof msg.title === 'string') this.game.setPrivateStoreMsgSell(msg.title.slice(0, 29));
+            this.game.setPrivateStoreListSell(msg.items.slice(0, 50), !!msg.packageSale);
+          }
+          break;
+        case 'storeSetBuy':
+          // SetPrivateStoreListBuy(0x91): D count, per item D itemId,
+          // H enchant, H 0, D count, D price. Opens the buy-store.
+          if (this.game && Array.isArray(msg.items)) {
+            this.storeManageType = 'buy';
+            if (typeof msg.title === 'string') this.game.setPrivateStoreMsgBuy(msg.title.slice(0, 29));
+            this.game.setPrivateStoreListBuy(msg.items.slice(0, 50));
+          }
+          break;
+        case 'storeStart':
+          // No-op: aCis has NO separate start packet — the store opens
+          // inside SetPrivateStoreListSell/Buy (verified in the aCis
+          // clientpackets: sitDown + setOperateType + broadcast).
+          this.log('storeStart: no-op (aCis opens the store in storeSetSell/storeSetBuy)');
+          break;
+        case 'storeStop':
+          // RequestPrivateStoreQuitSell(0x76)/QuitBuy(0x93). Both just set
+          // OperateType.NONE + broadcastUserInfo, so either closes any store.
+          if (this.game) {
+            if (this.ownStoreType === 'buy') this.game.requestPrivateStoreQuitBuy();
+            else this.game.requestPrivateStoreQuitSell();
+          }
+          break;
+        case 'storeBuy': {
+          // RequestPrivateStoreBuy(0x79): buy FROM someone's sell-store.
+          // The packet needs the store price per item (server validates
+          // objectId+price against the TradeList) — resolved from the last
+          // playerStore list seen for storeId.
+          const store = this.playerStores.get(msg.storeId | 0);
+          if (this.game && store && store.type === 'sell' && Array.isArray(msg.items)) {
+            const priceByOid = new Map(store.items.map((it) => [it.objectId, it.price]));
+            const items = msg.items.slice(0, 50)
+              .map((it) => ({ objectId: it.objectId | 0, count: it.count | 0, price: it.price | 0 || priceByOid.get(it.objectId | 0) || 0 }))
+              .filter((it) => it.objectId > 0 && it.count > 0 && it.price > 0);
+            if (items.length) this.game.requestPrivateStoreBuy(msg.storeId | 0, items);
+            else this.log(`storeBuy: no known prices for store ${msg.storeId} (click the store first)`);
+          }
+          break;
+        }
+        case 'storeSell': {
+          // RequestPrivateStoreSell(0x96): sell INTO someone's buy-store.
+          // itemId/enchant resolved from the last playerStore list (the
+          // observer view of a buy-store carries the VIEWER's own items).
+          const store = this.playerStores.get(msg.storeId | 0);
+          if (this.game && store && store.type === 'buy' && Array.isArray(msg.items)) {
+            const byOid = new Map(store.items.map((it) => [it.objectId, it]));
+            const items = msg.items.slice(0, 50)
+              .map((it) => {
+                const ref = byOid.get(it.objectId | 0);
+                return {
+                  objectId: it.objectId | 0,
+                  itemId: ref ? ref.itemId : (this.inventory.get(it.objectId | 0) || 0),
+                  enchant: ref ? ref.enchant : 0,
+                  count: it.count | 0,
+                  price: it.price | 0 || (ref ? ref.price : 0),
+                };
+              })
+              .filter((it) => it.objectId > 0 && it.itemId > 0 && it.count > 0 && it.price > 0);
+            if (items.length) this.game.requestPrivateStoreSell(msg.storeId | 0, items);
+            else this.log(`storeSell: no resolvable items for store ${msg.storeId} (click the store first)`);
+          }
+          break;
+        }
       }
     } catch (e) {
       this.log(`bridge error: ${e.message}`);
@@ -347,6 +455,18 @@ class Bridge {
           this.pendingQuestList = null;
         }
       }
+      // storeState: UserInfo carries OperateType (writeC after mountType).
+      // 1 SELL / 8 PACKAGE_SELL -> 'sell', 3 BUY -> 'buy'; 2/4 are the
+      // manage views (store NOT visible to observers), 0 NONE. Emitted on
+      // transitions only; covers storeSet*, storeStop and the auto-close
+      // when a store sells out (OperateType.NONE + broadcastUserInfo).
+      const STORE_OPEN = { 1: 'sell', 3: 'buy', 8: 'sell' };
+      const nowType = STORE_OPEN[u.operateType] || null;
+      if (nowType !== this.ownStoreType) {
+        if (this.ownStoreType) this.send({ op: 'storeState', open: false });
+        this.ownStoreType = nowType;
+        if (nowType) this.send({ op: 'storeState', open: true, type: nowType });
+      }
       this.send({ op: 'selfStatus', ...this.self });
       // charSheet: sent right after enterWorld (first UserInfo) and again on
       // every UserInfo re-send (stat changes).
@@ -409,6 +529,8 @@ class Bridge {
 
     game.on('delete', (id) => {
       this.playersByName.delete(id);
+      this.playerStores.delete(id);
+      this.storeTitles.delete(id);
       this.send({ op: 'remove', id });
     });
 
@@ -643,6 +765,67 @@ class Bridge {
     // 0x7c, both empty): logged only — not part of the frozen contract.
     game.on('tradePressOwnOk', () => this.log('trade: own confirm registered (waiting for partner)'));
     game.on('tradePressOtherOk', () => this.log('trade: partner confirmed'));
+
+    // ------------------------------------------------- M13: private stores
+    // PrivateStoreManageListSell(0x9a): own sell-store manage view. items =
+    // current store contents (price + storePrice=referencePrice); sellables
+    // (additive) = what can be listed.
+    game.on('storeManageSell', (s) => {
+      this.send({
+        op: 'storeMsgSell',
+        packageSale: s.packageSale,
+        adena: s.adena,
+        items: s.items,
+        sellables: s.sellables,
+      });
+    });
+
+    // PrivateStoreManageListBuy(0xb7): own buy-store manage view. items =
+    // current store contents; buyables (additive) = owned reference items.
+    game.on('storeManageBuy', (s) => {
+      this.send({
+        op: 'storeMsgBuy',
+        adena: s.adena,
+        items: s.items,
+        buyables: s.buyables,
+      });
+    });
+
+    // PrivateStoreMsgSell(0x9c)/MsgBuy(0xb9): title broadcast (store open)
+    // or echo (storeTitle). Not a contract op by itself — cached and folded
+    // into playerStore.title.
+    game.on('storeTitle', (t) => {
+      this.storeTitles.set(t.id, t.title || '');
+    });
+
+    // PrivateStoreListSell(0x9b)/ListBuy(0xb8): what an observer sees when
+    // clicking a store (Player.onInteract). Cached per storeId so storeBuy /
+    // storeSell can resolve prices and itemIds; title folded in from the
+    // PrivateStoreMsg* broadcast seen at store open.
+    game.on('storeListSell', (s) => {
+      this.playerStores.set(s.storeId, { type: 'sell', items: s.items });
+      this.send({
+        op: 'playerStore',
+        id: s.storeId,
+        type: 'sell',
+        title: this.storeTitles.get(s.storeId) || '',
+        packageSale: s.packageSale,
+        adena: s.adena,
+        items: s.items,
+      });
+    });
+
+    game.on('storeListBuy', (s) => {
+      this.playerStores.set(s.storeId, { type: 'buy', items: s.items });
+      this.send({
+        op: 'playerStore',
+        id: s.storeId,
+        type: 'buy',
+        title: this.storeTitles.get(s.storeId) || '',
+        adena: s.adena,
+        items: s.items,
+      });
+    });
 
     // NpcHtmlMessage (0x0f) — villager dialogs, .menu, teleporters, shops.
     game.on('html', (h) => {
