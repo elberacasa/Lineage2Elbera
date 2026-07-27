@@ -237,6 +237,28 @@ class GameSession extends EventEmitter {
     this._send(new PacketWriter().writeC(0xaa).writeD(commandId | 0).build());
   }
 
+  // RequestJoinParty (0x29): S targetName, D lootRule
+  // (0 ITEM_LOOTER, 1 ITEM_RANDOM, 2 ITEM_RANDOM_SPOIL, 3 ITEM_ORDER,
+  // 4 ITEM_ORDER_SPOIL — enums/LootRule.java).
+  requestJoinParty(name, lootRule = 0) {
+    this._send(new PacketWriter().writeC(0x29).writeS(String(name)).writeD(lootRule).build());
+  }
+
+  // RequestAnswerJoinParty (0x2a): D response (1 accept, 0 refuse).
+  answerJoinParty(response) {
+    this._send(new PacketWriter().writeC(0x2a).writeD(response ? 1 : 0).build());
+  }
+
+  // RequestWithdrawParty (0x2b): empty.
+  withdrawParty() {
+    this._send(new PacketWriter().writeC(0x2b).build());
+  }
+
+  // RequestOustPartyMember (0x2c): S targetName.
+  oustPartyMember(name) {
+    this._send(new PacketWriter().writeC(0x2c).writeS(String(name)).build());
+  }
+
   // RequestPrivateStoreManageSell (0x73): opens the sell-store management.
   requestPrivateStoreManageSell() {
     this._send(new PacketWriter().writeC(0x73).build());
@@ -464,6 +486,56 @@ class GameSession extends EventEmitter {
         const quests = [];
         for (let i = 0; i < count; i++) quests.push({ id: r.readD(), flags: r.readD() });
         this.emit('questList', quests);
+        break;
+      }
+      // ------------------------------------------------------ M9: party
+      case 0x39: { // AskJoinParty (invite prompt): S requestorName, D lootRule
+        const from = r.readS();
+        const lootRule = r.readD();
+        this.emit('partyAsk', { from, lootRule });
+        break;
+      }
+      case 0x3a: { // JoinParty (result to requestor): D response
+        this.emit('partyJoinResult', r.readD());
+        break;
+      }
+      case 0x4e: { // PartySmallWindowAll: D leaderId, D lootRule, D count
+        // (EXCLUDES the receiver), per member: D objectId, S name, D cp,
+        // D maxCp, D hp, D maxHp, D mp, D maxMp, D level, D classId, D 0, D race
+        const leaderId = r.readD();
+        const lootRule = r.readD();
+        const count = r.readD();
+        const members = [];
+        for (let i = 0; i < count; i++) members.push(parsePartyMember(r, true));
+        this.emit('partyAll', { leaderId, lootRule, members });
+        break;
+      }
+      case 0x4f: { // PartySmallWindowAdd: D leaderId, D lootRule, member
+        // (same minus race: ends with D 0, D 0)
+        const leaderId = r.readD();
+        const lootRule = r.readD();
+        const member = parsePartyMember(r, false);
+        this.emit('partyAdd', { leaderId, lootRule, member });
+        break;
+      }
+      case 0x50: // PartySmallWindowDeleteAll: empty
+        this.emit('partyDeleteAll');
+        break;
+      case 0x51: { // PartySmallWindowDelete: D objectId, S name
+        const id = r.readD();
+        const name = r.readS();
+        this.emit('partyDelete', { id, name });
+        break;
+      }
+      case 0x52: { // PartySmallWindowUpdate (member status): D objectId,
+        // S name, D cp, D maxCp, D hp, D maxHp, D mp, D maxMp, D level, D classId
+        const id = r.readD();
+        const name = r.readS();
+        const cp = r.readD(); const maxCp = r.readD();
+        const hp = r.readD(); const maxHp = r.readD();
+        const mp = r.readD(); const maxMp = r.readD();
+        const level = r.readD(); const classId = r.readD();
+        this.emit('partyUpdate', { id, name, cp, maxCp, hp, maxHp, mp, maxMp, level, classId });
         break;
       }
       case 0x0b: { // SpawnItem (ground drop)        const id = r.readD();
@@ -767,6 +839,20 @@ function parseItemEntry(r) {
   r.readD(); // augmentation id
   r.readD(); // mana left
   return { objectId, itemId, count, slot, equipped, enchant };
+}
+
+// Party member entry shared by PartySmallWindowAll (withRace) and
+// PartySmallWindowAdd (no race, two trailing zeros).
+function parsePartyMember(r, withRace) {
+  const id = r.readD();
+  const name = r.readS();
+  const cp = r.readD(); const maxCp = r.readD();
+  const hp = r.readD(); const maxHp = r.readD();
+  const mp = r.readD(); const maxMp = r.readD();
+  const level = r.readD(); const classId = r.readD();
+  r.readD(); // 0
+  const race = withRace ? r.readD() : (r.readD(), null); // race or trailing 0
+  return { id, name, cp, maxCp, hp, maxHp, mp, maxMp, level, classId, race };
 }
 
 module.exports = { GameSession };

@@ -169,7 +169,8 @@ cp geodata-staging/geodata/*_conv.dat aCis_gameserver/build/dist/gameserver/data
 Client → server: `login{deviceId}` · `enterChar{slot}` · `moveTo{x,y,z}` ·
 `say{channel,text,target?}` · `target{id}` · `attack{id}` · `useSkill{skillId,
 targetId?}` · `useItem{objectId}` · `talk{id}` · `bypass{command}` ·
-`action{actionId}` · `questAbort{id}`.
+`action{actionId}` · `questAbort{id}` · `partyInvite{name}` ·
+`partyAnswer{accept}` · `partyLeave{}` · `partyKick{name}`.
 
 Actions (fixed 2026-07-27): `action{actionId}` takes actionname-e.dat UI
 ids; SOCIAL-map keys are remapped to aCis social ids and sent via
@@ -200,7 +201,9 @@ skillId,level,hitTime}` · `skillLaunch{casterId,targetId,skillId,level}` ·
 (change: add/modify/remove/unchanged) · `addDrop{id,itemId,count,x,y,z}` ·
 `sysMsg{id,params[]}` · `npcHtml{html}` · `actionFailed{}` ·
 `socialAction{id,actionId}` · `changeWait{id,waitType}` ·
-`changeMove{id,running}` · `questList{quests[{id,name,progress}]}`.
+`changeMove{id,running}` · `questList{quests[{id,name,progress}]}` ·
+`partyAsk{from}` · `party{members[{id,name,classId,level,hp,maxHp,mp,
+maxMp,leader}]}` · `partyMemberStatus{id,hp,maxHp,mp,maxMp}`.
 
 Quests (added 2026-07-26): `questList` = QuestList(0x80, `H count` + per
 quest `D questId, D flags`), queued after enterWorld like the other lists
@@ -213,6 +216,15 @@ QuestState flags dword: `((1 << cond) - 1) | 0x80000000` while started
 filtered by isRealQuest and never appears. `questAbort{id}` →
 RequestQuestAbort(0x64). Accept/advance rides the normal dialog ops
 (talk + `npc_<id>_Quest` + `Quest <Script> <event.htm>` bypasses).
+
+Party (added 2026-07-27): `partyInvite{name}` → RequestJoinParty(0x29,
+name-based, lootRule 0) · `partyAnswer{accept}` → 0x2a · `partyLeave{}` →
+0x2b · `partyKick{name}` → 0x2c. Server side: `partyAsk{from}` (AskJoinParty
+0x39) · `party{...}` full snapshot rebuilt on every PartySmallWindow
+All/Add/Delete/DeleteAll (packets exclude the receiver; the bridge
+re-inserts self — documented choice, no incremental ops) ·
+`partyMemberStatus` on PartySmallWindowUpdate(0x52). Change-leader
+(0xd0:4) not exposed.
 
 NPC dialog (added 2026-07-26): `talk{id}` sends Action(0x04); aCis routes by
 Creature.onAction — first Action only targets, second Action INTERACTS for

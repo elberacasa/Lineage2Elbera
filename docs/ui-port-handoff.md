@@ -153,6 +153,32 @@ chkNpcPosBox skipped (needs UIDATA_QUEST target locations). Empty list is
 the correct fresh-char state (Tutorial is quest id -1, filtered
 server-side). QuestListWnd (600×326, GM/location) not built.
 
+**C.9 PartyWnd** (176×368) — the retail party window, sized AND docked
+(0,92) from the decrypted `WindowsInfo.ini` (`[PartyWnd]`, SOURCED; the
+xdat agrees on 176×368 = 46×8). Frameless HUD strip (the xdat window has
+no chrome): one 46px row per member (`NPARTYSTATUS_HEIGHT`, PartyWnd.uc:5;
+max 8, uc:6), centered name, leader crown
+(`L2UI_CH3.PartyWnd.party_leadericon`, staged via build_uiskin IMPLICIT —
+it's script-referenced, uc:393, never in the xdat) anchored by the
+uc:398 formula, HP+MP `ps_*bar` gauges (no CP in the M9 contract).
+Full-snapshot replace on `party` (M9: never merge deltas; the bridge
+re-inserts self first), in-place bar updates on `partyMemberStatus`.
+Empty party HIDES (uc:271) — except while a PLAYER is targeted, so the
+invite row stays reachable (DEVIATION, forced by aCis logging 'Unhandled
+action type 7' for retail's action-7 invite: only `partyInvite{name}`
+works; players-only because NPCs/monsters can't be partied — and it keeps
+the strip from covering NPC clicks).
+`partyAsk` renders an AUTHORED Accept/Refuse prompt (no DialogBox in the
+port). Kick is a per-row ×, leader-only, immediate (DEVIATION: no kick UI
+exists in PartyWnd.uc, no confirm). LootRule display skipped (invite
+uses rule 0). Row internals AUTHORED (no xdat PartyStatusWnd record).
+
+**Layout path index** — the xdat reuses control names across sub-windows
+(ShortcutWnd's per-orientation PrevBtn, ChatWindow's 5 panes); the flat
+`Layout.find` stays documented last-wins and every helper now accepts a
+slash path (`'ShortcutWndHorizontal/PrevBtn'`) backed by a full-path
+index built at load.
+
 ### 1.4 Changes to pre-existing code
 
 - `gateway/src/bridge.js` — `skillList` now forwards `passive` + `disabled`

@@ -26,6 +26,7 @@ import { SkillWnd, loadSkillTypes, skillType } from './ui/skillwnd.js';
 import { ActionWnd } from './ui/actionwnd.js';
 import { MinimapWnd } from './ui/minimapwnd.js';
 import { QuestWnd, questCond, questStarted } from './ui/questwnd.js';
+import { PartyWnd } from './ui/partywnd.js';
 
 const canvas = document.getElementById('view');
 const statusEl = document.getElementById('status');
@@ -159,6 +160,7 @@ let skillWnd = null;
 let actionWnd = null;
 let minimapWnd = null;
 let questWnd = null;
+let partyWnd = null;
 let menuWnd = null;
 let systemMenuWnd = null;
 
@@ -352,6 +354,16 @@ net.on('skillList', (msg) => {
 net.on('itemList', (msg) => inventory.setItems(msg.items || []));
 net.on('questList', (msg) => {
   if (questWnd) questWnd.setQuests(msg.quests || []);
+});
+// M9 party ops: full snapshot replace + in-place status + incoming invite
+net.on('party', (msg) => {
+  if (partyWnd) partyWnd.setMembers(msg.members || []);
+});
+net.on('partyMemberStatus', (msg) => {
+  if (partyWnd) partyWnd.updateMember(msg);
+});
+net.on('partyAsk', (msg) => {
+  if (partyWnd) partyWnd.showAsk(msg.from);
 });
 net.on('invUpdate', (msg) => {
   inventory.applyUpdate(msg.updated || []);
@@ -594,6 +606,7 @@ window.__world = {
   get minimapWnd() { return minimapWnd; },
   get questWnd() { return questWnd; },
   questCond, questStarted,   // verification: aCis flags-dword math
+  get partyWnd() { return partyWnd; },
   get menuWnd() { return menuWnd; },
   get systemMenuWnd() { return systemMenuWnd; },
   wndMgr: WndMgr,
@@ -910,6 +923,37 @@ renderer.setAnimationLoop(() => {
     });
     questWnd.place(questWnd.defaultPlace);
     WndMgr.register('QuestTreeWnd', questWnd, { handle: questWnd.win.bar });
+
+    // Phase C.9: the retail party window (WindowsInfo.ini dock 0,92).
+    // Frameless HUD strip: full-snapshot member rows + invite/leave/kick.
+    partyWnd = new PartyWnd(document.body, {
+      onInvite: (name) => { if (online) net.send('partyInvite', { name }); },
+      onAnswer: (accept) => { if (online) net.send('partyAnswer', { accept }); },
+      onKick: (name) => { if (online) net.send('partyKick', { name }); },
+      onLeave: () => { if (online) net.send('partyLeave'); },
+      onTargetMember: (id) => { if (online) net.send('target', { id }); },
+      getTarget: () => {
+        const t = combat.target;
+        if (!t) return null;
+        // kind drives the invite-row visibility (players only — NPCs and
+        // monsters can't be partied); self can't invite itself either
+        const e = t.id === selfId ? null : entities.getEntity(t.id);
+        return { name: t.name, kind: e && e.kind };
+      },
+      getSelfId: () => selfId,
+    });
+    WndMgr.register('PartyWnd', partyWnd, { handle: partyWnd.gutter });
+    // the invite row follows the current target (target + invite flow)
+    const _combatSetTarget = combat.setTarget.bind(combat);
+    combat.setTarget = (id, name, opts) => {
+      _combatSetTarget(id, name, opts);
+      if (partyWnd) partyWnd.refreshInvite();
+    };
+    const _combatClearTarget = combat.clearTarget.bind(combat);
+    combat.clearTarget = () => {
+      _combatClearTarget();
+      if (partyWnd) partyWnd.refreshInvite();
+    };
     // StatusWnd.uc OnLButtonDown: clicking the window targets yourself
     statusWnd.onSelfTargetClick(() => {
       if (online && selfId != null) net.send('target', { id: selfId });

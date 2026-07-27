@@ -24,6 +24,32 @@ function startMock(port, level) {
   return proc;
 }
 
+// The follow camera converges FRAME-RATE-dependently; under battery load
+// it is still swinging when a stale projection would be used (>40px pick
+// radius -> the click hits terrain). Wait until it stops moving, then
+// always click a FRESH projection.
+async function settleCam(page) {
+  let last = null;
+  for (let i = 0; i < 30; i++) {
+    const p = await page.evaluate(() => {
+      const c = window.__world.camera.position;
+      return [c.x, c.y, c.z];
+    });
+    if (last && Math.hypot(p[0] - last[0], p[1] - last[1], p[2] - last[2]) < 0.005) return;
+    last = p;
+    await sleep(150);
+  }
+}
+
+function projectEntity(page, id) {
+  return page.evaluate((eid) => {
+    const w = window.__world;
+    const e = w.entities.getEntity(eid);
+    const V = e.group.position.constructor;
+    return w.project(new V(e.group.position.x, e.group.position.y + 0.3, e.group.position.z));
+  }, id);
+}
+
 async function run(mode, port) {
   const browser = await puppeteer.launch({
     executablePath: CHROME,
@@ -53,12 +79,8 @@ async function run(mode, port) {
       w.followCam.dist = Math.max(w.followCam.minDist, 4);
     }, GREMLIN);
     await sleep(1500);
-    const gp = await page.evaluate((id) => {
-      const w = window.__world;
-      const e = w.entities.getEntity(id);
-      const V = e.group.position.constructor;
-      return w.project(new V(e.group.position.x, e.group.position.y + 0.3, e.group.position.z));
-    }, GREMLIN);
+    await settleCam(page);
+    const gp = await projectEntity(page, GREMLIN);
     await page.mouse.click(gp.x, gp.y);
     await page.waitForFunction(
       `window.__world.net.log.some(m => m.op === 'target_ok' && m.id === ${GREMLIN})`,
@@ -85,8 +107,10 @@ async function run(mode, port) {
     });
     await page.screenshot({ path: path.join(OUT, `tw_01_${mode}_target.png`) });
 
-    // HP bar tracks status ops (attack -> hp drops)
-    await page.mouse.click(gp.x, gp.y);
+    // HP bar tracks status ops (attack -> hp drops); FRESH projection —
+    // the camera may still have been converging for the first click
+    const gp2 = await projectEntity(page, GREMLIN);
+    await page.mouse.click(gp2.x, gp2.y);
     await page.waitForFunction(
       `window.__world.net.log.filter(m => m.op === 'attack').length >= 2`,
       { timeout: 10000 });

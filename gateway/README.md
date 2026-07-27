@@ -72,6 +72,50 @@ SystemMessage(0x64) is shallow-decoded into the contract op
 7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
 "You have earned 145 exp and 10 SP".
 
+## M9: party protocol / PartyWnd (added 2026-07-27)
+
+Client -> server:
+- `{"op":"partyInvite","name":".."}` -> RequestJoinParty(0x29): `S name,
+  D lootRule`. Name-based (retail invites by name, not objectId). The
+  bridge sends lootRule 0 (ITEM_LOOTER; enum: 0 ITEM_LOOTER,
+  1 ITEM_RANDOM, 2 ITEM_RANDOM_SPOIL, 3 ITEM_ORDER, 4 ITEM_ORDER_SPOIL).
+- `{"op":"partyAnswer","accept":0|1}` -> RequestAnswerJoinParty(0x2a): `D`
+  (1 accept, 0 refuse).
+- `{"op":"partyLeave"}` -> RequestWithdrawParty(0x2b): empty.
+- `{"op":"partyKick","name":".."}` -> RequestOustPartyMember(0x2c): `S name`
+  (leader only). Change-leader exists as 0xd0:4 RequestChangePartyLeader —
+  not exposed yet.
+
+Server -> client:
+- `{"op":"partyAsk","from":".."}` — AskJoinParty(0x39): `S requestorName,
+  D lootRule` (lootRule not forwarded in the op).
+- `{"op":"party","members":[{"id":N,"name":"..","classId":N,"level":N,"hp":N,"maxHp":N,"mp":N,"maxMp":N,"leader":bool}]}`
+  — FULL snapshot on every composition change. Design choice (documented):
+  no incremental add/remove ops — the bridge rebuilds the snapshot on
+  PartySmallWindowAll(0x4e)/Add(0x4f)/Delete(0x51)/DeleteAll(0x50) so the
+  client never merges deltas. Note the packets EXCLUDE the receiver; the
+  bridge re-inserts self (first entry) from its local state.
+- `{"op":"partyMemberStatus","id":N,"hp":N,"maxHp":N,"mp":N,"maxMp":N}` —
+  PartySmallWindowUpdate(0x52): member status flow (hp/mp/cp/level
+  changes + regen ticks). Frequent; the client should update in place, not
+  re-render the whole window.
+- JoinParty(0x3a, result code to the requestor) is decoded but only logged.
+
+Member entry layouts (verified against source):
+- All(0x4e): `D leaderId, D lootRule, D count`, per member:
+  `D objectId, S name, D cp, D maxCp, D hp, D maxHp, D mp, D maxMp,
+  D level, D classId, D 0, D race`.
+- Add(0x4f): `D leaderId, D lootRule` + same member minus race
+  (two trailing D 0).
+- Update(0x52): `D objectId, S name, D cp, D maxCp, D hp, D maxHp, D mp,
+  D maxMp, D level, D classId`.
+- Delete(0x51): `D objectId, S name`. DeleteAll(0x50): empty.
+
+Verified live (test/verify-party.js): invite -> partyAsk(from) -> refuse
+(no party) -> accept (both snapshots, 2 members, leader flag on inviter) ->
+melee damage visible cross-client as partyMemberStatus (hp 126->114) ->
+kick (both empty) -> re-invite + leave (both empty).
+
 ## M8: quest protocol / QuestWnd (added 2026-07-26)
 
 Server -> client:

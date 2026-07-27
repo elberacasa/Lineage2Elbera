@@ -29,6 +29,10 @@
 //                  for self AND Aria (remote-player emote fixture)
 //   questList   <- sent at enterChar (Q1 cond1 + Q6 cond3, REAL names)
 //   questAbort  -> removes the quest and re-sends questList (server push)
+//   partyAsk    <- incoming invite (Aria), ON DEMAND via say "/partyask"
+//   partyAnswer -> accept forms a 2-member party + status tick
+//   partyInvite -> snapshot with SELF leader; partyKick/partyLeave ->
+//   updated snapshots (party of one disbands, like aCis)
 //   loot{id}    -> invUpdate add (adena) + sysMsg, only for dead mobs
 // Remote-anim fixtures at enterChar: changeWait{Borg,sit} + changeMove
 // {Cora,running}.
@@ -101,6 +105,8 @@ wss.on('connection', (ws) => {
   const selfStats = { ...SELF_BASE };
   const items = [];
   const quests = [];
+  let party = [];
+  let partyTick = null;
   let lastTarget = null;
   let lootCounter = 0;
   let combatTimer = null;
@@ -256,6 +262,9 @@ wss.on('connection', (ws) => {
       }
       if (msg.text === '/die') send('selfStatus', { ...selfStats, hp: 0 });
       if (msg.text === '/revive') send('selfStatus', selfStats);
+      // M9 party fixture ON DEMAND — an unsolicited prompt would cover the
+      // 3D clicks of unrelated verify suites
+      if (msg.text === '/partyask' && !party.length) send('partyAsk', { from: 'Aria' });
       if (msg.text === '.menu') {
         send('npcHtml', { html:
           `<html><body><title>L2Vzla - Player menu</title><br><br><center>` +
@@ -371,6 +380,46 @@ wss.on('connection', (ws) => {
       const i = quests.findIndex(q => q.id === msg.id);
       if (i >= 0) quests.splice(i, 1);
       send('questList', { quests });
+    } else if (msg.op === 'partyAnswer') {
+      // the mock's pending ask (Aria invited): accept forms the party —
+      // FULL snapshot, self first (the bridge re-inserts self the same
+      // way), then a status tick so bar updates get exercised
+      if (msg.accept === 1) {
+        party = [
+          { id: self.id, name: self.name, classId: 0, level: 1,
+            hp: 800, maxHp: 800, mp: 200, maxMp: 200, leader: false },
+          { id: 80001, name: 'Aria', classId: 25, level: 20,
+            hp: 320, maxHp: 500, mp: 90, maxMp: 200, leader: true },
+        ];
+        send('party', { members: party });
+        let hi = false;
+        partyTick = setInterval(() => {
+          if (!party.length) { clearInterval(partyTick); partyTick = null; return; }
+          hi = !hi;
+          send('partyMemberStatus', {
+            id: 80001, hp: hi ? 450 : 320, maxHp: 500, mp: 90, maxMp: 200,
+          });
+        }, 3000);
+        timers.push(partyTick);
+      }
+      // accept 0 (refuse): retail silence
+    } else if (msg.op === 'partyInvite') {
+      // we invite: the invited player accepts -> party with SELF leader
+      party = [
+        { id: self.id, name: self.name, classId: 0, level: 1,
+          hp: 800, maxHp: 800, mp: 200, maxMp: 200, leader: true },
+        { id: 80001, name: String(msg.name || '?'), classId: 25, level: 20,
+          hp: 320, maxHp: 500, mp: 90, maxMp: 200, leader: false },
+      ];
+      send('party', { members: party });
+    } else if (msg.op === 'partyKick') {
+      party = party.filter(m => m.name !== msg.name);
+      // aCis disbands a party reduced to one member -> empty snapshot
+      if (party.length <= 1) party = [];
+      send('party', { members: party });
+    } else if (msg.op === 'partyLeave') {
+      party = [];
+      send('party', { members: party });
     }
   });
 

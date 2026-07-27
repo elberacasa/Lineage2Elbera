@@ -91,6 +91,9 @@ IMPLICIT = [
     "L2UI_CH3.FrameCtrl.FrameBackRight",
     "L2UI_CH3.FrameCtrl.FrameMiniBtn",
     "L2UI_CH3.FrameCtrl.FrameMiniOnBtn",
+    # script-referenced, not in the xdat: PartyWnd.uc:393 sets the party
+    # leader crown via SetTexture("L2UI_CH3.PartyWnd.party_leadericon")
+    "L2UI_CH3.PartyWnd.party_leadericon",
 ]
 
 

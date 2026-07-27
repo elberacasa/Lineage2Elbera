@@ -15,6 +15,22 @@ const ELIAS = 70004;   // civilian (Folk) — non-attackable
 const GREMLIN = 70001; // monster — stays on the combat path
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// The follow camera converges FRAME-RATE-dependently; under battery load
+// it is still swinging when a stale projection would be used (>40px pick
+// radius -> the click hits terrain). Wait until it stops moving.
+async function settleCam(page) {
+  let last = null;
+  for (let i = 0; i < 30; i++) {
+    const p = await page.evaluate(() => {
+      const c = window.__world.camera.position;
+      return [c.x, c.y, c.z];
+    });
+    if (last && Math.hypot(p[0] - last[0], p[1] - last[1], p[2] - last[2]) < 0.005) return;
+    last = p;
+    await sleep(150);
+  }
+}
+
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await puppeteer.launch({
@@ -46,6 +62,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         w.followCam.dist = Math.max(w.followCam.minDist, 4);
       }, id);
       await sleep(1200);
+      await settleCam(page);   // camera convergence is frame-rate dependent
       const gp = await page.evaluate((eid) => {
         const w = window.__world;
         const e = w.entities.getEntity(eid);

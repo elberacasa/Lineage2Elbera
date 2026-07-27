@@ -58,6 +58,10 @@ class Bridge {
     this.pendingSkillList = null;
     this.pendingItemList = null;
     this.pendingQuestList = null;
+    // M9 party state: full snapshot rebuilt on every composition packet;
+    // status updates flow as their own op (see README §M9 for the choice).
+    this.party = { leaderId: 0, lootRule: 0, members: new Map() }; // id -> member
+    this.selfInfo = null; // {id, name, classId, level, race} from UserInfo
 
     ws.on('message', (data) => this._onMessage(data));
     ws.on('close', () => this._shutdown());
@@ -156,6 +160,22 @@ class Bridge {
           // RequestQuestAbort(0x64).
           if (this.game) this.game.requestQuestAbort(msg.id | 0);
           break;
+        case 'partyInvite':
+          // RequestJoinParty(0x29): S name, D lootRule (0 = ITEM_LOOTER).
+          if (this.game) this.game.requestJoinParty(String(msg.name || '').slice(0, 16), 0);
+          break;
+        case 'partyAnswer':
+          // RequestAnswerJoinParty(0x2a): D 1 accept / 0 refuse.
+          if (this.game) this.game.answerJoinParty(msg.accept ? 1 : 0);
+          break;
+        case 'partyLeave':
+          // RequestWithdrawParty(0x2b): empty.
+          if (this.game) this.game.withdrawParty();
+          break;
+        case 'partyKick':
+          // RequestOustPartyMember(0x2c): S name.
+          if (this.game) this.game.oustPartyMember(String(msg.name || '').slice(0, 16));
+          break;
         case 'destroyItem':
           // inventory TrashButton (aCis RequestDestroyItem)
           if (this.game) this.game.destroyItem(msg.objectId | 0, msg.count | 0 || 1);
@@ -242,6 +262,7 @@ class Bridge {
 
     game.on('userInfo', (u) => {
       this.selfId = u.id;
+      this.selfInfo = { id: u.id, name: u.name, classId: u.classId, level: u.level, race: u.race };
       // Seed/refresh self stats; UserInfo re-sends (level up, stat changes)
       // must NOT re-emit enterWorld — only the first one does.
       this.self = {
@@ -469,6 +490,43 @@ class Bridge {
       else this.pendingQuestList = mapped;
     });
 
+    // ------------------------------------------------------------ M9 party
+    game.on('partyAsk', (a) => this.send({ op: 'partyAsk', from: a.from }));
+
+    game.on('partyAll', (p) => {
+      // PartySmallWindowAll excludes the receiver: rebuild with self.
+      this.party.leaderId = p.leaderId;
+      this.party.lootRule = p.lootRule;
+      this.party.members = new Map(p.members.map((m) => [m.id, m]));
+      this._sendPartySnapshot();
+    });
+
+    game.on('partyAdd', (p) => {
+      this.party.leaderId = p.leaderId;
+      this.party.lootRule = p.lootRule;
+      this.party.members.set(p.member.id, p.member);
+      this._sendPartySnapshot();
+    });
+
+    game.on('partyDelete', (d) => {
+      this.party.members.delete(d.id);
+      this._sendPartySnapshot();
+    });
+
+    game.on('partyDeleteAll', () => {
+      this.party = { leaderId: 0, lootRule: 0, members: new Map() };
+      this._sendPartySnapshot();
+    });
+
+    game.on('partyUpdate', (u) => {
+      const m = this.party.members.get(u.id);
+      if (m) Object.assign(m, u);
+      this.send({
+        op: 'partyMemberStatus',
+        id: u.id, hp: u.hp, maxHp: u.maxHp, mp: u.mp, maxMp: u.maxMp,
+      });
+    });
+
     // NpcHtmlMessage (0x0f) — villager dialogs, .menu, teleporters, shops.
     game.on('html', (h) => {
       this.send({ op: 'npcHtml', html: h.html });
@@ -482,6 +540,40 @@ class Bridge {
     game.on('socialAction', (s) => this.send({ op: 'socialAction', id: s.id, actionId: s.actionId }));
     game.on('changeWait', (c) => this.send({ op: 'changeWait', id: c.id, waitType: c.waitType }));
     game.on('changeMove', (c) => this.send({ op: 'changeMove', id: c.id, running: c.running }));
+  }
+
+  _sendPartySnapshot() {
+    // Full snapshot: self first (from local state), then packet members,
+    // leader flag per leaderId. Emitted on every composition change
+    // (All/Add/Delete/DeleteAll); status flows via partyMemberStatus.
+    const members = [];
+    if (this.selfInfo && (this.party.members.size > 0 || this.party.leaderId === this.selfId)) {
+      members.push({
+        id: this.selfId,
+        name: this.selfInfo.name,
+        classId: this.selfInfo.classId,
+        level: this.selfInfo.level,
+        hp: this.self ? this.self.hp : 0,
+        maxHp: this.self ? this.self.maxHp : 0,
+        mp: this.self ? this.self.mp : 0,
+        maxMp: this.self ? this.self.maxMp : 0,
+        leader: this.party.leaderId === this.selfId,
+      });
+    }
+    for (const m of this.party.members.values()) {
+      members.push({
+        id: m.id,
+        name: m.name,
+        classId: m.classId,
+        level: m.level,
+        hp: m.hp,
+        maxHp: m.maxHp,
+        mp: m.mp,
+        maxMp: m.maxMp,
+        leader: m.id === this.party.leaderId,
+      });
+    }
+    this.send({ op: 'party', members });
   }
 
   _shutdown() {

@@ -4280,6 +4280,12 @@
    "cy": 0,
    "cw": 14,
    "ch": 14
+  },
+  "L2UI_CH3.PartyWnd.party_leadericon": {
+   "file": "L2UI_CH3__party_leadericon.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
   }
  }
 }
