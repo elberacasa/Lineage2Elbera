@@ -26,6 +26,9 @@ const PROP_CLUSTER_SIZE = 48;  // meters, instanced-prop cluster grid cell
 // walking rule for the geodata layer pick: a walker gains at most this much
 // height in one step — taller layers are walls, not floors (L2 units; 2m)
 const MAX_STEP_UP_L2 = 200;
+// mesh correction: max allowed heightmap-vs-geodata deviation before the
+// geodata layer replaces the (stale) heightmap value (L2 units; 1m)
+const MESH_GEO_MAX_DEV = 100;
 
 // water planes (scene.json "water", tools/world/README.md): one repeat per
 // 128 L2 units (the terrain diffuse rule), alpha-blended, uv-scrolled by
@@ -129,13 +132,45 @@ export class Terrain {
       this.interior = this._detectInterior();
     }
 
-    if (!this.interior) await this._buildMesh();   // interiors: no terrain plane
-    await this._buildWater();                      // self-skips interior/null
+    // geodata BEFORE the mesh: the stale-rectangle correction needs it
     this.geodata = await Geodata.load(this.baseUrl, this.def)
       .catch(() => null);                    // heightmap fallback on failure
+    this._correctHeights();
+
+    if (!this.interior) await this._buildMesh();   // interiors: no terrain plane
+    await this._buildWater();                      // self-skips interior/null
     // after geodata: fire lights clamp above the local floor
     if (this.interior) this._buildFireLights();
     await this._loadProps();
+  }
+
+  // Some tiles carry STALE heightmap rectangles: sharp axis-aligned zones
+  // (village squares) where the .unr heightmap disagrees with geodata by
+  // meters, while server z, retail spawn z and building props all agree
+  // with geodata (delta map: near-r=1 globally, rectangular defect zones).
+  // Retail ground truth there is geodata; everywhere else the smooth
+  // heightmap wins. Rule: per grid point, when |heightmap - geodata layer
+  // NEAREST the heightmap| exceeds MESH_GEO_MAX_DEV, take that geodata
+  // layer (nearest picks the ground, never a roof layer).
+  _correctHeights() {
+    if (!this.geodata) return;
+    const g = this.gridSize;
+    let fixed = 0;
+    for (let gy = 0; gy < g; gy++) {
+      for (let gx = 0; gx < g; gx++) {
+        const i = gy * g + gx;
+        const h = this.heights[i];
+        const hm = this.origin[2] + (h - 32768) * this.heightScale;
+        const geo = this.geodata.heightAt(
+          this.origin[0] + gx * this.spacing,
+          this.origin[1] + gy * this.spacing, hm);
+        if (geo != null && Math.abs(geo - hm) > MESH_GEO_MAX_DEV) {
+          this.heights[i] = Math.round(32768 + (geo - this.origin[2]) / this.heightScale);
+          fixed++;
+        }
+      }
+    }
+    this.geoFixedCells = fixed;
   }
 
   // -- grid -> world helpers ----------------------------------------------
