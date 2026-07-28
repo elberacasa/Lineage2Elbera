@@ -21,10 +21,6 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { L2_TO_M, l2ToThree } from './coords.js';
 import { Geodata } from './geodata.js';
 
-// how many times a layer diffuse texture repeats across the whole tile
-// (before per-layer uscale/vscale)
-const TEXTURE_REPEAT = 64;
-const MAX_LAYERS = 8;
 const UE_ROT_TO_RAD = (Math.PI * 2) / 65536;
 const PROP_CLUSTER_SIZE = 48;  // meters, instanced-prop cluster grid cell
 
@@ -97,7 +93,7 @@ export class Terrain {
       this.interior = this._detectInterior();
     }
 
-    if (!this.interior) this._buildMesh();   // interiors: no terrain plane
+    if (!this.interior) await this._buildMesh();   // interiors: no terrain plane
     this.geodata = await Geodata.load(this.baseUrl, this.def)
       .catch(() => null);                    // heightmap fallback on failure
     await this._loadProps();
@@ -172,7 +168,7 @@ export class Terrain {
 
   // -- mesh ----------------------------------------------------------------
 
-  _buildMesh() {
+  async _buildMesh() {
     const g = this.gridSize;
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(g * g * 3);
@@ -202,83 +198,168 @@ export class Terrain {
     geo.setIndex(new THREE.BufferAttribute(idx, 1));
     geo.computeVertexNormals();
 
-    const material = this._buildMaterial();
+    const material = await this._buildMaterial();
     this.mesh = new THREE.Mesh(geo, material);
     this.mesh.receiveShadow = true;
     this.mesh.name = 'terrain';
     this.group.add(this.mesh);
   }
 
-  _buildMaterial() {
-    const layers = (this.def.layers || []).filter(l => l && l.diffuse)
-      .slice(0, MAX_LAYERS);
-    const loader = new THREE.TextureLoader();
-    const loadTex = (file, { srgb = true, repeat = false } = {}) => {
-      const t = loader.load(this.baseUrl + file);
-      t.wrapS = t.wrapT = THREE.RepeatWrapping;
-      if (srgb) t.colorSpace = THREE.SRGBColorSpace;
-      t.anisotropy = 4;
-      // base uv transform: TEXTURE_REPEAT across the tile; the shader
-      // divides it back out for full-tile splats and rescales per layer
-      if (repeat) t.repeat.set(TEXTURE_REPEAT, TEXTURE_REPEAT);
-      return t;
-    };
-
+  // Terrain texturing — retail UE2 rule (ground truth: docs/map-format.md
+  // §4.1 TerrainLayer.TerrainMatrix, cross-validated against the UE2 engine
+  // port in realratchet/Lineage2JS — which cites the UE2 source — and the
+  // serialized layer matrices in shnok/l2-unity's map metadata):
+  //
+  //   * layer 0 is the opaque base; each further layer i alpha-blends over
+  //     it weighted by its grayscale splat map (white = full weight), the
+  //     engine's multi-pass addLayer: fg*a + bg*(1-a), applied in layer order
+  //   * splat (alphamap) UV = (gx, gy) / 256 — gx/gy are quad coords
+  //     (0..255, row 0 of the splat PNG is the tile's min-Y edge)
+  //   * diffuse UV per layer = (gx / UScale, gy / VScale) (mod 1): one
+  //     texture repeat spans 128*UScale L2 units (1.28 m at UScale = 1).
+  //     TextureMapAxis is XY and pan/rotation are zero for ~96% of the 971
+  //     layers in the 100 converted tiles; UScale/VScale live in the .unr
+  //     but are deliberately absent from the frozen scene.json contract, so
+  //     the shader reads layers[i].uscale/vscale when present and defaults
+  //     to 1 otherwise. The serialized TerrainMatrix also carries a per-tile
+  //     phase of <= 12 L2 units (< 10% of a repeat); ignored as invisible.
+  //   * every terrain texture uses flipY = false so texture V = 0 is the
+  //     PNG's first row, matching UE2/D3D addressing (three.js flips by
+  //     default — with the default the splats sampled V-mirrored)
+  //
+  // Diffuses and splats are repacked at load into two texture arrays
+  // (sampler2DArray): the largest tiles have 15 layers, which overflows the
+  // 16-unit fragment-texture limit with one sampler per map.
+  async _buildMaterial() {
+    const layers = (this.def.layers || []).filter(l => l && l.diffuse);
     if (layers.length === 0) {
       return new THREE.MeshLambertMaterial({ color: 0x4a6b3a });
     }
 
-    const hasSplat = layers.slice(1).some(l => l.splat);
-    if (!hasSplat) {
-      // graceful path: dominant (first) layer tiled
-      return new THREE.MeshLambertMaterial({ map: loadTex(layers[0].diffuse, { repeat: true }) });
+    const splatLayers = layers.map((l, i) => ({ l, i }))
+      .filter((e, k) => k > 0 && e.l.splat);
+
+    if (splatLayers.length === 0) {
+      // graceful path: dominant (first) layer tiled at the retail density
+      const tex = new THREE.TextureLoader().load(this.baseUrl + layers[0].diffuse);
+      tex.flipY = false;
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 4;
+      const quads = this.gridSize - 1;
+      tex.repeat.set(quads / (layers[0].uscale ?? 1), quads / (layers[0].vscale ?? 1));
+      return new THREE.MeshLambertMaterial({ map: tex });
     }
 
-    // multi-texture splatting (UE terrain semantics): layer 0 is the base,
-    // each subsequent layer is alpha-blended over it using its own
-    // grayscale splat map (layers[i].splat). Lambert lighting/fog/shadow
-    // from three.js, diffuse replaced via onBeforeCompile.
-    const mat = new THREE.MeshLambertMaterial({
-      map: loadTex(layers[0].diffuse, { repeat: true }),
-    });
-    const extra = [];
-    for (let i = 1; i < layers.length; i++) {
-      extra.push({
-        map: loadTex(layers[i].diffuse, { repeat: true }),
-        splat: layers[i].splat ? loadTex(layers[i].splat, { srgb: false }) : null,
-        uvScale: [layers[i].uscale ?? 1, layers[i].vscale ?? 1],
-      });
-    }
-    const baseUvScale = [layers[0].uscale ?? 1, layers[0].vscale ?? 1];
+    // a texture that fails to load must not kill the whole tile: neutral
+    // gray diffuse, zero-weight splat (layer invisible) — same spirit as
+    // the old TextureLoader path, which rendered on without it
+    const [diffuseImgs, splatImgs] = await Promise.all([
+      Promise.all(layers.map(l =>
+        this._loadImage(l.diffuse).catch(() => Terrain._solidImage(140, 130, 110)))),
+      Promise.all(splatLayers.map(e =>
+        this._loadImage(e.l.splat).catch(() => Terrain._solidImage(0, 0, 0)))),
+    ]);
 
+    const diffuseSize = Math.max(256, ...diffuseImgs.map(i => i.width));
+    const splatSize = Math.max(256, ...splatImgs.map(i => i.width));
+    const diffuseTex = new THREE.DataArrayTexture(
+      Terrain._packImages(diffuseImgs, diffuseSize, 4),
+      diffuseSize, diffuseSize, layers.length);
+    diffuseTex.colorSpace = THREE.SRGBColorSpace;
+    const splatTex = new THREE.DataArrayTexture(
+      Terrain._packImages(splatImgs, splatSize, 1),
+      splatSize, splatSize, splatLayers.length);
+    splatTex.format = THREE.RedFormat;
+    for (const t of [diffuseTex, splatTex]) {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.magFilter = THREE.LinearFilter;
+      t.minFilter = THREE.LinearMipmapLinearFilter;
+      t.generateMipmaps = true;
+      t.anisotropy = 4;
+      t.needsUpdate = true;
+    }
+
+    // per-layer diffuse tiling 1/UScale, 1/VScale, baked into the shader
+    const uvOf = (l) => `vec2(${(1 / (l.uscale ?? 1)).toFixed(6)}, ${(1 / (l.vscale ?? 1)).toFixed(6)})`;
+    const quads = (this.gridSize - 1).toFixed(1);
+    const grid = this.gridSize.toFixed(1);
+
+    const mat = new THREE.MeshLambertMaterial();
     mat.onBeforeCompile = (shader) => {
-      shader.uniforms.uBaseUvScale = { value: new THREE.Vector2(...baseUvScale) };
-      extra.forEach((e, i) => {
-        shader.uniforms[`uMap${i}`] = { value: e.map };
-        shader.uniforms[`uSplat${i}`] = { value: e.splat };
-        shader.uniforms[`uUvScale${i}`] = { value: new THREE.Vector2(...e.uvScale) };
-      });
+      shader.uniforms.uDiffuse = { value: diffuseTex };
+      shader.uniforms.uSplats = { value: splatTex };
+
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>',
+          '#include <common>\nvarying vec2 vGridUv;')
+        .replace('#include <uv_vertex>',
+          `#include <uv_vertex>\nvGridUv = uv * ${quads};`);
 
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <map_pars_fragment>', `
-          #include <map_pars_fragment>
-          uniform vec2 uBaseUvScale;
-          ${extra.map((_, i) => `
-          uniform sampler2D uMap${i};
-          uniform sampler2D uSplat${i};
-          uniform vec2 uUvScale${i};`).join('')}
+          varying vec2 vGridUv;
+          uniform sampler2DArray uDiffuse;
+          uniform sampler2DArray uSplats;
         `)
         .replace('#include <map_fragment>', `
-          // vMapUv carries the base repeat; splats sample the whole tile
-          vec2 splatUv = vMapUv / vec2(${TEXTURE_REPEAT.toFixed(1)});
-          vec4 blended = texture2D(map, vMapUv * uBaseUvScale);
-          ${extra.map((e, i) => e.splat ? `
-          blended = mix(blended, texture2D(uMap${i}, vMapUv * uUvScale${i}),
-                        texture2D(uSplat${i}, splatUv).r);` : '').join('')}
+          // vGridUv = quad coords (0..255): engine's (hmx, hmy)
+          vec2 splatUv = vGridUv / ${grid};   // engine: hmx / heightmapX
+          vec4 blended = texture(uDiffuse, vec3(vGridUv * ${uvOf(layers[0])}, 0.0));
+          ${splatLayers.map((e, k) => `
+          blended = mix(blended,
+            texture(uDiffuse, vec3(vGridUv * ${uvOf(e.l)}, ${e.i.toFixed(1)})),
+            texture(uSplats, vec3(splatUv, ${k.toFixed(1)})).r);`).join('')}
           diffuseColor *= blended;
         `);
     };
+    // the generated shader is per-tile (layer count + baked uv constants)
+    mat.customProgramCacheKey =
+      () => `terrain-splat-${this.def.tile}-${layers.length}-${splatLayers.length}`;
     return mat;
+  }
+
+  _loadImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`terrain texture failed: ${file}`));
+      img.src = this.baseUrl + file;
+    });
+  }
+
+  // 1x1 solid-color stand-in for a layer texture that failed to load
+  static _solidImage(r, g, b) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(0, 0, 1, 1);
+    return canvas;
+  }
+
+  // draw every image at `size` x `size` and concatenate the pixels into one
+  // buffer (canvas row 0 = PNG row 0, so array slices keep file order).
+  // channels 4 = RGBA copy, 1 = R channel only (grayscale splats)
+  static _packImages(images, size, channels) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const sliceLen = size * size * channels;
+    const out = new Uint8Array(sliceLen * images.length);
+    images.forEach((img, k) => {
+      ctx.clearRect(0, 0, size, size);
+      ctx.drawImage(img, 0, 0, size, size);
+      const d = ctx.getImageData(0, 0, size, size).data;
+      const slice = out.subarray(k * sliceLen, (k + 1) * sliceLen);
+      if (channels === 4) {
+        slice.set(d);
+      } else {
+        for (let i = 0, j = 0; j < sliceLen; i += 4, j++) slice[j] = d[i];
+      }
+    });
+    return out;
   }
 
   // -- props ------------------------------------------------------------------

@@ -68,6 +68,7 @@ export class ShortcutWnd {
     this.locked = false;      // Option.ini default (not locked)
     this.charName = 'default';
     this.data = {};           // page -> slotIndex -> {type, id}
+    this._activeToggles = new Set();   // skill ids with a live toggle buff
 
     const H = 'ShortcutWnd';
     this.H = H;
@@ -370,6 +371,27 @@ export class ShortcutWnd {
     } else {
       this.root.style.marginTop = '0';
     }
+    this._applyToggleMarks();
+  }
+
+  /** Active-toggle marker — same sourced-signal / AUTHORED-visual split as
+   *  SkillWnd.setActiveToggles (see there): a -1-duration buff marks the
+   *  toggle active; neither ShortcutWnd.uc nor MagicSkillWnd.uc draws that
+   *  state (both checked), so a border stands in. Clicking the slot again
+   *  re-sends useSkill and aCis stops the effect (PlayerCast.doToggleCast). */
+  setActiveToggles(ids) {
+    this._activeToggles = ids || new Set();
+    this._applyToggleMarks();
+    return this;
+  }
+
+  _applyToggleMarks() {
+    const ids = this._activeToggles || new Set();
+    for (const el of this.root.querySelectorAll('.shortcut-slot[data-stype="skill"]')) {
+      const id = +el.dataset.sid;
+      el.classList.toggle('l2-toggle-active',
+        ids.has(id) && skillType(id) === 'TOGGLE');
+    }
   }
 
   /** Cooldown sweep, driven from the main loop. TIMING is sourced
@@ -392,16 +414,17 @@ export class ShortcutWnd {
     }
   }
 
-  /** WndMgr reset: retail docks the shortcut bar at the bottom center. */
+  /** WndMgr reset: SOURCED docks — WindowsInfo.ini [ShortcutWndHorizontal]
+   *  posX=347 posY=722 / [ShortcutWndVertical] posX=805 posY=264, absolute
+   *  retail px at 1024x768 (Skin.px applies the uiScale; no proportional
+   *  rescale — retail doesn't scale UI with resolution). */
   onDefaultPosition() {
     const el = this.root;
-    el.style.top = 'auto';
     el.style.right = 'auto';
-    const w = this.vertical ? this.vw : this.w;
-    el.style.left = `calc(50% - ${Skin.px(w) / 2}px)`;
-    // AUTHORED: retail docks bottom-center; the small bottom gap is ours
-    // (Option.ini names no offset).
-    el.style.bottom = `${Skin.px(4)}px`;
+    el.style.bottom = 'auto';
+    const d = this.vertical ? { left: 805, top: 264 } : { left: 347, top: 722 };
+    el.style.left = `${Skin.px(d.left)}px`;
+    el.style.top = `${Skin.px(d.top)}px`;
   }
 
   place(o = {}) {

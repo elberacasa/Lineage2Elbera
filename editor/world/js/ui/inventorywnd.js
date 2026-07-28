@@ -201,8 +201,11 @@ export class InventoryWnd {
 
     parent.appendChild(win.root);
     WndMgr.register('InventoryWnd', this, { handle: win.bar });
-    this.place({ right: 12, top: 260 });
-    this.defaultPlace = { right: 12, top: 260 };
+    // SOURCED dock: WindowsInfo.ini [InventoryWnd] posX=722 posY=127 —
+    // absolute retail px at 1024x768 (Skin.px applies the uiScale; no
+    // proportional rescale).
+    this.place({ left: 722, top: 127 });
+    this.defaultPlace = { left: 722, top: 127 };
   }
 
   // -- pieces ----------------------------------------------------------------

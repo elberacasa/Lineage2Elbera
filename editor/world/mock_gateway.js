@@ -27,8 +27,9 @@
 //   useItem     -> sysMsg + invUpdate (decrement/remove consumable)
 //   action      -> sysMsg; ids 2..13 also echo socialAction (bridge routing)
 //                  for self AND Aria (remote-player emote fixture)
-//   buffs       <- 3 timed effects + 1 toggle at enterChar; buffUpdate
-//                  removes the short one at +12s
+//   buffs       <- 3 timed effects + 1 toggle (Relax 226, a REAL toggle per
+//                  skilltypes.json) at enterChar; buffUpdate removes the
+//                  short one at +12s; casting Relax toggles its buff off/on
 //   skillCoolTime <- login snapshot at enterChar (skill 3, 10s reuse, 5s
 //                  left); useSkill's skillCast carries reuse ms (aCis
 //                  sends no SkillCoolTime on cast)
@@ -162,6 +163,7 @@ wss.on('connection', (ws) => {
   let trade = null;
   let nextBoughtId = 1;
   let lastTarget = null;
+  let relaxOn = false;   // Relax (226) toggle state — see the useSkill handler
   let lootCounter = 0;
   let combatTimer = null;
   // M13 private-store state: own store (null = closed), the sit/stand
@@ -304,7 +306,7 @@ wss.on('connection', (ws) => {
 
       // M4: skills + inventory snapshots
       send('skillList', { skills: [
-        { id: 3, level: 1 }, { id: 1043, level: 1 }, { id: 28, level: 1 },
+        { id: 3, level: 1 }, { id: 226, level: 1 }, { id: 28, level: 1 },
       ] });
       items.push(
         { objectId: 90001, itemId: 57, count: 1200, slot: 0, equipped: 0, enchant: 0 },
@@ -363,8 +365,10 @@ wss.on('connection', (ws) => {
         { skillId: 1040, level: 3, duration: 120 },
         { skillId: 1035, level: 4, duration: 20 },
         { skillId: 102, level: 1, duration: 12 },
-        { skillId: 1043, level: 1, duration: -1 },   // toggle (M10: -1)
+        { skillId: 226, level: 1, duration: -1 },   // Relax — a REAL toggle
+                                                    // (skilltypes.json; M10: -1)
       ] });
+      relaxOn = true;
       timers.push(setTimeout(() => {
         send('buffUpdate', { add: [], remove: [102] });
       }, 12000));
@@ -451,6 +455,15 @@ wss.on('connection', (ws) => {
       });
       timers.push(setTimeout(() => {
         send('skillLaunch', { casterId: self.id, targetId, skillId: msg.skillId, level: 1 });
+        // Relax (226) is a TOGGLE (skilltypes.json): a second cast stops the
+        // effect — aCis PlayerCast.doToggleCast ("if the toggle is already
+        // active, we don't need to do anything else besides stopping it").
+        if (msg.skillId === 226) {
+          relaxOn = !relaxOn;
+          send('buffUpdate', relaxOn
+            ? { add: [{ skillId: 226, level: 1, duration: -1 }], remove: [] }
+            : { add: [], remove: [226] });
+        }
         const mob = MOBS[targetId];
         if (mob && !mob.dead) {
           const damage = 60 + Math.round(Math.random() * 40);

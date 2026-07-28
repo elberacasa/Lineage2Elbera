@@ -253,8 +253,10 @@ export class StatusWnd {
     grip.addEventListener('pointercancel', end);
   }
 
-  /** Retail places the status window at the top-left of the screen. */
-  place({ left = 8, top = 8 } = {}) {
+  /** Default dock: SOURCED — WindowsInfo.ini [StatusWnd] posX=444 posY=0
+   *  (absolute retail px at 1024x768; Skin.px applies the uiScale — retail
+   *  does not rescale UI with resolution, so no proportional rescale). */
+  place({ left = 444, top = 0 } = {}) {
     this.root.style.left = `${Skin.px(left)}px`;
     this.root.style.top = `${Skin.px(top)}px`;
     this.root.style.right = 'auto';

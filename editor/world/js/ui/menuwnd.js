@@ -112,8 +112,8 @@ export class MenuWnd {
     this.onDefaultPosition();
   }
 
-  /** WndMgr reset: retail keeps the menu at the bottom-right corner
-   *  (WindowsInfo.ini corroborates menu bottom-right at 1024x768). */
+  /** WndMgr reset: AUTHORED bottom-right corner dock — WindowsInfo.ini has
+   *  no MenuWnd entry (checked), so nothing sources this position. */
   onDefaultPosition() {
     const el = this.root;
     el.style.left = 'auto';

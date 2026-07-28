@@ -176,9 +176,14 @@ shipping geodata instead of using the terrain heightmap.
 - **`basecolor.png` is a preview**, not a shipping asset: it blends
   `Σ weight_i · tiled_diffuse_i / 255` with a guessed tiling (one diffuse
   repeat per 8 quads ÷ UScale) and nearest-neighbour splat sampling. The
-  real renderer should use `layers[]` + splats in a shader; the exact
-  tiling transform lives in the TerrainLayer `TerrainMatrix`/`ToWorld`
-  vectors, which are parsed but not interpreted here.
+  web client (`editor/world/js/terrain.js`) renders the real thing:
+  `layers[]` + splats blended in a shader with the exact UE2 rule — layer 0
+  opaque, each further layer `mix`-ed by its splat at `(gx, gy)/256`, and
+  diffuse UVs at the TerrainMatrix density of one repeat per
+  `128 · UScale` L2 units (rule cross-validated against the UE2 engine
+  source port in realratchet/Lineage2JS and the serialized matrices in
+  shnok/l2-unity's map metadata; UScale/VScale are not in scene.json, so
+  layers default to 1 — correct for ~80% of the 971 converted layers).
 - **Base layer semantics**: layer 0 has a real diffuse but its AlphaMap ref
   dangles (`Height.layer0`/`Texture.layer0` — package not shipped). Treated
   as full weight (standard UE2 base layer). 21_16's base is `T_Rune.RUG_1`;

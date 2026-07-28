@@ -180,8 +180,11 @@ let systemMenuWnd = null;
 // Dev controls have no retail equivalent, so the bar is not part of the
 // retail view. But it carries the Online toggle, which is the only way into
 // the game -- hiding it behind an undiscoverable key locks the user out. So:
-// F9 toggles, ?dev=1 forces it open, the choice PERSISTS across reloads, and
-// it defaults to open until deliberately dismissed once.
+// ` (Backquote) toggles, ?dev=1 forces it open, the choice PERSISTS across
+// reloads, and it defaults to open until deliberately dismissed once.
+// Backquote is AUTHORED-but-honest: no retail binding uses it (nothing in
+// the xdat/uscript keymaps references it, checked), and it frees F9, which
+// IS retail — shortcut slot 9 (F1..F12 trigger the bar's slots).
 const hudEl = document.getElementById('hud');
 const DEV_KEY = 'l2vzla.devbar';
 function setDevBar(on) {
@@ -196,11 +199,25 @@ function setDevBar(on) {
   if (stored === null) showDevHint();
 }
 
-// One-time nudge so F9 is discoverable instead of tribal knowledge.
+// The help strip is AUTHORED — no retail equivalent. Dismissible via its
+// close button; the dismissal persists per browser.
+{
+  const helpEl = document.getElementById('help');
+  let helpOff = false;
+  try { helpOff = localStorage.getItem('l2vzla.helptext') === '0'; } catch { /* ignore */ }
+  if (helpOff) helpEl.classList.add('hidden');
+  document.getElementById('help-close').addEventListener('click', () => {
+    helpEl.classList.add('hidden');
+    try { localStorage.setItem('l2vzla.helptext', '0'); } catch { /* ignore */ }
+  });
+}
+
+// One-time nudge so the dev-bar key is discoverable instead of tribal
+// knowledge.
 function showDevHint() {
   const tip = document.createElement('div');
   tip.id = 'dev-hint';
-  tip.textContent = 'F9 — show / hide the dev bar (not part of the retail UI)';
+  tip.textContent = '` — show / hide the dev bar (not part of the retail UI)';
   document.body.appendChild(tip);
   setTimeout(() => tip.classList.add('fade'), 4000);
   setTimeout(() => tip.remove(), 5200);
@@ -406,11 +423,20 @@ net.on('partyAsk', (msg) => {
 // delta — the client takes both (frozen ops, gateway landing in parallel).
 // `targetBuffs` is tolerated and stored only: TargetStatusWnd.uc has NO
 // buff area in Interlude (checked), so there is nothing retail to render.
+// Effects with duration -1 are live toggles (gateway M10) — they drive the
+// active-toggle markers in the skill window and on the shortcut bar.
+function syncToggleMarks() {
+  const ids = abnormalWnd ? abnormalWnd.toggleIds() : new Set();
+  if (skillWnd) skillWnd.setActiveToggles(ids);
+  if (shortcutWnd) shortcutWnd.setActiveToggles(ids);
+}
 net.on('buffs', (msg) => {
   if (abnormalWnd) abnormalWnd.setEffects(msg.effects || []);
+  syncToggleMarks();
 });
 net.on('buffUpdate', (msg) => {
   if (abnormalWnd) abnormalWnd.applyUpdate(msg.add || [], msg.remove || []);
+  syncToggleMarks();
 });
 net.on('targetBuffs', () => {});
 net.on('skillCoolTime', (msg) => {
@@ -928,7 +954,9 @@ window.addEventListener('keydown', e => {
     }
     return;
   }
-  if (e.code === 'F9') {
+  if (e.code === 'Backquote') {
+    // dev bar toggle — AUTHORED key (no retail binding; F9 is retail slot 9
+    // and must reach the shortcut bar above)
     setDevBar(!hudEl.classList.contains('dev-visible'));
     e.preventDefault();
     return;

@@ -226,7 +226,7 @@ index built at load.
   and the death overlay only
 - `editor/world/js/hotbar.js` — refuses passive skills
 - `editor/world/js/main.js` — loads skin/font/layout/exp/skilltypes before any
-  window is built; wires StatusWnd + SkillWnd; F9 dev bar; K skill window
+  window is built; wires StatusWnd + SkillWnd; ` dev bar; K skill window
 
 ### 1.5 Verification
 
@@ -290,7 +290,8 @@ supports only skill+item.
 ### 2.5 Invented UI still on screen
 
 The `left-click: walk · WASD: run …` help strip (`#help`) has no retail
-equivalent. The dev bar is deliberate and toggled with F9 (persisted).
+equivalent; it is dismissible (persisted per browser). The dev bar is
+deliberate and toggled with ` (Backquote — no retail binding; persisted).
 
 ### 2.6 The 7 remaining AUTHORED numbers
 
@@ -421,7 +422,7 @@ Settle it with a live test before shipping.
   native layer writes it somewhere not yet located.
 - **Default keybindings.** `Option.ini` is stripped in this client copy and
   `Lineage2us.ini` has no `[Engine.Input]`. Alt+Enter as the reset is player
-  knowledge, not yet sourced from a file. Current bindings (F9 dev bar, K skill
+  knowledge, not yet sourced from a file. Current bindings (` dev bar, K skill
   window, I inventory, C sheet) are **ours**, not retail.
 - **3 of 140 xdat top-level windows** don't match the header anchor. Reported,
   never invented. None are HUD windows.

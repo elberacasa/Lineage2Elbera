@@ -59,6 +59,7 @@ export class SkillWnd {
     this.onCast = onCast || (() => {});
     this.skills = [];
     this.tab = 'active';
+    this._activeToggles = new Set();   // skill ids with a live toggle buff
 
     const pane = Layout.size(WND, 'ASkill') || { w: 239, h: 280 };
     this.pane = pane;
@@ -243,6 +244,30 @@ export class SkillWnd {
       this.panes[bucket].appendChild(cell);
     }
     this._renderFoot();
+    this._applyToggleMarks();
+  }
+
+  /** Active-toggle marker. The SIGNAL is sourced — a buff with duration -1
+   *  IS the active toggle (gateway M10; AbnormalWnd.toggleIds). The VISUAL
+   *  is AUTHORED: neither MagicSkillWnd.uc nor ShortcutWnd.uc draws an
+   *  active-toggle state (both checked — silent), so a plain border stands
+   *  in. Deactivate needs no special op: clicking an active toggle re-sends
+   *  useSkill and aCis stops it (PlayerCast.doToggleCast — "if the toggle
+   *  is already active, we don't need to do anything else besides
+   *  stopping it"). */
+  setActiveToggles(ids) {
+    this._activeToggles = ids || new Set();
+    this._applyToggleMarks();
+    return this;
+  }
+
+  _applyToggleMarks() {
+    const ids = this._activeToggles;
+    for (const cell of this.root.querySelectorAll('.l2-skill-cell[data-skill-id]')) {
+      const id = +cell.dataset.skillId;
+      cell.classList.toggle('l2-toggle-active',
+        ids.has(id) && skillType(id) === 'TOGGLE');
+    }
   }
 
   /** Only the skills the shortcut bar may legally hold. */

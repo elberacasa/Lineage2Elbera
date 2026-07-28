@@ -146,7 +146,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       'invented #self-status pill removed': !dom.oldPill,
       'dev bar reachable (holds the Online toggle)': devBar.defaultOpen,
       'dev bar dismissal persists across reload': devBar.hiddenAfterDismiss,
-      'window at top-left': dom.rect.x <= 32 && dom.rect.y <= 32,
+      'WindowsInfo.ini dock (444,0)': dom.rect.x === Math.round(444 * dom.uiScale)
+        && dom.rect.y === 0,
       'height is the xdat 84 x uiScale': dom.rect.h === 84 * dom.uiScale,
       'resize keeps height fixed': resize.heightStable,
       'resize widens the window': resize.widthGrew,

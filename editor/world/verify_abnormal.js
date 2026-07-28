@@ -1,10 +1,13 @@
 // AbnormalStatusWnd + cooldown overlay verification (mock gateway on 8085).
-// Mock sends at enterChar: buffs{3 effects} (Shield 120s, Mental Shield
-// 20s, Entangle 12s), buffUpdate{remove 102} at +12s, and skillCoolTime
-// (8s reuse) 1.5s after every useSkill.
-// Asserts: strip visible with 3 cells + real icons, tooltip countdown
+// Mock sends at enterChar: buffs{3 timed effects + Relax 226 toggle}
+// (Shield 120s, Mental Shield 20s, Entangle 12s, Relax -1), buffUpdate
+// {remove 102} at +12s, and skillCast reuse ms on every useSkill; casting
+// Relax toggles its buff off/on (aCis PlayerCast.doToggleCast).
+// Asserts: strip visible with 4 cells + real icons, tooltip countdown
 // ticks down, the short effect disappears (delta OR local expiry — both
-// are legitimate), a shortcut slot + a SkillWnd cell sweep mid-reuse.
+// are legitimate), the toggle never expires, a shortcut slot + a SkillWnd
+// cell sweep mid-reuse, and the active-toggle marker on/off in both the
+// SkillWnd and the shortcut bar.
 // Output: verify_shots/ab_*.png + JSON summary.
 const fs = require('fs');
 const path = require('path');
@@ -69,7 +72,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       { timeout: 20000 });
     summary.expiry = await page.evaluate(() => ({
       remaining: window.__world.abnormalWnd.effects.map(e => e.skillId),
-      toggleAlive: window.__world.abnormalWnd.effects.some(e => e.skillId === 1043),
+      toggleAlive: window.__world.abnormalWnd.effects.some(e => e.skillId === 226),
       sawBuffUpdate: window.__world.net.log.some(m => m.op === 'buffUpdate'),
     }));
     await page.screenshot({ path: path.join(OUT, 'ab_02_after_expiry.png') });
@@ -105,6 +108,35 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await page.keyboard.down('Alt'); await page.keyboard.press('k'); await page.keyboard.up('Alt');
     await sleep(300);
     await page.screenshot({ path: path.join(OUT, 'ab_03_cooldown.png') });
+
+    // -- active toggle marker: Relax (226) is TOGGLE in skilltypes.json;
+    //    its -1 buff is the active signal (gateway M10). Both windows mark.
+    summary.toggleMark = await page.evaluate(() => {
+      const w = window.__world;
+      w.shortcutWnd.assign(0, 5, { type: 'skill', id: 226 });
+      return {
+        skillCell: !!document.querySelector(
+          '.l2-skill-cell[data-skill-id="226"].l2-toggle-active'),
+        slot: !!document.querySelector(
+          '.shortcut-slot[data-sid="226"].l2-toggle-active'),
+      };
+    });
+    await page.screenshot({ path: path.join(OUT, 'ab_04_toggle_active.png') });
+
+    // -- deactivate: casting the active toggle re-sends useSkill; the mock
+    //    (like aCis PlayerCast.doToggleCast) stops the effect -------------
+    await page.evaluate(() => window.__world.shortcutWnd.trigger(0, 5));
+    await page.waitForFunction(
+      `window.__world.net.log.some(m => m.op === 'buffUpdate'
+        && (m.remove || []).includes(226))`, { timeout: 10000 });
+    await sleep(400);
+    summary.toggleOff = await page.evaluate(() => ({
+      buffGone: !window.__world.abnormalWnd.effects.some(e => e.skillId === 226),
+      skillMarkGone: !document.querySelector(
+        '.l2-skill-cell[data-skill-id="226"].l2-toggle-active'),
+      slotMarkGone: !document.querySelector(
+        '.shortcut-slot[data-sid="226"].l2-toggle-active'),
+    }));
   } finally {
     await browser.close();
   }

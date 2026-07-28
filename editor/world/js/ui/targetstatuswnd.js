@@ -137,15 +137,15 @@ export class TargetStatusWnd {
 
   // -- placement --------------------------------------------------------------
 
-  /** WndMgr reset: retail docks the target frame at the top center.
-   *  AUTHORED: the top gap (retail target frame hugs the top edge; the
-   *  xdat carries no window position, positions are native). */
+  /** WndMgr reset: SOURCED — WindowsInfo.ini [TargetStatusWnd] posX=337
+   *  posY=0, absolute retail px at 1024x768 (Skin.px applies the uiScale;
+   *  no proportional rescale — retail doesn't scale UI with resolution). */
   onDefaultPosition() {
     const el = this.root;
     el.style.right = 'auto';
     el.style.bottom = 'auto';
-    el.style.left = `calc(50% - ${Skin.px(this.w) / 2}px)`;
-    el.style.top = `${Skin.px(34)}px`;
+    el.style.left = `${Skin.px(337)}px`;
+    el.style.top = `${Skin.px(0)}px`;
   }
 
   place(o = {}) {

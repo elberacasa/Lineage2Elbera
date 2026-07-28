@@ -91,6 +91,13 @@ export class AbnormalWnd {
     return Math.max(0, e.durationSec - (now - e.t0) / 1000);
   }
 
+  /** Skill ids with a live toggle effect (duration -1, gateway M10) — the
+   *  active-toggle signal the MagicSkillWnd / ShortcutWnd markers use. */
+  toggleIds() {
+    return new Set(this.effects.filter(e => e.durationSec < 0)
+      .map(e => e.skillId));
+  }
+
   async _render() {
     const root = this.root;
     root.replaceChildren();

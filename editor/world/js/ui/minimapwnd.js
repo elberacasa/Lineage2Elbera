@@ -132,9 +132,10 @@ export class MinimapWnd {
     this._buildExpand(parent);
 
     parent.appendChild(win.root);
-    // AUTHORED: WindowsInfo.ini was not mined for this window; docked
-    // top-right, where the retail radar cluster lives.
-    this.defaultPlace = { right: 12, top: 12 };
+    // SOURCED dock: WindowsInfo.ini [MinimapWnd] posX=16 posY=63 — absolute
+    // retail px at 1024x768 (Skin.px applies the uiScale; no proportional
+    // rescale).
+    this.defaultPlace = { left: 16, top: 63 };
   }
 
   _footerBtn(ctrlName, label, onClick) {

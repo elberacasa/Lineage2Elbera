@@ -338,9 +338,14 @@ ours.
   `localStorage` — clearing browser data loses the character (the settings
   panel shows the id as a recovery code you can save). The gateway is
   plaintext localhost WebSocket, not hardened for public exposure.
-- **Simplified terrain texturing** in spots (preview basecolor blend; exact
-  layer-matrix math parsed but not interpreted). BSP brush buildings,
-  water, particles and baked lighting are not extracted. Dungeon lighting
+- **Terrain texturing follows the retail splat maps** (per-layer alphamaps
+  blended in the client shader with the exact UE2 layer rule — base layer +
+  `mix` per splat weight, diffuse tiling 128 L2 units, verified against
+  retail registration; `editor/world/verify_terrain.js`). Residual gaps:
+  per-layer `UScale`/`VScale` are deliberately absent from the frozen
+  scene.json contract (~20% of layers tile at the default density), and
+  BSP brush buildings, water, particles and baked lighting are not
+  extracted. Dungeon lighting
   is a single torch — prop-based fire lights are planned (19_16 is dark).
 - **`all` chat is radius-limited to 1,250 units by the server itself**;
   `.menu` answers with an HTML window that is gateway-log only (no UI yet).

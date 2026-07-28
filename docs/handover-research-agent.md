@@ -179,6 +179,7 @@ at 0.
   parent- or window-relative is unconfirmed (a uniform 12px offset may exist);
   the con-colour sign convention is inferred.
 - **Keybindings I introduced are mine, not retail** — F9, K, I, C were
-  unsourced when I added them.
+  unsourced when I added them. (F9 was later freed for retail shortcut
+  slot 9; the dev bar moved to Backquote, also unsourced.)
 
 Full confidence breakdown: [research-index.md](research-index.md) §4.

@@ -2,7 +2,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 
 #hud {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
   display: none; align-items: center; gap: 14px;
   padding: 8px 14px;
   font: 13px/1.4 -apple-system, "Segoe UI", sans-serif;
@@ -10,6 +10,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
   background: linear-gradient(rgba(8,10,14,.85), rgba(8,10,14,0));
   pointer-events: none;
 }
+/* z 40, above the WndMgr windows: the sourced StatusWnd dock (444,0 —
+   WindowsInfo.ini) overlaps this dev-only strip otherwise. */
 #hud.dev-visible { display: flex; }
 #hud .brand { font-weight: 600; color: #c9a959; letter-spacing: .04em; }
 #hud label { pointer-events: auto; display: flex; align-items: center; gap: 6px; }
@@ -21,9 +23,33 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 
 #help {
   position: fixed; bottom: 52px; left: 50%; transform: translateX(-50%);
-  z-index: 10; padding: 5px 14px; border-radius: 12px;
-  font: 12px -apple-system, "Segoe UI", sans-serif; color: #8a93a5;
-  background: rgba(10,12,17,.6); pointer-events: none;
+  z-index: 10; padding: 3px 8px 3px 10px; border-radius: 10px;
+  font: 11px -apple-system, "Segoe UI", sans-serif; color: #6f7789;
+  background: rgba(10,12,17,.45); pointer-events: none;
+  display: flex; align-items: center; gap: 8px;
+  white-space: nowrap;   /* else the 50% offset caps shrink-to-fit and wraps */
+}
+#help.hidden { display: none; }
+#help-close {
+  pointer-events: auto; cursor: pointer; border: 0; background: none;
+  color: #565e70; font: inherit; padding: 0 2px;
+}
+#help-close:hover { color: #c9a959; }
+
+/* AUTHORED active-toggle marker: a buff with duration -1 is the active
+   signal (gateway M10), but neither MagicSkillWnd.uc nor ShortcutWnd.uc
+   draws an active-toggle state (both checked — silent), so a plain border
+   stands in. */
+.l2-toggle-active {
+  box-shadow: inset 0 0 0 1px #7fd8e8, 0 0 5px rgba(127,216,232,.8);
+  border-radius: 2px;
+}
+/* SkillWnd cells are pitch-sized wrappers: the ring belongs on the 34px
+   slot art (first child), not on the wrapper. */
+.l2-skill-cell.l2-toggle-active { box-shadow: none; }
+.l2-skill-cell.l2-toggle-active > div:first-child {
+  box-shadow: inset 0 0 0 1px #7fd8e8, 0 0 5px rgba(127,216,232,.8);
+  border-radius: 2px;
 }
 
 #loading {
@@ -171,7 +197,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 }
 #settings-btn:hover { color: #c9a959; }
 
-/* One-time discoverability nudge for the dev bar (F9). */
+/* One-time discoverability nudge for the dev bar (Backquote). */
 #dev-hint {
   position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
   z-index: 30; padding: 6px 14px; border-radius: 4px;

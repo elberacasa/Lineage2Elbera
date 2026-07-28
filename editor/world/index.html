@@ -15,8 +15,8 @@
 </script>
 </head>
 <body>
-<!-- Dev-only controls. Retail has nothing here, so the bar is hidden by
-     default and toggled with F9 (or ?dev=1). -->
+<!-- Dev-only controls. Retail has nothing here, so the bar is toggled with
+     ` (Backquote — no retail binding) or ?dev=1; shown until dismissed. -->
 <div id="hud" class="dev-bar">
   <span class="brand">L2Vzla World</span>
   <label>Scene <select id="scene-picker"></select></label>
@@ -29,7 +29,7 @@
   <div id="chat-log"></div>
   <input id="chat-input" type="text" maxlength="200" placeholder="say… (Enter to send, Esc to close)">
 </div>
-<div id="help">left-click: walk &nbsp;·&nbsp; WASD: run &nbsp;·&nbsp; right-drag: orbit &nbsp;·&nbsp; wheel: zoom &nbsp;·&nbsp; Enter: chat &nbsp;·&nbsp; click mob: target &nbsp;·&nbsp; F1–F12: shortcuts</div>
+<div id="help">left-click: walk &nbsp;·&nbsp; WASD: run &nbsp;·&nbsp; right-drag: orbit &nbsp;·&nbsp; wheel: zoom &nbsp;·&nbsp; Enter: chat &nbsp;·&nbsp; click mob: target &nbsp;·&nbsp; F1–F12: shortcuts<button id="help-close" title="hide (don't show again in this browser)">×</button></div>
 <div id="overlays"></div>
 <div id="damage-floats"></div>
 <!-- The player status window is built by js/ui/statuswnd.js from the retail
