@@ -145,6 +145,22 @@ const clock = new THREE.Clock();
 // prop draw distance (meters); instanced prop clusters beyond this hide.
 // '?propDist=N' overrides; 0 = unlimited.
 const PROP_DRAW_DIST = Number(new URLSearchParams(location.search).get('propDist') ?? 300);
+
+// HD texture set (pilot: tiles 17_25 / 22_22 only). '?hd=1' enables, '?hd=0'
+// disables; the choice persists in localStorage. HD swaps the scene base URL
+// to /scenes-hd/<tile>/ (server falls back to the LQ file when a tile has no
+// HD copy), so splat maps and blending are untouched — only diffuse
+// resolution changes.
+const HD_KEY = 'l2vzla.hd';
+const HD_PARAM = new URLSearchParams(location.search).get('hd');
+if (HD_PARAM === '1' || HD_PARAM === '0') {
+  try { localStorage.setItem(HD_KEY, HD_PARAM); } catch { /* ignore */ }
+}
+const HD_ENABLED = (() => {
+  if (HD_PARAM === '1') return true;
+  if (HD_PARAM === '0') return false;
+  try { return localStorage.getItem(HD_KEY) === '1'; } catch { return false; }
+})();
 let propDistTimer = 0;
 
 // --- M2 online state --------------------------------------------------------
@@ -750,6 +766,7 @@ onlineToggle.addEventListener('change', () => setOnline(onlineToggle.checked));
 // verification hook
 window.__world = {
   scene, camera, renderer,
+  hd: HD_ENABLED,
   get terrain() { return terrain; },
   get character() { return character; },
   net: {
@@ -812,9 +829,9 @@ async function loadScene(tile) {
   setLoading(`loading scene ${tile}…`);
   loadingEl.classList.remove('hidden');
 
-  if (terrain) { scene.remove(terrain.group); terrain = null; }
+  if (terrain) { scene.remove(terrain.group); terrain.dispose(); terrain = null; }
 
-  const baseUrl = `/scenes/${encodeURIComponent(tile)}/`;
+  const baseUrl = `${HD_ENABLED ? '/scenes-hd' : '/scenes'}/${encodeURIComponent(tile)}/`;
   const def = await (await fetch(baseUrl + 'scene.json')).json();
   const t = new Terrain(def, baseUrl);
   await t.load();

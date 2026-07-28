@@ -87,3 +87,43 @@ Caveats for the full library run:
   with `xargs -P` over package dirs if needed (the binary is single-GPU
   but multiple processes coexist fine).
 - Disk: expect ~25–30x size growth (PNG at 16x pixels).
+
+## World textures — HD pilot (tiles 17_25 TI village, 22_22 Giran)
+
+Same binary/recipe, but side-by-side instead of in-place:
+
+- `assets/world-hd/<tile>/{textures,props/textures}/<name>.png` — 4x
+  upscaled copies of ONLY the textures referenced by `scene.json`
+  (terrain layer diffuses + prop gltf images; orphan files skipped).
+  The LQ originals in `assets/world/` are untouched — they ARE the LQ
+  backup (unlike the character pass, nothing is overwritten, so no
+  `models_lq`-style copy was needed).
+- Splat maps (`textures/<tile>_*.png`) are NOT upscaled — they are blend
+  weights, not art; the client falls back to the LQ file, so layer
+  blending is byte-identical in both modes.
+- No `*_sp` (specular-alpha) textures existed in either tile (name scan);
+  they must stay excluded if a future tile ships them.
+- Rebuild manifest + batch (per-file mode, ~17 files/s on M4 with -P8,
+  1268 files in 75 s):
+
+  ```sh
+  python3 tools/upscale/world_manifest.py          # writes /tmp/hd_manifest.tsv
+  cat /tmp/hd_manifest.tsv | while IFS=$'\t' read -r src dst; do
+    mkdir -p "$(dirname "$dst")"; printf '%s\0%s\0' "$src" "$dst"
+  done | xargs -0 -n2 -P8 sh -c 'tools/upscale/bin/realesrgan-ncnn-vulkan \
+    -i "$1" -o "$2" -s 4 -m tools/upscale/bin/models -f png' _
+  ```
+
+Client switch (ElberaClient, port 8083):
+
+- `?hd=1` enables, `?hd=0` disables; persists in localStorage
+  (`l2vzla.hd`). Default is LQ (HD is a heavy download: pilot tiles went
+  76 MB -> 1.86 GB, 24.4x).
+- The client only swaps the scene base URL `/scenes/` -> `/scenes-hd/`;
+  the server (`editor/world/server.py`) serves `assets/world-hd/` when
+  the file exists and falls back to `assets/world/` otherwise, so
+  scene.json, heightmaps, gltf, splats and non-pilot tiles all keep
+  working unchanged.
+- Verification: `WORLD_BASE='http://127.0.0.1:8083/?hd=1' node
+  verify_terrain.js hd` (the three verify_*.js harnesses accept
+  `WORLD_BASE`).

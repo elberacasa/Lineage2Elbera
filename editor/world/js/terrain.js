@@ -286,6 +286,9 @@ export class Terrain {
     const grid = this.gridSize.toFixed(1);
 
     const mat = new THREE.MeshLambertMaterial();
+    // tracked for dispose(): these arrays live only inside the compiled
+    // shader's uniforms, nothing else references them
+    mat.userData.textures = [diffuseTex, splatTex];
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uDiffuse = { value: diffuseTex };
       shader.uniforms.uSplats = { value: splatTex };
@@ -325,6 +328,29 @@ export class Terrain {
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error(`terrain texture failed: ${file}`));
       img.src = this.baseUrl + file;
+    });
+  }
+
+  // free GPU/CPU texture + geometry resources when the tile is unloaded.
+  // Without this, switching scenes keeps every tile's textures resident —
+  // survivable with LQ sets, fatal with the HD set (a 4x tile decodes to
+  // ~2 GB; two HD tiles + a reload stall a 16 GB machine for good).
+  dispose() {
+    const seenTex = new Set();
+    const killTex = (t) => {
+      if (t && t.isTexture && !seenTex.has(t)) { seenTex.add(t); t.dispose(); }
+    };
+    const seenMat = new Set();
+    this.group.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      const mats = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
+      for (const m of mats) {
+        if (seenMat.has(m)) continue;
+        seenMat.add(m);
+        for (const k of Object.keys(m)) killTex(m[k]);       // map etc.
+        for (const t of m.userData?.textures || []) killTex(t); // shader-only arrays
+        m.dispose();
+      }
     });
   }
 

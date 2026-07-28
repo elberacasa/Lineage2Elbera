@@ -12,9 +12,11 @@ const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const BASE = 'http://127.0.0.1:8083/';
+const BASE = process.env.WORLD_BASE || 'http://127.0.0.1:8083/';
 const OUT = path.join(__dirname, 'verify_shots');
 const TAG = process.argv[2] || 'now';
+// HD texture sets can take >4 min to decode under SwiftShader
+const LOAD_TIMEOUT = Number(process.env.LOAD_TIMEOUT_MS || 240000);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // [tile, l2x, l2y, label] — strong grass/sand/stone transitions
@@ -33,6 +35,7 @@ const VIEWS = [
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await puppeteer.launch({
     executablePath: CHROME,
+    protocolTimeout: 900000,   // HD texture sets can block the page for minutes
     args: ['--headless=new', '--use-angle=swiftshader', '--window-size=1280,900'],
   });
   const summary = { shots: [], checks: {}, consoleErrors: [] };
@@ -52,7 +55,7 @@ const VIEWS = [
       await page.waitForFunction(
         t => document.getElementById('status').textContent.includes('scene: ' + t)
           && document.getElementById('loading').classList.contains('hidden'),
-        { timeout: 240000 }, tile);
+        { timeout: LOAD_TIMEOUT }, tile);
       await sleep(2000);
 
       // material sanity: texture arrays match the scene.json layer table
@@ -94,7 +97,7 @@ const VIEWS = [
     await page.waitForFunction(
       t => document.getElementById('status').textContent.includes('scene: 17_25')
         && document.getElementById('loading').classList.contains('hidden'),
-      { timeout: 240000 }, '17_25');
+      { timeout: LOAD_TIMEOUT }, '17_25');
     await sleep(2000);
     summary.perf = await page.evaluate(() => new Promise(res => {
       let frames = 0;

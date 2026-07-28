@@ -8,6 +8,9 @@ Routes:
   GET /scenes/<tile>/<file>   -> static scene package files under
                                  assets/world/<tile>/ (scene.json, heightmap.u16,
                                  textures, props/...)
+  GET /scenes-hd/<tile>/<file> -> HD variant: assets/world-hd/<tile>/ when the
+                                 file exists there, else the LQ file under
+                                 assets/world/ (pilot tiles: 17_25, 22_22)
   GET /characters/<path>      -> static files under editor/characters/
                                  (manifest.json, models/*.gltf/bin/png)
   GET /gamedata/npcname.json  -> compact {npcId: name} map from
@@ -30,6 +33,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORLD_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "world"))
+# HD texture mirror (pilot: 17_25 + 22_22, 4x Real-ESRGAN). Only upscaled
+# PNGs live here; /scenes-hd/<tile>/<file> falls back to the LQ file under
+# assets/world/ for everything else (scene.json, heightmaps, gltf, splats).
+WORLD_HD_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "world-hd"))
 CHARACTERS_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "characters"))
 GAMEDATA_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "gamedata"))
 MINIMAP_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "world", "minimap"))
@@ -206,6 +213,14 @@ class Handler(BaseHTTPRequestHandler):
                     ):
                         tiles.append(name)
             self._send_json(tiles)
+            return
+
+        if path.startswith("/scenes-hd/"):
+            rel = path[len("/scenes-hd/"):]
+            full = safe_join(WORLD_HD_DIR, rel)
+            if not full or not os.path.isfile(full):
+                full = safe_join(WORLD_DIR, rel)   # LQ fallback
+            self._send_file(full)
             return
 
         if path.startswith("/scenes/"):

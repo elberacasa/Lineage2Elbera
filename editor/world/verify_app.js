@@ -12,7 +12,7 @@ const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const BASE = 'http://127.0.0.1:8083/';
+const BASE = process.env.WORLD_BASE || 'http://127.0.0.1:8083/';
 const OUT = path.join(__dirname, 'verify_shots');
 const TILE = process.argv[2] || null;   // optional: pick this scene first
 const TAG = TILE ? TILE.replace(/\W+/g, '_') + '_' : '';
@@ -22,6 +22,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await puppeteer.launch({
     executablePath: CHROME,
+    protocolTimeout: 900000,   // HD texture sets can block the page for minutes
     args: ['--headless=new', '--use-angle=swiftshader', '--window-size=1280,900'],
   });
   const summary = { consoleLogs: [] };

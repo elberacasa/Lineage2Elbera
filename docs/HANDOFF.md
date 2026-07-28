@@ -519,7 +519,10 @@ transform in `docs/tile-map.md`), `assets/gamedata/*.json` (schemas in
    restore), rate balancing after playtest, geodata in-game confirmation,
    backup automation, VPS migration (§7 of that doc).
 6. **Later**: KTX2 compression, WebGPU eval, mobile layout, full-library
-   HD upscale (~24–48 h GPU, shard with `xargs -P`, skip `*_sp`),
+   HD upscale (~24–48 h GPU, shard with `xargs -P`, skip `*_sp`) — world-
+   texture pilot DONE 2026-07-28: tiles 17_25 + 22_22 upscaled 4x into
+   `assets/world-hd/`, client switch `?hd=1` (recipe, A/B verdict and the
+   scene-switch texture-dispose fix it required: `tools/upscale/README.md`),
    Seven Signs catacomb tiles (16_12/18_10/19_10/20_10).
 
 Verification discipline for anything new: protocol claims need a live
