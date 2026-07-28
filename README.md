@@ -5,10 +5,12 @@ assets — plus the complete toolchain we built to make it possible.**
 
 Open a URL and you are walking through Talking Island village in 3D. Toggle
 "Online" and you are inside the actual game world — NPCs, other players,
-chat, combat — served by a real Lineage 2 server that has no idea you are a
-browser. No plugins, no downloads, no login screen. Underneath sits a full
-reverse-engineering and conversion toolchain that reads the original 2006
-client's encrypted files and turns them into web-native formats.
+combat, skills, quests, shops, player trade and private stores, parties,
+buffs — the full core loop, served by a real Lineage 2 server that has no
+idea you are a browser. No plugins, no downloads, no login screen.
+Underneath sits a full reverse-engineering and conversion toolchain that
+reads the original 2006 client's encrypted files and turns them into
+web-native formats.
 
 Everything claimed in this README is verified by a script, a byte-level
 cross-check, or a rendered screenshot in this repository. That is the
@@ -30,6 +32,8 @@ project's house rule.
 | **Towns populated** — Roien, Newbie Helper and 53 more civilians rendered as their real retail models, live from the server | **Character sheet** — live STR/DEX/CON… from the server's own UserInfo, byte-verified against the datapack |
 | ![Elven Ruins dungeon interior](docs/img/dungeon-elven-ruins.jpg) | ![Hotbar, skill cast and system messages](docs/img/hotbar-cast.jpg) |
 | **Dungeon interiors** — the Elven Ruins catacomb rendered as an interior: no sky, torch-lit, props below the terrain plane | **Skills, hotbar, real game text** — cast skills on cooldown, hotbar with items, and the client's own system messages decoded |
+| ![Retail UI replica: chat channels, casting bar, shortcut bar](docs/img/retail-ui.jpg) | ![Water plane and terrain splat blending on the TI coast](docs/img/water-splat-beach.jpg) |
+| **The retail UI, rebuilt** — 16 windows at geometry mined pixel-for-pixel from the original `Interface.xdat`, chat channels in L2 colors | **Water + splat terrain** — retail water planes and per-layer blend maps composited with the exact UE2 layer rule |
 
 All screenshots are actual output of this repository's own verification
 harnesses (headless Chrome driving the real UI).
@@ -47,6 +51,10 @@ harnesses (headless Chrome driving the real UI).
 | **29,812** | skill records decoded from the encrypted `.dat` tables (~95k records across 11 files) |
 | **2,694 + 9,238** | skills / items with real names + icons for the UI (2,777 icon images extracted) |
 | **2,083** | system messages decoded — the client shows the game's own text, not ids |
+| **16** | retail UI windows rebuilt at client-exact, mined geometry — zero unjustified pixels (an audit gates the build) |
+| **100 / 100** | tiles with the server's own geodata extracted — bridges, indoor floors and real walkable heights |
+| **38** | suites in the one-command verification battery (`tools/battery.sh`) |
+| **1,268 / 21,589** | world textures at 4x HD — pilot tiles complete and verified; the full pass is staged |
 | **157 / 653** | retail `.unr` maps / UE2 packages readable by the toolchain |
 | **65** | database tables in the running game server |
 | **24 / 24** | format-library tests passing, byte-exact against the reference native tools |
@@ -112,6 +120,19 @@ cross-validated against the native tool over hundreds of textures
 (mean error ≤ 3/255 per channel). Verification is not a phase here — it is
 the workflow.
 
+**5. The UI had to be mined, not designed.**
+Rebuilding the retail interface raises an awkward question: where does a
+window's width come from? Any number a human typed is a guess, so the rule
+became *no geometry without a source that outranks judgement*. The sources
+had to be excavated first: `Interface.xdat` (encrypted, its own string-table
+format — decoder in `tools/xdat/`), the `.gly` layout files, and the
+compiled UnrealScript of `Interface.u` (decompiled structure in
+`tools/uscript/`). Sixteen windows now render at client-exact mined
+geometry, and the rule is enforced mechanically:
+`tools/ui/audit_guesses.py --check` scans the UI modules for hand-authored
+pixel literals and fails the build on any without a documented source.
+Current count: **0 unjustified**.
+
 ---
 
 ## Architecture
@@ -133,7 +154,7 @@ touch: a browser, a protocol gateway, and the real game server.
  │ THE ELBERA TOOLCHAIN          │                │ glTF, PNG, JSON     │ JSON :8090
  │ ElberaLib     format library  │                ▼                     ▼
  │ ElberaWorld   .unr → scenes   │──► assets/world (100 tiles)   ElberaGate (Node.js)
- │ ElberaModeler .ukx → glTF     │──► editor/characters (42      L2 protocol codec —
+ │ ElberaModeler .ukx → glTF     │──► editor/characters (97      L2 protocol codec —
  │ ElberaDat     .dat → JSON     │──►  glTF models + manifests)  zero game logic
  │ ElberaForge   .utx writer     │                                     │ TCP :2106 / :7777
  │ ElberaUpscaler 4x HD textures │                                     │ RSA · Blowfish · XOR
@@ -192,7 +213,7 @@ Zero-Docker alternative for steps 1: `cd deploy && docker compose up -d --build`
 
 ## The Elbera toolchain
 
-Thirteen tools, one rule: each does one job, is re-runnable, and carries its
+Fourteen tools, one rule: each does one job, is re-runnable, and carries its
 own verification. Pitch first, details after.
 
 | Tool | Pitch | Location |
@@ -210,28 +231,40 @@ own verification. Pitch first, details after.
 | **ElberaForge** | Write textures *back into* the game | `tools/utx/utxedit.py` |
 | **ElberaUpscaler** | 2004 textures, 4x HD | `tools/upscale/` |
 | **ElberaView** | The ground-truth oracle | `tools/bin/umodel-view` |
+| **ElberaSkin** | The retail UI, mined pixel-for-pixel | `editor/world/js/ui/` + `tools/xdat/` |
+
+Support gear: `tools/battery.sh` — the one-command, 38-suite verification
+battery (`--client-only` / `--gateway-only`) · `tools/world/geodata.py` —
+L2OFF geodata → per-tile walkable block streams ·
+`tools/upscale/world_manifest.py` — builds the 21,589-texture HD manifest ·
+`tools/dat/export_skillweapons.py` — skill weapon-gates and target routing
+from server data · `tools/ui/audit_guesses.py` — the no-guess audit that
+gates the UI port.
 
 ### Runtime
 
 - **ElberaGate — the protocol bridge.** One real TCP session per browser:
   the full Interlude login + game handshake (RSA, Blowfish, XOR streams)
   and a compact JSON-over-WebSocket contract — login, move, say, target,
-  attack, useSkill, useItem in; world state, movement, chat channels,
-  combat, skill casts, inventory updates, system messages out. Device-id
+  attack, useSkill, useItem, dialog bypasses, quests, party, shop/trade/
+  store ops in; world state, movement, chat channels, combat, skill casts,
+  inventory updates, buffs, system messages out. Device-id
   accounts, NPC names resolved from the datapack, 400 ms anti-flood
   governor. Node.js, one dependency (`ws`).
   *Verify:* `cd gateway && node test/verify-one.js` (plus `verify-two`,
-  `verify-combat`, `verify-observer`, `verify-m4`, `verify-m5`,
-  `verify-mods` — all PASS against the live server).
+  `verify-combat`, `verify-m4`, `verify-m5`, `verify-mods`, `verify-shop`,
+  `verify-trade`, `verify-store`, `verify-party`, `verify-quest`,
+  `verify-buffs`, `verify-clan` — all PASS against the live server;
+  `tools/battery.sh --gateway-only` runs them all).
 - **ElberaClient — the walkable world.** three.js world streaming over the
-  converted tiles, point-click movement with server reconciliation, WASD
-  option, nameplates, chat with L2 channels and real system-message text,
-  target frame, HP/MP bars, damage floats, death/revive, skill bar with
-  casting bar and cooldowns, inventory with real icons, persistent hotbar,
-  character sheet, and an interior rendering mode for dungeon tiles.
-  Solo offline or online through ElberaGate.
+  converted tiles, retail splat-blended terrain, water planes, geodata
+  walkable heights, point-click movement with server reconciliation, WASD
+  option, nameplates, and the full retail UI (16 windows) with real icons,
+  skills, quests, shops, trade, private stores, party and buffs. `?hd=1`
+  enables the 4x texture set. Solo offline or online through ElberaGate.
   *Verify:* `cd editor/world && node verify_live.js` (two headless browsers
-  on the real stack).
+  on the real stack); `tools/battery.sh --client-only` runs the 22 UI/world
+  suites.
 - **ElberaCreate — the character creator.** All 14 race/gender combos from
   the frozen glTF manifest, faces/hair/colors from the real chargrp/hairgrp
   tables, HD-upscaled textures. *Verify:* `cd editor/charcreate && node verify_app.js`.
@@ -258,9 +291,12 @@ own verification. Pitch first, details after.
   *Verify:* `python3 tools/l2lib/tests/run_tests.py` — 24/24, byte-exact
   against the native tools.
 - **ElberaWorld — the map converter.** `.unr` tile → self-contained web
-  scene: G16 heightmap, layer + splat tables, all prop placements, `.usx`
-  props as glTF. 100/100 named tiles pass validation.
-  *Verify:* `python3 tools/world/convert.py --check 17_25`.
+  scene: G16 heightmap, layer + splat tables, water planes, all prop
+  placements, `.usx` props as glTF, and per-tile walkable geodata decoded
+  from the server's own L2OFF regions (`geodata.py`, 100/100 tiles).
+  100/100 named tiles pass validation.
+  *Verify:* `python3 tools/world/convert.py --check 17_25`; client-side
+  `node verify_geodata.js`.
 - **ElberaModeler — the model pipeline.** `.ukx` → glTF 2.0 with a
   zero-remap full-skeleton merge (absorbs NCSoft's duplicated bone names),
   per-part skins, head re-anchored face shells, hair caps that close the
@@ -279,13 +315,26 @@ own verification. Pitch first, details after.
   Windows-only territory.
   *Verify:* `python3 tools/utx/utxedit.py list tools/samples/t_aden.utx`.
 - **ElberaUpscaler — the HD pipeline.** Vendored Real-ESRGAN
-  (`realesrgan-x4plus`) applied 4x to all 92 character textures, alpha
-  preserved and halo-checked; LQ originals kept for A/B.
-  *Verify:* `sips -g pixelWidth <out.png>` — exactly 4x the source.
+  (`realesrgan-x4plus`): all 92 character textures at 4x, alpha preserved
+  and halo-checked, plus the world-texture pilot (tiles 17_25 + 22_22,
+  1,268 textures side-by-side in `assets/world-hd/`, LQ untouched as the
+  fallback). The full 21,589-texture world pass is staged via
+  `world_manifest.py`.
+  *Verify:* `sips -g pixelWidth <out.png>` — exactly 4x the source;
+  `WORLD_BASE='http://127.0.0.1:8083/?hd=1' node verify_terrain.js hd`.
 - **ElberaView — the ground-truth oracle.** Rendering-enabled UEViewer for
   Apple Silicon: renders the actual retail meshes/animations headlessly to
   PNG via env-var controls, cross-checked against official NCSoft captures.
   *Verify:* renders land in `./Screenshots/` (see `docs/ground-truth.md`).
+- **ElberaSkin — the retail UI port.** The client's own interface,
+  excavated and rebuilt: `tools/xdat/parse_xdat.py` decodes the encrypted
+  `Interface.xdat` string tables, `tools/uscript/` mines the compiled
+  UnrealScript layout code, and the window modules in
+  `editor/world/js/ui/` render 16 windows at the mined geometry. The
+  no-guess rule is mechanical: `tools/ui/audit_guesses.py --check` fails on
+  any unjustified pixel literal (currently 0).
+  *Verify:* `python3 tools/ui/audit_guesses.py --check`;
+  `node verify_ui.js` + per-window suites.
 
 The native foundation binaries (`tools/bin/umodel`, `tools/bin/l2encdec`)
 are Apple-Silicon ports of UEViewer and open-l2encdec — third-party code we
@@ -297,28 +346,47 @@ ours.
 ## What works today — verified
 
 - **Real protocol gateway.** Live sessions on the unmodified server: NPCs,
-  players, movement, chat, combat, skills, inventory — `gateway/test/verify-*.js` all PASS.
+  players, movement, chat, combat, skills, inventory, quests, party, buffs,
+  shops, trade, private stores, clans — `gateway/test/verify-*.js` all PASS.
+- **The full core loop in the browser.** Talk to an NPC through the retail
+  dialog window (bypass links work — the server's `.menu` mod round-trips
+  live), take a quest and track it in the quest journal (Alt+U), buy and
+  sell at real merchants, trade player-to-player, open a private store —
+  including the custom **offline-store mod** (the shop keeps selling after
+  you disconnect), party up, and watch buffs tick in the abnormal-status
+  strip (`verify-dialog`, `verify-shop`, `verify-trade`, `verify-store`,
+  `verify-party`, `verify-quest`, `verify-buffs`, `verify-mods` — live).
+- **The retail UI, pixel-faithful.** 16 windows — status, target, shortcut,
+  skills, inventory, chat, system menu, NPC dialog, actions, minimap, quest,
+  party, buffs, shop, trade, private store — at geometry mined from
+  `Interface.xdat` / `Interface.u`, with the no-guess audit at 0
+  unjustified literals (`verify_ui` + per-window suites).
 - **Live two-player combat.** Two browsers see each other, walk, chat;
   target and kill a Gremlin; a third client watches the fight; exp arrives
   (`verify-two` / `verify-combat` / `verify-observer` / `editor/world/verify_live.js`).
 - **Skills & items end-to-end.** A scripted client casts a self-buff, nukes
   a Gremlin to death with Wind Strike, and loots the adena — while the
   browser shows the casting bar, skill cooldowns and inventory updates with
-  the real icons (`verify-m4`, `verify_skills`).
+  the real icons. Weapon requirements gate the skill cells (Power Strike
+  refuses a dagger), mined from the server's own data because the client
+  tables provably don't carry them (`verify-m4`, `verify_skills`,
+  `verify_skilldepth`).
+- **Terrain the way retail drew it.** Per-layer splat maps blended in the
+  client shader with the exact UE2 layer rule, water planes from the map
+  data, walkable heights from the server's own geodata (bridges and indoor
+  floors work — 100/100 tiles), and dungeon tiles rendered as torch-lit
+  interiors with prop-based fire lights (`verify_terrain`, `verify_geodata`,
+  `verify_interior`).
+- **HD mode.** `?hd=1` swaps the two pilot towns to 4x-upscaled textures
+  (1,268 textures; splat maps byte-identical in both modes). The full
+  21,589-texture pass is staged (`tools/upscale/world_manifest.py`).
 - **Towns that look like towns.** 55 civilian NPCs (Roien, Newbie Helper,
   merchants, priests, guards…) rendered as their real retail models at true
   scale, mapped from the live spawn data (`verify_civilians`, `verify_live`).
 - **Full chat & character UI.** Whisper/shout/trade channels with L2
-  colors, character sheet with live server stats, persistent hotbar, and
-  2,083 decoded system messages rendered as real text (`verify-m5`,
-  `verify_m5`).
-- **Dungeon interiors.** The three flat-plane dungeon tiles (Pagan Temple,
-  Elven Ruins, Antharas' Nest) render as torch-lit interiors, flagged in
-  the converter from geometric evidence (`verify_interior`).
-- **Custom server mods, play-tested by protocol.** `.menu`, `.autoloot`,
-  `.expon/.expoff`, `.offline` shops — verified in-game 8/8 through the
-  real client protocol, including an offline trader surviving disconnect
-  (`verify-mods`).
+  colors, character sheet with live server stats, persistent hotbar, retail
+  minimap with verified georeference, and 2,083 decoded system messages
+  rendered as real text (`verify-m5`, `verify_m5`, `verify_minimap`).
 - **The whole world converted.** 100 tiles, 117,852 prop placements, every
   `scene.json` passing validation; tile↔region naming cross-validated
   against five independent sources ([docs/tile-map.md](docs/tile-map.md)).
@@ -327,13 +395,20 @@ ours.
 - **The texture repack gap closed** — ElberaForge writes encrypted `.utx`
   packages the game reads back pixel-exact.
 - **A tuned game server** with custom Java mods (offline shops, `.menu`,
-  `.autoloot`, `.expon/.expoff`) and 139 geodata regions installed.
+  `.autoloot`, `.expon/.expoff` — play-tested 8/8 through the real protocol)
+  and 139 geodata regions installed.
 
 ## Honest limitations
 
 - **The browser is a renderer, not the game.** All logic lives in aCis; the
-  client implements the protocol subset in the gateway contract. Quests,
-  parties, clans and trade are not in the browser UI yet.
+  client implements the protocol subset in the gateway contract. Not
+  bridged yet: multisell (merchant exchange lists), warehouse, craft/
+  recipes. The **clan window is deliberately shelved** — the pledge
+  protocol itself is done and live-verified (creation through the real
+  VillageMaster dialog chain, invite/accept, leave, oust, crest) but the
+  client UI was cut by product decision. Private *buy*-store ops are
+  contract-complete and source-verified; the sell-store flow is the one
+  verified live end-to-end.
 - **Identity by possession.** Your account is a device id in
   `localStorage` — clearing browser data loses the character (the settings
   panel shows the id as a recovery code you can save). The gateway is
@@ -344,24 +419,33 @@ ours.
   retail registration; `editor/world/verify_terrain.js`). Residual gaps:
   per-layer `UScale`/`VScale` are deliberately absent from the frozen
   scene.json contract (~20% of layers tile at the default density), and
-  BSP brush buildings, water, particles and baked lighting are not
-  extracted. Dungeon lighting
-  is a single torch — prop-based fire lights are planned (19_16 is dark).
-- **`all` chat is radius-limited to 1,250 units by the server itself**;
-  `.menu` answers with an HTML window that is gateway-log only (no UI yet).
+  BSP brush buildings, particles and baked lighting are not extracted
+  (dungeons get prop-based torch lights instead).
+- **HD is expensive.** 4x textures weigh ~24x the LQ set (pilot tiles went
+  76 MB → 1.86 GB) and HD is off by default for that reason; the full
+  21,589-texture pass is staged but not finished (1,268 done).
+- **Headless verification renders on SwiftShader** (software GL), which is
+  slow on NPC-dense scenes — the suites wait on conditions, not clocks.
+  Real GPUs run the client fine.
+- **`all` chat is radius-limited to 1,250 units by the server itself** —
+  use shout (channel 1) for reach.
 - **Deploy**: arm64 verified, amd64 untested; retail-client login through
   Docker untested.
 
 ## Roadmap
 
 Milestones M1–M5 of the [master plan](docs/web-port-architecture.md) are
-done — walkable world, multiplayer, combat, skills, items, chat and the
-core UI all run live against the real server.
+done — walkable world, multiplayer, combat, skills, items, chat, the retail
+UI, quests, shops, trade, private stores, party and buffs all run live
+against the real server.
 
-- **Next.** Prop-based dungeon lighting, NPC dialogs/quests (NpcHtmlMessage
-  UI), party/trade windows, Seven Signs catacomb tiles.
-- **After that.** KTX2 textures, WebGPU evaluation, mobile layout,
-  full-library HD upscale, public VPS deployment
+- **Next.** Finish the full-library HD pass (21,589 world textures; the
+  manifest is staged, 1,268 done), multisell bridging, warehouse, craft/
+  recipes.
+- **Shelved, ready to resume.** Clan window — protocol done and
+  live-verified; only the client UI is missing.
+- **After that.** Seven Signs catacomb tiles (16_12/18_10/19_10/20_10),
+  KTX2 textures, WebGPU evaluation, mobile layout, public VPS deployment
   ([runbook](docs/README-ADMIN.md), ES).
 
 ---
@@ -370,7 +454,7 @@ core UI all run live against the real server.
 
 ```
 assets/interlude/    your client data (gitignored — never committed)
-assets/gamedata/     decoded .dat tables + UI metadata as JSON (13 files, icons gitignored)
+assets/gamedata/     decoded .dat tables + UI metadata as JSON (19 files, icons gitignored)
 assets/world/        100 converted tiles + tile-map.json (gitignored, regenerable)
 server/              aCis rev 409 — separate third-party repo, own license
 gateway/             ElberaGate (:8090)          panel/   ElberaPanel (:8080)
@@ -413,33 +497,41 @@ contract + crypto gotchas · deep dives:
 ## Resumen en español
 
 **Elbera** lleva Lineage 2 Interlude al navegador sin reescribir el juego:
-abres una URL y caminas por el mundo real — NPCs, otros jugadores, chat y
-combate — servido por un servidor L2 de verdad que no nota la diferencia
-entre tu navegador y el cliente original.
+abres una URL y juegas el ciclo completo — NPCs, otros jugadores, combate,
+habilidades, quests, tiendas, comercio entre jugadores, tiendas privadas
+(incluida la tienda offline del servidor), party y buffs — servido por un
+servidor L2 de verdad que no nota la diferencia entre tu navegador y el
+cliente original.
 
 ¿Cómo? El servidor aCis sigue corriendo el juego completo (combate,
 inventario, clanes, mods propios como tiendas offline y `.menu`), y
 **ElberaGate**, un puente WebSocket, habla el protocolo real de red
 (RSA, Blowfish y el cifrado XOR del juego, implementados en JavaScript y
 verificados contra el servidor en vivo). Todo el contenido —100 mapas del
-mundo, 97 modelos 3D con sus animaciones, más de 30 mil texturas— se
-extrae del cliente original con nuestra propia cadena de herramientas:
+mundo con su geodata caminable, 97 modelos 3D con sus animaciones, más de
+30 mil texturas— se extrae del cliente original con nuestra propia cadena de herramientas:
 librería de formatos (ElberaLib), conversor de mapas (ElberaWorld),
 pipeline de modelos (ElberaModeler), decodificadores de tablas (ElberaDat),
 escritor de texturas `.utx` (ElberaForge), escalado HD con IA
 (ElberaUpscaler) y un "oráculo" que renderiza los datos originales para
 verificar que cada conversión es correcta, captura por captura.
 
-Ya funciona: habilidades con barra de casteo y cooldowns, inventario con
-los iconos reales, loot, susurros/gritos/comercio en el chat, hoja de
-personaje con stats en vivo, hotbar persistente, mensajes del sistema con
-el texto original del juego, NPCs civiles con sus modelos reales en los
-pueblos, y modo de render interior para mazmorras. Los mods del servidor
+Ya funciona: la interfaz retail reconstruida al píxel (16 ventanas con
+geometría minada del `Interface.xdat` original, con una auditoría
+automática que prohíbe números inventados), diálogos de NPC con el `.menu`
+del servidor funcionando en vivo, quests con su diario (Alt+U),
+compra/venta en mercaderes reales, trade entre jugadores, tiendas privadas
+con vendedor offline, party, buffs con sus iconos, minimapa con el mapa
+retail, terreno con blending de splats como el cliente de 2006, agua,
+puentes caminables gracias a la geodata, mazmorras iluminadas con
+antorchas y modo HD 4x (`?hd=1`, completo en las dos ciudades piloto; el
+pase completo de 21.589 texturas está preparado). Los mods del servidor
 (`.menu`, `.autoloot`, `.expon/.expoff`, tiendas offline) están verificados
-en juego, por protocolo. Lo que falta: quests/diálogos de NPC, party y
-trade en la UI, iluminación por antorchas en mazmorras y la apertura
-pública en un VPS. Ojo: tu cuenta vive en el navegador — guarda tu código
-de recuperación (panel de ajustes).
+en juego, por protocolo. Lo que falta: multisell, almacén (warehouse),
+crafteo, la ventana de clan (el protocolo ya está hecho y verificado; la
+UI quedó en pausa por decisión de producto), las catacumbas de Seven Signs
+y la apertura pública en un VPS. Ojo: tu cuenta vive en el navegador —
+guarda tu código de recuperación (panel de ajustes).
 
 Los assets del juego **no** se incluyen ni se redistribuyen: necesitas un
 cliente Interlude obtenido legalmente. Nuestro código es MIT.

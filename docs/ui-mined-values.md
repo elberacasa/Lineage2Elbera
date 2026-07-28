@@ -274,6 +274,7 @@ still tile to exactly 173.
   in `NWindow.dll` (see ui-port-handoff.md §6), or `ShortcutWnd.uc`.
 - **What `body+0/4/8` are.** Three ints precede x/y; unidentified. Likely
   flags/anchor mode, given negative coordinates imply anchoring.
+- **(RESOLVED 2026-07-27) x/y is WINDOW-relative.** MenuWnd's last button at x=131 (34px wide -> 165) would overflow the 173px window under a +12 content offset; the left 0..12 strip has NO declared art in the xdat (no fourth band record; band sprites are full 16x46 content). The rendered 12px strip is data-faithful; if retail paints a grip there it is native chrome outside the xdat.
 - **Whether x/y are parent-relative or window-relative.** All validation above
   is self-consistent as parent-relative, but note `StatusWndLeftTex` and
   `MenuWndBackTexLeft` both start at **x=12** rather than 0, so a uniform 12px

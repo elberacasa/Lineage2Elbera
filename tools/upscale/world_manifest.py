@@ -45,7 +45,10 @@ def main():
         for tile in tiles:
             root, ref = referenced(tile)
             for rel in ref:
-                assert not rel.endswith("_sp.png"), f"specular mask: {rel}"
+                if rel.endswith("_sp.png"):
+                    # specular-alpha mask, not diffuse art — skip (the HD
+                    # route falls back to the LQ file); never abort the run
+                    continue
                 src = os.path.join(root, rel)
                 dst = os.path.join(REPO, "assets", "world-hd", tile, rel)
                 assert os.path.isfile(src), f"missing: {src}"

@@ -36,12 +36,20 @@ scripts auto-restart the Java processes):
 Database: `l2jdb` on `127.0.0.1:3306`, user `l2j` / password `l2jpass`
 (also in `db-credentials.txt`), 65 tables. `AutoCreateAccounts = True`.
 
-Verified live on 2026-07-25: all four web apps return 200; `/scenes`
-returns 100 tiles; `gateway/test/verify-one.js` PASS (login → enterWorld →
-12 NPCs → move → chat echo); l2lib test suite 24/24 OK;
-`tools/world/convert.py --check 17_23` OK; glTF validation OK; ElberaForge
-`list` matches umodel; ElberaDat decrypts + parses chargrp; ElberaUpscaler
-produces exact 4x output.
+Verified live on 2026-07-28: all four web apps return 200; `/scenes`
+returns 100 tiles; 100/100 tiles carry extracted geodata
+(`assets/world/<tile>/geodata.json`); `gateway/test/verify-one.js` PASS;
+l2lib test suite 24/24 OK; `tools/world/convert.py --check 17_23` OK;
+glTF validation OK; ElberaForge `list` matches umodel; ElberaDat decrypts +
+parses chargrp; ElberaUpscaler produces exact 4x output.
+
+The full health check is one command — **`tools/battery.sh`** (38 suites:
+22 client UI/world suites against the mock gateway, then 16 live-protocol
+suites against the real aCis; `--client-only` / `--gateway-only` to run a
+subset; exit 0 only if everything passes). Run it before claiming anything
+still works. Budget time for it: the gateway half alone takes ~25–40 min —
+`verify-shop` scripts a full walk from spawn to the TI town merchant and
+needs ~9 min by itself.
 
 ---
 
@@ -485,51 +493,47 @@ transform in `docs/tile-map.md`), `assets/gamedata/*.json` (schemas in
 
 ## 6. Prioritized next tasks
 
-1. **M4 — DONE 2026-07-25** (skills & items): ops in §4.1, live proof
-   `gateway/test/verify-m4.js` PASS, UI in ElberaClient (skill bar, casting
-   bar, inventory, sysMsg feed, loot via `target{id}` on corpses/drops),
-   meta layer `tools/dat/build_meta.py` (`--check` PASS).
-2. **M5 — DONE 2026-07-25** (chat & core UI): Say2 channels (whisper/shout/
-   trade, channel table in gateway/README.md), `charSheet{...}` op (UserInfo,
-   18 fields, verified vs `classes/humanFighter.xml`), `say{channel,text,
-   target?}`, `.menu` → NpcHtmlMessage decoded (log only, not a contract op).
-   `assets/gamedata/systemmsg.json` (2,083 entries, protocol 413 NOT 121,
-   ids have gaps — it's a map; extractor in extract_gamedata.py). Client:
-   chat tabs+L2 colors, char sheet (C), hotbar (skills+items, localStorage
-   per char, Digit1-0), settings panel with deviceId recovery code, WASD
-   documented as cosmetic-only. Proofs: `gateway/test/verify-m5.js`,
-   `editor/world/verify_m5.js` + shots.
-3. **NPC civilian models — DONE 2026-07-25**: 55 civilians merged into
-   `editor/characters/monsters/manifest.json` (83 total; builder
-   `tools/src/char_pipeline/build_npcs.py`, roster from aCis spawn XMLs,
-   TI village fully covered). Client resolves npcId → npcgrp (prefix
-   stripped server-side) → mesh → manifest; unmapped npcIds keep capsules.
-   Live proof: `editor/world/verify_shots/live_01_A_ti_village.png`.
-4. **Dungeon-interior rendering — DONE 2026-07-25**: `scene.json
-   "interior": true` for exactly three flat-plane dungeon tiles (19_16
-   Pagan Temple, 21_25 Elven Ruins, 25_21 Antharas' Nest — evidence-based
-   `INTERIOR_TILES` in convert.py, re-validated at conversion time; mixed
-   tiles like Cruma/Giran Castle deliberately NOT flagged). Client skips
-   the terrain mesh, spawns at the prop-density peak, dark fog + torch
-   point-light follows the player (tuned to 3.2/60 m — 19_16's textures
-   are authentically near-black, mean luminance 56). Proof:
-   `editor/world/verify_interior.js` + `verify_shots/int_*.png`.
-5. **Server ops backlog** (`docs/README-ADMIN.md` §8): in-game test of the
-   custom mods (`.menu`, `.autoloot`, `.expon/.expoff`, `.offline` +
-   restore), rate balancing after playtest, geodata in-game confirmation,
-   backup automation, VPS migration (§7 of that doc).
-6. **Later**: KTX2 compression, WebGPU eval, mobile layout, full-library
-   HD upscale (~24–48 h GPU, shard with `xargs -P`, skip `*_sp`) — world-
-   texture pilot DONE 2026-07-28: tiles 17_25 + 22_22 upscaled 4x into
-   `assets/world-hd/`, client switch `?hd=1` (recipe, A/B verdict and the
-   scene-switch texture-dispose fix it required: `tools/upscale/README.md`),
-   Seven Signs catacomb tiles (16_12/18_10/19_10/20_10).
+Completed since M4/M5 (details in `git log 3360733..HEAD` and the per-area
+READMEs): skills & items with weapon gates and casting polish; chat, char
+sheet, hotbar; 55 civilian NPC models (97 total); dungeon interiors with
+prop torch lights; the retail-UI port (ElberaSkin — 16 windows at mined
+geometry, no-guess audit at 0); NPC dialogs with live `.menu` round-trip;
+quests + journal; party; buffs/cooldowns; shop/trade/private stores incl.
+the offline-store mod; minimap with retail georeference; geodata heights
+(100/100 tiles); water planes; terrain splat blending; HD pilot (17_25 +
+22_22, 1,268 textures, `?hd=1`); mods play-tested 8/8 by protocol
+(`verify-mods`); clan/pledge protocol (creation through the real
+VillageMaster dialog chain, invite/accept, leave, oust, crest —
+`verify-clan` PASS, client window shelved by product decision).
+
+The real remaining backlog, in order:
+
+1. **Finish the full world-texture HD pass.** The 21,589-texture manifest
+   is staged (`tools/upscale/world_manifest.py` → `/tmp/hd_manifest.tsv`;
+   recipe in `tools/upscale/README.md`), but only the 1,268 pilot textures
+   are done — the first full-batch attempt failed wholesale at launch
+   (every entry in `/tmp/hd_failures.log`, including files that exist;
+   likely a cwd/relative-path issue in the xargs invocation — the recipe
+   uses relative `tools/upscale/bin/...` paths, so run it from the repo
+   root). Re-run from the repo root, then re-check coverage per tile.
+2. **Multisell bridging.** TI merchants genuinely use it (newbie equipment
+   exchange; MultiSellList is opcode 0xd0 — notes in gateway/README.md);
+   not bridged, so those merchant options are dead ends in the web client.
+3. **Warehouse + craft/recipes.** Protocol not started.
+4. **Clan window (shelved, ready to resume).** Only the client UI is
+   missing; the gateway contract ops are done and live-verified.
+5. **Server ops backlog** (`docs/README-ADMIN.md` §8): rate balancing after
+   playtest, backup automation, VPS migration (§7 of that doc — ports,
+   hostnames, player patch, guide placeholders).
+6. **Later**: Seven Signs catacomb tiles (16_12/18_10/19_10/20_10), KTX2
+   compression, WebGPU eval, mobile layout.
 
 Verification discipline for anything new: protocol claims need a live
 `gateway/test/verify-*.js`-style PASS; visual claims need a headless-Chrome
 screenshot inspected with ReadMediaFile; binary-format claims need a
-byte-level cross-check against umodel/l2encdec. This is the house rule —
-follow it.
+byte-level cross-check against umodel/l2encdec. UI geometry claims must
+keep `python3 tools/ui/audit_guesses.py --check` at 0 unjustified. The full
+gate is `tools/battery.sh`. This is the house rule — follow it.
 
 ---
 
