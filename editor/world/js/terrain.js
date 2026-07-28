@@ -178,9 +178,16 @@ export class Terrain {
   // three.js world position (meters) of grid sample (gx, gy)
   vertexPos(gx, gy, out = new THREE.Vector3()) {
     const h = this.heights[gy * this.gridSize + gx];
+    // The 256x128 grid only reaches 32640 of the tile's 32768 units; the
+    // last row/column is STRETCHED to the far edge so the mesh abuts the
+    // neighbor tile's mesh instead of leaving a 128-unit crack of void.
+    // Heights are unchanged (the edge sample is simply reused at the edge).
+    const g = this.gridSize;
+    const lx = gx === g - 1 ? g * this.spacing : gx * this.spacing;
+    const ly = gy === g - 1 ? g * this.spacing : gy * this.spacing;
     return l2ToThree(
-      this.origin[0] + gx * this.spacing,
-      this.origin[1] + gy * this.spacing,
+      this.origin[0] + lx,
+      this.origin[1] + ly,
       this.origin[2] + (h - 32768) * this.heightScale,
       out,
     );

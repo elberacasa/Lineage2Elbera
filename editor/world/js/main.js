@@ -2,6 +2,7 @@
 
 import * as THREE from 'three';
 import { Terrain, WATER_SCROLL } from './terrain.js';
+import { NeighborTiles } from './neighbors.js';
 import { Character } from './character.js';
 import { FollowCamera } from './camera.js';
 import { l2ToThree, threeToL2, l2HeadingToThreeYaw } from './coords.js';
@@ -142,8 +143,33 @@ let character = null;
 let manifest = [];
 let availableScenes = [];
 let currentTile = null;
+let neighbors = null;   // NeighborTiles, created once availableScenes is known
+let pendingSceneSwitch = null;   // deferred boundary crossing (see main loop)
+let sceneLoading = false;        // loadScene in flight: suppresses detection
 const keys = new Set();
 const clock = new THREE.Clock();
+
+// 8 surrounding tiles rendered cheap (js/neighbors.js) so the world doesn't
+// end in void at the border. '?neighbors=0' disables (perf baseline/debug).
+const NEIGHBORS_ENABLED = new URLSearchParams(location.search).get('neighbors') !== '0';
+
+// Height router: the one ground-truth entry point for movement/camera code.
+// Routes a three.js world (x, z) to the tile it falls in — the center tile's
+// full Terrain, or the covering NeighborTile when the character has crossed
+// a boundary (so walking across stays grounded before AND after the switch).
+const heightRouter = {
+  get geodata() { return terrain ? terrain.geodata : null; },
+  get interior() { return terrain ? !!terrain.interior : false; },
+  heightAtWorld(x, z, currentZ = null) {
+    if (!terrain) return 0;
+    const entry = neighbors && neighbors.entryAt(x, z);
+    if (entry) {
+      entry.ensureGeodata();   // lazy; heightmap answers until it lands
+      return entry.heightAtWorld(x, z, currentZ);
+    }
+    return terrain.heightAtWorld(x, z, currentZ);
+  },
+};
 
 // prop draw distance (meters); instanced prop clusters beyond this hide.
 // '?propDist=N' overrides; 0 = unlimited.
@@ -828,6 +854,11 @@ window.__world = {
   hd: HD_ENABLED,
   get terrain() { return terrain; },
   get character() { return character; },
+  get neighbors() { return neighbors; },
+  get currentTile() { return currentTile; },
+  // neighbor-aware ground height (the walking router): answers across the
+  // whole 3x3 window, not just the center tile
+  heightAt(x, z, currentZ = null) { return heightRouter.heightAtWorld(x, z, currentZ); },
   net: {
     get connected() { return net.connected; },
     get online() { return online; },
@@ -887,36 +918,55 @@ function setLoading(msg) { loadingText.textContent = msg; }
 
 // --- loading ---------------------------------------------------------------
 
-async function loadScene(tile) {
+// keepCharPos: boundary crossings re-center the 3x3 window WITHOUT moving
+// the character (the default scene-picker/enterWorld path still spawns at
+// the tile center / dungeon spawn cluster).
+async function loadScene(tile, { keepCharPos = false } = {}) {
   setLoading(`loading scene ${tile}…`);
   loadingEl.classList.remove('hidden');
+  sceneLoading = true;
+  pendingSceneSwitch = null;   // an explicit load supersedes a queued crossing
+  try {
+    if (terrain) { scene.remove(terrain.group); terrain.dispose(); terrain = null; }
 
-  if (terrain) { scene.remove(terrain.group); terrain.dispose(); terrain = null; }
+    const baseUrl = `${HD_ENABLED ? '/scenes-hd' : '/scenes'}/${encodeURIComponent(tile)}/`;
+    const def = await (await fetch(baseUrl + 'scene.json')).json();
+    const t = new Terrain(def, baseUrl);
+    await t.load();
+    terrain = t;
+    scene.add(t.group);
+    currentTile = tile;
+    applyInteriorMode(!!t.interior);
 
-  const baseUrl = `${HD_ENABLED ? '/scenes-hd' : '/scenes'}/${encodeURIComponent(tile)}/`;
-  const def = await (await fetch(baseUrl + 'scene.json')).json();
-  const t = new Terrain(def, baseUrl);
-  await t.load();
-  terrain = t;
-  scene.add(t.group);
-  currentTile = tile;
-  applyInteriorMode(!!t.interior);
+    // the 3x3 window of cheap neighbor tiles shifts with the new center
+    // (dungeons have no surface neighborhood — interiors skip it entirely)
+    if (!neighbors) neighbors = new NeighborTiles(scene, availableScenes);
+    if (NEIGHBORS_ENABLED && !t.interior) await neighbors.setCenter(tile, t);
+    else await neighbors.disposeAll();
 
-  if (character) {
-    let c;
-    if (t.interior && t.spawnL2) {
-      // dungeons: spawn inside the densest prop cluster, not tile center
-      c = l2ToThree(t.spawnL2[0], t.spawnL2[1], 0);
-    } else {
-      c = t.center();
+    if (character) {
+      if (keepCharPos) {
+        const p = character.group.position;
+        p.y = heightRouter.heightAtWorld(p.x, p.z, p.y);
+      } else {
+        let c;
+        if (t.interior && t.spawnL2) {
+          // dungeons: spawn inside the densest prop cluster, not tile center
+          c = l2ToThree(t.spawnL2[0], t.spawnL2[1], 0);
+        } else {
+          c = t.center();
+        }
+        c.y = t.heightAtWorld(c.x, c.z, character.group.position.y);
+        character.group.position.copy(c);
+      }
+      character.clearTarget();
     }
-    c.y = t.heightAtWorld(c.x, c.z, character.group.position.y);
-    character.group.position.copy(c);
-    character.clearTarget();
+    sun.position.copy(SUN_DIR).multiplyScalar(150).add(character ? character.group.position : t.center());
+    setStatus(`scene: ${tile} (${def.gridSize}x${def.gridSize})`);
+    loadingEl.classList.add('hidden');
+  } finally {
+    sceneLoading = false;
   }
-  sun.position.copy(SUN_DIR).multiplyScalar(150).add(character ? character.group.position : t.center());
-  setStatus(`scene: ${tile} (${def.gridSize}x${def.gridSize})`);
-  loadingEl.classList.add('hidden');
 }
 
 async function loadCharacter(id) {
@@ -1001,7 +1051,11 @@ canvas.addEventListener('pointerup', e => {
     if (best != null) { clickEntity(best); return; }
   }
 
-  const hit = terrain.mesh ? ray.intersectObject(terrain.mesh, false)[0] : null;
+  // click-to-move: center terrain + the cheap neighbor meshes, so a click
+  // across the border walks there (entity picking above still wins)
+  const walkTargets = terrain.mesh ? [terrain.mesh] : [];
+  if (neighbors) walkTargets.push(...neighbors.meshes());
+  const hit = walkTargets.length ? ray.intersectObjects(walkTargets, false)[0] : null;
   if (hit) {
     character.setTarget(hit.point);
     if (online) net.send('moveTo', threeToL2(hit.point));
@@ -1103,9 +1157,32 @@ resize();
 
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.1);
+  // deferred boundary crossing (set at the bottom of the previous frame —
+  // loadScene nulls `terrain` synchronously, so it must not run mid-block)
+  if (pendingSceneSwitch && !sceneLoading) {
+    const t = pendingSceneSwitch;
+    pendingSceneSwitch = null;
+    scenePicker.value = t;
+    loadScene(t, { keepCharPos: true });
+  }
   if (character && terrain) {
-    character.update(dt, terrain, wasdDir());
-    entities.update(dt, terrain);
+    character.update(dt, heightRouter, wasdDir());
+    entities.update(dt, heightRouter);
+    // boundary crossing: the entered tile becomes the full-quality center
+    // (the 3x3 neighbor window shifts inside loadScene). Interiors never
+    // trigger this — a dungeon's extent is its own business. The switch is
+    // DEFERRED to the top of the next frame: loadScene nulls `terrain`
+    // synchronously, and the rest of this block still reads it.
+    if (!terrain.interior && !sceneLoading) {
+      const p = character.group.position;
+      const l2 = threeToL2(p);
+      const tName = tileNameFor(l2.x, l2.y);
+      if (tName !== currentTile && availableScenes.includes(tName)) {
+        pendingSceneSwitch = tName;
+      } else if (neighbors) {
+        neighbors.preloadNear(p.x, p.z);   // lazy geodata on approach
+      }
+    }
     combat.update(entityHeadPos);
     skillFx.update();
     // interior torch light follows the player
@@ -1135,7 +1212,7 @@ renderer.setAnimationLoop(() => {
     // shadow frustum follows the character
     sun.position.copy(SUN_DIR).multiplyScalar(150).add(character.group.position);
     sun.target.position.copy(character.group.position);
-    followCam.update(dt, character.group.position, terrain);
+    followCam.update(dt, character.group.position, heightRouter);
     sky.position.copy(camera.position);
     if (minimapWnd) minimapWnd.tick(character, entities);
     if (abnormalWnd) abnormalWnd.tick();
