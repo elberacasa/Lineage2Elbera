@@ -79,6 +79,15 @@ class Bridge {
     this.ownStoreType = null; // 'sell' | 'buy' while a store is open
     this.storeTitles = new Map(); // objectId -> title
     this.playerStores = new Map(); // storeId -> {type, items}
+    // M14 clan state: clan info (PledgeShowMemberListAll header merged with
+    // PledgeShowInfoUpdate) and the member snapshot keyed by NAME
+    // (PledgeShowMemberListDelete is name-based, and these packets never
+    // carry an offline member's objectId). Like M9 party: FULL snapshot
+    // re-emitted on every change, no incremental ops.
+    this.clan = null; // {id, name, leaderName, level, crestId, allyId, allyName}
+    this.clanMembers = new Map(); // name -> {id, name, level, classId, online}
+    this.pendingClanInfo = null; // queued until after enterWorld (EnterWorld
+    this.pendingClanMembers = null; // sends the clan packets BEFORE UserInfo)
 
     ws.on('message', (data) => this._onMessage(data));
     ws.on('close', () => this._shutdown());
@@ -192,6 +201,38 @@ class Bridge {
         case 'partyKick':
           // RequestOustPartyMember(0x2c): S name.
           if (this.game) this.game.oustPartyMember(String(msg.name || '').slice(0, 16));
+          break;
+        // ----------------------------------------------------- M14: clan
+        case 'clanInvite': {
+          // RequestJoinPledge(0x24): D targetId, D pledgeType. OBJECTID-based
+          // in this rev (unlike party, which is name-based) — resolve the
+          // name via the visible-players map (CharInfo), like tradeRequest.
+          // pledgeType 0 = main clan. Server checks join conditions
+          // (clan.checkClanJoinCondition) and the request expires after 15s.
+          const name = String(msg.name || '').slice(0, 16);
+          let id = 0;
+          for (const [pid, pname] of this.playersByName) if (pname === name) { id = pid; break; }
+          if (this.game && id) this.game.requestJoinPledge(id, 0);
+          else this.log(`clanInvite: no visible player named "${name}"`);
+          break;
+        }
+        case 'clanAnswer':
+          // RequestAnswerJoinPledge(0x25): D 1 accept / 0 refuse.
+          if (this.game) this.game.answerJoinPledge(msg.accept ? 1 : 0);
+          break;
+        case 'clanLeave':
+          // RequestWithdrawPledge(0x26): empty. The clan LEADER cannot
+          // withdraw (CLAN_LEADER_CANNOT_WITHDRAW) — dissolve is not bridged.
+          if (this.game) this.game.withdrawPledge();
+          break;
+        case 'clanOust':
+          // RequestOustPledgeMember(0x27): S name. Needs SP_DISMISS
+          // privilege (leader has it); target must not be in combat.
+          if (this.game) this.game.oustPledgeMember(String(msg.name || '').slice(0, 16));
+          break;
+        case 'clanCrestRequest':
+          // RequestPledgeCrest(0x68): D crestId.
+          if (this.game) this.game.requestPledgeCrest(msg.id | 0);
           break;
         case 'buy':
           // RequestBuyItem(0x1f) with the last BuyList's listId. Requires the
@@ -454,6 +495,16 @@ class Bridge {
           this.send({ op: 'questList', quests: this.pendingQuestList });
           this.pendingQuestList = null;
         }
+        if (this.pendingClanInfo) {
+          // EnterWorld sends PledgeShowMemberListAll BEFORE UserInfo
+          // (EnterWorld.java:164 vs :223), so clan ops queue like the lists.
+          this.send(this.pendingClanInfo);
+          this.pendingClanInfo = null;
+        }
+        if (this.pendingClanMembers) {
+          this.send({ op: 'clanMembers', members: this.pendingClanMembers });
+          this.pendingClanMembers = null;
+        }
       }
       // storeState: UserInfo carries OperateType (writeC after mountType).
       // 1 SELL / 8 PACKAGE_SELL -> 'sell', 3 BUY -> 'buy'; 2/4 are the
@@ -518,7 +569,13 @@ class Bridge {
     });
 
     game.on('teleport', (t) => {
-      if (t.id === this.selfId) this.game.pos = { ...this.game.pos, x: t.x, y: t.y, z: t.z };
+      if (t.id === this.selfId) {
+        this.game.pos = { ...this.game.pos, x: t.x, y: t.y, z: t.z };
+        // aCis keeps _isTeleporting until the client answers with
+        // Appearing(0x30) (clientpackets/Appearing.java -> onTeleported);
+        // while set, denyAiAction() rejects interacts/attacks silently.
+        this.game.appearing();
+      }
       this.send({ op: 'move', id: t.id, tx: t.x, ty: t.y, tz: t.z });
     });
 
@@ -726,6 +783,89 @@ class Bridge {
       });
     });
 
+    // ------------------------------------------------------------- M14 clan
+    // AskJoinPledge(0x32) carries the requestor objectId; resolve to a name
+    // via the visible-players map (same pattern as tradeAsk).
+    game.on('clanAsk', (a) => {
+      this.send({ op: 'clanAsk', from: this.playersByName.get(a.fromId) || String(a.fromId), clanName: a.clanName });
+    });
+
+    // JoinPledge(0x33, to the new member on accept): decoded, log-only —
+    // the PledgeShowMemberListAll that follows carries everything.
+    game.on('clanJoined', (clanId) => this.log(`clan: JoinPledge ${clanId}`));
+
+    // PledgeShowMemberListAll(0x53): full clan info (header) + member list.
+    // Sub-pledge lists (pledgeType != 0: academy/royal/knight) are NOT
+    // bridged — the contract models the main clan only.
+    game.on('clanAll', (p) => {
+      if (p.pledgeType !== 0) return;
+      this.clan = {
+        id: p.clanId, name: p.name, leaderName: p.leaderName, level: p.level,
+        crestId: p.crestId, allyId: p.allyId, allyName: p.allyName,
+      };
+      this.clanMembers = new Map(p.members.map((m) => [m.name, pledgeMemberView(m)]));
+      this._sendClanInfo();
+      this._sendClanMembers();
+    });
+
+    // PledgeShowMemberListAdd(0x55): a member joined (existing members' view).
+    game.on('clanMemberAdd', (m) => {
+      this.clanMembers.set(m.name, pledgeMemberView(m));
+      this._sendClanMembers();
+    });
+
+    // PledgeShowMemberListUpdate(0x54): member login/logout/level refresh
+    // (also broadcast when a clanmate logs in — EnterWorld.java:122).
+    game.on('clanMemberUpdate', (m) => {
+      const cur = this.clanMembers.get(m.name);
+      if (!cur) return; // login-time self update; the All packet follows
+      Object.assign(cur, pledgeMemberView(m));
+      this._sendClanMembers();
+    });
+
+    // PledgeShowMemberListDelete(0x56): name-based (a member left/was ousted).
+    game.on('clanMemberDelete', (name) => {
+      if (this.clanMembers.delete(name)) this._sendClanMembers();
+    });
+
+    // PledgeShowMemberListDeleteAll(0x82): YOU left / were ousted / the clan
+    // was dissolved. Clears the clan state: clanInfo{id:0} + empty members.
+    game.on('clanDeleteAll', () => {
+      this.clan = null;
+      this.clanMembers = new Map();
+      this._sendClanInfo();
+      this._sendClanMembers();
+    });
+
+    // PledgeShowInfoUpdate(0x88): crest/level/ally changes, broadcast to all
+    // members. Carries NO clan name / leader name — merge into local state.
+    game.on('clanInfoUpdate', (u) => {
+      if (!this.clan || this.clan.id !== u.clanId) return;
+      Object.assign(this.clan, { crestId: u.crestId, level: u.level, allyId: u.allyId, allyName: u.allyName });
+      this._sendClanInfo();
+    });
+
+    // PledgeInfo(0x83, answer to RequestPledgeInfo — not sent proactively):
+    // merge name/allyName when it matches our clan.
+    game.on('clanPledgeInfo', (p) => {
+      if (!this.clan || this.clan.id !== p.id) return;
+      this.clan.name = p.name;
+      this.clan.allyName = p.allyName;
+      this._sendClanInfo();
+    });
+
+    // PledgeStatusChanged(0xcd, rides RequestPledgeInfo answers): decoded,
+    // log-only — not a contract op.
+    game.on('clanStatusChanged', (s) => this.log(`clan: statusChanged clan=${s.clanId} crest=${s.crestId}`));
+
+    // PledgeCrest(0x6c): raw DDS bytes (CrestCache stores .dds files, pledge
+    // crest max 256 bytes per RequestSetPledgeCrest). data = base64 or null
+    // (crestId without data). OPTIONAL contract op — the web client may not
+    // decode DDS.
+    game.on('clanCrest', (c) => {
+      this.send({ op: 'clanCrest', id: c.id, data: c.data ? c.data.toString('base64') : null });
+    });
+
     // ------------------------------------------------- M10: buffs & reuse
     // AbnormalStatusUpdate is a FULL SNAPSHOT of self effects each time
     // (built fresh with all current buffs+debuffs on every add/remove).
@@ -876,6 +1016,28 @@ class Bridge {
     this.send({ op: 'party', members });
   }
 
+  // M14: clanInfo + clanMembers emitters. Before enterWorld they queue the
+  // latest state (EnterWorld sends the clan packets before UserInfo — same
+  // queue+flush pattern as skillList/itemList/questList).
+  _sendClanInfo() {
+    const c = this.clan;
+    const info = c
+      ? {
+          op: 'clanInfo', id: c.id, name: c.name, leaderName: c.leaderName, level: c.level,
+          ...(c.crestId ? { crestId: c.crestId } : {}),
+          ...(c.allyId ? { allyId: c.allyId, allyName: c.allyName } : {}),
+        }
+      : { op: 'clanInfo', id: 0 }; // no clan (initial state or after leaving)
+    if (!this.entered) { this.pendingClanInfo = info; return; }
+    this.send(info);
+  }
+
+  _sendClanMembers() {
+    const members = [...this.clanMembers.values()];
+    if (!this.entered) { this.pendingClanMembers = members; return; }
+    this.send({ op: 'clanMembers', members });
+  }
+
   _shutdown() {
     if (this.closed) return;
     this.closed = true;
@@ -885,6 +1047,12 @@ class Bridge {
     }
     try { this.ws.close(); } catch (_) { /* ignore */ }
   }
+}
+
+// M14: contract view of a decoded pledge member. id = the online objectId
+// (0 when offline — the pledge packets never carry an offline member's id).
+function pledgeMemberView(m) {
+  return { id: m.onlineId, name: m.name, level: m.level, classId: m.classId, online: m.online };
 }
 
 module.exports = { Bridge, deriveCredentials };

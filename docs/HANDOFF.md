@@ -177,7 +177,9 @@ targetId?}` · `useItem{objectId}` · `talk{id}` · `bypass{command}` ·
 `storeTitle{title}` · `storeSetSell{items[{objectId,count,price}],title?,
 packageSale?}` · `storeSetBuy{items[{itemId,count,price}],title?}` ·
 `storeStart{}` · `storeStop{}` · `storeBuy{storeId,items[{objectId,count}]}` ·
-`storeSell{storeId,items[{objectId,count,price}]}`.
+`storeSell{storeId,items[{objectId,count,price}]}` · `clanInvite{name}` ·
+`clanAnswer{accept}` · `clanLeave{}` · `clanOust{name}` ·
+`clanCrestRequest{id}`.
 
 Actions (fixed 2026-07-27): `action{actionId}` takes actionname-e.dat UI
 ids; SOCIAL-map keys are remapped to aCis social ids and sent via
@@ -221,7 +223,11 @@ maxMp,leader}]}` · `partyMemberStatus{id,hp,maxHp,mp,maxMp}` ·
 `storeMsgSell{packageSale,adena,items[{objectId,itemId,count,enchant,price,
 slot,storePrice}],sellables[...]}` · `storeMsgBuy{adena,items[{itemId,
 enchant,count,price,slot,storePrice}],buyables[...]}` ·
-`playerStore{id,type,title,adena,items[...]}` · `storeState{open,type?}`.
+`playerStore{id,type,title,adena,items[...]}` · `storeState{open,type?}` ·
+`clanInfo{id,name,leaderName,level,crestId?,allyId?,allyName?}` (id 0 = no
+clan) · `clanMembers{members[{id,name,level,classId,online}]}` (id = online
+objectId, 0 when offline) · `clanAsk{from,clanName}` ·
+`clanCrest{id,data}` (base64 DDS or null; optional).
 
 Shops (added 2026-07-27): merchant dialog (`npc_<id>_Buy <listId>` /
 `npc_<id>_Sell` bypasses, validated against the last html — talk first) →
@@ -311,6 +317,36 @@ buys fail silently; `.offline` accepts a sell store — the trader stays
 visible and keeps serving playerStore views. Live proof:
 `gateway/test/verify-store.js` PASS (manage/set/title, observer buy with
 exact item+adena movement, stop, offline persistence).
+
+Clan / pledge (added 2026-07-28): `clanInvite{name}` →
+RequestJoinPledge(0x24, D targetId, D pledgeType — **objectId-based**,
+resolved via the visible-players map like tradeRequest; no distance check)
+· `clanAnswer{accept}` → 0x25 · `clanLeave{}` → 0x26 (leader CANNOT
+withdraw; DaysBeforeJoinAClan = 1-day re-join penalty) · `clanOust{name}`
+→ 0x27 (SP_DISMISS) · `clanCrestRequest{id}` → RequestPledgeCrest(0x68).
+Server side: `clanInfo{...}` built from the PledgeShowMemberListAll(0x53)
+header merged with PledgeShowInfoUpdate(0x88, no name/leader — merged
+locally), queued after enterWorld (EnterWorld sends 0x53 BEFORE UserInfo)
+and re-emitted on change; `clanInfo{id:0}` = left/ousted/dissolved ·
+`clanMembers{...}` FULL snapshot rebuilt on 0x53/0x54/0x55/0x56/0x82 (same
+choice as party; keyed by NAME — Delete is name-based and `id` is the
+online objectId, 0 for offline members; `rank` unavailable — power grade
+lives in PledgeReceivePowerInfo, not bridged) · `clanAsk{from,clanName}`
+(AskJoinPledge 0x32) · `clanCrest{id,data}` (PledgeCrest 0x6c, raw DDS
+bytes base64, null when empty — OPTIONAL). Sub-pledge lists
+(pledgeType != 0), PledgeStatusChanged(0xcd) and JoinPledge(0x33) are
+decoded but not contract ops. **Clan creation is real-dialog verified**:
+talk to Grand Master Bitz (30026, TI village; **Roien is NOT in the Clan
+feature script's talk list in this datapack**) → `npc_<obj>_Quest Clan` →
+`Quest Clan 9000-02.htm` → `npc_<obj>_create_clan <Name>` (level ≥ 10,
+name alphanumeric 2..16). Quirks verified live: **Appearing(0x30) must
+answer every self teleport** or `_isTeleporting` makes denyAiAction reject
+all interacts with a bare ActionFailed (bridge sends it automatically now);
+**Request lock leak** — Request.onRequestResponse clears only the
+responder, the inviter stays busy until the 15s REQUEST_TIMEOUT (re-invite
+too soon = silent WAITING_FOR_ANOTHER_REPLY drop). Live proof:
+`gateway/test/verify-clan.js` PASS (creation chain, invite/accept with
+2-member snapshots both sides, leave, oust, crest decode).
 
 NPC dialog (added 2026-07-26): `talk{id}` sends Action(0x04); aCis routes by
 Creature.onAction — first Action only targets, second Action INTERACTS for

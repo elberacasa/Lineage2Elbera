@@ -42,6 +42,15 @@ function makeClient(name, deviceId) {
   return c;
 }
 
+const waitFor = (fn, timeout, label) => new Promise((resolve, reject) => {
+  const t0 = Date.now();
+  const iv = setInterval(() => {
+    const v = fn();
+    if (v) { clearInterval(iv); resolve(v); }
+    else if (Date.now() - t0 > timeout) { clearInterval(iv); reject(new Error('timeout: ' + label)); }
+  }, 250);
+});
+
 (async () => {
   const A = makeClient('A', 'verify-two-A-' + suffix);
   const B = makeClient('B', 'verify-two-B-' + suffix);
@@ -51,8 +60,9 @@ function makeClient(name, deviceId) {
   await sleep(500);
   B.send({ op: 'login', deviceId: 'verify-two-B-' + suffix });
 
-  await sleep(3000);
-  if (!A.state.authOk || !B.state.authOk) throw new Error('auth_ok missing');
+  // Poll instead of fixed sleeps: first-login char creation can take ~3s
+  // under load (flaked the 2026-07-28 battery twice in a row).
+  await waitFor(() => A.state.authOk && B.state.authOk, 30000, 'auth_ok both');
   console.log('[A] chars:', JSON.stringify(A.state.authOk.chars));
   console.log('[B] chars:', JSON.stringify(B.state.authOk.chars));
 
@@ -60,8 +70,7 @@ function makeClient(name, deviceId) {
   await sleep(400);
   B.send({ op: 'enterChar', slot: 0 });
 
-  await sleep(5000);
-  if (!A.state.me || !B.state.me) throw new Error('enterWorld missing');
+  await waitFor(() => A.state.me && B.state.me, 30000, 'enterWorld both');
   console.log('[A] in world as', A.state.me.name, 'at', A.state.me.x, A.state.me.y, A.state.me.z);
   console.log('[B] in world as', B.state.me.name, 'at', B.state.me.x, B.state.me.y, B.state.me.z);
 

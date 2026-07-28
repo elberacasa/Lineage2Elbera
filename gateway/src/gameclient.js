@@ -276,6 +276,35 @@ class GameSession extends EventEmitter {
     this._send(new PacketWriter().writeC(0x2c).writeS(String(name)).build());
   }
 
+  // RequestJoinPledge (0x24): D targetId, D pledgeType. OBJECTID-based in
+  // this rev (clientpackets/RequestJoinPledge.java) — the bridge resolves
+  // player names to objectIds for the contract op. pledgeType 0 = main clan.
+  requestJoinPledge(targetId, pledgeType = 0) {
+    this._send(new PacketWriter().writeC(0x24).writeD(targetId | 0).writeD(pledgeType | 0).build());
+  }
+
+  // RequestAnswerJoinPledge (0x25): D response (1 accept, 0 refuse).
+  answerJoinPledge(response) {
+    this._send(new PacketWriter().writeC(0x25).writeD(response ? 1 : 0).build());
+  }
+
+  // RequestWithdrawPledge (0x26): empty. The clan LEADER cannot withdraw
+  // (SystemMessageId.CLAN_LEADER_CANNOT_WITHDRAW); dissolve is not bridged.
+  withdrawPledge() {
+    this._send(new PacketWriter().writeC(0x26).build());
+  }
+
+  // RequestOustPledgeMember (0x27): S targetName. Requires SP_DISMISS
+  // privilege (the leader has it).
+  oustPledgeMember(name) {
+    this._send(new PacketWriter().writeC(0x27).writeS(String(name)).build());
+  }
+
+  // RequestPledgeCrest (0x68): D crestId.
+  requestPledgeCrest(crestId) {
+    this._send(new PacketWriter().writeC(0x68).writeD(crestId | 0).build());
+  }
+
   // TradeRequest (0x15): D targetObjectId (objectId-based in this rev —
   // the bridge resolves player names to objectIds for the contract op).
   tradeRequest(objectId) {
@@ -392,6 +421,15 @@ class GameSession extends EventEmitter {
         .writeD(o.heading | 0).writeD(0)
         .build()
     );
+  }
+
+  // Appearing (0x30): empty. The retail client sends this after a self
+  // TeleportToLocation; aCis clears _isTeleporting in onTeleported()
+  // (clientpackets/Appearing.java) — WITHOUT it the player stays
+  // teleport-locked and denyAiAction() rejects every interact/attack with a
+  // bare ActionFailed (verified live after admin_teleport).
+  appearing() {
+    this._send(new PacketWriter().writeC(0x30).build());
   }
 
   // ------------------------------------------------------------- receives
@@ -672,6 +710,109 @@ class GameSession extends EventEmitter {
         const mp = r.readD(); const maxMp = r.readD();
         const level = r.readD(); const classId = r.readD();
         this.emit('partyUpdate', { id, name, cp, maxCp, hp, maxHp, mp, maxMp, level, classId });
+        break;
+      }
+      // ------------------------------------------------------ M14: clan
+      case 0x32: { // AskJoinPledge (invite prompt): D requestorObjId, S pledgeName
+        const fromId = r.readD();
+        const clanName = r.readS();
+        this.emit('clanAsk', { fromId, clanName });
+        break;
+      }
+      case 0x33: { // JoinPledge (to the new member on accept): D clanId
+        this.emit('clanJoined', r.readD());
+        break;
+      }
+      case 0x53: { // PledgeShowMemberListAll: D subFlag, D clanId,
+        // D pledgeType, S pledgeName, S leaderName, D crestId, D level,
+        // D castleId, D clanHallId, D rank, D reputation, D dissolution,
+        // D 0, D allyId, S allyName, D allyCrestId, D atWar, D count,
+        // per member: S name, D level, D classId, D sex, D race,
+        // D onlineObjId (0 = offline), D hasSponsor
+        r.readD(); // subFlag (0 = main clan view)
+        const clanId = r.readD();
+        const pledgeType = r.readD();
+        const name = r.readS();
+        const leaderName = r.readS();
+        const crestId = r.readD();
+        const level = r.readD();
+        r.readD(); r.readD(); r.readD(); r.readD(); r.readD(); r.readD(); // castle, hall, rank, rep, dissolution, 0
+        const allyId = r.readD();
+        const allyName = r.readS();
+        r.readD(); // allyCrestId
+        r.readD(); // atWar
+        const count = r.readD();
+        const members = [];
+        for (let i = 0; i < count; i++) {
+          members.push(parsePledgeMember(r));
+          r.readD(); // hasSponsor
+        }
+        this.emit('clanAll', { clanId, pledgeType, name, leaderName, crestId, level, allyId, allyName, members });
+        break;
+      }
+      case 0x54: { // PledgeShowMemberListUpdate (member login/status
+        // refresh): S name, D level, D classId, D sex, D race,
+        // D onlineObjId, D pledgeType, D hasSponsor
+        const member = parsePledgeMember(r);
+        r.readD(); // pledgeType
+        r.readD(); // hasSponsor
+        this.emit('clanMemberUpdate', member);
+        break;
+      }
+      case 0x55: { // PledgeShowMemberListAdd (a member joined): S name,
+        // D level, D classId, D sex, D race, D onlineObjId, D pledgeType
+        const member = parsePledgeMember(r);
+        r.readD(); // pledgeType
+        this.emit('clanMemberAdd', member);
+        break;
+      }
+      case 0x56: { // PledgeShowMemberListDelete: S name
+        this.emit('clanMemberDelete', r.readS());
+        break;
+      }
+      case 0x82: // PledgeShowMemberListDeleteAll: empty — you left / were
+        // ousted / the clan was dissolved (STATIC_PACKET).
+        this.emit('clanDeleteAll');
+        break;
+      case 0x83: { // PledgeInfo (answer to RequestPledgeInfo): D clanId,
+        // S name, S allyName
+        const id = r.readD();
+        const name = r.readS();
+        const allyName = r.readS();
+        this.emit('clanPledgeInfo', { id, name, allyName });
+        break;
+      }
+      case 0x88: { // PledgeShowInfoUpdate (broadcast on join/level/crest
+        // changes): D clanId, D crestId, D level, D castleId, D clanHallId,
+        // D rank, D reputation, D dissolution, D 0, D allyId, S allyName,
+        // D allyCrestId, D atWar. NO clan name / leader name.
+        const clanId = r.readD();
+        const crestId = r.readD();
+        const level = r.readD();
+        r.readD(); r.readD(); r.readD(); r.readD(); r.readD(); r.readD(); // castle, hall, rank, rep, dissolution, 0
+        const allyId = r.readD();
+        const allyName = r.readS();
+        r.readD(); // allyCrestId
+        r.readD(); // atWar
+        this.emit('clanInfoUpdate', { clanId, crestId, level, allyId, allyName });
+        break;
+      }
+      case 0x6c: { // PledgeCrest: D crestId, D length, B data (raw DDS —
+        // CrestCache stores .dds files; 0 length when no crest)
+        const crestId = r.readD();
+        const length = r.readD();
+        const data = length > 0 ? Buffer.from(r.readB(length)) : null;
+        this.emit('clanCrest', { id: crestId, data });
+        break;
+      }
+      case 0xcd: { // PledgeStatusChanged (rides RequestPledgeInfo answers):
+        // D leaderId, D clanId, D crestId, D allyId, D allyCrestId, D 0, D 0
+        const leaderId = r.readD();
+        const clanId = r.readD();
+        const crestId = r.readD();
+        const allyId = r.readD();
+        r.readD(); r.readD(); r.readD(); // allyCrestId, 0, 0
+        this.emit('clanStatusChanged', { leaderId, clanId, crestId, allyId });
         break;
       }
       // ------------------------------------------------------ M12: trade
@@ -1207,6 +1348,20 @@ function parsePartyMember(r, withRace) {
   r.readD(); // 0
   const race = withRace ? r.readD() : (r.readD(), null); // race or trailing 0
   return { id, name, cp, maxCp, hp, maxHp, mp, maxMp, level, classId, race };
+}
+
+// Pledge member entry shared by PledgeShowMemberListAll/Update/Add:
+// S name, D level, D classId, D sex, D race, D onlineObjId (0 = offline —
+// these packets never carry an offline member's objectId). Trailing
+// pledgeType/hasSponsor dwords are read by the callers (they vary).
+function parsePledgeMember(r) {
+  const name = r.readS();
+  const level = r.readD();
+  const classId = r.readD();
+  const sex = r.readD();
+  const race = r.readD();
+  const onlineId = r.readD();
+  return { name, level, classId, sex, race, onlineId, online: onlineId !== 0 };
 }
 
 module.exports = { GameSession };

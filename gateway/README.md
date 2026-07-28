@@ -33,6 +33,7 @@ node test/verify-m5.js [suffix]      # chat channels (TELL target, SHOUT), charS
 node test/verify-shop.js [suffix]     # merchant flow: buy list, buy (itemList refresh), sell back
 node test/verify-trade.js [suffix]    # player trade: ask/refuse, accept+cancel, two-phase confirm + item move
 node test/verify-store.js [suffix]    # private store: manage/set/title, observer playerStore, buy, stop, .offline
+node test/verify-clan.js [suffix]     # clan: real creation dialog chain, invite/accept, leave, oust, crest
 node test/smoke-protocol.js          # same as verify-one but without the WS layer (raw protocol)
 ```
 
@@ -74,6 +75,104 @@ SystemMessage(0x64) is shallow-decoded into the contract op
 2 NPC_NAME, 3 ITEM_NAME, 4 SKILL_NAME, 5 CASTLE_NAME, 6 ITEM_NUMBER,
 7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
 "You have earned 145 exp and 10 SP".
+
+## M14: clan / pledge protocol (added 2026-07-28)
+
+Flow (verified live, test/verify-clan.js): clan creation through the REAL
+VillageMaster dialog chain -> clanInvite -> clanAsk -> clanAnswer ->
+clanInfo + clanMembers on both -> clanLeave -> clanInfo{id:0} + empty
+members -> re-invite a third char -> clanOust -> same clear.
+
+**Clan creation is 100% protocol** (no DB seeding): the chain, validated
+against data/html + scripting/script/feature/Clan.java and verified live:
+
+1. `talk{id}` to a VillageMaster that is in the Clan feature script's talk
+   list — Grand Master **Bitz (30026)**, TI village (-83326, 242964, -3718).
+   **Roien (30008), the spawn-point Grand Master, is NOT in the list** in
+   this datapack (Clan.java addTalkId), so he can never create clans here;
+   Bitz is the closest listed master, 19k units from the spawn (the test
+   travels via `admin_teleport`, accesslevel 7 — creation itself is pure
+   dialog protocol).
+2. `bypass{command:"npc_<objId>_Quest Clan"}` -> 9000-01.htm "[Clan
+   management]".
+3. `bypass{command:"Quest Clan 9000-02.htm"}` -> 9000-02.htm "[Create a
+   Clan]" form (`npc_%objectId%_create_clan $name` link, which authorizes
+   the next bypass in Player.validateBypass via _validBypass2 prefix).
+4. `bypass{command:"npc_<objId>_create_clan <Name>"}` ->
+   VillageMaster.onBypassFeedback -> ClanTable.createClan: level >= 10, no
+   clan, no create-penalty, alphanumeric 2..16 chars, unique name. Leader
+   gets PledgeShowMemberListAll + UserInfo + sysMsg CLAN_CREATED. New clans
+   start at level 0 in this rev.
+
+Client -> server:
+- `{"op":"clanInvite","name":".."}` -> RequestJoinPledge(0x24): `D targetId,
+  D pledgeType` (0 = main clan). **objectId-based in this rev** (unlike
+  party, which is name-based) — the bridge resolves the name through its
+  visible-players map, like tradeRequest. Needs SP_INVITE privilege (the
+  leader has it); NO distance check server-side.
+- `{"op":"clanAnswer","accept":0|1}` -> RequestAnswerJoinPledge(0x25): `D`.
+- `{"op":"clanLeave"}` -> RequestWithdrawPledge(0x26): empty. The clan
+  LEADER cannot withdraw (CLAN_LEADER_CANNOT_WITHDRAW); dissolve
+  (RequestDismissPledge) is commented out of this rev's packet handler.
+  Leaving sets a re-join penalty (DaysBeforeJoinAClan = 1 day here).
+- `{"op":"clanOust","name":".."}` -> RequestOustPledgeMember(0x27): `S name`
+  (needs SP_DISMISS; target must not be in combat; sets the same penalty
+  plus a clan-side accept-new-member penalty).
+- `{"op":"clanCrestRequest","id":N}` -> RequestPledgeCrest(0x68): `D crestId`.
+
+Server -> client:
+- `{"op":"clanInfo","id":N,"name":"..","leaderName":"..","level":N,"crestId":N?,"allyId":N?,"allyName":".."?}`
+  — clan identity, built from the PledgeShowMemberListAll(0x53) header
+  merged with PledgeShowInfoUpdate(0x88, carries crest/level/ally but NO
+  name/leader). crestId/allyId/allyName are omitted when 0. Emitted on
+  login (EnterWorld sends 0x53 BEFORE UserInfo — queued and flushed after
+  enterWorld like the other lists) and on every info change. After leaving
+  / being ousted / dissolution: `clanInfo{id:0}`.
+- `{"op":"clanMembers","members":[{"id":N,"name":"..","level":N,"classId":N,"online":bool}]}`
+  — FULL snapshot on every composition/status change (same design choice
+  as M9 party — no incremental ops), rebuilt from PledgeShowMemberListAll/
+  Add(0x55)/Update(0x54)/Delete(0x56)/DeleteAll(0x82). `id` is the ONLINE
+  objectId — **0 for offline members** (these packets never carry an
+  offline member's id). `rank` is not available (power grade lives in
+  PledgeReceivePowerInfo, not bridged).
+- `{"op":"clanAsk","from":"..","clanName":".."}` — AskJoinPledge(0x32):
+  `D requestorObjId, S pledgeName`; the id is resolved to a name via the
+  visible-players map.
+- `{"op":"clanCrest","id":N,"data":"<base64>"|null}` — PledgeCrest(0x6c):
+  `D crestId, D length, B data`. The bytes are a raw **DDS file**
+  (CrestCache stores .dds; PLEDGE crests are exactly 256 bytes per
+  enums/CrestType.java). OPTIONAL op — the web client may skip DDS
+  decoding. `data` is null when the crest has no data.
+
+Member entry layouts (verified against source):
+- All(0x53): `D subFlag, D clanId, D pledgeType, S pledgeName, S leaderName,
+  D crestId, D level, D castleId, D clanHallId, D rank, D reputation,
+  D dissolution, D 0, D allyId, S allyName, D allyCrestId, D atWar, D count`,
+  per member `S name, D level, D classId, D sex, D race, D onlineObjId,
+  D hasSponsor`. Sub-pledge lists (pledgeType != 0) are NOT bridged.
+- Update(0x54): `S name, D level, D classId, D sex, D race, D onlineObjId,
+  D pledgeType, D hasSponsor` (also broadcast when a clanmate logs in/out).
+- Add(0x55): same minus hasSponsor. Delete(0x56): `S name` (name-based —
+  the bridge keys the snapshot by name). DeleteAll(0x82): empty static.
+- PledgeInfo(0x83, only answers RequestPledgeInfo 0x66): `D clanId, S name,
+  S allyName` — merged when it matches. PledgeStatusChanged(0xcd) and
+  JoinPledge(0x33) are decoded but log-only.
+
+Quirks verified live:
+- **Appearing(0x30) is MANDATORY after any self teleport** (gatekeeper,
+  SoE, admin_teleport): aCis keeps `_isTeleporting` until the client
+  answers TeleportToLocation with Appearing (clientpackets/Appearing.java
+  -> onTeleported), and while set `denyAiAction()` rejects every
+  interact/attack with a bare ActionFailed. The bridge now sends Appearing
+  automatically on every self teleport.
+- **Request lock leak** (model/actor/container/player/Request.java):
+  onRequestResponse clears the RESPONDER's state but never the requestor's
+  (`clear()` nulls `_partner` before the null check) — the INVITER stays
+  "processing request" until the 15s REQUEST_TIMEOUT task fires. A second
+  clanInvite/tradeRequest within 15s of the first answer is dropped
+  server-side with WAITING_FOR_ANOTHER_REPLY. verify-clan waits out the
+  15s before re-inviting.
+- The clanAsk prompt expires after 15s (same Request timer).
 
 ## M13: private stores (added 2026-07-27)
 
@@ -710,7 +809,10 @@ TradeRequest 0x15, AddTradeItem 0x16, TradeDone 0x17, AnswerTradeRequest
 RequestPrivateStoreQuitSell 0x76, SetPrivateStoreMsgSell 0x77,
 RequestPrivateStoreBuy 0x79, RequestPrivateStoreManageBuy 0x90,
 SetPrivateStoreListBuy 0x91, RequestPrivateStoreQuitBuy 0x93,
-SetPrivateStoreMsgBuy 0x94, RequestPrivateStoreSell 0x96.
+SetPrivateStoreMsgBuy 0x94, RequestPrivateStoreSell 0x96,
+RequestJoinPledge 0x24, RequestAnswerJoinPledge 0x25,
+RequestWithdrawPledge 0x26, RequestOustPledgeMember 0x27,
+RequestPledgeCrest 0x68, Appearing 0x30.
 Game (S→C, decoded): VersionCheck 0x00, CharSelectInfo 0x13,
 CharSelected 0x15, CharCreateOk 0x19, CharCreateFail 0x1a, UserInfo 0x04,
 CharInfo 0x03, NpcInfo 0x16, MoveToLocation 0x01, DeleteObject 0x12,
@@ -723,7 +825,11 @@ TradeStart 0x1e, TradeOwnAdd 0x20, TradeOtherAdd 0x21, SendTradeDone 0x22,
 TradePressOwnOk 0x75, TradePressOtherOk 0x7c, PrivateStoreManageListSell
 0x9a, PrivateStoreListSell 0x9b, PrivateStoreMsgSell 0x9c,
 PrivateStoreManageListBuy 0xb7, PrivateStoreListBuy 0xb8,
-PrivateStoreMsgBuy 0xb9.
+PrivateStoreMsgBuy 0xb9, AskJoinPledge 0x32, JoinPledge 0x33,
+PledgeShowMemberListAll 0x53, PledgeShowMemberListUpdate 0x54,
+PledgeShowMemberListAdd 0x55, PledgeShowMemberListDelete 0x56,
+PledgeCrest 0x6c, PledgeShowMemberListDeleteAll 0x82, PledgeInfo 0x83,
+PledgeShowInfoUpdate 0x88, PledgeStatusChanged 0xcd.
 
 ## Files
 
