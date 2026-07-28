@@ -260,6 +260,25 @@ class Bridge {
           // (talk/bypass first) and within interaction range.
           if (this.game) this.game.multiSellChoose(msg.listId | 0, msg.entryId | 0, msg.count | 0 || 1);
           break;
+        // ---------------------------------------------- M16: warehouse
+        case 'whDepositItems':
+          // SendWarehouseDepositList(0x31): D count, per item D objectId,
+          // D count. Deposits into the ACTIVE warehouse — set server-side by
+          // the DepositP/DepositC bypass (talk to the keeper and follow the
+          // real html link first). Fee: 30 adena PER ENTRY, charged by the
+          // server. Adena is a normal entry (itemId 57, objectId from the
+          // whDeposit list) — no special adena packet in this rev.
+          if (this.game && Array.isArray(msg.items)) {
+            this.game.whDepositItems(msg.items.slice(0, 50).map((it) => ({ objectId: it.objectId | 0, count: it.count | 0 })));
+          }
+          break;
+        case 'whWithdrawItems':
+          // SendWarehouseWithdrawList(0x32): same layout, from the active
+          // warehouse (WithdrawP/WithdrawC bypass first).
+          if (this.game && Array.isArray(msg.items)) {
+            this.game.whWithdrawItems(msg.items.slice(0, 50).map((it) => ({ objectId: it.objectId | 0, count: it.count | 0 })));
+          }
+          break;
         case 'destroyItem':
           // inventory TrashButton (aCis RequestDestroyItem)
           if (this.game) this.game.destroyItem(msg.objectId | 0, msg.count | 0 || 1);
@@ -749,6 +768,17 @@ class Bridge {
         listId: m.listId,
         items: m.items.map((e) => ({ entryId: e.entryId, products: e.products, ingredients: e.ingredients })),
       });
+    });
+
+    // Warehouse lists (0x41/0x42): whDeposit = own inventory items eligible
+    // for deposit into the ACTIVE warehouse (set by the DepositP bypass);
+    // whWithdraw = the active warehouse's contents. Both carry current adena
+    // and whType (1 private, 2 clan, 3 castle, 4 freight).
+    game.on('whDepositList', (w) => {
+      this.send({ op: 'whDeposit', whType: w.whType, adena: w.adena, items: w.items });
+    });
+    game.on('whWithdrawList', (w) => {
+      this.send({ op: 'whWithdraw', whType: w.whType, adena: w.adena, items: w.items });
     });
 
     game.on('drop', (d) => {

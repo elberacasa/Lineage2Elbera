@@ -8,6 +8,7 @@ let _sysMsgMeta = null;
 let _actionMeta = null;
 let _skillWeapons = null;
 let _itemTypes = null;
+let _skillAnim = null;
 
 function loadMeta(path) {
   return fetch(path)
@@ -97,6 +98,20 @@ export function skillInfo(meta, id) {
     name: (m && m.name) || `Skill #${id}`,
     icon: (m && m.icon) ? `/gamedata/${m.icon}` : null,
   };
+}
+
+// skillanim.json (tools/dat/build_skillanim.py — skillgrp.anim code +
+// is_magic/cast_range/cast_style + skillsoundgrp sounds, one entry per
+// skill id plus per-level overrides where they differ). Degrades to null
+// while absent; callers keep their generic fallbacks.
+export function skillAnimMeta() {
+  if (!_skillAnim) _skillAnim = loadMeta('/gamedata/skillanim.json');
+  return _skillAnim;
+}
+
+export function skillAnimInfo(meta, id, level = 1) {
+  if (!meta) return null;
+  return meta[`${id}_${level}`] || meta[String(id)] || null;
 }
 
 export function itemInfo(meta, id) {

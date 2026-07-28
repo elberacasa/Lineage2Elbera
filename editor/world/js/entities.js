@@ -9,6 +9,18 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Character } from './character.js';
 import { l2ToThree, l2HeadingToThreeYaw, L2_TO_M } from './coords.js';
 import { makeLabel } from './labels.js';
+import { skillAnimMeta, skillAnimInfo } from './gamedata.js';
+import { clipForSkill, lastSkillMsg } from './skillfx_anim.js';
+import { activeSkillFx } from './skills.js';
+
+const _headPos = new THREE.Vector3();
+
+// the skillCast/skillLaunch message currently being handled (NetClient logs
+// before emitting, so it is the tail of the net ring during the handler)
+function skillMsgFor(casterId) {
+  const w = typeof window !== 'undefined' && window.__world;
+  return w ? lastSkillMsg(w.net.log, { casterId }) : null;
+}
 
 const FALLBACK_MODEL = 'human_fighter_m';
 const NPC_SPEED = 1.6;          // m/s, matches Character.WALK_SPEED
@@ -390,11 +402,47 @@ export class EntityManager {
   }
 
   skillFlash(id) {
+    const msg = skillMsgFor(id);
     const e = this.entities.get(id);
     if (e && !e.dead) {
-      if (e.kind === 'npc') e.skillFlash();
-      else { e.play('attack', 0.1); setTimeout(() => !e.dead && e.play('idle'), 700); }
+      if (e.kind === 'npc') { e.skillFlash(); return; }
+      this._playerCastGesture(e, msg);
+      return;
     }
+    // the local player is NOT in the EntityManager (main.js keeps it as a
+    // separate Character) — self casts gesture on that model too
+    const w = typeof window !== 'undefined' && window.__world;
+    if (w && w.net.selfId === id && w.character) {
+      this._playerCastGesture(w.character, msg);
+      // main.js's skillLaunch flash resolves the TARGET through the
+      // EntityManager only, so SELF-target launches (Self Heal & co.)
+      // produce no effect there — spawn it here instead
+      if (msg && msg.op === 'skillLaunch' && msg.targetId === id) {
+        const fx = activeSkillFx();
+        if (fx) {
+          _headPos.copy(w.character.group.position);
+          _headPos.y += (w.character.heightM || 1.75) * 1.1;
+          fx.flash(_headPos);
+        }
+      }
+    }
+  }
+
+  // Per-skill cast gesture from skillanim.json (skillgrp animation code ->
+  // shipped clip, js/skillfx_anim.js): dances play 'dance' (exact), every
+  // other castable plays 'attack' — the retail SpAtk*/Cast*/MagicThrow
+  // clips are not shipped (see skillfx_anim.js header). Without skill
+  // context the legacy generic swing remains.
+  _playerCastGesture(ch, msg) {
+    if (!msg) {
+      ch.play('attack', 0.1);
+      setTimeout(() => !ch.dead && ch.play('idle'), 700);
+      return;
+    }
+    skillAnimMeta().then(meta => {
+      const entry = skillAnimInfo(meta, msg.skillId, msg.level || 1);
+      ch.oneShot(clipForSkill(entry) || 'attack');
+    });
   }
 
   // Social emote broadcast (SocialAction packet): players dance — every

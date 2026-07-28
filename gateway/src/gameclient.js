@@ -270,6 +270,51 @@ class GameSession extends EventEmitter {
     );
   }
 
+  // SendWarehouseDepositList (0x31): D count, per item D objectId, D count.
+  // Deposits into the ACTIVE warehouse (set server-side by the DepositP/
+  // DepositC bypass — talk to the keeper and follow the html link first).
+  // The server charges a 30 adena fee PER ENTRY. Adena is a normal entry
+  // (itemId 57) — there is no special adena packet in this rev.
+  whDepositItems(items) {
+    const w = new PacketWriter().writeC(0x31).writeD(items.length);
+    for (const it of items) w.writeD(it.objectId | 0).writeD(it.count | 0);
+    this._send(w.build());
+  }
+
+  // SendWarehouseWithdrawList (0x32): same layout; withdraws from the active
+  // warehouse (set by the WithdrawP/WithdrawC bypass).
+  whWithdrawItems(items) {
+    const w = new PacketWriter().writeC(0x32).writeD(items.length);
+    for (const it of items) w.writeD(it.objectId | 0).writeD(it.count | 0);
+    this._send(w.build());
+  }
+
+  // WarehouseDepositList(0x41)/WarehouseWithdrawList(0x42): H whType,
+  // D playerAdena, H count, per item: H type1, D objectId, D itemId, D count,
+  // H type2, H custom1, D bodyPart, H enchant, H custom2, H 0, D objectId(dup),
+  // Q augmentation. whType: 1 private, 2 clan, 3 castle, 4 freight
+  // (serverpackets/WarehouseDepositList.java).
+  _parseWhList(r, event) {
+    const whType = r.readH();
+    const adena = r.readD();
+    const count = r.readH();
+    const items = [];
+    for (let i = 0; i < count; i++) {
+      r.readH(); // type1
+      const objectId = r.readD();
+      const itemId = r.readD();
+      const cnt = r.readD();
+      r.readH(); r.readH(); // type2, custom1
+      r.readD(); // bodyPart
+      const enchant = r.readH();
+      r.readH(); r.readH(); // custom2, 0
+      r.readD(); // objectId dup
+      r.readQ(); // augmentation
+      items.push({ objectId, itemId, count: cnt, enchant });
+    }
+    this.emit(event, { whType, adena, items });
+  }
+
   // RequestJoinParty (0x29): S targetName, D lootRule
   // (0 ITEM_LOOTER, 1 ITEM_RANDOM, 2 ITEM_RANDOM_SPOIL, 3 ITEM_ORDER,
   // 4 ITEM_ORDER_SPOIL — enums/LootRule.java).
@@ -627,6 +672,12 @@ class GameSession extends EventEmitter {
         this.emit('sellList', { money, items });
         break;
       }
+      case 0x41: // WarehouseDepositList (own inventory, deposit-eligible)
+        this._parseWhList(r, 'whDepositList');
+        break;
+      case 0x42: // WarehouseWithdrawList (active warehouse contents)
+        this._parseWhList(r, 'whWithdrawList');
+        break;
       case 0xd0: { // MultiSellList: D listId, D page, D finished, D pageSize,
         // D count, per entry: D entryId, D 0, D 0, C stackable, H products,
         // H ingredients; per product: H itemId, D bodyPart, H type2, D count,

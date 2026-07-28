@@ -181,6 +181,8 @@ targetId?}` · `useItem{objectId}` · `talk{id}` · `bypass{command}` ·
 `partyAnswer{accept}` · `partyLeave{}` · `partyKick{name}` ·
 `buy{items[{itemId,count}]}` · `sell{items[{objectId,count}]}` ·
 `multisellChoose{listId,entryId,count}` ·
+`whDepositItems{items[{objectId,count}]}` ·
+`whWithdrawItems{items[{objectId,count}]}` ·
 `tradeRequest{name}` · `tradeAnswer{accept}` · `tradeAdd{objectId,count}` ·
 `tradeDone{}` · `tradeCancel{}` · `storeManageSell{}` · `storeManageBuy{}` ·
 `storeTitle{title}` · `storeSetSell{items[{objectId,count,price}],title?,
@@ -239,7 +241,9 @@ enchant,count,price,slot,storePrice}],buyables[...]}` ·
 `clanInfo{id,name,leaderName,level,crestId?,allyId?,allyName?}` (id 0 = no
 clan) · `clanMembers{members[{id,name,level,classId,online}]}` (id = online
 objectId, 0 when offline) · `clanAsk{from,clanName}` ·
-`clanCrest{id,data}` (base64 DDS or null; optional).
+`clanCrest{id,data}` (base64 DDS or null; optional) ·
+`whDeposit{whType,adena,items[{objectId,itemId,count,enchant}]}` ·
+`whWithdraw{whType,adena,items[{objectId,itemId,count,enchant}]}`.
 
 Shops (added 2026-07-27): merchant dialog (`npc_<id>_Buy <listId>` /
 `npc_<id>_Sell` bypasses, validated against the last html — talk first) →
@@ -253,6 +257,30 @@ TI castle tax 0% observed; sell-back = referencePrice/2. Multisell
 0xa7) is bridged (2026-07-28, see gateway README M15). Newbie_ lists
 require char level 6..25 (Player.isNewbie) and are inventory-filtered:
 only entries whose ingredient you already own are listed.
+
+Warehouse (added 2026-07-28, M16): keeper dialog (`npc_<id>_DepositP` /
+`npc_<id>_WithdrawP` private, `npc_<id>_DepositC` / `npc_<id>_WithdrawC`
+clan bypasses — talk first, the bypass sets the ACTIVE warehouse) →
+`whDeposit` / `whWithdraw` (WarehouseDepositList 0x41 / WarehouseWithdraw
+List 0x42, identical layout: `H whType, D playerAdena, H count`, per item
+`H type1, D objectId, D itemId, D count, H type2, H custom1, D bodyPart,
+H enchant, H custom2, H 0, D objectId(dup), Q augmentation`; whType 1
+private / 2 clan / 3 castle / 4 freight; adena = the PLAYER's current
+adena) → `whDepositItems` (SendWarehouseDepositList 0x31) /
+`whWithdrawItems` (SendWarehouseWithdrawList 0x32), both `D count` + per
+item `D objectId, D count` (aCis names them SendWarehouse*, not
+RequestWareHouse*). ADENA IS A NORMAL ENTRY (itemId 57) — no special
+packet; deposit fee = 30 adena PER ENTRY charged server-side (item + adena
+= 60a), and the fee is computed AFTER subtracting the deposited adena.
+DepositP temp-disables the inventory for 1.5s (Player.tempInventoryDisable)
+— wait ~2s or the deposit is silently dropped. WithdrawP on an empty
+warehouse sends only sysMsg NO_ITEM_DEPOSITED_IN_WH (no 0x42). Both
+directions answer with invUpdate, not ItemList. objectIds are NOT preserved
+for stackables (the deposited adena re-appeared under a new objectId — take
+ids from the list you answer). Verified live
+(verify-warehouse.js, Wilford 30005 TI): seeded 5000a → deposit 5588 x1 +
+500a → adena 4440 → whWithdraw shows both → withdraw back → adena 4940
+(fee not refunded) → fresh DepositP list confirms exact restore.
 
 Quests (added 2026-07-26): `questList` = QuestList(0x80, `H count` + per
 quest `D questId, D flags`), queued after enterWorld like the other lists

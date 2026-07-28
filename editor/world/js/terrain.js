@@ -23,6 +23,9 @@ import { Geodata } from './geodata.js';
 
 const UE_ROT_TO_RAD = (Math.PI * 2) / 65536;
 const PROP_CLUSTER_SIZE = 48;  // meters, instanced-prop cluster grid cell
+// walking rule for the geodata layer pick: a walker gains at most this much
+// height in one step — taller layers are walls, not floors (L2 units; 2m)
+const MAX_STEP_UP_L2 = 200;
 
 // water planes (scene.json "water", tools/world/README.md): one repeat per
 // 128 L2 units (the terrain diffuse rule), alpha-blended, uv-scrolled by
@@ -68,13 +71,26 @@ export class Terrain {
   // walkable floor and spawn come from the densest prop cluster: spawn =
   // densest 20 m bin center, floor = bin median z (floor-slab level).
   _detectInterior() {
+    // Interior tiles are dungeons UNDER a flat dummy plane (19_16, 21_25,
+    // 25_21 — the converter flags exactly those, tools/world/convert.py
+    // INTERIOR_TILES). Detection must NOT trip on tiles that merely CONTAIN
+    // underground content: 24_21 carries the Antharas cave props ~900 L2u
+    // below a real mountainous surface and was misclassified, which deleted
+    // the terrain mesh ("no floor"). The converter's own evidence rule:
+    // flat relief AND >=95% of props >=500u below the plane.
     const props = (this.def.props || []).filter(p => p.gltf && p.position);
     if (props.length < 20) return false;
-    let minH = Infinity;
-    for (let i = 0; i < this.heights.length; i++) minH = Math.min(minH, this.heights[i]);
-    const terrainMinZ = this.origin[2] + (minH - 32768) * this.heightScale;
-    const zs = props.map(p => p.position[2]).sort((a, b) => a - b);
-    if (zs[Math.floor(zs.length * 0.06)] >= terrainMinZ - 500) return false;
+    let minH = Infinity, maxH = -Infinity;
+    for (let i = 0; i < this.heights.length; i++) {
+      if (this.heights[i] < minH) minH = this.heights[i];
+      if (this.heights[i] > maxH) maxH = this.heights[i];
+    }
+    const relief = (maxH - minH) * this.heightScale;
+    if (relief > 5) return false;                 // real terrain: never interior
+    const plane = this.origin[2] + (minH - 32768) * this.heightScale;
+    let below = 0;
+    for (const p of props) if (p.position[2] < plane - 500) below++;
+    if (below / props.length < 0.95) return false;
 
     // spawn = local prop-density peak (the built-up room, not the void
     // between dungeon modules); floor = that prop's z — the walk level
@@ -160,9 +176,14 @@ export class Terrain {
       return this.floorY;
     }
     if (this.geodata) {
+      // MAX_STEP_UP: a walker can only gain this much in one cell — layers
+      // above that are walls (roofs/decks), not floors. 2m matches the
+      // steepest retail stairs without letting a ground walker snap onto
+      // rooftops beside tall buildings.
       const h = this.geodata.heightAt(
         x / L2_TO_M, -z / L2_TO_M,
-        currentZ == null ? null : currentZ / L2_TO_M);
+        currentZ == null ? null : currentZ / L2_TO_M,
+        currentZ == null ? null : MAX_STEP_UP_L2);
       if (h != null) return h * L2_TO_M;
     }
     const s = L2_TO_M;

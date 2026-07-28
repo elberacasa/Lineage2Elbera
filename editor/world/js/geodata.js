@@ -115,11 +115,28 @@ export class Geodata {
   }
 
   /** Ground height (L2 world units) at (x, y, z): the layer height NEAREST
-   *  to z. Without z, the LOWEST layer (a deliberate, safe default). */
-  heightAt(x, y, z = null) {
+   *  to z. Without z, the LOWEST layer (a deliberate, safe default).
+   *
+   *  maxUp (L2 units, optional): walking rule — a walker may only GAIN
+   *  maxUp in one step; layers above z + maxUp are walls, not floors.
+   *  Among the remaining candidates the HIGHEST is the floor. When NO
+   *  layer is within reach (walking into a wall/cliff face) the walker is
+   *  blocked: the result is z itself, so height never snaps up mid-walk.
+   *  Descents are unbounded (falling is legitimate). Without maxUp the
+   *  historical nearest-layer semantics apply (spawn/teleport lookups). */
+  heightAt(x, y, z = null, maxUp = null) {
     const layers = this._layersAt(x, y);
     if (!layers || !layers.length) return null;
     if (z == null) return layers.reduce((m, l) => Math.min(m, l.height), Infinity);
+    if (maxUp != null) {
+      let floor = null;
+      for (const l of layers) {
+        if (l.height <= z + maxUp && (floor == null || l.height > floor)) {
+          floor = l.height;
+        }
+      }
+      return floor == null ? z : floor;
+    }
     if (layers.length === 1) return layers[0].height;
     let best = layers[0].height, bestD = Math.abs(layers[0].height - z);
     for (let i = 1; i < layers.length; i++) {

@@ -32,6 +32,7 @@ node test/verify-m4.js [deviceId]    # skills+items: skillList/itemList, self-ca
 node test/verify-m5.js [suffix]      # chat channels (TELL target, SHOUT), charSheet, .menu passthrough
 node test/verify-shop.js [suffix]     # merchant flow: buy list, buy (itemList refresh), sell back
 node test/verify-multisell.js [suffix] # multisell: Newbie_Exc_Multisell 003 list, choose, exact deduction
+node test/verify-warehouse.js [suffix] # warehouse: Wilford TI, deposit item+adena (fee), withdraw back, exact
 node test/verify-trade.js [suffix]    # player trade: ask/refuse, accept+cancel, two-phase confirm + item move
 node test/verify-store.js [suffix]    # private store: manage/set/title, observer playerStore, buy, stop, .offline
 node test/verify-clan.js [suffix]     # clan: real creation dialog chain, invite/accept, leave, oust, crest
@@ -76,6 +77,63 @@ SystemMessage(0x64) is shallow-decoded into the contract op
 2 NPC_NAME, 3 ITEM_NAME, 4 SKILL_NAME, 5 CASTLE_NAME, 6 ITEM_NUMBER,
 7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
 "You have earned 145 exp and 10 SP".
+
+## M16: warehouse protocol (added 2026-07-28)
+
+Flow (verified live, test/verify-warehouse.js, Warehouse Keeper Wilford
+30005, TI town): talk -> keeper html with `bypass -h npc_<id>_DepositP` /
+`npc_<id>_WithdrawP` (private) and `npc_<id>_DepositC` / `npc_<id>_WithdrawC`
+(clan) links -> follow the REAL DepositP link -> `whDeposit` (own inventory,
+deposit-eligible) -> `whDepositItems` -> `invUpdate` -> follow WithdrawP ->
+`whWithdraw` (warehouse contents) -> `whWithdrawItems` -> `invUpdate`. The
+bypass sets the ACTIVE warehouse server-side (Player.setActiveWarehouse) —
+talk + bypass first, the keeper must stay the current folk within
+interaction range.
+
+Server -> client:
+- `{"op":"whDeposit","whType":N,"adena":N,"items":[{"objectId":N,"itemId":N,"count":N,"enchant":N}]}`
+  — WarehouseDepositList(0x41): `H whType, D playerAdena, H count`, per item
+  `H type1, D objectId, D itemId, D count, H type2, H custom1, D bodyPart,
+  H enchant, H custom2, H 0, D objectId(dup), Q augmentation`. Own-inventory
+  items eligible to deposit (getAvailableItems + isDepositable: equipped and
+  no-deposit items excluded).
+- `{"op":"whWithdraw",...}` — WarehouseWithdrawList(0x42): IDENTICAL layout;
+  items are the ACTIVE warehouse's contents. whType: 1 private, 2 clan,
+  3 castle, 4 freight. Both carry the PLAYER's current adena.
+- WithdrawP on an EMPTY warehouse sends no 0x42 — just sysMsg
+  NO_ITEM_DEPOSITED_IN_WH.
+
+Client -> server:
+- `{"op":"whDepositItems","items":[{"objectId":N,"count":N}]}` ->
+  SendWarehouseDepositList(0x31): `D count`, per item `D objectId, D count`.
+  aCis names the client packets SendWarehouseDepositList/SendWarehouse
+  WithdrawList (not RequestWareHouse*). FEE: 30 adena PER ENTRY, charged by
+  the server (depositing an item + adena = 2 entries = 60a). DepositP
+  temp-disables the inventory for 1.5s (Player.tempInventoryDisable) — a
+  deposit sent in that window is silently dropped; wait ~2s after the
+  bypass.
+- `{"op":"whWithdrawItems","items":[{"objectId":N,"count":N}]}` ->
+  SendWarehouseWithdrawList(0x32): same layout, objectIds from the
+  `whWithdraw` list.
+- ADENA IS A NORMAL ITEM (itemId 57): deposit/withdraw adena by including
+  its entry (objectId from the whDeposit/whWithdraw list, itemId 57) in the
+  same packet — there is NO special adena packet in this rev. The fee is
+  charged from what remains after the adena deposit (SendWarehouseDeposit
+  List: currentAdena -= deposited adena, then currentAdena < fee -> fail).
+- Both directions answer with `invUpdate` (item remove/modify + adena
+  modify), not ItemList.
+- objectIds are NOT preserved across the transfer for stackable items: the
+  deposited 500 adena re-appeared in the whWithdraw list under a NEW
+  objectId (split stack); the non-stackable item kept its own. Always take
+  objectIds from the list you are answering.
+
+Live-verified numbers (test/verify-warehouse.js): char seeded offline to
+5000 adena -> whDeposit{whType 1, adena 5000, 3 items} -> deposit Tutorial
+Guide (5588) x1 + 500 adena -> invUpdate `{modify 57->4440, remove 5588}`
+(5000-500-60 fee) -> whWithdraw{whType 1, adena 4440}: 5588 x1 (same
+objectId) + adena x500 (NEW objectId) -> withdraw both back -> invUpdate
+`{add 5588, modify 57->4940}` (the 60a fee is NOT refunded) -> fresh
+DepositP list confirms adena 4940 and 5588 count 1 restored.
 
 ## M15: multisell / newbie equipment exchange (added 2026-07-28)
 

@@ -1,0 +1,6383 @@
+{
+ "100": {
+  "desc": "스턴 어택",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.at_stun_attack_ca"
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_stun_attack_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    },
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.at_shield_stun_cs"
+    }
+   ]
+  }
+ },
+ "1007": {
+  "desc": "매스 프렌지",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_ca",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_cs"
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1010": {
+  "desc": "소울 실드",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_ca",
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_devotion_of_shine_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1011": {
+  "desc": "힐",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "1012": {
+  "desc": "큐어 포이즌",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_cure_poison_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1012_sec": {
+  "desc": "큐어 포이즌sec",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_sec_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_cure_poison_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1013": {
+  "desc": "리차지",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_sec_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_recharge_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1016": {
+  "desc": "리저렉션",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_resurrection_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1018": {
+  "desc": "퓨리파이",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_sec_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_cure_poison_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "102": {
+  "desc": "인탱글",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_decay_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_zero_g_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1028": {
+  "desc": "마이트 오브 헤븐",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_sec_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_disrupt_undead_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1031": {
+  "desc": "디스럽트 언데드",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_sec_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_disrupt_undead_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1031_sec": {
+  "desc": "디스럽트 언데드sec",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_sec_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_disrupt_undead_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1035": {
+  "desc": "멘탈 실드",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_mental_shield_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1036": {
+  "desc": "매직 배리어",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_magic_barrier_ta",
+     "offset": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "onTarget": true,
+     "useCharRotation": true
+    }
+   ]
+  }
+ },
+ "1040": {
+  "desc": "실드",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_shield_ta",
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "1043": {
+  "desc": "홀리 웨폰",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_holy_weapon_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1044": {
+  "desc": "리제네레이션",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_regeneration_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1045": {
+  "desc": "블레스 더 바디",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_bless_the_body_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1048": {
+  "desc": "블레스 더 소울",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_bless_the_soul_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1049": {
+  "desc": "퓨리피케이션",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_third_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_third_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "105": {
+  "desc": "프리징 스트라이크",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_ice_bolt_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1056": {
+  "desc": "캔슬",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_detection_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1058": {
+  "desc": "디텍션",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_detection_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1059": {
+  "desc": "엠파워",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ta",
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "1062": {
+  "desc": "버저커 스피릿",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ta",
+     "offset": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true,
+     "useCharRotation": true
+    }
+   ]
+  }
+ },
+ "1068": {
+  "desc": "마이트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_might_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1069": {
+  "desc": "슬리프",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_sleep_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1077": {
+  "desc": "포커스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_focus_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1078": {
+  "desc": "콘센트레이션",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "absolute": true,
+     "attachOn": 4,
+     "bone": "e_bone",
+     "effect": "LineageEffect.su_concentration_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1085": {
+  "desc": "아큐멘",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_acumen_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1086": {
+  "desc": "헤이스트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_haste_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1087": {
+  "desc": "어질리티",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_agility_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_agility_ta",
+     "onTarget": true,
+     "useCharRotation": true
+    }
+   ]
+  }
+ },
+ "110": {
+  "desc": "얼터미트 디펜스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_ultimate_defence_cs"
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_ultimate_defence_ca",
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_ultimate_defence_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1111": {
+  "desc": "서먼 캣더캣",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_summon_a_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "1157": {
+  "desc": "바디 투 마인드",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_body_to_mind_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_body_to_mind_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1159": {
+  "desc": "커스 데스 링크",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_flame_strike_fl",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ },
+ "116": {
+  "desc": "하울",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_howl_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.ph_howl_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1167": {
+  "desc": "포인즌 클라우드",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.bl_poison_cloud_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_curse_poison_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1168": {
+  "desc": "커스 포이즌",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_curse_poison_ta",
+     "onMultiTarget": true,
+     "onTarget": true,
+     "relativeToCylinder": false
+    }
+   ]
+  }
+ },
+ "1171": {
+  "desc": "블레이징 서클",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_flame_strike_ra",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    },
+    {
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1172": {
+  "desc": "오라 번",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_aura_burn_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_aura_burn_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1175": {
+  "desc": "아쿠아 스월",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_aqua_swirl_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_aqua_swirl_pr",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "explosion": [
+    {
+     "effect": "LineageEffect.el_aqua_swirl_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_aqua_swirl_fl"
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_aqua_swirl_pt",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ },
+ "1177": {
+  "desc": "윈드 스트라이크",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_wind_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_wind_strike_pr",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "useCharRotation": true
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_wind_strike_ta",
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_wind_strike_fl",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ },
+ "1178": {
+  "desc": "트위스터",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_twister_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_twister_pr",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_twister_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_twister_fl",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ },
+ "1181": {
+  "desc": "플레임 스트라이크",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_pr",
+     "offset": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    },
+    {
+     "effect": "LineageEffect.el_flame_strike_ra",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_flame_strike_fl",
+     "offset": [
+      0.0,
+      0.0,
+      1.0
+     ]
+    }
+   ]
+  }
+ },
+ "1184": {
+  "desc": "아이스 볼트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_ice_bolt_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_ice_bolt_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1201": {
+  "desc": "드라이어드 루트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_agility_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_dryad_root_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1206": {
+  "desc": "윈드 셰클",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.m_u009_a",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.m_u009_c",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "121": {
+  "desc": "배틀 로어",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_battle_roar_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_battle_roar_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1217": {
+  "desc": "그레이터 힐",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_sec_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_greater_heal_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1217_sec": {
+  "desc": "그레이터 힐sec",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_sec_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_greater_heal_ta",
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "1218": {
+  "desc": "그레이터 배틀 힐",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_sec_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_greater_heal_ta",
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "1220": {
+  "desc": "블레이즈",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_pr",
+     "offset": [
+      0.0,
+      0.0,
+      1.0
+     ]
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_flame_strike_fl",
+     "offset": [
+      0.0,
+      0.0,
+      1.0
+     ]
+    }
+   ]
+  }
+ },
+ "1230": {
+  "desc": "프로미넌스",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_prominence_ca",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_prominence_ta",
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_prominence_fl"
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_prominence_cs",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ },
+ "1231": {
+  "desc": "오라 플래어",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_aura_burn_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_aura_flare_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1233": {
+  "desc": "디케이",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_decay_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_decay_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1235": {
+  "desc": "하이드로 블래스트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_hydro_blast_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -0.699999988079071
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_hydro_blast_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1237": {
+  "desc": "아이스 대거",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_ice_dagger_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -0.800000011920929
+     ],
+     "sizeScale": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_ice_dagger_pr",
+     "offset": [
+      2.0,
+      0.0,
+      0.0
+     ],
+     "useCharRotation": true
+    }
+   ],
+   "explosion": [
+    {
+     "effect": "LineageEffect.el_ice_dagger_ta",
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_ice_dagger_fl"
+    }
+   ]
+  }
+ },
+ "1239": {
+  "desc": "허리케인",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_twister_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_hurricane_pr",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_hurricane_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_hurricane_fl",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ },
+ "1240": {
+  "desc": "가이던스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_guidance_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1242": {
+  "desc": "데스 위스퍼",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_death_whisper_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1264": {
+  "desc": "솔라 스파크",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_aura_burn_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.pm_lightening_strike_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1286": {
+  "desc": "시드 오브 워터",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_aqua_swirl_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_recharge_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1288": {
+  "desc": "오라 심포니",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_aura_burn_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_aura_flare_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_aura_flare_ta",
+     "onMultiTarget": true,
+     "onTarget": true,
+     "spawnDelay": 0.20000000298023224
+    }
+   ]
+  }
+ },
+ "1296": {
+  "desc": "이럽션",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_eruption_cs",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    },
+    {
+     "effect": "LineageEffect.el_eruption_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    },
+    {
+     "effect": "LineageEffect.el_eruption_ra",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1335": {
+  "desc": "밸런스 라이프",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_balance_life_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1356": {
+  "desc": "프로피시 오브 파이어",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_prophecy_of_fire_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_prophecy_of_fire_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1391": {
+  "desc": "챈트 오브 어스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_ca",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_cs"
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_a_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1414": {
+  "desc": "빅토리 오브 피아그리오",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_ca",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_cs",
+     "onMultiTarget": true,
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "1419": {
+  "desc": "볼케이노",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u807_mage_ca"
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u807_ta",
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.s_u807_fl",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ },
+ "1425": {
+  "desc": "퓨리피케이션필드",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u807_mage_ca"
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u807_ta",
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_bless_the_body_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "190": {
+  "desc": "페이탈 스트라이크",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    },
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.at_fatal_strike_cs",
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "2003": {
+  "desc": "박 소환",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_summon_a_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "2008": {
+  "desc": "소환수마정탄",
+  "phases": {
+   "casting": [
+    {
+     "absolute": true,
+     "attachOn": 4,
+     "bone": "soulshot1",
+     "effect": "LineageEffect.it_spirit_shot_d_ca",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "2011": {
+  "desc": "이동속도향상물약",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.it_quick_step_potion_ta",
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "2013": {
+  "desc": "귀환 주문서",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.it_scroll_of_escape_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.it_scroll_of_escape_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "2031": {
+  "desc": "체력회복제",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.it_healing_potion_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "2033": {
+  "desc": "소환수정령탄",
+  "phases": {
+   "casting": [
+    {
+     "absolute": true,
+     "attachOn": 4,
+     "bone": "soulshot1",
+     "effect": "LineageEffect.it_soul_shot_d_ca",
+     "onTarget": true
+    },
+    {
+     "absolute": true,
+     "attachOn": 4,
+     "bone": "soulshot2",
+     "effect": "LineageEffect.it_soul_shot_d_ca",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "2042": {
+  "desc": "해독제",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.it_antidote_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "2165": {
+  "desc": "에너지 스톤",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_focus_sonic_ta",
+     "offset": [
+      0.0,
+      0.0,
+      0.20000000298023224
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "2166": {
+  "desc": "투지 게이지 물약",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_war_cry_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "2167": {
+  "desc": "SP 주문서",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_haste_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "2168": {
+  "desc": "행운의 부적",
+  "phases": {
+   "casting": [
+    {
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_might_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "2177": {
+  "desc": "축복받은 아지트 귀환 주문서",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.it_scroll_of_escape_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "223": {
+  "desc": "스팅",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.at_sting_ca"
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_sting_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    },
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.at_sting_cs"
+    }
+   ]
+  }
+ },
+ "2291": {
+  "desc": "성형염색헤어체인지 물약",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u004_a",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "254": {
+  "desc": "스포일",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.dw_spoil_ca",
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "absolute": true,
+     "attachOn": 4,
+     "bone": "e_bone",
+     "effect": "LineageEffect.dw_spoil_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "260": {
+  "desc": "햄머 크러시",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    },
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.at_stun_attack_ca"
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_stun_attack_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    },
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.at_shield_stun_cs",
+     "onMultiTarget": true
+    }
+   ]
+  }
+ },
+ "263": {
+  "desc": "데들리 블로우",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.at_mortal_blow_ca"
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_mortal_blow_cs",
+     "offset": [
+      0.20000000298023224,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "264": {
+  "desc": "송 오브 어스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_song_of_earth_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "265": {
+  "desc": "송 오브 라이프",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_song_of_life_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "267": {
+  "desc": "송 오브 와딩",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_song_of_warding_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "268": {
+  "desc": "송 오브 윈드",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_song_of_wind_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "269": {
+  "desc": "송 오브 헌터",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_song_of_hunter_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "270": {
+  "desc": "송 오브 인보케이션",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_song_of_invocation_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "271": {
+  "desc": "댄스 오브 워리어",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_dance_of_warrior_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "272": {
+  "desc": "댄스 오브 인스퍼레이션",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_dance_of_inspiration_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "273": {
+  "desc": "댄스 오브 미스틱",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_dance_of_mystic_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "274": {
+  "desc": "댄스 오브 파이어",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_dance_of_fire_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "275": {
+  "desc": "댄스 오브 퓨리",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_dance_of_fury_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "276": {
+  "desc": "댄스 오브 콘센트레이션",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_dance_of_concentration_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "277": {
+  "desc": "댄스 오브 라이트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_dance_of_light_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "279": {
+  "desc": "라이트닝 스트라이크",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.pm_lightening_strike_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "28": {
+  "desc": "헤이트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_hate_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "absolute": true,
+     "attachOn": 4,
+     "bone": "e_bone",
+     "effect": "LineageEffect.ph_hate_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "323": {
+  "desc": "퀴버 오브 애로우스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_summon_a_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ]
+  }
+ },
+ "325": {
+  "desc": "스트라이더 시즈 어썰트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "327": {
+  "desc": "와이번 이지스",
+  "phases": {
+   "casting": [
+    {
+     "absolute": true,
+     "attachOn": 4,
+     "bone": "soulshot1",
+     "effect": "LineageEffect.su_empower_ta"
+    }
+   ]
+  }
+ },
+ "342": {
+  "desc": "터치 오브 데스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_shock_blast_ta"
+    }
+   ]
+  }
+ },
+ "344": {
+  "desc": "리썰 블로우",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    },
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.at_fatal_strike_cs"
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_mortal_blow_cs",
+     "offset": [
+      2.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "345": {
+  "desc": "소닉 레이지",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_sonic_rage_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_sonic_rage_fl",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ },
+ "346": {
+  "desc": "포스 레이지",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.oa_force_rage_ca",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.oa_force_rage_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.oa_force_rage_fl",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_battle_roar_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ]
+  }
+ },
+ "348": {
+  "desc": "스포일 크러쉬",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    },
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.at_fatal_strike_cs"
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.dw_spoil_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "353": {
+  "desc": "실드 슬램",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 2,
+     "effect": "LineageEffect.at_shield_slam_ca"
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 2,
+     "effect": "LineageEffect.at_shield_stun_cs"
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_shield_slam_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "358": {
+  "desc": "블러프",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_bluff_ca",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_bluff_cs",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_bluff_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "361": {
+  "desc": "쇼크 블라스트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_shock_blast_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_shock_blast_ra",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_shock_blast_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "3626": {
+  "desc": "포획",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u805_ca_third",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "channeling": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u805_channeling_beam",
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u805_channeling_mesh",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "useCharRotation": true
+    }
+   ]
+  }
+ },
+ "363": {
+  "desc": "송 오브 메디테이션",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_song_of_meditation_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "spawnDelay": 1.0
+    }
+   ]
+  }
+ },
+ "3630": {
+  "desc": "저주검슬래셔",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_shock_blast_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_shock_blast_ra",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "3632": {
+  "desc": "클렌 게이트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_summon_a_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ]
+  }
+ },
+ "367": {
+  "desc": "댄스 오브 메두사",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_dance_of_medusa_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "spawnDelay": 1.0
+    }
+   ]
+  }
+ },
+ "368": {
+  "desc": "벤젼스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_vengence_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_vengence_ra",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    },
+    {
+     "attachOn": 3,
+     "bone": "e_bone",
+     "effect": "LineageEffect.ph_hate_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "395": {
+  "desc": "히로익 미라클",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "396": {
+  "desc": "히로익 버저커",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_dash_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ta",
+     "offset": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "onTarget": true,
+     "useCharRotation": true
+    }
+   ]
+  }
+ },
+ "4": {
+  "desc": "대시",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_dash_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_dash_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "401": {
+  "desc": "저지먼트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.at_sting_ca"
+    },
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.at_sting_cs"
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_sting_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4032": {
+  "desc": "npc 스트라이크",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.py_npc_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4101": {
+  "desc": "npc 스피닝 슬래셔",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    },
+    {
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true,
+     "spawnDelay": 0.10000000149011612
+    }
+   ]
+  }
+ },
+ "4143": {
+  "desc": "보물상자 폭발",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "spawnDelay": 0.10000000149011612
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ra",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true,
+     "spawnDelay": 0.20000000298023224
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4168": {
+  "desc": "파워 스트라이크",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4172": {
+  "desc": "쇼크",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u804_a_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.s_u804_a_ta",
+     "offset": [
+      -2.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4204": {
+  "desc": "출혈",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_ice_dagger_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.5
+     ],
+     "sizeScale": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_ice_dagger_pr",
+     "offset": [
+      2.0,
+      0.0,
+      0.0
+     ]
+    }
+   ],
+   "explosion": [
+    {
+     "effect": "LineageEffect.el_ice_dagger_ta",
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_ice_dagger_fl"
+    }
+   ]
+  }
+ },
+ "4210": {
+  "desc": "BOSS Chant of Life",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_ca",
+     "offset": [
+      2.0,
+      0.0,
+      0.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_cs",
+     "offset": [
+      2.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4236": {
+  "desc": "힐 감소",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_twister_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_hurricane_pr",
+     "offset": [
+      1.0,
+      0.0,
+      -0.5
+     ]
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_hurricane_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_hurricane_fl",
+     "offset": [
+      0.0,
+      0.0,
+      -0.5
+     ]
+    }
+   ]
+  }
+ },
+ "426": {
+  "desc": "배틀 스탠스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u806_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -0.8500000238418579
+     ]
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u806_cs",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "channeling": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u806_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "427": {
+  "desc": "스펠 스탠스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u806_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -0.8500000238418579
+     ]
+    }
+   ],
+   "channeling": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u806_channeling_beam",
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u806_channeling_mesh",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "useCharRotation": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u806_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4289": {
+  "desc": "와이번 브레스",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "explosion": [
+    {
+     "effect": "LineageEffect.el_flame_strike_ra",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    },
+    {
+     "effect": "LineageEffect.mu_wyvern_breath_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.mu_wyvern_breath_fl",
+     "offset": [
+      1.7999999523162842,
+      0.0,
+      -0.800000011920929
+     ]
+    }
+   ]
+  }
+ },
+ "4316": {
+  "desc": "Boss 릴림 드레인",
+  "phases": {
+   "casting": [
+    {
+     "absolute": true,
+     "attachOn": 1,
+     "effect": "LineageEffect.mu_lilim_drain_boss_cs"
+    },
+    {
+     "attachOn": 2,
+     "effect": "LineageEffect.mu_lilim_drain_boss_ca"
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.mu_lilim_drain_boss_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4318": {
+  "desc": "궁극의 버프",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_battle_roar_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "4319": {
+  "desc": "마비",
+  "phases": {
+   "casting": [
+    {
+     "effect": "LineageEffect.pm_lightening_strike_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4321": {
+  "desc": "방어력 하락",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_curse_poison_ta",
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "4322": {
+  "desc": "초보용 윈드 워크",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_wind_walk_ta",
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true,
+     "useCharRotation": true
+    }
+   ]
+  }
+ },
+ "4323": {
+  "desc": "초보용 실드",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_shield_to",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4324": {
+  "desc": "초보용 블레스 더 바디",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_bless_the_body_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4325": {
+  "desc": "초보용 뱀피릭 레이지",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_focus_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4326": {
+  "desc": "초보용 리제네레이션",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_regeneration_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4327": {
+  "desc": "초보용 헤이스트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_haste_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4328": {
+  "desc": "초보용 블레스 더 소울",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_bless_the_soul_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4329": {
+  "desc": "초보용 아큐멘",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_acumen_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "4330": {
+  "desc": "초보용 콘센트레이션",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_concentration_ta",
+     "offset": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4331": {
+  "desc": "초보용 엠파워",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_empower_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4334": {
+  "desc": "SSQ 캔슬",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_sleep_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4339": {
+  "desc": "미미르의 물약",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_resurrection_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4343": {
+  "desc": "아지트 디크리즈 웨이트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_detection_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4346": {
+  "desc": "아지트 맨탈 실드",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_mental_shield_ta",
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "4349": {
+  "desc": "아지트 매직 배리어",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_magic_barrier_ta",
+     "offset": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4352": {
+  "desc": "아지트 버저커 스피릿",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ta",
+     "offset": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true,
+     "useCharRotation": true
+    }
+   ]
+  }
+ },
+ "4358": {
+  "desc": "아지트 가이던스",
+  "phases": {
+   "casting": [
+    {
+     "effect": "LineageEffect.su_guidance_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4360": {
+  "desc": "아지트 데스 위스퍼",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_death_whisper_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4365": {
+  "desc": "박-렙업",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_might_ta",
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "4366": {
+  "desc": "박-중독",
+  "phases": {
+   "casting": [
+    {
+     "absolute": true,
+     "attachOn": 5,
+     "bone": "e_bone",
+     "effect": "LineageEffect.ph_hate_ta",
+     "offset": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4380": {
+  "desc": "결투장 CP 회복",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sa_mass_frenzy_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4383": {
+  "desc": "NPC Hate Stone",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_recharge_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true,
+     "spawnDelay": 10.0
+    }
+   ]
+  }
+ },
+ "4406": {
+  "desc": "어질리티",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_agility_ta",
+     "onMultiTarget": true,
+     "onTarget": true,
+     "useCharRotation": true
+    }
+   ]
+  }
+ },
+ "442": {
+  "desc": "소닉배리어",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u804_a_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.s_u804_a_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "443": {
+  "desc": "포스배리어무적",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u804_a_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_ultimate_defence_a_ca",
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_ultimate_defence_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4478": {
+  "desc": "Ice Fairy Aqua Splash",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_aqua_swirl_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.ra_ice_fairy_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4482": {
+  "desc": "Ice Fairy Silence",
+  "phases": {
+   "casting": [
+    {
+     "effect": "LineageEffect.ra_ice_fairy_ta"
+    }
+   ]
+  }
+ },
+ "4515": {
+  "desc": "Quest - BOSS Weakness(4544)",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_curse_poison_ta",
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "4522": {
+  "desc": "암살자의 눈",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.su_focus_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4527": {
+  "desc": "Quset Boss Inc HP to Summoned",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "4528": {
+  "desc": "Quest Boss Movement to Summoned",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_wind_walk_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4531": {
+  "desc": "Quest Summoned MP Heal",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_recharge_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "454": {
+  "desc": "디펜시브스탠스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u807_fighter_ca"
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.s_u807_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4546": {
+  "desc": "Quest 석판과의 교감",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_recharge_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "4548": {
+  "desc": "Quest 감시자의 시선 해제",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_recharge_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_recharge_ta",
+     "offset": [
+      6.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_recharge_ta",
+     "offset": [
+      -5.0,
+      6.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4549": {
+  "desc": "Quest 저주받은 제단",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_poison_cloud_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_poison_cloud_ta",
+     "offset": [
+      10.0,
+      8.0,
+      -1.0
+     ],
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_poison_cloud_ta",
+     "offset": [
+      -10.0,
+      -10.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4562": {
+  "desc": "NPC Solar Flare",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_eruption_cs",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_eruption_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4568": {
+  "desc": "NPC AE Solar Flare",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_eruption_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    },
+    {
+     "effect": "LineageEffect.el_flame_strike_ra",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_eruption_cs",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "4573": {
+  "desc": "NPC Sonic Blaster",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_sonic_blast_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_sonic_blast_fl",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ },
+ "4579": {
+  "desc": "출혈",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_sting_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4606": {
+  "desc": "range_poison_earthquake",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mu_poison_earthquake_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_curse_poison_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4607": {
+  "desc": "Magma Attack",
+  "flyingTime": 0.4000000059604645,
+  "phases": {
+   "casting": [
+    {
+     "absolute": true,
+     "attachOn": 3,
+     "bone": "Bone01",
+     "effect": "LineageEffect.el_flame_strike_ca",
+     "sizeScale": true
+    },
+    {
+     "absolute": true,
+     "attachOn": 3,
+     "bone": "Bone09",
+     "effect": "LineageEffect.el_flame_strike_pr",
+     "offset": [
+      0.0,
+      -10.0,
+      -10.0
+     ],
+     "relativeToCylinder": false
+    }
+   ],
+   "explosion": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "onTarget": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_flame_strike_fl",
+     "offset": [
+      1.0,
+      0.0,
+      0.5
+     ]
+    }
+   ]
+  }
+ },
+ "4616": {
+  "desc": "위장 석화",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_recharge_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true,
+     "spawnDelay": 360.0
+    }
+   ]
+  }
+ },
+ "4628": {
+  "desc": "신비한 오라",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 3,
+     "bone": "Bone10",
+     "effect": "LineageEffect.etc_strider_breath"
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_recharge_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -0.8999999761581421
+     ]
+    }
+   ]
+  }
+ },
+ "4641": {
+  "desc": "NPC Super Strike",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_shock_blast_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_sonic_blast_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4641_a": {
+  "desc": "몬스터 페이탈스트라이크A",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mp_super_strike_a_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    },
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.mp_super_strike_a_co"
+    },
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.mp_super_strike_a_cs"
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.mp_super_strike_a_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4641_b": {
+  "desc": "몬스터 페이탈스트라이크B",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mp_super_strike_b_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    },
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.mp_super_strike_a_co"
+    },
+    {
+     "attachOn": 1,
+     "effect": "LineageEffect.mp_super_strike_a_cs"
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.mp_super_strike_b_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ },
+ "4649": {
+  "desc": "독",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_poison_cloud_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_curse_poison_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4650": {
+  "desc": "NPC AE - Dispel Hold",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.sp_dryad_root_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4683": {
+  "desc": "발라카스 브레스 하",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 3,
+     "bone": "Dummy05",
+     "effect": "LineageEffect.mb_valakas_breath_low_fl",
+     "spawnDelay": 1.899999976158142,
+     "useCharRotation": true
+    },
+    {
+     "attachOn": 3,
+     "bone": "Dummy06",
+     "effect": "LineageEffect.mb_valakas_breath_low_fo",
+     "spawnDelay": 2.0999999046325684
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mb_valakas_breath_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4684": {
+  "desc": "발라카스 브레스 상",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 3,
+     "bone": "Dummy05",
+     "effect": "LineageEffect.mb_valakas_breath_high_fl",
+     "spawnDelay": 2.0,
+     "useCharRotation": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mb_valakas_breath_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4685": {
+  "desc": "발라카스 꼬리치기",
+  "phases": {
+   "casting": [
+    {
+     "effect": "LineageEffect.mb_valakas_tail_ca",
+     "offset": [
+      -4.0,
+      0.0,
+      -0.9800000190734863
+     ],
+     "spawnDelay": 2.700000047683716
+    }
+   ]
+  }
+ },
+ "4688": {
+  "desc": "발라카스 날리기",
+  "phases": {
+   "casting": [
+    {
+     "effect": "LineageEffect.mb_valakas_lash_ca",
+     "offset": [
+      -3.0,
+      0.0,
+      -1.0
+     ],
+     "spawnDelay": 3.0
+    }
+   ]
+  }
+ },
+ "4697": {
+  "desc": "NPC Monster Hate",
+  "phases": {
+   "casting": [
+    {
+     "absolute": true,
+     "attachOn": 4,
+     "bone": "e_bone",
+     "effect": "LineageEffect.ph_hate_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4706": {
+  "desc": "매스 커스 오브 셰이드",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_curse_poison_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    },
+    {
+     "absolute": true,
+     "attachOn": 4,
+     "bone": "e_bone",
+     "effect": "LineageEffect.ph_hate_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4707": {
+  "desc": "셰이크 새크리파이스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ab_bleeding",
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4708": {
+  "desc": "커스트 스트라이크",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_shock_blast_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_stun_attack_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4710": {
+  "desc": "소환수 와일드 스턴",
+  "phases": {
+   "casting": [
+    {
+     "absolute": true,
+     "attachOn": 4,
+     "bone": "soulshot1",
+     "effect": "LineageEffect.at_stun_attack_ca"
+    }
+   ],
+   "shot": [
+    {
+     "absolute": true,
+     "attachOn": 4,
+     "bone": "soulshot1",
+     "effect": "LineageEffect.at_shield_stun_cs"
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_stun_attack_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "4737": {
+  "desc": "BOSS Spinning Slasher",
+  "phases": {
+   "casting": [
+    {
+     "effect": "LineageEffect.at_shock_blast_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    },
+    {
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true,
+     "spawnDelay": 0.10000000149011612
+    }
+   ]
+  }
+ },
+ "5004": {
+  "desc": "악마등장",
+  "phases": {
+   "casting": [
+    {
+     "effect": "LineageEffect.mb_frintessa_portal_a",
+     "offset": [
+      0.0,
+      0.0,
+      20.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.mb_frintessa_portal_b",
+     "offset": [
+      0.0,
+      0.0,
+      -2.0
+     ]
+    }
+   ]
+  }
+ },
+ "5007": {
+  "desc": "프린테사힐억제",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_hurricane_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5008": {
+  "desc": "프린테사연속데쉬",
+  "phases": {
+   "casting": [
+    {
+     "effect": "LineageEffect.mo_vengence_ra",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5009": {
+  "desc": "유령물리일반",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mp_super_strike_a_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    },
+    {
+     "attachOn": 3,
+     "bone": "Bip01 R Finger1",
+     "effect": "LineageEffect.mp_super_strike_a_cs"
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5010": {
+  "desc": "유령마법일반",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mp_super_strike_a_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.md_aura_burn_a_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    },
+    {
+     "effect": "LineageEffect.el_flame_strike_ra",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5011": {
+  "desc": "유령자폭",
+  "phases": {
+   "casting": [
+    {
+     "absolute": true,
+     "attachOn": 3,
+     "bone": "Bone15",
+     "effect": "LineageEffect.rm_self_blaster_ca",
+     "offset": [
+      0.0,
+      5.0,
+      0.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.rm_self_blaster_ra"
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5012": {
+  "desc": "PC묶기",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mb_frintessa_ghost_drain",
+     "offset": [
+      1.0,
+      0.0,
+      0.5
+     ],
+     "spawnDelay": 1.0
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mb_frintessa_ghost_clamp_to",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5013": {
+  "desc": "유령흡수",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mb_frintessa_ghost_drain",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5014": {
+  "desc": "프린테사악마일반공격",
+  "phases": {
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mb_frintessa_normal_a_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5016": {
+  "desc": "프린테사악마공중부양",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mb_frintessa_trance_a_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true,
+     "spawnDelay": 0.5
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.mb_frintessa_trance_a_ra",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mb_frintessa_trance_a_to",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5019": {
+  "desc": "전체흡수",
+  "phases": {
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mb_frintessa_drain_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5023": {
+  "desc": "홀드",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ph_howl_ta",
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "5040": {
+  "desc": "NPC Healing Potion",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_heal_ta",
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "5081": {
+  "desc": "NPC blow silence physical",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u804_c_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -0.8500000238418579
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.p_u004_a",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5082": {
+  "desc": "NPC스피닝 슬래셔 트릭",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u804_c_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -0.8500000238418579
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.s_u804_a_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5083": {
+  "desc": "NPC스턴 어택 트릭",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.s_u804_c_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -0.8500000238418579
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_shield_stun_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5086": {
+  "desc": "치명적인 독",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ca",
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.bl_poison_cloud_ta"
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_curse_poison_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5093": {
+  "desc": "안타라스메테오",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u828_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.e_u828_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    },
+    {
+     "effect": "LineageEffect.e_u828_conestone_ta",
+     "offset": [
+      6.0,
+      5.0,
+      -1.0
+     ],
+     "onTarget": true,
+     "spawnDelay": 0.4000000059604645
+    },
+    {
+     "effect": "LineageEffect.e_u828_conestone_ta",
+     "offset": [
+      7.0,
+      5.0,
+      -1.0
+     ],
+     "onTarget": true,
+     "spawnDelay": 0.20000000298023224
+    }
+   ]
+  }
+ },
+ "5094": {
+  "desc": "안타라스부하자폭",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_shock_blast_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u528_ta_bigsize_b"
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5095": {
+  "desc": "안타라스부하근접공격",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 3,
+     "bone": "Bip01 Ponytail2Nub",
+     "effect": "LineageEffect.e_u829_ca_a"
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5096": {
+  "desc": "안타라스 부하 원거리공격",
+  "phases": {
+   "casting": [
+    {
+     "effect": "LineageEffect.s_u804_c_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.e_u829_ta",
+     "offset": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5097": {
+  "desc": "안타라스자폭소형",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_shock_blast_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.rm_self_blaster_ra"
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "relativeToCylinder": false
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5103": {
+  "desc": "혈맹전직레벨업",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u544_levelup_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5111": {
+  "desc": "원시의섬퀘스트연출",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_recharge_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -25.0
+     ],
+     "onTarget": true,
+     "relativeToCylinder": false
+    }
+   ]
+  }
+ },
+ "5117": {
+  "desc": "사이렌전용마이트",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u832_new_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -70.0
+     ],
+     "relativeToCylinder": false
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u832",
+     "offset": [
+      0.0,
+      0.0,
+      -70.0
+     ],
+     "onTarget": true,
+     "relativeToCylinder": false
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u832_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -70.0
+     ],
+     "relativeToCylinder": false
+    }
+   ]
+  }
+ },
+ "5118": {
+  "desc": "사이렌전용캔슬",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      0.0,
+      200.0,
+      -81.0
+     ],
+     "relativeToCylinder": false
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      20.0,
+      -200.0,
+      -81.0
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.20000000298023224
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      90.0,
+      100.0,
+      -81.0
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.30000001192092896
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      110.0,
+      -70.0,
+      -81.0
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.6000000238418579
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      -120.0,
+      100.0,
+      -81.0
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.10000000149011612
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      -90.0,
+      -100.0,
+      -81.0
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.4000000059604645
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      100.0,
+      280.0,
+      -81.0
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.20000000298023224
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      100.0,
+      -270.0,
+      -81.0
+     ],
+     "spawnDelay": 0.699999988079071
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      280.0,
+      100.0,
+      -81.0
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.30000001192092896
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      -275.0,
+      -50.0,
+      -81.0
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.4000000059604645
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      -220.0,
+      220.0,
+      -81.0
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.20000000298023224
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      220.0,
+      -220.0,
+      -81.0
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.6000000238418579
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u832_new_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -70.0
+     ],
+     "relativeToCylinder": false
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_curse_poison_ta",
+     "onMultiTarget": true,
+     "onTarget": true,
+     "relativeToCylinder": false
+    }
+   ]
+  }
+ },
+ "5122": {
+  "desc": "사이렌전용스턴",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u832_new_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -70.0
+     ],
+     "relativeToCylinder": false
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_shield_stun_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5130": {
+  "desc": "플레임스트라이크타겟",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5131": {
+  "desc": "페이탈스트라이크타겟",
+  "phases": {
+   "casting": [
+    {
+     "effect": "LineageEffect.s_u804_a_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5142": {
+  "desc": "몬스터자폭",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.bl_berserker_spirit_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.rm_self_blaster_ra",
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5143": {
+  "desc": "사이렌전용블로우",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u832_new_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -70.0
+     ],
+     "relativeToCylinder": false
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.s_u804_a_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "5204": {
+  "desc": "초거대돼지합체",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.ch_gourd_death_long",
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "5219": {
+  "desc": "거대돼지스턴",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_shock_blast_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_shield_stun_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "69": {
+  "desc": "세크리파이스",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_battle_roar_ca"
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.wh_greater_heal_ta",
+     "onTarget": true
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ta"
+    }
+   ]
+  }
+ },
+ "72": {
+  "desc": "아이언 윌",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_iron_will_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_iron_will_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "78": {
+  "desc": "워 크라이",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_war_cry_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_war_cry_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onMultiTarget": true,
+     "onTarget": true,
+     "sizeScale": true
+    }
+   ]
+  }
+ },
+ "8": {
+  "desc": "포커스 소닉",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_focus_sonic_ca",
+     "offset": [
+      0.0,
+      0.0,
+      0.20000000298023224
+     ]
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_focus_sonic_ta",
+     "offset": [
+      0.0,
+      0.0,
+      0.20000000298023224
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "81": {
+  "desc": "펀치 오브 둠",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.at_fatal_strike_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.el_flame_strike_ta",
+     "onMultiTarget": true,
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "82": {
+  "desc": "마제스티",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_majesty_ca"
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_majesty_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "831": {
+  "desc": "사이렌자기주변버프캔슬",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      0.0,
+      100.0,
+      -20.5
+     ],
+     "relativeToCylinder": false
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      10.0,
+      -100.0,
+      -20.5
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.30000001192092896
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      45.0,
+      50.0,
+      -20.5
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.6000000238418579
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      55.0,
+      -35.0,
+      -20.5
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.10000000149011612
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      -60.0,
+      50.0,
+      -20.5
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.20000000298023224
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u831_b",
+     "offset": [
+      -45.0,
+      -50.0,
+      -20.5
+     ],
+     "relativeToCylinder": false,
+     "spawnDelay": 0.4000000059604645
+    }
+   ]
+  }
+ },
+ "832": {
+  "desc": "사이렌자기버프",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u832_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -20.5
+     ],
+     "relativeToCylinder": false
+    },
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.e_u832",
+     "offset": [
+      0.0,
+      0.0,
+      -20.5
+     ],
+     "relativeToCylinder": false
+    },
+    {
+     "attachOn": 5,
+     "offset": [
+      0.0,
+      0.0,
+      -20.5
+     ],
+     "relativeToCylinder": false
+    }
+   ]
+  }
+ },
+ "86": {
+  "desc": "리플렉트 데미지",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_reflect_damage_ca",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "sizeScale": true
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_reflect_damage_ta",
+     "offset": [
+      0.0,
+      0.0,
+      -1.0
+     ],
+     "onTarget": true
+    }
+   ]
+  }
+ },
+ "92": {
+  "desc": "실드 스턴",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 2,
+     "effect": "LineageEffect.at_shield_stun_ca"
+    }
+   ],
+   "shot": [
+    {
+     "effect": "LineageEffect.at_shield_stun_ta",
+     "offset": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "onTarget": true
+    },
+    {
+     "attachOn": 2,
+     "effect": "LineageEffect.at_shield_stun_cs"
+    }
+   ]
+  }
+ },
+ "99": {
+  "desc": "레피드 샷",
+  "phases": {
+   "casting": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_rapid_shot_ca"
+    }
+   ],
+   "shot": [
+    {
+     "attachOn": 5,
+     "effect": "LineageEffect.mo_rapid_shot_ta",
+     "onTarget": true
+    }
+   ]
+  }
+ }
+}

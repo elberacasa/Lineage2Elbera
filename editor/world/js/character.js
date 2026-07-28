@@ -73,9 +73,15 @@ export class Character {
   // against the per-frame idle fallback for its own duration; real
   // movement still cancels it, as it should.
   emote(name) {
+    this.oneShot(name, 0.15);
+  }
+
+  // Play a clip once for its own duration (skill cast gestures, emotes).
+  // The update() idle/sit fallback stays suppressed via emoteUntil.
+  oneShot(name, fade = 0.1) {
     const clip = this.actions[name];
     if (!clip) return;
-    this.play(name, 0.15);
+    this.play(name, fade);
     this.emoteUntil = performance.now() + clip.getClip().duration * 1000;
   }
 

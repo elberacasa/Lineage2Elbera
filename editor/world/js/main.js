@@ -32,6 +32,7 @@ import { ShopWnd } from './ui/shopwnd.js';
 import { TradeWnd } from './ui/tradewnd.js';
 import { StoreWnd } from './ui/storewnd.js';
 import { MultiSellWnd } from './ui/multisellwnd.js';
+import { WarehouseWnd } from './ui/warehousewnd.js';
 import { WeaponGate } from './weapongate.js';
 
 const canvas = document.getElementById('view');
@@ -188,6 +189,7 @@ let shopWnd = null;
 let tradeWnd = null;
 let storeWnd = null;
 let multiSellWnd = null;
+let warehouseWnd = null;
 // M13 own-store state: sitting tracked from changeWait (the sit/stand
 // toggle is server-side); storeOpen from storeState (open sits the seller,
 // close leaves them SITTING — the aCis re-list quirk, gateway README M13)
@@ -444,6 +446,7 @@ net.on('itemList', async (msg) => {
   if (shopWnd) shopWnd.onInvUpdate();
   if (storeWnd) storeWnd.onInvUpdate();
   if (multiSellWnd) multiSellWnd.onInvUpdate();
+  if (warehouseWnd) warehouseWnd.onInvUpdate();
 });
 net.on('questList', (msg) => {
   if (questWnd) questWnd.setQuests(msg.quests || []);
@@ -503,6 +506,22 @@ net.on('multisellList', (msg) => {
   if (!multiSellWnd) return;
   if (inventory) inventory.toggle(false);
   multiSellWnd.openList(msg.listId, msg.items || []);
+});
+// M16 warehouse: the keeper's DepositP/WithdrawP bypass drives the server
+// (through the dialog's 'bypass' op; nothing client-side to open) — the
+// whDeposit/whWithdraw lists open the window. Retail HIDES the inventory
+// when it shows (WarehouseWnd.uc:351-354). An EMPTY warehouse answers
+// WithdrawP with sysMsg 282 only — no op, no window. Results arrive ONLY
+// via invUpdate (server truth — failures are sysMsg lines in chat).
+net.on('whDeposit', (msg) => {
+  if (!warehouseWnd) return;
+  if (inventory) inventory.toggle(false);
+  warehouseWnd.openDeposit(msg);
+});
+net.on('whWithdraw', (msg) => {
+  if (!warehouseWnd) return;
+  if (inventory) inventory.toggle(false);
+  warehouseWnd.openWithdraw(msg);
 });
 // M12 trade: tradeStart opens the window (and retail HIDES the inventory/
 // shop windows, TradeWnd.uc:184-199); tradeOwn/tradeOther are the ONLY
@@ -578,6 +597,7 @@ net.on('invUpdate', async (msg) => {
   if (shopWnd) shopWnd.onInvUpdate();
   if (storeWnd) storeWnd.onInvUpdate();
   if (multiSellWnd) multiSellWnd.onInvUpdate();
+  if (warehouseWnd) warehouseWnd.onInvUpdate();
   for (const u of msg.updated || []) {
     if (u.change === 'add' || u.change === 1) {
       itemMeta().then(meta =>
@@ -839,6 +859,7 @@ window.__world = {
   get multiSellWnd() { return multiSellWnd; },
   get tradeWnd() { return tradeWnd; },
   get storeWnd() { return storeWnd; },
+  get warehouseWnd() { return warehouseWnd; },
   get menuWnd() { return menuWnd; },
   get systemMenuWnd() { return systemMenuWnd; },
   wndMgr: WndMgr,
@@ -1233,6 +1254,23 @@ renderer.setAnimationLoop(() => {
     });
     multiSellWnd.place(multiSellWnd.defaultPlace);
     WndMgr.register('MultiSellWnd', multiSellWnd, { handle: multiSellWnd.win.bar });
+
+    // M16: the warehouse keeper window (WarehouseWnd). whDeposit/whWithdraw
+    // open it (the keeper's DepositP/WithdrawP bypass drives that
+    // server-side); whDepositItems/whWithdrawItems are the only outbound
+    // ops; results arrive ONLY via invUpdate (server truth — failures are
+    // sysMsg lines in chat).
+    warehouseWnd = new WarehouseWnd(document.body, {
+      onDeposit: (items) => { if (online) net.send('whDepositItems', { items }); },
+      onWithdraw: (items) => { if (online) net.send('whWithdrawItems', { items }); },
+      getAdena: () => {
+        if (!inventory) return 0;
+        const a = [...inventory.items.values()].find(i => i.itemId === 57);
+        return a ? a.count : 0;
+      },
+    });
+    warehouseWnd.place(warehouseWnd.defaultPlace);
+    WndMgr.register('WarehouseWnd', warehouseWnd, { handle: warehouseWnd.win.bar });
 
     // Phase C.12: player-to-player trade. '/trade' with a player targeted
     // invites; tradeStart opens the window, tradeOwn/tradeOther are the

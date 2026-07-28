@@ -46,6 +46,16 @@
 //                  multisellChoose validated, invUpdate + sysMsg 53/123,
 //                  then the list is re-sent (refresh), like aCis
 //   loot{id}    -> invUpdate add (adena) + sysMsg, only for dead mobs
+// M16 warehouse (Wilford 70008, npcId 30005):
+//   talk -> keeper html with real npc_70008_DepositP/WithdrawP links
+//   bypass DepositP -> whDeposit (own inventory, equipped excluded; adena
+//                  is a normal itemId-57 entry); WithdrawP -> whWithdraw
+//                  (warehouse contents) or sysMsg 282 when EMPTY (aCis)
+//   whDepositItems -> fee 30a PER ENTRY charged from what remains after
+//                  the adena deposit; stackables land under a NEW objectId
+//                  (the aCis split-stack quirk); results via invUpdate only
+//   whWithdrawItems -> back via invUpdate (adena/stackables merge into a
+//                  carried stack, the rest re-add)
 //   useSkill    -> MP drops by 10 on skillLaunch (selfStatus); a useSkill
 //                  with no targetId for a SELF-target skill (skillweapons.json
 //                  targets) lands on the caster, not the current target
@@ -124,6 +134,9 @@ const NPCS = [
   // server heights 18.7 vs 50.0 -> visibly different sizes
   { id: 70006, npcId: 20360, name: 'Ratman Spy', x: SPAWN.x - 500, y: SPAWN.y - 300, z: SPAWN.z, heading: 0 },
   { id: 70007, npcId: 25438, name: 'Thief Kelbar', x: SPAWN.x - 900, y: SPAWN.y - 300, z: SPAWN.z, heading: 0 },
+  // M16: warehouse keeper (real npcId 30005, TI town) — his html offers the
+  // retail DepositP/WithdrawP bypasses that open whDeposit/whWithdraw
+  { id: 70008, npcId: 30005, name: 'Wilford', x: SPAWN.x + 500, y: SPAWN.y + 500, z: SPAWN.z, heading: 0 },
 ];
 
 const PLAYERS = [
@@ -193,6 +206,12 @@ wss.on('connection', (ws) => {
   let storeTitlePending = '';
   let borgStore = freshBorgStore();
   let borgOffline = false;
+  // M16 warehouse state (private): entries {objectId, itemId, count,
+  // enchant}; stackables get a NEW objectId across the transfer (the aCis
+  // quirk, gateway README M16)
+  let warehouse = [];
+  const WH_STACKABLES = new Set([57, 1060, 1835, 2509, 734, 1147]);
+  const WH_FEE = 30;   // per entry (WarehouseWnd.uc KEEPING_PRICE / aCis)
   // mobs are module-level (shared): reset per session so a killed mob
   // from a previous run (respawn cancelled on disconnect) can't leak
   for (const id of Object.keys(MOBS)) MOBS[id] = { hp: 500, maxHp: 500, dead: false };
@@ -588,6 +607,19 @@ wss.on('connection', (ws) => {
         }
         return;
       }
+      // M16: Wilford the warehouse keeper — the retail private-warehouse
+      // bypasses (DepositP/WithdrawP) as real links
+      if (msg.id === 70008) {
+        send('npcHtml', { html:
+          `<html><body><title>Warehouse Keeper Wilford</title><br><br><center>` +
+          `<font color="LEVEL">Warehouse Keeper Wilford</font><br><br>` +
+          `Your goods are safe with us.<br><br>` +
+          `<a action="bypass -h npc_70008_DepositP">Deposit items (private warehouse)</a><br>` +
+          `<a action="bypass -h npc_70008_WithdrawP">Withdraw items (private warehouse)</a><br><br>` +
+          `<button value="Farewell" action="bypass -h npc_bye" width="80" height="18">` +
+          `</center></body></html>` });
+        return;
+      }
       // villager dialog (representative L2 markup: title, colored fonts,
       // a table, links, a button)
       const npc = NPCS.find(n => n.id === msg.id) || { name: 'NPC' };
@@ -629,6 +661,26 @@ wss.on('connection', (ws) => {
         // the merchant bypass drives the exchange server-side — the list
         // IS the window opener (nothing client-side to request it with)
         sendMultiSellList();
+      } else if (/^npc_\d+_DepositP$/.test(cmd)) {
+        // M16: WarehouseDepositList — own inventory, deposit-eligible
+        // (equipped excluded); adena is a NORMAL entry (itemId 57)
+        const adena = items.find(i => i.itemId === 57);
+        send('whDeposit', {
+          whType: 1, adena: adena ? adena.count : 0,
+          items: items.filter(i => !i.equipped).map(i => ({
+            objectId: i.objectId, itemId: i.itemId, count: i.count, enchant: i.enchant,
+          })),
+        });
+      } else if (/^npc_\d+_WithdrawP$/.test(cmd)) {
+        // M16: an EMPTY warehouse answers with sysMsg 282 only — no 0x42
+        const adena = items.find(i => i.itemId === 57);
+        if (!warehouse.length) send('sysMsg', { id: 282, params: [] });
+        else {
+          send('whWithdraw', {
+            whType: 1, adena: adena ? adena.count : 0,
+            items: warehouse.map(i => ({ ...i })),
+          });
+        }
       } else if (cmd === 'npc_services') {        send('npcHtml', { html:
           `<html><body><title>Services</title><br><br><center>` +
           `We offer <font color="YELLOW">supplies</font> and guidance.<br><br>` +
@@ -891,6 +943,81 @@ wss.on('connection', (ws) => {
       }
       send('sysMsg', { id: 123, params: [] });   // SUCCESSFULLY_TRADED_WITH_NPC
       sendMultiSellList();
+    } else if (msg.op === 'whDepositItems') {
+      // M16: validated against the CURRENT inventory (objectIds from the
+      // last whDeposit list); FEE 30 adena PER ENTRY, charged from what
+      // remains AFTER the adena deposit (SendWarehouseDepositList); results
+      // via invUpdate only. Stackables land in the warehouse under a NEW
+      // objectId (the aCis split-stack quirk).
+      const adena = items.find(i => i.itemId === 57);
+      const entries = [];
+      for (const d of msg.items || []) {
+        const it = items.find(i => i.objectId === d.objectId && !i.equipped);
+        if (!it) continue;
+        const n = Math.min(it.count, Math.max(1, d.count | 0));
+        if (n) entries.push({ it, n });
+      }
+      if (!entries.length) return;
+      const fee = WH_FEE * entries.length;
+      const depAdena = entries.filter(e => e.it.itemId === 57).reduce((s, e) => s + e.n, 0);
+      if (!adena || adena.count - depAdena < fee) {
+        send('sysMsg', { id: 279, params: ['not enough adena'] });
+        return;
+      }
+      if (depAdena || fee) {
+        adena.count -= depAdena + fee;
+        send('invUpdate', { updated: [{ change: 'modify', ...adena }] });
+      }
+      for (const { it, n } of entries) {
+        if (it.itemId === 57) {
+          const have = warehouse.find(w => w.itemId === 57);
+          if (have) have.count += n;
+          else warehouse.push({ objectId: 91000 + (nextBoughtId++), itemId: 57, count: n, enchant: 0 });
+          continue;
+        }
+        it.count -= n;
+        if (it.count <= 0) {
+          items.splice(items.indexOf(it), 1);
+          send('invUpdate', { updated: [{ change: 'remove', objectId: it.objectId, itemId: it.itemId }] });
+        } else {
+          send('invUpdate', { updated: [{ change: 'modify', ...it }] });
+        }
+        const stackable = WH_STACKABLES.has(it.itemId);
+        const have = stackable && warehouse.find(w => w.itemId === it.itemId);
+        if (have) have.count += n;
+        else {
+          warehouse.push({
+            objectId: stackable ? 91000 + (nextBoughtId++) : it.objectId,
+            itemId: it.itemId, count: n, enchant: it.enchant,
+          });
+        }
+      }
+    } else if (msg.op === 'whWithdrawItems') {
+      // M16: objectIds from the last whWithdraw list; back into the
+      // inventory via invUpdate only (adena/stackables merge into a carried
+      // stack, the rest re-add with their warehouse objectId)
+      const entries = [];
+      for (const w of msg.items || []) {
+        const it = warehouse.find(i => i.objectId === w.objectId);
+        if (!it) continue;
+        const n = Math.min(it.count, Math.max(1, w.count | 0));
+        if (n) entries.push({ it, n });
+      }
+      if (!entries.length) return;
+      for (const { it, n } of entries) {
+        it.count -= n;
+        if (it.count <= 0) warehouse.splice(warehouse.indexOf(it), 1);
+        const stackable = WH_STACKABLES.has(it.itemId);
+        const have = stackable && items.find(i => i.itemId === it.itemId && !i.equipped);
+        if (have) {
+          have.count += n;
+          send('invUpdate', { updated: [{ change: 'modify', ...have }] });
+        } else {
+          const back = { objectId: it.objectId, itemId: it.itemId, count: n, slot: 0, equipped: 0, enchant: it.enchant };
+          items.push(back);
+          send('invUpdate', { updated: [{ change: 'add', ...back }] });
+        }
+      }
     } else if (msg.op === 'buy') {
       // validate against the stock the mock last sent + the player's
       // adena; results arrive ONLY via invUpdate (server truth)
