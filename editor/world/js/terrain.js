@@ -6,7 +6,7 @@
 //    "heightScale":0.296875,"heightmap":"heightmap.u16",
 //    "heights":"heightmap.png",
 //    "layers":[{"name","diffuse","splat"}],
-//    "water":null,
+//    "water":[{"height","rect":[x0,y0,x1,y1],"texture"}]|null,
 //    "props":[{"mesh","gltf":"props/<name>.gltf"|null,
 //              "position":[x,y,z],"rotation":[p,y,r],"scale":[x,y,z]}]}
 //
@@ -23,6 +23,24 @@ import { Geodata } from './geodata.js';
 
 const UE_ROT_TO_RAD = (Math.PI * 2) / 65536;
 const PROP_CLUSTER_SIZE = 48;  // meters, instanced-prop cluster grid cell
+
+// water planes (scene.json "water", tools/world/README.md): one repeat per
+// 128 L2 units (the terrain diffuse rule), alpha-blended, uv-scrolled by
+// main.js the way retail's TexPanner does
+const WATER_TILE_L2 = 128;        // L2 units per texture repeat
+const WATER_OPACITY = 0.82;
+// gentle drift (uv/sec) — AUTHORED visual; retail animates via TexPanner
+// (FX_E_T fx_e_waterpan PanRate 0.7); the plane/height/texture are sourced
+export const WATER_SCROLL = [0.011, 0.007];
+
+// interior fire props (19_16 Pagan Temple FX_E_S.Default_Flame01 x22,
+// 21_25 Elven Ruins Default_Flame01 x82 + deco01.Fire01 x24): flame/brazier
+// static meshes that justify a warm point light. Lights are clustered
+// (nearby flames share one) and capped — a dungeon tile has 500+ props.
+const FIRE_PROP_RE = /(?:^|[._])(?:default_)?flame|(?:^|[._])fire/i;
+const FIRE_CLUSTER_M = 8;         // flames within this XY/Z bin share a light
+const FIRE_LIGHT_MAX = 16;        // hard cap per tile (forward-renderer perf)
+const FIRE_LIGHT_LIFT_M = 1.2;    // flame mesh spans 0..1.06 m above origin
 
 export class Terrain {
   constructor(sceneDef, baseUrl) {
@@ -41,6 +59,8 @@ export class Terrain {
     this.interior = false;
     this.floorY = 0;        // three.js Y of the dungeon floor when interior
     this.geodata = null;    // blockstream-v1 heights when the tile ships them
+    this.waterTex = null;   // shared water diffuse (uv-scrolled by main.js)
+    this.fireLights = [];   // interior fire-prop point lights
   }
 
   // fallback interior detection: tiles whose props are (almost) all below
@@ -94,8 +114,11 @@ export class Terrain {
     }
 
     if (!this.interior) await this._buildMesh();   // interiors: no terrain plane
+    await this._buildWater();                      // self-skips interior/null
     this.geodata = await Geodata.load(this.baseUrl, this.def)
       .catch(() => null);                    // heightmap fallback on failure
+    // after geodata: fire lights clamp above the local floor
+    if (this.interior) this._buildFireLights();
     await this._loadProps();
   }
 
@@ -203,6 +226,95 @@ export class Terrain {
     this.mesh.receiveShadow = true;
     this.mesh.name = 'terrain';
     this.group.add(this.mesh);
+  }
+
+  // -- water ------------------------------------------------------------------
+  //
+  // scene.json "water": one rect per WaterVolume brush (height = bbox top,
+  // sourced; see tools/world/README.md). Renders as a translucent plane at
+  // exactly that height — never adjusted, so the shoreline falls out of the
+  // terrain crossing the plane (and a volume fully below ground stays
+  // invisible). depthWrite off so the beach overdraw blends instead of
+  // z-fighting. Interiors skip: their volumes are dummy-plane leftovers
+  // (19_16 has one at -3780, far above the dungeon).
+  async _buildWater() {
+    const water = this.def.water;
+    if (this.interior || !water || !water.length) return;
+    const tex = await new Promise((resolve) => {
+      new THREE.TextureLoader().load(this.baseUrl + water[0].texture,
+        resolve, undefined, () => resolve(null));
+    });
+    if (!tex) return;   // missing texture must not kill the tile
+    tex.flipY = false;  // same convention as the terrain textures
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    this.waterTex = tex;
+    for (const w of water) {
+      const [x0, y0, x1, y1] = w.rect;
+      const wM = (x1 - x0) * L2_TO_M, hM = (y1 - y0) * L2_TO_M;
+      const geo = new THREE.PlaneGeometry(wM, hM);
+      // bake the tiling into the uvs so every rect shares one texture:
+      // one repeat per WATER_TILE_L2 L2 units, the terrain diffuse rule
+      const uv = geo.attributes.uv;
+      for (let i = 0; i < uv.count; i++) {
+        uv.setXY(i, uv.getX(i) * (x1 - x0) / WATER_TILE_L2,
+                 uv.getY(i) * (y1 - y0) / WATER_TILE_L2);
+      }
+      const mat = new THREE.MeshLambertMaterial({
+        map: tex, transparent: true, opacity: WATER_OPACITY,
+        depthWrite: false, side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = -Math.PI / 2;
+      l2ToThree((x0 + x1) / 2, (y0 + y1) / 2, w.height, mesh.position);
+      mesh.renderOrder = 1;   // after the opaque terrain
+      mesh.name = 'water';
+      this.group.add(mesh);
+    }
+  }
+
+  // -- interior fire-prop lights ------------------------------------------------
+  //
+  // Dungeon textures are authentically near-black (19_16 mean luminance 56)
+  // and the single player-torch leaves most of the map dark. Static flame
+  // props (FX_E_S.Default_Flame01, deco01.Fire01) mark where the map itself
+  // burns — attach warm point lights there. Nearby flames (brazier clusters)
+  // share one light and the total is capped; tiles without fire props
+  // (25_21 Antharas' Nest) get nothing.
+  _buildFireLights() {
+    const flames = (this.def.props || [])
+      .filter(p => p.gltf && p.position && FIRE_PROP_RE.test(p.mesh));
+    if (!flames.length) return;
+    const bins = new Map();  // "bx,by,bz" -> {sx,sy,sz,n}
+    for (const p of flames) {
+      const [x, y, z] = p.position;   // L2 units
+      const key = [x, y, z]
+        .map(v => Math.round(v * L2_TO_M / FIRE_CLUSTER_M)).join(',');
+      let b = bins.get(key);
+      if (!b) bins.set(key, b = { sx: 0, sy: 0, sz: 0, n: 0 });
+      b.sx += x; b.sy += y; b.sz += z; b.n++;
+    }
+    // cap: the biggest clusters are the brazier groups, keep those
+    const clusters = [...bins.values()]
+      .sort((a, b) => b.n - a.n).slice(0, FIRE_LIGHT_MAX);
+    for (const c of clusters) {
+      // tuned against the player torch (3.2/60/1.3): reads at ~15 m in the
+      // near-black dungeon without washing out the mood
+      const light = new THREE.PointLight(0xff9540, 16.0, 40, 1.5);
+      l2ToThree(c.sx / c.n, c.sy / c.n, c.sz / c.n, light.position);
+      light.position.y += FIRE_LIGHT_LIFT_M;
+      // brazier flames can sit in sunken bowls below the walk floor; a
+      // light left there only lights floor undersides — clamp above the
+      // local floor (geodata-aware, multi-level safe)
+      const groundY = this.heightAtWorld(
+        light.position.x, light.position.z, light.position.y);
+      light.position.y = Math.max(light.position.y, groundY + 1.5);
+      light.userData.baseIntensity = light.intensity;
+      light.userData.phase = Math.random() * Math.PI * 2;
+      this.group.add(light);
+      this.fireLights.push(light);
+    }
   }
 
   // Terrain texturing — retail UE2 rule (ground truth: docs/map-format.md

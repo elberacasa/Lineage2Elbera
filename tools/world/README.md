@@ -37,7 +37,9 @@ Format lore: `docs/map-format.md`.
   "heights": "heightmap.png",
   "layers": [{"name": "...", "diffuse": "textures/<file>.png"|null,
               "splat": "textures/<file>.png"|null}],
-  "water": null,
+  "water": [{"height": -3780.0,
+             "rect": [x0, y0, x1, y1],
+             "texture": "textures/water01.png"}] | null,
   "geodata": "geodata.json",          // optional, see geodata contract below
   "interior": true,                   // optional, dungeon tiles only (below)
   "props": [{"mesh": "<package>.<name>",
@@ -70,6 +72,13 @@ world Z = z0 + (h - 32768) * heightScale        (heightScale = 76/256 = 0.296875
 - `layers[].splat` is `null` for the UE2 **base layer** (weight 255 over the
   whole tile). `layers[].diffuse` is `null` never happened in practice;
   placeholder layers (`Texture.Base` with no real texture) are dropped.
+- **`water`** is `null` when the tile's `.unr` places no WaterVolume brush,
+  else one entry per WaterVolume actor. `height` is the brush bounding-box
+  top in world Z (the swimmable surface; there is no FluidSurfaceInfo in any
+  retail map — the client renders the volume's top face). `rect` is the
+  brush bbox XY extent in world L2 units. `texture` is the retail
+  WaterSurfaceSet diffuse (`FX_E_T.Water01`, the texture behind
+  `WaterShader01`), shipped per-tile; retail scrolls it with a TexPanner.
 - **`interior`** (optional, contract addition): present and `true` only on
   dungeon tiles — maps whose terrain is a flat dummy plane with all content
   (props) far below it. Absent = normal outdoor tile. Verified set:
@@ -193,7 +202,7 @@ shipping geodata instead of using the terrain heightmap.
   found. Not observed to matter on these tiles. `dummy_material_N` slots
   (unassigned in the retail meshes) are left unwired.
 - Not extracted (out of M1 scope): BSP brush buildings (`Model`/`Polys`),
-  water volumes (`water: null`), emitters, decals, baked lighting
+  emitters, decals, baked lighting
   (TerrainSector per-vertex arrays + TIntMap), ambient sounds, deco-layer
   grass scatter (DecoLayers parsed as raw array but unused).
 - Prop glTF orientation/axis conventions are whatever umodel emits; the
@@ -220,7 +229,7 @@ click-walk + WASD work, screenshots eyeballed):
 | 17_25 | Talking Island village | −4684.3 .. −2370.5 | 10 | 784 | coastal village, lighthouse hill |
 | 16_24 | Talking Island | −4687.3 .. −475.0 | 9 | 230 | fields |
 | 16_25 | Talking Island | −4741.3 .. −681.6 | 11 | 708 | dense forest (alpha foliage) |
-| 17_24 | ocean NE of TI | −4684.3 .. −3767.3 | 1 | 0 | sea floor only, base texture; no water plane (M1) |
+| 17_24 | ocean NE of TI | −4684.3 .. −3767.3 | 1 | 0 | sea floor only, base texture; water plane at −3780 (WaterVolume) |
 | 17_22 | Gludin area | −4716.6 .. +1773.1 | 9 | 1265 | hills, windmill, banner village |
 | 24_18 | Aden | −4571.8 .. −431.9 | 10 | 1012 | paved square/avenue, cypress gardens |
 | 20_22 | Dion | −4281.5 .. −1567.2 | 10 | 1647 | white-plaster houses (retail look, see below) |

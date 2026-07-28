@@ -20,6 +20,7 @@ and writes
 Usage:
     python3 tools/world/convert.py 17_23 [19_22 ...]   # convert tiles
     python3 tools/world/convert.py --check 17_23 ...   # validate scene.json
+    python3 tools/world/convert.py --water-only T ...  # repatch water only
 
 Everything is stdlib Python + l2lib (tools/l2lib) + tools/bin/umodel.
 Format lore: docs/map-format.md. See tools/world/README.md for what is exact
@@ -41,7 +42,8 @@ ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 from l2lib import (L2Error, Reader, load_package, parse_texture,  # noqa: E402
-                   extract_texture_rgba, resolve_material, write_png)
+                   extract_texture_rgba, read_properties, resolve_material,
+                   write_png)
 import geodata  # noqa: E402  (tools/world sibling module)
 
 CLIENT = os.path.join(ROOT, "assets", "interlude")
@@ -606,6 +608,112 @@ def read_static_mesh_actors(pkg):
     return actors
 
 
+# ---------------------------------------------------------------------------
+# water: WaterVolume brush bounding boxes (there is no FluidSurfaceInfo in
+# any of the 100+ retail maps — the client renders the volume's top face)
+# ---------------------------------------------------------------------------
+
+# retail WaterSurfaceSet diffuse (FX_E_T.utx Shader WaterShader01 pipeline);
+# shipped per-tile next to the layer textures
+WATER_TEXTURE = ("FX_E_T", "Water01")
+WATER_TEXTURE_DEST = "textures/water01.png"
+
+
+def _model_bbox(pkg, exp):
+    """UPrimitive::Serialize appends FBox + FSphere right after the Model's
+    property list (same layout l2lib uses for meshes). -> (min, max)."""
+    r = pkg.body_reader(exp)
+    read_properties(pkg, r)
+    data = r.bytes(41)  # FBox 25B (Min, Max, IsValid) + FSphere 16B
+    if len(data) < 41 or data[24] == 0:
+        raise L2Error("%s: Model '%s' has no valid bounding box"
+                      % (pkg.path, pkg.export_name(exp)))
+    return (struct.unpack("<3f", data[0:12]),
+            struct.unpack("<3f", data[12:24]))
+
+
+def _water_actor_props(pkg, exp):
+    """Property list of a WaterVolume actor. find_prop_start's first-clean
+    parse can stop early on these (misread native header, e.g. 17_25), so
+    scan every header offset and prefer a full-length parse that actually
+    carries Location + Brush."""
+    best = None
+    for start in range(25):
+        try:
+            props, end = read_props_ordered(pkg, exp.serial_offset + start)
+        except (L2Error, IndexError, struct.error):
+            continue
+        if end > exp.serial_offset + exp.serial_size:
+            continue
+        names = set(p["name"] for p in props)
+        if "Location" in names and "Brush" in names:
+            if end == exp.serial_offset + exp.serial_size:
+                return props
+            best = best or props
+    return best
+
+
+def read_water_volumes(pkg):
+    """-> [{"height", "rect": [x0, y0, x1, y1]}] in world L2 units.
+
+    Each WaterVolume actor places a Brush (Model) at Location with PrePivot;
+    the water surface is the brush bbox top in world space."""
+    vols = []
+    for e in pkg.exports:
+        if pkg.class_name_of(e) != "WaterVolume":
+            continue
+        props = _water_actor_props(pkg, e)
+        if not props:
+            continue
+        brush = location = prepivot = None
+        for p in props:
+            if p["name"] == "Brush" and p["type"] == 5:
+                brush = prop_objref(pkg, p["raw"])
+            elif p["name"] == "Location" and p["type"] == 10 \
+                    and len(p["raw"]) == 12:
+                location = prop_vector(p["raw"])
+            elif p["name"] == "PrePivot" and p["type"] == 10 \
+                    and len(p["raw"]) == 12:
+                prepivot = prop_vector(p["raw"])
+        if not brush or not location:
+            continue  # default/leftover actor, no placed volume
+        mexp = next((x for x in pkg.exports
+                     if pkg.export_name(x) == brush["name"]), None)
+        if mexp is None:
+            continue
+        try:
+            mn, mx = _model_bbox(pkg, mexp)
+        except L2Error:
+            continue
+        pp = prepivot or [0.0, 0.0, 0.0]
+        wmin = [location[i] + mn[i] - pp[i] for i in range(3)]
+        wmax = [location[i] + mx[i] - pp[i] for i in range(3)]
+        if wmax[0] - wmin[0] < 1.0 or wmax[1] - wmin[1] < 1.0:
+            continue  # degenerate slice, no surface
+        vols.append({"height": round(wmax[2], 1),
+                     "rect": [round(wmin[0], 1), round(wmin[1], 1),
+                              round(wmax[0], 1), round(wmax[1], 1)]})
+    return vols
+
+
+def ship_water_texture(out_dir, water):
+    """Copy the retail water diffuse next to the layer textures and wire it
+    into every water entry."""
+    if not water:
+        return
+    dst = os.path.join(out_dir, WATER_TEXTURE_DEST)
+    if not os.path.exists(dst):
+        src = find_library_png(*WATER_TEXTURE)
+        if src:
+            shutil.copyfile(src, dst)
+        elif not decode_utx_texture_png(WATER_TEXTURE[0],
+                                        WATER_TEXTURE[1], dst):
+            raise L2Error("water texture %s.%s not resolvable"
+                          % WATER_TEXTURE)
+    for w in water:
+        w["texture"] = WATER_TEXTURE_DEST
+
+
 def find_usx(package):
     if not package:
         return None
@@ -950,6 +1058,17 @@ def validate_scene(scene, out_dir):
                  and lay["splat"].startswith("textures/")),
              "layer %d splat" % i)
     need("water" in scene, "water key")
+    need(scene["water"] is None or isinstance(scene["water"], list),
+         "water null or list")
+    for i, w in enumerate(scene["water"] or []):
+        need(isinstance(w.get("height"), (int, float)), "water %d height" % i)
+        need(isinstance(w.get("rect"), list) and len(w["rect"]) == 4
+             and all(isinstance(v, (int, float)) for v in w["rect"])
+             and w["rect"][2] > w["rect"][0] and w["rect"][3] > w["rect"][1],
+             "water %d rect" % i)
+        need(isinstance(w.get("texture"), str)
+             and w["texture"].startswith("textures/"),
+             "water %d texture" % i)
     need("interior" not in scene or scene["interior"] is True,
          "interior must be exactly true when present")
     # optional geodata pointer (FROZEN contract, tools/world/README.md)
@@ -1000,6 +1119,10 @@ def validate_scene(scene, out_dir):
         if p.get("gltf"):
             need(os.path.exists(os.path.join(out_dir, p["gltf"])),
                  "missing " + p["gltf"])
+    for w in scene.get("water") or []:
+        if w.get("texture"):
+            need(os.path.exists(os.path.join(out_dir, w["texture"])),
+                 "missing " + w["texture"])
     if errs:
         raise L2Error("scene contract violations:\n  " + "\n  ".join(errs))
 
@@ -1092,6 +1215,10 @@ def convert_tile(tile, with_props=True):
         actors = read_static_mesh_actors(mpkg)
         props, pstats = convert_props(tile, actors, out_dir)
 
+    # water volumes (WaterVolume brush tops; null when the tile has none)
+    water = read_water_volumes(mpkg)
+    ship_water_texture(out_dir, water)
+
     scene = {
         "tile": tile,
         "origin": [corner[0], corner[1], locz],
@@ -1102,7 +1229,7 @@ def convert_tile(tile, with_props=True):
         "heights": "heightmap.png",
         "layers": [{"name": lay["name"], "diffuse": lay["diffuse"],
                     "splat": lay["splat"]} for lay in layers],
-        "water": None,
+        "water": water or None,
         "props": props,
     }
     if tile in INTERIOR_TILES:
@@ -1143,6 +1270,23 @@ def check_tile(tile):
           (tile, len(scene["layers"]), len(scene["props"])))
 
 
+def update_tile_water(tile):
+    """Recompute only the water key of an existing scene.json (the rest of
+    the conversion — heightmap, layers, props — is untouched)."""
+    out_dir = os.path.join(OUT_ROOT, tile)
+    scene_path = os.path.join(out_dir, "scene.json")
+    with open(scene_path) as f:
+        scene = json.load(f)
+    mpkg, _ = load_package(os.path.join(CLIENT, "maps", tile + ".unr"))
+    water = read_water_volumes(mpkg)
+    ship_water_texture(out_dir, water)
+    scene["water"] = water or None
+    validate_scene(scene, out_dir)
+    with open(scene_path, "w") as f:
+        json.dump(scene, f, indent=1)
+    return len(water)
+
+
 def main(argv):
     args = argv[1:]
     if not args:
@@ -1151,6 +1295,14 @@ def main(argv):
     if args[0] == "--check":
         for tile in args[1:]:
             check_tile(tile)
+        return 0
+    if args[0] == "--water-only":
+        # patch just the water key of already-converted tiles (skips the
+        # slow umodel prop pass); used when the water extraction was added
+        # after the initial 100-tile conversion
+        for tile in args[1:]:
+            n = update_tile_water(tile)
+            print("%s: %d water volume(s)" % (tile, n))
         return 0
     for tile in args:
         res = convert_tile(tile)

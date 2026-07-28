@@ -1,7 +1,7 @@
 // L2Vzla walkable-world demo (M1 + M2 online mode) — main glue.
 
 import * as THREE from 'three';
-import { Terrain } from './terrain.js';
+import { Terrain, WATER_SCROLL } from './terrain.js';
 import { Character } from './character.js';
 import { FollowCamera } from './camera.js';
 import { l2ToThree, threeToL2, l2HeadingToThreeYaw } from './coords.js';
@@ -1050,6 +1050,19 @@ renderer.setAnimationLoop(() => {
     if (terrain.interior) {
       torch.position.copy(character.group.position);
       torch.position.y += (character.heightM || 1.75) * 2.2;
+      // fire-prop lights: subtle flicker (cheap, authored)
+      const ft = clock.elapsedTime;
+      for (const l of terrain.fireLights) {
+        l.intensity = l.userData.baseIntensity
+          * (0.88 + 0.16 * Math.sin(ft * 11 + l.userData.phase)
+             * Math.sin(ft * 5.3 + l.userData.phase * 2));
+      }
+    }
+    // water uv drift (retail TexPanner feel; plane/height are sourced)
+    if (terrain.waterTex) {
+      const t = clock.elapsedTime;
+      terrain.waterTex.offset.set((t * WATER_SCROLL[0]) % 1,
+                                  (t * WATER_SCROLL[1]) % 1);
     }
     // prop draw distance, reevaluated at 2 Hz
     propDistTimer += dt;
