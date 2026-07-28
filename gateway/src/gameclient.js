@@ -254,6 +254,22 @@ class GameSession extends EventEmitter {
     this._send(w.build());
   }
 
+  // MultiSellChoose (0xa7): D listId, D entryId, D amount. The server
+  // validates against the PreparedListContainer it stored on the Player when
+  // it sent MultiSellList — entryId is 1-based into THAT (prepared) list,
+  // exactly as decoded from the packet. Requires the multisell npc as the
+  // current folk (talk/bypass first) and newbie status for Newbie_ lists.
+  multiSellChoose(listId, entryId, amount) {
+    this._send(
+      new PacketWriter()
+        .writeC(0xa7)
+        .writeD(listId | 0)
+        .writeD(entryId | 0)
+        .writeD(amount | 0)
+        .build()
+    );
+  }
+
   // RequestJoinParty (0x29): S targetName, D lootRule
   // (0 ITEM_LOOTER, 1 ITEM_RANDOM, 2 ITEM_RANDOM_SPOIL, 3 ITEM_ORDER,
   // 4 ITEM_ORDER_SPOIL — enums/LootRule.java).
@@ -609,6 +625,54 @@ class GameSession extends EventEmitter {
           items.push({ objectId, itemId, count: cnt, price, enchant });
         }
         this.emit('sellList', { money, items });
+        break;
+      }
+      case 0xd0: { // MultiSellList: D listId, D page, D finished, D pageSize,
+        // D count, per entry: D entryId, D 0, D 0, C stackable, H products,
+        // H ingredients; per product: H itemId, D bodyPart, H type2, D count,
+        // H enchant, D 0, D 0; per ingredient: H itemId, H type2, D count,
+        // H enchant, D 0, D 0. Paginated (MultisellData.PAGE_SIZE = 40):
+        // accumulate pages and emit the full list once `finished` arrives.
+        const listId = r.readD();
+        const page = r.readD();
+        const finished = r.readD();
+        r.readD(); // pageSize
+        const count = r.readD();
+        const entries = [];
+        for (let i = 0; i < count; i++) {
+          const entryId = r.readD();
+          r.readD(); r.readD(); // C6 dwords
+          const stackable = r.readC() === 1;
+          const nProd = r.readH();
+          const nIng = r.readH();
+          const products = [];
+          for (let j = 0; j < nProd; j++) {
+            const itemId = r.readH();
+            r.readD(); // bodyPart
+            r.readH(); // type2
+            const cnt = r.readD();
+            const enchant = r.readH();
+            r.readD(); r.readD(); // augment, mana left
+            products.push({ itemId, count: cnt, enchant });
+          }
+          const ingredients = [];
+          for (let j = 0; j < nIng; j++) {
+            const itemId = r.readH();
+            r.readH(); // type2
+            const cnt = r.readD();
+            const enchant = r.readH();
+            r.readD(); r.readD(); // augment, mana left
+            ingredients.push({ itemId, count: cnt, enchant });
+          }
+          entries.push({ entryId, stackable, products, ingredients });
+        }
+        if (page <= 1 || !this._multiSellBuf || this._multiSellBuf.listId !== listId)
+          this._multiSellBuf = { listId, entries: [] };
+        this._multiSellBuf.entries.push(...entries);
+        if (finished === 1) {
+          this.emit('multiSellList', { listId, items: this._multiSellBuf.entries });
+          this._multiSellBuf = null;
+        }
         break;
       }
       case 0x27: { // InventoryUpdate (player): H count, per item H change + entry

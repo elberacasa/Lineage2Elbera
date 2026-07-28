@@ -31,6 +31,7 @@ import { AbnormalWnd } from './ui/abnormalwnd.js';
 import { ShopWnd } from './ui/shopwnd.js';
 import { TradeWnd } from './ui/tradewnd.js';
 import { StoreWnd } from './ui/storewnd.js';
+import { MultiSellWnd } from './ui/multisellwnd.js';
 import { WeaponGate } from './weapongate.js';
 
 const canvas = document.getElementById('view');
@@ -186,6 +187,7 @@ let abnormalWnd = null;
 let shopWnd = null;
 let tradeWnd = null;
 let storeWnd = null;
+let multiSellWnd = null;
 // M13 own-store state: sitting tracked from changeWait (the sit/stand
 // toggle is server-side); storeOpen from storeState (open sits the seller,
 // close leaves them SITTING — the aCis re-list quirk, gateway README M13)
@@ -441,6 +443,7 @@ net.on('itemList', async (msg) => {
   // aCis answers shop transactions with a FULL ItemList (no InventoryUpdate)
   if (shopWnd) shopWnd.onInvUpdate();
   if (storeWnd) storeWnd.onInvUpdate();
+  if (multiSellWnd) multiSellWnd.onInvUpdate();
 });
 net.on('questList', (msg) => {
   if (questWnd) questWnd.setQuests(msg.quests || []);
@@ -491,6 +494,15 @@ net.on('buyList', (msg) => {
 });
 net.on('sellList', (msg) => {
   if (shopWnd) shopWnd.openSell(msg.items || []);
+});
+// M15 multisell: the merchant bypass drives it server-side (nothing
+// client-side to open); multisellList opens/fills the window — a re-sent
+// list replaces the content. Retail HIDES the inventory when the window
+// shows (MultiSellWnd.uc:289-303); close sends nothing (no close packet).
+net.on('multisellList', (msg) => {
+  if (!multiSellWnd) return;
+  if (inventory) inventory.toggle(false);
+  multiSellWnd.openList(msg.listId, msg.items || []);
 });
 // M12 trade: tradeStart opens the window (and retail HIDES the inventory/
 // shop windows, TradeWnd.uc:184-199); tradeOwn/tradeOther are the ONLY
@@ -565,6 +577,7 @@ net.on('invUpdate', async (msg) => {
   refreshWeaponGate();
   if (shopWnd) shopWnd.onInvUpdate();
   if (storeWnd) storeWnd.onInvUpdate();
+  if (multiSellWnd) multiSellWnd.onInvUpdate();
   for (const u of msg.updated || []) {
     if (u.change === 'add' || u.change === 1) {
       itemMeta().then(meta =>
@@ -823,6 +836,7 @@ window.__world = {
   get partyWnd() { return partyWnd; },
   get abnormalWnd() { return abnormalWnd; },
   get shopWnd() { return shopWnd; },
+  get multiSellWnd() { return multiSellWnd; },
   get tradeWnd() { return tradeWnd; },
   get storeWnd() { return storeWnd; },
   get menuWnd() { return menuWnd; },
@@ -1198,6 +1212,27 @@ renderer.setAnimationLoop(() => {
     });
     shopWnd.place(shopWnd.defaultPlace);
     WndMgr.register('ShopWnd', shopWnd, { handle: shopWnd.win.bar });
+
+    // M15: the NPC multisell (item exchange). multisellList opens it (the
+    // merchant bypass drives that server-side); multisellChoose is the
+    // only outbound op; results arrive ONLY via invUpdate/itemList
+    // (server truth — failures are sysMsg lines in chat).
+    multiSellWnd = new MultiSellWnd(document.body, {
+      onChoose: (listId, entryId, count) => {
+        if (online) net.send('multisellChoose', { listId, entryId, count });
+      },
+      getOwned: (itemId) => {
+        if (!inventory) return 0;
+        // equipped gear does not count (aCis inventoryOnly skips it)
+        let n = 0;
+        for (const i of inventory.items.values()) {
+          if (i.itemId === itemId && !i.equipped) n += i.count;
+        }
+        return n;
+      },
+    });
+    multiSellWnd.place(multiSellWnd.defaultPlace);
+    WndMgr.register('MultiSellWnd', multiSellWnd, { handle: multiSellWnd.win.bar });
 
     // Phase C.12: player-to-player trade. '/trade' with a player targeted
     // invites; tradeStart opens the window, tradeOwn/tradeOther are the

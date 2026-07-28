@@ -253,6 +253,13 @@ class Bridge {
             this.game.requestSellItem(0, items);
           }
           break;
+        case 'multisellChoose':
+          // MultiSellChoose(0xa7): D listId, D entryId, D amount. Server-side
+          // validated against the PreparedListContainer stored on the Player
+          // when MultiSellList was sent — the npc must be the current folk
+          // (talk/bypass first) and within interaction range.
+          if (this.game) this.game.multiSellChoose(msg.listId | 0, msg.entryId | 0, msg.count | 0 || 1);
+          break;
         case 'destroyItem':
           // inventory TrashButton (aCis RequestDestroyItem)
           if (this.game) this.game.destroyItem(msg.objectId | 0, msg.count | 0 || 1);
@@ -731,6 +738,17 @@ class Bridge {
     });
     game.on('sellList', (s) => {
       this.send({ op: 'sellList', money: s.money, items: s.items });
+    });
+
+    // MultiSellList (0xd0): pages already merged by the game client; the
+    // contract op is the full list (entryId = 1-based index into the
+    // server-side prepared list — use it verbatim in multisellChoose).
+    game.on('multiSellList', (m) => {
+      this.send({
+        op: 'multisellList',
+        listId: m.listId,
+        items: m.items.map((e) => ({ entryId: e.entryId, products: e.products, ingredients: e.ingredients })),
+      });
     });
 
     game.on('drop', (d) => {

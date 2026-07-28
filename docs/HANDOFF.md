@@ -180,6 +180,7 @@ targetId?}` · `useItem{objectId}` · `talk{id}` · `bypass{command}` ·
 `action{actionId}` · `questAbort{id}` · `partyInvite{name}` ·
 `partyAnswer{accept}` · `partyLeave{}` · `partyKick{name}` ·
 `buy{items[{itemId,count}]}` · `sell{items[{objectId,count}]}` ·
+`multisellChoose{listId,entryId,count}` ·
 `tradeRequest{name}` · `tradeAnswer{accept}` · `tradeAdd{objectId,count}` ·
 `tradeDone{}` · `tradeCancel{}` · `storeManageSell{}` · `storeManageBuy{}` ·
 `storeTitle{title}` · `storeSetSell{items[{objectId,count,price}],title?,
@@ -225,6 +226,9 @@ maxMp,leader}]}` · `partyMemberStatus{id,hp,maxHp,mp,maxMp}` ·
 `skillCoolTime{skills[{id,level,reuse,remaining}]}` ·
 `buyList{listId,money,items[{itemId,count,price}]}` ·
 `sellList{money,items[{objectId,itemId,count,price,enchant}]}` ·
+`multisellList{listId,items[{entryId,products[{itemId,count,enchant}],
+ingredients[{itemId,count,enchant}]}]}` (pages merged, one op per full
+list; entryId is 1-based into the server-side prepared list) ·
 `tradeAsk{from}` · `tradeStart{partnerId,partner,items[]}` ·
 `tradeOwn{items[{objectId,itemId,count}]}` ·
 `tradeOther{items[{objectId,itemId,count}]}` · `tradeEnd{reason}` ·
@@ -244,8 +248,11 @@ within 150, else the server silently drops it). A successful BUY answers
 with a FULL `itemList` refresh (NOT invUpdate — the update queue is
 cleared by ItemList); a SELL arrives as invUpdate + optional npcHtml.
 TI castle tax 0% observed; sell-back = referencePrice/2. Multisell
-(`npc_<id>_Newbie_Exc_Multisell`, opcode 0xd0) present on TI merchants,
-not bridged.
+(`npc_<id>_Newbie_Exc_Multisell 003` on TI merchants →
+`multisellList`/`multisellChoose`, MultiSellList 0xd0 / MultiSellChoose
+0xa7) is bridged (2026-07-28, see gateway README M15). Newbie_ lists
+require char level 6..25 (Player.isNewbie) and are inventory-filtered:
+only entries whose ingredient you already own are listed.
 
 Quests (added 2026-07-26): `questList` = QuestList(0x80, `H count` + per
 quest `D questId, D flags`), queued after enterWorld like the other lists
@@ -513,9 +520,9 @@ The real remaining backlog, in order:
    `tools/upscale/batch_world.sh` re-runs it idempotently (missing-only).
    The earlier wholesale failure was the xargs trailing `_` placeholder
    dropped — pinned in the script header.
-2. **Multisell bridging.** TI merchants genuinely use it (newbie equipment
-   exchange; MultiSellList is opcode 0xd0 — notes in gateway/README.md);
-   not bridged, so those merchant options are dead ends in the web client.
+2. ~~Multisell bridging~~ — **DONE 2026-07-28**: `multisellList` /
+   `multisellChoose` bridged and live-verified (verify-multisell.js; the
+   Silvia newbie equipment exchange end-to-end — see gateway/README.md M15).
 3. **Warehouse + craft/recipes.** Protocol not started.
 4. **Clan window (shelved, ready to resume).** Only the client UI is
    missing; the gateway contract ops are done and live-verified.

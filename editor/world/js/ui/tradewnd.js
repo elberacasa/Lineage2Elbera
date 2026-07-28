@@ -269,7 +269,8 @@ export class TradeWnd {
     win.body.appendChild(ok);
     // AUTHORED (same prompt layout as above — the cancel mirrors OK)
     const cancel = document.createElement('div');
-    cancel.style.cssText = ok.style.cssText.replace('left:' + Skin.px(10), 'left:' + Skin.px(94));
+    cancel.style.cssText = ok.style.cssText.replace(
+      /left:\s*\d+(?:\.\d+)?px/, 'left:' + Skin.px(94) + 'px');
     Skin.apply(cancel, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
     Font.set(cancel, 'Cancel', { color: '#c9a959' });
     win.body.appendChild(cancel);

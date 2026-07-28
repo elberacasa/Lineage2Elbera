@@ -41,6 +41,10 @@
 //   updated snapshots (party of one disbands, like aCis)
 //   buyList     <- on bypass npc_buy; sellList <- npc_sell and after a
 //                  sale; buy/sell validated, results via invUpdate only
+//   multisellList <- on bypass npc_multisell (M15: 2-entry exchange
+//                  fixture, one entry missing ingredients on purpose);
+//                  multisellChoose validated, invUpdate + sysMsg 53/123,
+//                  then the list is re-sent (refresh), like aCis
 //   loot{id}    -> invUpdate add (adena) + sysMsg, only for dead mobs
 //   useSkill    -> MP drops by 10 on skillLaunch (selfStatus); a useSkill
 //                  with no targetId for a SELF-target skill (skillweapons.json
@@ -211,6 +215,34 @@ wss.on('connection', (ws) => {
       })),
     });
   };
+
+  // M15 multisell: the exchange fixture. Entry 1 (Ring of Knowledge for
+  // Squire's Pants + 200a) is affordable several times over -> the amount
+  // prompt; entry 2 needs the (equipped-only) Squire's Sword + 5000a ->
+  // missing ingredients, so the client must gray it out and refuse clicks.
+  // aCis pre-filters the prepared list (inventoryOnly) — the mock sends
+  // entry 2 anyway to exercise the DEFENSIVE graying the contract asks
+  // for. listId 47667 is the REAL Java String.hashCode of "003" (the
+  // newbie exchange list); entryIds are 1-based, passed back verbatim.
+  const MULTISELL_LIST_ID = 47667;
+  const MULTISELL_ENTRIES = [
+    {
+      entryId: 1,
+      products: [{ itemId: 875, count: 1, enchant: 0 }],
+      ingredients: [{ itemId: 1147, count: 1, enchant: 0 }, { itemId: 57, count: 200, enchant: 0 }],
+    },
+    {
+      entryId: 2,
+      products: [{ itemId: 906, count: 1, enchant: 0 }],
+      ingredients: [{ itemId: 2369, count: 1, enchant: 3 }, { itemId: 57, count: 5000, enchant: 0 }],
+    },
+  ];
+  const sendMultiSellList = () => {
+    send('multisellList', { listId: MULTISELL_LIST_ID, items: MULTISELL_ENTRIES.map(e => ({ ...e })) });
+  };
+  // owned = unequipped stacks only (aCis inventoryOnly skips equipped gear)
+  const ownedCount = (itemId) =>
+    items.filter(i => i.itemId === itemId && !i.equipped).reduce((s, i) => s + i.count, 0);
 
   // M12 trade: Aria's standing offer (2 healing potions). Movement on
   // completion rides invUpdate ONLY — the trade ops never move items.
@@ -568,7 +600,9 @@ wss.on('connection', (ws) => {
         `<tr><td><font color="BROWN">Quests</font></td>` +
         `<td><a action="bypass -h npc_quests">Ask about quests</a></td></tr>` +
         `<tr><td><font color="BROWN">Shop</font></td>` +
-        `<td><a action="bypass -h npc_shop">Buy / sell supplies</a></td></tr></table><br>` +
+        `<td><a action="bypass -h npc_shop">Buy / sell supplies</a></td></tr>` +
+        `<tr><td><font color="BROWN">Exchange</font></td>` +
+        `<td><a action="bypass -h npc_multisell">Exchange materials</a></td></tr></table><br>` +
         `<button value="Farewell" action="bypass -h npc_bye" width="80" height="18">` +
         `</center></body></html>` });
     } else if (msg.op === 'bypass') {
@@ -591,6 +625,10 @@ wss.on('connection', (ws) => {
         send('buyList', { items: shopStock });
       } else if (cmd === 'npc_sell') {
         sendSellList();
+      } else if (cmd === 'npc_multisell') {
+        // the merchant bypass drives the exchange server-side — the list
+        // IS the window opener (nothing client-side to request it with)
+        sendMultiSellList();
       } else if (cmd === 'npc_services') {        send('npcHtml', { html:
           `<html><body><title>Services</title><br><br><center>` +
           `We offer <font color="YELLOW">supplies</font> and guidance.<br><br>` +
@@ -809,6 +847,50 @@ wss.on('connection', (ws) => {
     } else if (msg.op === 'partyLeave') {
       party = [];
       send('party', { members: party });
+    } else if (msg.op === 'multisellChoose') {
+      // validated against the fixture list (a listId mismatch nukes it
+      // silently, like aCis dropping the prepared list); results arrive
+      // via invUpdate + sysMsg, then the list is RE-SENT (aCis re-sends
+      // after an exchange — the client must treat it as a refresh)
+      if ((msg.listId | 0) !== MULTISELL_LIST_ID) return;
+      const entry = MULTISELL_ENTRIES.find(e => e.entryId === (msg.entryId | 0));
+      if (!entry) return;
+      const amount = Math.max(1, Math.min(9999, msg.count | 0 || 1));
+      for (const ing of entry.ingredients) {
+        if (ownedCount(ing.itemId) < ing.count * amount) {
+          send('sysMsg', { id: 351, params: [] });   // NOT_ENOUGH_ITEMS
+          return;
+        }
+      }
+      for (const ing of entry.ingredients) {
+        let need = ing.count * amount;
+        for (const it of items.filter(i => i.itemId === ing.itemId && !i.equipped)) {
+          if (need <= 0) break;
+          const take = Math.min(it.count, need);
+          it.count -= take;
+          need -= take;
+          if (it.count <= 0) {
+            items.splice(items.indexOf(it), 1);
+            send('invUpdate', { updated: [{ change: 'remove', objectId: it.objectId, itemId: it.itemId }] });
+          } else {
+            send('invUpdate', { updated: [{ change: 'modify', ...it }] });
+          }
+        }
+      }
+      for (const p of entry.products) {
+        const have = items.find(i => i.itemId === p.itemId && !i.equipped);
+        if (have) {
+          have.count += p.count * amount;
+          send('invUpdate', { updated: [{ change: 'modify', ...have }] });
+        } else {
+          const it = { objectId: 90600 + (nextBoughtId++), itemId: p.itemId, count: p.count * amount, slot: 0, equipped: 0, enchant: p.enchant || 0 };
+          items.push(it);
+          send('invUpdate', { updated: [{ change: 'add', ...it }] });
+        }
+        send('sysMsg', { id: 53, params: [`item:${p.itemId}`, p.count * amount] });
+      }
+      send('sysMsg', { id: 123, params: [] });   // SUCCESSFULLY_TRADED_WITH_NPC
+      sendMultiSellList();
     } else if (msg.op === 'buy') {
       // validate against the stock the mock last sent + the player's
       // adena; results arrive ONLY via invUpdate (server truth)

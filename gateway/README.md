@@ -31,6 +31,7 @@ node test/verify-observer.js [suffix] # client B watches client A fight: attack 
 node test/verify-m4.js [deviceId]    # skills+items: skillList/itemList, self-cast, nuke kill, manual loot
 node test/verify-m5.js [suffix]      # chat channels (TELL target, SHOUT), charSheet, .menu passthrough
 node test/verify-shop.js [suffix]     # merchant flow: buy list, buy (itemList refresh), sell back
+node test/verify-multisell.js [suffix] # multisell: Newbie_Exc_Multisell 003 list, choose, exact deduction
 node test/verify-trade.js [suffix]    # player trade: ask/refuse, accept+cancel, two-phase confirm + item move
 node test/verify-store.js [suffix]    # private store: manage/set/title, observer playerStore, buy, stop, .offline
 node test/verify-clan.js [suffix]     # clan: real creation dialog chain, invite/accept, leave, oust, crest
@@ -75,6 +76,62 @@ SystemMessage(0x64) is shallow-decoded into the contract op
 2 NPC_NAME, 3 ITEM_NAME, 4 SKILL_NAME, 5 CASTLE_NAME, 6 ITEM_NUMBER,
 7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
 "You have earned 145 exp and 10 SP".
+
+## M15: multisell / newbie equipment exchange (added 2026-07-28)
+
+Flow (verified live, test/verify-multisell.js, Trader Silvia TI): talk ->
+merchant html -> buy the exchange ingredients from her regular shop ->
+follow the REAL `bypass -h npc_<id>_Newbie_Exc_Multisell 003` link ->
+`multisellList` -> `multisellChoose` -> `invUpdate` (product added,
+ingredient removed, adena deducted exactly).
+
+Server -> client:
+- `{"op":"multisellList","listId":N,"items":[{"entryId":N,"products":[{"itemId":N,"count":N,"enchant":N}],"ingredients":[{"itemId":N,"count":N,"enchant":N}]}]}`
+  — MultiSellList(0xd0): `D listId, D page, D finished, D pageSize, D count`,
+  per entry `D entryId, D 0, D 0, C stackable, H products, H ingredients`;
+  per product `H itemId, D bodyPart, H type2, D count, H enchant, D 0, D 0`;
+  per ingredient `H itemId, H type2, D count, H enchant, D 0, D 0`.
+  Products on top, ingredients below — exactly as written.
+- PAGES ARE MERGED (MultisellData.PAGE_SIZE = 40): the server sends one
+  0xd0 per page (`page` 1-based, `finished` on the last); the game client
+  accumulates and emits ONE `multisellList` op per full list. List 003 has
+  127 XML entries = 4 pages when unfiltered.
+- `entryId` is 1-based into the server-side PREPARED list
+  (PreparedListContainer), NOT the XML entry number — pass it back verbatim
+  in `multisellChoose`.
+- `listId` is the Java String.hashCode of the XML file name (`"003"` ->
+  47667), not the file number.
+- Newbie_Exc_Multisell is sent with inventoryOnly=true: the prepared list
+  contains ONLY entries whose ingredients include an unequipped
+  weapon/armor/jewelry the player OWNS. On a fresh char the list is EMPTY
+  until you buy an ingredient (e.g. the 37a Magic Ring from Silvia's own
+  Buy 13 list).
+- Newbie_ lists additionally require Player.isNewbie(true): base class AND
+  char level 6..25 — a level-1 char gets `exchangelvlimit.htm` instead of
+  the list.
+
+Client -> server:
+- `{"op":"multisellChoose","listId":N,"entryId":N,"count":N}` ->
+  MultiSellChoose(0xa7): `D listId, D entryId, D amount` (aCis names the
+  client packet `MultiSellChoose`, not RequestMultiSellChoose). Server
+  validates against the stored prepared list (listId must match the last
+  list sent; a mismatch nukes it), the npc must be the current folk within
+  interaction range (talk/bypass first), amount 1..9999, and non-stackable
+  products force amount 1. Failures are SILENT (server drops the prepared
+  list) or a sysMsg (NOT_ENOUGH_ITEMS etc.).
+- Success arrives as `invUpdate`: product `add`, ingredient(s) `remove`,
+  adena `modify` (exact, list 003 applies no tax) + sysMsg EARNED_ITEM_S1
+  and SUCCESSFULLY_TRADED_WITH_NPC.
+
+Live-verified numbers (test/verify-multisell.js): char seeded offline to
+level 6 + 20000 adena (farming 557a would take ~15 gremlin kills; the seed
+waits for characters.online=0 because GameClient.CleanupTask delays the
+logout save 15s when the char is IN COMBAT — a fixed 5s sleep gets
+overwritten). Bought Magic Ring (116, 37a) + Necklace of Magic (118, 75a)
+-> multisellList with exactly 2 entries, cross-checked against
+data/xml/multisell/003.xml: `875 <- [116x1, 57x557]`, `906 <- [118x1,
+57x1115]` -> chose the 116 entry -> invUpdate `{add 875 x1, remove 116,
+modify 57 -557}` (20000-112-557 = 19331).
 
 ## M14: clan / pledge protocol (added 2026-07-28)
 
@@ -372,7 +429,7 @@ Responses (verified live, important):
   = referencePrice/2 (Magic Ring: buy 37, sell 16).
 - Multisell: TI merchants DO use it (`npc_<id>_Newbie_Exc_Multisell 003`
   on Silvia = newbie equipment exchange; MultiSellList is opcode 0xd0
-  double). Not bridged in this milestone (shops cover the basic case).
+  double). Bridged in M15.
 
 ## M10: abnormal status (buffs) + skill cooldowns (added 2026-07-27)
 
