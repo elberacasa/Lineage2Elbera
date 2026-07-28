@@ -508,14 +508,11 @@ VillageMaster dialog chain, invite/accept, leave, oust, crest —
 
 The real remaining backlog, in order:
 
-1. **Finish the full world-texture HD pass.** The 21,589-texture manifest
-   is staged (`tools/upscale/world_manifest.py` → `/tmp/hd_manifest.tsv`;
-   recipe in `tools/upscale/README.md`), but only the 1,268 pilot textures
-   are done — the first full-batch attempt failed wholesale at launch
-   (every entry in `/tmp/hd_failures.log`, including files that exist;
-   likely a cwd/relative-path issue in the xargs invocation — the recipe
-   uses relative `tools/upscale/bin/...` paths, so run it from the repo
-   root). Re-run from the repo root, then re-check coverage per tile.
+1. ~~Full world-texture HD pass~~ — **DONE 2026-07-28**: 21,589/21,589
+   textures at 4x in `assets/world-hd/` (51 GB, gitignored), zero failures.
+   `tools/upscale/batch_world.sh` re-runs it idempotently (missing-only).
+   The earlier wholesale failure was the xargs trailing `_` placeholder
+   dropped — pinned in the script header.
 2. **Multisell bridging.** TI merchants genuinely use it (newbie equipment
    exchange; MultiSellList is opcode 0xd0 — notes in gateway/README.md);
    not bridged, so those merchant options are dead ends in the web client.
