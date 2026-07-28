@@ -409,3 +409,60 @@ Interlude — id 54/30 ("You have earned/obtained $s1.") is the equivalent.
 Stats: group = 1 for all 2083; colors: 2014× `#B09B79` (default), 30×
 `#FFFF00` (loot/adena), 21× `#5AB0B2` (Seven Signs), 11× `#FED7A0`, 5×
 `#FF0000`, 1× `#FF00FF`, 1× `#FF00F0`; no empty texts.
+
+## 23. Skill weapon conditions — NOT in skillgrp.dat (aCis export instead)
+
+skillgrp.dat has **no weapon-condition field**: all 17 decoded fields are
+enumerated in §16, and the only opaque candidate, `cast_style`, cannot be a
+weapon mask — Power Strike (id 3, retail: sword/blunt) and Mortal Blow
+(id 16, retail: dagger) BOTH carry `cast_style` 3, while Double Shot
+(id 19, bow) carries 8. There is no target-type field either:
+`cast_range == -1` (0xFFFFFFFF) correlates with SELF-target skills but is
+not one (47 SELF skills have a real range; 83 ONE-target skills have -1).
+
+The retail gray-out / cast-block therefore sources from the server's skill
+definitions, same pattern as `skilltypes.json`:
+
+`tools/dat/export_skillweapons.py` reads the aCis XMLs and writes:
+
+- `assets/gamedata/skillweapons.json` — `weapons: {skillId: [type names]}`
+  from `<set name="weaponsAllowed" val="SWORD,BLUNT,..."/>` (112 skills),
+  `targets: {skillId: name}` from `<set name="target" val="SELF|ONE|..."/>`
+  (2654 skills). Semantics per aCis `L2Skill.java:309-342/:1048-1070`:
+  absent = any weapon; otherwise the equipped weapon's type OR a left-hand
+  shield must appear in the list (masks OR'd, then AND'd).
+- `assets/gamedata/itemtypes.json` — `weapon: {itemId: type name}` (1218)
+  from item XML `weapon_type`, `shield: {itemId: 1}` (95) from Armor items
+  with `bodypart lhand` (Interlude has no `armor_type` field on shields).
+
+Decode table (verified anchors, all matching retail):
+
+| skill | weaponsAllowed | | item | type |
+|---|---|---|---|---|
+| 3 Power Strike | SWORD,BLUNT,BIGBLUNT,BIGSWORD | | 10 Dagger | DAGGER |
+| 16 Mortal Blow | DAGGER | | 2369 Squire's Sword | SWORD |
+| 263 Deadly Blow | DAGGER | | 14 Bow | BOW |
+| 19 Double Shot | BOW | | 1299 Great Sword | DUAL (aCis quirk) |
+| 410 Mortal Strike | DAGGER (target SELF, toggle) | | 18 Leather Shield | shield |
+
+Distribution over the 112 restricted skills: DAGGER×24, DUAL×22,
+DUALFIST×18, BOW×15, POLE×9, sword/blunt family×10, SHIELD×6, FIST×2, +3
+mixed — no invented mask semantics, the raw name lists ship verbatim.
+
+weapongrp.dat's own `weapon_type` enum was decoded for comparison
+(0 shield, 1 sword, 2 blunt, 3 dagger, 4 pole, 5 fist, 6 bow, 7 etc/spellbook,
+8 two-hand sword/dual, 10 fishing rod), but it conflates what the server
+distinguishes: type 1 = SWORD *and* BIGSWORD, type 8 = DUAL *and* BIGSWORD,
+fist weapons sit in types 0/5. A composite decode (weapon_type + body_part
+7-vs-14 + mesh count 2 = dual) reproduces the server value for only
+1153/1184 shared items (97.4%) — hero/shadow weapons break the body_part
+heuristic, fist weapons the type heuristic — so the client consumes the
+per-item server export, not the dat enum.
+
+Cast interruption (client signal, aCis `CreatureCast.java`): a mid-cast
+abort sends SystemMessage 27 `CASTING_INTERRUPTED` (or 748
+`DIST_TOO_FAR_CASTING_STOPPED`) and ActionFailed via
+`PlayerCast.stop → clientActionFailed`. The web client cancels the casting
+bar on either signal. A rejected cast request answers ActionFailed +
+SystemMessage 113 `S1_CANNOT_BE_USED` (`RequestMagicSkillUse.java`) — the
+client-side gate keeps that packet from ever being sent, like retail.

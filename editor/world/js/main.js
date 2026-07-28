@@ -31,6 +31,7 @@ import { AbnormalWnd } from './ui/abnormalwnd.js';
 import { ShopWnd } from './ui/shopwnd.js';
 import { TradeWnd } from './ui/tradewnd.js';
 import { StoreWnd } from './ui/storewnd.js';
+import { WeaponGate } from './weapongate.js';
 
 const canvas = document.getElementById('view');
 const statusEl = document.getElementById('status');
@@ -330,6 +331,17 @@ document.getElementById('respawn-btn').addEventListener('click', () => {
 const LOOT_OP = 'target';
 
 const skillFx = new SkillFx(scene);
+// Weapon-dependent skill gating (aCis weaponsAllowed; js/weapongate.js):
+// grays + blocks skills whose weapon condition doesn't match the equipped
+// weapon, refreshed from every itemList/invUpdate (weapon swap re-enables
+// instantly) and consulted again at cast time.
+const weaponGate = new WeaponGate();
+function refreshWeaponGate() {
+  if (!inventory) return;
+  weaponGate.update([...inventory.items.values()]);
+  if (skillWnd) skillWnd.setWeaponGate(weaponGate);
+  if (shortcutWnd) shortcutWnd.setWeaponGate(weaponGate);
+}
 const skillBar = new SkillBar(
   document.getElementById('skill-bar'),
   document.getElementById('cast-bar'),
@@ -338,9 +350,16 @@ const skillBar = new SkillBar(
   {
     onCast: (skillId) => {
       if (!online) return false;
+      // weapon condition mismatch: send nothing (retail behavior — the
+      // server would answer ActionFailed + sysMsg 113 S1_CANNOT_BE_USED)
+      if (weaponGate.loaded && !weaponGate.allows(skillId)) return false;
+      // aCis target routing (skillweapons.json targets): SELF skills cast on
+      // the caster even while a mob is targeted — no targetId is sent, so
+      // the bridge never re-targets for them
+      const selfTarget = weaponGate.loaded && weaponGate.targetType(skillId) === 'SELF';
       net.send('useSkill', {
         skillId,
-        ...(combat.targetId != null ? { targetId: combat.targetId } : {}),
+        ...(!selfTarget && combat.targetId != null ? { targetId: combat.targetId } : {}),
       });
     },
   },
@@ -416,8 +435,9 @@ net.on('skillList', (msg) => {
   skillBar.register(all.filter(
     s => skillType(s.id, s.passive) !== 'PASSIVE' && !s.disabled));
 });
-net.on('itemList', (msg) => {
-  inventory.setItems(msg.items || []);
+net.on('itemList', async (msg) => {
+  await inventory.setItems(msg.items || []);
+  refreshWeaponGate();
   // aCis answers shop transactions with a FULL ItemList (no InventoryUpdate)
   if (shopWnd) shopWnd.onInvUpdate();
   if (storeWnd) storeWnd.onInvUpdate();
@@ -540,8 +560,9 @@ function useAction(id) {
   if (id === 28) { requestStoreManage('buy'); return; }
   net.send('action', { actionId: id });
 }
-net.on('invUpdate', (msg) => {
-  inventory.applyUpdate(msg.updated || []);
+net.on('invUpdate', async (msg) => {
+  await inventory.applyUpdate(msg.updated || []);
+  refreshWeaponGate();
   if (shopWnd) shopWnd.onInvUpdate();
   if (storeWnd) storeWnd.onInvUpdate();
   for (const u of msg.updated || []) {
@@ -592,8 +613,10 @@ net.on('changeWait', (msg) => {
 // ChangeMoveType broadcast (walk/run toggle) — authoritative for remotes.
 net.on('changeMove', (msg) => entities.setMoveMode(msg.id, msg.running));
 // ActionFailed (0x25) is the server's routine "no" (action while sitting,
-// target out of range...); retail surfaces nothing for it either.
-net.on('actionFailed', () => {});
+// target out of range...); retail surfaces nothing for it either. During a
+// cast it is the abort signal — PlayerCast.stop() fires clientActionFailed
+// when CreatureCast.interrupt cancels the cast, so the casting bar cancels.
+net.on('actionFailed', () => skillBar.cancelCast());
 
 // L2 world tile name for absolute L2 coords: tiles span 32768 units,
 // name = (20 + x/32768)_(18 + y/32768) (validated against tile-map.json,
@@ -725,6 +748,9 @@ net.on('remove', (msg) => {
 });
 net.on('chat', (msg) => chat.addChat(msg.from ?? '?', msg.channel, msg.text ?? '', msg.target));
 net.on('sysMsg', (msg) => {
+  // cast interruption signals (aCis CreatureCast): 27 CASTING_INTERRUPTED,
+  // 748 DIST_TOO_FAR_CASTING_STOPPED — the casting bar cancels on either
+  if (msg.id === 27 || msg.id === 748) skillBar.cancelCast();
   sysMsgMeta().then(meta =>
     chat.addSysMsg(renderSysMsg(meta, msg.id, msg.params || []), msg.id, msg.params || [],
       sysMsgColor(meta, msg.id)));
@@ -782,6 +808,7 @@ window.__world = {
   get chat() { return chat; },
   combat,
   skillBar,
+  get weaponGate() { return weaponGate; },
   get inventory() { return inventory; },
   get shortcutWnd() { return shortcutWnd; },
   get targetWnd() { return combat.targetWnd; },
@@ -1090,7 +1117,7 @@ renderer.setAnimationLoop(() => {
   try {
     // The retail skin must be resident before any window is constructed.
     await Promise.all([Skin.load(), Font.load(), Layout.load(),
-                       loadExpTable(), loadSkillTypes()]);
+                       loadExpTable(), loadSkillTypes(), weaponGate.load()]);
     makeChat();
     statusWnd = new StatusWnd(document.body);
     statusWnd.show();     // retail keeps it on screen; gauges fill on selfStatus

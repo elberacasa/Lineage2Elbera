@@ -60,7 +60,7 @@ export class SkillBar {
   // casting bar for the local player's in-flight cast
   startCastBar(skillId, level, hitTime, name) {
     this.stopCastBar();
-    this.cast = { t0: performance.now(), hitTime: Math.max(100, hitTime || 1000) };
+    this.cast = { skillId, t0: performance.now(), hitTime: Math.max(100, hitTime || 1000) };
     // the cast lock also sweeps — but only when no longer server reuse is
     // already tracked (MagicSkillUse carries the real reuseDelay in ms;
     // aCis sends no SkillCoolTime on cast, so that op wins when present)
@@ -84,6 +84,15 @@ export class SkillBar {
     if (this.cast && this.cast.raf) cancelAnimationFrame(this.cast.raf);
     this.cast = null;
     this.castBar.classList.remove('visible');
+  }
+
+  /** Server aborted the in-flight cast (ActionFailed from PlayerCast.stop
+   *  after CreatureCast.interrupt, sysMsg 27/748): the bar cancels and the
+   *  skill unlocks — no skillLaunch will follow. */
+  cancelCast() {
+    const id = this.cast && this.cast.skillId;
+    this.stopCastBar();
+    if (id != null) this.finishCast(id);
   }
 
   clear() {

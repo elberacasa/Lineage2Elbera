@@ -42,6 +42,12 @@
 //   buyList     <- on bypass npc_buy; sellList <- npc_sell and after a
 //                  sale; buy/sell validated, results via invUpdate only
 //   loot{id}    -> invUpdate add (adena) + sysMsg, only for dead mobs
+//   useSkill    -> MP drops by 10 on skillLaunch (selfStatus); a useSkill
+//                  with no targetId for a SELF-target skill (skillweapons.json
+//                  targets) lands on the caster, not the current target
+//   say "/skilldepth" -> skillList [3, 1216, 226] + Dagger equipped
+//   say "/equipsword" / "/equipdagger" -> weapon swap via invUpdate
+//   say "/interrupt"  -> sysMsg 27 + actionFailed (cast abort fixture)
 // M12 trade (virtual partner Aria):
 //   tradeRequest{name} -> sysMsg 118, then Aria accepts -> tradeStart
 //                  (items = own tradable snapshot: equipped excluded)
@@ -80,8 +86,18 @@
 // [-98304, 196608] + 127.5*128 = (-81984, 212928).
 
 const path = require('path');
+const fs = require('fs');
 const { WebSocketServer } = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/ws');
+
+// aCis target routing (skillweapons.json targets map, tier 4): a useSkill
+// that carries no targetId for a SELF-target skill lands on the caster,
+// not on the current target
+let SKILL_TARGETS = {};
+try {
+  SKILL_TARGETS = JSON.parse(fs.readFileSync(
+    path.join(__dirname, '../../assets/gamedata/skillweapons.json'), 'utf8')).targets || {};
+} catch { /* metadata absent: fall back to lastTarget routing */ }
 
 const PORT = Number(process.argv[2]) || 8085;
 
@@ -283,6 +299,32 @@ wss.on('connection', (ws) => {
     timers.push(combatTimer);
   };
 
+  // equip-swap helper for the skill-depth fixtures: unequip whatever sits
+  // in the right hand (slot bit 0x0080) and equip itemId, all via invUpdate
+  const WEAPON_FIXTURES = {
+    10: { objectId: 90401, itemId: 10, count: 1, slot: 128, equipped: 1, enchant: 0 },
+    2369: { objectId: 90003, itemId: 2369, count: 1, slot: 128, equipped: 1, enchant: 3 },
+  };
+  const swapWeapon = (itemId) => {
+    const updated = [];
+    for (const it of items) {
+      if (it.equipped && (it.slot & 128) && it.itemId !== itemId) {
+        it.equipped = 0;
+        updated.push({ change: 'modify', ...it });
+      }
+    }
+    let w = items.find(i => i.itemId === itemId);
+    if (!w) {
+      w = { ...WEAPON_FIXTURES[itemId] };
+      items.push(w);
+      updated.push({ change: 'add', ...w });
+    } else if (!w.equipped) {
+      w.equipped = 1;
+      updated.push({ change: 'modify', ...w });
+    }
+    if (updated.length) send('invUpdate', { updated });
+  };
+
   ws.on('message', (data) => {
     let msg;
     try { msg = JSON.parse(data); } catch { return; }
@@ -311,7 +353,9 @@ wss.on('connection', (ws) => {
       items.push(
         { objectId: 90001, itemId: 57, count: 1200, slot: 0, equipped: 0, enchant: 0 },
         { objectId: 90002, itemId: 1147, count: 5, slot: 0, equipped: 0, enchant: 0 },
-        { objectId: 90003, itemId: 2369, count: 1, slot: 5, equipped: 1, enchant: 3 },
+        // slot is the REAL bodyPart (aCis Item.java SLOT_R_HAND = 0x0080,
+        // Squire's Sword is one-handed) — the weapon gate keys off it
+        { objectId: 90003, itemId: 2369, count: 1, slot: 128, equipped: 1, enchant: 3 },
         { objectId: 90004, itemId: 2509, count: 1, slot: 0, equipped: 0, enchant: 0 },
         { objectId: 90005, itemId: 1060, count: 12, slot: 0, equipped: 0, enchant: 0 },
         { objectId: 90006, itemId: 1835, count: 7, slot: 0, equipped: 0, enchant: 0 },
@@ -413,6 +457,25 @@ wss.on('connection', (ws) => {
         borgOffline = true;
         if (!borgStore) borgStore = freshBorgStore();
       }
+      // skill-depth fixtures, ON DEMAND (verify_skilldepth):
+      //   /skilldepth  -> skillList [Power Strike 3, Self Heal 1216, Relax 226]
+      //                   + a Dagger (10) swaps into the right hand
+      //   /equipsword  -> Squire's Sword (2369) back in, dagger out
+      //   /equipdagger -> reverse
+      //   /interrupt   -> cast abort: sysMsg 27 + actionFailed (aCis
+      //                   CreatureCast.interrupt + PlayerCast.stop)
+      if (msg.text === '/skilldepth') {
+        send('skillList', { skills: [
+          { id: 3, level: 1 }, { id: 1216, level: 1 }, { id: 226, level: 1 },
+        ] });
+        swapWeapon(10);
+      }
+      if (msg.text === '/equipsword') swapWeapon(2369);
+      if (msg.text === '/equipdagger') swapWeapon(10);
+      if (msg.text === '/interrupt') {
+        send('sysMsg', { id: 27, params: [] });
+        send('actionFailed');
+      }
       if (msg.text === '.menu') {
         send('npcHtml', { html:
           `<html><body><title>L2Vzla - Player menu</title><br><br><center>` +
@@ -446,7 +509,10 @@ wss.on('connection', (ws) => {
     } else if (msg.op === 'attack') {
       startCombat(msg.id);
     } else if (msg.op === 'useSkill') {
-      const targetId = msg.targetId ?? lastTarget;
+      // no explicit targetId: aCis routes by the skill's own target type —
+      // SELF lands on the caster, anything else on the current target
+      const targetId = msg.targetId
+        ?? (SKILL_TARGETS[msg.skillId] === 'SELF' ? self.id : lastTarget);
       // per-cast reuse rides inside MagicSkillUse itself (aCis sends no
       // SkillCoolTime on cast; the field is MILLISECONDS)
       send('skillCast', {
@@ -455,6 +521,10 @@ wss.on('connection', (ws) => {
       });
       timers.push(setTimeout(() => {
         send('skillLaunch', { casterId: self.id, targetId, skillId: msg.skillId, level: 1 });
+        // MP cost lands with the cast (aCis StatusUpdate on consume) —
+        // the status bar must move
+        selfStats.mp = Math.max(0, selfStats.mp - 10);
+        send('selfStatus', selfStats);
         // Relax (226) is a TOGGLE (skilltypes.json): a second cast stops the
         // effect — aCis PlayerCast.doToggleCast ("if the toggle is already
         // active, we don't need to do anything else besides stopping it").

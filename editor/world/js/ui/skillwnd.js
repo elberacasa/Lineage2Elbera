@@ -19,6 +19,11 @@
 //   * passive skills are NOT castable and CANNOT go on the shortcut bar
 //   * toggle skills are castable, and are marked as toggles
 //   * disabled skills (the packet's Lock) are shown but not usable
+//   * a skill whose weapon condition (aCis weaponsAllowed, exported to
+//     skillweapons.json — skillgrp.dat has NO such field, see
+//     docs/dat-format-notes.md §23) doesn't match the equipped weapon gets
+//     the same inert treatment and its click is swallowed; the WeaponGate
+//     (js/weapongate.js) refreshes on every itemList/invUpdate
 
 import { Skin } from './skin.js';
 import { Font } from './font.js';
@@ -60,6 +65,7 @@ export class SkillWnd {
     this.skills = [];
     this.tab = 'active';
     this._activeToggles = new Set();   // skill ids with a live toggle buff
+    this._weaponGate = null;           // WeaponGate (js/weapongate.js)
 
     const pane = Layout.size(WND, 'ASkill') || { w: 239, h: 280 };
     this.pane = pane;
@@ -184,6 +190,12 @@ export class SkillWnd {
       const cell = document.createElement('div');
       cell.className = 'l2-skill-cell';
       cell.dataset.skillId = s.id;
+      // weapon condition (aCis weaponsAllowed via the WeaponGate): retail
+      // grays the skill out and swallows the click when the equipped weapon
+      // doesn't match — same inert treatment as the packet's Lock flag
+      const weaponBlocked = type !== 'PASSIVE'
+        && this._weaponGate && !this._weaponGate.allows(s.id);
+      const inert = s.disabled || weaponBlocked;
       // slot art (34) sits at (x-1, y-1) around the 32px icon; the pitch
       // advances by icon+gap (37x35) — emulate with a padded cell
       cell.style.cssText = 'position:relative;overflow:visible;'
@@ -196,7 +208,8 @@ export class SkillWnd {
       if (this.cellArt) Skin.apply(inner, CELL_REF, { content: { w: this.cell, h: this.cell } });
       cell.appendChild(inner);
       cell.title = `${info.name} (Lv ${s.level}) — ${type}`
-        + (s.disabled ? ' — unavailable' : '');
+        + (s.disabled ? ' — unavailable' : '')
+        + (weaponBlocked ? ' — wrong weapon' : '');
 
       if (info.icon) {
         const img = document.createElement('img');
@@ -213,7 +226,8 @@ export class SkillWnd {
       if (type === 'PASSIVE') {
         cell.style.cursor = 'default';
         cell.style.opacity = '0.85';
-      } else if (s.disabled) {
+      } else if (inert) {
+        cell.classList.toggle('l2-weapon-mismatch', !!weaponBlocked);
         cell.style.cursor = 'not-allowed';
         cell.style.opacity = '0.4';
       } else {
@@ -270,10 +284,19 @@ export class SkillWnd {
     }
   }
 
+  /** Weapon-condition gate (js/weapongate.js). Re-renders in place so an
+   *  equip swap (invUpdate) re-enables restricted skills instantly. */
+  setWeaponGate(gate) {
+    this._weaponGate = gate || null;
+    if (this.skills.length) this.setSkills(this.skills);
+    return this;
+  }
+
   /** Only the skills the shortcut bar may legally hold. */
   usableSkills() {
     return this.skills.filter(
-      s => skillType(s.id, s.passive) !== 'PASSIVE' && !s.disabled);
+      s => skillType(s.id, s.passive) !== 'PASSIVE' && !s.disabled
+        && (!this._weaponGate || this._weaponGate.allows(s.id)));
   }
 
   /** Same cooldown sweep as the shortcut bar (see its tickCooldowns for

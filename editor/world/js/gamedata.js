@@ -6,6 +6,8 @@ let _skillMeta = null;
 let _itemMeta = null;
 let _sysMsgMeta = null;
 let _actionMeta = null;
+let _skillWeapons = null;
+let _itemTypes = null;
 
 function loadMeta(path) {
   return fetch(path)
@@ -26,6 +28,20 @@ export function itemMeta() {
 export function sysMsgMeta() {
   if (!_sysMsgMeta) _sysMsgMeta = loadMeta('/gamedata/systemmsg.json');
   return _sysMsgMeta;
+}
+
+// skillweapons.json / itemtypes.json (tools/dat/export_skillweapons.py,
+// straight from the aCis XMLs): per-skill weaponsAllowed + target routing,
+// per-item weapon type + shield flags. Degrade to "no restrictions" while
+// absent, like the rest of the metadata layer.
+export function skillWeapons() {
+  if (!_skillWeapons) _skillWeapons = loadMeta('/gamedata/skillweapons.json');
+  return _skillWeapons;
+}
+
+export function itemTypes() {
+  if (!_itemTypes) _itemTypes = loadMeta('/gamedata/itemtypes.json');
+  return _itemTypes;
 }
 
 // actionname.json is a LIST (not a map): index it once by action id.

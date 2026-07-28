@@ -69,6 +69,7 @@ export class ShortcutWnd {
     this.charName = 'default';
     this.data = {};           // page -> slotIndex -> {type, id}
     this._activeToggles = new Set();   // skill ids with a live toggle buff
+    this._weaponGate = null;           // WeaponGate (js/weapongate.js)
 
     const H = 'ShortcutWnd';
     this.H = H;
@@ -162,6 +163,13 @@ export class ShortcutWnd {
   trigger(page, index) {
     const s = this.data[page] && this.data[page][index];
     if (!s) return;
+    // weapon condition (aCis weaponsAllowed): a mismatching skill is inert —
+    // the click is swallowed client-side, nothing is sent (retail behavior;
+    // the server would reject it anyway)
+    if (s.type === 'skill' && this._weaponGate && !this._weaponGate.allows(s.id)) {
+      this.onNote('That skill cannot be used with the equipped weapon.');
+      return;
+    }
     if (s.type === 'skill') this.onUseSkill(s.id);
     else if (s.type === 'item') this.onUseItem(s.id);
     else if (s.type === 'action') this.onUseAction(s.id);
@@ -391,6 +399,25 @@ export class ShortcutWnd {
       const id = +el.dataset.sid;
       el.classList.toggle('l2-toggle-active',
         ids.has(id) && skillType(id) === 'TOGGLE');
+    }
+    this._applyWeaponMarks();
+  }
+
+  /** Weapon-condition gray-out — the SIGNAL is sourced (aCis weaponsAllowed
+   *  via the WeaponGate); the VISUAL mirrors the skill window's own inert
+   *  treatment (opacity 0.4, the same as its Lock-flag cells). */
+  setWeaponGate(gate) {
+    this._weaponGate = gate || null;
+    this._applyWeaponMarks();
+    return this;
+  }
+
+  _applyWeaponMarks() {
+    const gate = this._weaponGate;
+    for (const el of this.root.querySelectorAll('.shortcut-slot[data-stype="skill"]')) {
+      const blocked = !!(gate && !gate.allows(+el.dataset.sid));
+      el.classList.toggle('l2-weapon-mismatch', blocked);
+      el.style.opacity = blocked ? '0.4' : '';
     }
   }
 
