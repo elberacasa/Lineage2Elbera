@@ -96,7 +96,18 @@ IMPLICIT = [
     "L2UI_CH3.PartyWnd.party_leadericon",
     # AbnormalStatusWnd.uc:188 — every buff-strip icon draws on this back
     "L2UI.EtcWndBack.AbnormalBack",
+    # ClanWnd.uc:1302/1308 — the member-list online/offline state icons
+    "L2UI_CH3.BloodHoodWnd.BloodHood_Logon",
+    "L2UI_CH3.BloodHoodWnd.BloodHood_Logoff",
 ]
+
+# The 16 class icons (party_styleicon*) are native-referenced — GetClassIconName
+# is a C++ thunk, so no script or xdat ever names them. The refs are mined from
+# NWindow.dll into classicons.json by tools/ui/mine_classicons.py (tier 5);
+# load them from there so this list never drifts from the DLL.
+CLASSICONS = os.path.join(REPO, "assets/gamedata/classicons.json")
+if os.path.exists(CLASSICONS):
+    IMPLICIT += json.load(open(CLASSICONS)).get("icons", [])
 
 
 def staged_name(ref):

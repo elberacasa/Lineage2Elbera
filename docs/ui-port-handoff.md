@@ -37,7 +37,7 @@ It scans `editor/world/js/ui/*.js` for retail-pixel literals and fails unless
 each is derived or carries a marker: `SOURCED` (tier 2), `MEASURED` (tier 3),
 `AUTHORED` (ours, with a stated reason), `DEVIATION` (knowing departure).
 
-**Current state: 15 literals, 0 unjustified.** Keep it at 0.
+**Current state: 161 literals, 0 unjustified.** Keep it at 0.
 
 ---
 
@@ -133,11 +133,33 @@ Imagery served at `/minimap/` from `assets/world/minimap/` (gitignored;
 `tools/maps/build_minimap.py`). Self-test: the manifest's 6 anchors must
 project ≤15 px (verify_minimap.js, measured max 0.06 px).
 
+**C.12 ClanWnd** (256×335) — the retail clan window (Alt+N), resumed from the
+shelved M14 contract. Every rect rides the xdat (verified against the binary:
+e.g. ClanQuitBtn 76×23 at (170,253)); the button LABELS are not in the .uc —
+they are a sysstring id at each Button record's tail, mined from the binary
+(ClanQuitBtn→337 'Leave', ClanAskJoinBtn→330 'Invite', …). The member
+ListCtrl carries an inline "ClanInfo" schema in the xdat: 19px rows, columns
+Name(127) Lv(30) Cls(30) Status(50) = 237px with sysid headers. Member rows
+follow AddToList (ClanWnd.uc:1175-1311): self bright white, others #aaa,
+class icon 11×11 (native GetClassIconName — the 16 refs + classId map mined
+from NWindow.dll into `assets/gamedata/classicons.json` by
+`tools/ui/mine_classicons.py`, tier 5), online state BloodHood_Logon/Logoff
+31×11. Static field labels: the xdat stores them as inline KOREAN text
+(혈맹명/혈맹주/본거지 — the Latin font can't render them, so AUTHORED
+English). Live by the M14 ops (clanInfo/clanMembers/clanAsk; clanLeave/
+clanInvite/clanOust/clanAnswer out). DEVIATIONS: single-entry combobox
+(sub-pledges not bridged), agit/status fields stay at Clear() defaults (not
+in contract), no-backend buttons render disabled (war/penalty/auth/board/
+crest), oust rides a per-row × (leader only) like PartyWnd's kick,
+InviteClanPopWnd skipped (pledgeType always 0). Verify: verify_clanwnd.js
+17/17 (mock), verify_clanwnd_live.js (self-seeded live fixture).
+
 **Retail Alt+ keymap (delivered)** — evidence: 5 independent L2 references
 (pmfun.com/list/key, maxcheaters topic 7183, l2topzone, onlinegamecommands,
 legacy-lineage2) + `SystemMenuWnd.uc:122-123`: Alt+K SkillWnd, Alt+T
 Character Status, Alt+V & Tab Inventory, Alt+X SystemMenuWnd, Alt+C
-ActionWnd, Alt+U QuestTreeWnd, Alt+Enter layout reset (pre-existing).
+ActionWnd, Alt+U QuestTreeWnd, Alt+N ClanWnd (C.12), Alt+Enter layout reset
+(pre-existing).
 Alt+B/R unbound. Never fires while typing in chat.
 
 **C.8 QuestTreeWnd** (256×335) — the retail quest journal (Alt+U), fed by

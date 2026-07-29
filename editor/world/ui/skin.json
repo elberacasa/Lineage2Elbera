@@ -4296,6 +4296,150 @@
    "cy": 0,
    "cw": 26,
    "ch": 26
+  },
+  "L2UI_CH3.BloodHoodWnd.BloodHood_Logon": {
+   "file": "L2UI_CH3__BloodHood_Logon.png",
+   "w": 32,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 31,
+   "ch": 12
+  },
+  "L2UI_CH3.BloodHoodWnd.BloodHood_Logoff": {
+   "file": "L2UI_CH3__BloodHood_Logoff.png",
+   "w": 32,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 30,
+   "ch": 11
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon1": {
+   "file": "L2UI_CH3__party_styleicon1.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon2": {
+   "file": "L2UI_CH3__party_styleicon2.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon3": {
+   "file": "L2UI_CH3__party_styleicon3.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon4": {
+   "file": "L2UI_CH3__party_styleicon4.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon5": {
+   "file": "L2UI_CH3__party_styleicon5.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon6": {
+   "file": "L2UI_CH3__party_styleicon6.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon7": {
+   "file": "L2UI_CH3__party_styleicon7.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon1_1": {
+   "file": "L2UI_CH3__party_styleicon1_1.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon1_2": {
+   "file": "L2UI_CH3__party_styleicon1_2.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon1_3": {
+   "file": "L2UI_CH3__party_styleicon1_3.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon2_3": {
+   "file": "L2UI_CH3__party_styleicon2_3.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon3_3": {
+   "file": "L2UI_CH3__party_styleicon3_3.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon4_3": {
+   "file": "L2UI_CH3__party_styleicon4_3.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon5_3": {
+   "file": "L2UI_CH3__party_styleicon5_3.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon6_3": {
+   "file": "L2UI_CH3__party_styleicon6_3.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
+  },
+  "L2UI_CH3.PartyWnd.party_styleicon7_3": {
+   "file": "L2UI_CH3__party_styleicon7_3.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 11
   }
  }
 }

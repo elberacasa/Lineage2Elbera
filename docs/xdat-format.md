@@ -120,3 +120,30 @@ values mean far-edge anchoring** (e.g. ChatWnd's input row stays pinned to
 the window's bottom edge as it resizes). `hasSize == 0` records carry their
 offsets in a bitfield-shaped tail that is still undecoded — full derivation
 and remaining unknowns in docs/ui-mined-values.md §4-5.
+
+## Tail fields decoded after the parser (2026-07-28, ClanWnd work)
+
+These were read straight from the binary with the record framing the parser
+established; the parser does not emit them yet.
+
+- **Button labels are sysstring ids.** The Button record's tail ends with an
+  `i32` that indexes `sysstring-e.dat` — e.g. ClanQuitBtn → 337 'Leave',
+  ClanAskJoinBtn → 330 'Invite', ClanTitleManageBtn → 1326 'Edit Crest'.
+  Extraction: within one record, the LAST `undefined\x00undefined\x00`
+  pair is followed by that dword (records are framed by the
+  `F1 D8 FF FF` + type-string header; an in-record `F1 D8 FF FF` also
+  precedes the texture list, so naive scans must bound on the NEXT record).
+  All 13 ClanWnd buttons decode to semantically exact labels.
+- **TextBox static text is inline**, compact-index-prefixed: byte bit7 set
+  means that many UTF-16LE chars follow (incl. NUL); clear means that many
+  ASCII bytes. ClanWnd's title0..2 store KOREAN text (혈맹명 clan-name,
+  혈맹주 clan-master, 본거지 home-base) — NCSoft shipped KR defaults the
+  Latin font sheets (chars 32-126) cannot render; title3 stores ASCII
+  'LV'. The .uc never rewrites them.
+- **ListCtrl columns are an inline schema.** The record carries a schema
+  name string (ClanMemberList → "ClanInfo"), then `F1 D8 FF FF`, five
+  header dwords (row height is the 4th/5th, both 19 for ClanInfo), a
+  column count, then per column: `sysstring id, width, f1, f2, f3`.
+  ClanInfo: (50 'Name',127), (537 'Lv',30), (391 'Cls',30), (346 'Status',
+  50) — the widths sum to the control's 237px exactly; f3 differs only on
+  Lv (1 vs 0), read as the center flag.

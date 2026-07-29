@@ -28,6 +28,7 @@ import { ActionWnd } from './ui/actionwnd.js';
 import { MinimapWnd } from './ui/minimapwnd.js';
 import { QuestWnd, questCond, questStarted } from './ui/questwnd.js';
 import { PartyWnd } from './ui/partywnd.js';
+import { ClanWnd } from './ui/clanwnd.js';
 import { AbnormalWnd } from './ui/abnormalwnd.js';
 import { ShopWnd } from './ui/shopwnd.js';
 import { TradeWnd } from './ui/tradewnd.js';
@@ -210,6 +211,7 @@ let actionWnd = null;
 let minimapWnd = null;
 let questWnd = null;
 let partyWnd = null;
+let clanWnd = null;
 let abnormalWnd = null;
 let shopWnd = null;
 let tradeWnd = null;
@@ -486,6 +488,17 @@ net.on('partyMemberStatus', (msg) => {
 });
 net.on('partyAsk', (msg) => {
   if (partyWnd) partyWnd.showAsk(msg.from);
+});
+// M14 clan ops: clanInfo/clanMembers are full snapshots (queued after
+// enterWorld, re-emitted on every change); clanAsk is the incoming invite.
+net.on('clanInfo', (msg) => {
+  if (clanWnd) clanWnd.setClan(msg);
+});
+net.on('clanMembers', (msg) => {
+  if (clanWnd) clanWnd.setMembers(msg.members || []);
+});
+net.on('clanAsk', (msg) => {
+  if (clanWnd) clanWnd.showAsk(msg.from, msg.clanName);
 });
 // Buff strip: `buffs` is a full snapshot, `buffUpdate` the packet-level
 // delta — the client takes both (frozen ops, gateway landing in parallel).
@@ -885,6 +898,7 @@ window.__world = {
   get questWnd() { return questWnd; },
   questCond, questStarted,   // verification: aCis flags-dword math
   get partyWnd() { return partyWnd; },
+  get clanWnd() { return clanWnd; },
   get abnormalWnd() { return abnormalWnd; },
   get shopWnd() { return shopWnd; },
   get multiSellWnd() { return multiSellWnd; },
@@ -1107,6 +1121,8 @@ window.addEventListener('keydown', e => {
       case 'KeyX': if (systemMenuWnd) systemMenuWnd.toggle(); break;  // SystemMenuWnd
       case 'KeyC': if (actionWnd) actionWnd.toggle(); break; // ActionWnd
       case 'KeyU': if (questWnd) questWnd.toggle(); break;   // QuestTreeWnd (quest journal)
+      // ClanWnd: the same 5-reference set puts the clan window on Alt+N
+      case 'KeyN': if (clanWnd) clanWnd.toggle(); break;
       // Alt+B / Alt+R: BBS / Macro windows — not built; unbound.
       default: return;
     }
@@ -1293,6 +1309,25 @@ renderer.setAnimationLoop(() => {
     });
     WndMgr.register('PartyWnd', partyWnd, { handle: partyWnd.gutter });
 
+    // Phase C.12: the retail clan window (Alt+N). Full-snapshot clan info +
+    // member list from the M14 bridge ops; invite/leave/oust ride the
+    // contract ops, everything else renders disabled (no backend).
+    clanWnd = new ClanWnd(document.body, {
+      onLeave: () => { if (online) net.send('clanLeave'); },
+      onInvite: (name) => { if (online) net.send('clanInvite', { name }); },
+      onOust: (name) => { if (online) net.send('clanOust', { name }); },
+      onAnswer: (accept) => { if (online) net.send('clanAnswer', { accept }); },
+      getTarget: () => {
+        const t = combat.target;
+        if (!t) return null;
+        const e = t.id === selfId ? null : entities.getEntity(t.id);
+        return { name: t.name, kind: e && e.kind };
+      },
+      getSelfName: () => selfName,
+    });
+    clanWnd.place(clanWnd.defaultPlace);
+    WndMgr.register('ClanWnd', clanWnd, { handle: clanWnd.win.bar });
+
     // Phase C.10: the retail buff strip (WindowsInfo.ini dock 348,583).
     abnormalWnd = new AbnormalWnd(document.body);
     WndMgr.register('AbnormalStatusWnd', abnormalWnd, { handle: abnormalWnd.root });
@@ -1390,11 +1425,13 @@ renderer.setAnimationLoop(() => {
     combat.setTarget = (id, name, opts) => {
       _combatSetTarget(id, name, opts);
       if (partyWnd) partyWnd.refreshInvite();
+      if (clanWnd) clanWnd.refreshInvite();
     };
     const _combatClearTarget = combat.clearTarget.bind(combat);
     combat.clearTarget = () => {
       _combatClearTarget();
       if (partyWnd) partyWnd.refreshInvite();
+      if (clanWnd) clanWnd.refreshInvite();
     };
     // StatusWnd.uc OnLButtonDown: clicking the window targets yourself
     statusWnd.onSelfTargetClick(() => {

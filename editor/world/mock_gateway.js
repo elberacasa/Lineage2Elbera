@@ -39,6 +39,10 @@
 //   partyAnswer -> accept forms a 2-member party + status tick
 //   partyInvite -> snapshot with SELF leader; partyKick/partyLeave ->
 //   updated snapshots (party of one disbands, like aCis)
+//   clanInfo/clanMembers <- clan at login (ElberaGuard, led by Aria)
+//   clanAsk     <- incoming invite (Aria), ON DEMAND via say "/clanask"
+//   clanAnswer/clanLeave/clanOust/clanInvite -> full snapshots back
+//   (clanLeave mirrors the bridge's clanDeleteAll: id:0 + empty list)
 //   buyList     <- on bypass npc_buy; sellList <- npc_sell and after a
 //                  sale; buy/sell validated, results via invUpdate only
 //   multisellList <- on bypass npc_multisell (M15: 2-entry exchange
@@ -191,6 +195,9 @@ wss.on('connection', (ws) => {
   const items = [];
   const quests = [];
   let party = [];
+  // M14 clan fixture: an existing clan at login (self a rank-and-file
+  // member — Leave enabled, no oust marks), restored on clanAnswer accept.
+  let clan = null;
   let partyTick = null;
   // M12 trade state (virtual partner Aria): null = no active trade
   let trade = null;
@@ -431,6 +438,20 @@ wss.on('connection', (ws) => {
       );
       send('questList', { quests });
 
+      // M14: clan at login — clanInfo + clanMembers ride enterWorld like
+      // the real bridge queues them. 'ElberaGuard', led by Aria: self is a
+      // member (online), Aria online, Borg offline (id 0 = offline).
+      clan = {
+        info: { id: 4711, name: 'ElberaGuard', leaderName: 'Aria', level: 5 },
+        members: [
+          { id: 80001, name: 'Aria', level: 20, classId: 25, online: true },
+          { id: self.id, name: self.name, level: 1, classId: 0, online: true },
+          { id: 0, name: 'Borg', level: 12, classId: 7, online: false },
+        ],
+      };
+      send('clanInfo', clan.info);
+      send('clanMembers', { members: clan.members });
+
       // walker: patrol a square, one move op per side
       let corner = 0;
       const corners = [
@@ -500,6 +521,8 @@ wss.on('connection', (ws) => {
       // M9 party fixture ON DEMAND — an unsolicited prompt would cover the
       // 3D clicks of unrelated verify suites
       if (msg.text === '/partyask' && !party.length) send('partyAsk', { from: 'Aria' });
+      // M14: incoming clan invite, ON DEMAND (same reason as /partyask)
+      if (msg.text === '/clanask') send('clanAsk', { from: 'Aria', clanName: 'ElberaGuard' });
       // M12: incoming trade ask, ON DEMAND (same reason as /partyask)
       if (msg.text === '/tradeask' && !trade) send('tradeAsk', { from: 'Aria' });
       // M13: offline-trader fixture, ON DEMAND — Borg's store (re)opens in
@@ -899,6 +922,29 @@ wss.on('connection', (ws) => {
     } else if (msg.op === 'partyLeave') {
       party = [];
       send('party', { members: party });
+    } else if (msg.op === 'clanAnswer') {
+      // accept re-joins the fixture clan (full clanInfo + members snapshot,
+      // like PledgeShowMemberListAll); refuse: retail silence
+      if (msg.accept === 1 && clan) {
+        send('clanInfo', clan.info);
+        send('clanMembers', { members: clan.members });
+      }
+    } else if (msg.op === 'clanLeave') {
+      // the bridge's clanDeleteAll: clanInfo{id:0} + an empty member list;
+      // the fixture itself keeps its members so a re-join restores fully
+      send('clanInfo', { id: 0 });
+      send('clanMembers', { members: [] });
+    } else if (msg.op === 'clanOust') {
+      if (clan) {
+        clan.members = clan.members.filter(m => m.name !== msg.name);
+        send('clanMembers', { members: clan.members });
+      }
+    } else if (msg.op === 'clanInvite') {
+      // the invitee accepts -> they appear in the next full snapshot
+      if (clan && !clan.members.some(m => m.name === msg.name)) {
+        clan.members.push({ id: 80002, name: String(msg.name || '?'), level: 9, classId: 18, online: true });
+        send('clanMembers', { members: clan.members });
+      }
     } else if (msg.op === 'multisellChoose') {
       // validated against the fixture list (a listId mismatch nukes it
       // silently, like aCis dropping the prepared list); results arrive

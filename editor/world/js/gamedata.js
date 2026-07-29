@@ -6,6 +6,8 @@ let _skillMeta = null;
 let _itemMeta = null;
 let _sysMsgMeta = null;
 let _actionMeta = null;
+let _sysStringMeta = null;
+let _classIcons = null;
 let _skillWeapons = null;
 let _itemTypes = null;
 let _skillAnim = null;
@@ -43,6 +45,21 @@ export function skillWeapons() {
 export function itemTypes() {
   if (!_itemTypes) _itemTypes = loadMeta('/gamedata/itemtypes.json');
   return _itemTypes;
+}
+
+// sysstring-e.dat UI strings (tools/dat extraction): {id: {id, string}}.
+// UI labels cite the retail string by ID, never a retyped translation.
+export function sysStringMeta() {
+  if (!_sysStringMeta) _sysStringMeta = loadMeta('/gamedata/sysstring.json');
+  return _sysStringMeta;
+}
+
+// classicons.json (tools/ui/mine_classicons.py, tier 5 — NWindow.dll):
+// {icons: [16 texture refs], classes: {classId: iconIndex}} — the native
+// GetClassIconName table, for every member-list class glyph.
+export function classIcons() {
+  if (!_classIcons) _classIcons = loadMeta('/gamedata/classicons.json');
+  return _classIcons;
 }
 
 // actionname.json is a LIST (not a map): index it once by action id.
