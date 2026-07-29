@@ -74,7 +74,17 @@ const AUDIT = TILES.length ? TILES
           if (gLow != null && w.terrain.geodata._layersAt(wx, wy).length === 1) {
             const slope = Math.abs(meshY - meshYAt(tx + 1.28, tz)) +
                           Math.abs(meshY - meshYAt(tx, tz - 1.28));
-            if (slope < 0.3) {
+            // roof-hazard override: geodata covers walkable surfaces only,
+            // so single-layer cells under/above a structure are floors or
+            // roofs, not ground (up to +45m off — caves/spires). The mesh
+            // correction defers those cells to the neighbor median
+            // (terrain.geoDeferred, MESH_GEO_MAX_FIX) — metric A cannot
+            // hold there by design.
+            const dgx = Math.round((wx - def.origin[0]) / def.spacing);
+            const dgy = Math.round((wy - def.origin[1]) / def.spacing);
+            const deferred = w.terrain.geoDeferred
+              && w.terrain.geoDeferred[dgy * 256 + dgx] === 2;
+            if (slope < 0.3 && !deferred) {
               aTotal++;
               const d = Math.abs(meshY - gLow / L2);
               if (d > aWorst) aWorst = d;

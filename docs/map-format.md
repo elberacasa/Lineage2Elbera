@@ -73,6 +73,16 @@ struct), `Tag`, `PhysicsVolume`, `Location` (Vector), `TexModifyInfo`
 Property list scan tool: `tools/maps/propscan.py` (auto-detects the list
 start per class).
 
+**Offset-scan misfire (found 2026-07-29):** `convert.py`'s `find_prop_start`
+scans start offsets 0..24 and must not accept the first merely-clean parse —
+about a third of StaticMeshActors (699 of 1936 on 22_22) carry bytes at
+offset ~10 that parse as a plausible 1-property list, beating the real list
+at 15 and silently dropping the actor (no StaticMesh → no prop). Every
+candidate must be scored: a parse containing a `Location` property (every
+map actor has one) beats one without; ties break on most properties, then
+longest consumed span. The miss was tile-wide: 105 of 100+ tiles had been
+converted with undercounted props (some −1500). All reconverted.
+
 ### 3.2 Fully native exports (no property list)
 
 `Level` (myLevel), `Model`, `Polys`, `TerrainSector`,

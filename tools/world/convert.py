@@ -119,7 +119,15 @@ def read_props_ordered(pkg, pos):
 
 def find_prop_start(pkg, exp, want_first=None, max_start=25):
     """Map actor bodies have a 15- or 17-byte native header before the
-    property list (docs/map-format.md §3.1); scan for the clean parse."""
+    property list (docs/map-format.md §3.1); scan for the clean parse.
+
+    A naive first-valid scan misfires on ~1/3 of actors (699 of 1936 on
+    22_22): a 4-byte garbage parse at offset 10 wins before the real list
+    at 15, and the actor drops out (no StaticMesh). So every candidate is
+    scored: parses containing a 'Location' property beat those without
+    (every map actor carries one), ties break on the most properties, then
+    the longest consumed span. Callers with want_first keep their filter."""
+    best = None
     for start in range(max_start):
         try:
             props, end = read_props_ordered(pkg, exp.serial_offset + start)
@@ -131,8 +139,13 @@ def find_prop_start(pkg, exp, want_first=None, max_start=25):
             continue
         if end > exp.serial_offset + exp.serial_size:
             continue
-        return props
-    return None
+        has_loc = any(p["name"] == "Location" for p in props)
+        score = (1 if has_loc else 0, len(props), end - start)
+        if best is None or score > best[0]:
+            best = (score, props)
+        if want_first:
+            break
+    return best[1] if best else None
 
 
 def prop_objref(pkg, raw):

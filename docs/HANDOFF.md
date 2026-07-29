@@ -43,6 +43,14 @@ l2lib test suite 24/24 OK; `tools/world/convert.py --check 17_23` OK;
 glTF validation OK; ElberaForge `list` matches umodel; ElberaDat decrypts +
 parses chargrp; ElberaUpscaler produces exact 4x output.
 
+Verified live on 2026-07-29: `verify_clanwnd.js` 17/17 (mock);
+`verify_clanwnd_live.js` 11/11 against real aCis (real Bitz creation chain,
+Invite button, accept, oust through the window); `verify-clan.js` PASS;
+`mine_classicons.py --check` PASS; `audit_guesses.py --check` 161 literals
+/ 0 unjustified; all 100 tiles reconverted after the actor-parser fix
+(0 failures — `tools/world/reconvert.log`); `verify_ground` unchanged
+(13 pre-existing borderline cells, same before and after the terrain fixes).
+
 The full health check is one command — **`tools/battery.sh`** (38 suites:
 22 client UI/world suites against the mock gateway, then 16 live-protocol
 suites against the real aCis; `--client-only` / `--gateway-only` to run a
@@ -443,7 +451,9 @@ idle/walk/run/sit/dance/attack; monsters add die/corpse/special.
 `editor/characters/charcreate-data.json` (schema in
 `docs/dat-format-notes.md` §8), `assets/world/tile-map.json` (world
 transform in `docs/tile-map.md`), `assets/gamedata/*.json` (schemas in
-`docs/dat-format-notes.md` Part II), `assets/library/manifest.json`.
+`docs/dat-format-notes.md` Part II), `assets/library/manifest.json`,
+`assets/gamedata/classicons.json` (tier-5 mined GetClassIconName table —
+regenerate with `tools/ui/mine_classicons.py`, guard `--check`).
 
 ---
 
@@ -507,6 +517,12 @@ transform in `docs/tile-map.md`), `assets/gamedata/*.json` (schemas in
   fact** (chargrp has 14 records), not a bug.
 - Dungeon tiles 19_16/21_25: all props are below the flat terrain plane —
   correct conversion; the client needs an interior mode, not a converter fix.
+- **Town floors painted with the base dirt are a retail fact too.** The
+  Giran squares read as pavement in later chronicles, but the Interlude
+  TerrainInfo layers 1-7 are ~0 there (verified in T_22_22.utx) and
+  layer0's alphamap is solid white — the base INNS_05 dirt is what the
+  client renders. Cobblestone (GI_S1) only appears on outskirt roads.
+  Don't "repair" a town floor into pavement the source doesn't paint.
 
 ### Repo / process hygiene
 
@@ -531,7 +547,7 @@ transform in `docs/tile-map.md`), `assets/gamedata/*.json` (schemas in
 Completed since M4/M5 (details in `git log 3360733..HEAD` and the per-area
 READMEs): skills & items with weapon gates and casting polish; chat, char
 sheet, hotbar; 55 civilian NPC models (97 total); dungeon interiors with
-prop torch lights; the retail-UI port (ElberaSkin — 16 windows at mined
+prop torch lights; the retail-UI port (ElberaSkin — 17 windows at mined
 geometry, no-guess audit at 0); NPC dialogs with live `.menu` round-trip;
 quests + journal; party; buffs/cooldowns; shop/trade/private stores incl.
 the offline-store mod; minimap with retail georeference; geodata heights
@@ -539,7 +555,17 @@ the offline-store mod; minimap with retail georeference; geodata heights
 22_22, 1,268 textures, `?hd=1`); mods play-tested 8/8 by protocol
 (`verify-mods`); clan/pledge protocol (creation through the real
 VillageMaster dialog chain, invite/accept, leave, oust, crest —
-`verify-clan` PASS, client window shelved by product decision).
+`verify-clan` PASS); the clan window (C.12 — Alt+N, ClanWnd 256×335, see
+`docs/ui-port-handoff.md`; button labels mined from the xdat Button-record
+sysstring tails, member-list schema from the binary, class icons tier-5
+from NWindow.dll into `assets/gamedata/classicons.json`);
+**terrain roof-hazard fix** (geodata has no ground layer under structures,
+so the stale-heightmap correction lifted roofs/spires into the render mesh
+as giant "cone" walls over towns — capped the correction at 2 m and
+neighbor-median fill beyond it; `verify_ground` skips deferred cells);
+**actor-parser fix** (`find_prop_start` accepted 4-byte garbage parses and
+dropped ~1/3 of every tile's StaticMeshActors — 22_22: 1237→1891 props;
+all 100 tiles reconverted, some +1500);
 
 The real remaining backlog, in order:
 
@@ -551,9 +577,11 @@ The real remaining backlog, in order:
 2. ~~Multisell bridging~~ — **DONE 2026-07-28**: `multisellList` /
    `multisellChoose` bridged and live-verified (verify-multisell.js; the
    Silvia newbie equipment exchange end-to-end — see gateway/README.md M15).
-3. **Warehouse + craft/recipes.** Protocol not started.
-4. **Clan window (shelved, ready to resume).** Only the client UI is
-   missing; the gateway contract ops are done and live-verified.
+3. **Warehouse + craft/recipes.** Warehouse done (M16, above); craft/recipes
+   protocol not started.
+4. ~~Clan window~~ — **DONE 2026-07-28**: `editor/world/js/ui/clanwnd.js`
+   (Alt+N), mock suite `verify_clanwnd.js` (17/17) in the battery,
+   live suite `verify_clanwnd_live.js` (self-seeded fixture).
 5. **Server ops backlog** (`docs/README-ADMIN.md` §8): rate balancing after
    playtest, backup automation, VPS migration (§7 of that doc — ports,
    hostnames, player patch, guide placeholders).

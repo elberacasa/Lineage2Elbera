@@ -29,6 +29,16 @@ const MAX_STEP_UP_L2 = 200;
 // mesh correction: max allowed heightmap-vs-geodata deviation before the
 // geodata layer replaces the (stale) heightmap value (L2 units; 1m)
 const MESH_GEO_MAX_DEV = 100;
+// mesh correction: max deviation the correction may APPLY (L2 units; 2m).
+// Geodata covers walkable surfaces only — under a building there is NO
+// ground layer, so the layer-nearest-heightmap pick lands on a floor or the
+// roof. Verified on 22_22: every >100 deviation cell lacks a near layer;
+// the legit stale-rectangle repairs are ~1-2m, the rest are roofs/spires
+// (up to +22m — the giant "cone" walls over towns). Bigger deviations are
+// filled from trustworthy neighbors instead.
+const MESH_GEO_MAX_FIX = 200;
+// ring radius (grid cells) for the neighbor-median ground fill above
+const MESH_GEO_FILL_R = 4;
 
 // water planes (scene.json "water", tools/world/README.md): one repeat per
 // 128 L2 units (the terrain diffuse rule), alpha-blended, uv-scrolled by
@@ -152,25 +162,67 @@ export class Terrain {
   // heightmap wins. Rule: per grid point, when |heightmap - geodata layer
   // NEAREST the heightmap| exceeds MESH_GEO_MAX_DEV, take that geodata
   // layer (nearest picks the ground, never a roof layer).
+  //
+  // The roof hazard (verified on 22_22): geodata covers WALKABLE surfaces
+  // only, so cells under a building have no ground layer at all — the
+  // nearest pick lands on an interior floor or the roof (up to +22m,
+  // rendering as giant terrain walls swallowing the town). So the pick is
+  // accepted only within MESH_GEO_MAX_FIX (the documented defect size);
+  // beyond it the ground comes from the median of trustworthy neighbors
+  // (uncorrected cells + accepted picks) in a MESH_GEO_FILL_R ring.
   _correctHeights() {
     if (!this.geodata) return;
     const g = this.gridSize;
-    let fixed = 0;
+    const picks = new Float32Array(g * g);  // geodata candidate z per cell
+    const state = new Uint8Array(g * g);    // 0 keep-hm, 1 take-geo, 2 defer
+    const hmAt = (i) => this.origin[2] + (this.heights[i] - 32768) * this.heightScale;
     for (let gy = 0; gy < g; gy++) {
       for (let gx = 0; gx < g; gx++) {
         const i = gy * g + gx;
-        const h = this.heights[i];
-        const hm = this.origin[2] + (h - 32768) * this.heightScale;
+        const hm = hmAt(i);
         const geo = this.geodata.heightAt(
           this.origin[0] + gx * this.spacing,
           this.origin[1] + gy * this.spacing, hm);
-        if (geo != null && Math.abs(geo - hm) > MESH_GEO_MAX_DEV) {
-          this.heights[i] = Math.round(32768 + (geo - this.origin[2]) / this.heightScale);
+        if (geo == null) continue;
+        const dev = Math.abs(geo - hm);
+        if (dev <= MESH_GEO_MAX_DEV) continue;
+        picks[i] = geo;
+        state[i] = dev <= MESH_GEO_MAX_FIX ? 1 : 2;
+      }
+    }
+    let fixed = 0;
+    const R = MESH_GEO_FILL_R;
+    for (let gy = 0; gy < g; gy++) {
+      for (let gx = 0; gx < g; gx++) {
+        const i = gy * g + gx;
+        let z = null;
+        if (state[i] === 1) {
+          z = picks[i];
+        } else if (state[i] === 2) {
+          const ring = [];
+          for (let dy = -R; dy <= R; dy++) {
+            for (let dx = -R; dx <= R; dx++) {
+              const nx = gx + dx, ny = gy + dy;
+              if (nx < 0 || ny < 0 || nx >= g || ny >= g) continue;
+              const j = ny * g + nx;
+              if (state[j] === 0) ring.push(hmAt(j));
+              else if (state[j] === 1) ring.push(picks[j]);
+            }
+          }
+          ring.sort((a, b) => a - b);
+          // no trustworthy neighbor at all: keep the heightmap (terrain-like),
+          // never the roof pick
+          z = ring.length ? ring[ring.length >> 1] : hmAt(i);
+        }
+        if (z != null) {
+          this.heights[i] = Math.round(32768 + (z - this.origin[2]) / this.heightScale);
           fixed++;
         }
       }
     }
     this.geoFixedCells = fixed;
+    this.geoDeferred = state;   // 2 = ring-filled (roof-hazard override)
+    this.geoDeferredCells = state.reduce((n, s) => n + (s === 2 ? 1 : 0), 0);
   }
 
   // -- grid -> world helpers ----------------------------------------------
