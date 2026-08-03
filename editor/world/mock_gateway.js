@@ -493,6 +493,11 @@ wss.on('connection', (ws) => {
           name: chosen ? chosen.name : self.name,
           race: chosen ? chosen.race : 'Human',
           classId: chosen ? chosen.classId : 0,
+          // bridge parity (2026-08-03): appearance fields ride enterWorld
+          sex: chosen ? (chosen.sex | 0) : 0,
+          hairStyle: chosen ? (chosen.hairStyle | 0) : 0,
+          hairColor: chosen ? (chosen.hairColor | 0) : 0,
+          face: chosen ? (chosen.face | 0) : 0,
           x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, heading: 32768,
         },
       });

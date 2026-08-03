@@ -8,7 +8,7 @@ import { FollowCamera } from './camera.js';
 import { l2ToThree, threeToL2, l2HeadingToThreeYaw } from './coords.js';
 import { NavGrid } from './geodata.js';
 import { NetClient, gatewayUrl, deviceId } from './net.js';
-import { EntityManager } from './entities.js';
+import { EntityManager, pickModelId } from './entities.js';
 import { ChatBox } from './chat.js';
 import { CombatUI, bindProjection } from './combat.js';
 import { SkillBar, SkillFx } from './skills.js';
@@ -144,6 +144,7 @@ function applyInteriorMode(interior) {
 let terrain = null;
 let character = null;
 let manifest = [];
+let selfModelId = null;      // manifest id of the currently loaded self model
 let availableScenes = [];
 let currentTile = null;
 let neighbors = null;   // NeighborTiles, created once availableScenes is known
@@ -1036,6 +1037,17 @@ net.on('enterWorld', async (msg) => {
     scenePicker.value = tile;
     await loadScene(tile);
   }
+  // The boot model is always human_fighter_m: re-pick the self model for
+  // the char actually entered (race/classId/sex ride enterWorld since
+  // 2026-08-03) and reload when it differs. loadCharacter preserves the
+  // old model's position/heading; the server-authoritative position block
+  // below then re-applies both, so movement/animation continue untouched.
+  // NOTE (follow-up): hairStyle/hairColor/face variants are NOT applied —
+  // the Character loader has no per-appearance mesh support yet.
+  if (manifest.length) {
+    const wantId = pickModelId(manifest, c.race, c.classId, c.sex);
+    if (wantId && wantId !== selfModelId) await loadCharacter(wantId);
+  }
   if (character && terrain) {
     l2ToThree(c.x || 0, c.y || 0, c.z || 0, character.group.position);
     // server z is authoritative: the geodata layer NEAREST to it (bridges
@@ -1170,6 +1182,7 @@ window.__world = {
   hd: HD_ENABLED,
   get terrain() { return terrain; },
   get character() { return character; },
+  get selfModelId() { return selfModelId; },
   get neighbors() { return neighbors; },
   get currentTile() { return currentTile; },
   // neighbor-aware ground height (the walking router): answers across the
@@ -1332,6 +1345,7 @@ async function loadCharacter(id) {
     ch.group.position.copy(c);
   }
   character = ch;
+  selfModelId = entry.id;
   scene.add(ch.group);
   // camera parameters are character-relative (true L2 scale)
   followCam.setScale(ch.heightM || 1.75);

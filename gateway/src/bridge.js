@@ -612,9 +612,18 @@ class Bridge {
       };
       if (!this.entered) {
         this.entered = true;
+        // sex/hairStyle/hairColor/face are NOT in UserInfo (it discards
+        // them) — source them from the selected char's CharSelectInfo entry
+        // (this.chars, parsed with those fields and refreshed after creates).
+        const sel = (this.chars || []).find(c => c.charId === u.id || c.name === u.name) || {};
         this.send({
           op: 'enterWorld',
-          char: { id: u.id, name: u.name, race: u.race, classId: u.classId, x: u.x, y: u.y, z: u.z, heading: u.heading },
+          char: {
+            id: u.id, name: u.name, race: u.race, classId: u.classId,
+            sex: sel.sex ?? u.sex ?? 0,
+            hairStyle: sel.hairStyle ?? 0, hairColor: sel.hairColor ?? 0, face: sel.face ?? 0,
+            x: u.x, y: u.y, z: u.z, heading: u.heading,
+          },
         });
         // Flush login-time lists right after enterWorld (contract order).
         if (this.pendingSkillList) {

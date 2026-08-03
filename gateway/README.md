@@ -924,7 +924,13 @@ Server -> client:
   `invalid_hairStyle`, `invalid_hairColor`, `invalid_face`, `not_ready`,
   `create_in_progress`) — gateway-side failures carry NO `code` and never
   reach aCis.
-- `{"op":"enterWorld","char":{"name":"..","race":0,"classId":0,"x":0,"y":0,"z":0,"heading":0}}`
+- `{"op":"enterWorld","char":{"name":"..","race":0,"classId":0,"sex":0,"hairStyle":0,"hairColor":0,"face":0,"x":0,"y":0,"z":0,"heading":0}}`
+  — `sex`/`hairStyle`/`hairColor`/`face` (additive, 2026-08-03) come from the
+  selected char's CharSelectInfo entry (UserInfo itself discards them);
+  consumers may treat them as optional and default to male appearance 0.
+  They let the client pick the correct self character model (race+class+
+  gender). NOTE: `addPlayer` does NOT carry them yet — remote players still
+  render with male preference (follow-up: extend CharInfo handling).
 - `{"op":"addNpc","id":1,"npcId":1001,"name":"..","x":0,"y":0,"z":0,"heading":0}`
 - `{"op":"addPlayer","id":2,"name":"..","race":0,"classId":0,"x":0,"y":0,"z":0,"heading":0}`
 - `{"op":"move","id":1,"tx":0,"ty":0,"tz":0}` (also emitted on TeleportToLocation / ValidateLocation)

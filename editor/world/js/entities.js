@@ -80,7 +80,12 @@ const RACE_BY_NAME = {
   human: 'Human', elf: 'Elf', darkelf: 'DarkElf', orc: 'Orc', dwarf: 'Dwarf',
 };
 
-export function pickModelId(manifest, race, classId) {
+// sex: optional L2 sex (0 male / 1 female, or 'male'/'female'). When given,
+// the matching gender is preferred; when absent or no gender match exists,
+// the legacy male-preference order applies so nothing regresses.
+export function pickModelId(manifest, race, classId, sex) {
+  const gender = sex === 0 || sex === 1 ? (sex === 1 ? 'female' : 'male')
+    : (sex === 'female' ? 'female' : (sex === 'male' ? 'male' : null));
   const raceName = typeof race === 'number'
     ? RACE_BY_ID[race]
     : RACE_BY_NAME[String(race ?? '').replace(/[\s-]/g, '').toLowerCase()];
@@ -90,8 +95,10 @@ export function pickModelId(manifest, race, classId) {
       const mystic = classId != null
         && MYSTIC_RANGES.some(([a, b]) => classId >= a && classId <= b);
       const want = mystic ? /mystic/i : /fighter/i;
-      const pick = cands.find(m => want.test(m.className) && m.gender === 'male')
+      const pick = (gender && cands.find(m => want.test(m.className) && m.gender === gender))
+        || cands.find(m => want.test(m.className) && m.gender === 'male')
         || cands.find(m => want.test(m.className))
+        || (gender && cands.find(m => m.gender === gender))
         || cands.find(m => m.gender === 'male')
         || cands[0];
       return pick.id;
@@ -386,7 +393,10 @@ export class EntityManager {
     if (this.has(id)) return;
     this.pending.add(id);
     try {
-      const modelId = pickModelId(this.manifest, msg.race, msg.classId);
+      // sex rides the new pickModelId signature but is undefined in the
+      // addPlayer contract today (follow-up: extend addPlayer with sex) —
+      // until then remote players keep the male preference
+      const modelId = pickModelId(this.manifest, msg.race, msg.classId, msg.sex);
       const entry = this.manifest.find(m => m.id === modelId) || this.manifest[0];
       const ch = new Character();
       await ch.load(`/characters/${entry.gltf}`, entry.nativeHeight || null);
