@@ -12,7 +12,8 @@
 // In game:
 //   C->S MoveBackwardToLocation(0x01), Say2(0x38), ValidatePosition(0x48),
 //        TradeRequest(0x15), AddTradeItem(0x16), TradeDone(0x17),
-//        AnswerTradeRequest(0x44)
+//        AnswerTradeRequest(0x44), RequestTutorialLinkHtml(0x7b),
+//        RequestTutorialQuestionMark(0x7d), RequestTutorialClientEvent(0x7e)
 'use strict';
 
 const net = require('net');
@@ -214,6 +215,30 @@ class GameSession extends EventEmitter {
   // links ("bypass -h <cmd>", e.g. npc_<objectId>_Chat 1) or voiced bypasses.
   bypass(command) {
     this._send(new PacketWriter().writeC(0x21).writeS(String(command)).build());
+  }
+
+  // RequestTutorialLinkHtml (0x7b): S command — the raw string after "link "
+  // in a tutorial page (TE0 close, TE1/TE2/... topics). NOT routable through
+  // RequestBypassToServer (its switch has no TE branch — verified in
+  // clientpackets/RequestBypassToServer.java); aCis forwards it to the
+  // Tutorial script's notifyEvent (clientpackets/RequestTutorialLinkHtml.java).
+  tutorialLink(command) {
+    this._send(new PacketWriter().writeC(0x7b).writeS(String(command)).build());
+  }
+
+  // RequestTutorialQuestionMark (0x7d): D markId — the answer to
+  // TutorialShowQuestionMark(0xa1); aCis notifies the Tutorial script with
+  // "QM<markId>" (clientpackets/RequestTutorialQuestionMark.java).
+  tutorialQuestionMark(markId) {
+    this._send(new PacketWriter().writeC(0x7d).writeD(markId | 0).build());
+  }
+
+  // RequestTutorialClientEvent (0x7e): D eventId — reports a UI event the
+  // server armed with TutorialEnableClientEvent(0xa2); aCis notifies the
+  // Tutorial script with "CE<eventId>"
+  // (clientpackets/RequestTutorialClientEvent.java).
+  tutorialClientEvent(eventId) {
+    this._send(new PacketWriter().writeC(0x7e).writeD(eventId | 0).build());
   }
 
   // RequestActionUse (0x45): D actionId, D ctrlPressed, C shiftPressed.
@@ -776,6 +801,25 @@ class GameSession extends EventEmitter {
         this.emit('html', { objectId, html, itemId });
         break;
       }
+      // --------------------------------------------------- M17: tutorial
+      case 0xa0: { // TutorialShowHtml: S html (serverpackets/
+        // TutorialShowHtml.java). Sent by the Tutorial feature script on a
+        // new char's first EnterWorld (~10s timer) and on TE/QM/CE events.
+        this.emit('tutorialHtml', r.readS());
+        break;
+      }
+      case 0xa1: // TutorialShowQuestionMark: D markId — blink the "?" icon;
+        // clicking it answers with RequestTutorialQuestionMark(0x7d).
+        this.emit('tutorialQuestionMark', r.readD());
+        break;
+      case 0xa2: // TutorialEnableClientEvent: D eventId — arms client-side
+        // reporting of a UI event (answered with 0x7e).
+        this.emit('tutorialEvent', r.readD());
+        break;
+      case 0xa3: // TutorialCloseHtml: empty (STATIC_PACKET) — close the
+        // tutorial window.
+        this.emit('tutorialCloseHtml');
+        break;
       case 0x25: // ActionFailed (no payload)
         this.emit('actionFailed');
         break;

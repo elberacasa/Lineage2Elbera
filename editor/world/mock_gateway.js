@@ -5,6 +5,11 @@
 //
 // Behavior per connection:
 //   login{deviceId}   -> auth_ok{chars:[one char]}
+//   login{deviceId:'multi*'} -> auth_ok{chars:[TWO chars]} — char-select
+//                        fixture: Sylva (slot 0, Elf Mystic, lv 20) and
+//                        Dorn (slot 1, Dwarf Fighter, lv 12); a createChar
+//                        appends a third; enterChar{slot} enters the
+//                        CLICKED char, not always slot 0
 //   login{...,noAutoCreate:true} -> auth_ok{chars:[]} until a createChar
 //                        succeeds (bridge login-flag parity: the browser
 //                        then drives character creation itself)
@@ -62,6 +67,14 @@
 //                  multisellChoose validated, invUpdate + sysMsg 53/123,
 //                  then the list is re-sent (refresh), like aCis
 //   loot{id}    -> invUpdate add (adena) + sysMsg, only for dead mobs
+// M17 tutorial (mirrors the real bridge's tutorial forwarding):
+//   enterChar   -> tutorial page as npcHtml after ~1.5s, ONLY for deviceIds
+//                  starting with 'tut' (aCis TutorialShowHtml fires only for
+//                  a genuinely new char's first EnterWorld, 10s QT timer
+//                  compressed; the link arrives ALREADY rewritten to
+//                  "bypass -h TE02", exactly what the real bridge emits)
+//   bypass TE02 -> second tutorial page (Movement) as npcHtml
+//   bypass TE00 -> tutorialHtmlClose (aCis TutorialCloseHtml)
 // M16 warehouse (Wilford 70008, npcId 30005):
 //   talk -> keeper html with real npc_70008_DepositP/WithdrawP links
 //   bypass DepositP -> whDeposit (own inventory, equipped excluded; adena
@@ -213,6 +226,16 @@ wss.on('connection', (ws) => {
   // character-creation fixture: set by a successful createChar (the
   // account's only char from then on; null = legacy fixture char)
   let createdChar = null;
+  // char-select fixture: deviceId starting with 'multi' logs into a
+  // TWO-char account (names distinct from the fixture players Aria/Borg/
+  // Cora so the taken-name check and the world fixtures stay unambiguous);
+  // a successful createChar appends a third. null = single-char account.
+  let accountChars = null;
+  // M17 tutorial fixture gating: the real aCis only sends TutorialShowHtml
+  // for a genuinely NEW char's first EnterWorld — firing it for every
+  // suite login broke verify_dialog (unsolicited npcHtml). Only deviceIds
+  // starting with 'tut' get the tutorial page (verify-tutorial uses one).
+  let loginDeviceId = '';
   let partyTick = null;
   // M12 trade state (virtual partner Aria): null = no active trade
   let trade = null;
@@ -410,9 +433,19 @@ wss.on('connection', (ws) => {
     console.log('  <-', JSON.stringify(msg));
 
     if (msg.op === 'login') {
+      loginDeviceId = String(msg.deviceId || '');
+      // multi-char account fixture: seed once per connection
+      if (accountChars === null && /^multi/i.test(loginDeviceId)) {
+        accountChars = [
+          { slot: 0, name: 'Sylva', race: 'Elf', classId: 25, sex: 1, level: 20, hairStyle: 1, hairColor: 0, face: 2 },
+          { slot: 1, name: 'Dorn', race: 'Dwarf', classId: 53, sex: 0, level: 12, hairStyle: 0, hairColor: 1, face: 0 },
+        ];
+      }
       // login{noAutoCreate:true} (the world client): skip the legacy
       // auto-create — the account stays empty until createChar succeeds
-      if (msg.noAutoCreate && !createdChar) {
+      if (accountChars) {
+        send('auth_ok', { chars: accountChars });
+      } else if (msg.noAutoCreate && !createdChar) {
         send('auth_ok', { chars: [] });
       } else {
         send('auth_ok', {
@@ -439,20 +472,27 @@ wss.on('connection', (ws) => {
         send('charCreateFail', { reason: 'name_already_exists', code: 2 });
       } else {
         createdChar = {
-          slot: 0, name, race, classId: msg.classId | 0, sex: msg.sex | 0,
+          slot: accountChars ? accountChars.length : 0,
+          name, race, classId: msg.classId | 0, sex: msg.sex | 0,
           level: 1,
           hairStyle: msg.hairStyle | 0, hairColor: msg.hairColor | 0, face: msg.face | 0,
         };
+        if (accountChars) accountChars.push(createdChar);
         send('charCreateOk');
-        send('auth_ok', { chars: [createdChar] });
+        send('auth_ok', { chars: accountChars || [createdChar] });
       }
     } else if (msg.op === 'enterChar') {
+      // multi-char accounts: enter the CLICKED slot (single-char accounts
+      // keep the legacy createdChar/self fallback, slot ignored)
+      const chosen = accountChars
+        ? (accountChars.find(c => c.slot === (msg.slot | 0)) || accountChars[0])
+        : createdChar;
       send('enterWorld', {
         char: {
           id: self.id,
-          name: createdChar ? createdChar.name : self.name,
-          race: createdChar ? createdChar.race : 'Human',
-          classId: createdChar ? createdChar.classId : 0,
+          name: chosen ? chosen.name : self.name,
+          race: chosen ? chosen.race : 'Human',
+          classId: chosen ? chosen.classId : 0,
           x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, heading: 32768,
         },
       });
@@ -556,6 +596,24 @@ wss.on('connection', (ws) => {
       // cooldowns in progress) — reuse + remaining in SECONDS, like M10.
       // Long times so the verify can observe the sweep any time later.
       send('skillCoolTime', { skills: [{ id: 3, level: 1, reuse: 600, remaining: 300 }] });
+
+      // M17 tutorial fixture: a fresh char's first EnterWorld triggers the
+      // aCis Tutorial script (~10s QT timer — compressed here). Content is
+      // the REAL datapack page (tutorial_human_fighter001.htm) with the
+      // link already rewritten to "bypass -h TE02", exactly what the real
+      // bridge emits for TutorialShowHtml. Gated on a 'tut*' deviceId —
+      // aCis only sends this for genuinely new chars (see loginDeviceId).
+      if (/^tut/i.test(loginDeviceId)) timers.push(setTimeout(() => {
+        send('npcHtml', { html:
+          `<html><body>` +
+          `<font color="LEVEL">Welcome to Lineage II!</font><br>` +
+          `This is Cedric's Training Hall. This place is famous for producing many noted Fighters.<br>` +
+          `Now, you are taking your first step to becoming a Human Fighter. First, I will explain the basic operation of the game.<br>` +
+          `<table border=0 cellpadding=0 cellspacing=0><tr><td>` +
+          `<a action="bypass -h TE02">If you click here, you will move to the next topic of this tutorial.</a></td>` +
+          `<td valign=top></td></tr></table>` +
+          `</body></html>` });
+      }, 1500));
 
       // ambient chat
       let ci = 0;
@@ -738,6 +796,23 @@ wss.on('connection', (ws) => {
         `</center></body></html>` });
     } else if (msg.op === 'bypass') {
       const cmd = String(msg.command || '');
+      if (/^TE\d+$/.test(cmd)) {
+        // M17 tutorial links (the real bridge routes TE* to aCis
+        // RequestTutorialLinkHtml -> the Tutorial script): TE00 closes the
+        // window, TE02 shows the Movement page (REAL tutorial_02.htm
+        // content); other TE codes are out of fixture scope (retail silence)
+        if (cmd === 'TE00') send('tutorialHtmlClose');
+        else if (cmd === 'TE02') {
+          send('npcHtml', { html:
+            `<html><body>` +
+            `<center><font color="LEVEL">[Movement]</font></center><br>` +
+            `Move your mouse cursor to the spot to which you want to move and ` +
+            `<font color="FF0000">left-click</font>. Then, you will be moved to that location.<br>` +
+            `<a action="bypass -h TE07">Exit the Tutorial</a>` +
+            `</body></html>` });
+        }
+        return;
+      }
       if (cmd === 'npc_shop') {
         send('npcHtml', { html:
           `<html><body><title>Shop</title><br><br><center>` +

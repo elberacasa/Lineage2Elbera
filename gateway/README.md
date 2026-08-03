@@ -41,6 +41,7 @@ node test/verify-store.js [suffix]    # private store: manage/set/title, observe
 node test/verify-clan.js [suffix]     # clan: real creation dialog chain, invite/accept, leave, oust, crest
 node test/smoke-protocol.js          # same as verify-one but without the WS layer (raw protocol)
 node test/verify-respawn.js [port]   # respawn: Die-packet unit test + mock e2e /die -> respawn{} -> revive
+node test/verify-tutorial.js [deviceId] # tutorial: fresh char -> tutorial npcHtml + TE link + close
 ```
 
 All suites PASS against the live server (see task report for log excerpts).
@@ -698,6 +699,68 @@ html -> `voiced_menu autoloot` bypass -> menu refreshed. Note: the Newbie
 Helper shows link-less tutorial-chain html for fresh chars (Tutorial quest
 behavior server-side, not a bridge issue).
 
+## M17: tutorial protocol (added 2026-08-03)
+
+aCis findings (rev 409 sources):
+- Trigger: every new char gets the `Tutorial` quest state (STARTED) at
+  creation (clientpackets/RequestCharacterCreate.java:168). On every login
+  EnterWorld notifies the script with "UC"
+  (clientpackets/EnterWorld.java:273). With `ucMemo`==0, level<6,
+  `onlyone`==0 the script starts a 10s `QT` timer, then gifts the Tutorial
+  Guide (5588) and sends TutorialShowHtml with the race/class initial page
+  (`tutorial_human_fighter001.htm` etc. — EVENTS table in
+  scripting/script/feature/Tutorial.java:43-51). Follow-ups are driven by TE
+  link events (topic pages), QM question-mark answers and CE client events
+  (level-ups 5/6/7/9/10/12/15/19/35/75, first death, first adena, sit...).
+- Packet layouts (serverpackets/ + clientpackets/):
+  - S->C TutorialShowHtml 0xa0: `S html` (full page from
+    data/html/script/feature/Tutorial/*.htm)
+  - S->C TutorialShowQuestionMark 0xa1: `D markId` (blink the "?" icon)
+  - S->C TutorialEnableClientEvent 0xa2: `D eventId` (arm event reporting)
+  - S->C TutorialCloseHtml 0xa3: empty (STATIC_PACKET)
+  - C->S RequestTutorialLinkHtml 0x7b: `S bypass` — the raw string after
+    "link " (e.g. `TE02`), notified VERBATIM to the Tutorial script
+  - C->S RequestTutorialQuestionMark 0x7d: `D number` — notified as `QM<n>`
+  - C->S RequestTutorialClientEvent 0x7e: `D eventId` — notified as `CE<n>`
+  - (RequestTutorialPassCmdToServer 0x7c, `S bypass`, also exists for
+    "bypass" commands inside tutorial pages; NO datapack tutorial page uses
+    it — not bridged.)
+- Link forms: the tutorial pages use ONLY `<a action="link TE##">` (all 93
+  `link` actions across the Tutorial htm set; zero `bypass -h` links).
+  `TE00` = close, `TE01`..`TE30` = topics (leading zeros fine —
+  `Integer.valueOf(event.substring(2))`). aCis RequestBypassToServer has NO
+  TE branch (clientpackets/RequestBypassToServer.java), so TE commands MUST
+  ride 0x7b, not 0x21.
+
+Bridge mapping (contract, additive):
+- TutorialShowHtml -> the EXISTING `npcHtml` op (the client dialog window
+  renders it as-is), with `action="link TE##"` rewritten to
+  `action="bypass -h TE##"` — npcdialog.js only makes bypass links
+  clickable, and the bypass op routes TE* back to 0x7b (round-trip).
+- `{"op":"bypass","command":"TE.."}` -> RequestTutorialLinkHtml(0x7b)
+  instead of RequestBypassToServer(0x21).
+- New S->C ops: `{"op":"tutorialHtmlClose"}` (0xa3 — close the dialog
+  window), `{"op":"tutorialQuestionMark","markId":N}` (0xa1),
+  `{"op":"tutorialEvent","eventId":N}` (0xa2).
+- New C->S ops: `{"op":"tutorialQuestionMark","markId":N}` -> 0x7d,
+  `{"op":"tutorialEvent","eventId":N}` -> 0x7e.
+
+Newbie Helper "dead-end" (verified authentic, NOT a bypass-routing gap):
+the mission dialog (`newbiehelper_fig_01.htm` / `newbiehelper_mage_01.htm`,
+NewbieHelper.onFirstTalk for npcIds 30009/30019/30131/30400/30530/30575 at
+`step` 0) is genuinely link-less datapack content — retail intends the flow
+to continue through gameplay: kill a training-hall Gremlin (18342) -> 25%
+Blue Gemstone drop (NewbieHelper.onMyDying) -> tutorial question mark 3 ->
+return to the Helper with the gemstone -> reward page + recommendation
+item. Roien's `30008-01.htm` and the default `30009.htm` DO carry
+`bypass -h npc_%objectId%_Quest` links, which already ride the existing
+bypass op (0x21 `npc_` branch). No links invented, nothing to fix.
+
+Verified live (test/verify-tutorial.js): fresh deviceId -> auto-created
+Human Fighter -> tutorial page arrives as npcHtml ~10s after enterWorld
+with the TE02 link rewritten -> `bypass{TE02}` -> Movement page ->
+`bypass{TE00}` -> tutorialHtmlClose.
+
 ## M5: chat channels & character sheet (added to the frozen contract)
 
 ### Chat channels (SayType ordinals, enums/SayType.java)
@@ -1008,7 +1071,9 @@ SetPrivateStoreListBuy 0x91, RequestPrivateStoreQuitBuy 0x93,
 SetPrivateStoreMsgBuy 0x94, RequestPrivateStoreSell 0x96,
 RequestJoinPledge 0x24, RequestAnswerJoinPledge 0x25,
 RequestWithdrawPledge 0x26, RequestOustPledgeMember 0x27,
-RequestPledgeCrest 0x68, Appearing 0x30, RequestRestartPoint 0x6d.
+RequestPledgeCrest 0x68, Appearing 0x30, RequestRestartPoint 0x6d,
+RequestTutorialLinkHtml 0x7b, RequestTutorialQuestionMark 0x7d,
+RequestTutorialClientEvent 0x7e.
 Game (S→C, decoded): VersionCheck 0x00, CharSelectInfo 0x13,
 CharSelected 0x15, CharCreateOk 0x19, CharCreateFail 0x1a, UserInfo 0x04,
 CharInfo 0x03, NpcInfo 0x16, MoveToLocation 0x01, DeleteObject 0x12,
@@ -1025,7 +1090,9 @@ PrivateStoreMsgBuy 0xb9, AskJoinPledge 0x32, JoinPledge 0x33,
 PledgeShowMemberListAll 0x53, PledgeShowMemberListUpdate 0x54,
 PledgeShowMemberListAdd 0x55, PledgeShowMemberListDelete 0x56,
 PledgeCrest 0x6c, PledgeShowMemberListDeleteAll 0x82, PledgeInfo 0x83,
-PledgeShowInfoUpdate 0x88, PledgeStatusChanged 0xcd.
+PledgeShowInfoUpdate 0x88, PledgeStatusChanged 0xcd, TutorialShowHtml 0xa0,
+TutorialShowQuestionMark 0xa1, TutorialEnableClientEvent 0xa2,
+TutorialCloseHtml 0xa3.
 
 ## Files
 

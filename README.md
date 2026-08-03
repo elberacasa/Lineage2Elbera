@@ -382,14 +382,19 @@ ours.
 ## What works today — verified
 
 - **Playable beta loop.** Browser character creation (real race/class/
-  appearance/name on the live server), real WASD + click-to-move with
-  failure feedback, melee and skill combat with cast/physical/death
-  animations decoded from the retail packages, ground drops with
-  nameplates and click-pickup, death → respawn in town, system messages
-  with real skill/item names, and characters at true L2 scale (nativeHeight
-  decoded per model from the retail `.ukx` MeshScale, cross-checked against
-  the server's own collision heights) — all live-verified (`verify-create`,
-  `verify-respawn`, `verify_charcreate`, combat suites).
+  appearance/name on the live server) and a character-select screen for
+  multi-char accounts, click-to-move with A* pathfinding over the server's
+  own geodata (walls and cliffs routed around, bridges and underpasses
+  resolved by the retail walk rule) plus real WASD, melee and skill combat
+  with cast/physical/death animations decoded from the retail packages,
+  the aCis tutorial delivered in-browser (welcome pages, TE links,
+  question marks), ground drops with nameplates and click-pickup, death →
+  respawn in town, system messages with real skill/item names, and
+  characters at true L2 scale (nativeHeight decoded per model from the
+  retail `.ukx` MeshScale, cross-checked against the server's own
+  collision heights) — all live-verified (`verify-create`,
+  `verify-respawn`, `verify-tutorial`, `verify_charcreate`,
+  `verify_charsel`, `verify_pathfinding`, combat suites).
 - **Real protocol gateway.** Live sessions on the unmodified server: NPCs,
   players, movement, chat, combat, skills, inventory, quests, party, buffs,
   shops, trade, private stores, clans — `gateway/test/verify-*.js` all PASS.

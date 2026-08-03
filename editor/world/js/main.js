@@ -6,6 +6,7 @@ import { NeighborTiles } from './neighbors.js';
 import { Character } from './character.js';
 import { FollowCamera } from './camera.js';
 import { l2ToThree, threeToL2, l2HeadingToThreeYaw } from './coords.js';
+import { NavGrid } from './geodata.js';
 import { NetClient, gatewayUrl, deviceId } from './net.js';
 import { EntityManager } from './entities.js';
 import { ChatBox } from './chat.js';
@@ -810,6 +811,7 @@ function setOnline(on) {
   } else {
     net.disconnect();
     closeCharCreate();
+    closeCharSelect();
     entities.clear();
     combat.clear();
     skillBar.clear();
@@ -902,13 +904,127 @@ net.on('charCreateFail', (msg) => {
   }
 });
 
+// --- character select overlay ----------------------------------------------
+// A multi-char account (auth_ok with >= 2 chars) gets a retail-style char
+// select: a fullscreen dimmed overlay (same inline-style pattern as the
+// char-create overlay above) listing each character for click-to-enter,
+// plus a "＋ Create new character" button (closes this, opens the
+// char-create overlay) and a dismiss back to offline. Legacy paths are
+// untouched: 1 char auto-enters, 0 chars opens char-create, and ?cc=0
+// (CC_ENABLED false) always auto-enters the first char — the older suites
+// depend on all three. A refreshed auth_ok during the session (after a
+// successful createChar on a multi-char account) re-opens the select
+// overlay with the updated list instead of auto-entering.
+// Class display names come from the shipped creator data
+// (/characters/charcreate-data.json, classId -> name) — no new table.
+let csOverlay = null;
+let csClassNamesPromise = null;   // lazy {classId: displayName} map
+
+function csClassNames() {
+  if (!csClassNamesPromise) {
+    csClassNamesPromise = fetch('/characters/charcreate-data.json')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        const map = {};
+        for (const race of (d && d.races) || [])
+          for (const c of race.classes || []) map[c.classId] = c.name;
+        return map;
+      })
+      .catch(() => ({}));
+  }
+  return csClassNamesPromise;
+}
+
+function closeCharSelect() {
+  if (csOverlay) { csOverlay.remove(); csOverlay = null; }
+}
+
+async function openCharSelect(chars) {
+  closeCharSelect();
+  setStatus('online: select a character…');
+  const classNames = await csClassNames();
+  if (csOverlay || !online) return;   // raced auth_ok, or went offline mid-fetch
+  const el = document.createElement('div');
+  el.id = 'charsel-overlay';
+  Object.assign(el.style, {
+    position: 'fixed', inset: '0', zIndex: 40,
+    background: 'rgba(6,7,10,.92)',   // dimmed, above every window
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontFamily: 'system-ui, sans-serif', color: '#d8d3c3',
+  });
+  const panel = document.createElement('div');
+  Object.assign(panel.style, {
+    minWidth: '360px', padding: '24px 28px',
+    background: '#14161c', border: '1px solid #3a3f4d', borderRadius: '6px',
+  });
+  const title = document.createElement('div');
+  title.textContent = 'Select Character';
+  Object.assign(title.style, {
+    fontSize: '18px', letterSpacing: '.08em', textAlign: 'center',
+    color: '#c9a959', marginBottom: '16px',
+  });
+  panel.appendChild(title);
+  for (const c of chars) {
+    const row = document.createElement('button');
+    row.className = 'charsel-row';
+    const race = c.race || '';
+    const cls = classNames[c.classId] || `Class #${c.classId}`;
+    row.innerHTML =
+      `<span style="font-size:15px;color:#e8e3d3"></span>` +
+      `<span style="font-size:12px;color:#8b93a7;margin-left:12px"></span>`;
+    row.children[0].textContent = c.name || '?';
+    row.children[1].textContent = `Lv ${c.level ?? 1}  ${race} ${cls}`.trim();
+    Object.assign(row.style, {
+      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+      width: '100%', margin: '4px 0', padding: '10px 14px', cursor: 'pointer',
+      background: '#1c1f27', border: '1px solid #3a3f4d', borderRadius: '4px',
+    });
+    row.addEventListener('click', () => {
+      closeCharSelect();
+      chat.addSystem(`entering world as ${c.name}…`);
+      setStatus('online: entering world…');
+      net.send('enterChar', { slot: c.slot ?? 0 });
+    });
+    panel.appendChild(row);
+  }
+  const mkBtn = (label) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    Object.assign(b.style, {
+      display: 'block', width: '100%', margin: '10px 0 0', padding: '9px 0',
+      cursor: 'pointer', background: '#232833', border: '1px solid #4a5163',
+      borderRadius: '4px', color: '#d8d3c3', fontSize: '13px',
+    });
+    return b;
+  };
+  const createBtn = mkBtn('＋ Create new character');
+  createBtn.id = 'charsel-create';
+  createBtn.addEventListener('click', () => { closeCharSelect(); openCharCreate(); });
+  const dismissBtn = mkBtn('Back (offline)');
+  dismissBtn.id = 'charsel-dismiss';
+  dismissBtn.addEventListener('click', () => {
+    closeCharSelect();
+    onlineToggle.checked = false;
+    setOnline(false);
+  });
+  panel.appendChild(createBtn);
+  panel.appendChild(dismissBtn);
+  el.appendChild(panel);
+  document.body.appendChild(el);
+  csOverlay = el;
+}
+
 net.on('auth_ok', (msg) => {
   const chars = msg.chars || [];
   if (!chars.length) { openCharCreate(); return; }   // fresh account: create first
   closeCharCreate();   // refreshed auth_ok after a successful createChar
   chat.addSystem(`logged in (${chars.length} character${chars.length === 1 ? '' : 's'})`);
+  // multi-char account (cc enabled): char-select overlay; it also re-opens
+  // with the updated list when a refreshed auth_ok arrives mid-session
+  // (char #2+ created from the select screen's create button)
+  if (CC_ENABLED && chars.length >= 2) { openCharSelect(chars); return; }
+  closeCharSelect();
   setStatus('online: entering world…');
-  // multi-char accounts: no char-select screen in this milestone — first slot
   net.send('enterChar', { slot: chars[0].slot ?? 0 });
 });
 net.on('enterWorld', async (msg) => {
@@ -930,6 +1046,7 @@ net.on('enterWorld', async (msg) => {
       : Math.max(terrain.heightAtWorld(p.x, p.z), (c.z || 0) * 0.01);
     character.group.rotation.y = l2HeadingToThreeYaw(c.heading);
     character.clearTarget();
+    pendingGoal = null;   // server-placed spawn: no click route survives it
   }
   if (statusWnd) statusWnd.setName(selfName);
   setStatus(`online: ${selfName} @ ${currentTile}`);
@@ -1025,6 +1142,7 @@ net.on('die', (msg) => {
     // (and the model would keep sliding while dead)
     character.clearTarget();
     moveQueue.length = 0;
+    pendingGoal = null;
     wasdLeg = null;
   }
 });
@@ -1039,6 +1157,7 @@ net.on('revive', (msg) => {
     document.getElementById('death-overlay').classList.remove('visible');
     character.clearTarget();
     moveQueue.length = 0;
+    pendingGoal = null;
     wasdLeg = null;
   }
 });
@@ -1070,6 +1189,8 @@ window.__world = {
   },
   // character-creation overlay state (verification)
   charCreate: { get open() { return !!ccOverlay; } },
+  // character-select overlay state (verification)
+  charSelect: { get open() { return !!csOverlay; } },
   entities,
   get chat() { return chat; },
   combat,
@@ -1111,6 +1232,15 @@ window.__world = {
   walkTo(v) {
     if (!character) return;
     walkToServer(v);
+  },
+  // click-to-move internals (verification, read-only): the queued legs and
+  // the geodata A* (findPath over the loaded tiles; NavGrid for synthetic
+  // unit tests, pendingGoal = the click a re-path is still chasing)
+  get moveQueue() { return moveQueue; },
+  nav: {
+    findPath: (sx, sy, sz, gx, gy, gz) => nav.findPath(sx, sy, sz, gx, gy, gz),
+    NavGrid,
+    get pendingGoal() { return pendingGoal; },
   },
   ready: false,
 };
@@ -1169,6 +1299,10 @@ async function loadScene(tile, { keepCharPos = false } = {}) {
         character.group.position.copy(c);
       }
       character.clearTarget();
+      // a teleport-style load (picker/enterWorld) drops the click goal; a
+      // boundary crossing (keepCharPos) keeps it so repathPending resumes
+      // the route on the new tile's geodata
+      if (!keepCharPos) pendingGoal = null;
     }
     sun.position.copy(SUN_DIR).multiplyScalar(150).add(character ? character.group.position : t.center());
     setStatus(`scene: ${tile} (${def.gridSize}x${def.gridSize})`);
@@ -1365,16 +1499,48 @@ function wasdDir() {
 // through walkToServer -> net.send('moveTo'). Server echo reconciliation
 // lives in the net.on('move') self branch.
 //
-// Far-click waypointing: aCis MoveBackwardToLocation rejects moves past
-// 9900 units, and single far hops into geometry stall with a bare
-// actionFailed — split long moves into <=2000-unit (20 m) legs along the
-// clicked direction ("walk as far as possible"; full A* is out of scope).
-// The next leg goes out when the character arrives (target consumed).
+// Far-click routing: aCis MoveBackwardToLocation has NO pathing — a
+// straight hop into geometry stalls with a bare actionFailed (the classic
+// case: training hall -> TI village against the aqueduct near
+// (-77800, 251000)). Clicks route over the coarse nav grid + A* in
+// js/geodata.js (NavGrid): the grid spans the center tile + whatever
+// neighbor geodata has loaded, so a path STOPS at the edge of loaded
+// ground; when the queue drains short of the click, repathPending re-paths
+// (neighbor geodata lands lazily via preloadNear, the scene switch lands
+// on border crossing) until the goal is reached or a few re-paths make no
+// progress. No route at all -> the old straight <=2000-unit legs (the
+// server refusal then surfaces the 'Can't reach that.' line as before).
 const MOVE_LEG_M = 20;          // 2000 L2 units per leg
 const moveQueue = [];           // pending legs (THREE.Vector3)
 
-function walkToServer(dest) {
+const nav = new NavGrid((x, y) => {   // world L2 coords -> loaded Geodata
+  const t = tileNameFor(x, y);
+  if (terrain && t === currentTile) return terrain.geodata;
+  const e = neighbors && neighbors.tiles.get(t);
+  return e ? e.geodata : null;
+});
+let pendingGoal = null;       // clicked destination (THREE.Vector3) until reached
+let repathDist = Infinity;    // goal distance at the last re-path
+let repathStalls = 0;         // consecutive re-paths without progress
+let repathAfter = 0;          // re-path cadence floor (performance.now ms)
+const REPATH_ARRIVE_M = 2;    // click-goal tolerance
+const REPATH_MAX_STALLS = 3;  // give up after this many re-paths without progress
+const REPATH_MIN_MS = 400;
+
+function walkToServer(dest, { pathfinding = true } = {}) {
   moveQueue.length = 0;         // a new order supersedes legs in flight
+  pendingGoal = pathfinding ? dest.clone() : null;
+  repathDist = Infinity;
+  repathStalls = 0;
+  repathAfter = 0;
+  if (!pathfinding || !planNavLegs(dest)) straightLegs(dest);
+  pumpMoveQueue();
+}
+
+// Straight <=MOVE_LEG_M legs along the clicked direction — the pre-nav
+// behavior, kept as the fallback when the nav grid has no route (no
+// geodata under the start, unwalkable click, zero A* progress).
+function straightLegs(dest) {
   const from = character.group.position;
   const dx = dest.x - from.x, dz = dest.z - from.z;
   const steps = Math.ceil(Math.hypot(dx, dz) / MOVE_LEG_M);
@@ -1383,6 +1549,53 @@ function walkToServer(dest) {
       from.x + dx * i / steps, dest.y, from.z + dz * i / steps));
   }
   moveQueue.push(dest.clone());
+}
+
+// A* route from the character to dest, queued as <=MOVE_LEG_M legs (the
+// server-side 9900-unit cap and the echo reconciliation are untouched).
+// false when the nav grid found no route at all (caller falls back).
+function planNavLegs(dest) {
+  const from = character.group.position;
+  const s = threeToL2(from), d = threeToL2(dest);
+  const route = nav.findPath(s.x, s.y, s.z, d.x, d.y, d.z);
+  if (!route || route.points.length < 2) return false;
+  let prev = from;
+  for (let i = 1; i < route.points.length; i++) {
+    const wp = l2ToThree(route.points[i].x, route.points[i].y, route.points[i].z);
+    const dx = wp.x - prev.x, dz = wp.z - prev.z;
+    const steps = Math.ceil(Math.hypot(dx, dz) / MOVE_LEG_M);
+    for (let k = 1; k <= steps; k++) {
+      moveQueue.push(new THREE.Vector3(
+        prev.x + dx * k / steps, wp.y, prev.z + dz * k / steps));
+    }
+    prev = wp;
+  }
+  return true;
+}
+
+// The queue drained short of the clicked goal: re-path — the path had
+// stopped at the edge of loaded geodata, and more may have loaded since
+// (preloadNear on approach, the scene switch on border crossing). A few
+// re-paths with no progress means a genuinely unreachable click: fall back
+// to the straight legs, so an online refusal still surfaces the loud
+// 'Can't reach that.' (the pre-nav behavior).
+function repathPending() {
+  if (!pendingGoal || character.dead || sceneLoading) return;
+  const p = character.group.position;
+  const d = Math.hypot(pendingGoal.x - p.x, pendingGoal.z - p.z);
+  if (d < REPATH_ARRIVE_M) { pendingGoal = null; return; }
+  const now = performance.now();
+  if (now < repathAfter) return;
+  repathAfter = now + REPATH_MIN_MS;
+  if (d > repathDist - 0.5 && ++repathStalls > REPATH_MAX_STALLS) {
+    const goal = pendingGoal;
+    pendingGoal = null;
+    straightLegs(goal);
+  } else {
+    if (d <= repathDist - 0.5) repathStalls = 0;
+    repathDist = d;
+    planNavLegs(pendingGoal);
+  }
   pumpMoveQueue();
 }
 
@@ -1416,7 +1629,9 @@ function streamWasdMove(dir) {
   if (!due || now - (wasdLeg ? wasdLeg.t : 0) < WASD_MIN_MS) return;
   const dest = pos.clone().addScaledVector(dir, WASD_LEG_M);
   dest.y = heightRouter.heightAtWorld(dest.x, dest.z, pos.y);
-  walkToServer(dest);
+  // streamed WASD legs keep the straight-leg path (no nav detour): a held
+  // key means "walk THIS heading", and each 8 m leg re-plans 4x a second
+  walkToServer(dest, { pathfinding: false });
   wasdLeg = { dest, dir: dir.clone(), t: now };
 }
 
@@ -1454,7 +1669,10 @@ renderer.setAnimationLoop(() => {
       wasdLeg = null;
     }
     character.update(dt, heightRouter, online ? null : moveDir);
-    if (!character.target) pumpMoveQueue();   // leg arrived: send the next
+    if (!character.target) {
+      if (moveQueue.length) pumpMoveQueue();   // leg arrived: send the next
+      else repathPending();                    // queue drained: re-path the click
+    }
     entities.update(dt, heightRouter);
     // boundary crossing: the entered tile becomes the full-quality center
     // (the 3x3 neighbor window shifts inside loadScene). Interiors never

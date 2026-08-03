@@ -226,7 +226,27 @@ class Bridge {
           break;
         case 'bypass':
           // RequestBypassToServer(0x21) with the raw bypass command string.
-          if (this.game) this.game.bypass(String(msg.command || '').slice(0, 200));
+          // EXCEPTION: TE* commands come from tutorial pages (originally
+          // action="link TE.." — the bridge rewrites them to bypass links so
+          // the client dialog renders them clickable). aCis routes them via
+          // RequestTutorialLinkHtml(0x7b), NOT 0x21 (its bypass switch has
+          // no TE branch — clientpackets/RequestBypassToServer.java).
+          if (this.game) {
+            const command = String(msg.command || '').slice(0, 200);
+            if (/^TE\d*$/.test(command)) this.game.tutorialLink(command);
+            else this.game.bypass(command);
+          }
+          break;
+        case 'tutorialQuestionMark':
+          // RequestTutorialQuestionMark(0x7d): D markId — the answer to a
+          // tutorialQuestionMark op (aCis notifies the Tutorial script
+          // "QM<markId>").
+          if (this.game) this.game.tutorialQuestionMark(msg.markId | 0);
+          break;
+        case 'tutorialEvent':
+          // RequestTutorialClientEvent(0x7e): D eventId — reports a UI event
+          // the server armed with TutorialEnableClientEvent(0xa2).
+          if (this.game) this.game.tutorialClientEvent(msg.eventId | 0);
           break;
         case 'action':
           // Character action. actionId is an actionname-e.dat UI id.
@@ -1125,6 +1145,30 @@ class Bridge {
       this.send({ op: 'npcHtml', html: h.html });
       this.log(`npcHtml (html window, ${h.html.length} chars, objectId ${h.objectId}) >>>${h.html.replace(/\s+/g, ' ')}<<<`);
     });
+
+    // ------------------------------------------------------ M17: tutorial
+    // TutorialShowHtml (0xa0): the new-char tutorial pages. Forwarded through
+    // the EXISTING npcHtml op (the client dialog window already renders it),
+    // with `action="link TE.."` rewritten to `action="bypass -h TE.."`: the
+    // client dialog only makes bypass links clickable (npcdialog.js), and
+    // the bypass op routes TE* back to RequestTutorialLinkHtml(0x7b).
+    game.on('tutorialHtml', (html) => {
+      const rewritten = html.replace(/action="link (TE\d*)"/g, 'action="bypass -h $1"');
+      this.send({ op: 'npcHtml', html: rewritten });
+      this.log(`npcHtml (tutorial, ${rewritten.length} chars) >>>${rewritten.replace(/\s+/g, ' ')}<<<`);
+    });
+
+    // TutorialCloseHtml (0xa3) — close the dialog window (new small op:
+    // npcHtml has no close semantics).
+    game.on('tutorialCloseHtml', () => this.send({ op: 'tutorialHtmlClose' }));
+
+    // TutorialShowQuestionMark (0xa1) — blink the tutorial "?" icon (new
+    // small op: no existing op carries it).
+    game.on('tutorialQuestionMark', (markId) => this.send({ op: 'tutorialQuestionMark', markId }));
+
+    // TutorialEnableClientEvent (0xa2) — server arms reporting of a client
+    // UI event (answered with the tutorialEvent op -> 0x7e).
+    game.on('tutorialEvent', (eventId) => this.send({ op: 'tutorialEvent', eventId }));
 
     // ActionFailed (0x25) — talk/action rejected.
     game.on('actionFailed', () => this.send({ op: 'actionFailed' }));

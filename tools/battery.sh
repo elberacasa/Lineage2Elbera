@@ -22,12 +22,14 @@ if [ "$MODE" != "--gateway-only" ]; then
   # verify_charcreate keeps cc ENABLED (it tests the creation flow itself)
   # and drives its own mock on 8086 so it coexists with the 8085 one
   (cd editor/world && node mock_gateway.js 8086 > /tmp/elbera_mock_cc.log 2>&1 &)
+  # verify_charsel (multi-char accounts) drives its own mock on 8087
+  (cd editor/world && node mock_gateway.js 8087 > /tmp/elbera_mock_cs.log 2>&1 &)
   sleep 2
   for v in verify_ui verify_statuswnd verify_skillwnd verify_shortcutwnd \
            verify_inventorywnd verify_chatwnd verify_targetwnd verify_dialog \
            verify_actionwnd verify_minimap verify_remoteanim verify_questwnd \
            verify_partywnd verify_abnormal verify_combat verify_skills \
-           verify_clanwnd verify_charcreate \
+           verify_clanwnd verify_charcreate verify_charsel \
            verify_m5 verify_app verify_civilians verify_interior verify_geodata \
            verify_terrain; do
     run "$v" editor/world "$v.js"
@@ -40,9 +42,12 @@ if [ "$MODE" != "--client-only" ]; then
            verify-mods verify-level verify-dialog verify-action \
            verify-party verify-quest verify-buffs verify-shop \
            verify-multisell verify-trade verify-store verify-clan \
-           verify-warehouse; do
+           verify-warehouse verify-create verify-tutorial; do
     run "$t" gateway "test/$t.js"
   done
+  # verify-respawn spawns its own mock (arg = port); 8091 keeps it clear
+  # of the client section's mocks
+  run verify-respawn gateway "test/verify-respawn.js 8091"
 fi
 
 echo "---"
