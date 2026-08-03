@@ -28,7 +28,9 @@ Cache layout (editor/cache/):
 import base64
 import hashlib
 import json
+import os
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -58,6 +60,10 @@ UTXEDIT = ROOT_DIR / "tools" / "utx" / "utxedit.py"
 
 HOST = "127.0.0.1"
 PORT = 8081
+
+# Simple bearer-token auth.  Set L2EDITOR_TOKEN in the environment to use a
+# fixed token; otherwise a fresh random token is generated each run.
+API_TOKEN = os.environ.get("L2EDITOR_TOKEN") or secrets.token_hex(32)
 
 DEFAULT_ASSET_ROOT = "tools/samples"   # relative to repo root
 MAX_BODY_BYTES = 40 * 1024 * 1024      # 40 MB (a 4096x4096 PNG is big)
@@ -188,7 +194,7 @@ def parse_umodel_list(stdout):
 def cache_key(path):
     st = path.stat()
     raw = "%s|%d|%d" % (str(path), int(st.st_mtime), st.st_size)
-    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
 def get_contents(pkg_abs):
@@ -321,6 +327,12 @@ class EditorHandler(BaseHTTPRequestHandler):
 
     # -- helpers -----------------------------------------------------------
 
+    def _check_auth(self):
+        """Raise ApiError(401) if the bearer token is absent or wrong."""
+        auth = self.headers.get("Authorization", "")
+        if not secrets.compare_digest(auth, "Bearer " + API_TOKEN):
+            raise ApiError("unauthorized", status=401)
+
     def _send_json(self, payload, status=200):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -358,6 +370,7 @@ class EditorHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         path, qs = self._query()
         try:
+            self._check_auth()
             if path == "/":
                 self._serve_index()
             elif path == "/api/config":
@@ -380,6 +393,7 @@ class EditorHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         path, _qs = self._query()
         try:
+            self._check_auth()
             if path == "/api/config":
                 self._handle_config()
             elif path == "/api/replace":
@@ -535,6 +549,7 @@ def main():
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     server = ThreadingHTTPServer((HOST, PORT), EditorHandler)
     print("L2Vzla Asset Editor listening on http://%s:%d" % (HOST, PORT))
+    print("API token (Authorization: Bearer <token>): %s" % API_TOKEN)
     print("asset root: %s" % asset_root())
     print("umodel: %s | writer (utxedit): %s" % (
         "ready" if UMODEL.is_file() else "MISSING",
