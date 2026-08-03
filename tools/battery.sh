@@ -45,9 +45,10 @@ if [ "$MODE" != "--client-only" ]; then
            verify-warehouse verify-create verify-tutorial; do
     run "$t" gateway "test/$t.js"
   done
-  # verify-respawn spawns its own mock (arg = port); 8091 keeps it clear
-  # of the client section's mocks
-  run verify-respawn gateway "test/verify-respawn.js 8091"
+  # verify-respawn spawns its own mock (default port 8086 — free here: the
+  # client section's mocks are dead by now, and --gateway-only never starts
+  # them). run() does node "$script" — no space for CLI args.
+  run verify-respawn gateway "test/verify-respawn.js"
 fi
 
 echo "---"
