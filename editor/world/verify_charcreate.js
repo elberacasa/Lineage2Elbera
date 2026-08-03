@@ -5,7 +5,9 @@
 //     2. fullscreen overlay with the /create/ iframe appears
 //     3. fail path: name "Aria" (a fixture player) -> charCreateFail
 //        name_already_exists -> inline "name taken" inside the iframe
-//     4. pick Orc / Female / Orc Mystic, set a name, Create
+//     4. pick Orc / Female / Orc Mystic -> the preview must actually load
+//        that combo's gltf (asserted via the network fetch AND the scene,
+//        not just app state), then set a name, Create
 //        -> createChar op with protocol fields (race 3, sex 1, classId 49)
 //        -> overlay closes -> enterChar -> enterWorld as the created char
 //   live (--live): the real gateway on 8090, FRESH deviceId, one session
@@ -33,8 +35,8 @@ const randName = (prefix) => prefix + Array.from({ length: 6 },
   () => 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]).join('');
 
 const PICK = LIVE
-  ? { race: 'Elf', gender: 'Female', cls: 'Elven Mystic', classId: 25, protoRace: 1 }
-  : { race: 'Orc', gender: 'Female', cls: 'Orc Mystic', classId: 49, protoRace: 3 };
+  ? { race: 'Elf', gender: 'Female', cls: 'Elven Mystic', classId: 25, protoRace: 1, model: 'elf_f' }
+  : { race: 'Orc', gender: 'Female', cls: 'Orc Mystic', classId: 49, protoRace: 3, model: 'orc_mystic_f' };
 const NAME = LIVE ? randName('T') : randName('Vrk');
 
 (async () => {
@@ -49,6 +51,12 @@ const NAME = LIVE ? randName('T') : randName('Vrk');
     await page.setViewport({ width: 1280, height: 900 });
     page.on('console', m => summary.consoleLogs.push(m.text()));
     page.on('pageerror', e => summary.consoleLogs.push('PAGEERROR: ' + e.message));
+    // preview-model evidence: which character gltfs were actually fetched
+    const modelFetches = [];
+    page.on('response', r => {
+      if (r.url().includes('/characters/models/') && r.url().endsWith('.gltf'))
+        modelFetches.push({ url: r.url(), status: r.status() });
+    });
 
     await page.goto(BASE, { waitUntil: 'networkidle0' });
     await page.waitForFunction('window.__world && window.__world.ready', { timeout: 30000 });
@@ -71,6 +79,7 @@ const NAME = LIVE ? randName('T') : randName('Vrk');
       'window.__cc && document.getElementById("loading").classList.contains("hidden")',
       { timeout: 60000 });
     await sleep(1500); // model settles
+    summary.initialModel = await frame.evaluate(() => window.__cc.modelId);
     await page.screenshot({ path: SHOT('01_creator_embedded') });
 
     // -- 2. fail path: a taken name -> inline message in the iframe -------
@@ -109,7 +118,29 @@ const NAME = LIVE ? randName('T') : randName('Vrk');
       click('gender-list', b => b.textContent.trim() === pick.gender);
       click('class-list', b => b.textContent.includes(pick.cls));
     }, PICK);
-    await sleep(1200); // model swap
+    // The preview must actually swap models: state.modelEntry updates
+    // synchronously on the click, so wait until the picked combo's gltf
+    // is COMMITTED to the scene (model object present, not the placeholder
+    // rig, exactly one model on the turntable).
+    await frame.waitForFunction((m) =>
+      window.__cc.modelId === m && window.__cc.model &&
+      !window.__cc.state.usingPlaceholder &&
+      window.__cc.turntable.children.length === 1,
+      { timeout: 30000 }, PICK.model);
+    summary.preview = await frame.evaluate(() => {
+      let skinned = 0;
+      window.__cc.turntable.traverse(o => { if (o.isSkinnedMesh) skinned++; });
+      return {
+        modelId: window.__cc.modelId,
+        placeholder: window.__cc.state.usingPlaceholder,
+        children: window.__cc.turntable.children.length,
+        skinnedMeshes: skinned,   // glTF characters are skinned; the placeholder rig is not
+        status: document.getElementById('model-status').textContent,
+      };
+    });
+    summary.preview.gltfFetched = modelFetches.some(
+      f => f.status === 200 && f.url.endsWith(`/characters/models/${PICK.model}.gltf`));
+    await sleep(400); // a few settled frames
     await frame.evaluate(() => { const i = document.getElementById('name-input'); i.value = ''; });
     await frame.click('#name-input');
     await frame.type('#name-input', NAME);
@@ -142,7 +173,12 @@ const NAME = LIVE ? randName('T') : randName('Vrk');
     // -- verdict ------------------------------------------------------------
     const op = summary.createCharOp || {};
     const ew = (summary.enterWorld && summary.enterWorld.char) || {};
+    const pv = summary.preview || {};
     summary.checks = {
+      previewSwitched: summary.initialModel !== PICK.model &&
+        pv.modelId === PICK.model && pv.placeholder === false &&
+        pv.children === 1 && pv.skinnedMeshes > 0 &&
+        pv.gltfFetched === true && pv.status === PICK.model,
       createCharFields: op.name === NAME && op.race === PICK.protoRace &&
         op.sex === 1 && op.classId === PICK.classId,
       failWasTaken: LIVE || (summary.failPath.failOp &&

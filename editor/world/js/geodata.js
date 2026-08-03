@@ -26,6 +26,24 @@
 
 const MAGIC = 0x4C324731;
 
+// Cell-index epsilon: L2 coordinates reach queries as float round-trips
+// (x * 0.01 -> / 0.01), and at exact cell boundaries the division lands
+// ~1e-12 below the integer — floor() then flips into the ADJACENT cell,
+// whose layer differs by meters at cliffs/walls/stair edges (measured on
+// 17_25: -3728 vs -4144 at (-78336, 239616), a 3.9m sink). 1e-6 cells
+// (1.6e-5 L2 units) is orders of magnitude above the float noise and
+// orders below any real position change.
+const CELL_EPS = 1e-6;
+
+// aCis per-cell climb limit (GeoStructure.CELL_IGNORE_HEIGHT =
+// CELL_HEIGHT * 6, server/.../geodata/GeoStructure.java:22-23; consumed
+// by GeoEngine.canMove picking the layer below groundZ +
+// CELL_IGNORE_HEIGHT, GeoEngine.java:696). Callers may request a SMALLER
+// step, never a larger one: bigger steps chain cell-by-cell onto
+// wall/foundation layers the nswe flags forbid (measured on 17_25:
+// +2.28m onto TI village foundations with the old 200 cap).
+const MAX_STEP_UP = 48;
+
 export class Geodata {
   constructor(meta, buf) {
     this.meta = meta;
@@ -106,9 +124,9 @@ export class Geodata {
 
   _layersAt(x, y) {
     const cx = Math.max(0, Math.min(this.cells - 1,
-      Math.floor((x - this.origin[0]) / this.cellSize)));
+      Math.floor((x - this.origin[0]) / this.cellSize + CELL_EPS)));
     const cy = Math.max(0, Math.min(this.cells - 1,
-      Math.floor((y - this.origin[1]) / this.cellSize)));
+      Math.floor((y - this.origin[1]) / this.cellSize + CELL_EPS)));
     const block = this._block(cx >> 3, cy >> 3);
     // 8x8 cells per block, row-major (y inner)
     return block.cells[(cy & 7) * this.blockCells + (cx & 7)];
@@ -118,7 +136,8 @@ export class Geodata {
    *  to z. Without z, the LOWEST layer (a deliberate, safe default).
    *
    *  maxUp (L2 units, optional): walking rule — a walker may only GAIN
-   *  maxUp in one step; layers above z + maxUp are walls, not floors.
+   *  maxUp in one step (capped at MAX_STEP_UP, the aCis per-cell limit);
+   *  layers above z + step are walls, not floors.
    *  Among the remaining candidates the HIGHEST is the floor. When NO
    *  layer is within reach (walking into a wall/cliff face) the walker is
    *  blocked: the result is z itself, so height never snaps up mid-walk.
@@ -129,9 +148,10 @@ export class Geodata {
     if (!layers || !layers.length) return null;
     if (z == null) return layers.reduce((m, l) => Math.min(m, l.height), Infinity);
     if (maxUp != null) {
+      const step = Math.min(maxUp, MAX_STEP_UP);
       let floor = null;
       for (const l of layers) {
-        if (l.height <= z + maxUp && (floor == null || l.height > floor)) {
+        if (l.height <= z + step && (floor == null || l.height > floor)) {
           floor = l.height;
         }
       }
@@ -152,10 +172,10 @@ export class Geodata {
   passable(fromX, fromY, toX, toY) {
     const layers = this._layersAt(fromX, fromY);
     if (!layers || !layers.length) return false;
-    const fx = Math.floor((fromX - this.origin[0]) / this.cellSize);
-    const fy = Math.floor((fromY - this.origin[1]) / this.cellSize);
-    const dx = Math.sign(Math.floor((toX - this.origin[0]) / this.cellSize) - fx);
-    const dy = Math.sign(Math.floor((toY - this.origin[1]) / this.cellSize) - fy);
+    const fx = Math.floor((fromX - this.origin[0]) / this.cellSize + CELL_EPS);
+    const fy = Math.floor((fromY - this.origin[1]) / this.cellSize + CELL_EPS);
+    const dx = Math.sign(Math.floor((toX - this.origin[0]) / this.cellSize + CELL_EPS) - fx);
+    const dy = Math.sign(Math.floor((toY - this.origin[1]) / this.cellSize + CELL_EPS) - fy);
     let flag = 0;
     if (dx > 0) flag = 0x1;        // E
     else if (dx < 0) flag = 0x2;   // W

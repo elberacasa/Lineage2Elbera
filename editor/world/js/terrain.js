@@ -24,8 +24,10 @@ import { Geodata } from './geodata.js';
 const UE_ROT_TO_RAD = (Math.PI * 2) / 65536;
 const PROP_CLUSTER_SIZE = 48;  // meters, instanced-prop cluster grid cell
 // walking rule for the geodata layer pick: a walker gains at most this much
-// height in one step — taller layers are walls, not floors (L2 units; 2m)
-const MAX_STEP_UP_L2 = 200;
+// height in one step — taller layers are walls, not floors (L2 units). 48 =
+// aCis's per-cell climb limit (GeoStructure.CELL_IGNORE_HEIGHT =
+// CELL_HEIGHT*6, consumed by GeoEngine's move validation).
+const MAX_STEP_UP_L2 = 48;
 // mesh correction: max allowed heightmap-vs-geodata deviation before the
 // geodata layer replaces the (stale) heightmap value (L2 units; 1m)
 const MESH_GEO_MAX_DEV = 100;
@@ -37,8 +39,126 @@ const MESH_GEO_MAX_DEV = 100;
 // (up to +22m — the giant "cone" walls over towns). Bigger deviations are
 // filled from trustworthy neighbors instead.
 const MESH_GEO_MAX_FIX = 200;
+// mesh correction: an accepted pick must belong to a 4-connected cluster of
+// at least this many grid cells. Geodata covers WALKABLE surfaces, so the
+// walkable TOPS of small structures (market stalls, carts, fences — 1-2m
+// above ground with no ground layer beneath them) also parse as accepted
+// picks and render as grass pyramids rising through the prop. Measured
+// across all 100 tiles: every verified legit stale-rectangle repair is a
+// broad zone >= 200 cells (22_22's Giran square = one 1196-cell cluster),
+// the structure tops cluster at <= 25 cells (90%+ sit on a placed prop).
+// Small clusters are demoted to the neighbor-median fill (state 2).
+const MESH_GEO_MIN_CLUSTER = 50;
 // ring radius (grid cells) for the neighbor-median ground fill above
 const MESH_GEO_FILL_R = 4;
+
+// Stale-rectangle heightmap correction, shared by the center tile (Terrain)
+// and the decimated neighbor meshes (neighbors.js). Some tiles carry STALE
+// heightmap rectangles: sharp axis-aligned zones (village squares) where the
+// .unr heightmap disagrees with geodata by meters, while server z, retail
+// spawn z and building props all agree with geodata (delta map: near-r=1
+// globally, rectangular defect zones). Retail ground truth there is geodata;
+// everywhere else the smooth heightmap wins. Rule: per grid point, when
+// |heightmap - geodata layer NEAREST the heightmap| exceeds MESH_GEO_MAX_DEV,
+// take that geodata layer (nearest picks the ground, never a roof layer).
+//
+// The roof hazard (verified on 22_22): geodata covers WALKABLE surfaces
+// only, so cells under a building have no ground layer at all — the nearest
+// pick lands on an interior floor or the roof (up to +22m, rendering as
+// giant terrain walls swallowing the town). So the pick is accepted only
+// within MESH_GEO_MAX_FIX (the documented defect size); beyond it the ground
+// comes from the median of trustworthy neighbors (uncorrected cells +
+// accepted picks) in a MESH_GEO_FILL_R ring.
+//
+// Mutates `heights` (Uint16Array gridSize*gridSize, G16 encoding) in place.
+// `geodata` must be a loaded Geodata (caller skips when null). Returns
+// { fixed, deferred, deferredCells }: fixed = cells rewritten (accepted
+// picks + ring fills), deferred = per-cell state array (2 = ring-filled
+// roof-hazard override), deferredCells = count of state-2 cells.
+export function correctHeightsWithGeodata(heights, gridSize, spacing, origin, heightScale, geodata) {
+  const g = gridSize;
+  const picks = new Float32Array(g * g);  // geodata candidate z per cell
+  const state = new Uint8Array(g * g);    // 0 keep-hm, 1 take-geo, 2 defer
+  const hmAt = (i) => origin[2] + (heights[i] - 32768) * heightScale;
+  for (let gy = 0; gy < g; gy++) {
+    for (let gx = 0; gx < g; gx++) {
+      const i = gy * g + gx;
+      const hm = hmAt(i);
+      const geo = geodata.heightAt(
+        origin[0] + gx * spacing,
+        origin[1] + gy * spacing, hm);
+      if (geo == null) continue;
+      const dev = Math.abs(geo - hm);
+      if (dev <= MESH_GEO_MAX_DEV) continue;
+      picks[i] = geo;
+      state[i] = dev <= MESH_GEO_MAX_FIX ? 1 : 2;
+    }
+  }
+  // demote structure-top picks (small 4-connected clusters, see
+  // MESH_GEO_MIN_CLUSTER) to the ring fill
+  const seen = new Uint8Array(g * g);
+  for (let i = 0; i < g * g; i++) {
+    if (state[i] !== 1 || seen[i]) continue;
+    const stack = [i];
+    seen[i] = 1;
+    const cluster = [];
+    while (stack.length) {
+      const c = stack.pop();
+      cluster.push(c);
+      const cx = c % g, cy = (c / g) | 0;
+      if (cx + 1 < g && state[c + 1] === 1 && !seen[c + 1]) {
+        seen[c + 1] = 1; stack.push(c + 1);
+      }
+      if (cx > 0 && state[c - 1] === 1 && !seen[c - 1]) {
+        seen[c - 1] = 1; stack.push(c - 1);
+      }
+      if (cy + 1 < g && state[c + g] === 1 && !seen[c + g]) {
+        seen[c + g] = 1; stack.push(c + g);
+      }
+      if (cy > 0 && state[c - g] === 1 && !seen[c - g]) {
+        seen[c - g] = 1; stack.push(c - g);
+      }
+    }
+    if (cluster.length < MESH_GEO_MIN_CLUSTER) {
+      for (const c of cluster) state[c] = 2;
+    }
+  }
+  let fixed = 0;
+  const R = MESH_GEO_FILL_R;
+  for (let gy = 0; gy < g; gy++) {
+    for (let gx = 0; gx < g; gx++) {
+      const i = gy * g + gx;
+      let z = null;
+      if (state[i] === 1) {
+        z = picks[i];
+      } else if (state[i] === 2) {
+        const ring = [];
+        for (let dy = -R; dy <= R; dy++) {
+          for (let dx = -R; dx <= R; dx++) {
+            const nx = gx + dx, ny = gy + dy;
+            if (nx < 0 || ny < 0 || nx >= g || ny >= g) continue;
+            const j = ny * g + nx;
+            if (state[j] === 0) ring.push(hmAt(j));
+            else if (state[j] === 1) ring.push(picks[j]);
+          }
+        }
+        ring.sort((a, b) => a - b);
+        // no trustworthy neighbor at all: keep the heightmap (terrain-like),
+        // never the roof pick
+        z = ring.length ? ring[ring.length >> 1] : hmAt(i);
+      }
+      if (z != null) {
+        heights[i] = Math.round(32768 + (z - origin[2]) / heightScale);
+        fixed++;
+      }
+    }
+  }
+  return {
+    fixed,
+    deferred: state,
+    deferredCells: state.reduce((n, s) => n + (s === 2 ? 1 : 0), 0),
+  };
+}
 
 // water planes (scene.json "water", tools/world/README.md): one repeat per
 // 128 L2 units (the terrain diffuse rule), alpha-blended, uv-scrolled by
@@ -164,75 +284,16 @@ export class Terrain {
     await this._loadProps();
   }
 
-  // Some tiles carry STALE heightmap rectangles: sharp axis-aligned zones
-  // (village squares) where the .unr heightmap disagrees with geodata by
-  // meters, while server z, retail spawn z and building props all agree
-  // with geodata (delta map: near-r=1 globally, rectangular defect zones).
-  // Retail ground truth there is geodata; everywhere else the smooth
-  // heightmap wins. Rule: per grid point, when |heightmap - geodata layer
-  // NEAREST the heightmap| exceeds MESH_GEO_MAX_DEV, take that geodata
-  // layer (nearest picks the ground, never a roof layer).
-  //
-  // The roof hazard (verified on 22_22): geodata covers WALKABLE surfaces
-  // only, so cells under a building have no ground layer at all — the
-  // nearest pick lands on an interior floor or the roof (up to +22m,
-  // rendering as giant terrain walls swallowing the town). So the pick is
-  // accepted only within MESH_GEO_MAX_FIX (the documented defect size);
-  // beyond it the ground comes from the median of trustworthy neighbors
-  // (uncorrected cells + accepted picks) in a MESH_GEO_FILL_R ring.
+  // Stale-rectangle correction: see correctHeightsWithGeodata (module
+  // scope, shared with the neighbor tiles in neighbors.js).
   _correctHeights() {
     if (!this.geodata) return;
-    const g = this.gridSize;
-    const picks = new Float32Array(g * g);  // geodata candidate z per cell
-    const state = new Uint8Array(g * g);    // 0 keep-hm, 1 take-geo, 2 defer
-    const hmAt = (i) => this.origin[2] + (this.heights[i] - 32768) * this.heightScale;
-    for (let gy = 0; gy < g; gy++) {
-      for (let gx = 0; gx < g; gx++) {
-        const i = gy * g + gx;
-        const hm = hmAt(i);
-        const geo = this.geodata.heightAt(
-          this.origin[0] + gx * this.spacing,
-          this.origin[1] + gy * this.spacing, hm);
-        if (geo == null) continue;
-        const dev = Math.abs(geo - hm);
-        if (dev <= MESH_GEO_MAX_DEV) continue;
-        picks[i] = geo;
-        state[i] = dev <= MESH_GEO_MAX_FIX ? 1 : 2;
-      }
-    }
-    let fixed = 0;
-    const R = MESH_GEO_FILL_R;
-    for (let gy = 0; gy < g; gy++) {
-      for (let gx = 0; gx < g; gx++) {
-        const i = gy * g + gx;
-        let z = null;
-        if (state[i] === 1) {
-          z = picks[i];
-        } else if (state[i] === 2) {
-          const ring = [];
-          for (let dy = -R; dy <= R; dy++) {
-            for (let dx = -R; dx <= R; dx++) {
-              const nx = gx + dx, ny = gy + dy;
-              if (nx < 0 || ny < 0 || nx >= g || ny >= g) continue;
-              const j = ny * g + nx;
-              if (state[j] === 0) ring.push(hmAt(j));
-              else if (state[j] === 1) ring.push(picks[j]);
-            }
-          }
-          ring.sort((a, b) => a - b);
-          // no trustworthy neighbor at all: keep the heightmap (terrain-like),
-          // never the roof pick
-          z = ring.length ? ring[ring.length >> 1] : hmAt(i);
-        }
-        if (z != null) {
-          this.heights[i] = Math.round(32768 + (z - this.origin[2]) / this.heightScale);
-          fixed++;
-        }
-      }
-    }
-    this.geoFixedCells = fixed;
-    this.geoDeferred = state;   // 2 = ring-filled (roof-hazard override)
-    this.geoDeferredCells = state.reduce((n, s) => n + (s === 2 ? 1 : 0), 0);
+    const r = correctHeightsWithGeodata(
+      this.heights, this.gridSize, this.spacing, this.origin, this.heightScale,
+      this.geodata);
+    this.geoFixedCells = r.fixed;
+    this.geoDeferred = r.deferred;   // 2 = ring-filled (roof-hazard override)
+    this.geoDeferredCells = r.deferredCells;
   }
 
   // -- grid -> world helpers ----------------------------------------------
@@ -273,7 +334,12 @@ export class Terrain {
       if (this.geodata) {
         const h = this.geodata.heightAt(
           x / L2_TO_M, -z / L2_TO_M, hint / L2_TO_M);
-        if (h != null && Math.abs(h * L2_TO_M - this.floorY) < 2.5) {
+        // Gate on the walker's z (hint), not the fixed spawn floorY:
+        // multi-level dungeons have real floors >2.5m from floorY
+        // (measured: 19_16 hall -112.56 vs -107.0, 21_25 -66.56 vs
+        // -62.71) — gating on floorY popped the walker up mid-hall.
+        // A garbage hint lands on the dummy plane and falls through.
+        if (h != null && Math.abs(h * L2_TO_M - hint) < 2.5) {
           return h * L2_TO_M;
         }
       }

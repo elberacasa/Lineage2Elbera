@@ -24,10 +24,12 @@
 import * as THREE from 'three';
 import { L2_TO_M, l2ToThree } from './coords.js';
 import { Geodata } from './geodata.js';
+import { correctHeightsWithGeodata } from './terrain.js';
 
 // walking rule, same constant as terrain.js: a walker gains at most this
-// much in one step — taller layers are walls, not floors (L2 units; 2m)
-const MAX_STEP_UP_L2 = 200;
+// much in one step — taller layers are walls, not floors (L2 units). 48 =
+// aCis's per-cell climb limit (GeoStructure.CELL_IGNORE_HEIGHT).
+const MAX_STEP_UP_L2 = 48;
 // L2 units per tile edge (256 samples x 128 spacing; the last sample column
 // is stretched to this far edge so tiles abut without a crack)
 const TILE_L2 = 32768;
@@ -270,10 +272,46 @@ export class NeighborTile {
   ensureGeodata() {
     if (!this._geoPromise) {
       this._geoPromise = Geodata.load(this.baseUrl, this.def)
-        .then(g => { this.geodata = g; return g; })
+        .then(g => {
+          this.geodata = g;
+          if (g) this._applyGeodataCorrection();
+          return g;
+        })
         .catch(() => null);   // heightmap fallback on failure
     }
     return this._geoPromise;
+  }
+
+  // Stale-rectangle correction for the neighbor mesh (same algorithm as the
+  // center tile — see correctHeightsWithGeodata in terrain.js). Without it
+  // the rendered neighbor mesh keeps the raw heightmap while heightAtWorld
+  // already answers from geodata, so the walker floats/sinks by up to ~2m
+  // in stale zones near a border until the scene switch lands. Runs on the
+  // 256x256 SOURCE grid, then re-samples the decimated mesh's Y column in
+  // place (the mesh samples this grid — see _buildGeometry), so one source
+  // fix covers every mesh vertex.
+  _applyGeodataCorrection() {
+    const def = this.def;
+    const g = def.gridSize || 256;
+    const heightScale = def.heightScale ?? 0.296875;
+    const origin = def.origin || [0, 0, 0];
+    const r = correctHeightsWithGeodata(
+      this.heights, g, def.spacing || 128, origin, heightScale, this.geodata);
+    this.geoFixedCells = r.fixed;
+    if (!this.mesh || r.fixed === 0) return;
+    const n = MESH_RES;
+    const pos = this.mesh.geometry.attributes.position;
+    for (let gy = 0; gy < n; gy++) {
+      for (let gx = 0; gx < n; gx++) {
+        const i = gy * n + gx;
+        // same source-grid sampling as _buildGeometry
+        const h = this._sample(
+          g, Math.min(g - 1, gx / (n - 1) * g), Math.min(g - 1, gy / (n - 1) * g));
+        pos.setY(i, (origin[2] + (h - 32768) * heightScale) * L2_TO_M);
+      }
+    }
+    pos.needsUpdate = true;
+    this.mesh.geometry.computeVertexNormals();
   }
 
   // three.js Y (meters) at three.js world (x, z) — same contract as

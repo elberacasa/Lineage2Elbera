@@ -1158,7 +1158,14 @@ async function loadScene(tile, { keepCharPos = false } = {}) {
         } else {
           c = t.center();
         }
-        c.y = t.heightAtWorld(c.x, c.z, character.group.position.y);
+        // The spawn z hint must be LOCAL: the previous tile's y is
+        // meaningless here (outside every geodata layer's reach the
+        // walking rule keeps it, parking the character at the old
+        // altitude — measured: 19_16 dungeon spawn floated 2.12m over the
+        // real floor and popped down on the first step). Outdoor: the
+        // mesh height already in c; interior: the prop-derived floorY,
+        // which selects the real dungeon-floor layer, not the dummy plane.
+        c.y = t.heightAtWorld(c.x, c.z, t.interior ? t.floorY : c.y);
         character.group.position.copy(c);
       }
       character.clearTarget();
