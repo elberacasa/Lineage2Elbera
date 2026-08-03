@@ -186,7 +186,14 @@ export class ShortcutWnd {
   }
 
   toggleExpand() { this.expanded = !this.expanded; this.render(); }
-  toggleRotate() { this.vertical = !this.vertical; this.render(); }
+  toggleRotate() {
+    this.vertical = !this.vertical;
+    // re-dock to the orientation's SOURCED WindowsInfo.ini spot: keeping
+    // the horizontal dock (347,722) parks the 504px-tall vertical bar
+    // off the bottom of the screen
+    this.onDefaultPosition();
+    this.render();
+  }
   toggleLock() { this.locked = !this.locked; this.render(); }
 
   // -- rendering ---------------------------------------------------------------

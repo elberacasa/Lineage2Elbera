@@ -177,7 +177,13 @@ arguments) and merges results into the existing
 ```
 editor/characters/
   manifest.json          {"models": [{"id", "race", "gender", "className",
-                                       "gltf", "animations": [...]}, ...]}
+                                       "gltf", "animations": [...],
+                                       "nativeHeight"}, ...]}
+                         nativeHeight: true in-world height in L2 units
+                         (glTF Y extent x 100 x MeshScale.z, decoded from
+                         the .ukx by tools/src/char_pipeline/scale_util.py);
+                         the world client sizes models from it (authoritative
+                         — no client-side normalization)
   models/<id>.gltf       glTF 2.0, JSON + external .bin
   models/<id>.bin
   models/<id>_<part>.png textures (u, l, g, b, f, plus ah/bh hair where present)

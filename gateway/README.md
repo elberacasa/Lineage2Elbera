@@ -2,9 +2,11 @@
 
 Protocol bridge between browser WebSocket clients and the real aCis (rev 409,
 Interlude) login/game servers. Each browser WS connection gets its own L2
-session: account auto-created from a persistent `deviceId`, character
-auto-created on first login (Human Fighter), then a live two-way stream of
-world state and actions.
+session: account auto-created from a persistent `deviceId`, then a live
+two-way stream of world state and actions. Characters are created by the
+client via the `createChar` op; a legacy auto-create (Human Fighter on first
+login) stays ON by default for older scripts — `GATEWAY_AUTOCREATE=0`
+disables it.
 
 ## Run
 
@@ -15,7 +17,8 @@ npm start            # ws://0.0.0.0:8090
 ```
 
 Env: `GATEWAY_PORT` (8090), `L2_LOGIN_HOST` (127.0.0.1), `L2_LOGIN_PORT`
-(2106), `L2_SERVER_ID` (1).
+(2106), `L2_SERVER_ID` (1), `GATEWAY_AUTOCREATE` (default `1`; set `0` to
+disable the legacy first-login auto-create — see §character creation).
 
 Requires the local aCis servers (started with nohup from
 `server/aCis_gameserver/build/dist/{login,gameserver}`, JAVA_HOME
@@ -37,6 +40,7 @@ node test/verify-trade.js [suffix]    # player trade: ask/refuse, accept+cancel,
 node test/verify-store.js [suffix]    # private store: manage/set/title, observer playerStore, buy, stop, .offline
 node test/verify-clan.js [suffix]     # clan: real creation dialog chain, invite/accept, leave, oust, crest
 node test/smoke-protocol.js          # same as verify-one but without the WS layer (raw protocol)
+node test/verify-respawn.js [port]   # respawn: Die-packet unit test + mock e2e /die -> respawn{} -> revive
 ```
 
 All suites PASS against the live server (see task report for log excerpts).
@@ -64,9 +68,33 @@ Server -> client:
   (SHLD 0x40 and SS 0x10 currently not forwarded). Misses arrive with
   `damage: 0, miss: true`.
 - `{"op":"die","id":N}` — Die(0x06). Corpse decay arrives later as the
-  regular `{"op":"remove","id":N}` (DeleteObject 0x12).
+  regular `{"op":"remove","id":N}` (DeleteObject 0x12). For a SELF death
+  (`id` == `enterWorld.char.id`) the op carries an extra
+  `"canRespawn":true` field (aCis always allows the "to village" restart
+  point) — the client shows its Respawn button off that.
 - `{"op":"revive","id":N}` — Revive(0x07).
 - `{"op":"target_ok","id":N}` — MyTargetSelected(0xa6), confirms your target.
+
+Respawn (death -> back to town). Client -> server:
+- `{"op":"respawn"}` (no fields) -> RequestRestartPoint(0x6d) with
+  requestType 0. Gateway-guarded: only forwarded while the self player is
+  dead (aCis silently drops the packet for a living player).
+
+The aCis rev 409 layout (serverpackets/Die.java, now fully parsed by the
+gateway): `C 0x06, D objectId, D toVillage, D toClanHall, D toCastle,
+D toSiegeHQ, D sweepable, D fixedRes` — toVillage is hardcoded 1
+("to nearest village"); clanhall/castle/siegeHQ depend on the clan and any
+active siege; sweepable is the Monster blue-glow flag; fixedRes is the GM
+allowFixedRes flag. RequestRestartPoint (clientpackets/
+RequestRestartPoint.java) reads a single `D requestType`: 1 clanhall,
+2 castle, 3 siege flag, 4 fixed (GM/festival only), 27 jail (forced
+server-side when jailed) — anything else, including 0, falls through to
+the regular TOWN restart point. There is NO dedicated response packet:
+the server answers with doRevive() (Revive 0x07 + StatusUpdate hp/cp ->
+existing `revive` + `selfStatus` ops) followed by teleportTo
+(TeleportToLocation -> existing `move` op; the bridge auto-answers with
+Appearing 0x30 like any teleport). Siege-ATTACKER respawns are delayed by
+Config.ATTACKERS_RESPAWN_DELAY server-side.
 
 Also: `enterWorld.char` now includes `id` (own objectId, for self-reconcile).
 `enterWorld` fires exactly once per session; later UserInfo re-sends
@@ -803,8 +831,14 @@ Client -> server:
 ## Frozen bridge contract (WS JSON)
 
 Client -> server:
-- `{"op":"login","deviceId":"<persistent browser id>"}`
+- `{"op":"login","deviceId":"<persistent browser id>"}` — optional
+  `"noAutoCreate":true` skips the legacy first-login auto-create for THIS
+  session (fresh account gets `auth_ok{chars:[]}` and the client drives
+  `createChar`); default behavior unchanged.
 - `{"op":"enterChar","slot":0}`
+- `{"op":"createChar","name":"..","race":3,"sex":1,"classId":49,"hairStyle":0,"hairColor":0,"face":0}`
+  — character creation (see §character creation below; only valid at the
+  char-select stage, before `enterChar`)
 - `{"op":"moveTo","x":0,"y":0,"z":0}`
 - `{"op":"say","channel":0,"text":".."}`
 - `{"op":"destroyItem","objectId":0,"count":1}` — inventory TrashButton
@@ -813,7 +847,20 @@ Client -> server:
   CrystallizeButton (aCis RequestCrystallizeItem 0x72, D objectId + D count)
 
 Server -> client:
-- `{"op":"auth_ok","chars":[{"slot":0,"name":"..","race":0,"classId":0}]}`
+- `{"op":"auth_ok","chars":[{"slot":0,"name":"..","race":0,"classId":0,"sex":0,"level":1,"hairStyle":0,"hairColor":0,"face":0}]}`
+  — sent on login AND again after every successful `createChar` (aCis
+  answers CharCreateOk with a fresh CharSelectInfo). `chars` is empty when
+  the account has no characters and `GATEWAY_AUTOCREATE=0`.
+- `{"op":"charCreateOk"}` — character created; the refreshed `auth_ok`
+  follows immediately.
+- `{"op":"charCreateFail","reason":"name_already_exists","code":2}` —
+  `reason` is either a server code mapped to a string (`creation_failed`,
+  `too_many_characters`, `name_already_exists`, `16_eng_chars`,
+  `incorrect_name`, with the numeric `code` alongside) or a gateway-side
+  validation failure (`invalid_name`, `invalid_sex`, `invalid_classId`,
+  `invalid_hairStyle`, `invalid_hairColor`, `invalid_face`, `not_ready`,
+  `create_in_progress`) — gateway-side failures carry NO `code` and never
+  reach aCis.
 - `{"op":"enterWorld","char":{"name":"..","race":0,"classId":0,"x":0,"y":0,"z":0,"heading":0}}`
 - `{"op":"addNpc","id":1,"npcId":1001,"name":"..","x":0,"y":0,"z":0,"heading":0}`
 - `{"op":"addPlayer","id":2,"name":"..","race":0,"classId":0,"x":0,"y":0,"z":0,"heading":0}`
@@ -825,6 +872,40 @@ Server -> client:
 Fighter = race 0, classId 0). `addNpc.name` falls back to the datapack NPC
 name table (parsed from `dist/gameserver/data/xml/npcs/*.xml`) when the
 server sends an empty server-side name.
+
+## Character creation (createChar)
+
+`createChar` maps to aCis RequestCharacterCreate(0x0b). The gateway
+validates EVERY field before forwarding, because the server side of this
+packet has two traps (verified in
+`clientpackets/RequestCharacterCreate.java`, rev 409):
+
+- **sex is NOT validated server-side.** `Sex.VALUES[sex]` throws an
+  ArrayIndexOutOfBounds for sex >= 2 and NO CharCreateFail is sent — the
+  client would hang forever. The gateway rejects sex outside {0, 1} with
+  `charCreateFail{reason:"invalid_sex"}` and never forwards it.
+- **race is decorative.** The server only range-checks it (0..4); the actual
+  race comes from the class template. The gateway therefore treats classId
+  as AUTHORITATIVE and derives race from it; the client-sent `race` field is
+  ignored (send the matching race anyway for forward-compat).
+
+Validation rules (mirror the server, plus the sex clamp): name
+`^[A-Za-z0-9]{1,16}$`; sex 0..1; classId one of the 9 base ids — 0, 10
+(human / race 0), 18, 25 (elf / 1), 31, 38 (dark elf / 2), 44, 49 (orc / 3),
+53 (dwarf / 4); hairStyle 0..4 male, 0..6 female; hairColor 0..3; face 0..2.
+Any violation → `charCreateFail{reason:"invalid_<field>"}` with no server
+round-trip. Valid requests that aCis itself rejects (name taken, ≥7 chars,
+NPC-name collision) come back as `charCreateFail` with the numeric server
+`code`. Success → `charCreateOk` + a refreshed `auth_ok`.
+
+**Legacy auto-create**: historically the gateway auto-created a Human
+Fighter when the char list was empty, and every `test/verify-*.js` suite
+logs in with a fresh deviceId and immediately `enterChar` slot 0 — they all
+rely on it. It therefore stays ON by default. Set `GATEWAY_AUTOCREATE=0` to
+turn it off globally, or send `login{noAutoCreate:true}` to skip it for one
+session: the client then receives `auth_ok{chars:[]}` on first login and
+drives `createChar` itself. Browser-driven `createChar` works either way.
+
 
 ## Integration notes (from the M2 web-client bring-up, verified live)
 
@@ -927,7 +1008,7 @@ SetPrivateStoreListBuy 0x91, RequestPrivateStoreQuitBuy 0x93,
 SetPrivateStoreMsgBuy 0x94, RequestPrivateStoreSell 0x96,
 RequestJoinPledge 0x24, RequestAnswerJoinPledge 0x25,
 RequestWithdrawPledge 0x26, RequestOustPledgeMember 0x27,
-RequestPledgeCrest 0x68, Appearing 0x30.
+RequestPledgeCrest 0x68, Appearing 0x30, RequestRestartPoint 0x6d.
 Game (S→C, decoded): VersionCheck 0x00, CharSelectInfo 0x13,
 CharSelected 0x15, CharCreateOk 0x19, CharCreateFail 0x1a, UserInfo 0x04,
 CharInfo 0x03, NpcInfo 0x16, MoveToLocation 0x01, DeleteObject 0x12,
@@ -956,6 +1037,6 @@ PledgeShowInfoUpdate 0x88, PledgeStatusChanged 0xcd.
 - `src/gameclient.js` — game session + packet decoders.
 - `src/governor.js` — outbound connection pacing (anti-flood).
 - `src/bridge.js` — WS contract mapping, deviceId→account/char derivation,
-  auto-create, retries.
+  createChar validation, legacy auto-create (GATEWAY_AUTOCREATE), retries.
 - `src/npcnames.js` — npcId→name from the datapack XML.
 - `src/server.js` — WS entry point.

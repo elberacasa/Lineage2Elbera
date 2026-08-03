@@ -1,13 +1,15 @@
 // Per-skill cast ANIMATION + EFFECT verification against the MOCK gateway.
 // Three skill families (data-driven, assets/gamedata/skillanim.json):
 //   melee strike      3 Power Strike  (anim 'S', magic 0, range 40)
-//                     -> 'attack' clip + amber slash arc at the target
+//                     -> 'spAtk01'/'spAtk02' clip (physical skills alternate
+//                     the two; only the plain attack op still plays 'attack')
+//                     + amber slash arc at the target
 //   magic projectile  1177 Wind Strike (anim 'E', magic 1, range 600,
 //                     wind_strike_explotion hit sound)
-//                     -> 'attack' fallback clip + cyan bolt caster->target
-//                     + hit flash
+//                     -> 'castShort'/'castMid'/'castLong' clip by hitTime
+//                     + cyan bolt caster->target + hit flash
 //   self buff/heal    1216 Self Heal  (anim 'D', magic 1, range -1)
-//                     -> 'attack' fallback clip + green aura ring at self
+//                     -> cast clip + green aura ring at self
 // plus the exact clip mapping: 271 Dance of the Warrior (anim 'N')
 //                     -> 'dance' clip (retail Social_dance).
 //
@@ -19,7 +21,7 @@ const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const BASE = 'http://127.0.0.1:8083/?ws=ws://127.0.0.1:8085';
+const BASE = 'http://127.0.0.1:8083/?ws=ws://127.0.0.1:8085&cc=0';
 const OUT = path.join(__dirname, 'verify_shots');
 const GREMLIN = 70001;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -91,7 +93,11 @@ function check(summary, name, ok, detail) {
       { timeout: 8000 });
     await sleep(350);   // mid-cast: gesture must be playing
     const meleeClip = await clipName();
-    check(summary, 'melee_clip_attack', meleeClip === 'attack', `clip=${meleeClip}`);
+    // physical skills gesture with the rebuilt SpAtk clips (skillfx_anim.js
+    // clipForSkill: is_magic 0 -> 'spAtk01'/'spAtk02', alternating); the
+    // 'attack' clip is now reserved for the plain melee attack op
+    check(summary, 'melee_clip_spatk',
+      meleeClip === 'spAtk01' || meleeClip === 'spAtk02', `clip=${meleeClip}`);
     await page.waitForFunction(
       `window.__world.net.log.some(m => m.op === 'skillLaunch' && m.skillId === 3)`,
       { timeout: 8000 });

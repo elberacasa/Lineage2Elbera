@@ -55,6 +55,7 @@ import { Skin } from './skin.js';
 import { Font } from './font.js';
 import { Layout } from './layout.js';
 import { L2Window } from './window.js';
+import { WndMgr } from './wndmgr.js';
 import { sysStringMeta, classIcons } from '../gamedata.js';
 
 const WND = 'ClanWnd';
@@ -211,10 +212,11 @@ export class ClanWnd {
     classIcons().then(doc => { this._icons = doc || null; this._render(); });
 
     parent.appendChild(win.root);
-    // AUTHORED: WindowsInfo.ini has no [ClanWnd]; same dock as the other
-    // toggle windows (QuestTreeWnd shares it — the xdat (0,65) is a bare
-    // default every top window carries).
-    this.defaultPlace = { right: 12, top: 60 };
+    // AUTHORED: WindowsInfo.ini has no [ClanWnd]; cascaded +84/+84 from
+    // SkillWnd's dock (right:12, top:60) so the toggle windows no longer
+    // spawn in an exact stack (audit B1). (The xdat (0,65) is a bare
+    // default every top window carries.)
+    this.defaultPlace = { right: 96, top: 144 };
     this._render();
   }
 
@@ -453,6 +455,8 @@ export class ClanWnd {
              `${from || '?'} invites you to join ${clanName || 'the clan'}.`,
              { color: '#e8e8e8' });
     this.askWin.place({ left: window.innerWidth / 2 - 110, top: 200 });
+    // an incoming invite must be topmost — above every WndMgr window
+    WndMgr.raiseEl(this.askWin.root);
     this.askWin.show();
   }
 

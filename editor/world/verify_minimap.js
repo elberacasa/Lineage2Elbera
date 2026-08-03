@@ -20,7 +20,7 @@ const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const BASE = 'http://127.0.0.1:8083/?ws=ws://127.0.0.1:8085';
+const BASE = 'http://127.0.0.1:8083/?ws=ws://127.0.0.1:8085&cc=0';
 const OUT = path.join(__dirname, 'verify_shots');
 const MANIFEST = path.join(__dirname, '..', '..', 'assets', 'gamedata', 'minimap.json');
 const sleep = ms => new Promise(r => setTimeout(r, ms));

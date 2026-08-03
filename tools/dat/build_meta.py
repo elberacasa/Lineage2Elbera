@@ -8,6 +8,8 @@ Outputs (frozen paths, the web client builds against these):
                                     (copied from assets/library/icon/,
                                     lowercased; names equal the source
                                     texture object name without 'icon.')
+                                    Action icons come from actionname.json
+                                    (list) directly — same utx icon package.
 
 Data sources (already-decoded tables from tools/dat work):
   - assets/gamedata/skillgrp.json   skill id+level -> icon / params
@@ -151,6 +153,23 @@ def copy_icons(*metas):
     return copied, dangling
 
 
+def copy_action_icons():
+    """actionname.json is a LIST with 'icon.actionNNN' refs (ActionWnd);
+    the textures ship in the same utx icon package as skills/items."""
+    copied, missing = 0, []
+    for r in load('actionname.json'):
+        fn = icon_file(r.get('icon', ''))
+        if not fn:
+            continue
+        src = os.path.join(LIB_ICONS, fn)
+        if os.path.isfile(src):
+            shutil.copyfile(src, os.path.join(OUT_ICONS, fn))
+            copied += 1
+        else:
+            missing.append(fn)
+    return copied, missing
+
+
 def write_json(path, obj):
     with open(path, 'w') as f:
         json.dump(obj, f, indent=1, sort_keys=True)
@@ -169,6 +188,13 @@ def check():
             total_refs += 1
             if not os.path.isfile(os.path.join(GAMEDATA, ic)):
                 missing.append('%s:%s' % (key, ic))
+    for r in load('actionname.json'):
+        fn = icon_file(r.get('icon', ''))
+        if not fn:
+            continue
+        total_refs += 1
+        if not os.path.isfile(os.path.join(OUT_ICONS, fn)):
+            missing.append('action%s:%s' % (r.get('id'), fn))
     print('check: %d icon refs, %d missing' % (total_refs, len(missing)))
     for m in missing[:20]:
         print('  MISSING', m)
@@ -186,6 +212,9 @@ def main():
     copied, dangling = copy_icons(skills, items)
     print('icons copied: %d, dangling refs dropped: %d %s'
           % (len(copied), len(dangling), sorted(dangling)))
+    acopied, amissing = copy_action_icons()
+    print('action icons copied: %d, missing: %d %s'
+          % (acopied, len(amissing), amissing))
     write_json(os.path.join(GAMEDATA, 'skillmeta.json'), skills)
     write_json(os.path.join(GAMEDATA, 'itemmeta.json'), items)
     if not check():

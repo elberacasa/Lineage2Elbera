@@ -37,6 +37,30 @@ function deriveCredentials(deviceId) {
   };
 }
 
+// Legacy first-login auto-create (default Human Fighter). Every existing
+// test/test script logs in with a fresh deviceId and immediately enterChar
+// slot 0, so it relies on this — default ON, disable with
+// GATEWAY_AUTOCREATE=0, or per-session with login{noAutoCreate:true} (the
+// browser then drives createChar itself from an empty auth_ok).
+const AUTOCREATE = process.env.GATEWAY_AUTOCREATE !== '0';
+
+// Character creation contract (aCis RequestCharacterCreate 0x0b — see
+// README §character creation for the traps). Base classIds (ClassId.java
+// ordinals, classBaseLevel 1) mapped to their race; classId is
+// AUTHORITATIVE — aCis only range-checks the race field and takes the race
+// from the class template, so the gateway derives race from classId and
+// ignores the client-sent race.
+const BASE_CLASS_RACE = { 0: 0, 10: 0, 18: 1, 25: 1, 31: 2, 38: 2, 44: 3, 49: 3, 53: 4 };
+const CHAR_NAME_RE = /^[A-Za-z0-9]{1,16}$/; // aCis StringUtil.isValidString
+// CharCreateFail(0x1a) reason codes (serverpackets/CharCreateFail.java).
+const CREATE_FAIL_REASONS = {
+  0: 'creation_failed',
+  1: 'too_many_characters',
+  2: 'name_already_exists',
+  3: '16_eng_chars',
+  4: 'incorrect_name',
+};
+
 class Bridge {
   constructor(ws, config, log) {
     this.ws = ws;
@@ -51,6 +75,10 @@ class Bridge {
     this.statusById = new Map(); // id -> {hp, maxHp, mp, maxMp}
     this.self = null; // {hp, maxHp, mp, maxMp, cp, maxCp, level, exp, sp}
     this.entered = false; // enterWorld must fire exactly once
+    // Respawn vertical: SELF death state (Die 0x06 for own objectId). The
+    // contract respawn{} op is only meaningful while dead (aCis
+    // RequestRestartPoint silently drops it otherwise — guard here).
+    this.dead = false;
     // M4: current target (for useSkill) and login-time list ordering. The
     // server sends SkillList/ItemList BEFORE UserInfo during EnterWorld, but
     // the contract wants them right AFTER enterWorld: queue and flush.
@@ -108,11 +136,45 @@ class Bridge {
     try {
       switch (msg.op) {
         case 'login':
-          await this._login(String(msg.deviceId || 'anonymous'));
+          // noAutoCreate: skip the legacy first-login auto-create for THIS
+          // session only (the world client sends it so a fresh account gets
+          // auth_ok{chars:[]} and can drive createChar from the browser).
+          await this._login(String(msg.deviceId || 'anonymous'), !!msg.noAutoCreate);
           break;
         case 'enterChar':
           if (this.game) this.game.selectChar(msg.slot | 0);
           break;
+        case 'createChar': {
+          // Character creation (aCis RequestCharacterCreate 0x0b). ALL fields
+          // are validated gateway-side BEFORE touching aCis: the server does
+          // not validate sex (sex >= 2 throws server-side with NO fail
+          // packet) and treats race as decorative — race is derived from
+          // classId here (classId authoritative), msg.race ignored.
+          const invalid = validateCreateChar(msg);
+          if (invalid) {
+            this.send({ op: 'charCreateFail', reason: invalid });
+            break;
+          }
+          if (!this.game || this.game.state !== 'AUTHED') {
+            this.send({ op: 'charCreateFail', reason: 'not_ready' });
+            break;
+          }
+          if (this.pendingCreate) {
+            this.send({ op: 'charCreateFail', reason: 'create_in_progress' });
+            break;
+          }
+          this.pendingCreate = msg.name;
+          this.game.createCharacter({
+            name: msg.name,
+            race: BASE_CLASS_RACE[msg.classId],
+            sex: msg.sex,
+            classId: msg.classId,
+            hairStyle: msg.hairStyle | 0,
+            hairColor: msg.hairColor | 0,
+            face: msg.face | 0,
+          });
+          break;
+        }
         case 'moveTo':
           if (this.game) {
             this.game.pos = { ...this.game.pos, x: msg.x | 0, y: msg.y | 0, z: msg.z | 0 };
@@ -181,6 +243,13 @@ class Bridge {
               this.game.requestActionUse(actionId);
             }
           }
+          break;
+        case 'respawn':
+          // RequestRestartPoint(0x6d) type 0 = to village (the only
+          // restart point the contract exposes; anything not 1/2/3/4/27
+          // falls through to "to town" server-side). Guard: only while
+          // dead — aCis silently ignores the packet for a living player.
+          if (this.game && this.dead) this.game.requestRestartPoint(0);
           break;
         case 'questAbort':
           // RequestQuestAbort(0x64).
@@ -423,7 +492,7 @@ class Bridge {
     }
   }
 
-  async _login(deviceId) {
+  async _login(deviceId, noAutoCreate = false) {
     if (this.game) return; // already logged in
     const creds = deriveCredentials(deviceId);
     this.log(`login: device=${deviceId} account=${creds.account}`);
@@ -433,7 +502,7 @@ class Bridge {
     // the ban — so keep retries few and let it expire instead of hammering.
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        await this._loginOnce(creds);
+        await this._loginOnce(creds, noAutoCreate);
         return;
       } catch (e) {
         this.log(`login attempt ${attempt} failed: ${e.message}`);
@@ -446,7 +515,7 @@ class Bridge {
     }
   }
 
-  async _loginOnce(creds) {
+  async _loginOnce(creds, noAutoCreate) {
     const { sessionKey, server } = await login(
       this.config.loginHost, this.config.loginPort,
       creds.account, creds.password, this.config.serverId
@@ -455,7 +524,7 @@ class Bridge {
 
     const game = new GameSession();
     this.game = game;
-    this._wireGame(game, creds);
+    this._wireGame(game, creds, noAutoCreate);
 
     // Resolve when the game session reaches the char list, reject on early close.
     await new Promise((resolve, reject) => {
@@ -473,24 +542,43 @@ class Bridge {
     });
   }
 
-  _wireGame(game, creds) {
+  _wireGame(game, creds, noAutoCreate = false) {
     game.on('error', (e) => this.log(`game socket error: ${e.message}`));
     game.on('debug', (m) => this.log(`game: ${m}`));
     game.on('parseError', ({ op, error }) => this.log(`parse error op=0x${op.toString(16)}: ${error.message}`));
 
     game.on('charList', (chars) => {
-      if (chars.length === 0 && !this.pendingCreate) {
-        // First login from this device: auto-create a default Human Fighter.
+      if (chars.length === 0 && !this.pendingCreate && AUTOCREATE && !noAutoCreate) {
+        // Legacy first-login path: auto-create a default Human Fighter.
+        // Skipped with GATEWAY_AUTOCREATE=0 or login{noAutoCreate:true} —
+        // the empty auth_ok below lets the client drive createChar itself.
         this.pendingCreate = creds.charName;
         this.log(`no characters, creating ${creds.charName}`);
-        game.createCharacter(creds.charName);
+        game.createCharacter({ name: creds.charName, race: 0, sex: 0, classId: 0 });
         return;
       }
       this.chars = chars;
       this.send({
         op: 'auth_ok',
-        chars: chars.map((c) => ({ slot: c.slot, name: c.name, race: c.race, classId: c.classId })),
+        chars: chars.map((c) => ({
+          slot: c.slot, name: c.name, race: c.race, classId: c.classId,
+          sex: c.sex, level: c.level,
+          hairStyle: c.hairStyle, hairColor: c.hairColor, face: c.face,
+        })),
       });
+    });
+
+    // CharCreateOk(0x19)/CharCreateFail(0x1a): a successful create is
+    // followed by a FRESH CharSelectInfo (the charList handler above
+    // re-fires and sends the updated auth_ok). On failure nothing else
+    // follows — without these forwards the browser hung forever.
+    game.on('charCreateOk', () => {
+      this.pendingCreate = null;
+      this.send({ op: 'charCreateOk' });
+    });
+    game.on('charCreateFail', (code) => {
+      this.pendingCreate = null;
+      this.send({ op: 'charCreateFail', reason: CREATE_FAIL_REASONS[code] || 'creation_failed', code });
     });
 
     game.on('userInfo', (u) => {
@@ -676,8 +764,25 @@ class Bridge {
       }
     });
 
-    game.on('die', (id) => this.send({ op: 'die', id }));
-    game.on('revive', (id) => this.send({ op: 'revive', id }));
+    // Die(0x06) now carries the parsed respawn options (gameclient.js).
+    // Contract: non-self deaths stay `die{id}`; a SELF death adds
+    // `canRespawn` (aCis always allows "to village" — the flag is its
+    // toVillage dword) so the client can show the Respawn button.
+    game.on('die', (d) => {
+      if (d.id === this.selfId) {
+        this.dead = true;
+        this.send({ op: 'die', id: d.id, canRespawn: d.toVillage });
+      } else {
+        this.send({ op: 'die', id: d.id });
+      }
+    });
+    // Revive(0x07): clears the dead state for self (respawn accepted,
+    // skill res, GM res). The respawn teleport itself arrives as the
+    // regular move op (TeleportToLocation handler above).
+    game.on('revive', (id) => {
+      if (id === this.selfId) this.dead = false;
+      this.send({ op: 'revive', id });
+    });
     game.on('myTarget', (t) => {
       this.currentTarget = t.id;
       // color = MyTargetSelected color: viewer level - target level for
@@ -1101,6 +1206,24 @@ class Bridge {
 // (0 when offline — the pledge packets never carry an offline member's id).
 function pledgeMemberView(m) {
   return { id: m.onlineId, name: m.name, level: m.level, classId: m.classId, online: m.online };
+}
+
+// createChar field validation, mirroring aCis RequestCharacterCreate checks
+// PLUS the sex clamp the server lacks. Returns the invalid_<field> reason or
+// null when the request is safe to forward. race is not checked here — it is
+// derived from classId by the caller.
+function validateCreateChar(msg) {
+  if (typeof msg.name !== 'string' || !CHAR_NAME_RE.test(msg.name)) return 'invalid_name';
+  if (!Number.isInteger(msg.sex) || msg.sex < 0 || msg.sex > 1) return 'invalid_sex';
+  if (!Number.isInteger(msg.classId) || !(msg.classId in BASE_CLASS_RACE)) return 'invalid_classId';
+  const maxHair = msg.sex === 0 ? 4 : 6; // aCis: male 0..4, female 0..6
+  const hairStyle = msg.hairStyle | 0;
+  if (!Number.isInteger(hairStyle) || hairStyle < 0 || hairStyle > maxHair) return 'invalid_hairStyle';
+  const hairColor = msg.hairColor | 0;
+  if (!Number.isInteger(hairColor) || hairColor < 0 || hairColor > 3) return 'invalid_hairColor';
+  const face = msg.face | 0;
+  if (!Number.isInteger(face) || face < 0 || face > 2) return 'invalid_face';
+  return null;
 }
 
 module.exports = { Bridge, deriveCredentials };

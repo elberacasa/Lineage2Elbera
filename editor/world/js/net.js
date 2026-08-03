@@ -10,15 +10,23 @@
 //                     move{id,tx,ty,tz}, remove{id}, chat{from,channel,text}
 // Coordinates are L2 world units (~cm, Z-up); convert with coords.js.
 //
-// The gateway URL is configurable (default ws://127.0.0.1:8090, the real
-// M2 gateway): ?ws=ws://host:port query param, or localStorage 'l2vzla.wsUrl'.
+// The gateway URL is configurable: ?ws=ws://host:port query param, or
+// localStorage 'l2vzla.wsUrl'. Default depends on where the page is served:
+// localhost/127.0.0.1 keeps the legacy ws://127.0.0.1:8090 (the real M2
+// gateway); any other host (e.g. the public tunnel) uses a same-origin
+// WebSocket at /ws (wss: for https pages, ws: for http).
 
 export const DEFAULT_WS_URL = 'ws://127.0.0.1:8090';
 
 export function gatewayUrl() {
   const q = new URLSearchParams(location.search).get('ws');
   if (q) return q;
-  return localStorage.getItem('l2vzla.wsUrl') || DEFAULT_WS_URL;
+  const stored = localStorage.getItem('l2vzla.wsUrl');
+  if (stored) return stored;
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    return DEFAULT_WS_URL;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${location.host}/ws`;
 }
 
 export function deviceId() {

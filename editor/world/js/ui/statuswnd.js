@@ -255,8 +255,12 @@ export class StatusWnd {
 
   /** Default dock: SOURCED — WindowsInfo.ini [StatusWnd] posX=444 posY=0
    *  (absolute retail px at 1024x768; Skin.px applies the uiScale — retail
-   *  does not rescale UI with resolution, so no proportional rescale). */
-  place({ left = 444, top = 0 } = {}) {
+   *  does not rescale UI with resolution, so no proportional rescale).
+   *  DEVIATION: posX 444 -> 513. Both docks are individually sourced, but
+   *  the sourced TargetStatusWnd dock (337 + width 176) ends exactly at
+   *  513 — the sourced combination overlaps by 69px and is unreadable, so
+   *  this window butts against the target frame instead. */
+  place({ left = 513, top = 0 } = {}) {
     this.root.style.left = `${Skin.px(left)}px`;
     this.root.style.top = `${Skin.px(top)}px`;
     this.root.style.right = 'auto';

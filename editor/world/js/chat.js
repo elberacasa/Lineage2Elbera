@@ -138,7 +138,9 @@ export class ChatBox {
     const logEl = this._logEl, inputEl = this._inputEl;
     const headSize = Layout.size(WND, 'ChatWndHeadTex');
     const logTop = headSize ? headSize.h : 18;
-    const logBottom = this.h - 46;               // divider top (123)
+    // divider TOP: BottomTex (h18) sits at far-edge y=-46 => bottom edge
+    // 141, top edge 123 (the header's decode). The log ends above it.
+    const logBottom = this.h - 46 - 18;
     this.log = document.createElement('div');
     this.log.id = 'chat-log';
     this.log.style.cssText = `position:absolute;left:${Skin.px(4)}px;`
@@ -287,6 +289,19 @@ export class ChatBox {
     if (s) return this.onSend({ channel: 1, text: s[2] });
     const t = text.match(/^\/(trade)\s+([\s\S]+)$/i);
     if (t) return this.onSend({ channel: 8, text: t[2] });
+    // DEV BACKDOOR: the mock gateway's fixture commands (mock_gateway.js
+    // say-handler) are recognized ops of this port — the verify suites
+    // drive scenario fixtures by typing them. Not "unknown": they go out.
+    if (/^\/(die|revive|partyask|clanask|tradeask|storeoffline|skilldepth|equipsword|equipdagger|interrupt)$/i.test(text)) {
+      return this.onSend({ channel: 0, text });
+    }
+    // an unrecognized /command must NEVER go out as public chat (retail
+    // parses commands client-side and swallows unknown ones) — local note
+    const cmd = text.match(/^\/(\S+)/);
+    if (cmd) {
+      this.addSystem(`Unknown command: /${cmd[1]}`);
+      return;
+    }
     this.onSend({ channel: 0, text });
   }
 

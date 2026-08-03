@@ -72,3 +72,6 @@ assets/uscript/
 
 # Governor runtime state (cross-process lock)
 gateway/.governor-state
+
+# Runtime pidfiles
+*.pid

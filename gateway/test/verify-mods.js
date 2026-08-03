@@ -32,7 +32,7 @@ async function partA() {
   const logSizeBefore = fs.statSync('gateway.log').size;
   const R = {
     me: null, exp: 0, npcs: [], drops: [], invAdds: [], diedIds: new Set(),
-    sysTexts: [], moves: new Map(), removedIds: new Set(),
+    sysTexts: [], moves: new Map(), removedIds: new Set(), attacks: [],
   };
   const ws = new WebSocket(url);
   ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
@@ -47,6 +47,7 @@ async function partA() {
       case 'addDrop': R.drops.push(m); break;
       case 'invUpdate': R.invAdds.push(...m.updated.filter((u) => u.change === 'add' || u.change === 'modify')); break;
       case 'die': R.diedIds.add(m.id); break;
+      case 'attack': R.attacks.push(m); break;
       case 'remove': R.removedIds.add(m.id); break;
       case 'move': if (m.id) R.moves.set(m.id, { x: m.tx, y: m.ty, z: m.tz }); break;
       case 'sysMsg': if (typeof m.params[0] === 'string') R.sysTexts.push(m.params[0]); break;
@@ -60,32 +61,56 @@ async function partA() {
 
   const killGremlin = async (label) => {
     const selfPos = () => R.moves.get(R.me.id) || R.me;
-    const g0 = R.npcs
+    const npcPos = (g) => R.moves.get(g.id) || g;
+    const ownHit = (id) => R.attacks.some((a) => a.id === R.me.id && a.targetId === id && a.damage > 0);
+    const dmgOn = (id) => R.attacks.filter((a) => a.targetId === id).length;
+    // Prefer gremlins a short straight walk away: the absolute nearest can
+    // sit across training-hall geometry where straight-line moveTo stalls.
+    const all = R.npcs
       .filter((n) => n.name === 'Gremlin' && !R.diedIds.has(n.id))
       .map((n) => ({ ...n, ...(R.moves.get(n.id) || n) }))
       .map((n) => ({ ...n, dist: Math.hypot(n.x - selfPos().x, n.y - selfPos().y) }))
-      .sort((a, b) => a.dist - b.dist)[0];
-    if (!g0) throw new Error('no live Gremlin for ' + label);
-    console.log(`  killing Gremlin id=${g0.id} (${label})...`);
-    const t0 = Date.now();
+      .sort((a, b) => a.dist - b.dist);
+    const near = all.filter((g) => g.dist < 150);
+    const candidates = (near.length ? near : all).slice(0, 4);
+    if (!candidates.length) throw new Error('no live Gremlin for ' + label);
     // With geodata active, the ranged auto-approach on AttackRequest can
-    // stall: walk NEXT to the gremlin first, then attack. Track its
-    // wandering via move broadcasts and re-approach if it got away.
-    while (!R.diedIds.has(g0.id) && Date.now() - t0 < 150000) {
-      const pos = R.moves.get(g0.id) || g0;
-      const me = selfPos();
-      send({ op: 'moveTo', x: pos.x + 20, y: pos.y, z: pos.z });
-      const walkMs = Math.min(12000, (Math.hypot(pos.x - me.x, pos.y - me.y) / 115) * 1000 + 2500);
-      await sleep(walkMs);
-      const t1 = Date.now();
-      while (!R.diedIds.has(g0.id) && Date.now() - t1 < 15000) {
+    // stall: walk NEXT to the gremlin in straight-line legs, verify
+    // adjacency (<=80u by last known positions) before each attack window,
+    // and skip to the next candidate if no damage lands within 20s. The
+    // kill only counts if OUR attacks landed (loot/exp assertions need it).
+    const tKill = Date.now();
+    for (const g0 of candidates) {
+      if (Date.now() - tKill > 150000) break;
+      console.log(`  killing Gremlin id=${g0.id} at ${g0.x},${g0.y} dist ${g0.dist | 0} (${label})...`);
+      const t0 = Date.now();
+      let dmgMark = dmgOn(g0.id);
+      let lastProgress = Date.now();
+      while (!R.diedIds.has(g0.id) && Date.now() - t0 < 60000) {
+        const dealt = dmgOn(g0.id);
+        if (dealt > dmgMark) { dmgMark = dealt; lastProgress = Date.now(); }
+        if (Date.now() - lastProgress > 20000) break; // no damage progress: stuck/contested
+        const pos = npcPos(g0);
+        const me = selfPos();
+        const d = Math.hypot(pos.x - me.x, pos.y - me.y);
+        if (d > 80) {
+          const leg = Math.min(d, 150);
+          const lx = leg >= d ? pos.x + 20 : me.x + ((pos.x - me.x) / d) * leg;
+          const ly = leg >= d ? pos.y : me.y + ((pos.y - me.y) / d) * leg;
+          send({ op: 'moveTo', x: lx | 0, y: ly | 0, z: pos.z | 0 });
+          await sleep(Math.min(12000, (leg / 115) * 1000 + 2500));
+          continue;
+        }
         send({ op: 'attack', id: g0.id });
-        await sleep(4000);
+        await sleep(2000);
       }
+      if (R.diedIds.has(g0.id) && ownHit(g0.id)) {
+        await sleep(2500); // let loot/exp events settle
+        return g0.id;
+      }
+      console.log(`  gremlin id=${g0.id} ${R.diedIds.has(g0.id) ? 'killed by someone else' : 'made no progress'}, trying another...`);
     }
-    if (!R.diedIds.has(g0.id)) throw new Error('kill timeout ' + label);
-    await sleep(2500); // let loot/exp events settle
-    return g0.id;
+    throw new Error('kill timeout ' + label);
   };
 
   // --- 1. .menu ---
@@ -168,7 +193,7 @@ function openSession(deviceId, tag) {
   const creds = deriveCredentials(deviceId);
   const S = {
     tag, creds, game: null, userInfo: null, itemList: [], sysTexts: [], charInfos: [],
-    npcs: [], moves: new Map(), diedIds: new Set(), closed: false,
+    npcs: [], moves: new Map(), diedIds: new Set(), closed: false, attacks: [],
   };
   S.selfPos = () => S.moves.get(S.userInfo?.id) || S.userInfo;
   S.start = async () => {
@@ -184,8 +209,18 @@ function openSession(deviceId, tag) {
     game.on('itemList', (items) => { S.itemList = items; });
     game.on('charInfo', (c) => S.charInfos.push(c));
     game.on('npcInfo', (n) => S.npcs.push(n));
-    game.on('move', (m) => S.moves.set(m.id, { x: m.tx, y: m.ty, z: m.tz }));
-    game.on('die', (id) => S.diedIds.add(id));
+    game.on('move', (m) => {
+      S.moves.set(m.id, { x: m.tx, y: m.ty, z: m.tz });
+      // m.x/m.y/m.z is the server's CURRENT position of the mover: keep the
+      // client-side origin (used by moveTo/attackRequest packets) honest.
+      if (S.userInfo && m.id === S.userInfo.id) S.game.pos = { ...S.game.pos, x: m.x, y: m.y, z: m.z };
+    });
+    game.on('validate', (v) => {
+      S.moves.set(v.id, { x: v.x, y: v.y, z: v.z });
+      if (S.userInfo && v.id === S.userInfo.id) S.game.pos = { ...S.game.pos, x: v.x, y: v.y, z: v.z };
+    });
+    game.on('attack', (a) => S.attacks.push(a));
+    game.on('die', (d) => S.diedIds.add(d.id)); // Die event = parsed object {id, toVillage, ...} (gameclient.js)
     game.on('systemMessage', (sm) => { if (typeof sm.params[0]?.value === 'string') S.sysTexts.push(sm.params[0].value); });
     game.on('close', () => { S.closed = true; });
     game.on('error', () => {});
@@ -199,28 +234,57 @@ function openSession(deviceId, tag) {
 
 // Walk-first melee kill (ranged auto-approach stalls with geodata active).
 async function killGremlinDirect(S, label) {
-  const g0 = S.npcs
+  const selfPos = () => S.moves.get(S.userInfo.id) || S.userInfo;
+  const npcPos = (g) => S.moves.get(g.id) || g;
+  const ownHit = (id) => S.attacks.some((a) =>
+    a.attackerId === S.userInfo.id && a.hits.some((h) => h.targetId === id && h.damage > 0));
+  const dmgOn = (id) => S.attacks.reduce((n, a) => n + a.hits.filter((h) => h.targetId === id).length, 0);
+  // Prefer gremlins a short straight walk away: the absolute nearest can
+  // sit across training-hall geometry where straight-line moveTo stalls.
+  const all = S.npcs
     .filter((n) => n.npcId === 18342 && !S.diedIds.has(n.id))
     .map((n) => ({ ...n, ...(S.moves.get(n.id) || n) }))
-    .map((n) => ({ ...n, dist: Math.hypot(n.x - S.selfPos().x, n.y - S.selfPos().y) }))
-    .sort((a, b) => a.dist - b.dist)[0];
-  if (!g0) throw new Error('no live Gremlin for ' + label);
-  console.log(`   [${S.tag}] killing Gremlin id=${g0.id} (${label})...`);
-  const t0 = Date.now();
-  while (!S.diedIds.has(g0.id) && Date.now() - t0 < 150000) {
-    const pos = S.moves.get(g0.id) || g0;
-    const me = S.selfPos();
-    S.game.pos = { ...S.game.pos, x: pos.x + 20, y: pos.y, z: pos.z };
-    S.game.moveTo(pos.x + 20, pos.y, pos.z);
-    await sleep(Math.min(12000, (Math.hypot(pos.x - me.x, pos.y - me.y) / 115) * 1000 + 2500));
-    const t1 = Date.now();
-    while (!S.diedIds.has(g0.id) && Date.now() - t1 < 15000) {
+    .map((n) => ({ ...n, dist: Math.hypot(n.x - selfPos().x, n.y - selfPos().y) }))
+    .sort((a, b) => a.dist - b.dist);
+  const near = all.filter((g) => g.dist < 150);
+  const candidates = (near.length ? near : all).slice(0, 4);
+  if (!candidates.length) throw new Error('no live Gremlin for ' + label);
+  // Walk NEXT to the gremlin in straight-line legs, verify adjacency (<=80u
+  // by last known positions) before each attack window, and skip to the
+  // next candidate if no damage lands within 20s.
+  const tKill = Date.now();
+  for (const g0 of candidates) {
+    if (Date.now() - tKill > 150000) break;
+    console.log(`   [${S.tag}] killing Gremlin id=${g0.id} at ${g0.x},${g0.y} dist ${g0.dist | 0} (${label})...`);
+    const t0 = Date.now();
+    let dmgMark = dmgOn(g0.id);
+    let lastProgress = Date.now();
+    while (!S.diedIds.has(g0.id) && Date.now() - t0 < 60000) {
+      const dealt = dmgOn(g0.id);
+      if (dealt > dmgMark) { dmgMark = dealt; lastProgress = Date.now(); }
+      if (Date.now() - lastProgress > 20000) break; // no damage progress: stuck/contested
+      const pos = npcPos(g0);
+      const me = selfPos();
+      const d = Math.hypot(pos.x - me.x, pos.y - me.y);
+      S.game.pos = { ...S.game.pos, x: me.x, y: me.y, z: me.z ?? pos.z }; // packet origin
+      if (d > 80) {
+        const leg = Math.min(d, 150);
+        const lx = leg >= d ? pos.x + 20 : me.x + ((pos.x - me.x) / d) * leg;
+        const ly = leg >= d ? pos.y : me.y + ((pos.y - me.y) / d) * leg;
+        S.game.moveTo(lx | 0, ly | 0, pos.z | 0);
+        await sleep(Math.min(12000, (leg / 115) * 1000 + 2500));
+        continue;
+      }
       S.game.attackRequest(g0.id);
-      await sleep(4000);
+      await sleep(2000);
     }
+    if (S.diedIds.has(g0.id) && ownHit(g0.id)) {
+      await sleep(2500);
+      return;
+    }
+    console.log(`   [${S.tag}] gremlin id=${g0.id} ${S.diedIds.has(g0.id) ? 'killed by someone else' : 'made no progress'}, trying another...`);
   }
-  if (!S.diedIds.has(g0.id)) throw new Error('kill timeout ' + label);
-  await sleep(2500);
+  throw new Error('kill timeout ' + label);
 }
 
 async function partB() {

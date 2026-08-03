@@ -54,6 +54,16 @@ export const WATER_SCROLL = [0.011, 0.007];
 // static meshes that justify a warm point light. Lights are clustered
 // (nearby flames share one) and capped — a dungeon tile has 500+ props.
 const FIRE_PROP_RE = /(?:^|[._])(?:default_)?flame|(?:^|[._])fire/i;
+// flame SPRITE materials (the glow quad itself, not the brazier bowl):
+// across all 136 fire-prop gltfs exactly these four match, and their glow
+// textures (de_fire_0000, de_fire_glow, sp2f_fire02, fx_e_fire_under02)
+// are additive-blend FX art — de_fire_0000/sp2f_fire02/fx_e_fire_under02
+// carry UNIFORM alpha, so the generic alphaTest 0.5 cutout below keeps
+// the whole quad and the flame renders as a giant black rectangle. They
+// render additively instead (retail blends these shader FX; black adds
+// nothing). Godard_vertex_F also has uniform alpha but is an opaque
+// ground slab — correctly NOT matched.
+const FLAME_MAT_RE = /flame|fire_?glow|fire_?shader|fx_e_under/i;
 const FIRE_CLUSTER_M = 8;         // flames within this XY/Z bin share a light
 const FIRE_LIGHT_MAX = 16;        // hard cap per tile (forward-renderer perf)
 const FIRE_LIGHT_LIFT_M = 1.2;    // flame mesh spans 0..1.06 m above origin
@@ -650,6 +660,16 @@ export class Terrain {
   static _prepMaterials(material) {
     const mats = Array.isArray(material) ? material : [material];
     for (const m of mats) {
+      // flame glow sprites: additive, no cutout, no depth writes (see
+      // FLAME_MAT_RE) — the generic cutout turns them into black quads
+      if (m.map && FLAME_MAT_RE.test(m.name || '')) {
+        m.blending = THREE.AdditiveBlending;
+        m.transparent = true;
+        m.depthWrite = false;
+        m.alphaTest = 0;
+        m.side = THREE.DoubleSide;
+        continue;
+      }
       // L2 foliage etc. use alpha-cutout cards: honor the alpha channel
       // (no-op for fully opaque textures) and light both sides
       if (m.map) { m.alphaTest = 0.5; m.side = THREE.DoubleSide; }

@@ -22,9 +22,10 @@
 // Sit/stand and walk/run are server-side toggles — the client holds no
 // toggle state, and neither do we.
 //
-// Icons: actionname's icon.actionNNN art was never mined (only
-// action102.png exists under assets/gamedata/icons/), so cells are
-// text-labelled and an <img> is layered in only if the png resolves.
+// Icons: actionname's icon.actionNNN art ships in the same utx icon
+// package as skills/items (tools/dat/build_meta.py copy_action_icons ->
+// assets/gamedata/icons/; 102 refs -> 47 unique textures). Cells are
+// text-labelled and the <img> replaces the label once the png loads.
 
 import { Skin } from './skin.js';
 import { Font } from './font.js';
@@ -106,9 +107,11 @@ export class ActionWnd {
     }
 
     parent.appendChild(win.root);
-    // AUTHORED: same dock as SkillWnd ({right:12, top:60}) — windows toggle,
-    // and Alt+Enter (WndMgr reset) restores this spot.
-    this.defaultPlace = { right: 12, top: 60 };
+    // AUTHORED: no [ActionWnd] in WindowsInfo.ini; cascaded +28/+28 from
+    // SkillWnd's dock (right:12, top:60) so the toggle windows no longer
+    // spawn in an exact stack (audit B1). Alt+Enter (WndMgr reset)
+    // restores this spot.
+    this.defaultPlace = { right: 40, top: 88 };
   }
 
   /** Fill the three sections from actionname.json (fetched once). */
@@ -143,16 +146,22 @@ export class ActionWnd {
     if (this.cellArt) Skin.apply(inner, CELL_REF, { content: { w: cell32, h: cell32 } });
     cell.appendChild(inner);
 
-    // text-first: the action icons were not mined, so the name IS the cell
-    // content; AUTHORED 8px to fit the 32px icon rect (no retail source
-    // exists — retail never drew text here, it had the icons)
+    // text-underlay: the name is the cell content until the icon png
+    // loads (and the fallback if it ever 404s); AUTHORED 8px (no retail
+    // source — retail never drew text here, it had the icons). The label
+    // spans WIDER than the 34px slot (centered on it, into the 5px grid
+    // gap) and wraps only at word boundaries: inside the slot rect
+    // 'Exchange' clipped to 'Exchang e' and 'Walk/Run' to 'Walk/Ru n'.
     const label = document.createElement('div');
     label.className = 'l2-action-label';
-    label.style.cssText = 'font:8px sans-serif;color:#d8cba6;text-align:center;'
-      + 'line-height:9px;overflow:hidden;max-height:27px;word-break:break-word;'
+    label.style.cssText = 'position:absolute;left:50%;top:50%;'
+      + 'transform:translate(-50%,-50%);width:46px;'
+      + 'font:8px sans-serif;color:#d8cba6;text-align:center;'
+      + 'line-height:9px;overflow:hidden;max-height:27px;'
+      + 'overflow-wrap:break-word;'
       + 'text-shadow:0 1px 1px #000;pointer-events:none;';
     label.textContent = a.name;
-    inner.appendChild(label);
+    cell.appendChild(label);
 
     if (a.icon) {
       const img = document.createElement('img');

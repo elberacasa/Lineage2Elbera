@@ -26,7 +26,7 @@ async function launch(url) {
 (async () => {
   // -- shot A: gremlin vs human (mock gateway) ------------------------------
   {
-    const { browser, page } = await launch('http://127.0.0.1:8083/?ws=ws://127.0.0.1:8085');
+    const { browser, page } = await launch('http://127.0.0.1:8083/?ws=ws://127.0.0.1:8085&cc=0');
     await page.click('#online-toggle');
     await page.waitForFunction('window.__world.entities.snapshot().length >= 6', { timeout: 20000 });
     await page.waitForFunction('!!window.__world.entities.getEntity(70001).mixer', { timeout: 30000 });

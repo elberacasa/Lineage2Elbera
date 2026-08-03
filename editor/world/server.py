@@ -13,6 +13,16 @@ Routes:
                                  assets/world/ (pilot tiles: 17_25, 22_22)
   GET /characters/<path>      -> static files under editor/characters/
                                  (manifest.json, models/*.gltf/bin/png)
+  GET /create/<path>          -> the character-creation app under
+                                 editor/charcreate/ (index.html, app.js,
+                                 style.css, vendor/) — embedded as an iframe
+                                 by the world client when an account has no
+                                 characters
+  GET /faces/<pkg>/<name>.png -> face-variant textures from
+                                 assets/library/<pkg>/<name>.png (game texture
+                                 refs like "MFighter.MFighter_m000_t01_f";
+                                 package and file names resolved
+                                 case-insensitively)
   GET /gamedata/npcname.json  -> compact {npcId: name} map from
                                  assets/gamedata/npcname.json (M2 NPC labels)
   GET /minimap/<path>         -> static minimap imagery under
@@ -38,6 +48,8 @@ WORLD_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "world
 # assets/world/ for everything else (scene.json, heightmaps, gltf, splats).
 WORLD_HD_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "world-hd"))
 CHARACTERS_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "characters"))
+CHARCREATE_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "charcreate"))
+LIBRARY_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "library"))
 GAMEDATA_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "gamedata"))
 MINIMAP_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "world", "minimap"))
 NPCS_XML_DIR = os.path.normpath(os.path.join(
@@ -195,6 +207,35 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- routing -----------------------------------------------------------
 
+    def _send_face(self, rel):
+        """Serve assets/library/<pkg>/<name>.png, case-insensitively.
+
+        Game texture refs ('MFighter.MFighter_m000_t01_f') use varying case
+        for both the package dir (melf, FShaman, ...) and the file names.
+        """
+        rel = posixpath.normpath(urllib.parse.unquote(rel))
+        parts = [p for p in rel.split("/") if p and p not in (".", "..")]
+        if len(parts) != 2:
+            self._send_json({"error": "not found"}, status=404)
+            return
+        pkg, name = parts
+        try:
+            pkg_dir = next((d for d in os.listdir(LIBRARY_DIR)
+                            if d.lower() == pkg.lower()), None)
+            if not pkg_dir:
+                raise OSError
+            full_dir = os.path.join(LIBRARY_DIR, pkg_dir)
+            if not os.path.isdir(full_dir):
+                raise OSError
+            fname = next((f for f in os.listdir(full_dir)
+                          if f.lower() == name.lower()), None)
+            if not fname:
+                raise OSError
+        except OSError:
+            self._send_json({"error": "not found"}, status=404)
+            return
+        self._send_file(os.path.join(full_dir, fname))
+
     def do_GET(self):
         path = urllib.parse.urlsplit(self.path).path
 
@@ -231,6 +272,21 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/characters/"):
             rel = path[len("/characters/"):]
             self._send_file(safe_join(CHARACTERS_DIR, rel))
+            return
+
+        # character-creation app (embedded by the world client as
+        # /create/?embed=1); data + models load from /characters/ above
+        if path == "/create":
+            path = "/create/"
+        if path.startswith("/create/"):
+            rel = path[len("/create/"):] or "index.html"
+            self._send_file(safe_join(CHARCREATE_DIR, rel))
+            return
+
+        # face-variant textures for the embedded creator (app.js builds
+        # /faces/<pkg>/<name>.png from chargrp faceTextures refs)
+        if path == "/faces" or path.startswith("/faces/"):
+            self._send_face(path[len("/faces"):])
             return
 
         if path == "/gamedata/npcname.json":

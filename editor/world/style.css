@@ -22,13 +22,16 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 #status { margin-left: auto; color: #8a93a5; font-size: 12px; }
 
 #help {
-  position: fixed; bottom: 52px; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: 203px; left: 50%; transform: translateX(-50%);
   z-index: 10; padding: 3px 8px 3px 10px; border-radius: 10px;
   font: 11px -apple-system, "Segoe UI", sans-serif; color: #6f7789;
   background: rgba(10,12,17,.45); pointer-events: none;
   display: flex; align-items: center; gap: 8px;
   white-space: nowrap;   /* else the 50% offset caps shrink-to-fit and wraps */
 }
+/* bottom:203 = directly above the ChatWnd (187 tall docked at bottom:8):
+   at bottom:52 the pill sat inside the chat's band and overlapped the tab
+   row (audit B11) */
 #help.hidden { display: none; }
 #help-close {
   pointer-events: auto; cursor: pointer; border: 0; background: none;

@@ -158,14 +158,18 @@ export class InventoryWnd {
     }
 
     // --- bottom row: crystallize / trash / adena / weight ------------------
+    // Crystallize/Trash are HIDDEN: they act on _selected(), which is a
+    // stub returning null (no selection model yet), so both were dead
+    // affordances. The build path and the op handlers stay wired — flip
+    // `hidden` off when selection lands.
     this._bottomButton(body, 'CrystallizeButton', () => {
       const sel = this._selected();
       if (sel) this.onCrystallize(sel);
-    }, 'Crystallize');
+    }, 'Crystallize', { hidden: true });
     this._bottomButton(body, 'TrashButton', () => {
       const sel = this._selected();
       if (sel) this.onDestroy(sel);
-    }, 'Trash');
+    }, 'Trash', { hidden: true });
 
     const adenaIconPos = P('AdenaIcon');
     const adenaIconSize = Layout.size(WND, 'AdenaIcon');
@@ -210,7 +214,7 @@ export class InventoryWnd {
 
   // -- pieces ----------------------------------------------------------------
 
-  _bottomButton(body, ctrl, onClick, label) {
+  _bottomButton(body, ctrl, onClick, label, { hidden = false } = {}) {
     const pos = P2XY(ctrl);
     const size = Layout.size(WND, ctrl);
     const tex = Layout.tex(WND, ctrl).filter(r => Skin.sprite(r));
@@ -220,7 +224,8 @@ export class InventoryWnd {
     el.title = label;
     el.style.cssText = `position:absolute;left:${Skin.px(pos.x)}px;`
       + `top:${Skin.px(pos.y)}px;width:${Skin.px(size.w)}px;`
-      + `height:${Skin.px(size.h)}px;cursor:pointer;`;
+      + `height:${Skin.px(size.h)}px;cursor:pointer;`
+      + (hidden ? 'display:none;' : '');
     if (tex[0]) Skin.apply(el, tex[0]);
     el.addEventListener('click', onClick);
     body.appendChild(el);
@@ -387,9 +392,13 @@ export class InventoryWnd {
     Font.set(this.adenaEl, adena ? String(adena.count) : '0', { color: '#e8dcc0' });
     const cs = this.getCharSheet();
     // InvenWeight shows current/max load; our charSheet op has no weight
-    // fields — left empty rather than invented (gateway would need to
-    // forward maxLoad/curLoad from UserInfo).
-    Font.set(this.weightEl, cs && cs.maxLoad != null ? `${cs.curLoad ?? '?'}/${cs.maxLoad}` : '', { color: '#8a93a5' });
+    // fields — the strip is hidden rather than invented (gateway would
+    // need to forward maxLoad/curLoad from UserInfo).
+    const hasLoad = cs && cs.maxLoad != null;
+    this.weightEl.style.display = hasLoad ? '' : 'none';
+    if (hasLoad) {
+      Font.set(this.weightEl, `${cs.curLoad ?? '?'}/${cs.maxLoad}`, { color: '#8a93a5' });
+    }
 
     for (const [i, t] of [...this.tabs.children].entries()) {
       const key = i === 0 ? 'inventory' : 'quest';

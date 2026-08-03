@@ -242,6 +242,22 @@ Rellena los placeholders de `docs/GUIA-JUGADORES.md` antes de difundirla:
 - Mantén `AutoCreateAccounts = True`: registro sin fricción.
 - Programa los reinicios/mantenimientos con anuncio previo (`//server shutdown 300` da 5 minutos de aviso automático) y en horario razonable para Venezuela (UTC-4).
 
+### 7.7 Jugar con amigos por navegador (enlace público)
+
+Alternativa ligera al VPS mientras el servidor corre en tu Mac: un solo comando levanta todo el stack y expone el cliente web con un túnel rápido de Cloudflare.
+
+```bash
+deploy/play.sh --tunnel
+```
+
+- Es idempotente: salta lo que ya esté escuchando en su puerto. Levanta MariaDB, login (2106), game (7777), gateway ElberaGate (8090), cliente web (8083) y el proxy de borde `deploy/edge` (8095); espera a que login y game queden escuchando (hasta ~5 min) e imprime una tabla de estado de todos los puertos.
+- Con `--tunnel` abre `cloudflared tunnel --protocol http2 --url http://127.0.0.1:8095` (log en `deploy/edge/tunnel.log`), extrae la URL `https://*.trycloudflare.com` y la imprime destacada: **ese es el enlace que mandas a tus amigos**. El `--protocol http2` es deliberado: con el transporte QUIC por defecto el túnel moría a los segundos en esta red («control stream encountered a failure while serving» en bucle); http2 es el fallback estable.
+- Verificación punta a punta por el túnel (login → enterWorld contra el aCis real): `node deploy/edge/test/verify-public.js https://<tu-subdominio>.trycloudflare.com` → `VERIFY-PUBLIC: PASS`.
+- La URL es infundable (cadena aleatoria), pero **cualquiera que la tenga puede entrar**: la cuenta y el personaje se auto-crean en el primer login (identidad por device-id del navegador, sin contraseña).
+- Tu Mac debe seguir despierta mientras juegan: `caffeinate -dimsu` en otra terminal.
+- `deploy/play.sh --stop` baja solo el túnel y el edge; login, game, gateway y cliente quedan corriendo.
+- Avisos de seguridad: el gateway **no está endurecido para internet abierto** (identidad solo por device-id, sin protección real contra abuso). Úsalo solo con amigos y por sesiones; para público permanente, la salida seria sigue siendo el VPS de esta sección.
+
 ---
 
 ## 8. TODO — lo que falta

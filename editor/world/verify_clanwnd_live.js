@@ -18,7 +18,7 @@ const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const BASE = 'http://127.0.0.1:8083/?ws=ws://127.0.0.1:8090';
+const BASE = 'http://127.0.0.1:8083/?ws=ws://127.0.0.1:8090&cc=0';
 const GATEWAY = 'ws://127.0.0.1:8090';
 const OUT = path.join(__dirname, 'verify_shots');
 const BITZ = { npcId: 30026, x: -83326, y: 242964, z: -3718 }; // spawnlist/17_25.xml

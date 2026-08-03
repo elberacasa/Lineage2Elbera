@@ -6,8 +6,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 /* ================================================================
- * Built-in fallback data — used until /api/charcreate-data exists
- * (contract: {"races":[{"id","name","genders","classes":[...],
+ * Built-in fallback data — used when /characters/charcreate-data.json
+ * is missing (contract: {"races":[{"id","name","genders","classes":[...],
  *   "appearance":{"faces","hairStyles","hairColors":[]}}]})
  * ================================================================ */
 
@@ -101,8 +101,11 @@ const state = {
  * ================================================================ */
 
 async function loadData() {
+  // Location-independent absolute paths: both the standalone charcreate
+  // server (:8082) and the world server (:8083, this app under /create/)
+  // serve editor/characters/ at /characters/.
   try {
-    const res = await fetch('/api/manifest');
+    const res = await fetch('/characters/manifest.json');
     if (res.ok) {
       const m = await res.json();
       if (m && Array.isArray(m.models)) state.manifest = m;
@@ -110,7 +113,7 @@ async function loadData() {
   } catch (e) { /* empty manifest fallback already in state */ }
 
   try {
-    const res = await fetch('/api/charcreate-data');
+    const res = await fetch('/characters/charcreate-data.json');
     if (res.ok) {
       const d = await res.json();
       if (d && Array.isArray(d.races) && d.races.length) {
@@ -947,6 +950,51 @@ function renderUI() {
 
 /* ---------- name + create ---------- */
 
+/* Embed mode: inside the world client's iframe (/create/?embed=1) Create
+ * posts the protocol fields to the parent window (it speaks createChar to
+ * the gateway) instead of showing the summary overlay; the parent relays
+ * {type:'cc:fail'} back for inline display. */
+const EMBEDDED = window.parent !== window ||
+  new URLSearchParams(location.search).has('embed');
+if (EMBEDDED) document.body.classList.add('embedded');
+
+// protocol indices: aCis Race ordinals and the base classIds per race+type
+// (charcreate-data.json classes carry classId already; these cover the
+// built-in DEFAULT_DATA fallback)
+const RACE_INDEX = { human: 0, elf: 1, darkelf: 2, orc: 3, dwarf: 4 };
+const FALLBACK_CLASS_ID = {
+  human: { fighter: 0, mage: 10 },
+  elf: { fighter: 18, mage: 25 },
+  darkelf: { fighter: 31, mage: 38 },
+  orc: { fighter: 44, mage: 49 },
+  dwarf: { fighter: 53 },
+};
+// charCreateFail reasons (gateway README §character creation) -> inline text
+const FAIL_TEXT = {
+  name_already_exists: 'That name is taken.',
+  incorrect_name: 'Invalid name.',
+  '16_eng_chars': 'Invalid name (up to 16 characters).',
+  too_many_characters: 'This account already has too many characters.',
+  creation_failed: 'Creation failed — please try again.',
+};
+
+let creating = false; // a cc:create is waiting for the parent's answer
+function setCreating(on) {
+  creating = on;
+  $('create-btn').textContent = on ? 'Creating…' : 'Create Character';
+  validateName(); // recomputes the disabled state (blocks re-clicks)
+}
+
+window.addEventListener('message', (ev) => {
+  if (ev.origin !== location.origin) return;
+  const d = ev.data || {};
+  if (d.type !== 'cc:fail') return;
+  setCreating(false);
+  const hint = $('name-hint');
+  hint.classList.add('error');
+  hint.textContent = FAIL_TEXT[d.reason] || `Creation failed (${d.reason || 'unknown'}).`;
+});
+
 const NAME_RE = /^[A-Za-z]{1,16}$/;
 
 function validateName() {
@@ -959,17 +1007,38 @@ function validateName() {
   hint.textContent = ok || !state.name
     ? '1–16 letters, no numbers.'
     : 'Letters only, up to 16 characters.';
-  $('create-btn').disabled = !ok;
+  $('create-btn').disabled = !ok || creating;
   return ok;
 }
 
 $('name-input').addEventListener('input', validateName);
 
 $('create-btn').addEventListener('click', () => {
-  if (!validateName()) return;
+  if (!validateName() || creating) return;
   createPulse = 1.0;             // drives the confirmation animation
   const race = getRace(state.race);
   const cls = (race.classes || []).find(c => c.id === state.classId) || {};
+
+  if (EMBEDDED) {
+    // hand the protocol fields to the parent window (world client); it
+    // sends createChar and closes the overlay on charCreateOk
+    const classId = typeof cls.classId === 'number'
+      ? cls.classId
+      : ((FALLBACK_CLASS_ID[state.race] || {})[cls.type] ?? 0);
+    setCreating(true);
+    window.parent.postMessage({
+      type: 'cc:create',
+      name: state.name,
+      race: RACE_INDEX[state.race] ?? 0,
+      sex: state.gender === 'female' ? 1 : 0,
+      classId,
+      hairStyle: state.hairStyle,
+      hairColor: state.hairColor,
+      face: state.face,
+    }, location.origin);
+    return;
+  }
+
   const app = appearanceOf(race);
 
   $('summary-name').textContent = state.name;

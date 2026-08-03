@@ -301,7 +301,15 @@ export class MinimapWnd {
 
   showExpand(on) {
     const ov = this.expandEl;
-    if (!on) { ov.style.display = 'none'; return; }
+    if (!on) {
+      ov.style.display = 'none';
+      // restore the small window the expand hid (only if it hid it)
+      if (this._expandHidSelf) {
+        this._expandHidSelf = false;
+        this.win.show();
+      }
+      return;
+    }
     if (!this.meta || !this.meta.worldmap) return;
     ov.replaceChildren();
 
@@ -359,12 +367,36 @@ export class MinimapWnd {
     close.addEventListener('click', () => this.showExpand(false));
     box.appendChild(close);
 
+    // close X, top-right: AUTHORED affordance (MinimapWnd_Expand carries
+    // no chrome) reusing the shared frame art; the 4px inset matches the
+    // window frame's close inset (window.js — its SIZE is measured from
+    // the art, only the gap is ours)
+    const xBtn = document.createElement('div');
+    xBtn.className = 'l2-expand-close';
+    const xArt = Skin.content('L2UI_CH3.FrameCtrl.FrameCloseBtn');
+    xBtn.style.cssText = `position:absolute;right:${Skin.px(4)}px;`
+      + `top:${Skin.px(4)}px;width:${Skin.px(xArt ? xArt.w : 15)}px;`
+      + `height:${Skin.px(xArt ? xArt.h : 15)}px;cursor:pointer;`;
+    Skin.apply(xBtn, 'L2UI_CH3.FrameCtrl.FrameCloseBtn');
+    xBtn.addEventListener('mouseenter',
+      () => Skin.apply(xBtn, 'L2UI_CH3.FrameCtrl.FrameCloseOnBtn'));
+    xBtn.addEventListener('mouseleave',
+      () => Skin.apply(xBtn, 'L2UI_CH3.FrameCtrl.FrameCloseBtn'));
+    xBtn.addEventListener('click', () => this.showExpand(false));
+    box.appendChild(xBtn);
+
+    // the small map hides while the world map is up (restored on close)
+    this._expandHidSelf = true;
+    this.win.hide();
+
     ov.style.display = 'block';
   }
 
   place(o = {}) { this.win.place(o); return this; }
   show() { this.win.show(); return this; }
-  hide() { this.win.hide(); this.showExpand(false); return this; }
+  // collapse the expand overlay FIRST: closing it restores the small
+  // window it hid, and a hide() must end with the window hidden
+  hide() { this.showExpand(false); this.win.hide(); return this; }
   get visible() { return this.win.visible; }
   toggle(force) { this.win.toggle(force); return this; }
 

@@ -108,6 +108,56 @@ function npcColor(npcId) {
   return new THREE.Color().setHSL(hue / 360, 0.55, 0.5);
 }
 
+// Rebuilt player models carry a 'die' clip: play it once and HOLD the last
+// frame (Character.update re-idles after emoteUntil, so pin it). Returns
+// false when the clip is absent (pre-rebuild models) so the caller keeps
+// its legacy freeze.
+function playDeathClip(ch) {
+  const a = ch.actions && ch.actions.die;
+  if (!a) return false;
+  ch.play('die', 0.15);
+  a.setLoop(THREE.LoopOnce, 1);
+  a.clampWhenFinished = true;
+  ch.emoteUntil = Infinity;
+  return true;
+}
+
+const DROP_LABEL = '#d9c68f';   // item parchment (authored)
+
+// Ground drop (bridge addDrop = aCis SpawnItem/DropItem): a nameplate plus
+// a small grounded marker. Neither npcgrp nor etcitemgrp carries a
+// ground-drop mesh, so the marker is authored. Clicking routes through
+// main.js clickEntity -> target{id}, which the server turns into pickup;
+// despawn rides the shared 'remove' op.
+class DropEntity {
+  constructor({ id, itemId, count, name }) {
+    this.id = id;
+    this.kind = 'drop';
+    this.itemId = itemId;
+    this.count = count ?? 1;
+    this.name = this.count > 1 ? `${name} (${this.count})` : name;
+    this.level = null;
+    this.npcId = null;
+    this.dead = false;
+    this.target = null;
+    this.heightM = 0.3;
+    this.group = new THREE.Group();
+    const gem = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.09),
+      new THREE.MeshLambertMaterial({ color: 0xd8c48a, emissive: 0x2a2210 }),
+    );
+    gem.position.y = 0.12;
+    gem.castShadow = true;
+    this.group.add(gem);
+    this._gem = gem;
+    const label = makeLabel(this.name, DROP_LABEL, 0.55);
+    label.position.y = 0.42;
+    this.group.add(label);
+  }
+
+  update(dt) { this._gem.rotation.y += dt * 1.6; }   // slow spin (authored)
+}
+
 class NpcEntity {
   constructor({ id, npcId, name, level }) {
     this.id = id;
@@ -391,13 +441,37 @@ export class EntityManager {
     if (e && e.kind === 'npc' && name && name !== e.name) e.setLabel(name);
   }
 
+  // Ground drop spawn (see DropEntity). name comes from itemmeta via the
+  // caller (async); removal rides the shared remove() path.
+  addDrop(msg, name, terrain) {
+    const id = msg.id;
+    if (this.has(id)) return;
+    const drop = new DropEntity({ ...msg, name });
+    l2ToThree(msg.x || 0, msg.y || 0, msg.z || 0, drop.group.position);
+    drop.serverZ = (msg.z || 0) * L2_TO_M;
+    drop.group.position.y = this._groundY(
+      drop.group.position.x, drop.group.position.z, drop.serverZ, terrain);
+    drop.group.userData.entityId = id;
+    this.entities.set(id, drop);
+    this.scene.add(drop.group);
+  }
+
   // M3 combat visuals -------------------------------------------------
 
   attackFlash(id) {
     const e = this.entities.get(id);
     if (e && !e.dead) {
+      // oneShot holds the swing against update()'s idle fallback (emoteUntil)
       if (e.kind === 'npc') e.attackFlash();
-      else { e.play('attack', 0.1); setTimeout(() => !e.dead && e.play('idle'), 700); }
+      else e.oneShot('attack');
+      return;
+    }
+    // the local player is NOT in the EntityManager (main.js keeps it as a
+    // separate Character) — own swings animate on that model too (same
+    // self fallback as skillFlash below)
+    const w = typeof window !== 'undefined' && window.__world;
+    if (w && w.net.selfId === id && w.character && !w.character.dead) {
+      w.character.oneShot('attack');
     }
   }
 
@@ -428,20 +502,22 @@ export class EntityManager {
     }
   }
 
-  // Per-skill cast gesture from skillanim.json (skillgrp animation code ->
-  // shipped clip, js/skillfx_anim.js): dances play 'dance' (exact), every
-  // other castable plays 'attack' — the retail SpAtk*/Cast*/MagicThrow
-  // clips are not shipped (see skillfx_anim.js header). Without skill
-  // context the legacy generic swing remains.
+  // Per-skill cast gesture from skillanim.json (skillgrp animation code +
+  // the skillCast hitTime -> glTF clip, js/skillfx_anim.js): dances play
+  // 'dance' (exact), physical skills 'spAtk01/02', magic casts
+  // 'castShort/Mid/Long' by duration. Pre-rebuild models lack those clips —
+  // the documented 'attack' fallback keeps a gesture until they land.
+  // Without skill context the legacy generic swing remains.
   _playerCastGesture(ch, msg) {
     if (!msg) {
-      ch.play('attack', 0.1);
-      setTimeout(() => !ch.dead && ch.play('idle'), 700);
+      ch.oneShot('attack');
       return;
     }
     skillAnimMeta().then(meta => {
       const entry = skillAnimInfo(meta, msg.skillId, msg.level || 1);
-      ch.oneShot(clipForSkill(entry) || 'attack');
+      const clip = clipForSkill(entry, msg.hitTime) || 'attack';
+      this.lastCastClip = clip;   // verification hook (name logic picked)
+      ch.oneShot(ch.actions && ch.actions[clip] ? clip : 'attack');
     });
   }
 
@@ -507,12 +583,22 @@ export class EntityManager {
 
   die(id) {
     const e = this.entities.get(id);
-    if (!e) return;
+    if (!e) {
+      // the local player is not in the EntityManager — same self fallback
+      // as attackFlash/skillFlash (no corpse fade on the own model)
+      const w = typeof window !== 'undefined' && window.__world;
+      if (w && w.net.selfId === id && w.character) {
+        w.character.dead = true;
+        playDeathClip(w.character);
+      }
+      return;
+    }
     if (e.kind === 'npc') { e.die(); return; }
-    // remote player: no die clip in the character manifest — freeze + fade
     e.dead = true;
     e.clearTarget();
-    e.play('idle');
+    // rebuilt models carry a 'die' clip (held on the last frame); without
+    // it keep the legacy freeze
+    if (!playDeathClip(e)) e.play('idle');
     e.group.traverse(o => {
       if (o.isMesh) {
         const mats = Array.isArray(o.material) ? o.material : [o.material];
@@ -523,9 +609,18 @@ export class EntityManager {
 
   revive(id) {
     const e = this.entities.get(id);
-    if (!e) return;
+    if (!e) {
+      const w = typeof window !== 'undefined' && window.__world;
+      if (w && w.net.selfId === id && w.character) {
+        w.character.dead = false;
+        w.character.emoteUntil = 0;   // release a held 'die' clip
+        w.character.play('idle');
+      }
+      return;
+    }
     if (e.kind === 'npc') { e.revive(); return; }
     e.dead = false;
+    e.emoteUntil = 0;   // release a held 'die' clip
     e.group.traverse(o => {
       if (o.isMesh) {
         const mats = Array.isArray(o.material) ? o.material : [o.material];

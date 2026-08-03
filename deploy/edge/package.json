@@ -1,0 +1,14 @@
+{
+  "name": "elbera-edge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Public edge proxy: serves the web client and tunnels the gateway WebSocket on /ws",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/selftest.js"
+  },
+  "dependencies": {
+    "ws": "^8.21.1"
+  }
+}

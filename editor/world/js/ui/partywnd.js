@@ -5,6 +5,8 @@
 //   WindowsInfo.ini   [PartyWnd] width=176 height=368 posX=0 posY=92 —
 //                     the decrypted retail file (assets/interlude/system):
 //                     window size AND default dock (SOURCED). 368 = 46x8.
+//                     (posY is DEVIATED to 480 here — it collides with the
+//                     sourced MinimapWnd dock; see DOCK below.)
 //   PartyWnd.uc       the member model: NPARTYSTATUS_HEIGHT = 46 per
 //                     member row (uc:5), max 8 members (uc:6); the window
 //                     RESIZES to 46 x count (ResizeWnd, uc:252) and HIDES
@@ -47,11 +49,17 @@
 import { Skin } from './skin.js';
 import { Font } from './font.js';
 import { L2Window } from './window.js';
+import { WndMgr } from './wndmgr.js';
 
 const WND_W = 176;    // WindowsInfo.ini [PartyWnd] width
 const ROW_H = 46;     // NPARTYSTATUS_HEIGHT, PartyWnd.uc:5
 const MAX_MEMBERS = 8;  // NPARTYSTATUS_MAXCOUNT, PartyWnd.uc:6
-const DOCK = { left: 0, top: 92 };   // WindowsInfo.ini [PartyWnd] posX/posY
+// DEVIATION: the sourced posY=92 collides with the sourced MinimapWnd
+// dock (16,63) + its 334x433 window as rendered (413 body + 20 titlebar,
+// so the map covers y 63..496) — the pair is unreadable in the port.
+// posX=0 stays sourced; posY drops below the map (63 + 433 + a 4px gap,
+// the gap itself AUTHORED).
+const DOCK = { left: 0, top: 500 };   // WindowsInfo.ini [PartyWnd] posX; posY deviated (above)
 
 // retail member-row art (PlayerStatusWnd gauges reused for the bars)
 const HP_FILL = 'L2UI_CH3.PlayerStatusWnd.ps_HPbar';
@@ -165,6 +173,8 @@ export class PartyWnd {
     Font.set(this.askText, `${from || '?'} invites you to a party.`,
              { color: '#e8e8e8' });
     this.askWin.place({ left: window.innerWidth / 2 - 110, top: 200 });
+    // an incoming invite must be topmost — above every WndMgr window
+    WndMgr.raiseEl(this.askWin.root);
     this.askWin.show();
   }
 
@@ -321,7 +331,7 @@ export class PartyWnd {
     return this;
   }
 
-  /** WndMgr reset: the WindowsInfo.ini dock (0,92). */
+  /** WndMgr reset: the DOCK above (sourced posX, deviated posY). */
   onDefaultPosition() {
     this.place(DOCK);
   }

@@ -34,20 +34,43 @@
 // animations/*.ukx clip names): physical skills play SpAtk01-28 / Atk01-03
 // per weapon type; magic casts play CastShort/CastMid/CastLong chosen by
 // cast duration (<1s / 2-5s / 5s+, per the Pawn.uc Korean comments) and
-// MagicThrow/Magicshot at launch. NONE of those clips survive our pipeline
-// — shipped character clips are only idle/walk/run/sit/dance/attack
-// (converted from Wait/Walk/Run/Sit/Social_dance/Atk01,
-// docs/character-pipeline.md §4). Honest clip mapping:
-//   'N' dances  -> 'dance'   EXACT (Social_dance IS the dance-skill anim)
-//   all others  -> 'attack'  FALLBACK (physical: approximates SpAtk*;
-//                             magic: no cast clip shipped, status quo)
+// MagicThrow/Magicshot at launch. The rebuilt character glTFs ship a
+// compact retail set — castShort/castMid/castLong, magicThrow, spAtk01,
+// spAtk02, die, damage — on top of the original idle/walk/run/sit/dance/
+// attack (docs/character-pipeline.md §4). Clip mapping:
+//   'N' dances / is_magic 3 (songs)   -> 'dance'  EXACT (Social_dance IS
+//                                                   the dance-skill anim)
+//   physical (is_magic 0: S/t/V/U/Y/M/Mix01-09) -> 'spAtk01'/'spAtk02',
+//                                                   alternating
+//   magic (is_magic 1/2)  -> 'castShort'/'castMid'/'castLong' by hitTime
+// Callers fall back gracefully while pre-rebuild models are in place.
 
-// skillgrp.animation -> shipped glTF clip for PLAYER characters.
-export function clipForSkill(entry) {
-  if (!entry || !entry.anim) return null;         // passive: no cast anim
-  if (entry.anim === 'N') return 'dance';         // exact (see header)
-  return 'attack';                                // documented fallback
+let _spAtkAlt = 0;   // alternates the two shipped physical-skill clips
+
+// skillgrp.animation -> glTF clip for PLAYER characters. hitTime is the
+// MagicSkillUse cast duration in ms (the gateway skillCast op carries it).
+export function clipForSkill(entry, hitTime = null) {
+  if (!entry || !entry.anim) return null;              // passive: no cast anim
+  if (entry.anim === 'N' || entry.magic === 3) return 'dance';  // exact
+  if (entry.magic === 0) {                             // physical SpAtk*
+    _spAtkAlt = 1 - _spAtkAlt;
+    return _spAtkAlt ? 'spAtk01' : 'spAtk02';
+  }
+  // magic cast: retail picks by cast duration (<1s / 2-5s / 5s+)
+  const s = hitTime != null ? hitTime / 1000 : 2;      // unknown: mid
+  if (s < 1) return 'castShort';
+  if (s < 5) return 'castMid';
+  return 'castLong';
 }
+
+// Beneficial ONE-target magic by anim code — main.js auto-targets self
+// when such a skill is cast with no current target (retail behavior).
+// Data check behind the set: every shipped ONE-target skill coded D
+// (46/46 — Might, Shield, Acumen, the heals...) or A (3/3 — Greater
+// Battle Heal, Master Recharge, Soul Shield) is beneficial, while every
+// other code mixes in debuffs/nukes (C Sleep, E Wind Strike, j Wind
+// Shackle, f Drain Health...), so those stay strict.
+export function isBeneficialAnim(anim) { return anim === 'D' || anim === 'A'; }
 
 // Effect family from the DATA (no guessing beyond the stated rules):
 //   range -1/0                 -> 'aura'       (self/no-range: ring at target)

@@ -62,7 +62,7 @@ async function run(mode, port) {
     page.on('console', m => summary.consoleLogs.push(m.text()));
     page.on('pageerror', e => summary.consoleLogs.push('PAGEERROR: ' + e.message));
 
-    await page.goto(`http://127.0.0.1:8083/?ws=ws://127.0.0.1:${port}`,
+    await page.goto(`http://127.0.0.1:8083/?ws=ws://127.0.0.1:${port}&cc=0`,
       { waitUntil: 'networkidle0' });
     await page.waitForFunction('window.__world && window.__world.ready', { timeout: 30000 });
     await page.click('#online-toggle');

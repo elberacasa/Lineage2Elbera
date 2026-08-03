@@ -1,11 +1,11 @@
-// Phase C.3 verification — the retail skill window, against the LIVE server.
+// Phase C.3 verification — the retail skill window, against the MOCK gateway.
 //
-// Logs in as a real character (device id passed in or via L2_DEVICE_ID), waits
-// for the server's own SkillList, then checks the window splits skills the way
-// MagicSkillWnd.uc does: PASSIVE in its own pane, ACTIVE+TOGGLE in the other,
-// passives neither castable nor assignable to the shortcut bar.
+// Logs in (device id passed in or via L2_DEVICE_ID), waits for the gateway's
+// SkillList, then checks the window splits skills the way MagicSkillWnd.uc
+// does: PASSIVE in its own pane, ACTIVE+TOGGLE in the other, passives
+// neither castable nor assignable to the shortcut bar.
 //
-// Usage: node verify_skillwnd.js <deviceId>
+// Usage: node verify_skillwnd.js [deviceId]   (mock on 8085, server on 8083)
 
 const fs = require('fs');
 const path = require('path');
@@ -13,7 +13,7 @@ const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const BASE = 'http://127.0.0.1:8083/';
+const BASE = 'http://127.0.0.1:8083/?ws=ws://127.0.0.1:8085&cc=0';
 const OUT = path.join(__dirname, 'verify_shots');
 // A device id is optional: when none is passed we mint a fresh UUID, which
 // the gateway turns into a brand-new account (auto-create). Fresh accounts

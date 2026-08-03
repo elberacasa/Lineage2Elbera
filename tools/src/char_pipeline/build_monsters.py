@@ -39,6 +39,7 @@ STAGE = '/tmp/l2mon_stage'
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'tools/l2lib'))
 import assemble
+import scale_util
 import ue2package as up
 from build_characters import (decode_texture_png, library_png, load_utx,
                               resolve_diffuse, find_utx)
@@ -358,9 +359,18 @@ def build_one(mesh_id, pkg, stage, outdir):
     with open(out_gltf.replace('.gltf', '.bin'), 'wb') as f:
         f.write(bin_data)
     print('  -> %s (%d anims)' % (out_gltf, len(g['animations'])))
-    return {'id': mesh_id, 'gltf': 'models/%s.gltf' % mesh_id,
-            'animations': sorted(selection.keys(),
-                                 key=list(ANIM_CANDIDATES).index)}
+    entry = {'id': mesh_id, 'gltf': 'models/%s.gltf' % mesh_id,
+             'animations': sorted(selection.keys(),
+                                  key=list(ANIM_CANDIDATES).index)}
+    # true in-world height (L2 units) = glTF Y extent x 100 x MeshScale.z
+    # decoded from the .ukx (scale_util) — the client sizes the model from
+    # this, never from a hardcoded fallback
+    nh = scale_util.native_height(
+        out_gltf, os.path.join(CLIENT, 'animations/%s.ukx' % pkg), mesh_id)
+    if nh:
+        entry['nativeHeight'] = nh
+        print('  nativeHeight %.1f L2 units' % nh)
+    return entry
 
 
 def main():

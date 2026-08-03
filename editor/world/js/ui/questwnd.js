@@ -120,9 +120,10 @@ export class QuestWnd {
     win.body.appendChild(ab);
 
     parent.appendChild(win.root);
-    // AUTHORED: WindowsInfo.ini not mined for this window; same dock as
-    // the other toggle windows (SkillWnd/ActionWnd share it too).
-    this.defaultPlace = { right: 12, top: 60 };
+    // AUTHORED: WindowsInfo.ini not mined for this window; cascaded
+    // +56/+56 from SkillWnd's dock (right:12, top:60) so the toggle
+    // windows no longer spawn in an exact stack (audit B1).
+    this.defaultPlace = { right: 68, top: 116 };
     this._render();
   }
 

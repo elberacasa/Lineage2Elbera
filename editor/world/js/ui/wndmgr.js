@@ -61,7 +61,47 @@ export const WndMgr = {
 
     WndMgr.makeMovable(name, handle || el);
     el.addEventListener('pointerdown', () => WndMgr.raise(name), true);
+
+    // bring-to-front ON OPEN: same SetFocus/SetAlwaysOnTop contract as the
+    // click raise — a window that becomes visible is the one the player is
+    // looking at, so it goes above the stack it was buried under
+    let lastDisplay = el.style.display;
+    new MutationObserver(() => {
+      const d = el.style.display;
+      if (d === lastDisplay) return;
+      lastDisplay = d;
+      if (d !== 'none') WndMgr.raise(name);
+    }).observe(el, { attributes: true, attributeFilter: ['style'] });
     return win;
+  },
+
+  /** Raise an UNREGISTERED element (the ask popups, which are not WndMgr
+   *  windows) above every registered window — invites must be topmost. */
+  raiseEl(el) {
+    el.style.zIndex = String(++_z);
+  },
+
+  /**
+   * Retail Esc: close the topmost OPEN window. Only closable windows are
+   * eligible (their frame carries FrameCloseBtn — window.js); HUD fixtures
+   * like StatusWnd/ChatWnd/ShortcutWnd are not windows the player closes.
+   * Mirrors the close button's click exactly: hide + the onClose hook (so
+   * Trade cancels, the NPC dialog sends its close, etc.).
+   * @returns {boolean} whether a window was closed
+   */
+  closeTopmost() {
+    let top = null;
+    for (const [, w] of _windows) {
+      if (w.el.style.display === 'none') continue;
+      const lw = w.win.win || w.win;   // wrapper -> its L2Window frame
+      if (!lw || !lw.closeBtn) continue;
+      if (!top || +w.el.style.zIndex > +top.el.style.zIndex) top = w;
+    }
+    if (!top) return false;
+    const lw = top.win.win || top.win;
+    lw.hide();
+    if (lw.onClose) lw.onClose();
+    return true;
   },
 
   /** Retail: every window can be dragged anywhere on screen. */

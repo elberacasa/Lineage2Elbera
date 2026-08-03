@@ -5,6 +5,13 @@
 //
 // Behavior per connection:
 //   login{deviceId}   -> auth_ok{chars:[one char]}
+//   login{...,noAutoCreate:true} -> auth_ok{chars:[]} until a createChar
+//                        succeeds (bridge login-flag parity: the browser
+//                        then drives character creation itself)
+//   createChar{name,race,sex,classId,hairStyle,hairColor,face}
+//                     -> lightly validated (name regex, base classIds,
+//                        fixture players' names are "taken"); success:
+//                        charCreateOk + refreshed auth_ok{chars:[created]}
 //   enterChar{slot}   -> enterWorld{char{...}} at tile 17_24 center,
 //                        then addNpc x3, addPlayer x3 (2 standing, 1 walker)
 //   moveTo{x,y,z}     -> echoed back as move{id:<self>} (server-authoritative)
@@ -15,10 +22,15 @@
 //   target{id}      -> target_ok{id} + status{id,hp,maxHp}
 //   attack{id}      -> combat loop on the gremlin (70001): player hits
 //                      (attack/status ops), gremlin counters, selfStatus
-//                      ticks; gremlin dies -> die + exp gain, revives 6 s
-//                      later (revive + full status)
-//   say "/die"      -> selfStatus hp 0 (death overlay test)
+//                      ticks; gremlin dies -> die + addDrop (adena next to
+//                      the corpse) + exp gain, revives 6 s later (revive +
+//                      full status); target on the corpse = loot pickup
+//                      (invUpdate + sysMsg 28 + remove of the drop)
+//   say "/die"      -> selfStatus hp 0 + die{id:<self>,canRespawn:true}
+//                      (death overlay test, mirrors the real bridge)
 //   say "/revive"   -> selfStatus full (overlay clears)
+//   respawn{}       -> revive{id:<self>} + selfStatus full (the aCis
+//                      RequestRestartPoint answer: doRevive + teleport)
 //   selfStatus      -> sent once after enterChar
 // M4 ops emitted by the mock:
 //   enterChar   -> skillList + itemList (after enterWorld/selfStatus)
@@ -198,6 +210,9 @@ wss.on('connection', (ws) => {
   // M14 clan fixture: an existing clan at login (self a rank-and-file
   // member — Leave enabled, no oust marks), restored on clanAnswer accept.
   let clan = null;
+  // character-creation fixture: set by a successful createChar (the
+  // account's only char from then on; null = legacy fixture char)
+  let createdChar = null;
   let partyTick = null;
   // M12 trade state (virtual partner Aria): null = no active trade
   let trade = null;
@@ -342,6 +357,12 @@ wss.on('connection', (ws) => {
       if (mob.hp <= 0) {
         mob.dead = true;
         send('die', { id: mobId });
+        // ground drop next to the corpse (mirrors aCis SpawnItem + the
+        // bridge's addDrop op); consumed by the loot pickup in 'target'
+        const npcDef = NPCS.find(n => n.id === mobId);
+        mob.dropId = 95000 + Number(mobId) % 1000;
+        send('addDrop', { id: mob.dropId, itemId: 57, count: 23,
+          x: (npcDef ? npcDef.x : 0) + 40, y: (npcDef ? npcDef.y : 0) + 40, z: npcDef ? npcDef.z : 0 });
         selfStats.exp = Math.min(1, +(selfStats.exp + 0.35).toFixed(2));
         selfStats.sp += 50;
         send('selfStatus', selfStats);
@@ -389,13 +410,49 @@ wss.on('connection', (ws) => {
     console.log('  <-', JSON.stringify(msg));
 
     if (msg.op === 'login') {
-      send('auth_ok', {
-        chars: [{ slot: 0, name: self.name, race: 'Human', classId: 0 }],
-      });
+      // login{noAutoCreate:true} (the world client): skip the legacy
+      // auto-create — the account stays empty until createChar succeeds
+      if (msg.noAutoCreate && !createdChar) {
+        send('auth_ok', { chars: [] });
+      } else {
+        send('auth_ok', {
+          chars: [createdChar || { slot: 0, name: self.name, race: 'Human', classId: 0 }],
+        });
+      }
+    } else if (msg.op === 'createChar') {
+      // Light parity with the bridge's gateway-side validation (which
+      // checks EVERY field — gateway/src/bridge.js): the mock checks the
+      // name and classId, and treats the fixture characters' names as
+      // taken so the charCreateFail path is exercisable.
+      const CLASS_RACE = {
+        0: 'Human', 10: 'Human', 18: 'Elf', 25: 'Elf', 31: 'DarkElf',
+        38: 'DarkElf', 44: 'Orc', 49: 'Orc', 53: 'Dwarf',
+      };
+      const name = String(msg.name || '');
+      const race = CLASS_RACE[msg.classId | 0];
+      const taken = [self.name, ...PLAYERS.map(p => p.name), WALKER.name];
+      if (!/^[A-Za-z0-9]{1,16}$/.test(name)) {
+        send('charCreateFail', { reason: 'invalid_name' });
+      } else if (!race) {
+        send('charCreateFail', { reason: 'invalid_classId' });
+      } else if (taken.includes(name)) {
+        send('charCreateFail', { reason: 'name_already_exists', code: 2 });
+      } else {
+        createdChar = {
+          slot: 0, name, race, classId: msg.classId | 0, sex: msg.sex | 0,
+          level: 1,
+          hairStyle: msg.hairStyle | 0, hairColor: msg.hairColor | 0, face: msg.face | 0,
+        };
+        send('charCreateOk');
+        send('auth_ok', { chars: [createdChar] });
+      }
     } else if (msg.op === 'enterChar') {
       send('enterWorld', {
         char: {
-          id: self.id, name: self.name, race: 'Human', classId: 0,
+          id: self.id,
+          name: createdChar ? createdChar.name : self.name,
+          race: createdChar ? createdChar.race : 'Human',
+          classId: createdChar ? createdChar.classId : 0,
           x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, heading: 32768,
         },
       });
@@ -404,9 +461,15 @@ wss.on('connection', (ws) => {
       send('addPlayer', WALKER);
       send('selfStatus', selfStats);
 
-      // M4: skills + inventory snapshots
+      // M4: skills + inventory snapshots. Same per-skill shape as the real
+      // bridge (gateway/src/bridge.js): SkillList (0x58) carries `passive`
+      // and `disabled` per skill; 141 Weapon Mastery is the PASSIVE fixture
+      // (skilltypes.json) so the MagicSkillWnd pane split is exercisable.
       send('skillList', { skills: [
-        { id: 3, level: 1 }, { id: 226, level: 1 }, { id: 28, level: 1 },
+        { id: 3, level: 1, passive: false, disabled: false },
+        { id: 226, level: 1, passive: false, disabled: false },
+        { id: 28, level: 1, passive: false, disabled: false },
+        { id: 141, level: 1, passive: true, disabled: false },
       ] });
       items.push(
         { objectId: 90001, itemId: 57, count: 1200, slot: 0, equipped: 0, enchant: 0 },
@@ -516,7 +579,11 @@ wss.on('connection', (ws) => {
       } else {
         send('chat', { from: self.name, channel: msg.channel ?? 0, text: msg.text });
       }
-      if (msg.text === '/die') send('selfStatus', { ...selfStats, hp: 0 });
+      if (msg.text === '/die') {
+        send('selfStatus', { ...selfStats, hp: 0 });
+        // mirror the real bridge: SELF death carries the respawn capability
+        send('die', { id: self.id, canRespawn: true });
+      }
       if (msg.text === '/revive') send('selfStatus', selfStats);
       // M9 party fixture ON DEMAND — an unsolicited prompt would cover the
       // 3D clicks of unrelated verify suites
@@ -560,6 +627,12 @@ wss.on('connection', (ws) => {
           `<button value="Close" action="bypass -h npc_bye" width="110" height="18">` +
           `</center></body></html>` });
       }
+    } else if (msg.op === 'respawn') {
+      // mirror the real bridge's RequestRestartPoint answer: revive + a
+      // full selfStatus (aCis doRevive restores hp/cp; the town teleport
+      // arrives as a move op — the mock keeps the player in place)
+      send('revive', { id: self.id });
+      send('selfStatus', selfStats);
     } else if (msg.op === 'target') {
       // loot (mirror of the real bridge: Action on a dead mob = pickup)
       const deadMob = MOBS[msg.id];
@@ -568,7 +641,10 @@ wss.on('connection', (ws) => {
         const adena = { objectId: 90100 + lootCounter, itemId: 57, count: 23, slot: 0, equipped: 0, enchant: 0 };
         items.push(adena);
         send('invUpdate', { updated: [{ change: 'add', ...adena }] });
-        send('sysMsg', { id: 28, params: ['adena', 23] });
+        // sysMsg 28 = "You have obtained $s1 adena." — $s1 is the COUNT
+        send('sysMsg', { id: 28, params: [23] });
+        // the ground drop (if any) is consumed by the pickup
+        if (deadMob.dropId) { send('remove', { id: deadMob.dropId }); deadMob.dropId = null; }
         return;
       }
       lastTarget = msg.id;

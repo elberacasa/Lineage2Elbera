@@ -89,43 +89,67 @@ ws.on('message', async (data) => {
 
 async function startCombat() {
   const me = R.me;
-  // Nearest Gremlin (attackable starter-village monster).
+  // Best known positions: `move` ops carry the destination (and ValidateLocation
+  // fixes), so they trail reality while a toon is blocked; damage progress is
+  // the ground truth that adjacency was actually reached.
+  const selfPos = () => R.moves.get(me.id) || me;
+  const npcPos = (g) => R.moves.get(g.id) || g;
+  const dmgOn = (id) => R.attacks.filter((a) => a.targetId === id).length;
+  // Nearest-first Gremlins (attackable starter-village monster), but prefer
+  // ones a short straight walk away: the absolute nearest can sit across
+  // training-hall geometry where straight-line moveTo stalls.
   const gremlins = R.npcs
     .filter((n) => n.name === 'Gremlin')
+    .map((n) => ({ ...n, ...(R.moves.get(n.id) || n) }))
     .map((n) => ({ ...n, dist: Math.hypot(n.x - me.x, n.y - me.y) }))
     .sort((a, b) => a.dist - b.dist);
   if (!gremlins.length) {
     console.error('no Gremlin found in addNpc stream');
     return finish();
   }
-  // Try up to 2 gremlins: occasionally the first one is contested/dead on
-  // the shared dev server and never produces attack ops.
-  for (const g of gremlins.slice(0, 2)) {
+  const near = gremlins.filter((g) => g.dist < 150);
+  const candidates = (near.length ? near : gremlins).slice(0, 4);
+  const tGlobal = Date.now();
+  for (const g of candidates) {
+    if (R.targetDied || R.selfDied || Date.now() - tGlobal > 150000) break;
     R.targetId = g.id;
-    const dealtMark = R.attacks.length;
+    R.targetOk = false;
+    R.targetStatuses = [];
     console.log(`targeting Gremlin id=${g.id} at ${g.x},${g.y} (dist ${g.dist | 0})`);
     ws.send(JSON.stringify({ op: 'target', id: g.id }));
     await sleep(1000);
 
     // With geodata active the ranged auto-approach on AttackRequest can
-    // stall: walk NEXT to the gremlin first, then attack. Bail to the next
-    // gremlin if no attack ops appear within 25s of engagement.
+    // stall: walk NEXT to the gremlin in straight-line legs, verify
+    // adjacency (<=80u by last known positions) before each attack window,
+    // and bail to the next candidate if no damage lands within 20s.
     const t0 = Date.now();
-    while (!R.targetDied && !R.selfDied && Date.now() - t0 < 120000) {
-      if (R.attacks.length === dealtMark && Date.now() - t0 > 25000) break; // unresponsive gremlin
-      const pos = R.moves.get(g.id) || g;
-      const mePos = R.moves.get(R.me.id) || R.me;
-      ws.send(JSON.stringify({ op: 'moveTo', x: pos.x + 20, y: pos.y, z: pos.z }));
-      const walkMs = Math.min(12000, (Math.hypot(pos.x - mePos.x, pos.y - mePos.y) / 115) * 1000 + 2500);
-      await sleep(walkMs);
-      const t1 = Date.now();
-      while (!R.targetDied && !R.selfDied && Date.now() - t1 < 12000) {
-        ws.send(JSON.stringify({ op: 'attack', id: g.id }));
-        await sleep(4000);
+    let dmgMark = dmgOn(g.id);
+    let lastProgress = Date.now();
+    while (!R.targetDied && !R.selfDied && Date.now() - t0 < 60000) {
+      const dealt = dmgOn(g.id);
+      if (dealt > dmgMark) { dmgMark = dealt; lastProgress = Date.now(); }
+      if (Date.now() - lastProgress > 20000) break; // no damage progress: stuck/contested
+      const pos = npcPos(g);
+      const mePos = selfPos();
+      const d = Math.hypot(pos.x - mePos.x, pos.y - mePos.y);
+      if (d > 80) {
+        // one straight-line leg (<=150u) toward the gremlin, then re-check
+        const leg = Math.min(d, 150);
+        const lx = leg >= d ? pos.x + 20 : mePos.x + ((pos.x - mePos.x) / d) * leg;
+        const ly = leg >= d ? pos.y : mePos.y + ((pos.y - mePos.y) / d) * leg;
+        ws.send(JSON.stringify({ op: 'moveTo', x: lx | 0, y: ly | 0, z: pos.z | 0 }));
+        await sleep(Math.min(12000, (leg / 115) * 1000 + 2500));
+        continue;
       }
+      // Adjacent: attack window. Each loop re-verifies adjacency (the
+      // gremlin wanders/retaliates) and the progress timer above bounds
+      // windows where the position estimate was wrong (blocked by a wall).
+      ws.send(JSON.stringify({ op: 'attack', id: g.id }));
+      await sleep(2000);
     }
-    if (R.targetDied || R.selfDied || R.attacks.length > dealtMark) break; // engaged or done
-    console.log('gremlin unresponsive, trying another...');
+    if (R.targetDied || R.selfDied) break;
+    console.log(`gremlin id=${g.id} made no progress, trying another...`);
   }
   console.log(R.targetDied ? 'gremlin dead, waiting for corpse decay...' : 'combat ended without kill');
   // Wait for decay (remove op) up to 20s.

@@ -53,7 +53,7 @@ harnesses (headless Chrome driving the real UI).
 | **2,083** | system messages decoded — the client shows the game's own text, not ids |
 | **16** | retail UI windows rebuilt at client-exact, mined geometry — zero unjustified pixels (an audit gates the build) |
 | **100 / 100** | tiles with the server's own geodata extracted — bridges, indoor floors and real walkable heights |
-| **38** | suites in the one-command verification battery (`tools/battery.sh`) |
+| **42** | suites in the one-command verification battery (`tools/battery.sh`) — 24 client + 18 live-gateway |
 | **1,268 / 21,589** | world textures at 4x HD — pilot tiles complete and verified; the full pass is staged |
 | **157 / 653** | retail `.unr` maps / UE2 packages readable by the toolchain |
 | **65** | database tables in the running game server |
@@ -209,11 +209,28 @@ browser-stored device id. No signup, no login screen.
 
 Zero-Docker alternative for steps 1: `cd deploy && docker compose up -d --build`.
 
+### Play with friends
+
+Share the game over a single https link — no client install on their side:
+
+```bash
+deploy/play.sh --tunnel
+```
+
+The script brings up the whole local stack (idempotently — whatever is
+already listening is skipped), waits for the login and game servers, opens a
+Cloudflare quick tunnel to the edge proxy on :8095, and prints a
+`https://*.trycloudflare.com` URL: that is the link to send. Anyone with it
+lands straight in the game — account and character auto-create on first
+login (device-id identity, no password). The link is unguessable but grants
+full access, so friends only; keep the Mac awake (`caffeinate`) while they
+play, and `deploy/play.sh --stop` closes the tunnel and edge proxy.
+
 ---
 
 ## The Elbera toolchain
 
-Fourteen tools, one rule: each does one job, is re-runnable, and carries its
+Fifteen tools, one rule: each does one job, is re-runnable, and carries its
 own verification. Pitch first, details after.
 
 | Tool | Pitch | Location |
@@ -221,6 +238,7 @@ own verification. Pitch first, details after.
 | **ElberaGate** | Browsers play on the real server | `gateway/` (:8090) |
 | **ElberaClient** | The game, in a tab | `editor/world/` (:8083) |
 | **ElberaCreate** | The character creator, rebuilt | `editor/charcreate/` (:8082) |
+| **ElberaEdge** | One public port: client + WS tunnel-ready | `deploy/edge/` (:8095) |
 | **ElberaPanel** | Tune the server from a web UI | `panel/` (:8080) |
 | **ElberaAssets** | Browse 30k game textures interactively | `editor/` (:8081) |
 | **ElberaDeploy** | The whole server in one command | `deploy/` |
@@ -254,20 +272,38 @@ gates the UI port.
   *Verify:* `cd gateway && node test/verify-one.js` (plus `verify-two`,
   `verify-combat`, `verify-m4`, `verify-m5`, `verify-mods`, `verify-shop`,
   `verify-trade`, `verify-store`, `verify-party`, `verify-quest`,
-  `verify-buffs`, `verify-clan` — all PASS against the live server;
+  `verify-buffs`, `verify-clan`, `verify-create` (browser-driven character
+  creation), `verify-respawn` — all PASS against the live server;
   `tools/battery.sh --gateway-only` runs them all).
 - **ElberaClient — the walkable world.** three.js world streaming over the
   converted tiles, retail splat-blended terrain, water planes, geodata
-  walkable heights, point-click movement with server reconciliation, WASD
-  option, nameplates, and the full retail UI (16 windows) with real icons,
-  skills, quests, shops, trade, private stores, party and buffs. `?hd=1`
-  enables the 4x texture set. Solo offline or online through ElberaGate.
+  walkable heights, point-click movement with server reconciliation, real
+  WASD (streams server-accepted move legs), nameplates, and the full retail
+  UI (16 windows) with real icons, skills, quests, shops, trade, private
+  stores, party and buffs. Cast/physical-skill/death animations decoded from
+  the retail per-race packages (14 clips per character), ground drops with
+  nameplates and click-pickup, additive flame rendering, death → respawn in
+  town, and system messages rendered with real skill/item names.
+  `?hd=1` enables the 4x texture set. Solo offline or online through
+  ElberaGate.
   *Verify:* `cd editor/world && node verify_live.js` (two headless browsers
-  on the real stack); `tools/battery.sh --client-only` runs the 22 UI/world
+  on the real stack); `tools/battery.sh --client-only` runs the 24 UI/world
   suites.
 - **ElberaCreate — the character creator.** All 14 race/gender combos from
   the frozen glTF manifest, faces/hair/colors from the real chargrp/hairgrp
-  tables, HD-upscaled textures. *Verify:* `cd editor/charcreate && node verify_app.js`.
+  tables, HD-upscaled textures. Creates REAL characters on the live server:
+  embedded at `/create/` in ElberaClient on accounts with no character
+  (`createChar` gateway op, race/sex/class/face/hair/name → real aCis
+  CharCreate). *Verify:* `cd editor/charcreate && node verify_app.js`;
+  end-to-end `cd editor/world && node verify_charcreate.js` (mock) and
+  `cd gateway && node test/verify-create.js` (live).
+- **ElberaEdge — the public edge.** Single-port reverse proxy
+  (`deploy/edge/`, :8095): HTTP to ElberaClient + WebSocket `/ws` to
+  ElberaGate, so one Cloudflare tunnel URL serves the whole game — the
+  client defaults its gateway to same-origin `/ws` when not on localhost.
+  *Verify:* `cd deploy/edge && npm test` (proxy self-test) and
+  `node test/verify-public.js https://<tunnel-url>` (live login →
+  enterWorld through the tunnel).
 - **ElberaPanel — server config UI.** All 493 catalogued aCis config keys
   with ES/EN labels, stock-default comparison, timestamped backups,
   source→dist sync. Dependency-free Python.
@@ -345,6 +381,15 @@ ours.
 
 ## What works today — verified
 
+- **Playable beta loop.** Browser character creation (real race/class/
+  appearance/name on the live server), real WASD + click-to-move with
+  failure feedback, melee and skill combat with cast/physical/death
+  animations decoded from the retail packages, ground drops with
+  nameplates and click-pickup, death → respawn in town, system messages
+  with real skill/item names, and characters at true L2 scale (nativeHeight
+  decoded per model from the retail `.ukx` MeshScale, cross-checked against
+  the server's own collision heights) — all live-verified (`verify-create`,
+  `verify-respawn`, `verify_charcreate`, combat suites).
 - **Real protocol gateway.** Live sessions on the unmodified server: NPCs,
   players, movement, chat, combat, skills, inventory, quests, party, buffs,
   shops, trade, private stores, clans — `gateway/test/verify-*.js` all PASS.

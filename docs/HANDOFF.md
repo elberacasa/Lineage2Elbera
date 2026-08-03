@@ -51,8 +51,8 @@ Invite button, accept, oust through the window); `verify-clan.js` PASS;
 (0 failures — `tools/world/reconvert.log`); `verify_ground` unchanged
 (13 pre-existing borderline cells, same before and after the terrain fixes).
 
-The full health check is one command — **`tools/battery.sh`** (38 suites:
-22 client UI/world suites against the mock gateway, then 16 live-protocol
+The full health check is one command — **`tools/battery.sh`** (42 suites:
+24 client UI/world suites against the mock gateway, then 18 live-protocol
 suites against the real aCis; `--client-only` / `--gateway-only` to run a
 subset; exit 0 only if everything passes). Run it before claiming anything
 still works. Budget time for it: the gateway half alone takes ~25–40 min —
@@ -198,7 +198,13 @@ packageSale?}` · `storeSetBuy{items[{itemId,count,price}],title?}` ·
 `storeStart{}` · `storeStop{}` · `storeBuy{storeId,items[{objectId,count}]}` ·
 `storeSell{storeId,items[{objectId,count,price}]}` · `clanInvite{name}` ·
 `clanAnswer{accept}` · `clanLeave{}` · `clanOust{name}` ·
-`clanCrestRequest{id}`.
+`clanCrestRequest{id}` ·
+`createChar{name,race,sex,classId,hairStyle,hairColor,face}` (added
+2026-08-02; classId authoritative — race derived from it, 9 base classIds;
+`login{deviceId,noAutoCreate?}` — the flag suppresses the legacy Human
+Fighter auto-create per session, env `GATEWAY_AUTOCREATE` still defaults
+ON for the legacy suites) · `respawn{}` (added 2026-08-02; RequestRestartPoint
+type 0 = to village; guarded by server-tracked dead state).
 
 Actions (fixed 2026-07-27): `action{actionId}` takes actionname-e.dat UI
 ids; SOCIAL-map keys are remapped to aCis social ids and sent via
@@ -212,14 +218,20 @@ their real packets are AttackRequest/TradeRequest/party packets).
 `/sit` via Say2 does nothing in aCis — RequestActionUse is canonical.
 
 
-Server → client: `auth_ok{chars[]}` · `enterWorld{char{id,name,race,classId,
+Server → client: `auth_ok{chars[]}` (entries carry slot,name,race,classId
+plus, since 2026-08-02, sex,level,hairStyle,hairColor,face) ·
+`charCreateOk{}` / `charCreateFail{reason,code?}` (2026-08-02; reason is a
+string — server codes mapped, or gateway-side `invalid_<field>` with no
+code) · `enterWorld{char{id,name,race,classId,
 x,y,z,heading}}` (exactly once per session) · `addNpc{id,npcId,name,level,
 x,y,z,heading}` · `addPlayer{id,name,race,classId,level,x,y,z,heading}` ·
 `move{id,tx,ty,tz}` · `remove{id}` · `chat{from,channel,text,target?}` ·
 `status{id,hp,maxHp,mp,maxMp}` · `selfStatus{hp,maxHp,mp,maxMp,cp,maxCp,
 level,exp,sp}` · `charSheet{str,dex,con,int,wit,men,pAtk,pDef,mAtk,mDef,
 accuracy,evasion,critical,runSpeed,walkSpeed,pAtkSpd,mAtkSpd,maxLoad}` ·
-`attack{id,targetId,damage,critical,miss}` · `die{id}` ·
+`attack{id,targetId,damage,critical,miss}` · `die{id}` (self death also
+carries `canRespawn` since 2026-08-02 — the aCis Die packet's toVillage
+flag, parsed not discarded) ·
 `revive{id}` · `target_ok{id,color}` · `skillList{skills[{id,level,passive,
 disabled}]}` and
 `itemList{items[{objectId,itemId,count,slot,equipped,enchant}]}` (both
@@ -567,6 +579,26 @@ neighbor-median fill beyond it; `verify_ground` skips deferred cells);
 dropped ~1/3 of every tile's StaticMeshActors — 22_22: 1237→1891 props;
 all 100 tiles reconverted, some +1500);
 
+**Beta-playability wave (2026-08-02)** — driven by live/headless playtest
+audits, all verified (client battery 23/23 + `verify_charcreate`):
+browser **character creation** end-to-end (`createChar`, embedded
+`/create/` creator iframe on empty accounts, `noAutoCreate` login flag,
+`?cc=0` suite opt-out — `verify-create`/`verify-respawn` live + mock);
+**respawn op** (death was a soft-lock; Die packet parsed, restart-to-
+village wired to the Respawn button); 8 new animation clips per character
+glTF (`castShort/castMid/castLong/magicThrow/spAtk01/spAtk02/die/damage` —
+ANIM_CANDIDATES in build_characters.py; `clipForSkill(entry, hitTime)`);
+self attack/cast/death animations (local player was never in the
+EntityManager); beneficial skills auto-self-target (data-driven:
+target routing ONE + anim code D/A); real WASD (streams moveTo legs);
+far-click leg splitting + time-correlated actionFailed feedback;
+ground drops rendered with labels + click-pickup; flame materials render
+additively (were black quads); sysMsg item/skill name resolution
+(`sysmsg_paramtypes.json`, mined from aCis call sites); 102 action icons
+extracted; UI window cascade + bring-to-front, dock overlap fixes, Esc
+(close topmost window else clear target), dev bar collapsed to a corner
+widget, unknown slash commands no longer broadcast.
+
 The real remaining backlog, in order:
 
 1. ~~Full world-texture HD pass~~ — **DONE 2026-07-28**: 21,589/21,589
@@ -585,7 +617,13 @@ The real remaining backlog, in order:
 5. **Server ops backlog** (`docs/README-ADMIN.md` §8): rate balancing after
    playtest, backup automation, VPS migration (§7 of that doc — ports,
    hostnames, player patch, guide placeholders).
-6. **Later**: Seven Signs catacomb tiles (16_12/18_10/19_10/20_10), KTX2
+6. **Onboarding + movement depth** (from the 2026-08-02 live audit):
+   aCis TutorialShowHtml-family packets are unparsed at the gateway (no
+   tutorial reaches the browser; the Newbie Helper dialog is a dead-end
+   text box); no client-side pathfinding — far clicks walk straight-line
+   legs and stop at geometry (loudly now, but still stuck); char-select
+   screen for multi-char accounts (today: first slot auto-enters).
+7. **Later**: Seven Signs catacomb tiles (16_12/18_10/19_10/20_10), KTX2
    compression, WebGPU eval, mobile layout.
 
 Verification discipline for anything new: protocol claims need a live

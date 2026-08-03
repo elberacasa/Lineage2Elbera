@@ -1,5 +1,5 @@
 // M3 combat verification against the MOCK gateway (port 8085).
-// Drives the real UI: toggle Online (?ws=ws://127.0.0.1:8085), click the
+// Drives the real UI: toggle Online (?ws=ws://127.0.0.1:8085&cc=0), click the
 // gremlin (raycast entity picking), target frame appears, F1 attacks,
 // damage floats / HP bars tick, gremlin dies (die anim + fade), self
 // status bar updates, '/die' shows the death overlay, '/revive' clears.
@@ -12,7 +12,7 @@ const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const BASE = 'http://127.0.0.1:8083/?ws=ws://127.0.0.1:8085';
+const BASE = 'http://127.0.0.1:8083/?ws=ws://127.0.0.1:8085&cc=0';
 const OUT = path.join(__dirname, 'verify_shots');
 const GREMLIN = 70001;
 const sleep = ms => new Promise(r => setTimeout(r, ms));

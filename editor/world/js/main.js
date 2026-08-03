@@ -13,7 +13,8 @@ import { CombatUI, bindProjection } from './combat.js';
 import { SkillBar, SkillFx } from './skills.js';
 import { InventoryWnd } from './ui/inventorywnd.js';
 import { ShortcutWnd } from './ui/shortcutwnd.js';
-import { skillMeta, skillInfo, itemMeta, itemInfo, sysMsgMeta, renderSysMsg, sysMsgColor } from './gamedata.js';
+import { skillMeta, skillInfo, itemMeta, itemInfo, sysMsgMeta, renderSysMsg, sysMsgColor, skillAnimMeta, skillAnimInfo, skillAnimLoaded } from './gamedata.js';
+import { isBeneficialAnim } from './skillfx_anim.js';
 import { CharSheet } from './charsheet.js';
 import { MenuWnd, SystemMenuWnd } from './ui/menuwnd.js';
 import { TargetStatusWnd } from './ui/targetstatuswnd.js';
@@ -196,6 +197,17 @@ let propDistTimer = 0;
 // --- M2 online state --------------------------------------------------------
 
 const net = new NetClient();
+// Character creation milestone: the browser drives createChar itself from
+// an empty auth_ok, so suppress the gateway's legacy first-login auto-create
+// for this session (gateway default for other clients is unchanged).
+// net.js sends the login op internally on connect — inject the flag here.
+// ?cc=0 opts back into the legacy auto-create (kept for the older suites).
+const CC_ENABLED = new URLSearchParams(location.search).get('cc') !== '0';
+if (CC_ENABLED) {
+  const rawSend = net.send.bind(net);
+  net.send = (op, fields = {}) =>
+    rawSend(op, op === 'login' ? { noAutoCreate: true, ...fields } : fields);
+}
 const entities = new EntityManager(scene, manifest);
 let online = false;
 let selfId = null;          // server object id of our own character
@@ -229,15 +241,28 @@ let systemMenuWnd = null;
 // Dev controls have no retail equivalent, so the bar is not part of the
 // retail view. But it carries the Online toggle, which is the only way into
 // the game -- hiding it behind an undiscoverable key locks the user out. So:
-// ` (Backquote) toggles, ?dev=1 forces it open, the choice PERSISTS across
-// reloads, and it defaults to open until deliberately dismissed once.
-// Backquote is AUTHORED-but-honest: no retail binding uses it (nothing in
-// the xdat/uscript keymaps references it, checked), and it frees F9, which
-// IS retail — shortcut slot 9 (F1..F12 trigger the bar's slots).
+// ` (Backquote) toggles the FULL bar, ?dev=1 forces it open, the choice
+// PERSISTS across reloads, and the first-run default is a collapsed corner
+// widget holding just Online + settings — the full-width strip (style.css
+// #hud left:0;right:0) covered the retail StatusWnd/TargetStatusWnd docks
+// at the top center. An explicit dismissal (stored '0') still hides it
+// entirely. Backquote is AUTHORED-but-honest: no retail binding uses it
+// (nothing in the xdat/uscript keymaps references it, checked), and it
+// frees F9, which IS retail — shortcut slot 9 (F1..F12 trigger the bar's
+// slots).
 const hudEl = document.getElementById('hud');
 const DEV_KEY = 'l2vzla.devbar';
+// dev-only controls hidden in the collapsed (mini) state; the Online label
+// and the settings button stay reachable
+const devOnlyEls = [
+  hudEl.querySelector('.brand'),
+  scenePicker.parentElement,
+  charPicker.parentElement,
+  statusEl,
+];
 function setDevBar(on) {
   hudEl.classList.toggle('dev-visible', on);
+  for (const el of devOnlyEls) el.style.display = on ? '' : 'none';
   try { localStorage.setItem(DEV_KEY, on ? '1' : '0'); } catch { /* ignore */ }
 }
 {
@@ -245,6 +270,10 @@ function setDevBar(on) {
   let stored = null;
   try { stored = localStorage.getItem(DEV_KEY); } catch { /* ignore */ }
   hudEl.classList.toggle('dev-visible', forced || stored !== '0');
+  hudEl.style.right = 'auto';   // hug the corner, never the top-center docks
+  if (!forced && stored !== '1') {
+    for (const el of devOnlyEls) el.style.display = 'none';   // mini default
+  }
   if (stored === null) showDevHint();
 }
 
@@ -311,6 +340,13 @@ bindProjection(camera, canvas);
 // head position (for HP bars / damage floats) of an entity, or null
 const _headPos = new THREE.Vector3();
 function entityHeadPos(id) {
+  // the local player is not in the EntityManager (main.js keeps it as a
+  // separate Character) — resolve self the same way skills.js entityPos does
+  if (id === selfId && character) {
+    _headPos.copy(character.group.position);
+    _headPos.y += (character.heightM || 1.75) * 1.1;
+    return _headPos;
+  }
   const e = entities.getEntity(id);
   if (!e) return null;
   _headPos.copy(e.group.position);
@@ -321,6 +357,12 @@ function entityHeadPos(id) {
 function clickEntity(id) {
   const e = entities.getEntity(id);
   if (!e) return;
+  // ground drop: a single click walks there and picks it up (Action on a
+  // drop — the bridge routes target{id} to pickup server-side)
+  if (e.kind === 'drop') {
+    if (online) net.send(LOOT_OP, { id });
+    return;
+  }
   if (e.dead) {
     // M4 loot UX: click a corpse -> loot op (F key does the same)
     if (online) net.send(LOOT_OP, { id });
@@ -340,6 +382,7 @@ function clickEntity(id) {
       // player without ctrl; 'attack' stays for monsters/NPCs.
       net.send('talk', { id });
     } else {
+      notePlayerAction('attack');
       net.send('attack', { id });
     }
   } else {
@@ -351,8 +394,10 @@ function clickEntity(id) {
 }
 
 document.getElementById('respawn-btn').addEventListener('click', () => {
-  console.log('respawn requested (no respawn op in the M3 bridge contract yet)');
-  chat.addSystem('respawn: not supported by the gateway yet (no op in contract)');
+  // respawn{} -> RequestRestartPoint(to village). The gateway guards the
+  // dead state server-side and answers with revive + selfStatus + a
+  // teleport-style move op (handled in the revive/move handlers below).
+  if (online) net.send('respawn', {});
 });
 
 // --- M4 skills & items ---------------------------------------------------------
@@ -389,9 +434,23 @@ const skillBar = new SkillBar(
       // the caster even while a mob is targeted — no targetId is sent, so
       // the bridge never re-targets for them
       const selfTarget = weaponGate.loaded && weaponGate.targetType(skillId) === 'SELF';
+      let targetId = !selfTarget && combat.targetId != null ? combat.targetId : null;
+      // Retail auto-targets SELF when a beneficial ONE-target skill is cast
+      // with nothing targeted — without it aCis answers a bare actionFailed
+      // (no sysMsg), which reads as "skills don't cast". Beneficial comes
+      // from the DATA: skillweapons target routing + the skillgrp anim
+      // code (skillfx_anim.isBeneficialAnim) — no per-skill list.
+      if (targetId == null && selfId != null && weaponGate.loaded
+          && weaponGate.targetType(skillId) === 'ONE') {
+        const meta = skillAnimLoaded();
+        const entry = meta && skillAnimInfo(meta, skillId,
+          (skillBar.skills.get(skillId) || {}).level || 1);
+        if (entry && isBeneficialAnim(entry.anim)) targetId = selfId;
+      }
+      notePlayerAction('cast');
       net.send('useSkill', {
         skillId,
-        ...(!selfTarget && combat.targetId != null ? { targetId: combat.targetId } : {}),
+        ...(targetId != null ? { targetId } : {}),
       });
     },
   },
@@ -628,6 +687,18 @@ function useAction(id) {
   if (!online) return;
   if (id === 10) { requestStoreManage('sell'); return; }
   if (id === 28) { requestStoreManage('buy'); return; }
+  // retail actionId 2 (Attack, actionname.json) must NOT ride
+  // RequestActionUse — aCis warns and drops it. Attack the current target
+  // through the combat path instead (same op as the second click).
+  if (id === 2) {
+    if (combat.targetId != null) {
+      notePlayerAction('attack');
+      net.send('attack', { id: combat.targetId });
+    } else {
+      chat.addSystem('Target something first');
+    }
+    return;
+  }
   net.send('action', { actionId: id });
 }
 net.on('invUpdate', async (msg) => {
@@ -684,11 +755,35 @@ net.on('changeWait', (msg) => {
 });
 // ChangeMoveType broadcast (walk/run toggle) — authoritative for remotes.
 net.on('changeMove', (msg) => entities.setMoveMode(msg.id, msg.running));
-// ActionFailed (0x25) is the server's routine "no" (action while sitting,
-// target out of range...); retail surfaces nothing for it either. During a
-// cast it is the abort signal — PlayerCast.stop() fires clientActionFailed
-// when CreatureCast.interrupt cancels the cast, so the casting bar cancels.
-net.on('actionFailed', () => skillBar.cancelCast());
+// ActionFailed (0x25) is the server's routine "no" — and it is REASON-LESS.
+// During a cast it is the abort signal (PlayerCast.stop() fires
+// clientActionFailed when CreatureCast.interrupt cancels the cast), so the
+// casting bar cancels. It is also the ONLY answer a rejected move/attack
+// gets (MoveBackwardToLocation refuses >9900-unit moves, attacks without
+// line of sight never swing), so a failure that time-correlates with a
+// player-initiated move/attack/cast surfaces ONE honest chat line. The
+// correlation guard matters: an UNSOLICITED actionFailed arrives right
+// after every enterWorld and must stay silent. Wording stays generic on
+// purpose — the op carries no reason.
+const ACTION_FEEDBACK_MS = 1500;   // correlation window after a player op
+const ACTION_FEEDBACK_LINE = {
+  move: "Can't reach that.",
+  attack: 'Cannot see target.',
+  cast: 'Casting failed.',
+};
+let lastPlayerAction = null;       // {t, kind} of the last initiated op
+let lastActionFeedbackAt = 0;      // spam guard (WASD streams move orders)
+function notePlayerAction(kind) {
+  lastPlayerAction = { t: performance.now(), kind };
+}
+net.on('actionFailed', () => {
+  skillBar.cancelCast();
+  const now = performance.now();
+  if (!lastPlayerAction || now - lastPlayerAction.t > ACTION_FEEDBACK_MS) return;
+  if (now - lastActionFeedbackAt < 2000) return;
+  lastActionFeedbackAt = now;
+  chat.addSystem(ACTION_FEEDBACK_LINE[lastPlayerAction.kind] || "Can't do that.");
+});
 
 // L2 world tile name for absolute L2 coords: tiles span 32768 units,
 // name = (20 + x/32768)_(18 + y/32768) (validated against tile-map.json,
@@ -714,6 +809,7 @@ function setOnline(on) {
     net.connect();
   } else {
     net.disconnect();
+    closeCharCreate();
     entities.clear();
     combat.clear();
     skillBar.clear();
@@ -749,12 +845,71 @@ net.on('error', () => {
   chat.addSystem(`cannot reach gateway (${net.url}) — is it running?`);
   setStatus('online: gateway unreachable');
 });
+
+// --- character creation overlay -------------------------------------------
+// An account with no characters (auth_ok{chars:[]}) opens the charcreate
+// app (/create/, served by this same world server) in a fullscreen iframe
+// instead of enterChar. The iframe posts cc:create with the protocol
+// fields; charCreateOk closes the overlay and the refreshed auth_ok (now
+// 1 char) drives the normal enterChar path below; charCreateFail is
+// relayed back into the iframe for inline display.
+let ccOverlay = null;
+
+function openCharCreate() {
+  if (ccOverlay) return;
+  setStatus('online: create your character…');
+  chat.addSystem('no characters on this account — create one to enter');
+  const el = document.createElement('div');
+  el.id = 'charcreate-overlay';
+  Object.assign(el.style, {
+    position: 'fixed', inset: '0', zIndex: 40,
+    background: 'rgba(6,7,10,.92)',   // dimmed, above every window
+  });
+  const frame = document.createElement('iframe');
+  frame.src = '/create/?embed=1';
+  Object.assign(frame.style, { width: '100%', height: '100%', border: '0' });
+  el.appendChild(frame);
+  document.body.appendChild(el);
+  ccOverlay = el;
+}
+
+function closeCharCreate() {
+  if (ccOverlay) { ccOverlay.remove(); ccOverlay = null; }
+}
+
+window.addEventListener('message', (ev) => {
+  if (ev.origin !== location.origin) return;
+  const d = ev.data || {};
+  if (d.type !== 'cc:create' || !ccOverlay) return;
+  net.send('createChar', {
+    name: String(d.name || ''),
+    race: d.race | 0, sex: d.sex | 0, classId: d.classId | 0,
+    hairStyle: d.hairStyle | 0, hairColor: d.hairColor | 0, face: d.face | 0,
+  });
+});
+
+net.on('charCreateOk', () => {
+  closeCharCreate();
+  chat.addSystem('character created — entering world…');
+  setStatus('online: entering world…');
+});
+net.on('charCreateFail', (msg) => {
+  chat.addSystem(`character creation failed: ${msg.reason || 'unknown'}`);
+  const frame = ccOverlay && ccOverlay.querySelector('iframe');
+  if (frame && frame.contentWindow) {
+    frame.contentWindow.postMessage(
+      { type: 'cc:fail', reason: msg.reason || 'creation_failed' }, location.origin);
+  }
+});
+
 net.on('auth_ok', (msg) => {
   const chars = msg.chars || [];
+  if (!chars.length) { openCharCreate(); return; }   // fresh account: create first
+  closeCharCreate();   // refreshed auth_ok after a successful createChar
   chat.addSystem(`logged in (${chars.length} character${chars.length === 1 ? '' : 's'})`);
   setStatus('online: entering world…');
-  const slot = chars.length ? (chars[0].slot ?? 0) : 0;
-  net.send('enterChar', { slot });
+  // multi-char accounts: no char-select screen in this milestone — first slot
+  net.send('enterChar', { slot: chars[0].slot ?? 0 });
 });
 net.on('enterWorld', async (msg) => {
   const c = msg.char || {};
@@ -795,14 +950,21 @@ net.on('addNpc', (msg) => {
     });
   }
 });
+// Ground drops (aCis SpawnItem/DropItem): nameplate + marker via
+// entities.addDrop; clicking one sends target{id} (clickEntity), which the
+// server routes to pickup. Despawn rides the shared 'remove' op.
+net.on('addDrop', (msg) => {
+  itemMeta().then(meta => entities.addDrop(msg, itemInfo(meta, msg.itemId).name, terrain));
+});
 net.on('move', (msg) => {
   if (msg.id === selfId && character) {
-    // Self-reconcile policy (WASD is strictly cosmetic, no ops are sent):
-    // - while a click-walk target is active, the server broadcast is a
+    // Self-reconcile policy (click-walk and streamed WASD legs both ride
+    // the moveTo op):
+    // - while a walk target is active, the server broadcast is a
     //   walk order -> adopt it as our target (server-adjusted destination)
-    // - if the server position disagrees by > 5 m (teleport/enterWorld),
-    //   snap to it
-    // - otherwise (ValidateLocation drift from cosmetic WASD) ignore it
+    // - if the server position disagrees by > 5 m (teleport/respawn/
+    //   enterWorld), snap to it
+    // - otherwise (ValidateLocation drift) ignore it
     const p = l2ToThree(msg.tx || 0, msg.ty || 0, msg.tz || 0);
     const d = p.distanceTo(character.group.position);
     if (character.target) character.setTarget(p);
@@ -823,8 +985,10 @@ net.on('sysMsg', (msg) => {
   // cast interruption signals (aCis CreatureCast): 27 CASTING_INTERRUPTED,
   // 748 DIST_TOO_FAR_CASTING_STOPPED — the casting bar cancels on either
   if (msg.id === 27 || msg.id === 748) skillBar.cancelCast();
-  sysMsgMeta().then(meta =>
-    chat.addSysMsg(renderSysMsg(meta, msg.id, msg.params || []), msg.id, msg.params || [],
+  // skillmeta rides along so SKILL_NAME params render as names, not raw
+  // ids ("You use Wind Strike." — gamedata.js SKILL_PARAM_MSGS)
+  Promise.all([sysMsgMeta(), skillMeta()]).then(([meta, skills]) =>
+    chat.addSysMsg(renderSysMsg(meta, msg.id, msg.params || [], skills), msg.id, msg.params || [],
       sysMsgColor(meta, msg.id)));
 });
 
@@ -836,7 +1000,7 @@ net.on('target_ok', (msg) => {
   // (gateway/README.md). Used directly as the con-color diff.
   const color = typeof msg.color === 'number' ? msg.color
     : (e && e.level != null && combat.self ? (combat.self.level ?? 1) - e.level : null);
-  combat.setTarget(msg.id, (e && e.name) || `#${msg.id}`,
+  combat.setTarget(msg.id, (e && e.name) || (msg.id === selfId && selfName) || `#${msg.id}`,
     { kind: e ? e.kind : 'npc', level: e ? e.level ?? null : null, color });
 });
 net.on('status', (msg) => combat.updateStatus(msg.id, msg.hp, msg.maxHp, msg.mp, msg.maxMp));
@@ -846,17 +1010,37 @@ net.on('selfStatus', (msg) => {
 });
 net.on('attack', (msg) => {
   entities.attackFlash(msg.id);
-  // damage float over the victim (self hits are unknowable: no self id in M2)
+  // damage float over the victim (self included: the op carries targetId)
   const pos = entityHeadPos(msg.targetId);
   if (pos) combat.damage(pos, msg);
+  // rebuilt models carry a 'damage' flinch clip; oneShot no-ops without it
+  if (msg.targetId === selfId && character) character.oneShot('damage');
 });
 net.on('die', (msg) => {
   entities.die(msg.id);
   combat.markDead(msg.id);
+  if (msg.id === selfId && character) {
+    // a corpse keeps no walk order: a leftover click target would make
+    // Character.update's moving branch override the death clip every frame
+    // (and the model would keep sliding while dead)
+    character.clearTarget();
+    moveQueue.length = 0;
+    wasdLeg = null;
+  }
 });
 net.on('revive', (msg) => {
   entities.revive(msg.id);
   combat.markRevived(msg.id);
+  if (msg.id === selfId && character) {
+    // self respawn: clear the death overlay NOW (the selfStatus hp>0 right
+    // behind confirms it) and free the model — the respawn teleport arrives
+    // as a regular move op, and a leftover walk target would adopt it as a
+    // walk order instead of snapping to the new position
+    document.getElementById('death-overlay').classList.remove('visible');
+    character.clearTarget();
+    moveQueue.length = 0;
+    wasdLeg = null;
+  }
 });
 
 onlineToggle.addEventListener('change', () => setOnline(onlineToggle.checked));
@@ -880,7 +1064,12 @@ window.__world = {
     get log() { return net.log; },
     // verification helper: raw op send (walkTo is the movement equivalent)
     sendOp: (op, fields = {}) => net.send(op, fields),
+    // verification helper: simulate an INBOUND op through the normal
+    // dispatch + log (fixtures the mock does not implement, e.g. respawn)
+    inject: (msg) => { net._log('in', msg); net._emit(msg.op, msg); },
   },
+  // character-creation overlay state (verification)
+  charCreate: { get open() { return !!ccOverlay; } },
   entities,
   get chat() { return chat; },
   combat,
@@ -921,8 +1110,7 @@ window.__world = {
   // verification helper: same as a terrain click, minus the raycast
   walkTo(v) {
     if (!character) return;
-    character.setTarget(v);
-    if (online) net.send('moveTo', threeToL2(v));
+    walkToServer(v);
   },
   ready: false,
 };
@@ -1054,7 +1242,7 @@ canvas.addEventListener('pointerup', e => {
     for (const [id, en] of entities.entities) {
       if (en.dead) continue;
       v.copy(en.group.position);
-      v.y += en.kind === 'npc' ? 0.6 : 1.0;
+      v.y += en.kind === 'player' ? 1.0 : en.kind === 'drop' ? 0.25 : 0.6;
       v.project(camera);
       if (v.z > 1) continue;
       const px = (v.x + 1) / 2 * canvas.clientWidth;
@@ -1070,10 +1258,7 @@ canvas.addEventListener('pointerup', e => {
   const walkTargets = terrain.mesh ? [terrain.mesh] : [];
   if (neighbors) walkTargets.push(...neighbors.meshes());
   const hit = walkTargets.length ? ray.intersectObjects(walkTargets, false)[0] : null;
-  if (hit) {
-    character.setTarget(hit.point);
-    if (online) net.send('moveTo', threeToL2(hit.point));
-  }
+  if (hit && !character.dead) walkToServer(hit.point);
 });
 
 window.addEventListener('keydown', e => {
@@ -1089,6 +1274,14 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (chat.isTyping) return;   // chat input handles its own keys
+  if (e.code === 'Escape') {
+    // retail order: Esc closes the topmost open window first (WndMgr tracks
+    // visibility + the z-stack); only with no window open does it clear the
+    // target. (Chat's own Esc closes the input inside chat.js — its keydown
+    // stops propagation, so it never reaches this handler.)
+    if (!WndMgr.closeTopmost() && combat.targetId != null) combat.clearTarget();
+    return;
+  }
   if (e.code === 'Enter') {
     if (online) { chat.open(); e.preventDefault(); }
     return;
@@ -1159,6 +1352,67 @@ function wasdDir() {
   return fwd.multiplyScalar(f).add(right.multiplyScalar(-r)).normalize();
 }
 
+// --- movement orders (click-to-move + WASD) ----------------------------------
+// The mouse-mode moveTo op is the ONLY server-accepted movement path
+// (keyboard movement packets are rejected), so every movement input funnels
+// through walkToServer -> net.send('moveTo'). Server echo reconciliation
+// lives in the net.on('move') self branch.
+//
+// Far-click waypointing: aCis MoveBackwardToLocation rejects moves past
+// 9900 units, and single far hops into geometry stall with a bare
+// actionFailed — split long moves into <=2000-unit (20 m) legs along the
+// clicked direction ("walk as far as possible"; full A* is out of scope).
+// The next leg goes out when the character arrives (target consumed).
+const MOVE_LEG_M = 20;          // 2000 L2 units per leg
+const moveQueue = [];           // pending legs (THREE.Vector3)
+
+function walkToServer(dest) {
+  moveQueue.length = 0;         // a new order supersedes legs in flight
+  const from = character.group.position;
+  const dx = dest.x - from.x, dz = dest.z - from.z;
+  const steps = Math.ceil(Math.hypot(dx, dz) / MOVE_LEG_M);
+  for (let i = 1; i < steps; i++) {
+    moveQueue.push(new THREE.Vector3(
+      from.x + dx * i / steps, dest.y, from.z + dz * i / steps));
+  }
+  moveQueue.push(dest.clone());
+  pumpMoveQueue();
+}
+
+function pumpMoveQueue() {
+  if (!moveQueue.length) return;
+  const leg = moveQueue.shift();
+  character.setTarget(leg);
+  if (online) {
+    notePlayerAction('move');
+    net.send('moveTo', threeToL2(leg));
+  }
+}
+
+// WASD honesty: a held key STREAMS real move orders — short moveTo legs in
+// the camera-relative direction, re-sent as the character closes in or the
+// held heading turns. Key-up simply stops the stream (the character walks
+// out the last leg, which the server did receive). Offline (solo) keeps the
+// old cosmetic local move.
+const WASD_LEG_M = 8;           // leg length (~one move order ahead)
+const WASD_RESEND_M = 2.5;      // re-stream when this close to the leg end
+const WASD_TURN_RAD = 0.5;      // ...or when the held direction turned this far
+const WASD_MIN_MS = 250;        // streamed-op cadence floor
+let wasdLeg = null;             // {dest, dir, t} of the last streamed leg
+
+function streamWasdMove(dir) {
+  const now = performance.now();
+  const pos = character.group.position;
+  const due = !wasdLeg
+    || Math.hypot(wasdLeg.dest.x - pos.x, wasdLeg.dest.z - pos.z) < WASD_RESEND_M
+    || wasdLeg.dir.angleTo(dir) > WASD_TURN_RAD;
+  if (!due || now - (wasdLeg ? wasdLeg.t : 0) < WASD_MIN_MS) return;
+  const dest = pos.clone().addScaledVector(dir, WASD_LEG_M);
+  dest.y = heightRouter.heightAtWorld(dest.x, dest.z, pos.y);
+  walkToServer(dest);
+  wasdLeg = { dest, dir: dir.clone(), t: now };
+}
+
 // --- main loop ----------------------------------------------------------------
 
 function resize() {
@@ -1182,7 +1436,18 @@ renderer.setAnimationLoop(() => {
     loadScene(t, { keepCharPos: true });
   }
   if (character && terrain) {
-    character.update(dt, heightRouter, wasdDir());
+    // WASD: online it streams real moveTo legs (server-authoritative);
+    // offline it stays the old cosmetic local move. Dead/sitting stream
+    // nothing, and online the cosmetic move is off entirely — the model
+    // follows only server-backed targets.
+    const moveDir = wasdDir();
+    if (online && moveDir && !character.dead && !selfSitting) {
+      streamWasdMove(moveDir);
+    } else {
+      wasdLeg = null;
+    }
+    character.update(dt, heightRouter, online ? null : moveDir);
+    if (!character.target) pumpMoveQueue();   // leg arrived: send the next
     entities.update(dt, heightRouter);
     // boundary crossing: the entered tile becomes the full-quality center
     // (the 3x3 neighbor window shifts inside loadScene). Interiors never
@@ -1244,8 +1509,11 @@ renderer.setAnimationLoop(() => {
 (async function boot() {
   try {
     // The retail skin must be resident before any window is constructed.
+    // skillAnimMeta prefetches so the cast-time beneficial check (onCast)
+    // has the anim codes synchronously.
     await Promise.all([Skin.load(), Font.load(), Layout.load(),
-                       loadExpTable(), loadSkillTypes(), weaponGate.load()]);
+                       loadExpTable(), loadSkillTypes(), weaponGate.load(),
+                       skillAnimMeta()]);
     makeChat();
     statusWnd = new StatusWnd(document.body);
     statusWnd.show();     // retail keeps it on screen; gauges fill on selfStatus

@@ -19,12 +19,15 @@ run() { # name dir script — one retry to absorb timing flakes under load
 
 if [ "$MODE" != "--gateway-only" ]; then
   (cd editor/world && node mock_gateway.js > /tmp/elbera_mock.log 2>&1 &)
+  # verify_charcreate keeps cc ENABLED (it tests the creation flow itself)
+  # and drives its own mock on 8086 so it coexists with the 8085 one
+  (cd editor/world && node mock_gateway.js 8086 > /tmp/elbera_mock_cc.log 2>&1 &)
   sleep 2
   for v in verify_ui verify_statuswnd verify_skillwnd verify_shortcutwnd \
            verify_inventorywnd verify_chatwnd verify_targetwnd verify_dialog \
            verify_actionwnd verify_minimap verify_remoteanim verify_questwnd \
            verify_partywnd verify_abnormal verify_combat verify_skills \
-           verify_clanwnd \
+           verify_clanwnd verify_charcreate \
            verify_m5 verify_app verify_civilians verify_interior verify_geodata \
            verify_terrain; do
     run "$v" editor/world "$v.js"

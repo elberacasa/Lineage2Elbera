@@ -4,6 +4,7 @@
 
 let _skillMeta = null;
 let _itemMeta = null;
+let _itemMetaData = null;   // resolved itemmeta, for sync accessors (sysMsg)
 let _sysMsgMeta = null;
 let _actionMeta = null;
 let _sysStringMeta = null;
@@ -24,7 +25,10 @@ export function skillMeta() {
 }
 
 export function itemMeta() {
-  if (!_itemMeta) _itemMeta = loadMeta('/gamedata/itemmeta.json');
+  if (!_itemMeta) {
+    _itemMeta = loadMeta('/gamedata/itemmeta.json')
+      .then(j => { _itemMetaData = j; return j; });
+  }
   return _itemMeta;
 }
 
@@ -78,8 +82,8 @@ export function actionMeta() {
 
 export function actionInfo(meta, id) {
   const m = meta && meta.byId[String(id)];
-  // icons are named icon.actionNNN but only action102.png was mined; the
-  // url is returned anyway and callers degrade on <img> error
+  // icons are named icon.actionNNN; the pngs are copied next to the
+  // skill/item icons by build_meta.py (missing files degrade on <img> error)
   const icon = m && m.icon ? m.icon.replace(/^icon\./, '') : null;
   return {
     name: (m && m.name) || `Action #${id}`,
@@ -88,17 +92,59 @@ export function actionInfo(meta, id) {
   };
 }
 
+// sysMsg ids whose $s params are SKILL_NAME values (aCis sends 46 USE_S1
+// only from PlayerCast/CreatureCast with .addSkillName; 48 is the reuse
+// denial of the same cast path). The gateway flattens params to raw
+// values, so the skill id arrives as a bare number — resolve it to the
+// skill name when skillmeta is passed. Fallback set for while
+// sysmsg_paramtypes.json is absent; once loaded, the mined map below
+// covers these ids too (46/48 mine as skill slot 0 from the same source).
+const SKILL_PARAM_MSGS = new Set([46, 48]);
+
+// sysmsg_paramtypes.json (tools/dat/build_sysmsg_paramtypes.py — mined
+// from the aCis SystemMessage call sites): per message id, which $s slots
+// carry ITEM_NAME / SKILL_NAME values ("You have obtained $s1." etc. pass
+// item ids through the same flattening). Sync cache like skillAnim: the
+// fetch is kicked on first renderSysMsg call; until it lands the fallback
+// above reproduces the old behavior exactly.
+let _sysMsgParamTypes = null;
+let _sysMsgParamTypesData = null;
+
+function sysMsgParamTypes() {
+  if (!_sysMsgParamTypes) {
+    _sysMsgParamTypes = loadMeta('/gamedata/sysmsg_paramtypes.json')
+      .then(j => { _sysMsgParamTypesData = j; return j; });
+  }
+  return _sysMsgParamTypes;
+}
+
 // render SystemMessage text: positional substitution of $s1/$s2/$c1/$c2
-// style placeholders; graceful fallback while systemmsg.json is absent
-export function renderSysMsg(meta, id, params = []) {
+// style placeholders; graceful fallback while systemmsg.json is absent.
+// skills: optional skillmeta.json content for SKILL_NAME params (above).
+export function renderSysMsg(meta, id, params = [], skills = null) {
   const entry = meta && meta[String(id)];
   if (!entry || !entry.text) {
     return `sysmsg ${id}${params.length ? ': ' + params.join(', ') : ''}`;
   }
+  sysMsgParamTypes();
+  const pt = _sysMsgParamTypesData && _sysMsgParamTypesData[String(id)];
   let si = 0, ci = 0;
   const text = entry.text.replace(/\$([sc])(\d+)/g, (m, kind) => {
     const idx = kind === 's' ? si++ : ci++;
-    return params[idx] != null ? String(params[idx]) : m;
+    const v = params[idx];
+    if (v == null) return m;
+    if (kind === 's') {
+      if (pt && pt.item && pt.item.includes(idx)) {
+        if (!_itemMetaData) itemMeta();   // kick the fetch on first item param
+        const it = _itemMetaData && _itemMetaData[String(v)];
+        if (it && it.name) return it.name;
+      } else if (skills && (pt ? (pt.skill && pt.skill.includes(idx))
+                               : SKILL_PARAM_MSGS.has(id))) {
+        const s = skills[String(v)];
+        if (s && s.name) return s.name;
+      }
+    }
+    return String(v);
   });
   return text;
 }
@@ -121,10 +167,18 @@ export function skillInfo(meta, id) {
 // is_magic/cast_range/cast_style + skillsoundgrp sounds, one entry per
 // skill id plus per-level overrides where they differ). Degrades to null
 // while absent; callers keep their generic fallbacks.
+let _skillAnimData = null;   // resolved content, for sync accessors
+
 export function skillAnimMeta() {
-  if (!_skillAnim) _skillAnim = loadMeta('/gamedata/skillanim.json');
+  if (!_skillAnim) {
+    _skillAnim = loadMeta('/gamedata/skillanim.json')
+      .then(j => { _skillAnimData = j; return j; });
+  }
   return _skillAnim;
 }
+
+/** Resolved skillanim.json content, or null until the first fetch lands. */
+export function skillAnimLoaded() { return _skillAnimData; }
 
 export function skillAnimInfo(meta, id, level = 1) {
   if (!meta) return null;

@@ -38,6 +38,7 @@ STAGE = '/tmp/l2char_stage'
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'tools/l2lib'))
 import assemble
+import scale_util
 import ue2package as up
 
 # id, race, gender, className, ukx package, mesh prefix, texture package
@@ -395,6 +396,16 @@ ANIM_CANDIDATES = {
     'sit':    ['SitWait_{P}'],
     'dance':  ['Social_dance_{P}'],
     'attack': ['Atk01_Hand_{P}', 'Atk01_1HS_{P}'],
+    'castShort':  ['CastShort_{P}'],
+    'castMid':    ['CastMid_{P}'],
+    'castLong':   ['CastLong_{P}'],
+    'magicThrow': ['MagicThrow_{P}'],
+    'spAtk01': ['SpAtk01_1HS_{P}', 'SpAtk02_1HS_{P}', 'SpAtk06_Hand_{P}'],
+    'spAtk02': ['SpAtk02_1HS_{P}', 'SpAtk02_Bow_{P}', 'SpAtk01_2HS_{P}'],
+    'die':    ['Death_{P}'],
+    # FShaman ships the retail-typo'd 'damegefly_FShaman' — kept as a
+    # second-chance fallback (first-hit-wins, so other races are unaffected)
+    'damage': ['Damagefly_{P}', 'Damegefly_{P}'],
 }
 
 
@@ -577,8 +588,24 @@ def build_combo(cid, race, gender, cname, pkg, prefix, texpkg, bindings):
     with open(out_gltf.replace('.gltf', '.bin'), 'wb') as f:
         f.write(bin_data)
     print('  -> %s (%d anims, %d parts)' % (out_gltf, len(g['animations']), len(parts)))
-    return {'id': cid, 'race': race, 'gender': gender, 'className': cname,
-            'gltf': 'models/%s.gltf' % cid, 'animations': sorted(selection.keys())}
+    entry = {'id': cid, 'race': race, 'gender': gender, 'className': cname,
+             'gltf': 'models/%s.gltf' % cid, 'animations': sorted(selection.keys())}
+    # true in-world height (L2 units) = glTF Y extent x 100 x MeshScale.z
+    # decoded from the .ukx (scale_util) — the client sizes the model from
+    # this, never from a hardcoded fallback
+    u_mesh = next((p['mesh'] for p in parts if p['suffix'] == '_u'), None)
+    nh = u_mesh and scale_util.native_height(
+        out_gltf, os.path.join(CLIENT, ukx), u_mesh)
+    if not nh:
+        # hard fail: a missing nativeHeight silently renders the model at
+        # the client's legacy 1.75 m fallback (3.8x oversized vs the L2
+        # world) — 2026-08-03 bug, never let it ship silently again
+        raise SystemExit('FATAL: no nativeHeight for %s (_u mesh %r) — '
+                         'refusing to write a manifest entry without it'
+                         % (cid, u_mesh))
+    entry['nativeHeight'] = nh
+    print('  nativeHeight %.1f L2 units (%s)' % (nh, u_mesh))
+    return entry
 
 
 def main():
@@ -602,7 +629,9 @@ def main():
             print('  FAILED: %s' % e)
             m = None
         if m:
-            existing[m['id']] = m
+            # merge, don't replace: keys a rebuild doesn't produce (e.g. an
+            # earlier measure_scale.py enrichment) must survive
+            existing[m['id']] = {**existing.get(m['id'], {}), **m}
     order = [c[0] for c in COMBOS]
     models = ([existing[k] for k in order if k in existing] +
               [v for k, v in existing.items() if k not in order])

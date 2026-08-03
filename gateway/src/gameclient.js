@@ -77,16 +77,25 @@ class GameSession extends EventEmitter {
     this.state = 'AUTH_SENT';
   }
 
-  createCharacter(name) {
-    // Human Fighter: race 0, sex 0 (male), classId 0. Stats are read but the
-    // server uses the template; hairStyle/hairColor/face = 0.
+  // RequestCharacterCreate (0x0b): S name, D race, D sex, D classId,
+  // D int/str/con/men/dex/wit (read but discarded server-side — send 0),
+  // D hairStyle, D hairColor, D face. Stats always 0 (server uses the class
+  // template). The caller (bridge) validates ALL fields first: aCis does not
+  // validate sex (Sex.VALUES[sex] throws for sex >= 2 with no fail packet)
+  // and ignores race beyond a range check (the class template is
+  // authoritative for race). Accepts either an opts object or a bare name
+  // string (legacy callers — defaults to Human Fighter like the old
+  // hardcoded version).
+  createCharacter(nameOrOpts) {
+    const { name, race = 0, sex = 0, classId = 0, hairStyle = 0, hairColor = 0, face = 0 } =
+      typeof nameOrOpts === 'string' ? { name: nameOrOpts } : nameOrOpts;
     this._send(
       new PacketWriter()
         .writeC(0x0b)
         .writeS(name)
-        .writeD(0).writeD(0).writeD(0) // race, sex, classId
+        .writeD(race | 0).writeD(sex | 0).writeD(classId | 0)
         .writeD(0).writeD(0).writeD(0).writeD(0).writeD(0).writeD(0) // int str con men dex wit
-        .writeD(0).writeD(0).writeD(0) // hairStyle, hairColor, face
+        .writeD(hairStyle | 0).writeD(hairColor | 0).writeD(face | 0)
         .build()
     );
   }
@@ -493,6 +502,17 @@ class GameSession extends EventEmitter {
     this._send(new PacketWriter().writeC(0x30).build());
   }
 
+  // RequestRestartPoint (0x6d): D requestType — the respawn request after
+  // death (clientpackets/RequestRestartPoint.java). Types: 1 clanhall,
+  // 2 castle, 3 siege flag, 4 fixed (GM/festival only), 27 jail (forced
+  // server-side); ANYTHING ELSE (incl. 0) falls through to the regular
+  // "to town" restart point. The server answers with doRevive() (Revive
+  // 0x07 + StatusUpdate) and teleportTo (TeleportToLocation) — no
+  // dedicated response packet.
+  requestRestartPoint(requestType = 0) {
+    this._send(new PacketWriter().writeC(0x6d).writeD(requestType | 0).build());
+  }
+
   // ------------------------------------------------------------- receives
 
   _onPacket(body) {
@@ -556,8 +576,20 @@ class GameSession extends EventEmitter {
         this.emit('attack', { attackerId, hits });
         break;
       }
-      case 0x06: { // Die (rest is respawn options, not needed)
-        this.emit('die', r.readD());
+      case 0x06: { // Die: D objectId, then respawn options (serverpackets/
+        // Die.java): D toVillage (always 1), D toClanHall, D toCastle,
+        // D toSiegeHQ, D sweepable (blue glow, Monster only), D fixedRes
+        // (GM allowFixedRes). Emitted as an object — the bridge attaches
+        // canRespawn for SELF deaths (contract `die` op).
+        this.emit('die', {
+          id: r.readD(),
+          toVillage: r.readD() === 1,
+          toClanHall: r.readD() === 1,
+          toCastle: r.readD() === 1,
+          toSiegeHQ: r.readD() === 1,
+          sweepable: r.readD() === 1,
+          fixedRes: r.readD() === 1,
+        });
         break;
       }
       case 0x07: { // Revive
@@ -1188,14 +1220,16 @@ function parseCharSelectInfo(r) {
     for (let j = 0; j < 7; j++) r.readD();
     for (let j = 0; j < 17; j++) r.readD(); // paperdoll object ids
     for (let j = 0; j < 17; j++) r.readD(); // paperdoll item ids
-    r.readD(); r.readD(); r.readD(); // hairStyle, hairColor, face
+    const hairStyle = r.readD();
+    const hairColor = r.readD();
+    const face = r.readD();
     r.readF(); r.readF(); // max hp/mp
     r.readD(); // delete timer
     const classId = r.readD();
     r.readD(); // auto-selected flag
     r.readC(); // enchant effect
     r.readD(); // augmentation
-    chars.push({ slot: i, name, charId, race, sex, classId, baseClassId, level, x, y, z });
+    chars.push({ slot: i, name, charId, race, sex, classId, baseClassId, level, hairStyle, hairColor, face, x, y, z });
   }
   return chars;
 }

@@ -8,10 +8,18 @@
       "gltf": "models/human_fighter_m.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 46.0
@@ -24,10 +32,18 @@
       "gltf": "models/human_fighter_f.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 44.2
@@ -40,10 +56,18 @@
       "gltf": "models/human_mystic_m.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 42.1
@@ -56,10 +80,18 @@
       "gltf": "models/human_mystic_f.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 41.3
@@ -72,10 +104,18 @@
       "gltf": "models/elf_m.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 46.3
@@ -88,10 +128,18 @@
       "gltf": "models/elf_f.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 43.6
@@ -104,10 +152,18 @@
       "gltf": "models/darkelf_m.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 45.6
@@ -120,10 +176,18 @@
       "gltf": "models/darkelf_f.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 44.6
@@ -136,10 +200,18 @@
       "gltf": "models/orc_fighter_m.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 52.4
@@ -152,10 +224,18 @@
       "gltf": "models/orc_fighter_f.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 53.9
@@ -168,10 +248,18 @@
       "gltf": "models/orc_mystic_m.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 50.1
@@ -184,10 +272,18 @@
       "gltf": "models/orc_mystic_f.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 50.0
@@ -200,10 +296,18 @@
       "gltf": "models/dwarf_m.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 34.2
@@ -216,10 +320,18 @@
       "gltf": "models/dwarf_f.gltf",
       "animations": [
         "attack",
+        "castLong",
+        "castMid",
+        "castShort",
+        "damage",
         "dance",
+        "die",
         "idle",
+        "magicThrow",
         "run",
         "sit",
+        "spAtk01",
+        "spAtk02",
         "walk"
       ],
       "nativeHeight": 34.5

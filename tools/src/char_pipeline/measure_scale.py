@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.join(ROOT, 'tools/l2lib'))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ue2package as up
 import build_monsters as bm
+import scale_util
 
 CHARS = os.path.join(ROOT, 'editor/characters')
 MON = os.path.join(CHARS, 'monsters')
@@ -31,57 +32,22 @@ _PKG_CACHE = {}
 
 
 def load_ukx(pkg):
-    if pkg not in _PKG_CACHE:
-        p, _ = up.load_package(
-            os.path.join(ROOT, 'assets/interlude/animations/%s.ukx' % pkg))
-        _PKG_CACHE[pkg] = p
-    return _PKG_CACHE[pkg]
+    return scale_util.load_ukx_path(
+        os.path.join(ROOT, 'assets/interlude/animations/%s.ukx' % pkg))
 
 
 def mesh_scale(pkg, mesh_name):
-    p = load_ukx(pkg)
-    ex = p.find_export(mesh_name)
-    if ex is None:
-        return None
-    r = p.body_reader(ex)
-    up.read_properties(p, r)
-    r.pos += 25 + 16
-    r.i32()
-    r.i32()
-    n = r.compact()
-    r.pos += 4 * n
-    ntex = r.compact()
-    for _ in range(ntex):
-        r.compact()
-    return (r.f32(), r.f32(), r.f32())
+    return scale_util.mesh_scale(
+        os.path.join(ROOT, 'assets/interlude/animations/%s.ukx' % pkg),
+        mesh_name)
 
 
 def acc(g, b, idx):
-    a = g['accessors'][idx]
-    bv = g['bufferViews'][a['bufferView']]
-    off = bv.get('byteOffset', 0) + a.get('byteOffset', 0)
-    n = {'SCALAR': 1, 'VEC2': 2, 'VEC3': 3, 'VEC4': 4, 'MAT4': 16}[a['type']]
-    return [struct.unpack_from('<%df' % n, b, off + k * n * 4)
-            for k in range(a['count'])]
+    return scale_util._acc(g, b, idx)
 
 
 def gltf_y_extent(path):
-    """max over POSITION accessors of (max.y - min.y), gltf units."""
-    g = json.load(open(path))
-    b = open(path.replace('.gltf', '.bin'), 'rb').read()
-    lo = 1e30
-    hi = -1e30
-    for mesh in g['meshes']:
-        for prim in mesh['primitives']:
-            a = g['accessors'][prim['attributes']['POSITION']]
-            if 'min' in a and 'max' in a:
-                lo = min(lo, a['min'][1])
-                hi = max(hi, a['max'][1])
-            else:
-                for p in acc(g, b, prim['attributes']['POSITION']):
-                    lo = min(lo, p[1])
-                    hi = max(hi, p[1])
-    return hi - lo
+    return scale_util.gltf_y_extent(path)
 
 
 def npcgrp_by_mesh():

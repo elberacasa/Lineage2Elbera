@@ -46,6 +46,8 @@ html, body {
 }
 
 .brand { user-select: none; }
+/* embedded in the world client's overlay iframe: hide the standalone brand */
+body.embedded .brand { display: none; }
 .brand-l2 {
   font-size: 2rem; font-weight: 800; letter-spacing: -0.05em;
   color: var(--gold-bright);
