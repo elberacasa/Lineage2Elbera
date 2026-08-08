@@ -47,7 +47,13 @@ harnesses (headless Chrome driving the real UI).
 | **100** | world map tiles converted to web scenes — every named tile of the Interlude world grid |
 | **117,852** | static prop placements extracted from those tiles (buildings, fences, trees…) |
 | **30,177** | textures exported from the client into the PNG library (386 packages) |
-| **97** | glTF models built by the pipeline: 14 creation characters + 28 monsters + 55 civilian NPCs |
+| **772** | glTF models built by the pipeline: 14 creation characters + 495 monsters/NPCs + 180 weapons and shields + 83 others |
+| **99.7%** | of spawned NPC instances render a real model (54,734 of 54,901) — capsule placeholders down to 2 |
+| **332,717** | triangles of BSP building geometry decoded from the maps: shells, interiors, doorways, 100/100 tiles |
+| **5,128 + 250** | sound effects unpacked from the 25 encrypted `.uax` banks + music tracks, wired to 9,174 table bindings |
+| **172,253** | ambient sound emitters and 383 music zones placed from the retail map actors |
+| **1,122 / 1,161** | skill-effect emitters rendered from the decoded particle tables (108 effect meshes, 127 textures) |
+| **83** | animation clips per character, one set per weapon stance (Hand/1HS/2HS/Dual/Bow/Pole) — was 14 |
 | **29,812** | skill records decoded from the encrypted `.dat` tables (~95k records across 11 files) |
 | **2,694 + 9,238** | skills / items with real names + icons for the UI (2,777 icon images extracted) |
 | **2,083** | system messages decoded — the client shows the game's own text, not ids |
@@ -253,6 +259,11 @@ own verification. Pitch first, details after.
 | **ElberaUpscaler** | 2004 textures, 4x HD | `tools/upscale/` |
 | **ElberaView** | The ground-truth oracle | `tools/bin/umodel-view` |
 | **ElberaSkin** | The retail UI, mined pixel-for-pixel | `editor/world/js/ui/` + `tools/xdat/` |
+| **ElberaSound** | Music and 5,128 effects out of the encrypted banks | `tools/audio/build_audio.py` |
+| **ElberaBsp** | The buildings: UE2 BSP → web geometry | `tools/world/bsp.py` |
+| **ElberaLight** | Each tile's own sun, ambient and fog | `tools/world/light_extract.py` |
+| **ElberaArms** | Weapons and shields as glTF, hung on the retail sockets | `tools/src/char_pipeline/build_weapons.py` |
+| **ElberaFx** | Skill particles + effect meshes from the retail tables | `tools/dat/build_skillvfx.py`, `build_skillmesh.py` |
 
 Support gear: `tools/battery.sh` — the one-command, 38-suite verification
 battery (`--client-only` / `--gateway-only`) · `tools/world/geodata.py` —
@@ -384,6 +395,53 @@ ours.
 
 ## What works today — verified
 
+- **The world has buildings.** Every shell and interior in this game is BSP
+  brush geometry, and it is now decoded: the post-CSG level UModel whose points
+  are already world coordinates, 118,310 node polygons drawn as 332,717
+  triangles over 100/100 tiles. Giran has its cathedral facade, walls, plaza
+  and arcades; the Elven Ruins has floors, walls and a ceiling instead of
+  columns over void. All 18,861 `Polys` exports across all 157 maps consume
+  their serial size exactly, and every surface's material agrees 100% with the
+  same material resolved through the independent brush parser
+  (`tools/world/bsp.py --check`, `verify_bsp`).
+- **The game has sound.** 250 music tracks (a 4-byte splice: NCSoft only
+  overwrote the "OggS" page marker) and 5,128 effects out of the 25 encrypted
+  `.uax` banks, mono for the Web Audio panner. Combat impacts, creature cries,
+  weapon swings, spell casts and interface clicks all come from the tables that
+  name them — 1,087 of the game's own 1,093 sound references resolve, and the
+  six that do not are malformed in NCSoft's data. The map's own soundscape is
+  placed too: 172,253 ambient emitters and 383 music zones
+  (`tools/audio/build_audio.py --check`, `verify_audio`).
+- **Combat runs on the server's clock.** Attack cadence from `pAtkSpd` through
+  aCis's own `Formulas.calculateTimeBetweenAttacks`, the animation rate from
+  the `attackSpeedMultiplier` the server sends for exactly this purpose, damage
+  floats at the real hit delay (`timeAtk/2` melee, `timeAtk` bow, split for a
+  dual wield), and cast gestures stretched to `MagicSkillUse.hitTime`. Verified
+  arithmetically against 6,499 datapack templates and empirically: a predicted
+  1201 ms swing cycle against observed gaps of 1188/1206/1208/1193
+  (`verify-atkspeed` 12/12, `verify_atktiming` 13/13).
+- **Gear renders, in the right stance.** Weapons and shields hang on NCSoft's
+  own `Weapon_R_Bone`/`Weapon_L_Bone` sockets at an identity transform — 410 of
+  417 meshes ship an identity MeshScale, so no offset was ever needed. Holding
+  a sword selects the retail 1HS animation set: 83 clips per character across
+  six weapon stances, where the pipeline used to extract 14 and stand every
+  character unarmed (`verify_equipment` 14/14).
+- **99.7% of spawned NPCs are real models.** 495 monster and NPC models, up
+  from 150; colour-coded capsule placeholders are down from 15,558 spawned
+  instances to 2. Their animation bindings are decoded from the `.ukx` rather
+  than matched by name, which corrected 42 creatures — some had been animated
+  as an entirely different animal (`coverage.py --check`).
+- **Skill effects come from the particle tables.** 1,122 of 1,161 emitters on
+  the bound effect classes, including all 413 mesh emitters, with 108 effect
+  meshes and the retail colour ramps, size curves and spin axes. Skills with no
+  sourced effect draw nothing rather than an invented colour
+  (`build_skillvfx.py --check`, `verify_skillvfx`).
+- **The world is lit the way the map says.** Sun direction, ambient and fog
+  from each tile's own `NMovableSunLight` and `ZoneInfo` — two distinct sun
+  setups across the 100 tiles, so no single constant could have been right.
+  Fog falls back to `Engine.ZoneInfo`'s decoded class defaults, confirmed by
+  the fact that no map serialises them (`light_extract.py --check`).
+
 - **Playable beta loop.** Browser character creation (real race/class/
   appearance/name on the live server) and a character-select screen for
   multi-char accounts, click-to-move with A* pathfinding over the server's
@@ -482,6 +540,30 @@ ours.
   `docs/map-format.md` §3.3. Lightmaps are still not decoded, and the
   terrain mesh currently buries the BSP town-square slab by ~32 units on
   Giran — measured and documented, not papered over (same README section).
+- **Skill effects: 39 of 1,161 emitters are not reproduced.** 13 VertMesh and
+  11 Beam emitters, plus 10 whose texture was never staged and 5 whose
+  `StaticMesh` is unset in the retail data. The `.3d` VertMesh export works but
+  nothing decodes it yet; beam tessellation is native code. Counted, not
+  approximated — and a skill with no sourced effect draws nothing rather than
+  an invented colour.
+- **One sound constant is calibrated, not decoded.** `RADIUS_UNIT` in
+  `editor/world/js/audio.js` converts the tables' sound radii to metres. The
+  radii demonstrably are not world units (a skill's 40 would be 0.4 m), but
+  `Engine.u` declares `SoundRadius` as a bare `float` with no unit, so the
+  stock-Unreal quantisation rule does not apply. The current value puts all
+  three independent tables in plausible ranges at once — corroboration, not a
+  derivation. It is the only number in the client knowingly in that state, and
+  it says so in the file.
+- **NPC titles are carried but not drawn.** 2,259 NPCs have a retail title
+  ("Raid Boss", "Ol Mahum Lord") and it reaches the client, but the nameplate
+  renders one line. Retail puts the title on its own line; the ordering could
+  not be sourced from the decoded data, so it is left undone rather than
+  guessed. Nameplate *colour* is sourced and live — the 537 raid bosses render
+  in their own blue.
+- **Two NPCs and one prop cannot be built from the data.**
+  `heart_of_warding` (2 spawned instances) is textured with a `TexEnvMap` over
+  a cubemap with no diffuse bitmap; 165 instances have an empty `mesh_name` in
+  `npcgrp`. Painting them with anything else would invent their appearance.
 - **HD is expensive.** 4x textures weigh ~24x the LQ set (pilot tiles went
   76 MB → 1.86 GB) and HD is off by default for that reason; the full
   21,589-texture pass is complete.
