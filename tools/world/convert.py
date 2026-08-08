@@ -125,16 +125,68 @@ def read_props_ordered(pkg, pos):
     return props, r.pos
 
 
-def find_prop_start(pkg, exp, want_first=None, max_start=25):
-    """Map actor bodies have a 15- or 17-byte native header before the
-    property list (docs/map-format.md §3.1); scan for the clean parse.
+def actor_prop_offset(pkg, exp):
+    """Offset (from the export body start) of an actor's tagged property
+    list, DERIVED from the layout instead of searched for.
 
-    A naive first-valid scan misfires on ~1/3 of actors (699 of 1936 on
-    22_22): a 4-byte garbage parse at offset 10 wins before the real list
-    at 15, and the actor drops out (no StaticMesh). So every candidate is
-    scored: parses containing a 'Location' property beat those without
-    (every map actor carries one), ties break on the most properties, then
-    the longest consumed span. Callers with want_first keep their filter."""
+    docs/map-format.md §3.1: a scripted actor body is
+        cidx ClassIndex, cidx ClassIndex, i32 -1, i32 -1, byte[5], <props>
+    so the list starts at 2*len(cidx(ClassIndex)) + 13 — the "15 or 17"
+    in the doc is just that compact index being one or two bytes wide.
+    Everything before the property list is therefore checkable: both
+    compact indices must equal the export table's own ClassIndex and both
+    i32 must be -1. -> offset, or None when the bytes are not that layout
+    (native exports, and anything the doc does not describe).
+
+    Measured over all 100 converted maps (162,805 StaticMeshActor exports):
+    the check passes for every one, the offset is 15 for every one, and the
+    property list it points at consumes the body EXACTLY for 162,779 of
+    them (99.98%).
+    """
+    try:
+        r = Reader(pkg.data, exp.serial_offset, path=pkg.path)
+        if r.compact() != exp.class_index:
+            return None
+        if r.compact() != exp.class_index:
+            return None
+        if r.i32() != -1 or r.i32() != -1:
+            return None
+        r.bytes(5)
+        return r.pos - exp.serial_offset
+    except (L2Error, IndexError, struct.error):
+        return None
+
+
+def find_prop_start(pkg, exp, want_first=None, max_start=25):
+    """Property list of a map actor body (docs/map-format.md §3.1).
+
+    The offset is DERIVED first (actor_prop_offset) and only accepted when
+    the list parsed there consumes the body exactly; the offset scan below
+    is the fallback for bodies that are not the documented layout.
+
+    WHY the scan cannot be the primary rule — this is the second time it
+    has been wrong. A naive first-valid scan misfired on ~1/3 of actors
+    (699 of 1936 on 22_22: a 4-byte garbage parse at offset 10 beat the
+    real list at 15). Scoring candidates by "has Location, then most
+    properties, then longest span" fixed those but STILL lost 5,593
+    placements world-wide and mis-resolved 14 more, because a re-sync
+    further into the body can parse cleanly, reach the end of the body,
+    and carry MORE property tags than the real list while missing
+    StaticMesh — on 22_22 that is what dropped Giran_V_Plaza_Stair01, the
+    plaza staircase, along with 44 others. Any rule that picks between
+    coincidences is guessing; the header length is computable, so compute
+    it. (Measured: derived 162,745 usable StaticMeshActor placements vs
+    the scan's 157,152, none lost.)"""
+    end_of = exp.serial_offset + exp.serial_size
+    off = actor_prop_offset(pkg, exp)
+    if off is not None:
+        try:
+            props, end = read_props_ordered(pkg, exp.serial_offset + off)
+        except (L2Error, IndexError, struct.error):
+            props, end = None, None
+        if props and end == end_of \
+                and (not want_first or props[0]["name"] in want_first):
+            return props
     best = None
     for start in range(max_start):
         try:
@@ -597,10 +649,23 @@ def build_basecolor(out_dir, layers, size=512):
 # props: StaticMeshActor placements + umodel .usx -> glTF conversion
 # ---------------------------------------------------------------------------
 
+# Actor classes that place a StaticMesh in the world. Filtering on
+# "StaticMeshActor" alone lost 1,202 retail placements world-wide (measured
+# over the 100 converted maps): 553 Mover (the clan-hall / castle / dungeon
+# DOORS — Door_Set_S.*, drawn closed at their serialized Location, which the
+# map also stores as BasePos, i.e. keyframe 0) and 649 MovableStaticMeshActor
+# (L2's scripted movers: lifts, rotating machinery; same StaticMesh +
+# Location + DrawScale3D fields as a plain StaticMeshActor). Both draw as
+# ordinary geometry in retail; neither is animated by this client yet, so
+# both are placed statically at their map transform.
+STATIC_MESH_ACTOR_CLASSES = ("StaticMeshActor", "MovableStaticMeshActor",
+                             "Mover")
+
+
 def read_static_mesh_actors(pkg):
     actors = []
     for e in pkg.exports:
-        if pkg.class_name_of(e) != "StaticMeshActor":
+        if pkg.class_name_of(e) not in STATIC_MESH_ACTOR_CLASSES:
             continue
         props = find_prop_start(pkg, e)
         if not props:

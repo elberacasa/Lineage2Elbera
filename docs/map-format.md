@@ -73,15 +73,51 @@ struct), `Tag`, `PhysicsVolume`, `Location` (Vector), `TexModifyInfo`
 Property list scan tool: `tools/maps/propscan.py` (auto-detects the list
 start per class).
 
-**Offset-scan misfire (found 2026-07-29):** `convert.py`'s `find_prop_start`
-scans start offsets 0..24 and must not accept the first merely-clean parse —
-about a third of StaticMeshActors (699 of 1936 on 22_22) carry bytes at
-offset ~10 that parse as a plausible 1-property list, beating the real list
-at 15 and silently dropping the actor (no StaticMesh → no prop). Every
-candidate must be scored: a parse containing a `Location` property (every
-map actor has one) beats one without; ties break on most properties, then
-longest consumed span. The miss was tile-wide: 105 of 100+ tiles had been
-converted with undercounted props (some −1500). All reconverted.
+**DO NOT SCAN FOR THE HEADER — COMPUTE IT (2026-08-08).** The header length
+is not a mystery to be searched for: it is `2 * len(cidx(ClassIndex)) + 13`,
+and every byte of it is checkable (both compact indices must equal the
+export table's own `ClassIndex`, both i32 must be `-1`). That is
+`convert.py`'s `actor_prop_offset()`. Measured over all 100 converted maps
+and their 162,805 `StaticMeshActor` exports: the check passes for **every**
+one, the offset is **15 for every one** (no licensee-28 tile in the
+converted set produces 17), and the property list there consumes the export
+body exactly for 162,779 of them (99.98%).
+
+History, because this was got wrong twice and the second wrong answer was
+written up here as if it were right:
+
+* *2026-07-29 — first-clean-parse scan.* `find_prop_start` took the first
+  offset in 0..24 that parsed. About a third of StaticMeshActors (699 of
+  1936 on 22_22) carry bytes at offset ~10 that parse as a plausible
+  1-property list, so the real list at 15 was never reached and the actor
+  dropped out (no StaticMesh → no prop). 105 tiles had undercounted props
+  (some −1500).
+* *2026-07-29 — scored scan (the fix that was believed complete).* Score
+  each candidate: has a `Location` property, then most properties, then
+  longest span. This recovered the 699 and was documented here as the rule.
+  It is still a heuristic choosing between coincidences, and it **still
+  lost 5,593 placements world-wide** and resolved 14 more to the *wrong*
+  mesh (a `StaticMesh` reference decoding to `ZoneInfo34`,
+  `NMovableSunLight0`). A re-sync deeper into the body can parse cleanly,
+  end exactly at the body end, AND carry more property tags than the real
+  list while missing `StaticMesh` — the score prefers it. On 22_22 that is
+  what dropped `Giran_Village_S.Giran_V_Plaza_Stair01`, the Giran plaza
+  staircase the owner reported missing, plus 44 others.
+* *2026-08-08 — derived offset.* Rule above. 162,745 usable
+  StaticMeshActor placements vs the scan's 157,152, **none lost**. The
+  scan survives only as the fallback for bodies that fail the header check.
+
+Gate: `tools/world/prop_census.py --maps --check` (compares every .unr's
+static-mesh actors against the shipped scene.json, per tile).
+
+**Actor classes that place a StaticMesh.** Filtering on `StaticMeshActor`
+alone also missed two whole classes, 1,202 placements world-wide:
+`Mover` (553 — the clan-hall/castle/dungeon doors, `Door_Set_S.*`; their
+serialized `Location` equals their `BasePos`, i.e. keyframe 0 = closed) and
+`MovableStaticMeshActor` (649 — L2's scripted lifts and rotating machinery;
+identical `StaticMesh`/`Location`/`DrawScale3D` fields to a plain
+StaticMeshActor). Both are ordinary drawn geometry in retail. See
+`convert.py` `STATIC_MESH_ACTOR_CLASSES`.
 
 ### 3.2 Fully native exports (no property list)
 
