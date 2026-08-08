@@ -45,7 +45,7 @@ harnesses (headless Chrome driving the real UI).
 | Figure | What it is |
 |---|---|
 | **100** | world map tiles converted to web scenes — every named tile of the Interlude world grid |
-| **117,852** | static prop placements extracted from those tiles (buildings, fences, trees…) |
+| **163,953** | static prop placements extracted from those tiles (buildings, fences, trees…) — every one resolves to a drawable primitive, gated by `prop_census.py --check` |
 | **30,177** | textures exported from the client into the PNG library (386 packages) |
 | **772** | glTF models built by the pipeline: 14 creation characters + 495 monsters/NPCs + 180 weapons and shields + 83 others |
 | **99.7%** | of spawned NPC instances render a real model (54,734 of 54,901) — capsule placeholders down to 2 |
@@ -59,11 +59,14 @@ harnesses (headless Chrome driving the real UI).
 | **2,083** | system messages decoded — the client shows the game's own text, not ids |
 | **16** | retail UI windows rebuilt at client-exact, mined geometry — zero unjustified pixels (an audit gates the build) |
 | **100 / 100** | tiles with the server's own geodata extracted — bridges, indoor floors and real walkable heights |
-| **53** | suites in the one-command verification battery (`tools/battery.sh`) — 29 client + 24 live-gateway |
+| **107** | verification suites in the repo — 80 client + 27 live-gateway. `tools/battery.sh` runs them one command at a time; wiring the full set into it is open work, so the battery is a subset, not the total |
 | **21,589 / 21,589** | world textures at 4x HD — the full pass is complete (`tools/upscale/batch_world.sh` re-runs it idempotently) |
 | **157 / 653** | retail `.unr` maps / UE2 packages readable by the toolchain |
 | **65** | database tables in the running game server |
 | **24 / 24** | format-library tests passing, byte-exact against the reference native tools |
+| **12,015 / 12,015** | static-mesh actors carrying a retail footstep bank, each joined to its prop by (mesh, location) — zero unmatched, 98 distinct step sounds |
+| **352 / 495** | creatures with a fully bound animation set (idle/walk/run/attack/die), audited clip-by-clip against the retail `.psa` — the rest are documented gaps, not silent fallbacks |
+| **8,192** | numeric and colour literals classified by the unsourced-value audit — every one bucketed sourced / authored / unsourced / benign, with a regression gate |
 | **3e-8** | max position error of the model converter vs. the reference exporter |
 
 ---
@@ -256,8 +259,8 @@ play, and `deploy/play.sh --stop` closes the tunnel and edge proxy.
 
 ## The Elbera toolchain
 
-Fifteen tools, one rule: each does one job, is re-runnable, and carries its
-own verification. Pitch first, details after.
+Twenty-three tools, one rule: each does one job, is re-runnable, and carries
+its own verification. Pitch first, details after.
 
 | Tool | Pitch | Location |
 |---|---|---|
@@ -281,14 +284,28 @@ own verification. Pitch first, details after.
 | **ElberaLight** | Each tile's own sun, ambient and fog | `tools/world/light_extract.py` |
 | **ElberaArms** | Weapons and shields as glTF, hung on the retail sockets | `tools/src/char_pipeline/build_weapons.py` |
 | **ElberaFx** | Skill particles + effect meshes from the retail tables | `tools/dat/build_skillvfx.py`, `build_skillmesh.py` |
+| **ElberaSteps** | Retail footstep banks, per surface and per prop | `tools/audio/build_steps.py` |
+| **ElberaAudit** | Every literal in the codebase, sourced or flagged | `tools/audit/unsourced.py` |
+| **ElberaAnim** | Mesh→animation bindings, checked against the retail sets | `tools/anim/audit_bindings.py` |
 
-Support gear: `tools/battery.sh` — the one-command, 38-suite verification
-battery (`--client-only` / `--gateway-only`) · `tools/world/geodata.py` —
-L2OFF geodata → per-tile walkable block streams ·
-`tools/upscale/world_manifest.py` — builds the 21,589-texture HD manifest ·
-`tools/dat/export_skillweapons.py` — skill weapon-gates and target routing
-from server data · `tools/ui/audit_guesses.py` — the no-guess audit that
-gates the UI port.
+Support gear: `tools/battery.sh` — the one-command verification battery
+(`--client-only` / `--gateway-only`) · `tools/world/geodata.py` — L2OFF
+geodata → per-tile walkable block streams · `tools/world/prop_census.py` —
+gates that every one of the 163,953 placements resolves to a drawable
+primitive · `tools/upscale/world_manifest.py` — builds the 21,589-texture HD
+manifest · `tools/dat/export_skillweapons.py` — skill weapon-gates and target
+routing from server data · `tools/ui/audit_guesses.py` — the no-guess audit
+that gates the UI port · `tools/ui/mine_invslots.py`,
+`mine_shortcutslots.py` — recover control geometry from the shipped UI art
+when the xdat decode is thin, and refuse to write unless every xdat anchor is
+reproduced · `tools/audio/verify_falloff.py` — the 3D sound falloff constant,
+decoded from `ALAudio.dll`.
+
+Every one of these carries a `--check` mode that re-runs its own verification
+and exits nonzero on regression. Several are *sourcing gates* rather than
+converters: they refuse to emit anything they cannot tie back to the client's
+own data, which is why a gap in this port tends to be documented rather than
+quietly filled.
 
 ### Runtime
 
@@ -515,7 +532,7 @@ ours.
   colors, character sheet with live server stats, persistent hotbar, retail
   minimap with verified georeference, and 2,083 decoded system messages
   rendered as real text (`verify-m5`, `verify_m5`, `verify_minimap`).
-- **The whole world converted.** 100 tiles, 117,852 prop placements, every
+- **The whole world converted.** 100 tiles, 163,953 prop placements, every
   `scene.json` passing validation; tile↔region naming cross-validated
   against five independent sources ([docs/tile-map.md](docs/tile-map.md)).
 - **97 production models**, structurally validated, numerically diffed
@@ -581,6 +598,14 @@ ours.
   `heart_of_warding` (2 spawned instances) is textured with a `TexEnvMap` over
   a cubemap with no diffuse bitmap; 165 instances have an empty `mesh_name` in
   `npcgrp`. Painting them with anything else would invent their appearance.
+- **2,225 literals in the codebase are still unsourced.** A repo-wide audit
+  (`tools/audit/unsourced.py --check`) classifies all 8,192 numeric and colour
+  literals as sourced / authored / unsourced / benign, with a baseline that
+  fails on regression. 751 of the unsourced are in the client, and the ranked
+  worklist with true values recovered where they exist is in
+  [editor/world/audit_report/unsourced.md](editor/world/audit_report/unsourced.md).
+  Publishing the number is the point: this port's rule is that a documented
+  gap beats a plausible guess, and an unmeasured codebase cannot honour it.
 - **HD is expensive.** 4x textures weigh ~24x the LQ set (pilot tiles went
   76 MB → 1.86 GB) and HD is off by default for that reason; the full
   21,589-texture pass is complete.
