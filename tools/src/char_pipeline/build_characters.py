@@ -149,12 +149,22 @@ UTX_CACHE = {}
 
 
 def find_utx(texpkg):
-    """-> path of systextures/<texpkg>.utx, case-insensitive."""
-    d = os.path.join(CLIENT, 'systextures')
+    """-> path of <texpkg>.utx, case-insensitive.
+
+    systextures/ first (where every character/monster texture package
+    lives), then textures/ -- a handful of npcgrp refs name a MAP texture
+    package that the client ships under textures/ instead, e.g.
+    core_m00 -> dion_curumadungeon_t.  Searching the second directory is
+    additive: it only runs when systextures/ has no such package, so no
+    existing binding can change."""
     want = texpkg.lower() + '.utx'
-    for f in os.listdir(d):
-        if f.lower() == want:
-            return 'systextures/' + f
+    for sub in ('systextures', 'textures'):
+        d = os.path.join(CLIENT, sub)
+        if not os.path.isdir(d):
+            continue
+        for f in os.listdir(d):
+            if f.lower() == want:
+                return '%s/%s' % (sub, f)
     raise RuntimeError('texture package %s not found' % texpkg)
 
 
@@ -180,12 +190,36 @@ def mesh_section_materials(ukx_pkg, mesh_name):
     return [tex_refs[m] if 0 <= m < len(tex_refs) else None for m in mats]
 
 
+def find_material_export(pkg, obj_name):
+    """-> the MATERIAL export named obj_name, not a same-named group.
+
+    A few L2 texture packages carry a `Package` (group) export and a
+    material export with the SAME name, the group being the container of
+    the material family: LineageMonstersTex3 has `Drake_Raid_t00`
+    (Package) whose children are `Drake_Raid_t00_sp` (Texture),
+    `Drake_Raid_t00` (Shader), `Drake_Raid_t01` (FinalBlend), ...
+    `find_export` returns whichever comes first in the export table, so a
+    plain lookup can hand back the group.  A group has no bitmap and no
+    Diffuse/Material property; the material with the same name is the
+    object npcgrp's reference means.  Only Package exports are skipped --
+    nothing is chosen by similarity."""
+    ex = pkg.find_export(obj_name)
+    if ex is not None and pkg.class_name_of(ex) != 'Package':
+        return ex
+    want = obj_name.lower()
+    for e in pkg.exports:
+        if (pkg.export_name(e) or '').lower() == want and \
+                pkg.class_name_of(e) != 'Package':
+            return e
+    return ex
+
+
 def resolve_diffuse(texpkg, obj_name):
     """Resolve a material object in a systextures package to the name of
     its underlying diffuse Texture export (Shader/FinalBlend/TexModifier
     chains followed by l2lib resolve_material)."""
     pkg = load_utx(texpkg)
-    ex = pkg.find_export(obj_name)
+    ex = find_material_export(pkg, obj_name)
     if ex is None:
         raise RuntimeError('%s not found in %s' % (obj_name, texpkg))
     if pkg.class_name_of(ex) == 'Texture':
@@ -299,7 +333,7 @@ def decode_texture_png(texpkg, texname, out_path, keep_alpha=False):
     sys.path.insert(0, os.path.join(ROOT, 'tools'))
     from l2lib import textures as tx
     pkg = load_utx(texpkg)
-    ex = pkg.find_export(texname)
+    ex = find_material_export(pkg, texname)
     if ex is None:
         return False
     w, h, rgba, _info = tx.extract_texture_rgba(pkg, ex)

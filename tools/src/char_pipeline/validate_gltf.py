@@ -110,10 +110,27 @@ def validate(path):
         if any(b < a for a, b in zip(tv, tv[1:])):
             errs.append('anim %s non-monotonic times' % an['name'])
 
+    # Referenced files must exist CASE-SENSITIVELY.  os.path.exists lies on
+    # macOS's case-insensitive filesystem, so a manifest/glTF that points at
+    # "Foo.png" while the file is "foo.png" passes here and 404s on any
+    # Linux web server.  That defect has been found twice in this repo, so
+    # the check compares against the real directory listing.
+    listing = set(os.listdir(base or '.'))
+
+    def exists_cs(uri):
+        d, name = os.path.split(uri)
+        if d:                       # nested uris: fall back to a real walk
+            sub = os.path.join(base, d)
+            return os.path.isdir(sub) and name in set(os.listdir(sub))
+        return name in listing
+
+    if buf['uri'] and not exists_cs(buf['uri']):
+        errs.append('buffer %s: case mismatch vs the real filename'
+                    % buf['uri'])
     for im in g.get('images', []):
         p = os.path.join(base, im['uri'])
-        if not os.path.exists(p):
-            errs.append('missing image %s' % im['uri'])
+        if not exists_cs(im['uri']):
+            errs.append('missing image %s (case-sensitive check)' % im['uri'])
         elif open(p, 'rb').read(8) != b'\x89PNG\r\n\x1a\n':
             errs.append('image %s is not a PNG' % im['uri'])
 

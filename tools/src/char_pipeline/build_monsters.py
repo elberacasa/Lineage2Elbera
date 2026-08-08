@@ -84,8 +84,14 @@ MONSTERS = [
 ]
 
 NPC_PKG = 'LineageNpcs'
+# Spellings here are npcgrp.dat's, which is what the client keys off.  The
+# dwarf trader used to be listed as 'Black_Market_Trader_MDwarf_m00' (the
+# .ukx object's capitalisation); npcgrp writes
+# 'black_market_trader_MDwarf_m00', so this roster produced a SECOND
+# manifest entry differing only in case, whose glTF/PNG filenames resolved
+# on macOS and 404'd on a case-sensitive host.  npcgrp wins.
 NPCS = ['a_guard_MElf_m00', 'a_common_peopleA_MHuman_m00',
-        'Black_Market_Trader_MDwarf_m00']
+        'black_market_trader_MDwarf_m00']
 
 # frozen-contract animation mapping (first hit wins, case-insensitive)
 ANIM_CANDIDATES = {
@@ -131,6 +137,46 @@ def export_one(pkg_path, obj, extra, outdir):
     if r.returncode != 0:
         raise RuntimeError('umodel export failed for %s: %s'
                            % (obj, r.stderr[-300:]))
+
+
+_DUMP_ANIM = re.compile(r'Loading MeshAnimation (\S+) from package (\S+)')
+
+
+def bound_animation(pkg_path, mesh_name):
+    """-> (anim_object, 'animations/<File>.ukx') actually bound to this mesh,
+    or (None, None).
+
+    GROUND TRUTH, not a name convention.  A UE2 `USkeletalMesh` serializes an
+    `Animation` object reference (UnMesh2.cpp: `Points2 << RefSkeleton <<
+    Animation`) naming the MeshAnimation the mesh is rigged against.  l2lib's
+    mesh reader stops at the Materials array and never reaches that field, so
+    the builder used to derive the animation from the mesh NAME
+    (`<base>_anim`).  The reference oracle resolves it properly: loading the
+    mesh with `umodel -dump` follows the reference and logs
+
+        Loading MeshAnimation <anim> from package <File>.ukx
+
+    Retail is full of cases the name convention cannot reach and must not
+    guess at -- transposition typos in the shipped data
+    (`hunter_gargoyle_m00` -> `hunter_gargolye_anim`, `marsh_stakato_m00` ->
+    `marsh_stakarto_anim`, `ketra_orc_chieftain_m00` ->
+    `Ketra_orc_cheiftain_anim`), disambiguation between several plausible
+    sets (`heretic_privates_m00` -> `heretic_privates_anathema_anim`, not
+    `_hatchet_anim`), a different creature's set (`youth_ostrich_m00` ->
+    `Rough_Ostrich_anim`) and animations in another package.  Control:
+    `gremlin_m00` -> `gremlin_anim`, i.e. it agrees with the old convention
+    wherever the old convention was right.
+
+    A mesh with no `Animation` reference logs nothing and is genuinely
+    inanimate -- it ships static.
+    """
+    r = umodel(['-dump', pkg_path, mesh_name])
+    m = _DUMP_ANIM.search(r.stdout + r.stderr)
+    if not m:
+        return None, None
+    anim, pkgfile = m.group(1), m.group(2)
+    rel, _real = ukx_for_package(os.path.splitext(pkgfile)[0])
+    return anim, rel
 
 
 def find_exported(outdir, basename, ext):
@@ -330,23 +376,35 @@ def build_one(mesh_id, pkg, stage, outdir):
     if not any(s['texture'] for s in sections):
         print('  WARNING: no texture resolved for %s' % mesh_id)
 
-    # animations: monster anims are named after the CREATURE, not the
-    # full mesh name (gremlin_m00 -> gremlin_anim; goblin_m00 ->
-    # Goblin_animation; Black_Market_Trader_MDwarf_m00 ->
-    # Black_Market_trader_anim)
-    base = re.sub(r'_m\d+$', '', mesh_name)
-    anim_obj = find_ci(objects.get('MeshAnimation', []), '%s_anim' % base) \
-        or find_ci(objects.get('MeshAnimation', []), '%s_animation' % base)
-    if not anim_obj:
-        for n in objects.get('MeshAnimation', []):
-            nb = re.sub(r'_anim(ation)?$', '', n.lower())
-            if base.lower().startswith(nb):
-                anim_obj = n
-                break
+    # animations: the mesh's own serialized `Animation` reference, read
+    # through the reference oracle (see bound_animation).  The name
+    # convention below is only a fallback for meshes that carry no such
+    # reference but do have an identically-named MeshAnimation.
+    anim_obj, anim_ukx = bound_animation(ukx, mesh_name)
+    if anim_obj:
+        print('  animation binding (umodel -dump): %s in %s'
+              % (anim_obj, anim_ukx))
+    else:
+        # gremlin_m00 -> gremlin_anim; goblin_m00 -> Goblin_animation;
+        # black_market_trader_MDwarf_m00 -> Black_Market_trader_anim
+        base = re.sub(r'_m\d+$', '', mesh_name)
+        anim_ukx = ukx
+        anim_obj = find_ci(objects.get('MeshAnimation', []),
+                           '%s_anim' % base) \
+            or find_ci(objects.get('MeshAnimation', []), '%s_animation' % base)
+        if not anim_obj:
+            for n in objects.get('MeshAnimation', []):
+                nb = re.sub(r'_anim(ation)?$', '', n.lower())
+                if base.lower().startswith(nb):
+                    anim_obj = n
+                    break
+        if anim_obj:
+            print('  animation by name convention (mesh carries no '
+                  'Animation reference): %s' % anim_obj)
     psa = None
     selection = {}
-    if anim_obj:
-        export_one(ukx, anim_obj, [], stage)
+    if anim_obj and anim_ukx:
+        export_one(anim_ukx, anim_obj, [], stage)
         psa = find_exported(stage, anim_obj, '.psa')
     if psa:
         _bones, anims = assemble.parse_psa(psa)
@@ -377,7 +435,24 @@ def build_one(mesh_id, pkg, stage, outdir):
     parts = [{'psk': psk, 'name': mesh_name, 'sections': sections}]
     g, bin_data, ctx = assemble.merge_parts(parts, out_gltf)
     if psa and selection:
-        bin_data = assemble.inject_animations(g, bin_data, psa, selection, ctx)
+        try:
+            bin_data = assemble.inject_animations(g, bin_data, psa, selection,
+                                                  ctx)
+        except Exception as e:
+            # assemble refuses to bind a psa whose bone names do not match
+            # the mesh skeleton ("matched only N/M bones; refusing to
+            # guess").  That refusal is right -- but dropping the whole
+            # model over it leaves a coloured capsule, which is strictly
+            # worse than the correct geometry standing still.  Same policy
+            # as the no-animation-set branch below: ship the static mesh
+            # and say why.  Seen on single-bone props whose <name>_anim
+            # rig uses a different root bone name (old_bookshelf_m00,
+            # grail_brazier_b_m00, pavel_weather_controller_m00,
+            # Evilate_m00).
+            print('  note: animation set does not fit this skeleton (%s)'
+                  ' -- shipping static mesh' % e)
+            g, bin_data, ctx = assemble.merge_parts(parts, out_gltf)
+            selection, psa = {}, None
     g['buffers'][0]['byteLength'] = len(bin_data)
     with open(out_gltf, 'w') as f:
         json.dump(g, f)
@@ -458,6 +533,18 @@ def main():
         else:
             failed += 1
     models = [existing[k] for k in order if k in existing]
+    # Two ids equal under lower() are always a bug, never a feature: the
+    # client matches the manifest id case-insensitively, so the pair is
+    # ambiguous, and their glTF/PNG filenames collide on a case-insensitive
+    # filesystem while resolving to different URLs on a case-sensitive
+    # host.  Refuse rather than write it.
+    seen = {}
+    for m in models:
+        prev = seen.setdefault(m['id'].lower(), m['id'])
+        if prev != m['id']:
+            print('REFUSING to write manifest: ids %r and %r differ only in '
+                  'case' % (prev, m['id']), file=sys.stderr)
+            return 2
     with open(manifest_path, 'w') as f:
         json.dump({'models': models}, f, indent=2)
     print('\nbuilt %d, failed/skipped %d; manifest: %d models -> %s'
