@@ -295,6 +295,20 @@ export class ChatBox {
     if (/^\/(die|revive|partyask|clanask|tradeask|storeoffline|skilldepth|equipsword|equipdagger|interrupt)$/i.test(text)) {
       return this.onSend({ channel: 0, text });
     }
+    // GM commands. Typing "//admin" in the retail client runs an admin
+    // command; in aCis those do NOT arrive through Say2 — this Say2 routes
+    // only "." voiced commands (Say2.java:101) — they arrive through
+    // RequestBypassToServer with an "admin_" prefix
+    // (RequestBypassToServer.java:51). So the translation is client-side,
+    // exactly as it is in the retail client, and it is one line:
+    //   //admin      -> bypass admin_admin
+    //   //spawn 20001 -> bypass admin_spawn 20001
+    // The server answers with its own NpcHtmlMessage, which this client
+    // already renders, so the whole retail GM panel works with no new UI.
+    // A non-GM account gets aCis's own refusal; nothing is gated here.
+    const gm = text.match(/^\/\/(\S.*)$/);
+    if (gm) return this.onSend({ gmCommand: `admin_${gm[1].trim()}` });
+
     // an unrecognized /command must NEVER go out as public chat (retail
     // parses commands client-side and swallows unknown ones) — local note
     const cmd = text.match(/^\/(\S+)/);

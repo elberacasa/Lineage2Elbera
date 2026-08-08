@@ -333,7 +333,14 @@ function makeChat() {
     document.getElementById('chat-log'),
     document.getElementById('chat-input'),
     {
-      onSend: ({ channel = 0, text, target }) => {
+      onSend: ({ channel = 0, text, target, gmCommand }) => {
+        // "//<cmd>" from chat.js: an aCis admin command, which travels as a
+        // bypass, not as chat. The server replies with its own GM panel HTML.
+        if (gmCommand) {
+          if (online) net.send('bypass', { command: gmCommand });
+          else chat.addSystem('GM commands need the server — tick Online.');
+          return;
+        }
         if (!text) return;
         // '/trade' with no message body (chat.js parses '/trade <msg>' as
         // channel 8) invites the CURRENT PLAYER target, like the retail
