@@ -22,8 +22,8 @@ project's house rule.
 
 | | |
 |---|---|
-| ![Talking Island village, walkable in the browser](docs/img/world-talking-island.jpg) | ![The town of Giran, converted from the retail map](docs/img/world-giran.jpg) |
-| **Talking Island village**, walkable in the browser — converted tile-for-tile from the retail map files | **Giran**, one of 100 converted world tiles — walls, banners and lampposts placed from the original actor data |
+| ![Talking Island village, walkable in the browser](docs/img/world-talking-island.jpg) | ![Giran, with its BSP building geometry decoded from the map](docs/img/world-giran.jpg) |
+| **Talking Island village**, walkable in the browser — converted tile-for-tile from the retail map files | **Giran**, with its architecture — the cathedral facade, city walls, plaza and arcades are BSP brush geometry decoded from the map, not props |
 | ![Character creator](docs/img/character-creator.jpg) | ![Combat](docs/img/combat.jpg) |
 | **Character creator** — all 14 race/gender combos rebuilt as glTF, faces and hairstyles from the real game data | **Combat** — target frame, damage floats, HP/MP bars; verified end-to-end against the live server |
 | ![Two players chatting on the real server](docs/img/multiplayer-chat.jpg) | ![A Gremlin as a real animated model](docs/img/monster-gremlin.jpg) |
