@@ -84,3 +84,6 @@ editor/world/ui_geom_shots/
 editor/world/ui_geom_shots_before/
 editor/world/ui_geom_shots_after/
 editor/world/verify_shots/
+
+# The owner's own reference screenshots — input to the work, not source
+editor/world/human_shots/
