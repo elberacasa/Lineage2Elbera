@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { Terrain, WATER_SCROLL } from './terrain.js';
 import { NeighborTiles } from './neighbors.js';
 import { Character } from './character.js';
-import { FollowCamera } from './camera.js';
+import { FollowCamera, verticalFovDeg, FOV_H_DEG } from './camera.js';
 import { l2ToThree, threeToL2, l2HeadingToThreeYaw } from './coords.js';
 import { NavGrid } from './geodata.js';
 import { NetClient, gatewayUrl, deviceId } from './net.js';
@@ -106,7 +106,14 @@ const sky = new THREE.Mesh(
 );
 scene.add(sky);
 
-const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 2000);   // retail-L2 narrow FOV
+// FOV is the retail one: assets/interlude/system/user.ini (Lineage2Ver413)
+// [Engine.PlayerController] DesiredFOV=60.0 / DefaultFOV=60.0. UE2's FOVAngle
+// is HORIZONTAL while three.js takes a VERTICAL fov, so resize() derives the
+// vertical angle from 60 deg horizontal at the live aspect — that is what
+// keeps the framing identical to retail on a window that is not 4:3. (The 35
+// that used to be hard-coded here was labelled "retail-L2 narrow FOV" and had
+// no source; at 4:3 retail is 46.8 deg vertical, at 16:9 it is 36.0.)
+const camera = new THREE.PerspectiveCamera(verticalFovDeg(1, FOV_H_DEG), 1, 0.1, 2000);
 const followCam = new FollowCamera(camera, canvas);
 
 // lighting rig consistent with the charcreate look (neutral base carried
@@ -848,9 +855,21 @@ net.on('changeMove', (msg) => entities.setMoveMode(msg.id, msg.running));
 // correlation guard matters: an UNSOLICITED actionFailed arrives right
 // after every enterWorld and must stay silent. Wording stays generic on
 // purpose — the op carries no reason.
+//
+// MEASURED 2026-08-08, and it kills the move line entirely: aCis answers an
+// ACCEPTED move order with ActionFailed too. editor/world/test/verify-move.js
+// drives a real session and logs both directions — every one of the eleven
+// move orders in a run was obeyed (MoveToLocation broadcast, server position
+// travelling toward the ordered point) AND was accompanied by exactly one
+// ActionFailed. So an ActionFailed correlated with a move order carries no
+// information about whether the move was refused, and turning it into
+// "Can't reach that." printed that line on literally every click — which is
+// what the owner's screenshot shows. The move entry is null: the op is still
+// noted (so a stale attack/cast line cannot claim the ActionFailed instead),
+// it simply says nothing.
 const ACTION_FEEDBACK_MS = 1500;   // correlation window after a player op
 const ACTION_FEEDBACK_LINE = {
-  move: "Can't reach that.",
+  move: null,
   attack: 'Cannot see target.',
   cast: 'Casting failed.',
 };
@@ -863,9 +882,11 @@ net.on('actionFailed', () => {
   skillBar.cancelCast();
   const now = performance.now();
   if (!lastPlayerAction || now - lastPlayerAction.t > ACTION_FEEDBACK_MS) return;
+  const line = ACTION_FEEDBACK_LINE[lastPlayerAction.kind];
+  if (line === null) return;       // move: not a refusal, see the table above
   if (now - lastActionFeedbackAt < 2000) return;
   lastActionFeedbackAt = now;
-  chat.addSystem(ACTION_FEEDBACK_LINE[lastPlayerAction.kind] || "Can't do that.");
+  chat.addSystem(line || "Can't do that.");
 });
 
 // L2 world tile name for absolute L2 coords: tiles span 32768 units,
@@ -1376,6 +1397,12 @@ window.__world = {
   // the geodata A* (findPath over the loaded tiles; NavGrid for synthetic
   // unit tests, pendingGoal = the click a re-path is still chasing)
   get moveQueue() { return moveQueue; },
+  // retail click marker (Engine.MarkProjector / Engine.Gui021) — verification
+  get clickMark() {
+    return clickMark && clickMark.visible
+      ? { pos: clickMark.position.toArray(), msLeft: Math.max(0, clickMarkUntil - performance.now()) }
+      : null;
+  },
   nav: {
     findPath: (sx, sy, sz, gx, gy, gz) => nav.findPath(sx, sy, sz, gx, gy, gz),
     NavGrid,
@@ -1504,8 +1531,24 @@ async function loadCharacter(id) {
   character = ch;
   selfModelId = entry.id;
   scene.add(ch.group);
-  // camera parameters are character-relative (true L2 scale)
+  // The server's locomotion values, replayed onto the model that just
+  // finished loading. charSheet (UserInfo) lands during enterWorld, while
+  // loadCharacter is still awaiting the glTF, so its handler's
+  // `if (character) character.setSpeeds(msg)` found nothing and the speeds
+  // AND the walk/run stance were dropped on the floor. Measured live
+  // 2026-08-08: charSheet said runSpeed 122 / walkSpeed 85 / running true and
+  // the character was still carrying the offline fallbacks 115/80 with
+  // forcedMoveAnim undefined, so every leg shorter than the RUN_THRESHOLD
+  // guess walked at 0.80 m/s while the server ran it at 1.22 — a 34 % speed
+  // disagreement that leaves the drawn body metres behind where the server
+  // has it, and every following click is then aimed from a stale position.
+  if (charSheetData) ch.setSpeeds(charSheetData);
   followCam.setScale(ch.heightM || 1.75);
+  // Re-frame on a (re)load with retail's own FixedDefaultCamera[0] preset.
+  // camera.js no longer resets the zoom inside setScale — the retail boom is
+  // an absolute length and does not depend on who you are playing — so the
+  // reset is an explicit act here, where entering the world happens.
+  followCam.resetToDefaultView();
   camera.near = Math.max(0.02, (ch.heightM || 1.75) * 0.1);
   camera.updateProjectionMatrix();
   sun.position.copy(worldLight.direction).multiplyScalar(-150).add(ch.group.position);
@@ -1684,6 +1727,69 @@ function wasdDir() {
 const MOVE_LEG_M = 20;          // 2000 L2 units per leg
 const moveQueue = [];           // pending legs (THREE.Vector3)
 
+// --- the retail click marker (Engine.MarkProjector) --------------------------
+//
+// SOURCED, not authored. The decal retail drops where you clicked is not in
+// skillvfx / lineageeffect / skillfx — it is `Engine.MarkProjector`, a native
+// Projector subclass in assets/interlude/system/Engine.u. Its class source and
+// its class defaults are transcribed in tools/dat/export_markprojector.py,
+// which is also what writes assets/gamedata/markprojector/gui021.png. The
+// parts that decide what we draw:
+//
+//   ProjTexture            Engine.Gui021 (#exec Texture Import gui021.tga,
+//                          256x256 RGBA8, MASKED, CLAMP both axes)
+//   MaterialBlendingOp     2 = PB_AlphaBlend
+//   FrameBufferBlendingOp  2 = PB_AlphaBlend      -> ordinary alpha, NOT additive
+//   bProjectTerrain        True   (inherited)
+//   bProjectBSP/StaticMesh/Particles/Actor  False -> terrain only
+//   UpdateMarkProjector()  SetLocation(DesireLocation)  -> the clicked point
+//                          SetDrawScale(0.10); FOV = 1
+//                          SetTimer(10, false)
+//   Timer()                DetachProjector(true)        -> it lives 10 s
+//
+// AUTHORED, and only this: the on-ground DIAMETER. UE2 builds the projector
+// frustum from FOV / MaxTraceDistance (1000) / DrawScale (0.10) inside
+// UnProjector.cpp, which is native and not in this repository, so the footprint
+// those three produce cannot be computed here. 0.80 m is a placeholder chosen
+// to read at the retail camera distance; replace it the moment the frustum
+// formula is recovered. Everything else above is the client's own data.
+const MARK_LIFETIME_S = 10;     // SetTimer(10, false)
+const MARK_DIAMETER_M = 0.55;   // AUTHORED — see above (~one character height)
+const MARK_LIFT_M = 0.02;       // AUTHORED — z-fight guard; a real projector needs none
+let clickMark = null;
+let clickMarkUntil = 0;
+
+function showClickMark(p) {
+  if (!clickMark) {
+    const tex = new THREE.TextureLoader().load('/gamedata/markprojector/gui021.png');
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;   // UCLAMPMODE/VCLAMPMODE
+    clickMark = new THREE.Mesh(
+      new THREE.PlaneGeometry(MARK_DIAMETER_M, MARK_DIAMETER_M),
+      new THREE.MeshBasicMaterial({
+        map: tex,
+        transparent: true,          // PB_AlphaBlend, both ops
+        depthWrite: false,
+        depthTest: true,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      }));
+    clickMark.rotation.x = -Math.PI / 2;   // flat on the ground
+    clickMark.renderOrder = 2;
+    clickMark.frustumCulled = false;
+    scene.add(clickMark);
+  }
+  clickMark.position.set(p.x, heightRouter.heightAtWorld(p.x, p.z, p.y) + MARK_LIFT_M, p.z);
+  clickMark.visible = true;
+  clickMarkUntil = performance.now() + MARK_LIFETIME_S * 1000;
+}
+
+function updateClickMark() {
+  if (clickMark && clickMark.visible && performance.now() >= clickMarkUntil) {
+    clickMark.visible = false;    // Timer() -> DetachProjector(true)
+  }
+}
+
 const nav = new NavGrid((x, y) => {   // world L2 coords -> loaded Geodata
   const t = tileNameFor(x, y);
   if (terrain && t === currentTile) return terrain.geodata;
@@ -1699,6 +1805,10 @@ const REPATH_MAX_STALLS = 3;  // give up after this many re-paths without progre
 const REPATH_MIN_MS = 400;
 
 function walkToServer(dest, { pathfinding = true } = {}) {
+  // MarkProjector marks the point the PLAYER asked for (DesireLocation), so
+  // it belongs on the click, not on each of the legs the click is cut into.
+  // Streamed WASD legs (pathfinding:false) are not clicks and get no mark.
+  if (pathfinding) showClickMark(dest);
   moveQueue.length = 0;         // a new order supersedes legs in flight
   pendingGoal = pathfinding ? dest.clone() : null;
   repathDist = Infinity;
@@ -1836,6 +1946,9 @@ function resize() {
   renderer.setSize(w, h, false);
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   camera.aspect = w / h;
+  // Keep retail's HORIZONTAL 60 deg (user.ini DefaultFOV) whatever the window
+  // shape is, by re-deriving the vertical angle three.js wants.
+  camera.fov = verticalFovDeg(camera.aspect, FOV_H_DEG);
   camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize);
@@ -1884,6 +1997,7 @@ renderer.setAnimationLoop(() => {
       }
     }
     combat.update(entityHeadPos);
+    updateClickMark();
     skillFx.update();
     // zone music + ambient emitters follow the character's body, not the
     // camera: standing inside a town's MusicVolume is what starts its theme
