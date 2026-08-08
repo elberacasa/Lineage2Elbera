@@ -17,13 +17,28 @@
 // Distance model. The data tables carry a volume and a radius per sound
 // (`sound_vol`/`sound_radius` in npcgrp, `spell_vols`/`spell_rads` in
 // skillsoundgrp, `SoundVolume`/`SoundRadius` on the map's AmbientSoundObjects).
-// Volume is a 0..255 byte — 250 is the usual "full". Radius is NOT in L2 world
-// units: read literally, a skill's radius of 40 would be 0.4 m. Unreal's own
-// convention is that a sound radius is quantized in units of 25, and applying
-// that lands all three independent tables in sensible ranges at once —
-// ambient 80 -> 20 m, skills 40 -> 10 m, monsters 250 -> 62 m. That is the
-// reading encoded here, and RADIUS_UNIT is the single constant to calibrate if
-// a side-by-side against the retail client ever disagrees.
+// Volume is a 0..255 byte — 250 is the usual "full".
+//
+// RADIUS_UNIT IS THE ONE UNSOURCED CONSTANT IN THIS FILE, and the note that
+// used to sit here overstated its basis. Setting the record straight:
+//
+//   - The radii cannot be plain L2 world units. Read literally a skill's 40
+//     would be 0.4 m and a monster's 250 would be 2.5 m, which no sound in the
+//     game behaves like. That part is solid.
+//   - The 25 came from stock Unreal, where SoundRadius is a BYTE quantized in
+//     steps of 25. But Lineage 2 redeclares it: the decrypted Engine.u reads
+//     `var(Sound) float SoundRadius;  // Radius of ambient sound.` — a float,
+//     with no unit given. So the byte-quantization convention does not apply
+//     here and cannot be cited as the source for 25.
+//   - What 25 still has going for it is only this: it puts all three
+//     independent tables in plausible ranges at once (ambient 80 -> 20 m,
+//     skills 40 -> 10 m, monsters 250 -> 62 m). That is corroboration, not a
+//     derivation, and it would be satisfied by nearby values too.
+//
+// So this is a calibration, not a decode. Settling it needs the retail client
+// audible side by side, or the native code that consumes the field — the
+// UnrealScript declaration does not carry the answer. Everything else in this
+// module comes out of the game's own data; this single number does not.
 //
 // Autoplay. Browsers refuse to start an AudioContext without a user gesture, so
 // the context is created suspended and resumed on the first click or keypress.
