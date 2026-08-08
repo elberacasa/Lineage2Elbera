@@ -7,6 +7,14 @@
 > the gate results, the measured improvements, and the one place where this
 > document's fix specification turned out to be **wrong** (F1's roll sign).
 > The full derivation lives in `docs/world-prop-basis.md`.
+>
+> **STATUS 2026-08-08 — F5 RESOLVED.** Closed as **NOT A DEFECT** for
+> characters: `nativeHeight` is right, and `2 × collision height` was the
+> wrong expectation (the collision cylinder is an authored Unreal bound, and
+> the retail pawn classes set no `DrawScale`). The same decode turned up a
+> real defect one step over — monster/NPC `nativeHeight` omits the retail
+> per-class `DrawScale` — filed below as **F5b**. No model file was
+> rebuilt. Gate: `tools/src/char_pipeline/audit_native_height.py --check`.
 
 Adversarial audit run 2026-08-07. The question asked of every claim was not
 "does a suite pass" but **"does the rendered result equal the decoded source
@@ -28,6 +36,16 @@ Read-only audit: **no existing file was modified.** New files added:
 | `tools/src/char_pipeline/audit_prop_basis.py` | re-runnable gate: proves, per staticmesh package, which coordinate basis the converted glTF is in, using a umodel `-psk` export as the oracle |
 | `editor/world/audit_shots.js` | camera-staged screenshot harness for arbitrary L2 coordinates, with an optional in-page `--eval` patch for A/B |
 | `editor/world/audit_shots/*.png` | the screenshots referenced below |
+
+Added by the F5 resolution pass (2026-08-08):
+
+| file | what it is |
+| --- | --- |
+| `tools/src/char_pipeline/uclass_defaults.py` | decodes `defaultproperties` out of a UE2 `UClass` export — the only source for the retail client's `CollisionHeight`/`CollisionRadius`/`DrawScale` |
+| `tools/src/char_pipeline/audit_native_height.py` | re-runnable gate: pawn `DrawScale`, aCis class XML vs the client, shipped `nativeHeight` vs an independent retail re-measurement, and the shared-mesh `DrawScale` test; `--emit-npc-scale` regenerates the NPC table |
+| `tools/src/char_pipeline/scale_check.js` + `.html` | orthographic elevation of characters against retail weapons/props in raw L2 units; `--check` asserts the client's scaling rule lands on the shipped `nativeHeight` |
+| `tools/src/char_pipeline/f5_scale_check.png` | that render, inspected |
+| `editor/characters/monsters/npc-scale.json` | per-`npcId` retail `DrawScale` (666 entries), generated |
 
 ---
 
@@ -380,32 +398,186 @@ lands in the corrected basis.
 
 ---
 
-### F5 — SUSPECT, could not close. `nativeHeight` is ~5% short of 2× the server collision height, consistently
+### F5 — RESOLVED 2026-08-08. NOT A DEFECT for characters (2× collision height was the wrong expectation). One real defect found next door: monster/NPC `nativeHeight` omits the retail `DrawScale`
 
-`editor/characters/manifest.json` `nativeHeight` is measured from the mesh
-itself (`scale-report.json`: `gltfExtent × 100 × meshScale`, and `meshScale`
-is the `.ukx` DrawScale), so it is source-derived and the client applies it
-exactly (`character.js:90`). But against the server's own collision heights
-(`server/aCis_datapack/data/xml/classes/*.xml`, where L2 `height` is a
-half-height):
+> Closed with the pawn setup code the original audit said it needed. It was
+> in the repo the whole time: `assets/interlude/system/LineageWarrior.u`.
+> Gate: `tools/src/char_pipeline/audit_native_height.py --check`.
+> Decoder: `tools/src/char_pipeline/uclass_defaults.py`.
 
-| model | 2 × server height | manifest `nativeHeight` | delta |
-| --- | --- | --- | --- |
-| human_fighter_m | 46.0 | 46.0 | 0.0% |
-| human_fighter_f | 47.0 | 44.2 | −6.0% |
-| human_mystic_m | 45.6 | 42.1 | −7.7% |
-| elf_m | 48.0 | 46.3 | −3.5% |
-| dwarf_f | 38.0 | 34.5 | −9.2% |
-| orc_mystic_m | 55.0 | 50.1 | −8.9% |
+**The premise was wrong on two counts.**
 
-Every entry is short, never long, which reads like a systematic measurement
-gap (bind-pose bounding box vs the standing silhouette, or hair/crown
-geometry excluded) rather than noise. I could not decide whether the retail
-client scales pawns by collision height or renders the mesh at DrawScale —
-that needs the pawn setup code, which I did not have. **Leaving it open
-rather than guessing a correction factor.** If someone closes this: the
-correct test is a retail screenshot of a named character next to a
-known-size prop, not a ratio.
+*It is not consistent.* Measured over all 14 pawns, not six, the ratio
+`nativeHeight / (2 × CollisionHeight)` runs **0.9079 … 1.0000**, sd 0.0271 —
+a 9-point spread, not a constant. And it inverts rank twice, which a
+measurement of the same quantity cannot do: the cylinder says
+`FFighter (47.0) > MFighter (46.0)` while the mesh says
+`MFighter (45.96) > FFighter (44.20)`; the cylinder says
+`MOrc (56.0) > FOrc (54.0)` while the mesh says `FOrc (53.87) > MOrc (52.43)`.
+
+*It is not one-signed either.* For monsters the same ratio sits slightly
+**above** 1 (median 1.014 over the 492 DrawScale-1 classes), so "always
+short" is an artefact of looking only at players.
+
+**What the retail client actually does**, decoded from the client's own
+UnrealScript class defaults (`uclass_defaults.py` reads the packed
+`defaultproperties` stream at the tail of each `UClass` export):
+
+```
+rendered height = mesh Z extent × ULodMesh.MeshScale.z × Actor.DrawScale
+```
+
+- `Engine.Actor` defaults `DrawScale = 1.0`, `DrawScale3D = (1,1,1)`
+  (decoded from `Engine.u`).
+- **None of the 14 player pawn classes overrides `DrawScale`** —
+  `MFighter, FFighter, MMagic, FMagic, MElf, FElf, MDarkElf, FDarkElf,
+  MOrc, FOrc, MShaman, FShaman, MDwarf, FDwarf` in `LineageWarrior.u`, nor
+  their common parent `LineagePawn`. So for characters the rendered height
+  *is* mesh extent × MeshScale, i.e. exactly `nativeHeight`.
+- `MeshScale` itself is confirmed against the umodel oracle:
+  `umodel -game=l2 -uc -export animations/Fighter.ukx MFighter_m001_u`
+  writes `#exec MESH SCALE MESH=MFighter_m001_u X=1.03 Y=1.03 Z=1.03`,
+  matching `scale_util.mesh_scale` byte for byte (FFighter: 1.0).
+- `CollisionHeight` is the Unreal collision **cylinder** half-height —
+  `Engine.Actor` ships 22, `Engine.Pawn` 78, and Lineage overrides it per
+  class. It is an authored bound, not a measurement of the mesh.
+
+**Where the server number comes from — it is the client's number.**
+aCis `data/xml/classes/*.xml` `height`/`heightFemale`/`radius`/`radiusFemale`
+are the client's `CollisionHeight`/`CollisionRadius` transcribed:
+**35 of 36 values match exactly**. The one that does not is an aCis
+datapack error, not a mesh problem: `orcMystic.xml height="27.5"` where the
+client's `MShaman` has `CollisionHeight = 27.0`. (That is the row the
+original F5 table listed as the worst offender, −8.9%; 0.5 of it is this
+bug.) Server semantics confirmed in source, not from the wiki:
+`GeoEngine.canSeeTarget` — `// Note: real creature height = collision
+height * 2` — and `Player.getCollisionHeightBySex`.
+
+**Full distribution** (`audit_native_height.py`, section C; the "retail"
+column is an independent re-measurement from the pawn class's *own*
+`Mesh` + `SubMeshes` list — the naked newly created character — via umodel
+`.psk` points × `MeshScale`, so it owes nothing to the build pipeline's
+armour choice):
+
+| model | manifest | retail mesh | Δ | 2×CollH | ratio |
+| --- | --- | --- | --- | --- | --- |
+| human_fighter_m | 46.0 | 45.96 | +0.1% | 46.0 | 1.0000 |
+| orc_fighter_f | 53.9 | 53.87 | +0.1% | 54.0 | 0.9981 |
+| orc_mystic_f | 50.0 | 50.04 | −0.1% | 51.0 | 0.9804 |
+| elf_m | 46.3 | 46.28 | +0.0% | 48.0 | 0.9646 |
+| darkelf_m | 45.6 | 45.64 | −0.1% | 48.0 | 0.9500 |
+| dwarf_m | 34.2 | 34.23 | −0.1% | 36.0 | 0.9500 |
+| darkelf_f | 44.6 | 44.55 | +0.1% | 47.0 | 0.9489 |
+| elf_f | 43.6 | 43.56 | +0.1% | 46.0 | 0.9478 |
+| human_fighter_f | 44.2 | 44.20 | +0.0% | 47.0 | 0.9404 |
+| orc_fighter_m | 52.4 | 52.43 | −0.1% | 56.0 | 0.9357 |
+| orc_mystic_m | 50.1 | 50.10 | +0.0% | 54.0 | 0.9278 |
+| human_mystic_m | 42.1 | 42.14 | −0.1% | 45.6 | 0.9232 |
+| human_mystic_f | 41.3 | 41.27 | +0.1% | 45.0 | 0.9178 |
+| dwarf_f | 34.5 | 34.46 | +0.1% | 38.0 | 0.9079 |
+
+Every shipped `nativeHeight` reproduces the retail mesh to within ±0.1%.
+**No character model was rebuilt and none needs to be.**
+
+**Third oracle, independent of both sides.** `scale_check.js` renders the
+character at its `nativeHeight` next to retail geometry in raw L2 units
+(`tools/src/char_pipeline/f5_scale_check.png`, orthographic elevation,
+rules every 10 units — the image was rendered and read, not assumed):
+
+| retail object | L2 units | vs `human_fighter_m` = 46.0 |
+| --- | --- | --- |
+| `long_bow_m00_wp` | 46.59 | 1.01× — a longbow is the archer's height |
+| `short_bow_m00_wp` | 23.28 | 0.51× |
+| `long_spear_m00_wp` | 54.94 | 1.19× — polearms 1.2–1.4× |
+| `dagger_m00_wp` | 18.90 | 0.41× |
+| `round_shield_m00_sh` | 13.10 | 0.28× — buckler |
+| `Elmo_LM_woodfence01_01` (staticmesh) | 44.65 | 0.97× — rural fence |
+| `GL_Stair02` riser | **8.00–8.13** over 8 steps (`GL_Stair01`: 10 steps, same) | the L2 geodata Z quantum |
+| `Elf_Door_01` (staticmesh) | 92.6 | 2.01× |
+
+Numbers reproducible with `audit_native_height.py --props`.
+
+Weapons are the sharpest of these because they are retail meshes authored
+to be *held by* the retail character, and they come out at correct human
+proportions. **Honest limits, stated so nobody over-reads the picture:**
+
+- This oracle fixes the *absolute* scale to roughly ±10%. It cannot
+  adjudicate the 5–9% gap. What adjudicates that is `DrawScale = 1` plus
+  the rank inversions above.
+- Stair risers sit on the 8-unit geodata grid, so they are a technical
+  quantum, not an ergonomic one, and say nothing about human scale.
+  (At 46 units ≈ 1.75 m a riser would be ~30 cm — L2 stairs are simply not
+  ergonomic. Recorded so nobody re-derives it and concludes the characters
+  are half-size.)
+- Architecture is monumental: an elven door leaf is 2× the character. That
+  is a retail art choice, not a scale error — the furniture and hand props
+  (fence, weapons) are the human-scale references, not the doorways.
+
+---
+
+### F5b — NEW, PROVED. Monster/NPC `nativeHeight` omits the retail per-class `DrawScale`
+
+Falls out of the same decode. **344 of 1,125 Lineage NPC/monster classes set
+`DrawScale`** (0.25 … 5.0). `scale_util.native_height` never applies it, so
+`editor/characters/monsters/manifest.json` `nativeHeight` is the mesh's
+unscaled size for every one of them.
+
+**Proof that DrawScale is what the retail size keys on, using no mesh data
+at all.** 362 pairs of classes share a mesh but carry different
+`DrawScale`. If the client applies it, their `CollisionHeight` must be in
+the same ratio as their `DrawScale`; if it ignores it, the ratio must be 1:
+
+| hypothesis | pairs within 5% |
+| --- | --- |
+| CollisionHeight ratio == DrawScale ratio | **83.7%** |
+| CollisionHeight ratio == 1 (DrawScale ignored) | 0.8% |
+
+The `_bi` / `_sm` families are the mechanism in the open —
+`wererat` `DrawScale 1.0 / CollisionHeight 25`, `wererat_bi` `1.5 / 38`,
+`wererat_100_bi` `2.0 / 50`, `wererat_sm` `0.75 / 18.7`: one mesh, four
+sizes, cylinder and DrawScale moving together.
+
+**Effect on the fit** (per class, median over the meshes it uses):
+
+| population | median `nH/2·CH` | within ±10% |
+| --- | --- | --- |
+| DrawScale == 1 (n=492) | 1.014 | 66.9% |
+| DrawScale != 1 (n=258), no DrawScale | 0.834 | 19.0% |
+| DrawScale != 1 (n=258), **with** DrawScale | 1.026 | **57.4%** |
+
+Applying it lifts the DrawScale≠1 population to the DrawScale==1 baseline,
+and it collapses the reused-mesh families that `docs/npc-visual-data.md` §4
+listed as its unexplained 20%: `death_blader` goes from
+`1.08 / 0.98 / 1.20 / 0.72 / 0.34` across its five classes to
+`1.08 / 1.08 / 1.08 / 1.08 / 1.03`; `werewolf` from `1.35 / 1.18` to
+`1.01 / 1.00`; `drop_gourd` from `2.20 … 0.58` to `0.87 … 1.10`. The
+residual per-mesh offset is the cylinder's loose fit — the same thing F5
+found in the players.
+
+**Where the fix goes — NOT in the manifest.** `DrawScale` is per NPC
+*class*, and the same mesh serves classes at different scales, so it cannot
+be baked into a per-mesh `nativeHeight`. It has to be applied per `npcId`
+at spawn. The decoded table is shipped as
+**`editor/characters/monsters/npc-scale.json`** (666 npcIds with
+`DrawScale != 1`; regenerate with
+`audit_native_height.py --emit-npc-scale`).
+
+Client change, in a file this worker does not own
+(`editor/world/js/entities.js`, currently :241-248): it presently sizes NPCs
+as `renderScale = (2 × grp.height) / nativeHeight` (per
+`docs/npc-visual-data.md` §4). The retail rule is
+
+```
+targetHeight = entry.nativeHeight × (npcScale[npcId]?.drawScale ?? 1.0)
+```
+
+`2 × grp.height` is a *proxy* for that — it tracks it because the designers
+kept the cylinder proportional to `DrawScale`, and it is the only source
+that covers npcIds whose class the client tables do not name. It is not the
+retail number: it is off by the per-mesh cylinder slack, median ≈1.4–2.6%,
+and by more than 10% for about a third of classes. Recommended: prefer
+`npc-scale.json` when the npcId is listed, keep `2 × grp.height` as the
+fallback, and do not change the character path at all.
 
 ---
 
@@ -476,7 +648,9 @@ Recording these so the same ground is not re-audited.
   proved by an in-client A/B against the decoded alpha values.
 - F4 is proved as *unsourced* but not as *visually wrong by N units* — the
   UE2 light-unit → three.js intensity calibration is unfinished.
-- F5 is left open on purpose.
+- F5 was left open on purpose in that pass; it was closed on 2026-08-08
+  (see the F5 / F5b sections above) once the retail pawn setup code was
+  found in `assets/interlude/system/LineageWarrior.u`.
 - The `--shaders` cross-check indexes every client `.utx` on each run
   (~2 min). It is fine as a nightly gate, too slow for a pre-commit hook;
   cache the index if it needs to run often.
@@ -488,7 +662,8 @@ Recording these so the same ground is not re-audited.
 F1, F2 and F3 are **fixed and shipped**. F4 is **extracted** (the retail
 values now ship per tile) but **not wired into the renderer**, because the
 light rig lives in `editor/world/js/main.js`, which was outside this
-change's ownership. F5 is untouched, as intended.
+change's ownership. F5 was untouched by that pass, as intended, and was
+resolved separately on 2026-08-08.
 
 Full derivation of the coordinate work: **`docs/world-prop-basis.md`**.
 Contract updates: `tools/world/README.md` (prop basis, prop material state,

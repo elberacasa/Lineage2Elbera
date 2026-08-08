@@ -677,6 +677,16 @@ class Bridge {
         accuracy: u.accuracy, evasion: u.evasion, critical: u.critical,
         runSpeed: u.runSpeed, walkSpeed: u.walkSpeed,
         pAtkSpd: u.pAtkSpd, mAtkSpd: u.mAtkSpd,
+        // Attack cadence and swing-animation rate. pAtkSpd feeds
+        // Formulas.calculateTimeBetweenAttacks = max(100, 500000 / pAtkSpd);
+        // atkSpdMul is CreatureStatus.getAttackSpeedMultiplier(), which aCis
+        // documents as the value "used by client to set correct
+        // character/object attack speed".
+        atkSpdMul: u.atkSpdMul,
+        // walk/run stance (UserInfo isRunning byte). setRunning(true) at world
+        // entry never broadcasts ChangeMoveType, so without this the client has
+        // to guess the stance.
+        running: u.running,
         maxLoad: u.maxLoad,
         // equipped item ids (UserInfo's 17-slot layout) — what the client
         // renders in the hand and on the body
@@ -704,6 +714,12 @@ class Bridge {
         // L2 units/s, straight from NpcInfo — the client animates with these
         // instead of one constant for every creature in the game
         runSpeed: n.runSpeed, walkSpeed: n.walkSpeed, running: n.running,
+        // attack cadence / swing rate, same fields and same meaning as on
+        // charSheet (NpcInfo carries them per creature)
+        pAtkSpd: n.pAtkSpd, mAtkSpd: n.mAtkSpd, atkSpdMul: n.atkSpdMul,
+        // right-hand item id: the client resolves the aCis WeaponType from it
+        // (itemtypes.json) to pick the CreatureAttack branch for hit timing
+        rhand: n.rhand, lhand: n.lhand,
       });
     });
 
@@ -722,6 +738,10 @@ class Bridge {
         // equipped item ids (CharInfo's 12-slot layout — a different order
         // from UserInfo's, see readPaperdollItems)
         paperdoll: c.paperdoll,
+        // attack cadence / swing rate / walk-run stance, same fields and same
+        // meaning as on charSheet (CharInfo carries them per player)
+        pAtkSpd: c.pAtkSpd, mAtkSpd: c.mAtkSpd, atkSpdMul: c.atkSpdMul,
+        running: c.running,
       });
     });
 
@@ -803,12 +823,19 @@ class Bridge {
     });
 
     game.on('attack', ({ attackerId, hits }) => {
-      for (const h of hits) {
+      for (let i = 0; i < hits.length; i++) {
+        const h = hits[i];
         this.send({
           op: 'attack',
           id: attackerId,
           targetId: h.targetId,
           damage: h.damage,
+          // Position inside the SAME Attack packet. aCis applies the hits of
+          // one swing at different times (CreatureAttack.onHitTimer: a dual
+          // wield lands hit 0, then hit 1 one _afterAttackDelay later), so the
+          // client cannot reproduce the cadence from a flat stream of ops.
+          hitIndex: i,
+          hitCount: hits.length,
           // Attack.java: HITFLAG_SS 0x10, CRIT 0x20, SHLD 0x40, MISS 0x80.
           // The soulshot bit is how a shot becomes visible at all — there is
           // no separate packet for it, the flash and its sound ride the blow.

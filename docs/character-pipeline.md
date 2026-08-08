@@ -207,7 +207,9 @@ editor/characters/
                          (glTF Y extent x 100 x MeshScale.z, decoded from
                          the .ukx by tools/src/char_pipeline/scale_util.py);
                          the world client sizes models from it (authoritative
-                         — no client-side normalization)
+                         — no client-side normalization).  Complete for
+                         players because Actor.DrawScale is 1 on all 14
+                         retail pawn classes — see §4.1
                          stances: which stance suffixes this model carries
                          clips for (always all six: hand 1hs 2hs dual bow pole)
   stances.json           weapon -> stance mapping, see §7
@@ -231,9 +233,50 @@ MASK), and two groups of animations:
 - **the per-weapon stance clips** `<action>_<stance>` — 41 to 71 per
   model, see §7.
 
-Models are in the source data's own scale (~0.4–0.5 glTF units tall; the
-retail client upscales pawns — same scale the umodel glTF export
-produces).
+Models are in the source data's own scale (~0.4–0.5 glTF units tall — the
+same scale the umodel glTF export produces).
+
+### 4.1 What `nativeHeight` is, and the one factor it is missing for monsters
+
+The retail engine renders a skeletal mesh at
+
+```
+rendered height = mesh Z extent × ULodMesh.MeshScale.z × Actor.DrawScale
+```
+
+`MeshScale` is decoded from the `.ukx` by `scale_util.mesh_scale` and is
+confirmed against umodel, which prints it into the `.uc` it writes beside a
+`.psk`:
+
+```
+$ tools/bin/umodel -game=l2 -uc -export -out=<abs> animations/Fighter.ukx MFighter_m001_u
+#exec MESH SCALE  MESH=MFighter_m001_u X=1.03 Y=1.03 Z=1.03     # FFighter_*: 1.0
+```
+
+`DrawScale` lives only in the client's UnrealScript class defaults and is
+decoded by `tools/src/char_pipeline/uclass_defaults.py`:
+
+- **Players: DrawScale is 1.** `Engine.Actor` defaults it to 1.0 and none of
+  the 14 pawn classes in `LineageWarrior.u` (nor their parent `LineagePawn`)
+  overrides it. So `nativeHeight` **is** the rendered height, and the
+  earlier note that "the retail client upscales pawns" was wrong.
+- **Monsters/NPCs: 344 of 1,125 classes override it** (0.25 … 5.0), and
+  `nativeHeight` does not carry it. Because the same mesh is reused by
+  classes with different `DrawScale` (362 such pairs), it cannot be folded
+  into the per-mesh manifest — it has to be applied per `npcId` at spawn.
+  The decoded table ships as `editor/characters/monsters/npc-scale.json`.
+
+`CollisionHeight` in `data/xml/classes/*.xml` is **not** a mesh
+measurement — it is the Unreal collision cylinder half-height, transcribed
+from the same client class defaults (35/36 values match exactly; the
+mismatch is an aCis bug, `orcMystic height=27.5` vs the client's `MShaman`
+27.0). `nativeHeight / (2 × CollisionHeight)` runs 0.908…1.000 across the
+14 pawns and even inverts rank, so the two are not interchangeable. Full
+derivation: `docs/foundation-audit.md` F5 / F5b.
+
+Gate: `tools/src/char_pipeline/audit_native_height.py --check`.
+Visual: `node tools/src/char_pipeline/scale_check.js --check <outdir>` puts
+the character next to a retail longbow, spear and fence at raw L2 scale.
 
 ## 5. Verification
 

@@ -145,12 +145,17 @@ export class SkillFx {
       this._seen.add(m);
       // half = the actor's collision half-height, which is where UE measures
       // effect offsets from (see skillvfx.js Instance._place)
+      // yaw = the actor's facing (group.rotation.y, 0 = +Z_three per
+      // coords.l2HeadingToThreeYaw), which is what a SkillAction_LocateEffect
+      // with bUseCharacterRotation spawns its effect in.
       const anchors = {
-        caster: { pos: () => entityPos(m.casterId), half: entityHalf(m.casterId) },
+        caster: { pos: () => entityPos(m.casterId), half: entityHalf(m.casterId),
+                  yaw: () => entityYaw(m.casterId) },
         // a self-target skill names the caster; entityPos resolves the local
         // player too, so this covers both without special-casing
         target: { pos: () => entityPos(m.targetId) || entityPos(m.casterId),
-                  half: entityHalf(m.targetId) || entityHalf(m.casterId) },
+                  half: entityHalf(m.targetId) || entityHalf(m.casterId),
+                  yaw: () => entityYaw(m.targetId) ?? entityYaw(m.casterId) },
       };
       try {
         if (m.op === 'skillCast') this.vfx.cast(m.skillId, anchors);
@@ -238,6 +243,15 @@ function entityHalf(id) {
   if (w.net.selfId === id && w.character) return (w.character.heightM || 1.7) / 2;
   const e = w.entities && w.entities.getEntity(id);
   return e ? (e.heightM || 1.7) / 2 : null;
+}
+
+// The actor's facing, for bUseCharacterRotation. null when the actor is gone.
+function entityYaw(id) {
+  const w = typeof window !== 'undefined' && window.__world;
+  if (!w) return null;
+  if (w.net.selfId === id && w.character) return w.character.group.rotation.y;
+  const e = w.entities && w.entities.getEntity(id);
+  return e ? e.group.rotation.y : null;
 }
 
 function makeGlowTexture() {

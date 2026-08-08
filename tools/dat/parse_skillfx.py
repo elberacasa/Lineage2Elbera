@@ -78,8 +78,10 @@ EMITTER_CLASSES = ("SpriteEmitter", "MeshEmitter", "BeamEmitter",
 #                        flag have their ramp IGNORED by the engine
 #   FadeOut / FadeIn     appear only as true         -> default false
 #   RespawnDeadParticles appears only as false       -> default true
-# The class defaults themselves live in Engine.u's script defaults and are not
-# re-derived here; the counts above are the evidence for each reading.
+# Those readings are no longer inferences: `dump_emitter_classes.py` reads the
+# ParticleEmitter/MeshEmitter/SpriteEmitter/VertMeshEmitter/BeamEmitter CLASS
+# DEFAULT streams (and the .uc declarations) straight out of Engine.u, and they
+# agree with every count above. See docs/skillfx-data.md §4b.
 SCALAR_FIELDS = {
     "Opacity": "opacity",
     "MaxParticles": "maxParticles",
@@ -104,8 +106,15 @@ SCALAR_FIELDS = {
     "StartLocationShape": "startShape",
     "UseSizeScale": "useSizeScale",
     "UseRegularSizeScale": "regularSizeScale",
+    "SizeScaleRepeats": "sizeScaleRepeats",
     "StartLocationOffset": "startOffset",   # Vector, decodes to [x,y,z]
     "Acceleration": "acceleration",         # Vector
+    # MeshEmitter/VertMeshEmitter own only four authored fields on top of
+    # ParticleEmitter (Engine.u declaration): StaticMesh/VertexMesh (kept as
+    # `mesh` below), UseMeshBlendMode, RenderTwoSided, UseParticleColor.
+    "UseMeshBlendMode": "useMeshBlendMode",
+    "UseParticleColor": "useParticleColor",
+    "SpinCCWorCW": "spinCCWorCW",           # Vector: per-axis P(spin is +ve)
 }
 # {Min, Max} -> [min, max]
 RANGE_FIELDS = {
@@ -253,6 +262,19 @@ def parse_effect_classes(pkg):
                     if isinstance(v, list):
                         em["colors"] = [{"t": c.get("RelativeTime"), "c": c.get("Color")}
                                         for c in v]
+                elif key == "SizeScale":
+                    # array<ParticleTimeScale> {RelativeTime, RelativeSize} --
+                    # the size-over-life curve, gated by UseSizeScale exactly as
+                    # ColorScale is gated by UseColorScale. Authored on 976 of
+                    # the 1232 MeshEmitters and 1477 of the SpriteEmitters, and
+                    # decoded here for the first time (the earlier pass dropped
+                    # it, so every particle kept its StartSize for its whole
+                    # life). UseRegularSizeScale defaults TRUE (Engine.u class
+                    # defaults) and is serialised false 1047x on MeshEmitters:
+                    # false = honour the authored RelativeTime stops.
+                    if isinstance(v, list):
+                        em["sizeScale"] = [{"t": c.get("RelativeTime"),
+                                            "s": c.get("RelativeSize")} for c in v]
                 elif key == "StartVelocityRange":
                     em["velocity"] = {k: rng(x) for k, x in v.items()} \
                         if isinstance(v, dict) else v

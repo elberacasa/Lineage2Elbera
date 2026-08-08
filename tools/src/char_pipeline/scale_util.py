@@ -8,6 +8,17 @@ at instance time — verified in UEViewer SkelMeshInstance.cpp:194).
 
 Used by build_characters.py (writes nativeHeight into the manifest at
 build time) and measure_scale.py (fleet-wide report + manifest merge).
+
+INCOMPLETE FOR NPCs — read before reusing this for monsters.  The retail
+rendered size is `extent * MeshScale.z * Actor.DrawScale`, and this module
+covers only the first two factors.  DrawScale is 1.0 (the Engine.Actor
+default) for all 14 player pawn classes, so nativeHeight is exact for
+characters; but 344 Lineage NPC/monster classes override it (0.25 .. 5.0),
+and the same mesh is reused by classes with different DrawScale, so it
+cannot be folded in here — it is per npcId, not per mesh.  The decoded
+table lives in editor/characters/monsters/npc-scale.json (regenerate with
+audit_native_height.py --emit-npc-scale); the derivation is
+docs/foundation-audit.md F5 / F5b.
 """
 import json
 import os

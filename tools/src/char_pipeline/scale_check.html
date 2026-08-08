@@ -1,0 +1,89 @@
+<!doctype html>
+<html><body style="margin:0;background:#101418">
+<script type="importmap">
+{"imports": {"three": "/node_modules/three/build/three.module.js",
+             "three/addons/": "/node_modules/three/examples/jsm/"}}
+</script>
+<script type="module">
+// Orthographic elevation view in RAW L2 WORLD UNITS (1 scene unit = 1 L2
+// unit).  Everything in the scene is placed at the size the retail data
+// says it is, so the picture is a ruler, not an impression:
+//   * character glTFs are scaled to their manifest nativeHeight;
+//   * world prop glTFs are umodel output in metres, so x100 puts them back
+//     in L2 units with no other adjustment;
+//   * weapon glTFs are the same, x100.
+// Horizontal rules every 10 units + a labelled rule at the disputed
+// heights let a reader measure straight off the image.
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+
+const spec = await (await fetch('/spec.json')).json();
+const W = spec.width || 1600, H = spec.height || 900;
+const renderer = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
+renderer.setSize(W, H);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x101418);
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const key = new THREE.DirectionalLight(0xffffff, 2.0);
+key.position.set(0.4, 0.6, 1);
+scene.add(key);
+
+const span = spec.span || 240;          // L2 units across the frame
+const halfH = span * H / W / 2;
+const camera = new THREE.OrthographicCamera(-span / 2, span / 2,
+                                            spec.top ?? halfH * 2 * 0.92,
+                                            (spec.top ?? halfH * 2 * 0.92) - halfH * 2,
+                                            -10000, 10000);
+camera.position.set(0, 0, 500);
+camera.lookAt(0, 0, 0);
+
+// --- ruler ------------------------------------------------------------
+function line(y, colour, x0, x1) {
+  const g = new THREE.BufferGeometry().setFromPoints(
+    [new THREE.Vector3(x0, y, -200), new THREE.Vector3(x1, y, -200)]);
+  scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({color: colour})));
+}
+for (let y = 0; y <= (spec.rulerTo || 120); y += 10)
+  line(y, y % 50 === 0 ? 0x5a6b7a : 0x2b3540, -span / 2, span / 2);
+for (const m of spec.marks || []) line(m.y, m.colour, -span / 2, span / 2);
+
+// --- objects ----------------------------------------------------------
+window.__err = null;
+const loader = new GLTFLoader();
+for (const o of spec.objects) {
+  let g;
+  try { g = await loader.loadAsync(o.url); }
+  catch (e) { window.__err = o.url + ': ' + e; continue; }
+  const root = g.scene;
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  // nativeHeight: reproduce editor/world/js/character.js Character.load
+  // exactly (scale so the bind-pose box height equals nativeHeight).
+  // raw: umodel metres -> L2 units.
+  const k = o.nativeHeight ? o.nativeHeight / size.y : 100;
+  root.scale.setScalar(k);
+  if (o.anim && g.animations.length) {
+    const mixer = new THREE.AnimationMixer(root);
+    const clip = g.animations.find(a => a.name === o.anim) || g.animations[0];
+    mixer.clipAction(clip).play();
+    mixer.update(o.t ?? 0.5);
+  }
+  const b2 = new THREE.Box3().setFromObject(root);
+  const c = b2.getCenter(new THREE.Vector3());
+  root.position.x += (o.x || 0) - c.x;
+  root.position.z += -c.z;
+  root.position.y += (o.y || 0) - b2.min.y;   // stand it on the ground
+  if (o.rotY) root.rotation.y = o.rotY;
+  if (o.rotZ) root.rotation.z = o.rotZ;
+  scene.add(root);
+  const bf = new THREE.Box3().setFromObject(root);
+  (window.__measured = window.__measured || {})[o.label || o.url] =
+    +(bf.max.y - bf.min.y).toFixed(2);
+}
+renderer.render(scene, camera);
+window.__done = true;
+</script>
+</body></html>

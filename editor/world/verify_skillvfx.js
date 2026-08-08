@@ -9,6 +9,9 @@
 //   - the retail effect classes actually spawned (names read back from the
 //     index, so a mis-binding is visible, not just "something drew")
 //   - live particle counts > 0 while the effect runs
+//   - the MESH emitters resolved to real LineageEffectsStaticmeshes geometry,
+//     reported by mesh name and triangle count (a mesh that silently failed to
+//     load would otherwise look identical to "the sprites drew")
 //   - the scene contains NO object tagged with the deleted authored effects
 //   - unbound skills draw nothing at all
 //
@@ -27,10 +30,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 // skill id -> what the retail tables say it must produce (docs/skillfx-data.md)
 const ANCHORS = [
   { id: 1177, name: 'Wind Strike', expect: ['el_wind_strike_ca', 'el_wind_strike_pr',
-                                            'el_wind_strike_fl', 'el_wind_strike_ta'] },
-  { id: 1011, name: 'Heal', expect: ['wh_heal_ca', 'wh_heal_ta'] },
-  { id: 1040, name: 'Shield', expect: ['wh_heal_ca', 'wh_shield_ta'] },
-  { id: 1085, name: 'Acumen', expect: ['su_empower_ca', 'su_acumen_ta'] },
+                                            'el_wind_strike_fl', 'el_wind_strike_ta'],
+    // the meshes the retail MeshEmitters on those classes name
+    meshes: ['windblowin00', 'windknifeball00', 'windknifewave00', 'windblowin01'] },
+  { id: 1011, name: 'Heal', expect: ['wh_heal_ca', 'wh_heal_ta'],
+    meshes: ['magiccirclewhite00', 'magiccirclewhite01'] },
+  { id: 1040, name: 'Shield', expect: ['wh_heal_ca', 'wh_shield_ta'],
+    meshes: ['magiccirclewhite01', 'white_shield00'] },
+  { id: 1085, name: 'Acumen', expect: ['su_empower_ca', 'su_acumen_ta'],
+    meshes: ['supportenchant00'] },
 ];
 const UNBOUND = 1216;   // Self Heal: no binding in ANY retail table
 
@@ -56,10 +64,20 @@ const UNBOUND = 1216;   // Self Heal: no binding in ANY retail table
 
     // the index must have loaded, and the handler chain must be wrapped
     summary.index = await page.evaluate(async () => {
-      const r = await fetch('/gamedata/skillvfx.json');
-      const j = await r.json();
+      const j = await (await fetch('/gamedata/skillvfx.json')).json();
+      const m = await (await fetch('/gamedata/skillmesh.json')).json();
+      let sprite = 0, mesh = 0;
+      const skip = {};
+      for (const f of j.fx) {
+        for (const e of f.e) (e.k === 1 ? mesh++ : sprite++);
+        for (const [k, v] of Object.entries(f.skip || {})) skip[k] = (skip[k] || 0) + v;
+      }
       return { skills: Object.keys(j.skill).length, classes: j.fxn.length,
-               textures: j.tex.length };
+               textures: j.tex.length, texturesWithAlpha: (j.texa || []).reduce((a, b) => a + b, 0),
+               spriteEmitters: sprite, meshEmitters: mesh, dropped: skip,
+               meshNames: j.msh.length,
+               geometry: { meshes: Object.keys(m.mesh).length, verts: m.nv,
+                           tris: m.ni / 3, textures: m.tex.length } };
     });
 
     // Zoom the REAL orbit camera all the way in (it re-derives position from
@@ -111,10 +129,54 @@ const UNBOUND = 1216;   // Self Heal: no binding in ANY retail table
         };
       });
       await page.screenshot({ path: path.join(OUT, `vfx_${a.id}_launch.png`) });
-      summary.anchors.push({ id: a.id, name: a.name, cast, launch });
+      // Which STATIC MESHES actually made it into the scene, with their real
+      // triangle counts: a mesh that failed to resolve leaves no object at all,
+      // so this separates "the sprites drew" from "the mesh path works".
+      const meshes = await page.evaluate(() => {
+        const seen = {};
+        window.__world.scene.traverse(o => {
+          const t = o.userData.skillFx;
+          if (!t || t.source !== 'skillmesh.json' || !o.geometry) return;
+          const idx = o.geometry.getIndex();
+          seen[t.mesh] = (seen[t.mesh] || 0) + (idx ? idx.count / 3 : 0);
+        });
+        return seen;
+      });
+      summary.anchors.push({ id: a.id, name: a.name, cast, launch, meshes });
       await page.evaluate(async () => (await import('/js/skills.js')).activeSkillFx().vfx.clear());
       await sleep(200);
     }
+
+    // bUseCharacterRotation, measured rather than eyeballed. Wind Strike's
+    // casting phase has TWO actions: el_wind_strike_ca at offset (0,0,-1) — one
+    // half-height DOWN, i.e. at the feet — and el_wind_strike_pr at (1,0,0) with
+    // the flag set, i.e. one half-height FORWARD in the CASTER's frame. So the
+    // _pr instance must sit along the character's facing (dot ~ 1) and the _ca
+    // instance must sit below its feet, whatever the heading happens to be.
+    await page.evaluate(() => {
+      const w = window.__world;
+      w.character.group.rotation.y = 0.9;      // an arbitrary non-axis heading
+      w.net.inject({ op: 'skillCast', skillId: 1177, level: 1,
+        casterId: w.net.selfId, targetId: w.net.selfId, hitTime: 2000, reuse: 0 });
+    });
+    await sleep(350);
+    summary.charRotation = await page.evaluate(async () => {
+      const w = window.__world;
+      const fx = (await import('/js/skills.js')).activeSkillFx();
+      const yaw = w.character.group.rotation.y;
+      const fwd = { x: Math.sin(yaw), z: Math.cos(yaw) };   // coords.js convention
+      const base = w.character.group.position;
+      return fx.vfx.live.map(i => {
+        const dx = i.group.position.x - base.x, dz = i.group.position.z - base.z;
+        const d = Math.hypot(dx, dz);
+        return { horizDist: +d.toFixed(3),
+                 dy: +(i.group.position.y - base.y).toFixed(3),
+                 dotForward: d > 1e-3 ? +((dx / d) * fwd.x + (dz / d) * fwd.z).toFixed(3) : null };
+      });
+    });
+    await page.screenshot({ path: path.join(OUT, 'vfx_charrotation.png') });
+    await page.evaluate(async () => (await import('/js/skills.js')).activeSkillFx().vfx.clear());
+    await sleep(200);
 
     // PROJECTILE: Wind Strike at a real NPC, so FlyingTime (0.4 s) actually
     // has a distance to cross. Sampled mid-flight and again after arrival.
@@ -189,6 +251,26 @@ const UNBOUND = 1216;   // Self Heal: no binding in ANY retail table
   }
   const drew = (summary.anchors || []).filter(x => x.launch.particles > 0).length;
   if (drew < ANCHORS.length) { summary.pass = false; summary.drewCount = drew; }
+  // bUseCharacterRotation: exactly one casting instance sits forward of the
+  // caster (dot ~ 1 with its facing) and one sits at its feet.
+  {
+    const r = summary.charRotation || [];
+    const fwd = r.filter(x => x.dotForward !== null && x.dotForward > 0.95);
+    // (0, 0, -1) is one half-height below the cylinder CENTRE, and the renderer
+    // lifts to that centre first — so the cast aura lands exactly on the feet:
+    // no horizontal offset and dy == 0, not dy < 0.
+    const feet = r.filter(x => x.horizDist < 0.05 && Math.abs(x.dy) < 0.05);
+    if (fwd.length !== 1 || feet.length !== 1) {
+      summary.pass = false;
+      summary.charRotationVerdict = 'expected 1 forward + 1 at the feet';
+    }
+  }
+  // every anchor's retail MeshEmitters must have produced real geometry
+  for (const a of ANCHORS) {
+    const got = ((summary.anchors || []).find(x => x.id === a.id) || {}).meshes || {};
+    const missing = a.meshes.filter(m => !(got[m] > 0));
+    if (missing.length) { summary.pass = false; summary[`missingMesh_${a.id}`] = missing; }
+  }
   if (summary.unbound && (summary.unbound.liveInstances || summary.unbound.taggedObjects)) {
     summary.pass = false;
   }

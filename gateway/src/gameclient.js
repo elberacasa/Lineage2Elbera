@@ -1368,16 +1368,24 @@ function parseCharInfo(r) {
   r.readD(); // lhand augmentation
   for (let j = 0; j < 4; j++) r.readH();
   r.readD(); r.readD(); // pvp, karma
-  r.readD(); r.readD(); // mAtkSpd, pAtkSpd
+  const mAtkSpd = r.readD();
+  const pAtkSpd = r.readD();
   r.readD(); r.readD(); // pvp, karma
   for (let j = 0; j < 8; j++) r.readD(); // speeds
-  r.readF(); r.readF(); // speed multipliers
+  r.readF();                    // movement speed multiplier
+  // CreatureStatus.getAttackSpeedMultiplier() — javadoc: "used by client to
+  // set correct character/object attack speed", value 1.1 * pAtkSpd /
+  // template basePAtkSpd. This is the swing-animation rate, and it was being
+  // read and thrown away here.
+  const atkSpdMul = r.readF();
   r.readF(); r.readF(); // collision radius/height
   r.readD(); r.readD(); r.readD(); // hairStyle, hairColor, face
   r.readS(); // title
   r.readD(); r.readD(); r.readD(); r.readD(); // clan, clan crest, ally, ally crest
   r.readD(); // 0
-  r.readC(); r.readC(); r.readC(); r.readC(); r.readC(); // sitting, running, combat, alikeDead, invisible
+  r.readC();                          // sitting
+  const running = r.readC() === 1;    // CharInfo.java: isRunning()
+  r.readC(); r.readC(); r.readC();    // combat, alikeDead, invisible
   r.readC(); r.readC(); // mountType, operateType
   const cubics = r.readH();
   for (let j = 0; j < cubics; j++) r.readH();
@@ -1396,7 +1404,8 @@ function parseCharInfo(r) {
   r.readD(); // name color
   const heading = r.readD();
   // pledgeClass, pledgeType, titleColor, cursed weapon stage follow; not needed
-  return { id: objectId, name, race, sex, classId, x, y, z, heading, paperdoll };
+  return { id: objectId, name, race, sex, classId, x, y, z, heading, paperdoll,
+           pAtkSpd, mAtkSpd, atkSpdMul, running };
 }
 
 function parseNpcInfo(r) {
@@ -1406,7 +1415,11 @@ function parseNpcInfo(r) {
   const x = r.readD(); const y = r.readD(); const z = r.readD();
   const heading = r.readD();
   r.readD(); // 0
-  r.readD(); r.readD(); // mAtkSpd, pAtkSpd
+  // AbstractNpcInfo.NpcInfo: mAtkSpd then pAtkSpd. pAtkSpd is the ONLY source
+  // for a monster's attack cadence — Formulas.calculateTimeBetweenAttacks is
+  // max(100, 500000 / pAtkSpd) — and it was being read and thrown away.
+  const mAtkSpd = r.readD();
+  const pAtkSpd = r.readD();
   // 8 speed fields: run, walk, then the swim and fly pairs. The first two are
   // what the client animates with — a hunting-zone wolf and a town guard move
   // at very different rates and the whole world reads as sluggish without them.
@@ -1414,7 +1427,10 @@ function parseNpcInfo(r) {
   const walkSpeed = r.readD();
   for (let j = 0; j < 6; j++) r.readD(); // swim/fly speeds — unused on land
   const speedMul = r.readF();   // movement multiplier; run/walk are pre-scaled
-  r.readF();                    // attack-speed multiplier
+  // attack-speed multiplier = CreatureStatus.getAttackSpeedMultiplier(),
+  // documented in aCis as the value "used by client to set correct
+  // character/object attack speed" (see parseCharInfo).
+  const atkSpdMul = r.readF();
   r.readF(); r.readF(); // collision
   const rhand = r.readD(); const chest = r.readD(); const lhand = r.readD();
   r.readC(); // name above
@@ -1428,7 +1444,8 @@ function parseNpcInfo(r) {
   const lvlMatch = /^Lv (\d+)/.exec(title);
   if (lvlMatch) level = Number(lvlMatch[1]);
   return { id: objectId, npcId, isAttackable, name, title, level, x, y, z, heading,
-           runSpeed, walkSpeed, speedMul, running, rhand, chest, lhand };
+           runSpeed, walkSpeed, speedMul, running, rhand, chest, lhand,
+           pAtkSpd, mAtkSpd, atkSpdMul };
 }
 
 // Full UserInfo layout (serverpackets/UserInfo.java). Remember: writeF is an
@@ -1480,7 +1497,8 @@ function parseUserInfo(r) {
   r.readD(); r.readD(); // swim speed x2
   r.readD(); r.readD(); // 0, 0
   r.readD(); r.readD(); // fly run/walk speed
-  r.readF(); r.readF(); // speed multipliers
+  r.readF();                    // movement speed multiplier
+  const atkSpdMul = r.readF();  // attack speed multiplier (see parseCharInfo)
   r.readF(); r.readF(); // collision radius/height
   r.readD(); r.readD(); r.readD(); // hairStyle, hairColor, face
   r.readD(); // isGM
@@ -1504,13 +1522,31 @@ function parseUserInfo(r) {
   r.readD(); // 0
   const maxCp = r.readD();
   const cp = r.readD();
-  // enchant, team, crestLarge, noble, hero, fishing(+loc), nameColor, running,
+  // The walk/run STANCE lives here, near the tail. aCis sets it with
+  // Player.setRunning(true) at world entry (Player.java restore), and
+  // setRunning does NOT broadcast ChangeMoveType — so this field is the only
+  // way the client can learn that a freshly-entered character is running.
+  // Reading it means walking the rest of the packet; a short/odd tail must not
+  // take the whole UserInfo down, hence the guard.
+  let running = null;
+  try {
+    r.readC();                                  // enchant effect
+    r.readC();                                  // team
+    r.readD();                                  // clan crest large
+    r.readC(); r.readC();                       // noble, hero
+    r.readC();                                  // fishing
+    r.readD(); r.readD(); r.readD();            // fishing loc (writeLoc = x,y,z)
+    r.readD();                                  // name color
+    running = r.readC() === 1;                  // UserInfo.java: isRunning()
+  } catch {
+    running = null;
+  }
   // pledgeClass, pledgeType, titleColor, cursed stage follow; not needed.
   return {
     id: objectId, name, race, sex, classId, level, exp, sp, hp, maxHp, mp, maxMp, cp, maxCp, x, y, z, heading,
     str, dex, con, int, wit, men, currentWeight, maxLoad,
     pAtk, pAtkSpd, pDef, evasion, accuracy, critical, mAtk, mAtkSpd, mDef,
-    runSpeed, walkSpeed, operateType, paperdoll,
+    runSpeed, walkSpeed, atkSpdMul, running, operateType, paperdoll,
   };
 }
 

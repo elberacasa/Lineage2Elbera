@@ -1,0 +1,4002 @@
+{
+ "_meaning": "retail rendered height = manifest nativeHeight(mesh) x drawScale. npcIds absent from this table have the Engine.Actor default drawScale 1.0.",
+ "_source": "assets/interlude/system/Lineage*.u class defaultproperties (Actor.DrawScale) joined to assets/gamedata/npcgrp.json by class_name; decoded by tools/src/char_pipeline/uclass_defaults.py",
+ "scales": {
+  "12774": {
+   "class": "LineageNPC.drop_gourd_50_sm",
+   "clientCollisionHeight": 10.5,
+   "drawScale": 0.5,
+   "mesh": "drop_gourd_m00"
+  },
+  "12776": {
+   "class": "LineageNPC.drop_gourd_25_sm",
+   "clientCollisionHeight": 16.0,
+   "drawScale": 0.75,
+   "mesh": "drop_gourd_m00"
+  },
+  "12778": {
+   "class": "LineageNPC.drop_gourd_50_bi",
+   "clientCollisionHeight": 40.0,
+   "drawScale": 1.5,
+   "mesh": "drop_gourd_m00"
+  },
+  "12779": {
+   "class": "LineageNPC.drop_gourd_25_bi",
+   "clientCollisionHeight": 31.0,
+   "drawScale": 1.25,
+   "mesh": "drop_gourd_m00"
+  },
+  "13002": {
+   "class": "LineageNPC.broadcasting_tower",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 3.0,
+   "mesh": "castle_aden_controltower_jewel_m00"
+  },
+  "13004": {
+   "class": "LineageNPC.broadcasting_tower",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 3.0,
+   "mesh": "castle_aden_controltower_jewel_m00"
+  },
+  "13007": {
+   "class": "LineageDeco.x_mas_tree_50_bi",
+   "clientCollisionHeight": 0.0,
+   "drawScale": 1.5,
+   "mesh": "x_mas_tree_m00"
+  },
+  "13017": {
+   "class": "LineageNPC.drop_gourd_50_bi",
+   "clientCollisionHeight": 40.0,
+   "drawScale": 1.5,
+   "mesh": "drop_gourd_m00"
+  },
+  "13031": {
+   "class": "LineageNPC2.E_pig_ball",
+   "clientCollisionHeight": 18.299999237060547,
+   "drawScale": 2.5,
+   "mesh": "pig_ball_m00"
+  },
+  "13032": {
+   "class": "LineageNPC2.E_pig_ball",
+   "clientCollisionHeight": 18.299999237060547,
+   "drawScale": 2.5,
+   "mesh": "pig_ball_m00"
+  },
+  "13033": {
+   "class": "LineageNPC2.E_pig_ball",
+   "clientCollisionHeight": 18.299999237060547,
+   "drawScale": 2.5,
+   "mesh": "pig_ball_m00"
+  },
+  "13034": {
+   "class": "LineageNPC2.E_pig_ball_H",
+   "clientCollisionHeight": 38.70000076293945,
+   "drawScale": 5.0,
+   "mesh": "pig_ball_m00"
+  },
+  "13035": {
+   "class": "LineageNPC2.E_pig_ball",
+   "clientCollisionHeight": 18.299999237060547,
+   "drawScale": 2.5,
+   "mesh": "pig_ball_m00"
+  },
+  "18009": {
+   "class": "LineageMonster.orc_fighter_bi",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 1.2,
+   "mesh": "orc_fighter_m00"
+  },
+  "18015": {
+   "class": "LineageMonster.orc_fighter_bi",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 1.2,
+   "mesh": "orc_fighter_m00"
+  },
+  "18016": {
+   "class": "LineageMonster.orc_archer_20_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.2,
+   "mesh": "orc_archer_m00"
+  },
+  "18018": {
+   "class": "LineageMonster.batur_orc_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_m00"
+  },
+  "18019": {
+   "class": "LineageMonster.orc_champion_20_bi",
+   "clientCollisionHeight": 27.600000381469727,
+   "drawScale": 1.2,
+   "mesh": "orc_champion_m00"
+  },
+  "18025": {
+   "class": "LineageMonster.batur_orc_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_m00"
+  },
+  "18026": {
+   "class": "LineageMonster.batur_orc_archer_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_archer_m00"
+  },
+  "18028": {
+   "class": "LineageMonster.batur_orc_overlord_20_bi",
+   "clientCollisionHeight": 28.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_overlord_m00"
+  },
+  "18029": {
+   "class": "LineageMonster.batur_orc_warrior_20_bi",
+   "clientCollisionHeight": 24.0,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_warrior_m00"
+  },
+  "18035": {
+   "class": "LineageMonster.batur_orc_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_m00"
+  },
+  "18036": {
+   "class": "LineageMonster.batur_orc_archer_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_archer_m00"
+  },
+  "18038": {
+   "class": "LineageMonster.batur_orc_overlord_20_bi",
+   "clientCollisionHeight": 28.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_overlord_m00"
+  },
+  "18039": {
+   "class": "LineageMonster.batur_orc_warrior_20_bi",
+   "clientCollisionHeight": 24.0,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_warrior_m00"
+  },
+  "18045": {
+   "class": "LineageMonster.batur_orc_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_m00"
+  },
+  "18046": {
+   "class": "LineageMonster.batur_orc_archer_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_archer_m00"
+  },
+  "18048": {
+   "class": "LineageMonster.batur_orc_overlord_20_bi",
+   "clientCollisionHeight": 28.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_overlord_m00"
+  },
+  "18049": {
+   "class": "LineageMonster.batur_orc_overlord_20_bi",
+   "clientCollisionHeight": 28.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_overlord_m00"
+  },
+  "18055": {
+   "class": "LineageMonster.ketra_orc_20_bi",
+   "clientCollisionHeight": 34.79999923706055,
+   "drawScale": 1.2,
+   "mesh": "ketra_orc_m00"
+  },
+  "18056": {
+   "class": "LineageMonster.ketra_orc_archer_20_bi",
+   "clientCollisionHeight": 32.400001525878906,
+   "drawScale": 1.2,
+   "mesh": "ketra_orc_archer_a_m00"
+  },
+  "18058": {
+   "class": "LineageMonster.ketra_orc_overload_20_bi",
+   "clientCollisionHeight": 28.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "ketra_orc_overload_m00"
+  },
+  "18059": {
+   "class": "LineageMonster.orc_fighter_bi",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 1.2,
+   "mesh": "orc_fighter_m00"
+  },
+  "18065": {
+   "class": "LineageMonster.orc_fighter_bi",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 1.2,
+   "mesh": "orc_fighter_m00"
+  },
+  "18066": {
+   "class": "LineageMonster.orc_archer_20_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.2,
+   "mesh": "orc_archer_m00"
+  },
+  "18068": {
+   "class": "LineageMonster.batur_orc_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_m00"
+  },
+  "18069": {
+   "class": "LineageMonster.orc_champion_20_bi",
+   "clientCollisionHeight": 27.600000381469727,
+   "drawScale": 1.2,
+   "mesh": "orc_champion_m00"
+  },
+  "18075": {
+   "class": "LineageMonster.batur_orc_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_m00"
+  },
+  "18076": {
+   "class": "LineageMonster.batur_orc_archer_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_archer_m00"
+  },
+  "18078": {
+   "class": "LineageMonster.batur_orc_overlord_20_bi",
+   "clientCollisionHeight": 28.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_overlord_m00"
+  },
+  "18079": {
+   "class": "LineageMonster.batur_orc_warrior_20_bi",
+   "clientCollisionHeight": 24.0,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_warrior_m00"
+  },
+  "18085": {
+   "class": "LineageMonster.batur_orc_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_m00"
+  },
+  "18086": {
+   "class": "LineageMonster.batur_orc_archer_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_archer_m00"
+  },
+  "18088": {
+   "class": "LineageMonster.batur_orc_overlord_20_bi",
+   "clientCollisionHeight": 28.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_overlord_m00"
+  },
+  "18089": {
+   "class": "LineageMonster.batur_orc_warrior_20_bi",
+   "clientCollisionHeight": 24.0,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_warrior_m00"
+  },
+  "18095": {
+   "class": "LineageMonster.batur_orc_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_m00"
+  },
+  "18096": {
+   "class": "LineageMonster.batur_orc_archer_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_archer_m00"
+  },
+  "18098": {
+   "class": "LineageMonster.batur_orc_overlord_20_bi",
+   "clientCollisionHeight": 28.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_overlord_m00"
+  },
+  "18099": {
+   "class": "LineageMonster.batur_orc_overlord_20_bi",
+   "clientCollisionHeight": 28.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_overlord_m00"
+  },
+  "18105": {
+   "class": "LineageMonster.ketra_orc_20_bi",
+   "clientCollisionHeight": 34.79999923706055,
+   "drawScale": 1.2,
+   "mesh": "ketra_orc_m00"
+  },
+  "18106": {
+   "class": "LineageMonster.ketra_orc_archer_20_bi",
+   "clientCollisionHeight": 32.400001525878906,
+   "drawScale": 1.2,
+   "mesh": "ketra_orc_archer_a_m00"
+  },
+  "18108": {
+   "class": "LineageMonster.ketra_orc_overload_20_bi",
+   "clientCollisionHeight": 28.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "ketra_orc_overload_m00"
+  },
+  "18120": {
+   "class": "LineageMonster2.imperial_warlord_zombie_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "imperial_warlord_zombie_m00"
+  },
+  "18121": {
+   "class": "LineageMonster2.imperial_warlord_zombie_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "imperial_warlord_zombie_m00"
+  },
+  "18122": {
+   "class": "LineageMonster2.imperial_warlord_zombie_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "imperial_warlord_zombie_m00"
+  },
+  "18123": {
+   "class": "LineageMonster2.imperial_warlord_zombie_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "imperial_warlord_zombie_m00"
+  },
+  "18124": {
+   "class": "LineageMonster2.imperial_warlord_zombie_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "imperial_warlord_zombie_m00"
+  },
+  "18125": {
+   "class": "LineageMonster2.imperial_warlord_zombie_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "imperial_warlord_zombie_m00"
+  },
+  "18126": {
+   "class": "LineageMonster2.imperial_warlord_zombie_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "imperial_warlord_zombie_m00"
+  },
+  "18127": {
+   "class": "LineageMonster2.imperial_warlord_zombie_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "imperial_warlord_zombie_m00"
+  },
+  "18128": {
+   "class": "LineageMonster2.imperial_warlord_zombie_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "imperial_warlord_zombie_m00"
+  },
+  "18129": {
+   "class": "LineageMonster2.imperial_warlord_zombie_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "imperial_warlord_zombie_m00"
+  },
+  "18130": {
+   "class": "LineageMonster2.imperial_warlord_zombie_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "imperial_warlord_zombie_m00"
+  },
+  "18131": {
+   "class": "LineageMonster2.imperial_warlord_zombie_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "imperial_warlord_zombie_m00"
+  },
+  "18137": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18138": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18139": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18140": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18141": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18142": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18143": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18144": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18145": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18146": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18147": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18148": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18149": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "18212": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "18213": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "18214": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "18215": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "18216": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "18217": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "18218": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "18219": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "18335": {
+   "class": "LineageMonster3.portrait_spirit",
+   "clientCollisionHeight": 40.0,
+   "drawScale": 1.2,
+   "mesh": "portrait_spirit_m00"
+  },
+  "18337": {
+   "class": "LineageMonster.skeleton_archer_20_bi",
+   "clientCollisionHeight": 32.5,
+   "drawScale": 1.2,
+   "mesh": "skeleton_archer_m00"
+  },
+  "18338": {
+   "class": "LineageMonster3.portrait_spirit_winged",
+   "clientCollisionHeight": 40.0,
+   "drawScale": 1.2,
+   "mesh": "portrait_spirit_winged_m00"
+  },
+  "20012": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "20049": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "20078": {
+   "class": "LineageMonster.sylph_100_bi",
+   "clientCollisionHeight": 70.0,
+   "drawScale": 2.0,
+   "mesh": "sylph_m00"
+  },
+  "20132": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "20141": {
+   "class": "LineageMonster.giant_wild_hog",
+   "clientCollisionHeight": 27.0,
+   "drawScale": 0.5,
+   "mesh": "giant_wild_hog_m00"
+  },
+  "20206": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "20307": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "20310": {
+   "class": "LineageMonster.grizzly_bi",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 1.25,
+   "mesh": "grizzly_m00"
+  },
+  "20313": {
+   "class": "LineageMonster.imp_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.25,
+   "mesh": "imp_m00"
+  },
+  "20318": {
+   "class": "LineageMonster.wolf_bi",
+   "clientCollisionHeight": 10.800000190734863,
+   "drawScale": 1.2,
+   "mesh": "wolf_m00"
+  },
+  "20320": {
+   "class": "LineageMonster.goblin_bi",
+   "clientCollisionHeight": 21.399999618530273,
+   "drawScale": 1.25,
+   "mesh": "goblin_m00"
+  },
+  "20321": {
+   "class": "LineageMonster.goblin_bi",
+   "clientCollisionHeight": 21.399999618530273,
+   "drawScale": 1.25,
+   "mesh": "goblin_m00"
+  },
+  "20323": {
+   "class": "LineageMonster.goblin_bi",
+   "clientCollisionHeight": 21.399999618530273,
+   "drawScale": 1.25,
+   "mesh": "goblin_m00"
+  },
+  "20335": {
+   "class": "LineageMonster.grizzly_bi",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 1.25,
+   "mesh": "grizzly_m00"
+  },
+  "20336": {
+   "class": "LineageMonster.dryad_sm",
+   "clientCollisionHeight": 15.0,
+   "drawScale": 0.75,
+   "mesh": "dryad_m00"
+  },
+  "20342": {
+   "class": "LineageMonster.werewolf_bi",
+   "clientCollisionHeight": 29.700000762939453,
+   "drawScale": 0.85,
+   "mesh": "werewolf_m00"
+  },
+  "20343": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "20356": {
+   "class": "LineageMonster.virud_lizardman_warrior_bi",
+   "clientCollisionHeight": 34.5,
+   "drawScale": 1.15,
+   "mesh": "virud_lizardman_warrior_m00"
+  },
+  "20360": {
+   "class": "LineageMonster.wererat_sm",
+   "clientCollisionHeight": 18.700000762939453,
+   "drawScale": 0.75,
+   "mesh": "wererat_m00"
+  },
+  "20363": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "20364": {
+   "class": "LineageMonster.werewolf_bi",
+   "clientCollisionHeight": 29.700000762939453,
+   "drawScale": 0.85,
+   "mesh": "werewolf_m00"
+  },
+  "20376": {
+   "class": "LineageMonster.goblin_bi",
+   "clientCollisionHeight": 21.399999618530273,
+   "drawScale": 1.25,
+   "mesh": "goblin_m00"
+  },
+  "20392": {
+   "class": "LineageMonster.vampire_bat_bi",
+   "clientCollisionHeight": 42.0,
+   "drawScale": 1.25,
+   "mesh": "vampire_bat_m00"
+  },
+  "20398": {
+   "class": "LineageMonster.werewolf_bi",
+   "clientCollisionHeight": 29.700000762939453,
+   "drawScale": 0.85,
+   "mesh": "werewolf_m00"
+  },
+  "20399": {
+   "class": "LineageMonster.wolf_bi",
+   "clientCollisionHeight": 10.800000190734863,
+   "drawScale": 1.2,
+   "mesh": "wolf_m00"
+  },
+  "20421": {
+   "class": "LineageMonster.succubus_bi",
+   "clientCollisionHeight": 43.20000076293945,
+   "drawScale": 1.2,
+   "mesh": "succubus_m00"
+  },
+  "20436": {
+   "class": "LineageMonster.ol_mahum_bi",
+   "clientCollisionHeight": 29.200000762939453,
+   "drawScale": 1.15,
+   "mesh": "ol_mahum_m00"
+  },
+  "20450": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "20458": {
+   "class": "LineageMonster.zombie_bi",
+   "clientCollisionHeight": 27.5,
+   "drawScale": 1.25,
+   "mesh": "zombie_m00"
+  },
+  "20477": {
+   "class": "LineageMonster.wolf_bi",
+   "clientCollisionHeight": 10.800000190734863,
+   "drawScale": 1.2,
+   "mesh": "wolf_m00"
+  },
+  "20479": {
+   "class": "LineageMonster.grizzly_bi",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 1.25,
+   "mesh": "grizzly_m00"
+  },
+  "20505": {
+   "class": "LineageMonster.vampire_bat_bi",
+   "clientCollisionHeight": 42.0,
+   "drawScale": 1.25,
+   "mesh": "vampire_bat_m00"
+  },
+  "20506": {
+   "class": "LineageMonster.imp_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.25,
+   "mesh": "imp_m00"
+  },
+  "20507": {
+   "class": "LineageMonster.imp_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.25,
+   "mesh": "imp_m00"
+  },
+  "20516": {
+   "class": "LineageMonster.skeleton_bi",
+   "clientCollisionHeight": 31.0,
+   "drawScale": 1.2,
+   "mesh": "skeleton_m00"
+  },
+  "20520": {
+   "class": "LineageMonster.orc_fighter_bi",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 1.2,
+   "mesh": "orc_fighter_m00"
+  },
+  "20522": {
+   "class": "LineageMonster.wolf_bi",
+   "clientCollisionHeight": 10.800000190734863,
+   "drawScale": 1.2,
+   "mesh": "wolf_m00"
+  },
+  "20547": {
+   "class": "LineageMonster.ol_mahum_bi",
+   "clientCollisionHeight": 29.200000762939453,
+   "drawScale": 1.15,
+   "mesh": "ol_mahum_m00"
+  },
+  "20553": {
+   "class": "LineageMonster.giant_wild_hog",
+   "clientCollisionHeight": 27.0,
+   "drawScale": 0.5,
+   "mesh": "giant_wild_hog_m00"
+  },
+  "20555": {
+   "class": "LineageMonster.walking_fungus_bi",
+   "clientCollisionHeight": 31.299999237060547,
+   "drawScale": 1.4,
+   "mesh": "walking_fungus_m00"
+  },
+  "20556": {
+   "class": "LineageMonster.monster_eye_bi",
+   "clientCollisionHeight": 60.0,
+   "drawScale": 1.4,
+   "mesh": "monster_eye_m00"
+  },
+  "20559": {
+   "class": "LineageMonster.stone_golem_bi_one",
+   "clientCollisionHeight": 43.400001525878906,
+   "drawScale": 1.4,
+   "mesh": "stone_golem_m00"
+  },
+  "20562": {
+   "class": "LineageMonster.zombie_bi",
+   "clientCollisionHeight": 27.5,
+   "drawScale": 1.25,
+   "mesh": "zombie_m00"
+  },
+  "20565": {
+   "class": "LineageMonster.stone_golem_bi",
+   "clientCollisionHeight": 40.29999923706055,
+   "drawScale": 1.3,
+   "mesh": "stone_golem_m00"
+  },
+  "20738": {
+   "class": "LineageMonster.kobold_bi",
+   "clientCollisionHeight": 24.0,
+   "drawScale": 1.5,
+   "mesh": "kobold_m00"
+  },
+  "20743": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "20786": {
+   "class": "LineageMonster.lienrik",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 2.0,
+   "mesh": "lienrik_m00"
+  },
+  "20787": {
+   "class": "LineageMonster.lienrik",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 2.0,
+   "mesh": "lienrik_m00"
+  },
+  "20804": {
+   "class": "LineageMonster.crokian_100_bi",
+   "clientCollisionHeight": 61.0,
+   "drawScale": 2.0,
+   "mesh": "crokian_m00"
+  },
+  "20805": {
+   "class": "LineageMonster.dailaon_100_bi",
+   "clientCollisionHeight": 58.0,
+   "drawScale": 2.0,
+   "mesh": "dailaon_m00"
+  },
+  "20806": {
+   "class": "LineageMonster.crokian_100_bi",
+   "clientCollisionHeight": 61.0,
+   "drawScale": 2.0,
+   "mesh": "crokian_m00"
+  },
+  "20807": {
+   "class": "LineageMonster.farhite_50_bi",
+   "clientCollisionHeight": 48.0,
+   "drawScale": 1.5,
+   "mesh": "farhite_m00"
+  },
+  "20808": {
+   "class": "LineageMonster.nos_100_bi",
+   "clientCollisionHeight": 86.0,
+   "drawScale": 2.0,
+   "mesh": "nos_m00"
+  },
+  "20825": {
+   "class": "LineageMonster.karik_25_bi",
+   "clientCollisionHeight": 110.0,
+   "drawScale": 1.25,
+   "mesh": "karik_m00"
+  },
+  "20830": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "20831": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "20858": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "20859": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "20860": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "20927": {
+   "class": "LineageMonster.giant_spider_50_bi",
+   "clientCollisionHeight": 38.0,
+   "drawScale": 1.5,
+   "mesh": "giant_spider_m00"
+  },
+  "20933": {
+   "class": "LineageMonster.giant_wild_hog",
+   "clientCollisionHeight": 27.0,
+   "drawScale": 0.5,
+   "mesh": "giant_wild_hog_m00"
+  },
+  "20934": {
+   "class": "LineageMonster.giant_bee_bi",
+   "clientCollisionHeight": 32.0,
+   "drawScale": 1.3,
+   "mesh": "giant_bee_m00"
+  },
+  "20935": {
+   "class": "LineageMonster.giant_bee_100_bi",
+   "clientCollisionHeight": 49.0,
+   "drawScale": 2.0,
+   "mesh": "giant_bee_m00"
+  },
+  "20944": {
+   "class": "LineageMonster.succubus_100_bi",
+   "clientCollisionHeight": 75.0,
+   "drawScale": 2.0,
+   "mesh": "succubus_m00"
+  },
+  "20974": {
+   "class": "LineageMonster.skeleton_royal_guard_bi",
+   "clientCollisionHeight": 44.0,
+   "drawScale": 1.5,
+   "mesh": "skeleton_royal_guard_m00"
+  },
+  "20975": {
+   "class": "LineageMonster.elf_ghost_50_bi",
+   "clientCollisionHeight": 32.0,
+   "drawScale": 1.5,
+   "mesh": "elf_ghost_m00"
+  },
+  "20976": {
+   "class": "LineageMonster.human_ghost_50_bi",
+   "clientCollisionHeight": 33.0,
+   "drawScale": 1.5,
+   "mesh": "human_ghost_m00"
+  },
+  "20977": {
+   "class": "LineageMonster.banshee_50_bi",
+   "clientCollisionHeight": 38.0,
+   "drawScale": 1.5,
+   "mesh": "banshee_m00"
+  },
+  "20981": {
+   "class": "LineageMonster.kaim_vanul_50_bi",
+   "clientCollisionHeight": 60.0,
+   "drawScale": 1.5,
+   "mesh": "kaim_vanul_m00"
+  },
+  "20982": {
+   "class": "LineageMonster.dre_vanul_100_bi",
+   "clientCollisionHeight": 75.0,
+   "drawScale": 2.0,
+   "mesh": "dre_vanul_m00"
+  },
+  "20983": {
+   "class": "LineageMonster.kel_mahum_champion_50_bi",
+   "clientCollisionHeight": 48.0,
+   "drawScale": 1.5,
+   "mesh": "kel_mahum_champion_m00"
+  },
+  "20986": {
+   "class": "LineageMonster.doll_blader_50_bi",
+   "clientCollisionHeight": 20.5,
+   "drawScale": 1.5,
+   "mesh": "doll_blader_m00"
+  },
+  "20989": {
+   "class": "LineageMonster.marsh_stakato_drone_50_bi",
+   "clientCollisionHeight": 37.0,
+   "drawScale": 1.5,
+   "mesh": "marsh_stakato_drone_m00"
+  },
+  "20991": {
+   "class": "LineageMonster.farhite_50_bi",
+   "clientCollisionHeight": 48.0,
+   "drawScale": 1.5,
+   "mesh": "farhite_m00"
+  },
+  "20994": {
+   "class": "LineageMonster.doll_master_50_bi",
+   "clientCollisionHeight": 63.0,
+   "drawScale": 1.5,
+   "mesh": "doll_master_m00"
+  },
+  "21062": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "21063": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "21067": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "21068": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "21070": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "21071": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "21081": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "21103": {
+   "class": "LineageMonster.stone_golem_bi",
+   "clientCollisionHeight": 40.29999923706055,
+   "drawScale": 1.3,
+   "mesh": "stone_golem_m00"
+  },
+  "21117": {
+   "class": "LineageMonster.imp_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.25,
+   "mesh": "imp_m00"
+  },
+  "21120": {
+   "class": "LineageMonster.imp_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.25,
+   "mesh": "imp_m00"
+  },
+  "21126": {
+   "class": "LineageMonster.werewolf_bi",
+   "clientCollisionHeight": 29.700000762939453,
+   "drawScale": 0.85,
+   "mesh": "werewolf_m00"
+  },
+  "21128": {
+   "class": "LineageMonster.stone_golem_bi",
+   "clientCollisionHeight": 40.29999923706055,
+   "drawScale": 1.3,
+   "mesh": "stone_golem_m00"
+  },
+  "21129": {
+   "class": "LineageMonster.werewolf_bi",
+   "clientCollisionHeight": 29.700000762939453,
+   "drawScale": 0.85,
+   "mesh": "werewolf_m00"
+  },
+  "21131": {
+   "class": "LineageMonster.stone_golem_bi",
+   "clientCollisionHeight": 40.29999923706055,
+   "drawScale": 1.3,
+   "mesh": "stone_golem_m00"
+  },
+  "21166": {
+   "class": "LineageMonster2.temple_guard_a_20_sm",
+   "clientCollisionHeight": 33.599998474121094,
+   "drawScale": 0.8,
+   "mesh": "temple_guard_a_m00"
+  },
+  "21167": {
+   "class": "LineageMonster2.temple_savant_a_20_sm",
+   "clientCollisionHeight": 32.0,
+   "drawScale": 0.8,
+   "mesh": "temple_savant_a_m00"
+  },
+  "21168": {
+   "class": "LineageMonster2.temple_guard_b_20_sm",
+   "clientCollisionHeight": 33.599998474121094,
+   "drawScale": 0.8,
+   "mesh": "temple_guard_b_m00"
+  },
+  "21175": {
+   "class": "LineageMonster2.lilim_assassin_10_sm",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 0.9,
+   "mesh": "lilim_assassin_m00"
+  },
+  "21176": {
+   "class": "LineageMonster2.lilim_wizard_10_sm",
+   "clientCollisionHeight": 30.600000381469727,
+   "drawScale": 0.9,
+   "mesh": "lilim_wizard_m00"
+  },
+  "21177": {
+   "class": "LineageMonster2.lilim_knight_10_sm",
+   "clientCollisionHeight": 45.0,
+   "drawScale": 0.9,
+   "mesh": "lilim_knight_m00"
+  },
+  "21178": {
+   "class": "LineageMonster2.lilim_assassin_10_sm",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 0.9,
+   "mesh": "lilim_assassin_m00"
+  },
+  "21179": {
+   "class": "LineageMonster2.lilim_wizard_10_sm",
+   "clientCollisionHeight": 30.600000381469727,
+   "drawScale": 0.9,
+   "mesh": "lilim_wizard_m00"
+  },
+  "21180": {
+   "class": "LineageMonster2.lilim_knight_10_sm",
+   "clientCollisionHeight": 45.0,
+   "drawScale": 0.9,
+   "mesh": "lilim_knight_m00"
+  },
+  "21181": {
+   "class": "LineageMonster2.lilim_assassin_10_bi",
+   "clientCollisionHeight": 44.0,
+   "drawScale": 1.1,
+   "mesh": "lilim_assassin_m00"
+  },
+  "21182": {
+   "class": "LineageMonster2.lilim_wizard_10_bi",
+   "clientCollisionHeight": 37.5,
+   "drawScale": 1.1,
+   "mesh": "lilim_wizard_m00"
+  },
+  "21183": {
+   "class": "LineageMonster2.lilim_knight_10_bi",
+   "clientCollisionHeight": 55.0,
+   "drawScale": 1.1,
+   "mesh": "lilim_knight_m00"
+  },
+  "21184": {
+   "class": "LineageMonster2.lilim_assassin_10_bi",
+   "clientCollisionHeight": 44.0,
+   "drawScale": 1.1,
+   "mesh": "lilim_assassin_m00"
+  },
+  "21185": {
+   "class": "LineageMonster2.lilim_wizard_10_bi",
+   "clientCollisionHeight": 37.5,
+   "drawScale": 1.1,
+   "mesh": "lilim_wizard_m00"
+  },
+  "21186": {
+   "class": "LineageMonster2.lilim_knight_10_bi",
+   "clientCollisionHeight": 55.0,
+   "drawScale": 1.1,
+   "mesh": "lilim_knight_m00"
+  },
+  "21187": {
+   "class": "LineageMonster2.tomb_guard_a_20_sm",
+   "clientCollisionHeight": 32.0,
+   "drawScale": 0.8,
+   "mesh": "tomb_guard_a_m00"
+  },
+  "21188": {
+   "class": "LineageMonster2.tomb_savant_a_20_sm",
+   "clientCollisionHeight": 32.0,
+   "drawScale": 0.8,
+   "mesh": "tomb_savant_a_m00"
+  },
+  "21189": {
+   "class": "LineageMonster2.tomb_guard_b_20_sm",
+   "clientCollisionHeight": 34.0,
+   "drawScale": 0.8,
+   "mesh": "tomb_guard_b_m00"
+  },
+  "21196": {
+   "class": "LineageMonster2.nephilim_slayer_10_sm",
+   "clientCollisionHeight": 32.400001525878906,
+   "drawScale": 0.9,
+   "mesh": "nephilim_slayer_m00"
+  },
+  "21197": {
+   "class": "LineageMonster2.nephilim_priest_10_sm",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.9,
+   "mesh": "nephilim_priest_m00"
+  },
+  "21198": {
+   "class": "LineageMonster2.nephilim_lord_10_sm",
+   "clientCollisionHeight": 37.400001525878906,
+   "drawScale": 0.9,
+   "mesh": "nephilim_lord_m00"
+  },
+  "21199": {
+   "class": "LineageMonster2.nephilim_slayer_10_sm",
+   "clientCollisionHeight": 32.400001525878906,
+   "drawScale": 0.9,
+   "mesh": "nephilim_slayer_m00"
+  },
+  "21200": {
+   "class": "LineageMonster2.nephilim_priest_10_sm",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.9,
+   "mesh": "nephilim_priest_m00"
+  },
+  "21201": {
+   "class": "LineageMonster2.nephilim_lord_10_sm",
+   "clientCollisionHeight": 37.400001525878906,
+   "drawScale": 0.9,
+   "mesh": "nephilim_lord_m00"
+  },
+  "21202": {
+   "class": "LineageMonster2.nephilim_slayer_10_bi",
+   "clientCollisionHeight": 39.599998474121094,
+   "drawScale": 1.1,
+   "mesh": "nephilim_slayer_m00"
+  },
+  "21203": {
+   "class": "LineageMonster2.nephilim_priest_10_bi",
+   "clientCollisionHeight": 44.0,
+   "drawScale": 1.1,
+   "mesh": "nephilim_priest_m00"
+  },
+  "21204": {
+   "class": "LineageMonster2.nephilim_lord_10_bi",
+   "clientCollisionHeight": 45.29999923706055,
+   "drawScale": 1.1,
+   "mesh": "nephilim_lord_m00"
+  },
+  "21205": {
+   "class": "LineageMonster2.nephilim_slayer_10_bi",
+   "clientCollisionHeight": 39.599998474121094,
+   "drawScale": 1.1,
+   "mesh": "nephilim_slayer_m00"
+  },
+  "21206": {
+   "class": "LineageMonster2.nephilim_priest_10_bi",
+   "clientCollisionHeight": 44.0,
+   "drawScale": 1.1,
+   "mesh": "nephilim_priest_m00"
+  },
+  "21207": {
+   "class": "LineageMonster2.nephilim_lord_10_bi",
+   "clientCollisionHeight": 45.29999923706055,
+   "drawScale": 1.1,
+   "mesh": "nephilim_lord_m00"
+  },
+  "21212": {
+   "class": "LineageMonster.skeleton_bi",
+   "clientCollisionHeight": 31.0,
+   "drawScale": 1.2,
+   "mesh": "skeleton_m00"
+  },
+  "21213": {
+   "class": "LineageMonster.binding_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "binding_m00"
+  },
+  "21214": {
+   "class": "LineageMonster.imp_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.25,
+   "mesh": "imp_m00"
+  },
+  "21215": {
+   "class": "LineageMonster.succubus_bi",
+   "clientCollisionHeight": 43.20000076293945,
+   "drawScale": 1.2,
+   "mesh": "succubus_m00"
+  },
+  "21216": {
+   "class": "LineageMonster.skeleton_knight_20_bi",
+   "clientCollisionHeight": 30.5,
+   "drawScale": 1.2,
+   "mesh": "skeleton_knight_m00"
+  },
+  "21217": {
+   "class": "LineageMonster.banshee_20_bi",
+   "clientCollisionHeight": 27.5,
+   "drawScale": 1.2,
+   "mesh": "banshee_m00"
+  },
+  "21218": {
+   "class": "LineageMonster.death_blader_10_sm",
+   "clientCollisionHeight": 40.5,
+   "drawScale": 0.9,
+   "mesh": "death_blader_m00"
+  },
+  "21219": {
+   "class": "LineageMonster.bloody_queen_10_sm",
+   "clientCollisionHeight": 38.0,
+   "drawScale": 0.9,
+   "mesh": "bloody_queen_m00"
+  },
+  "21220": {
+   "class": "LineageMonster.skeleton_knight_30_bi",
+   "clientCollisionHeight": 33.0,
+   "drawScale": 1.3,
+   "mesh": "skeleton_knight_m00"
+  },
+  "21221": {
+   "class": "LineageMonster.banshee_30_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.3,
+   "mesh": "banshee_m00"
+  },
+  "21222": {
+   "class": "LineageMonster.death_blader_10_bi",
+   "clientCollisionHeight": 49.5,
+   "drawScale": 1.1,
+   "mesh": "death_blader_m00"
+  },
+  "21223": {
+   "class": "LineageMonster.bloody_queen_10_bi",
+   "clientCollisionHeight": 46.0,
+   "drawScale": 1.1,
+   "mesh": "bloody_queen_m00"
+  },
+  "21224": {
+   "class": "LineageMonster.skeleton_royal_guard_20_bi",
+   "clientCollisionHeight": 34.5,
+   "drawScale": 1.2,
+   "mesh": "skeleton_royal_guard_m00"
+  },
+  "21225": {
+   "class": "LineageMonster.vale_master_10_bi",
+   "clientCollisionHeight": 44.0,
+   "drawScale": 1.1,
+   "mesh": "vale_master_m00"
+  },
+  "21228": {
+   "class": "LineageMonster.skeleton_royal_guard_30_bi",
+   "clientCollisionHeight": 37.5,
+   "drawScale": 1.3,
+   "mesh": "skeleton_royal_guard_m00"
+  },
+  "21229": {
+   "class": "LineageMonster.vale_master_30_bi",
+   "clientCollisionHeight": 52.0,
+   "drawScale": 1.3,
+   "mesh": "vale_master_m00"
+  },
+  "21231": {
+   "class": "LineageMonster.doll_master_20_bi",
+   "clientCollisionHeight": 50.400001525878906,
+   "drawScale": 1.2,
+   "mesh": "doll_master_m00"
+  },
+  "21236": {
+   "class": "LineageMonster.skeleton_bi",
+   "clientCollisionHeight": 31.0,
+   "drawScale": 1.2,
+   "mesh": "skeleton_m00"
+  },
+  "21237": {
+   "class": "LineageMonster.binding_20_bi",
+   "clientCollisionHeight": 25.299999237060547,
+   "drawScale": 1.2,
+   "mesh": "binding_m00"
+  },
+  "21238": {
+   "class": "LineageMonster.imp_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.25,
+   "mesh": "imp_m00"
+  },
+  "21239": {
+   "class": "LineageMonster.succubus_bi",
+   "clientCollisionHeight": 43.20000076293945,
+   "drawScale": 1.2,
+   "mesh": "succubus_m00"
+  },
+  "21240": {
+   "class": "LineageMonster.skeleton_knight_20_bi",
+   "clientCollisionHeight": 30.5,
+   "drawScale": 1.2,
+   "mesh": "skeleton_knight_m00"
+  },
+  "21241": {
+   "class": "LineageMonster.banshee_20_bi",
+   "clientCollisionHeight": 27.5,
+   "drawScale": 1.2,
+   "mesh": "banshee_m00"
+  },
+  "21242": {
+   "class": "LineageMonster.death_blader_10_sm",
+   "clientCollisionHeight": 40.5,
+   "drawScale": 0.9,
+   "mesh": "death_blader_m00"
+  },
+  "21243": {
+   "class": "LineageMonster.bloody_queen_10_sm",
+   "clientCollisionHeight": 38.0,
+   "drawScale": 0.9,
+   "mesh": "bloody_queen_m00"
+  },
+  "21244": {
+   "class": "LineageMonster.skeleton_knight_30_bi",
+   "clientCollisionHeight": 33.0,
+   "drawScale": 1.3,
+   "mesh": "skeleton_knight_m00"
+  },
+  "21245": {
+   "class": "LineageMonster.banshee_30_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.3,
+   "mesh": "banshee_m00"
+  },
+  "21246": {
+   "class": "LineageMonster.death_blader_10_bi",
+   "clientCollisionHeight": 49.5,
+   "drawScale": 1.1,
+   "mesh": "death_blader_m00"
+  },
+  "21247": {
+   "class": "LineageMonster.bloody_queen_10_bi",
+   "clientCollisionHeight": 46.0,
+   "drawScale": 1.1,
+   "mesh": "bloody_queen_m00"
+  },
+  "21248": {
+   "class": "LineageMonster.skeleton_royal_guard_20_bi",
+   "clientCollisionHeight": 34.5,
+   "drawScale": 1.2,
+   "mesh": "skeleton_royal_guard_m00"
+  },
+  "21249": {
+   "class": "LineageMonster.vale_master_10_bi",
+   "clientCollisionHeight": 44.0,
+   "drawScale": 1.1,
+   "mesh": "vale_master_m00"
+  },
+  "21252": {
+   "class": "LineageMonster.skeleton_royal_guard_30_bi",
+   "clientCollisionHeight": 37.5,
+   "drawScale": 1.3,
+   "mesh": "skeleton_royal_guard_m00"
+  },
+  "21253": {
+   "class": "LineageMonster.vale_master_30_bi",
+   "clientCollisionHeight": 52.0,
+   "drawScale": 1.3,
+   "mesh": "vale_master_m00"
+  },
+  "21255": {
+   "class": "LineageMonster.doll_master_20_bi",
+   "clientCollisionHeight": 50.400001525878906,
+   "drawScale": 1.2,
+   "mesh": "doll_master_m00"
+  },
+  "21256": {
+   "class": "LineageMonster.werewolf_bi",
+   "clientCollisionHeight": 29.700000762939453,
+   "drawScale": 0.85,
+   "mesh": "werewolf_m00"
+  },
+  "21274": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21275": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21276": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21277": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21300": {
+   "class": "LineageMonster2.parasitic_eye_20_sm",
+   "clientCollisionHeight": 50.5,
+   "drawScale": 0.8,
+   "mesh": "parasitic_eye_m00"
+  },
+  "21303": {
+   "class": "LineageMonster2.homunculus_20_sm",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.8,
+   "mesh": "homunculus_m00"
+  },
+  "21305": {
+   "class": "LineageMonster2.parasitic_eye_20_sm",
+   "clientCollisionHeight": 50.5,
+   "drawScale": 0.8,
+   "mesh": "parasitic_eye_m00"
+  },
+  "21320": {
+   "class": "LineageMonster.yeti_20_bi",
+   "clientCollisionHeight": 32.0,
+   "drawScale": 1.2,
+   "mesh": "yeti_m00"
+  },
+  "21326": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21333": {
+   "class": "LineageMonster.giant_wild_hog",
+   "clientCollisionHeight": 27.0,
+   "drawScale": 0.5,
+   "mesh": "giant_wild_hog_m00"
+  },
+  "21336": {
+   "class": "LineageMonster.ketra_orc_overload_20_bi",
+   "clientCollisionHeight": 28.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "ketra_orc_overload_m00"
+  },
+  "21339": {
+   "class": "LineageMonster2.ketra_orc_chieftain_20_bi",
+   "clientCollisionHeight": 46.20000076293945,
+   "drawScale": 1.2,
+   "mesh": "ketra_orc_chieftain_m00"
+  },
+  "21341": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21343": {
+   "class": "LineageMonster2.ketra_orc_warlord_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "ketra_orc_warlord_m00"
+  },
+  "21361": {
+   "class": "LineageMonster2.barka_silenos_mage_20_bi",
+   "clientCollisionHeight": 55.20000076293945,
+   "drawScale": 1.2,
+   "mesh": "barka_silenos_mage_m00"
+  },
+  "21365": {
+   "class": "LineageMonster2.barka_silenos_warrior_20_bi",
+   "clientCollisionHeight": 49.20000076293945,
+   "drawScale": 1.2,
+   "mesh": "barka_silenos_warrior_m00"
+  },
+  "21369": {
+   "class": "LineageMonster2.barka_silenos_chieftain_20_bi",
+   "clientCollisionHeight": 51.0,
+   "drawScale": 1.2,
+   "mesh": "barka_silenos_chieftain_m00"
+  },
+  "21373": {
+   "class": "LineageMonster2.barka_silenos_shaman_20_bi",
+   "clientCollisionHeight": 47.5,
+   "drawScale": 1.2,
+   "mesh": "barka_silenos_shaman_m00"
+  },
+  "21379": {
+   "class": "LineageMonster2.scorpion_20_sm",
+   "clientCollisionHeight": 52.79999923706055,
+   "drawScale": 0.8,
+   "mesh": "scorpion_m00"
+  },
+  "21380": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "21384": {
+   "class": "LineageMonster.vale_master_20_bi",
+   "clientCollisionHeight": 48.0,
+   "drawScale": 1.2,
+   "mesh": "vale_master_m00"
+  },
+  "21387": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "21390": {
+   "class": "LineageMonster2.ashuras_30_bi",
+   "clientCollisionHeight": 49.0,
+   "drawScale": 1.3,
+   "mesh": "ashuras_m00"
+  },
+  "21392": {
+   "class": "LineageMonster2.ifrit_30_bi",
+   "clientCollisionHeight": 55.0,
+   "drawScale": 1.3,
+   "mesh": "ifrit_m00"
+  },
+  "21393": {
+   "class": "LineageMonster2.inferno_drake_20_bi",
+   "clientCollisionHeight": 42.0,
+   "drawScale": 1.2,
+   "mesh": "inferno_drake_m00"
+  },
+  "21396": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "21397": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "21398": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "21399": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "21402": {
+   "class": "LineageMonster2.scorpion_20_sm",
+   "clientCollisionHeight": 52.79999923706055,
+   "drawScale": 0.8,
+   "mesh": "scorpion_m00"
+  },
+  "21403": {
+   "class": "LineageMonster2.scorpion_20_sm",
+   "clientCollisionHeight": 52.79999923706055,
+   "drawScale": 0.8,
+   "mesh": "scorpion_m00"
+  },
+  "21410": {
+   "class": "LineageMonster2.scarab_20_bi",
+   "clientCollisionHeight": 26.5,
+   "drawScale": 0.6,
+   "mesh": "scarab_m00"
+  },
+  "21411": {
+   "class": "LineageMonster2.scarab_20_bi",
+   "clientCollisionHeight": 26.5,
+   "drawScale": 0.6,
+   "mesh": "scarab_m00"
+  },
+  "21430": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "21431": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "21433": {
+   "class": "LineageMonster2.tera_beetle_20_sm",
+   "clientCollisionHeight": 43.599998474121094,
+   "drawScale": 0.8,
+   "mesh": "tera_beetle_m00"
+  },
+  "21437": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "21460": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21461": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21462": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21463": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21464": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21465": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21466": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21467": {
+   "class": "LineageMonster2.youth_ostrich",
+   "clientCollisionHeight": 26.399999618530273,
+   "drawScale": 0.8,
+   "mesh": "youth_ostrich_m00"
+  },
+  "21479": {
+   "class": "LineageMonster2.youth_buffalo",
+   "clientCollisionHeight": 25.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_buffalo_m00"
+  },
+  "21480": {
+   "class": "LineageMonster2.youth_buffalo",
+   "clientCollisionHeight": 25.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_buffalo_m00"
+  },
+  "21481": {
+   "class": "LineageMonster2.youth_buffalo",
+   "clientCollisionHeight": 25.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_buffalo_m00"
+  },
+  "21482": {
+   "class": "LineageMonster2.youth_buffalo",
+   "clientCollisionHeight": 25.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_buffalo_m00"
+  },
+  "21483": {
+   "class": "LineageMonster2.youth_buffalo",
+   "clientCollisionHeight": 25.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_buffalo_m00"
+  },
+  "21484": {
+   "class": "LineageMonster2.youth_buffalo",
+   "clientCollisionHeight": 25.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_buffalo_m00"
+  },
+  "21485": {
+   "class": "LineageMonster2.youth_buffalo",
+   "clientCollisionHeight": 25.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_buffalo_m00"
+  },
+  "21486": {
+   "class": "LineageMonster2.youth_buffalo",
+   "clientCollisionHeight": 25.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_buffalo_m00"
+  },
+  "21498": {
+   "class": "LineageMonster2.youth_tiger",
+   "clientCollisionHeight": 17.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_tiger_m00"
+  },
+  "21499": {
+   "class": "LineageMonster2.youth_tiger",
+   "clientCollisionHeight": 17.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_tiger_m00"
+  },
+  "21500": {
+   "class": "LineageMonster2.youth_tiger",
+   "clientCollisionHeight": 17.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_tiger_m00"
+  },
+  "21501": {
+   "class": "LineageMonster2.youth_tiger",
+   "clientCollisionHeight": 17.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_tiger_m00"
+  },
+  "21502": {
+   "class": "LineageMonster2.youth_tiger",
+   "clientCollisionHeight": 17.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_tiger_m00"
+  },
+  "21503": {
+   "class": "LineageMonster2.youth_tiger",
+   "clientCollisionHeight": 17.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_tiger_m00"
+  },
+  "21504": {
+   "class": "LineageMonster2.youth_tiger",
+   "clientCollisionHeight": 17.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_tiger_m00"
+  },
+  "21505": {
+   "class": "LineageMonster2.youth_tiger",
+   "clientCollisionHeight": 17.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_tiger_m00"
+  },
+  "21586": {
+   "class": "LineageMonster2.vampire_wizard",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 1.1,
+   "mesh": "vampire_wizard_m00"
+  },
+  "21587": {
+   "class": "LineageMonster2.vampire_soldier_20_bi",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 1.2,
+   "mesh": "vampire_soldier_m00"
+  },
+  "21590": {
+   "class": "LineageMonster2.vampire_wizard",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 1.1,
+   "mesh": "vampire_wizard_m00"
+  },
+  "21591": {
+   "class": "LineageMonster2.vampire_wizard",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 1.1,
+   "mesh": "vampire_wizard_m00"
+  },
+  "21592": {
+   "class": "LineageMonster2.vampire_wizard",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 1.1,
+   "mesh": "vampire_wizard_m00"
+  },
+  "21593": {
+   "class": "LineageMonster2.vampire_warrior",
+   "clientCollisionHeight": 31.5,
+   "drawScale": 0.95,
+   "mesh": "vampire_warrior_m00"
+  },
+  "21594": {
+   "class": "LineageMonster2.vampire_warrior",
+   "clientCollisionHeight": 31.5,
+   "drawScale": 0.95,
+   "mesh": "vampire_warrior_m00"
+  },
+  "21595": {
+   "class": "LineageMonster2.vampire_warrior",
+   "clientCollisionHeight": 31.5,
+   "drawScale": 0.95,
+   "mesh": "vampire_warrior_m00"
+  },
+  "21604": {
+   "class": "LineageMonster.skeleton_pikeman_20_bi",
+   "clientCollisionHeight": 33.599998474121094,
+   "drawScale": 1.2,
+   "mesh": "skeleton_pikeman_m00"
+  },
+  "21607": {
+   "class": "LineageMonster.skeleton_archer_20_bi",
+   "clientCollisionHeight": 32.5,
+   "drawScale": 1.2,
+   "mesh": "skeleton_archer_m00"
+  },
+  "21610": {
+   "class": "LineageMonster.liviona_20_bi",
+   "clientCollisionHeight": 33.599998474121094,
+   "drawScale": 1.2,
+   "mesh": "liviona_m00"
+  },
+  "21613": {
+   "class": "LineageMonster.unpleasant_humming_20_bi",
+   "clientCollisionHeight": 31.200000762939453,
+   "drawScale": 1.2,
+   "mesh": "unpleasant_humming_m00"
+  },
+  "21616": {
+   "class": "LineageMonster.dark_horror_bi",
+   "clientCollisionHeight": 42.0,
+   "drawScale": 1.2,
+   "mesh": "dark_horror_m00"
+  },
+  "21619": {
+   "class": "LineageMonster.fiend_archer_20_bi",
+   "clientCollisionHeight": 66.0,
+   "drawScale": 1.2,
+   "mesh": "fiend_archer_m00"
+  },
+  "21622": {
+   "class": "LineageMonster.field_stalker_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "field_stalker_m00"
+  },
+  "21625": {
+   "class": "LineageMonster.skeleton_royal_guard_20_bi",
+   "clientCollisionHeight": 34.5,
+   "drawScale": 1.2,
+   "mesh": "skeleton_royal_guard_m00"
+  },
+  "21628": {
+   "class": "LineageMonster.kaim_vanul_20_bi",
+   "clientCollisionHeight": 48.0,
+   "drawScale": 1.2,
+   "mesh": "kaim_vanul_m00"
+  },
+  "21631": {
+   "class": "LineageMonster.pirates_zombie_captain_20_bi",
+   "clientCollisionHeight": 33.599998474121094,
+   "drawScale": 1.2,
+   "mesh": "pirates_zombie_captain_m00"
+  },
+  "21634": {
+   "class": "LineageMonster.doll_blader_20_bi",
+   "clientCollisionHeight": 15.0,
+   "drawScale": 1.2,
+   "mesh": "doll_blader_m00"
+  },
+  "21637": {
+   "class": "LineageMonster.vale_master_20_bi",
+   "clientCollisionHeight": 48.0,
+   "drawScale": 1.2,
+   "mesh": "vale_master_m00"
+  },
+  "21644": {
+   "class": "LineageMonster.lienrik",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 2.0,
+   "mesh": "lienrik_m00"
+  },
+  "21645": {
+   "class": "LineageMonster.lienrik",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 2.0,
+   "mesh": "lienrik_m00"
+  },
+  "21646": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "21647": {
+   "class": "LineageMonster2.scarab",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.5,
+   "mesh": "scarab_m00"
+  },
+  "21654": {
+   "class": "LineageMonster.vale_master_20_bi",
+   "clientCollisionHeight": 48.0,
+   "drawScale": 1.2,
+   "mesh": "vale_master_m00"
+  },
+  "21655": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "21656": {
+   "class": "LineageMonster2.ashuras_30_bi",
+   "clientCollisionHeight": 49.0,
+   "drawScale": 1.3,
+   "mesh": "ashuras_m00"
+  },
+  "21657": {
+   "class": "LineageMonster2.inferno_drake_20_bi",
+   "clientCollisionHeight": 42.0,
+   "drawScale": 1.2,
+   "mesh": "inferno_drake_m00"
+  },
+  "22021": {
+   "class": "LineageMonster2.northern_goblin_110p",
+   "clientCollisionHeight": 16.600000381469727,
+   "drawScale": 1.1,
+   "mesh": "northern_goblin_m00"
+  },
+  "22024": {
+   "class": "LineageMonster2.northern_goblin_120p",
+   "clientCollisionHeight": 18.5,
+   "drawScale": 1.2,
+   "mesh": "northern_goblin_m00"
+  },
+  "22025": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "22059": {
+   "class": "LineageMonster3.golem_guardian_090p",
+   "clientCollisionHeight": 37.20000076293945,
+   "drawScale": 0.6,
+   "mesh": "golem_guardian_m00"
+  },
+  "22063": {
+   "class": "LineageMonster3.golem_guardian_090p",
+   "clientCollisionHeight": 37.20000076293945,
+   "drawScale": 0.6,
+   "mesh": "golem_guardian_m00"
+  },
+  "22064": {
+   "class": "LineageMonster3.golem_guardian_a_090p",
+   "clientCollisionHeight": 37.20000076293945,
+   "drawScale": 0.6,
+   "mesh": "golem_guardian_m00"
+  },
+  "22065": {
+   "class": "LineageMonster3.golem_guardian",
+   "clientCollisionHeight": 41.5,
+   "drawScale": 0.66,
+   "mesh": "golem_guardian_m00"
+  },
+  "22066": {
+   "class": "LineageMonster3.golem_cannon_catapult_a_090p",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 0.9,
+   "mesh": "golem_cannon_catapult_m00"
+  },
+  "22067": {
+   "class": "LineageMonster3.golem_cannon_catapult_a_090p",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 0.9,
+   "mesh": "golem_cannon_catapult_m00"
+  },
+  "22068": {
+   "class": "LineageMonster3.golem_cannon_catapult_a_090p",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 0.9,
+   "mesh": "golem_cannon_catapult_m00"
+  },
+  "22069": {
+   "class": "LineageMonster3.golem_cannon_catapult_a_090p",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 0.9,
+   "mesh": "golem_cannon_catapult_m00"
+  },
+  "22070": {
+   "class": "LineageMonster3.golem_cannon_catapult_a_090p",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 0.9,
+   "mesh": "golem_cannon_catapult_m00"
+  },
+  "22071": {
+   "class": "LineageMonster3.golem_cannon_catapult_a_090p",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 0.9,
+   "mesh": "golem_cannon_catapult_m00"
+  },
+  "22072": {
+   "class": "LineageMonster3.golem_cannon_catapult_a_090p",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 0.9,
+   "mesh": "golem_cannon_catapult_m00"
+  },
+  "22073": {
+   "class": "LineageMonster3.golem_cannon_catapult_a_090p",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 0.9,
+   "mesh": "golem_cannon_catapult_m00"
+  },
+  "22074": {
+   "class": "LineageMonster3.golem_cannon_catapult_a_090p",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 0.9,
+   "mesh": "golem_cannon_catapult_m00"
+  },
+  "22076": {
+   "class": "LineageMonster3.golem_guardian",
+   "clientCollisionHeight": 41.5,
+   "drawScale": 0.66,
+   "mesh": "golem_guardian_m00"
+  },
+  "22077": {
+   "class": "LineageMonster3.golem_guardian_a",
+   "clientCollisionHeight": 41.5,
+   "drawScale": 0.66,
+   "mesh": "golem_guardian_m00"
+  },
+  "22078": {
+   "class": "LineageMonster3.golem_guardian_a",
+   "clientCollisionHeight": 41.5,
+   "drawScale": 0.66,
+   "mesh": "golem_guardian_m00"
+  },
+  "22082": {
+   "class": "LineageMonster.field_stalker_110p",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.1,
+   "mesh": "field_stalker_m00"
+  },
+  "22083": {
+   "class": "LineageMonster.saber_toothed_tiger_080p",
+   "clientCollisionHeight": 22.700000762939453,
+   "drawScale": 0.8,
+   "mesh": "saber_toothed_tiger_m00"
+  },
+  "22086": {
+   "class": "LineageMonster.gargoyle_02te_110p",
+   "clientCollisionHeight": 56.0,
+   "drawScale": 1.1,
+   "mesh": "gargoyle_m00"
+  },
+  "22088": {
+   "class": "LineageMonster2.antelope_110p",
+   "clientCollisionHeight": 37.79999923706055,
+   "drawScale": 1.1,
+   "mesh": "antelope_m00"
+  },
+  "22090": {
+   "class": "LineageMonster.giant_spider_110p",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 1.1,
+   "mesh": "giant_spider_m00"
+  },
+  "22091": {
+   "class": "LineageMonster.iron_golem_120p",
+   "clientCollisionHeight": 42.5,
+   "drawScale": 1.2,
+   "mesh": "iron_golem_m00"
+  },
+  "22092": {
+   "class": "LineageMonster.iron_golem_130p",
+   "clientCollisionHeight": 46.400001525878906,
+   "drawScale": 1.3,
+   "mesh": "iron_golem_m00"
+  },
+  "22094": {
+   "class": "LineageMonster2.buffalo_a_110p",
+   "clientCollisionHeight": 34.70000076293945,
+   "drawScale": 1.1,
+   "mesh": "buffalo_m00"
+  },
+  "22096": {
+   "class": "LineageMonster.grizzly_120p",
+   "clientCollisionHeight": 48.79999923706055,
+   "drawScale": 1.2,
+   "mesh": "grizzly_m00"
+  },
+  "22098": {
+   "class": "LineageMonster.yeti_110p",
+   "clientCollisionHeight": 29.799999237060547,
+   "drawScale": 1.1,
+   "mesh": "yeti_m00"
+  },
+  "22105": {
+   "class": "LineageMonster.blade_stakato_120p",
+   "clientCollisionHeight": 43.20000076293945,
+   "drawScale": 1.2,
+   "mesh": "blade_stakato_m00"
+  },
+  "22106": {
+   "class": "LineageMonster.blade_stakato_worker_120p",
+   "clientCollisionHeight": 48.29999923706055,
+   "drawScale": 1.2,
+   "mesh": "blade_stakato_worker_m00"
+  },
+  "22107": {
+   "class": "LineageMonster.spike_stakato",
+   "clientCollisionHeight": 22.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "spike_stakato_m00"
+  },
+  "22108": {
+   "class": "LineageMonster.spike_stakato_soldier",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.2,
+   "mesh": "spike_stakato_soldier_m00"
+  },
+  "22109": {
+   "class": "LineageMonster.marsh_stakato_soldier_120p",
+   "clientCollisionHeight": 31.0,
+   "drawScale": 1.2,
+   "mesh": "marsh_stakato_soldier_m00"
+  },
+  "22111": {
+   "class": "LineageMonster.blade_stakato_queen_120p",
+   "clientCollisionHeight": 43.599998474121094,
+   "drawScale": 1.2,
+   "mesh": "blade_stakato_queen_m00"
+  },
+  "22112": {
+   "class": "LineageMonster.spike_stakato_worker",
+   "clientCollisionHeight": 29.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "spike_stakato_worker_m00"
+  },
+  "22113": {
+   "class": "LineageMonster3.cannibal_stakato_leader_120p",
+   "clientCollisionHeight": 48.79999923706055,
+   "drawScale": 1.2,
+   "mesh": "cannibal_stakato_leader_m00"
+  },
+  "22115": {
+   "class": "LineageMonster.blade_stakato_120p",
+   "clientCollisionHeight": 43.20000076293945,
+   "drawScale": 1.2,
+   "mesh": "blade_stakato_m00"
+  },
+  "22116": {
+   "class": "LineageMonster.blade_stakato_drone_120p",
+   "clientCollisionHeight": 47.29999923706055,
+   "drawScale": 1.2,
+   "mesh": "blade_stakato_drone_m00"
+  },
+  "22117": {
+   "class": "LineageMonster.marsh_stakato_drone_120p",
+   "clientCollisionHeight": 29.100000381469727,
+   "drawScale": 1.2,
+   "mesh": "marsh_stakato_drone_m00"
+  },
+  "22118": {
+   "class": "LineageMonster.marsh_stakato_queen_120p",
+   "clientCollisionHeight": 43.79999923706055,
+   "drawScale": 1.2,
+   "mesh": "marsh_stakato_queen_m00"
+  },
+  "22120": {
+   "class": "LineageMonster.spike_stakato_drone",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 1.2,
+   "mesh": "spike_stakato_drone_m00"
+  },
+  "22121": {
+   "class": "LineageMonster.blade_stakato_queen_120p",
+   "clientCollisionHeight": 43.599998474121094,
+   "drawScale": 1.2,
+   "mesh": "blade_stakato_queen_m00"
+  },
+  "22122": {
+   "class": "LineageMonster.angel_080p",
+   "clientCollisionHeight": 27.799999237060547,
+   "drawScale": 0.4,
+   "mesh": "angel_m00"
+  },
+  "22123": {
+   "class": "LineageMonster.archangel_050p",
+   "clientCollisionHeight": 37.5,
+   "drawScale": 0.5,
+   "mesh": "archangel_m00"
+  },
+  "22188": {
+   "class": "LineageMonster3.heretic_priest_120p",
+   "clientCollisionHeight": 23.200000762939453,
+   "drawScale": 1.2,
+   "mesh": "heretic_priest_m00"
+  },
+  "22189": {
+   "class": "LineageMonster3.heretic_privates_120p",
+   "clientCollisionHeight": 34.0,
+   "drawScale": 1.2,
+   "mesh": "heretic_privates_m00"
+  },
+  "22191": {
+   "class": "LineageMonster3.heretic_priest_120p",
+   "clientCollisionHeight": 23.200000762939453,
+   "drawScale": 1.2,
+   "mesh": "heretic_priest_m00"
+  },
+  "22192": {
+   "class": "LineageMonster3.heretic_privates_120p",
+   "clientCollisionHeight": 34.0,
+   "drawScale": 1.2,
+   "mesh": "heretic_privates_m00"
+  },
+  "22193": {
+   "class": "LineageMonster3.heretic_privates_120p",
+   "clientCollisionHeight": 34.0,
+   "drawScale": 1.2,
+   "mesh": "heretic_privates_m00"
+  },
+  "22199": {
+   "class": "LineageMonster3.rhamphorhynchus",
+   "clientCollisionHeight": 43.70000076293945,
+   "drawScale": 1.2,
+   "mesh": "rhamphorhynchus_m00"
+  },
+  "22214": {
+   "class": "LineageMonster3.Crokian_Officer",
+   "clientCollisionHeight": 33.0,
+   "drawScale": 0.8,
+   "mesh": "crokian_officer_m00"
+  },
+  "22215": {
+   "class": "LineageMonster3.tyranosaurus",
+   "clientCollisionHeight": 89.69999694824219,
+   "drawScale": 1.2,
+   "mesh": "tyranosaurus_m00"
+  },
+  "22216": {
+   "class": "LineageMonster3.tyranosaurus",
+   "clientCollisionHeight": 89.69999694824219,
+   "drawScale": 1.2,
+   "mesh": "tyranosaurus_m00"
+  },
+  "22217": {
+   "class": "LineageMonster3.tyranosaurus",
+   "clientCollisionHeight": 89.69999694824219,
+   "drawScale": 1.2,
+   "mesh": "tyranosaurus_m00"
+  },
+  "25001": {
+   "class": "LineageMonster.ol_mahum_champion_50_bi",
+   "clientCollisionHeight": 43.5,
+   "drawScale": 1.5,
+   "mesh": "ol_mahum_champion_m00"
+  },
+  "25004": {
+   "class": "LineageMonster.orc_champion_50_bi",
+   "clientCollisionHeight": 35.0,
+   "drawScale": 1.5,
+   "mesh": "orc_champion_m00"
+  },
+  "25013": {
+   "class": "LineageMonster.skeleton_knight_50_bi",
+   "clientCollisionHeight": 39.0,
+   "drawScale": 1.5,
+   "mesh": "skeleton_knight_m00"
+  },
+  "25016": {
+   "class": "LineageMonster.susceptor_100_bi",
+   "clientCollisionHeight": 73.0,
+   "drawScale": 2.0,
+   "mesh": "susceptor_m00"
+  },
+  "25019": {
+   "class": "LineageMonster.pan_100_bi",
+   "clientCollisionHeight": 73.0,
+   "drawScale": 2.0,
+   "mesh": "pan_m00"
+  },
+  "25020": {
+   "class": "LineageMonster.batur_orc_shaman_100_bi",
+   "clientCollisionHeight": 35.0,
+   "drawScale": 2.0,
+   "mesh": "batur_orc_shaman_a_m00"
+  },
+  "25023": {
+   "class": "LineageMonster.marsh_stakato_queen_100_bi",
+   "clientCollisionHeight": 76.0,
+   "drawScale": 2.0,
+   "mesh": "marsh_stakato_queen_m00"
+  },
+  "25029": {
+   "class": "LineageMonster.field_stalker_200_bi",
+   "clientCollisionHeight": 96.0,
+   "drawScale": 3.0,
+   "mesh": "field_stalker_m00"
+  },
+  "25032": {
+   "class": "LineageMonster.banshee_50_bi",
+   "clientCollisionHeight": 38.0,
+   "drawScale": 1.5,
+   "mesh": "banshee_m00"
+  },
+  "25035": {
+   "class": "LineageMonster.vale_master_50_bi",
+   "clientCollisionHeight": 63.0,
+   "drawScale": 1.5,
+   "mesh": "vale_master_m00"
+  },
+  "25038": {
+   "class": "LineageMonster.dre_vanul_100_bi",
+   "clientCollisionHeight": 75.0,
+   "drawScale": 2.0,
+   "mesh": "dre_vanul_m00"
+  },
+  "25041": {
+   "class": "LineageMonster.marsh_stakato_queen_100_bi",
+   "clientCollisionHeight": 76.0,
+   "drawScale": 2.0,
+   "mesh": "marsh_stakato_queen_m00"
+  },
+  "25044": {
+   "class": "LineageMonster.skeleton_knight_50_bi",
+   "clientCollisionHeight": 39.0,
+   "drawScale": 1.5,
+   "mesh": "skeleton_knight_m00"
+  },
+  "25047": {
+   "class": "LineageMonster.death_knight_50_bi",
+   "clientCollisionHeight": 45.0,
+   "drawScale": 1.5,
+   "mesh": "death_knight_m00"
+  },
+  "25050": {
+   "class": "LineageMonster.death_blader_200_bi",
+   "clientCollisionHeight": 141.0,
+   "drawScale": 3.0,
+   "mesh": "death_blader_m00"
+  },
+  "25051": {
+   "class": "LineageMonster3.Bloody_Queen_Raid",
+   "clientCollisionHeight": 34.0,
+   "drawScale": 1.2,
+   "mesh": "bloody_queen_raid_m00"
+  },
+  "25057": {
+   "class": "LineageMonster.lienrik",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 2.0,
+   "mesh": "lienrik_m00"
+  },
+  "25060": {
+   "class": "LineageMonster.succubus_100_bi",
+   "clientCollisionHeight": 75.0,
+   "drawScale": 2.0,
+   "mesh": "succubus_m00"
+  },
+  "25063": {
+   "class": "LineageMonster.ketra_orc_warrior_100_bi",
+   "clientCollisionHeight": 51.0,
+   "drawScale": 2.0,
+   "mesh": "ketra_orc_warrior_a_m00"
+  },
+  "25064": {
+   "class": "LineageMonster.zenta_lizardman_shaman_50_bi",
+   "clientCollisionHeight": 55.0,
+   "drawScale": 1.5,
+   "mesh": "zenta_lizardman_shaman_m00"
+  },
+  "25067": {
+   "class": "LineageMonster.oel_mahum_warrior_50_bi",
+   "clientCollisionHeight": 60.0,
+   "drawScale": 1.5,
+   "mesh": "oel_mahum_warrior_m00"
+  },
+  "25073": {
+   "class": "LineageMonster.karik_100_bi",
+   "clientCollisionHeight": 180.0,
+   "drawScale": 2.0,
+   "mesh": "karik_m00"
+  },
+  "25076": {
+   "class": "LineageMonster.poison_toad_100_bi",
+   "clientCollisionHeight": 20.0,
+   "drawScale": 2.0,
+   "mesh": "poison_toad_m00"
+  },
+  "25082": {
+   "class": "LineageMonster.cat_the_cat_50_bi",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 1.5,
+   "mesh": "cat_the_cat_m00"
+  },
+  "25085": {
+   "class": "LineageMonster.ketra_orc_warrior_100_bi",
+   "clientCollisionHeight": 51.0,
+   "drawScale": 2.0,
+   "mesh": "ketra_orc_warrior_a_m00"
+  },
+  "25088": {
+   "class": "LineageMonster.mechanic_golem_200_bi",
+   "clientCollisionHeight": 63.0,
+   "drawScale": 3.0,
+   "mesh": "mechanic_golem_m00"
+  },
+  "25089": {
+   "class": "LineageMonster.giant_wild_hog",
+   "clientCollisionHeight": 27.0,
+   "drawScale": 0.5,
+   "mesh": "giant_wild_hog_m00"
+  },
+  "25092": {
+   "class": "LineageMonster.heltor_silenos_shaman_50_bi",
+   "clientCollisionHeight": 51.0,
+   "drawScale": 1.5,
+   "mesh": "heltor_silenos_shaman_m00"
+  },
+  "25097": {
+   "class": "LineageMonster.giant_wild_hog",
+   "clientCollisionHeight": 27.0,
+   "drawScale": 0.5,
+   "mesh": "giant_wild_hog_m00"
+  },
+  "25098": {
+   "class": "LineageMonster.dark_fencer_200_bi",
+   "clientCollisionHeight": 43.0,
+   "drawScale": 3.0,
+   "mesh": "dark_fencer_m00"
+  },
+  "25102": {
+   "class": "LineageMonster.minotaur_100_bi",
+   "clientCollisionHeight": 94.0,
+   "drawScale": 2.0,
+   "mesh": "minotaur_m00"
+  },
+  "25103": {
+   "class": "LineageMonster.zenta_lizardman_matriarch_50_bi",
+   "clientCollisionHeight": 63.0,
+   "drawScale": 1.5,
+   "mesh": "zenta_lizardman_matriarch_m00"
+  },
+  "25106": {
+   "class": "LineageMonster.bloody_queen_100_bi",
+   "clientCollisionHeight": 85.0,
+   "drawScale": 2.0,
+   "mesh": "bloody_queen_m00"
+  },
+  "25109": {
+   "class": "LineageMonster.succubus_100_bi",
+   "clientCollisionHeight": 75.0,
+   "drawScale": 2.0,
+   "mesh": "succubus_m00"
+  },
+  "25112": {
+   "class": "LineageMonster.medusa_100_bi",
+   "clientCollisionHeight": 53.0,
+   "drawScale": 2.0,
+   "mesh": "medusa_m00"
+  },
+  "25118": {
+   "class": "LineageMonster.skeleton_pikeman_100_bi",
+   "clientCollisionHeight": 58.0,
+   "drawScale": 2.0,
+   "mesh": "skeleton_pikeman_m00"
+  },
+  "25119": {
+   "class": "LineageMonster.pan_100_bi",
+   "clientCollisionHeight": 73.0,
+   "drawScale": 2.0,
+   "mesh": "pan_m00"
+  },
+  "25122": {
+   "class": "LineageMonster.oel_mahum_witch_doctor_50_bi",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 1.5,
+   "mesh": "oel_mahum_witch_doctor_m00"
+  },
+  "25125": {
+   "class": "LineageMonster.saber_toothed_tiger_200_bi",
+   "clientCollisionHeight": 87.0,
+   "drawScale": 3.0,
+   "mesh": "saber_toothed_tiger_m00"
+  },
+  "25126": {
+   "class": "LineageMonster.minotaur_100_bi",
+   "clientCollisionHeight": 94.0,
+   "drawScale": 2.0,
+   "mesh": "minotaur_m00"
+  },
+  "25127": {
+   "class": "LineageMonster.virud_lizardman_matriarch_50_bi",
+   "clientCollisionHeight": 57.0,
+   "drawScale": 1.5,
+   "mesh": "virud_lizardman_matriarch_m00"
+  },
+  "25128": {
+   "class": "LineageMonster.batur_orc_shaman_100_bi",
+   "clientCollisionHeight": 35.0,
+   "drawScale": 2.0,
+   "mesh": "batur_orc_shaman_a_m00"
+  },
+  "25131": {
+   "class": "LineageMonster.oel_mahum_50_bi",
+   "clientCollisionHeight": 57.0,
+   "drawScale": 1.5,
+   "mesh": "oel_mahum_m00"
+  },
+  "25137": {
+   "class": "LineageMonster.bloody_queen_100_bi",
+   "clientCollisionHeight": 85.0,
+   "drawScale": 2.0,
+   "mesh": "bloody_queen_m00"
+  },
+  "25143": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "25146": {
+   "class": "LineageMonster.serpent_slave_50_bi",
+   "clientCollisionHeight": 72.0,
+   "drawScale": 1.5,
+   "mesh": "serpent_slave_m00"
+  },
+  "25152": {
+   "class": "LineageMonster.dre_vanul_100_bi",
+   "clientCollisionHeight": 75.0,
+   "drawScale": 2.0,
+   "mesh": "dre_vanul_m00"
+  },
+  "25155": {
+   "class": "LineageMonster.batur_orc_overlord_100_bi",
+   "clientCollisionHeight": 52.0,
+   "drawScale": 2.0,
+   "mesh": "batur_orc_overlord_m00"
+  },
+  "25158": {
+   "class": "LineageMonster.king_bugbear_200_bi",
+   "clientCollisionHeight": 126.0,
+   "drawScale": 3.0,
+   "mesh": "king_bugbear_m00"
+  },
+  "25162": {
+   "class": "LineageMonster.lesser_giant_100_bi",
+   "clientCollisionHeight": 91.0,
+   "drawScale": 2.0,
+   "mesh": "lesser_giant_m00"
+  },
+  "25166": {
+   "class": "LineageMonster.skeleton_knight_50_bi",
+   "clientCollisionHeight": 39.0,
+   "drawScale": 1.5,
+   "mesh": "skeleton_knight_m00"
+  },
+  "25169": {
+   "class": "LineageMonster.batur_orc_overlord_100_bi",
+   "clientCollisionHeight": 52.0,
+   "drawScale": 2.0,
+   "mesh": "batur_orc_overlord_m00"
+  },
+  "25170": {
+   "class": "LineageMonster.zenta_lizardman_matriarch_50_bi",
+   "clientCollisionHeight": 63.0,
+   "drawScale": 1.5,
+   "mesh": "zenta_lizardman_matriarch_m00"
+  },
+  "25173": {
+   "class": "LineageMonster.saber_toothed_tiger_200_bi",
+   "clientCollisionHeight": 87.0,
+   "drawScale": 3.0,
+   "mesh": "saber_toothed_tiger_m00"
+  },
+  "25176": {
+   "class": "LineageMonster3.Succubus_Raid",
+   "clientCollisionHeight": 30.700000762939453,
+   "drawScale": 1.2,
+   "mesh": "succubus_raid_m00"
+  },
+  "25179": {
+   "class": "LineageMonster.lesser_giant_shooter_50_bi",
+   "clientCollisionHeight": 66.0,
+   "drawScale": 1.5,
+   "mesh": "lesser_giant_shooter_m00"
+  },
+  "25182": {
+   "class": "LineageMonster.karik_100_bi",
+   "clientCollisionHeight": 180.0,
+   "drawScale": 2.0,
+   "mesh": "karik_m00"
+  },
+  "25188": {
+   "class": "LineageMonster.lienrik",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 2.0,
+   "mesh": "lienrik_m00"
+  },
+  "25200": {
+   "class": "LineageMonster.lienrik",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 2.0,
+   "mesh": "lienrik_m00"
+  },
+  "25202": {
+   "class": "LineageMonster.nos_100_bi",
+   "clientCollisionHeight": 86.0,
+   "drawScale": 2.0,
+   "mesh": "nos_m00"
+  },
+  "25203": {
+   "class": "LineageMonster.farhite_100_bi",
+   "clientCollisionHeight": 65.0,
+   "drawScale": 2.0,
+   "mesh": "farhite_m00"
+  },
+  "25204": {
+   "class": "LineageMonster.crokian_100_bi",
+   "clientCollisionHeight": 61.0,
+   "drawScale": 2.0,
+   "mesh": "crokian_m00"
+  },
+  "25205": {
+   "class": "LineageMonster.archangel_50_bi",
+   "clientCollisionHeight": 120.0,
+   "drawScale": 1.5,
+   "mesh": "archangel_m00"
+  },
+  "25208": {
+   "class": "LineageMonster.lienrik",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 2.0,
+   "mesh": "lienrik_m00"
+  },
+  "25209": {
+   "class": "LineageMonster.lienrik",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 2.0,
+   "mesh": "lienrik_m00"
+  },
+  "25210": {
+   "class": "LineageMonster.lienrik",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 2.0,
+   "mesh": "lienrik_m00"
+  },
+  "25223": {
+   "class": "LineageMonster.vale_master_50_bi",
+   "clientCollisionHeight": 63.0,
+   "drawScale": 1.5,
+   "mesh": "vale_master_m00"
+  },
+  "25226": {
+   "class": "LineageMonster.oel_mahum_witch_doctor_50_bi",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 1.5,
+   "mesh": "oel_mahum_witch_doctor_m00"
+  },
+  "25229": {
+   "class": "LineageMonster.wyrm_50_bi",
+   "clientCollisionHeight": 108.0,
+   "drawScale": 1.5,
+   "mesh": "wyrm_m00"
+  },
+  "25230": {
+   "class": "LineageMonster.batur_orc_shaman_50_bi",
+   "clientCollisionHeight": 25.0,
+   "drawScale": 1.5,
+   "mesh": "batur_orc_shaman_a_m00"
+  },
+  "25233": {
+   "class": "LineageMonster.headless_knight_50_bi",
+   "clientCollisionHeight": 46.5,
+   "drawScale": 1.5,
+   "mesh": "headless_knight_m00"
+  },
+  "25234": {
+   "class": "LineageMonster.drake_50_bi",
+   "clientCollisionHeight": 150.0,
+   "drawScale": 1.5,
+   "mesh": "drake_m00"
+  },
+  "25235": {
+   "class": "LineageMonster.heltor_silenos_50_bi",
+   "clientCollisionHeight": 43.5,
+   "drawScale": 1.5,
+   "mesh": "heltor_silenos_m00"
+  },
+  "25238": {
+   "class": "LineageMonster.drake_50_bi",
+   "clientCollisionHeight": 150.0,
+   "drawScale": 1.5,
+   "mesh": "drake_m00"
+  },
+  "25241": {
+   "class": "LineageMonster.zenta_lizardman_warrior_50_bi",
+   "clientCollisionHeight": 53.0,
+   "drawScale": 1.5,
+   "mesh": "zenta_lizardman_warrior_m00"
+  },
+  "25244": {
+   "class": "LineageMonster.lesser_giant_50_bi",
+   "clientCollisionHeight": 69.0,
+   "drawScale": 1.5,
+   "mesh": "lesser_giant_m00"
+  },
+  "25245": {
+   "class": "LineageMonster.lesser_giant_mage_50_bi",
+   "clientCollisionHeight": 66.0,
+   "drawScale": 1.5,
+   "mesh": "lesser_giant_mage_m00"
+  },
+  "25252": {
+   "class": "LineageMonster.cave_maiden_50_bi",
+   "clientCollisionHeight": 98.0,
+   "drawScale": 1.5,
+   "mesh": "cave_maiden_m00"
+  },
+  "25255": {
+   "class": "LineageMonster.hunter_gargoyle_50_bi",
+   "clientCollisionHeight": 98.0,
+   "drawScale": 1.5,
+   "mesh": "hunter_gargoyle_m00"
+  },
+  "25256": {
+   "class": "LineageMonster.ketra_orc_warrior_50_bi",
+   "clientCollisionHeight": 37.0,
+   "drawScale": 1.5,
+   "mesh": "ketra_orc_warrior_a_m00"
+  },
+  "25259": {
+   "class": "LineageMonster.ogre_50_bi",
+   "clientCollisionHeight": 66.0,
+   "drawScale": 1.5,
+   "mesh": "ogre_m00"
+  },
+  "25263": {
+   "class": "LineageMonster.medusa_100_bi",
+   "clientCollisionHeight": 53.0,
+   "drawScale": 2.0,
+   "mesh": "medusa_m00"
+  },
+  "25272": {
+   "class": "LineageMonster.ol_mahum_champion_50_bi",
+   "clientCollisionHeight": 43.5,
+   "drawScale": 1.5,
+   "mesh": "ol_mahum_champion_m00"
+  },
+  "25276": {
+   "class": "LineageMonster.death_lord_50_bi",
+   "clientCollisionHeight": 61.5,
+   "drawScale": 1.5,
+   "mesh": "death_lord_m00"
+  },
+  "25277": {
+   "class": "LineageMonster.bloody_queen_50_bi",
+   "clientCollisionHeight": 64.0,
+   "drawScale": 1.5,
+   "mesh": "bloody_queen_m00"
+  },
+  "25280": {
+   "class": "LineageMonster.kel_mahum_champion_50_bi",
+   "clientCollisionHeight": 48.0,
+   "drawScale": 1.5,
+   "mesh": "kel_mahum_champion_m00"
+  },
+  "25281": {
+   "class": "LineageMonster.karik_50_bi",
+   "clientCollisionHeight": 136.5,
+   "drawScale": 1.5,
+   "mesh": "karik_m00"
+  },
+  "25282": {
+   "class": "LineageMonster.death_lord_50_bi",
+   "clientCollisionHeight": 61.5,
+   "drawScale": 1.5,
+   "mesh": "death_lord_m00"
+  },
+  "25283": {
+   "class": "LineageMonster2.lilith",
+   "clientCollisionHeight": 55.0,
+   "drawScale": 0.85,
+   "mesh": "lilith_m00"
+  },
+  "25286": {
+   "class": "LineageMonster2.anakim",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 1.03,
+   "mesh": "anakim_m00"
+  },
+  "25293": {
+   "class": "LineageMonster.pixy_bi",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 2.0,
+   "mesh": "pixy_m00"
+  },
+  "25296": {
+   "class": "LineageMonster.yeti_20_bi",
+   "clientCollisionHeight": 32.0,
+   "drawScale": 1.2,
+   "mesh": "yeti_m00"
+  },
+  "25299": {
+   "class": "LineageMonster2.ketra_orc_chieftain_20_bi",
+   "clientCollisionHeight": 46.20000076293945,
+   "drawScale": 1.2,
+   "mesh": "ketra_orc_chieftain_m00"
+  },
+  "25302": {
+   "class": "LineageMonster2.ketra_orc_warlord_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "ketra_orc_warlord_m00"
+  },
+  "25309": {
+   "class": "LineageMonster2.barka_silenos_shaman_20_bi",
+   "clientCollisionHeight": 47.5,
+   "drawScale": 1.2,
+   "mesh": "barka_silenos_shaman_m00"
+  },
+  "25312": {
+   "class": "LineageMonster2.barka_silenos_chieftain_20_bi",
+   "clientCollisionHeight": 51.0,
+   "drawScale": 1.2,
+   "mesh": "barka_silenos_chieftain_m00"
+  },
+  "25315": {
+   "class": "LineageMonster2.barka_silenos_chieftain_20_bi",
+   "clientCollisionHeight": 51.0,
+   "drawScale": 1.2,
+   "mesh": "barka_silenos_chieftain_m00"
+  },
+  "25319": {
+   "class": "LineageMonster2.inferno_drake_100_bi",
+   "clientCollisionHeight": 73.0,
+   "drawScale": 2.0,
+   "mesh": "inferno_drake_m00"
+  },
+  "25322": {
+   "class": "LineageMonster2.vampire_warrior",
+   "clientCollisionHeight": 31.5,
+   "drawScale": 0.95,
+   "mesh": "vampire_warrior_m00"
+  },
+  "25323": {
+   "class": "LineageMonster2.vampire_wizard",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 1.1,
+   "mesh": "vampire_wizard_m00"
+  },
+  "25328": {
+   "class": "LineageMonster2.vampire_lord",
+   "clientCollisionHeight": 25.799999237060547,
+   "drawScale": 1.1,
+   "mesh": "vampire_lord_m00"
+  },
+  "25333": {
+   "class": "LineageMonster.dre_vanul_bi_one",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 1.5,
+   "mesh": "dre_vanul_m00"
+  },
+  "25334": {
+   "class": "LineageMonster.dre_vanul_bi_one",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 1.5,
+   "mesh": "dre_vanul_m00"
+  },
+  "25335": {
+   "class": "LineageMonster.kaim_vanul_20_bi",
+   "clientCollisionHeight": 48.0,
+   "drawScale": 1.2,
+   "mesh": "kaim_vanul_m00"
+  },
+  "25336": {
+   "class": "LineageMonster.kaim_vanul_20_bi",
+   "clientCollisionHeight": 48.0,
+   "drawScale": 1.2,
+   "mesh": "kaim_vanul_m00"
+  },
+  "25353": {
+   "class": "LineageMonster.lesser_basilisk_sm",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 0.9,
+   "mesh": "lesser_basilisk_m00"
+  },
+  "25354": {
+   "class": "LineageMonster.gargoyle_bi",
+   "clientCollisionHeight": 65.0,
+   "drawScale": 1.3,
+   "mesh": "gargoyle_m00"
+  },
+  "25358": {
+   "class": "LineageMonster.wererat_sm",
+   "clientCollisionHeight": 18.700000762939453,
+   "drawScale": 0.75,
+   "mesh": "wererat_m00"
+  },
+  "25359": {
+   "class": "LineageMonster.wererat_sm",
+   "clientCollisionHeight": 18.700000762939453,
+   "drawScale": 0.75,
+   "mesh": "wererat_m00"
+  },
+  "25360": {
+   "class": "LineageMonster.giant_bee_bi",
+   "clientCollisionHeight": 32.0,
+   "drawScale": 1.3,
+   "mesh": "giant_bee_m00"
+  },
+  "25365": {
+   "class": "LineageMonster.virud_lizardman_warrior_bi",
+   "clientCollisionHeight": 34.5,
+   "drawScale": 1.15,
+   "mesh": "virud_lizardman_warrior_m00"
+  },
+  "25369": {
+   "class": "LineageMonster.dark_horror_bi",
+   "clientCollisionHeight": 42.0,
+   "drawScale": 1.2,
+   "mesh": "dark_horror_m00"
+  },
+  "25370": {
+   "class": "LineageMonster.skeleton_bi",
+   "clientCollisionHeight": 31.0,
+   "drawScale": 1.2,
+   "mesh": "skeleton_m00"
+  },
+  "25372": {
+   "class": "LineageMonster.stone_golem_bi",
+   "clientCollisionHeight": 40.29999923706055,
+   "drawScale": 1.3,
+   "mesh": "stone_golem_m00"
+  },
+  "25373": {
+   "class": "LineageMonster.dre_vanul_bi_one",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 1.5,
+   "mesh": "dre_vanul_m00"
+  },
+  "25375": {
+   "class": "LineageMonster.zombie_bi",
+   "clientCollisionHeight": 27.5,
+   "drawScale": 1.25,
+   "mesh": "zombie_m00"
+  },
+  "25378": {
+   "class": "LineageMonster.onyx_beast_bi",
+   "clientCollisionHeight": 18.700000762939453,
+   "drawScale": 1.3,
+   "mesh": "onyx_beast_m00"
+  },
+  "25380": {
+   "class": "LineageMonster.succubus_bi",
+   "clientCollisionHeight": 43.20000076293945,
+   "drawScale": 1.2,
+   "mesh": "succubus_m00"
+  },
+  "25381": {
+   "class": "LineageMonster.vampire_bat_bi",
+   "clientCollisionHeight": 42.0,
+   "drawScale": 1.25,
+   "mesh": "vampire_bat_m00"
+  },
+  "25385": {
+   "class": "LineageMonster.dre_vanul_bi_one",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 1.5,
+   "mesh": "dre_vanul_m00"
+  },
+  "25386": {
+   "class": "LineageMonster.skeleton_bi",
+   "clientCollisionHeight": 31.0,
+   "drawScale": 1.2,
+   "mesh": "skeleton_m00"
+  },
+  "25388": {
+   "class": "LineageMonster.oel_mahum_bi",
+   "clientCollisionHeight": 55.0,
+   "drawScale": 1.5,
+   "mesh": "oel_mahum_m00"
+  },
+  "25391": {
+   "class": "LineageMonster.ol_mahum_champion_bi",
+   "clientCollisionHeight": 40.5,
+   "drawScale": 1.5,
+   "mesh": "ol_mahum_champion_m00"
+  },
+  "25401": {
+   "class": "LineageMonster.zenta_lizardman_matriarch_bi",
+   "clientCollisionHeight": 63.0,
+   "drawScale": 1.5,
+   "mesh": "zenta_lizardman_matriarch_m00"
+  },
+  "25405": {
+   "class": "LineageMonster.skeleton_bi_one",
+   "clientCollisionHeight": 40.0,
+   "drawScale": 1.5,
+   "mesh": "skeleton_m00"
+  },
+  "25406": {
+   "class": "LineageMonster.skeleton_knight_50_bi",
+   "clientCollisionHeight": 39.0,
+   "drawScale": 1.5,
+   "mesh": "skeleton_knight_m00"
+  },
+  "25407": {
+   "class": "LineageMonster.death_blader_bi",
+   "clientCollisionHeight": 67.0,
+   "drawScale": 1.5,
+   "mesh": "death_blader_m00"
+  },
+  "25409": {
+   "class": "LineageMonster.skeleton_knight_20_bi",
+   "clientCollisionHeight": 30.5,
+   "drawScale": 1.2,
+   "mesh": "skeleton_knight_m00"
+  },
+  "25410": {
+   "class": "LineageMonster.wererat_bi",
+   "clientCollisionHeight": 38.0,
+   "drawScale": 1.5,
+   "mesh": "wererat_m00"
+  },
+  "25411": {
+   "class": "LineageMonster.kobold_bi",
+   "clientCollisionHeight": 24.0,
+   "drawScale": 1.5,
+   "mesh": "kobold_m00"
+  },
+  "25415": {
+   "class": "LineageMonster.drake_bi",
+   "clientCollisionHeight": 125.0,
+   "drawScale": 1.25,
+   "mesh": "drake_m00"
+  },
+  "25421": {
+   "class": "LineageMonster.poison_spider_bi",
+   "clientCollisionHeight": 38.0,
+   "drawScale": 1.5,
+   "mesh": "poison_spider_m00"
+  },
+  "25423": {
+   "class": "LineageMonster.pixy_bi",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 2.0,
+   "mesh": "pixy_m00"
+  },
+  "25426": {
+   "class": "LineageMonster.werewolf_bi",
+   "clientCollisionHeight": 29.700000762939453,
+   "drawScale": 0.85,
+   "mesh": "werewolf_m00"
+  },
+  "25434": {
+   "class": "LineageMonster.oel_mahum_warrior_50_bi",
+   "clientCollisionHeight": 60.0,
+   "drawScale": 1.5,
+   "mesh": "oel_mahum_warrior_m00"
+  },
+  "25437": {
+   "class": "LineageMonster.batur_orc_overlord_100_bi",
+   "clientCollisionHeight": 52.0,
+   "drawScale": 2.0,
+   "mesh": "batur_orc_overlord_m00"
+  },
+  "25438": {
+   "class": "LineageMonster.wererat_100_bi",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 2.0,
+   "mesh": "wererat_m00"
+  },
+  "25439": {
+   "class": "LineageMonster.wererat_bi",
+   "clientCollisionHeight": 38.0,
+   "drawScale": 1.5,
+   "mesh": "wererat_m00"
+  },
+  "25441": {
+   "class": "LineageMonster.drake_50_bi",
+   "clientCollisionHeight": 150.0,
+   "drawScale": 1.5,
+   "mesh": "drake_m00"
+  },
+  "25443": {
+   "class": "LineageMonster.giant_wild_hog",
+   "clientCollisionHeight": 27.0,
+   "drawScale": 0.5,
+   "mesh": "giant_wild_hog_m00"
+  },
+  "25444": {
+   "class": "LineageMonster.dark_horror_100_bi",
+   "clientCollisionHeight": 70.0,
+   "drawScale": 2.0,
+   "mesh": "dark_horror_m00"
+  },
+  "25447": {
+   "class": "LineageMonster.banshee_50_bi",
+   "clientCollisionHeight": 38.0,
+   "drawScale": 1.5,
+   "mesh": "banshee_m00"
+  },
+  "25450": {
+   "class": "LineageMonster.archangel_50_bi",
+   "clientCollisionHeight": 120.0,
+   "drawScale": 1.5,
+   "mesh": "archangel_m00"
+  },
+  "25451": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "25452": {
+   "class": "LineageMonster.angel",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "25453": {
+   "class": "LineageMonster.wyrm_50_bi",
+   "clientCollisionHeight": 108.0,
+   "drawScale": 1.5,
+   "mesh": "wyrm_m00"
+  },
+  "25456": {
+   "class": "LineageMonster.mirror_50_bi",
+   "clientCollisionHeight": null,
+   "drawScale": 1.5,
+   "mesh": "mirror_m00"
+  },
+  "25460": {
+   "class": "LineageMonster.death_blader_200_bi",
+   "clientCollisionHeight": 141.0,
+   "drawScale": 3.0,
+   "mesh": "death_blader_m00"
+  },
+  "25467": {
+   "class": "LineageMonster.field_stalker_200_bi",
+   "clientCollisionHeight": 96.0,
+   "drawScale": 3.0,
+   "mesh": "field_stalker_m00"
+  },
+  "25473": {
+   "class": "LineageMonster.batur_orc_warrior_100_bi",
+   "clientCollisionHeight": 42.0,
+   "drawScale": 2.0,
+   "mesh": "batur_orc_warrior_m00"
+  },
+  "25475": {
+   "class": "LineageMonster.headless_knight_50_bi",
+   "clientCollisionHeight": 46.5,
+   "drawScale": 1.5,
+   "mesh": "headless_knight_m00"
+  },
+  "25480": {
+   "class": "LineageMonster.lienrik",
+   "clientCollisionHeight": 50.0,
+   "drawScale": 2.0,
+   "mesh": "lienrik_m00"
+  },
+  "25481": {
+   "class": "LineageMonster.banshee_50_bi",
+   "clientCollisionHeight": 38.0,
+   "drawScale": 1.5,
+   "mesh": "banshee_m00"
+  },
+  "25484": {
+   "class": "LineageMonster.skeleton_knight_50_bi",
+   "clientCollisionHeight": 39.0,
+   "drawScale": 1.5,
+   "mesh": "skeleton_knight_m00"
+  },
+  "25485": {
+   "class": "LineageMonster.skeleton_bi",
+   "clientCollisionHeight": 31.0,
+   "drawScale": 1.2,
+   "mesh": "skeleton_m00"
+  },
+  "25487": {
+   "class": "LineageMonster.pixy_bi",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 2.0,
+   "mesh": "pixy_m00"
+  },
+  "25498": {
+   "class": "LineageMonster.farhite_50_bi",
+   "clientCollisionHeight": 48.0,
+   "drawScale": 1.5,
+   "mesh": "farhite_m00"
+  },
+  "25501": {
+   "class": "LineageNPC.e_collector_teacher_Mdwarf_mon_130p",
+   "clientCollisionHeight": 23.600000381469727,
+   "drawScale": 1.3,
+   "mesh": "e_collector_teacher_MDwarf_m00_mon"
+  },
+  "25502": {
+   "class": "LineageNPC.e_traderB_Fdwarf_mon_120p",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 1.2,
+   "mesh": "e_traderB_FDwarf_m00_mon"
+  },
+  "25503": {
+   "class": "LineageNPC.e_collector_teacher_Fdwarf_mon_120p",
+   "clientCollisionHeight": 21.399999618530273,
+   "drawScale": 1.2,
+   "mesh": "e_collector_teacher_FDwarf_m00_mon"
+  },
+  "25504": {
+   "class": "LineageNPC.a_mageguild_teacher_Mhuman_mon_120p",
+   "clientCollisionHeight": 28.100000381469727,
+   "drawScale": 1.2,
+   "mesh": "a_mageguild_teacher_MHuman_m00_mon"
+  },
+  "25506": {
+   "class": "LineageMonster.ol_mahum_champion_05te_120p",
+   "clientCollisionHeight": 33.20000076293945,
+   "drawScale": 1.2,
+   "mesh": "ol_mahum_champion_m00"
+  },
+  "25507": {
+   "class": "LineageMonster.ol_mahum_05te_110p",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 1.1,
+   "mesh": "ol_mahum_m00"
+  },
+  "25508": {
+   "class": "LineageMonster2.northern_goblin_110p",
+   "clientCollisionHeight": 16.600000381469727,
+   "drawScale": 1.1,
+   "mesh": "northern_goblin_m00"
+  },
+  "25509": {
+   "class": "LineageMonster.batur_orc_shaman_a_01te_120p",
+   "clientCollisionHeight": 20.799999237060547,
+   "drawScale": 1.2,
+   "mesh": "batur_orc_shaman_a_m00"
+  },
+  "25510": {
+   "class": "LineageMonster.batur_orc_overlord_01te_110p",
+   "clientCollisionHeight": 26.899999618530273,
+   "drawScale": 1.1,
+   "mesh": "batur_orc_overlord_m00"
+  },
+  "25511": {
+   "class": "LineageMonster.batur_orc_shaman_a_01te_110p",
+   "clientCollisionHeight": 18.799999237060547,
+   "drawScale": 1.1,
+   "mesh": "batur_orc_shaman_a_m00"
+  },
+  "25514": {
+   "class": "LineageMonster3.cannibal_stakato_leader_tran_120p",
+   "clientCollisionHeight": 50.79999923706055,
+   "drawScale": 1.2,
+   "mesh": "cannibal_stakato_leader_tran_m00"
+  },
+  "25515": {
+   "class": "LineageMonster.spike_stakato_110p",
+   "clientCollisionHeight": 21.0,
+   "drawScale": 1.1,
+   "mesh": "spike_stakato_m00"
+  },
+  "25516": {
+   "class": "LineageMonster.spike_stakato_worker_110p",
+   "clientCollisionHeight": 22.200000762939453,
+   "drawScale": 1.1,
+   "mesh": "spike_stakato_worker_m00"
+  },
+  "25517": {
+   "class": "LineageMonster3.solina_priest_120p",
+   "clientCollisionHeight": 41.79999923706055,
+   "drawScale": 1.2,
+   "mesh": "solina_priest_m00"
+  },
+  "27005": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "27131": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "27143": {
+   "class": "LineageMonster.giant_wild_hog",
+   "clientCollisionHeight": 27.0,
+   "drawScale": 0.5,
+   "mesh": "giant_wild_hog_m00"
+  },
+  "27185": {
+   "class": "LineageNPC.human_tree",
+   "clientCollisionHeight": 90.0,
+   "drawScale": 0.4,
+   "mesh": "human_tree_m00"
+  },
+  "27186": {
+   "class": "LineageNPC.human_tree",
+   "clientCollisionHeight": 90.0,
+   "drawScale": 0.4,
+   "mesh": "human_tree_m00"
+  },
+  "27187": {
+   "class": "LineageNPC.human_tree",
+   "clientCollisionHeight": 90.0,
+   "drawScale": 0.4,
+   "mesh": "human_tree_m00"
+  },
+  "27188": {
+   "class": "LineageNPC.human_tree",
+   "clientCollisionHeight": 90.0,
+   "drawScale": 0.4,
+   "mesh": "human_tree_m00"
+  },
+  "27199": {
+   "class": "LineageMonster.werewolf",
+   "clientCollisionHeight": 26.0,
+   "drawScale": 0.75,
+   "mesh": "werewolf_m00"
+  },
+  "27219": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27220": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27221": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27222": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27223": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27224": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27225": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27226": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27227": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27228": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27229": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27230": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27231": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27232": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27233": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27234": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27235": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27236": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27237": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27238": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27239": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27240": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27241": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27242": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27243": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27244": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27245": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27246": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27247": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27248": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27249": {
+   "class": "LineageMonster2.ahrimanes",
+   "clientCollisionHeight": 57.75,
+   "drawScale": 1.1,
+   "mesh": "ahrimanes_m00"
+  },
+  "27289": {
+   "class": "LineageMonster2.lilim_knight_10_bi",
+   "clientCollisionHeight": 55.0,
+   "drawScale": 1.1,
+   "mesh": "lilim_knight_m00"
+  },
+  "27310": {
+   "class": "LineageMonster2.vampire_lord",
+   "clientCollisionHeight": 25.799999237060547,
+   "drawScale": 1.1,
+   "mesh": "vampire_lord_m00"
+  },
+  "27318": {
+   "class": "LineageMonster3.golem_guardian_090p",
+   "clientCollisionHeight": 37.20000076293945,
+   "drawScale": 0.6,
+   "mesh": "golem_guardian_m00"
+  },
+  "27322": {
+   "class": "LineageMonster.giant_spider_50_bi",
+   "clientCollisionHeight": 38.0,
+   "drawScale": 1.5,
+   "mesh": "giant_spider_m00"
+  },
+  "29014": {
+   "class": "LineageMonster.orfen",
+   "clientCollisionHeight": 143.0,
+   "drawScale": 2.7,
+   "mesh": "orfen_m00"
+  },
+  "29025": {
+   "class": "LineageNPC.baium_npc",
+   "clientCollisionHeight": 82.0,
+   "drawScale": 1.01,
+   "mesh": "baium_npc_m00"
+  },
+  "29030": {
+   "class": "LineageMonster2.bandersnatch_20_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.2,
+   "mesh": "bandersnatch_m00"
+  },
+  "29033": {
+   "class": "LineageMonster2.bandersnatch_20_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.2,
+   "mesh": "bandersnatch_m00"
+  },
+  "29036": {
+   "class": "LineageMonster2.bandersnatch_20_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.2,
+   "mesh": "bandersnatch_m00"
+  },
+  "29037": {
+   "class": "LineageMonster2.bandersnatch_20_bi",
+   "clientCollisionHeight": 30.0,
+   "drawScale": 1.2,
+   "mesh": "bandersnatch_m00"
+  },
+  "29040": {
+   "class": "LineageMonster2.inferno_drake_20_bi",
+   "clientCollisionHeight": 42.0,
+   "drawScale": 1.2,
+   "mesh": "inferno_drake_m00"
+  },
+  "29046": {
+   "class": "LineageMonster3.follower_of_frintessa",
+   "clientCollisionHeight": 90.69999694824219,
+   "drawScale": 1.25,
+   "mesh": "follower_of_frintessa_m00"
+  },
+  "29050": {
+   "class": "LineageMonster3.portrait_spirit",
+   "clientCollisionHeight": 40.0,
+   "drawScale": 1.2,
+   "mesh": "portrait_spirit_m00"
+  },
+  "29051": {
+   "class": "LineageMonster3.portrait_spirit_winged",
+   "clientCollisionHeight": 40.0,
+   "drawScale": 1.2,
+   "mesh": "portrait_spirit_winged_m00"
+  },
+  "29054": {
+   "class": "LineageMonster3.benom",
+   "clientCollisionHeight": 56.0,
+   "drawScale": 1.2,
+   "mesh": "benom_m00"
+  },
+  "29056": {
+   "class": "LineageMonster3.ice_fairy",
+   "clientCollisionHeight": 35.599998474121094,
+   "drawScale": 1.5,
+   "mesh": "ice_fairy_m00"
+  },
+  "29057": {
+   "class": "LineageMonster.sylph_110p",
+   "clientCollisionHeight": 39.70000076293945,
+   "drawScale": 1.1,
+   "mesh": "sylph_m00"
+  },
+  "29058": {
+   "class": "LineageMonster.field_stalker_20_bi",
+   "clientCollisionHeight": 36.0,
+   "drawScale": 1.2,
+   "mesh": "field_stalker_m00"
+  },
+  "29060": {
+   "class": "LineageMonster.gargoyle_02te_120p",
+   "clientCollisionHeight": 61.0,
+   "drawScale": 1.2,
+   "mesh": "gargoyle_m00"
+  },
+  "29062": {
+   "class": "LineageMonster3.heretic_priest_110p",
+   "clientCollisionHeight": 21.299999237060547,
+   "drawScale": 1.1,
+   "mesh": "heretic_priest_m00"
+  },
+  "29070": {
+   "class": "LineageMonster3.antaras_ex_b_80p",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 0.8,
+   "mesh": "antaras_ex_b_m00"
+  },
+  "29071": {
+   "class": "LineageMonster3.antaras_ex_b_80p",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 0.8,
+   "mesh": "antaras_ex_b_m00"
+  },
+  "29072": {
+   "class": "LineageMonster3.antaras_ex_b_80p",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 0.8,
+   "mesh": "antaras_ex_b_m00"
+  },
+  "29073": {
+   "class": "LineageMonster3.antaras_ex_b_80p",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 0.8,
+   "mesh": "antaras_ex_b_m00"
+  },
+  "29074": {
+   "class": "LineageMonster3.antaras_ex_b_80p",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 0.8,
+   "mesh": "antaras_ex_b_m00"
+  },
+  "29075": {
+   "class": "LineageMonster3.antaras_ex_b_80p",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 0.8,
+   "mesh": "antaras_ex_b_m00"
+  },
+  "29095": {
+   "class": "LineageMonster3.Cruel_Rider",
+   "clientCollisionHeight": 46.599998474121094,
+   "drawScale": 1.1,
+   "mesh": "cruel_rider_m00"
+  },
+  "29096": {
+   "class": "LineageMonster3.solina_priest_120p",
+   "clientCollisionHeight": 41.79999923706055,
+   "drawScale": 1.2,
+   "mesh": "solina_priest_m00"
+  },
+  "30627": {
+   "class": "LineageNPC.human_tree",
+   "clientCollisionHeight": 90.0,
+   "drawScale": 0.4,
+   "mesh": "human_tree_m00"
+  },
+  "30937": {
+   "class": "LineageMonster.giant_wild_hog",
+   "clientCollisionHeight": 27.0,
+   "drawScale": 0.5,
+   "mesh": "giant_wild_hog_m00"
+  },
+  "30952": {
+   "class": "LineageNPC.broadcasting_tower",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 3.0,
+   "mesh": "castle_aden_controltower_jewel_m00"
+  },
+  "30953": {
+   "class": "LineageNPC.broadcasting_tower",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 3.0,
+   "mesh": "castle_aden_controltower_jewel_m00"
+  },
+  "30954": {
+   "class": "LineageNPC.broadcasting_tower",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 3.0,
+   "mesh": "castle_aden_controltower_jewel_m00"
+  },
+  "30980": {
+   "class": "LineageNPC.angel_death",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "31031": {
+   "class": "LineageNPC.broadcasting_tower",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 3.0,
+   "mesh": "castle_aden_controltower_jewel_m00"
+  },
+  "31266": {
+   "class": "LineageMonster2.youth_tiger",
+   "clientCollisionHeight": 17.200000762939453,
+   "drawScale": 0.8,
+   "mesh": "youth_tiger_m00"
+  },
+  "31691": {
+   "class": "LineageNPC.training_doll",
+   "clientCollisionHeight": 22.0,
+   "drawScale": 2.2,
+   "mesh": "training_doll_m00"
+  },
+  "31752": {
+   "class": "LineageNPC.angel_death",
+   "clientCollisionHeight": 36.5,
+   "drawScale": 0.5,
+   "mesh": "angel_m00"
+  },
+  "31862": {
+   "class": "LineageNPC.broadcasting_tower",
+   "clientCollisionHeight": 54.0,
+   "drawScale": 3.0,
+   "mesh": "castle_aden_controltower_jewel_m00"
+  },
+  "31925": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31926": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31927": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31928": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31929": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31930": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31931": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31932": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31933": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31934": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31935": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31936": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31937": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31938": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31939": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31940": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31941": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31942": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31943": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "31944": {
+   "class": "LineageNPC.rift_keeper_25_sm",
+   "clientCollisionHeight": 29.0,
+   "drawScale": 0.25,
+   "mesh": "rift_keeper_m00"
+  },
+  "35432": {
+   "class": "LineageMonster.oel_mahum_40_sm",
+   "clientCollisionHeight": 19.0,
+   "drawScale": 0.6,
+   "mesh": "oel_mahum_m00"
+  },
+  "35588": {
+   "class": "LineageNPC.drop_gourd_50_bi",
+   "clientCollisionHeight": 40.0,
+   "drawScale": 1.5,
+   "mesh": "drop_gourd_m00"
+  },
+  "35589": {
+   "class": "LineageNPC.drop_gourd_50_bi",
+   "clientCollisionHeight": 40.0,
+   "drawScale": 1.5,
+   "mesh": "drop_gourd_m00"
+  },
+  "35590": {
+   "class": "LineageNPC.drop_gourd_50_bi",
+   "clientCollisionHeight": 40.0,
+   "drawScale": 1.5,
+   "mesh": "drop_gourd_m00"
+  },
+  "35591": {
+   "class": "LineageNPC.drop_gourd_50_bi",
+   "clientCollisionHeight": 40.0,
+   "drawScale": 1.5,
+   "mesh": "drop_gourd_m00"
+  },
+  "35631": {
+   "class": "LineageMonster2.vampire_wizard",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 1.1,
+   "mesh": "vampire_wizard_m00"
+  },
+  "35635": {
+   "class": "LineageMonster2.vampire_wizard",
+   "clientCollisionHeight": 28.0,
+   "drawScale": 1.1,
+   "mesh": "vampire_wizard_m00"
+  },
+  "35636": {
+   "class": "LineageMonster2.vampire_warrior",
+   "clientCollisionHeight": 31.5,
+   "drawScale": 0.95,
+   "mesh": "vampire_warrior_m00"
+  },
+  "35637": {
+   "class": "LineageMonster2.vampire_lord",
+   "clientCollisionHeight": 25.799999237060547,
+   "drawScale": 1.1,
+   "mesh": "vampire_lord_m00"
+  },
+  "35647": {
+   "class": "LineageMonster2.vampire_lord",
+   "clientCollisionHeight": 25.799999237060547,
+   "drawScale": 1.1,
+   "mesh": "vampire_lord_m00"
+  }
+ }
+}

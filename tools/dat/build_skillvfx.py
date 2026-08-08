@@ -14,18 +14,32 @@ across hundreds of skills, so names live in one table and records hold indices.
 
 WHAT IT KEEPS AND WHY
 ---------------------
-SpriteEmitters ONLY. A UE2 SpriteEmitter is a textured, camera-facing quad with
-a colour-over-life ramp, an opacity/fade envelope, a size range, a start-location
-shape, a velocity+acceleration range and an optional texture-atlas subdivision --
-every one of those is a decoded number in lineageeffect.json and every one maps
-onto a three.js Points/Sprite draw. The other emitter families are dropped, not
-approximated:
-  MeshEmitter    (1232) needs the LineageEffectsStaticmeshes geometry; the
-                        client has no .pskx loader, so these would have to be
-                        faked with a substitute shape.
-  VertMeshEmitter  (36) UE2 VertMesh; umodel cannot export it at all.
-  BeamEmitter      (29) / RibbonEmitter (1) are procedural beam/trail geometry
-                        with their own (undecoded) segment parameters.
+SpriteEmitters and MeshEmitters. A UE2 SpriteEmitter is a textured, camera-facing
+quad with a colour-over-life ramp, an opacity/fade envelope, a size range and
+size curve, a start-location shape, a velocity+acceleration range and an optional
+texture-atlas subdivision -- every one of those is a decoded number in
+lineageeffect.json and every one maps onto a three.js instanced quad.
+
+A MeshEmitter is the SAME particle with a static mesh in place of the quad: per
+Engine.u (tools/dat/dump_emitter_classes.py) `class MeshEmitter extends
+ParticleEmitter` adds exactly four authored fields -- StaticMesh,
+UseMeshBlendMode, RenderTwoSided, UseParticleColor -- and inherits every other
+knob unchanged. The one field whose UNITS change is StartSizeRange, and Engine.u
+settles that outright: ParticleEmitter defaults it to 100 (UU) and MeshEmitter
+overrides it to 1.0, so on a mesh it is a per-axis SCALE. Geometry for the 108
+meshes bound skills reference is emitted by tools/dat/build_skillmesh.py; this
+file only carries the mesh NAME (interned in `msh`), so the two indexes join by
+name and neither has to be rebuilt when the other changes.
+
+Still dropped, not approximated:
+  VertMeshEmitter  (36) UE2 VertMesh in LineageEffectMeshes.ukx. umodel DOES
+                        export these (as Unreal .3d vertex-animation pairs -- the
+                        older claim that it "cannot export it at all" is wrong),
+                        but nothing in this repo decodes .3d yet.
+  BeamEmitter      (29) / RibbonEmitter (1) are procedural beam/trail geometry.
+                        Their parameters ARE decodable now that Engine.u's
+                        BeamEmitter declaration is recovered, but the noise/
+                        branching model that turns them into vertices is native.
 Per-class counts of what was dropped ride along in the output ("skip"), so the
 client and the docs can state coverage instead of pretending to full fidelity.
 
@@ -39,7 +53,22 @@ engine. For those, colour comes from ColorMultiplierRange (an RGB multiplier,
 default 1,1,1) modulating the texture. This tool applies that gate: `r` (ramp) is
 emitted only when UseColorScale is set, otherwise `m` (multiplier) carries the
 tint. Alpha rides on Opacity x FadeIn/FadeOut, not on the ramp's alpha byte
-(3191 of 3316 ramp stops are 0xff).
+(3191 of 3316 ramp stops are 0xff -- and wh_heal_ca's stops are #7d7d7d00, i.e.
+alpha 0, which would make the retail heal circle invisible if the byte were used).
+
+MESH PARTICLES ARE NOT TINTED, and that is a sourced decision, not a shortcut.
+`UseParticleColor` is absent from MeshEmitter's class-default stream in Engine.u
+(so it is false) and is serialised true on only 5 of the 413 bound mesh emitters.
+The falsifying case is el_prominence_fl -- Prominence is a FIRE skill: its
+`spirit_fire00` mesh is textured with fx_m_t0066, whose bright pixels average
+(204, 113, 70) orange, and the emitter carries ColorMultiplierRange
+(0.269, 1.0, 1.0). Applying that multiplier turns the fire core (55, 113, 70)
+dark green. So `r`/`m` are emitted for a MeshEmitter only when UseParticleColor
+is set; the mesh's own retail texture is the colour. What is NOT recoverable is
+whether the native renderer still applies the Opacity x fade ALPHA envelope when
+UseParticleColor is false; the client applies it (377 of 413 bound mesh emitters
+set FadeOut explicitly and 290 set Opacity), which can only change transparency,
+never colour. Written up in docs/skillfx-data.md §4c.
 
 Usage:
   /usr/bin/python3 tools/dat/build_skillvfx.py           # write the index
@@ -49,6 +78,7 @@ Usage:
 import argparse
 import json
 import os
+import struct
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -126,16 +156,61 @@ def resolve_texture(ref, cache={}):
     return "%s/%s" % (real, fn) if fn else None
 
 
-def pack_sprite(em, tex):
-    """One SpriteEmitter -> the compact record the renderer consumes.
+def png_has_alpha_channel(rel, _cache={}):
+    """True when the umodel PNG export really carries an alpha channel.
+
+    Not cosmetic: 33 of the 127 sprite textures and part of the mesh textures
+    are colour type 6 (RGBA), and on several of them (fx_m_t0054, fx_m_t0035,
+    fx_m_t0071, fx_m_t0099 ...) the RGB is opaque everywhere and the SHAPE is
+    entirely in the alpha channel -- 0.0% of pixels have a dark RGB while
+    60-90% have alpha < 8. Treating luminance as coverage there paints a solid
+    bright rectangle. So coverage is alpha when the file has one, luminance
+    when it does not.
+    """
+    if rel in _cache:
+        return _cache[rel]
+    path = os.path.join(LIBRARY, rel)
+    ct = None
+    try:
+        with open(path, "rb") as fh:
+            d = fh.read(64)
+        pos = 8
+        while pos + 8 <= len(d):
+            ln = struct.unpack_from(">I", d, pos)[0]
+            if d[pos + 4:pos + 8] == b"IHDR":
+                ct = struct.unpack_from(">IIBB", d, pos + 8)[3]
+                break
+            pos += 12 + ln
+    except OSError:
+        ct = None
+    _cache[rel] = ct in (4, 6)          # 4 = grey+alpha, 6 = RGBA
+    return _cache[rel]
+
+
+def pack_emitter(em, tex, msh=None):
+    """One SpriteEmitter or MeshEmitter -> the compact record the renderer consumes.
 
     Every key is a decoded retail value; nothing is defaulted in here except by
     OMISSION (a missing key means "engine default", which the client applies).
+    A MeshEmitter carries `k: 1` and `g` (index into the `msh` name table) in
+    place of `t`; everything else is the shared ParticleEmitter contract.
     """
     out = {}
-    ti = tex(resolve_texture(em.get("texture")))
-    if ti is not None:
-        out["t"] = ti
+    is_mesh = em.get("type") == "MeshEmitter"
+    if is_mesh:
+        out["k"] = 1
+        out["g"] = msh((em.get("mesh") or "").split(".", 1)[-1])
+        if em.get("twoSided"):
+            out["ts"] = 1
+        # UseMeshBlendMode defaults TRUE (Engine.u) = use the MESH material's
+        # own blend mode; 1182 of 1232 emitters turn it off, which is what makes
+        # the emitter's DrawStyle (`d`) authoritative for those.
+        if em.get("useMeshBlendMode") is not False:
+            out["mb"] = 1
+    else:
+        ti = tex(resolve_texture(em.get("texture")))
+        if ti is not None:
+            out["t"] = ti
     if em.get("maxParticles"):
         out["n"] = em["maxParticles"]
     if em.get("particlesPerSecond"):
@@ -145,18 +220,62 @@ def pack_sprite(em, tex):
 
     # StartSizeRange is a RangeVector; UniformSize (default false, only ever
     # serialised true) means the engine uses X for all axes. The 474 sprites
-    # without it size X and Y independently.
+    # without it size X and Y independently. On a MeshEmitter the same range is
+    # a per-axis SCALE on the static mesh (ParticleEmitter defaults it to 100,
+    # MeshEmitter overrides it to 1.0 -- Engine.u class defaults), so Z matters
+    # there too and is carried as `zz`.
     ss = em.get("startSize")
     if isinstance(ss, dict) and "X" in ss:
         out["z"] = [r3(ss["X"]["Min"]), r3(ss["X"]["Max"])]
         if not em.get("uniformSize") and "Y" in ss:
             out["zy"] = [r3(ss["Y"]["Min"]), r3(ss["Y"]["Max"])]
+        if is_mesh and not em.get("uniformSize") and "Z" in ss:
+            out["zz"] = [r3(ss["Z"]["Min"]), r3(ss["Z"]["Max"])]
+
+    # SizeScale: the size-over-life curve, gated by UseSizeScale exactly as the
+    # colour ramp is gated by UseColorScale. Decoded for the first time in this
+    # pass -- 559 of the 724 bound sprite emitters and 311 of the 413 bound mesh
+    # emitters set UseSizeScale, and 549 / 295 of those have a curve that is not
+    # flat, so before this every one of them held its StartSize for its whole
+    # life. UseRegularSizeScale defaults TRUE and is serialised false on the
+    # emitters that carry an authored curve, i.e. "honour these RelativeTimes".
+    if em.get("useSizeScale") and em.get("sizeScale"):
+        curve = [[r3(s["t"]), r3(s["s"])] for s in em["sizeScale"]
+                 if s.get("t") is not None and s.get("s") is not None]
+        if curve and any(abs(c[1] - 1.0) > 1e-3 for c in curve):
+            curve.sort(key=lambda s: s[0])
+            out["zs"] = curve
+            if em.get("sizeScaleRepeats"):
+                out["zr"] = r3(em["sizeScaleRepeats"])
 
     if em.get("opacity") is not None:
         out["o"] = r3(em["opacity"])
 
-    # the UseColorScale gate -- see the module docstring
-    if em.get("useColorScale") and em.get("colors"):
+    # SpinParticles + StartSpinRange / SpinsPerSecondRange, both in REVOLUTIONS
+    # (SpinsPerSecondRange is 5.0 at most across the whole table and clusters at
+    # 0.1-1.0; StartSpinRange clusters at 0..1 / -1..1 with 0.25 and 0.75 stops,
+    # which only reads as quarter turns). A sprite only ever uses X (523 of them
+    # hold Y = Z = 0) -- that is its screen-space roll. A mesh spins in 3-D and
+    # the component -> axis map is NOT the identity; see skillvfx.js.
+    if em.get("spin"):
+        out["sp"] = 1
+        for key, field in (("q0", "startSpin"), ("qs", "spinsPerSecond")):
+            v = em.get(field)
+            if isinstance(v, dict) and "X" in v:
+                vv = [[r3(v[a]["Min"]), r3(v[a]["Max"])] for a in "XYZ"]
+                if any(x for pair in vv for x in pair):
+                    out[key] = vv
+        cw = em.get("spinCCWorCW")
+        if cw and [r3(x) for x in cw] != [0.5, 0.5, 0.5]:
+            out["qw"] = [r3(x) for x in cw]
+
+    # the UseColorScale gate -- see the module docstring. On a MeshEmitter the
+    # tint is additionally gated by UseParticleColor (false on 408 of the 413
+    # bound mesh emitters), so the mesh's own retail texture is the colour.
+    tinted = not is_mesh or bool(em.get("useParticleColor"))
+    if em.get("useParticleColor"):
+        out["pc"] = 1
+    if tinted and em.get("useColorScale") and em.get("colors"):
         ramp = []
         for c in em["colors"]:
             h = (c.get("c") or "#ffffffff").lstrip("#")
@@ -171,7 +290,7 @@ def pack_sprite(em, tex):
     # colorMultiplier / startLocation / velocity arrive already collapsed to
     # {X: [min, max], ...} by parse_skillfx.py; only startSize stays nested.
     cm = em.get("colorMultiplier")
-    if isinstance(cm, dict) and "X" in cm:
+    if tinted and isinstance(cm, dict) and "X" in cm:
         mult = [r3(cm[a][0]) for a in "XYZ"]
         if mult != [1.0, 1.0, 1.0]:
             out["m"] = mult
@@ -190,8 +309,6 @@ def pack_sprite(em, tex):
         out["fi"] = r3(em["fadeInEnd"])
     if em.get("fadeOut") and em.get("fadeOutStart") is not None:
         out["fo"] = r3(em["fadeOutStart"])
-    if em.get("spin"):
-        out["sp"] = 1
     if em.get("texU") or em.get("texV"):
         out["u"] = [em.get("texU") or 1, em.get("texV") or 1]
         if em.get("randomSubdivision"):
@@ -227,10 +344,11 @@ def build(verbose=True):
     sfx = load("skillfx.json")
 
     tex = Interner()
+    msh = Interner()
     fx_names, fx_list, fx_index = [], [], {}
 
     def effect_id(cls):
-        """Intern one LineageEffect class as a packed sprite-emitter list."""
+        """Intern one LineageEffect class as a packed emitter list."""
         if cls in fx_index:
             return fx_index[cls]
         rec = effects.get(cls)
@@ -239,11 +357,17 @@ def build(verbose=True):
         sprites, skipped = [], {}
         for em in rec.get("emitters", []):
             if em.get("type") == "SpriteEmitter":
-                p = pack_sprite(em, tex)
+                p = pack_emitter(em, tex)
                 if p.get("t") is not None:      # no texture -> nothing to draw
                     sprites.append(p)
                 else:
                     skipped["NoTexture"] = skipped.get("NoTexture", 0) + 1
+            elif em.get("type") == "MeshEmitter":
+                if em.get("mesh"):
+                    sprites.append(pack_emitter(em, tex, msh))
+                else:
+                    # StaticMesh left at its None default: nothing to draw.
+                    skipped["NoMesh"] = skipped.get("NoMesh", 0) + 1
             else:
                 skipped[em["type"]] = skipped.get(em["type"], 0) + 1
         entry = {"e": sprites}
@@ -317,15 +441,25 @@ def build(verbose=True):
         if any_phase:
             skills[sid] = entry
 
-    out = {"tex": tex.items, "fxn": fx_names, "fx": fx_list, "skill": skills}
+    # `texa[i]` says whether tex[i]'s PNG carries a real alpha channel. Not
+    # cosmetic: on fx_m_t0054 / fx_m_t0035 / fx_m_t0071 / fx_m_t0099 the RGB is
+    # bright everywhere and the SHAPE lives entirely in alpha (0.0% of pixels
+    # have a dark RGB, 60-90% have alpha < 8), so treating luminance as coverage
+    # there paints a solid rectangle. 33 of the sprite textures are RGBA.
+    out = {"tex": tex.items,
+           "texa": [1 if png_has_alpha_channel(p) else 0 for p in tex.items],
+           "msh": msh.items, "fxn": fx_names, "fx": fx_list, "skill": skills}
     if verbose:
-        n_sprites = sum(len(f["e"]) for f in fx_list)
+        n_kept = sum(len(f["e"]) for f in fx_list)
+        n_mesh = sum(1 for f in fx_list for e in f["e"] if e.get("k") == 1)
         n_skip = sum(sum(f.get("skip", {}).values()) for f in fx_list)
         expl = sum(1 for s in skills.values() if s["b"] == 1)
         print("skillvfx: %d skills (%d explicit, %d name-convention), "
-              "%d effect classes, %d sprite emitters kept, %d dropped, %d textures"
+              "%d effect classes, %d emitters kept (%d sprite + %d mesh), "
+              "%d dropped, %d textures, %d meshes"
               % (len(skills), expl, len(skills) - expl, len(fx_list),
-                 n_sprites, n_skip, len(tex.items)))
+                 n_kept, n_kept - n_mesh, n_mesh, n_skip,
+                 len(tex.items), len(msh.items)))
     return out
 
 
@@ -361,12 +495,41 @@ def check():
         print("CHECK FAIL: Wind Strike flyingTime != 0.4")
         return 1
 
+    # Wind Strike's shot is the anchor for the mesh path: the bolt is
+    # windknifeball00 + windknifewave00 and BOTH have to survive as k:1 records.
+    fl = fresh["fxn"].index("el_wind_strike_fl")
+    got = sorted(fresh["msh"][e["g"]] for e in fresh["fx"][fl]["e"] if e.get("k") == 1)
+    if got != ["windknifeball00", "windknifewave00"]:
+        print("CHECK FAIL: el_wind_strike_fl mesh emitters = %s" % got)
+        return 1
+    # every mesh name must exist in the geometry index built beside this one
+    mesh_path = os.path.join(GAMEDATA, "skillmesh.json")
+    if os.path.exists(mesh_path):
+        with open(mesh_path) as fh:
+            have = set(json.load(fh)["mesh"])
+        lost = [m for m in fresh["msh"] if m not in have]
+        if lost:
+            print("CHECK FAIL: %d mesh(es) missing from skillmesh.json: %s"
+                  % (len(lost), lost[:5]))
+            return 1
+    else:
+        print("NOTE: skillmesh.json absent -- run tools/dat/build_skillmesh.py")
+
     size = os.path.getsize(OUT) / 1024.0
     expl = sum(1 for s in fresh["skill"].values() if s["b"] == 1)
+    n_mesh = sum(1 for f in fresh["fx"] for e in f["e"] if e.get("k") == 1)
+    n_kept = sum(len(f["e"]) for f in fresh["fx"])
+    skipped = {}
+    for f in fresh["fx"]:
+        for k, v in f.get("skip", {}).items():
+            skipped[k] = skipped.get(k, 0) + v
     print("CHECK PASS: %d skills (%d explicit / %d convention), %d effect classes, "
-          "%d textures all staged, %.0f KB"
+          "%d emitters (%d sprite + %d mesh), dropped %s, %d textures all staged, "
+          "%.0f KB"
           % (len(fresh["skill"]), expl, len(fresh["skill"]) - expl,
-             len(fresh["fxn"]), len(fresh["tex"]), size))
+             len(fresh["fxn"]), n_kept, n_kept - n_mesh, n_mesh,
+             ", ".join("%s %d" % kv for kv in sorted(skipped.items())),
+             len(fresh["tex"]), size))
     return 0
 
 
