@@ -19,6 +19,32 @@
    "h": 32,
    "scale": 1
   },
+  "L2Font.loading02-k": {
+   "file": "L2Font__loading02-k.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "L2Font.mini_logo-k": {
+   "file": "L2Font__mini_logo-k.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 11,
+   "cy": 10,
+   "cw": 155,
+   "ch": 87
+  },
+  "L2Font.replay_logo-k": {
+   "file": "L2Font__replay_logo-k.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 1,
+   "cy": 5,
+   "cw": 254,
+   "ch": 53
+  },
   "L2UI.MacroWnd.Macro_Icon1": {
    "file": "L2UI__Macro_Icon1.png",
    "w": 32,
@@ -34,6 +60,26 @@
    "cy": 0,
    "cw": 334,
    "ch": 333
+  },
+  "L2UI.RecipeWnd.RecipeTreeBtn": {
+   "file": "L2UI__RecipeTreeBtn.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI.RecipeWnd.RecipeTreeBtn_click": {
+   "file": "L2UI__RecipeTreeBtn_click.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
   },
   "L2UI.WindowIcon.WindowIconAdena": {
    "file": "L2UI__WindowIconAdena.png",
@@ -135,6 +181,72 @@
    "cw": 74,
    "ch": 21
   },
+  "L2UI_CH3.BenchMarkWnd.BenchMark_Title": {
+   "file": "L2UI_CH3__BenchMark_Title.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "L2UI_CH3.BloodHoodWnd.BloodHoodsub1_Back": {
+   "file": "L2UI_CH3__BloodHoodsub1_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.BloodHoodWnd.BloodHoodsub2_Back": {
+   "file": "L2UI_CH3__BloodHoodsub2_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.BloodHoodWnd.BloodHoodsub3_Back": {
+   "file": "L2UI_CH3__BloodHoodsub3_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.BloodHoodWnd.BloodHoodsub4_Back": {
+   "file": "L2UI_CH3__BloodHoodsub4_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.BloodHoodWnd.BloodHoodsub5_Back": {
+   "file": "L2UI_CH3__BloodHoodsub5_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.BloodHoodWnd.BloodHoodsub7_Back": {
+   "file": "L2UI_CH3__BloodHoodsub7_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
   "L2UI_CH3.BloodHoodWnd.bloodhood_back": {
    "file": "L2UI_CH3__bloodhood_back.png",
    "w": 256,
@@ -144,6 +256,30 @@
    "cy": 0,
    "cw": 256,
    "ch": 335
+  },
+  "L2UI_CH3.BloodHoodWnd.bloodhood_icon01": {
+   "file": "L2UI_CH3__bloodhood_icon01.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_CH3.BloodHoodWnd.bloodhood_icon02": {
+   "file": "L2UI_CH3__bloodhood_icon02.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_CH3.BloodHoodWnd.bloodhood_icon03": {
+   "file": "L2UI_CH3__bloodhood_icon03.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_CH3.BloodHoodWnd.bloodhood_icon04": {
+   "file": "L2UI_CH3__bloodhood_icon04.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
   },
   "L2UI_CH3.BloodHoodWnd.bloodhoodsub6_tab1": {
    "file": "L2UI_CH3__bloodhoodsub6_tab1.png",
@@ -204,6 +340,12 @@
    "cy": 0,
    "cw": 646,
    "ch": 482
+  },
+  "L2UI_CH3.BoardWnd.board_icon": {
+   "file": "L2UI_CH3__board_icon.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
   },
   "L2UI_CH3.BroadcastObs.br_bar1_cp": {
    "file": "L2UI_CH3__br_bar1_cp.png",
@@ -275,6 +417,16 @@
    "cw": 32,
    "ch": 320
   },
+  "L2UI_CH3.BroadcastObs.br_msg1_back2": {
+   "file": "L2UI_CH3__br_msg1_back2.png",
+   "w": 32,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 320
+  },
   "L2UI_CH3.BroadcastObs.br_msg1_back3": {
    "file": "L2UI_CH3__br_msg1_back3.png",
    "w": 32,
@@ -297,6 +449,16 @@
   },
   "L2UI_CH3.BroadcastObs.br_msg2_back1": {
    "file": "L2UI_CH3__br_msg2_back1.png",
+   "w": 32,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 88
+  },
+  "L2UI_CH3.BroadcastObs.br_msg2_back2": {
+   "file": "L2UI_CH3__br_msg2_back2.png",
    "w": 32,
    "h": 128,
    "scale": 1,
@@ -345,6 +507,16 @@
    "cw": 32,
    "ch": 144
   },
+  "L2UI_CH3.BroadcastObs.br_party1_back2": {
+   "file": "L2UI_CH3__br_party1_back2.png",
+   "w": 32,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 144
+  },
   "L2UI_CH3.BroadcastObs.br_party1_back3": {
    "file": "L2UI_CH3__br_party1_back3.png",
    "w": 32,
@@ -375,6 +547,16 @@
    "cw": 32,
    "ch": 70
   },
+  "L2UI_CH3.BroadcastObs.br_party2_back2": {
+   "file": "L2UI_CH3__br_party2_back2.png",
+   "w": 32,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 70
+  },
   "L2UI_CH3.BroadcastObs.br_party2_back3": {
    "file": "L2UI_CH3__br_party2_back3.png",
    "w": 32,
@@ -387,6 +569,16 @@
   },
   "L2UI_CH3.BroadcastObs.br_partyon_back1": {
    "file": "L2UI_CH3__br_partyon_back1.png",
+   "w": 32,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 32,
+   "ch": 70
+  },
+  "L2UI_CH3.BroadcastObs.br_partyon_back2": {
+   "file": "L2UI_CH3__br_partyon_back2.png",
    "w": 32,
    "h": 128,
    "scale": 1,
@@ -1465,6 +1657,16 @@
    "cw": 348,
    "ch": 18
   },
+  "L2UI_CH3.ChatWnd.Chatting_Back3": {
+   "file": "L2UI_CH3__Chatting_Back3.png",
+   "w": 512,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 348,
+   "ch": 15
+  },
   "L2UI_CH3.ChatWnd.Chatting_Back4": {
    "file": "L2UI_CH3__Chatting_Back4.png",
    "w": 512,
@@ -1495,6 +1697,46 @@
    "cw": 14,
    "ch": 14
   },
+  "L2UI_CH3.ChatWnd.Chatting_Msn4": {
+   "file": "L2UI_CH3__Chatting_Msn4.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ChatWnd.Chatting_Msn4_down": {
+   "file": "L2UI_CH3__Chatting_Msn4_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.ChatWnd.Chatting_Option1": {
+   "file": "L2UI_CH3__Chatting_Option1.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.ChatWnd.Chatting_Option2": {
+   "file": "L2UI_CH3__Chatting_Option2.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
   "L2UI_CH3.ChatWnd.Chatting_Tab1": {
    "file": "L2UI_CH3__Chatting_Tab1.png",
    "w": 64,
@@ -1514,6 +1756,36 @@
    "cy": 0,
    "cw": 64,
    "ch": 23
+  },
+  "L2UI_CH3.ChatWnd.PartyMatchButton": {
+   "file": "L2UI_CH3__PartyMatchButton.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.ChatWnd.PartyMatchButton_Down": {
+   "file": "L2UI_CH3__PartyMatchButton_Down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.ChatWnd.chatting_system": {
+   "file": "L2UI_CH3__chatting_system.png",
+   "w": 512,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 348,
+   "ch": 128
   },
   "L2UI_CH3.Etc.TextBox1": {
    "file": "L2UI_CH3__TextBox1.png",
@@ -1564,6 +1836,16 @@
    "cy": 1,
    "cw": 295,
    "ch": 30
+  },
+  "L2UI_CH3.Etc.pet_button": {
+   "file": "L2UI_CH3__pet_button.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 13
   },
   "L2UI_CH3.Etc.pet_button_down": {
    "file": "L2UI_CH3__pet_button_down.png",
@@ -1727,6 +2009,36 @@
    "cw": 256,
    "ch": 381
   },
+  "L2UI_CH3.InventoryWnd.Inventory_Mark": {
+   "file": "L2UI_CH3__Inventory_Mark.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 26,
+   "ch": 26
+  },
+  "L2UI_CH3.InventoryWnd.Inventory_recipe": {
+   "file": "L2UI_CH3__Inventory_recipe.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.InventoryWnd.Inventory_recipe_drag": {
+   "file": "L2UI_CH3__Inventory_recipe_drag.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
   "L2UI_CH3.InventoryWnd.Inventory_tab1": {
    "file": "L2UI_CH3__Inventory_tab1.png",
    "w": 128,
@@ -1746,6 +2058,16 @@
    "cy": 0,
    "cw": 94,
    "ch": 23
+  },
+  "L2UI_CH3.InventoryWnd.Inventory_trash": {
+   "file": "L2UI_CH3__Inventory_trash.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
   },
   "L2UI_CH3.InventoryWnd.Inventory_trash_Drag": {
    "file": "L2UI_CH3__Inventory_trash_Drag.png",
@@ -1817,6 +2139,12 @@
    "cw": 256,
    "ch": 108
   },
+  "L2UI_CH3.MacroWnd.MacroListIcon": {
+   "file": "L2UI_CH3__MacroListIcon.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
   "L2UI_CH3.Manor.manor1_back1": {
    "file": "L2UI_CH3__manor1_back1.png",
    "w": 1024,
@@ -1886,6 +2214,144 @@
    "cy": 0,
    "cw": 256,
    "ch": 181
+  },
+  "L2UI_CH3.MenuIcon.Menuicon2": {
+   "file": "L2UI_CH3__Menuicon2.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_CH3.MenuIcon.Menuicon4": {
+   "file": "L2UI_CH3__Menuicon4.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_CH3.MenuIcon.menuButton1": {
+   "file": "L2UI_CH3__menuButton1.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.MenuIcon.menuButton1_down": {
+   "file": "L2UI_CH3__menuButton1_down.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.MenuIcon.menuButton1_over": {
+   "file": "L2UI_CH3__menuButton1_over.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.MenuIcon.menuButton2": {
+   "file": "L2UI_CH3__menuButton2.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.MenuIcon.menuButton2_down": {
+   "file": "L2UI_CH3__menuButton2_down.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.MenuIcon.menuButton2_over": {
+   "file": "L2UI_CH3__menuButton2_over.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.MenuIcon.menuButton3": {
+   "file": "L2UI_CH3__menuButton3.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.MenuIcon.menuButton3_down": {
+   "file": "L2UI_CH3__menuButton3_down.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.MenuIcon.menuButton3_over": {
+   "file": "L2UI_CH3__menuButton3_over.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.MenuIcon.menuButton4": {
+   "file": "L2UI_CH3__menuButton4.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.MenuIcon.menuButton4_down": {
+   "file": "L2UI_CH3__menuButton4_down.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.MenuIcon.menuButton4_over": {
+   "file": "L2UI_CH3__menuButton4_over.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 36,
+   "ch": 36
+  },
+  "L2UI_CH3.MenuIcon.menuicon3": {
+   "file": "L2UI_CH3__menuicon3.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
   },
   "L2UI_CH3.Minimap.MapBack": {
    "file": "L2UI_CH3__MapBack.png",
@@ -1967,6 +2433,16 @@
    "cw": 466,
    "ch": 393
   },
+  "L2UI_CH3.MultiSellWnd.multicell_back": {
+   "file": "L2UI_CH3__multicell_back.png",
+   "w": 512,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 512,
+   "ch": 381
+  },
   "L2UI_CH3.Olympiad.olympiad_back": {
    "file": "L2UI_CH3__olympiad_back.png",
    "w": 128,
@@ -1986,6 +2462,42 @@
    "cy": 0,
    "cw": 256,
    "ch": 131
+  },
+  "L2UI_CH3.PARTYWND.SmallWindow_party_compact_back1": {
+   "file": "L2UI_CH3__SmallWindow_party_compact_back1.png",
+   "w": 16,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 26
+  },
+  "L2UI_CH3.PARTYWND.SmallWindow_party_compact_back2": {
+   "file": "L2UI_CH3__SmallWindow_party_compact_back2.png",
+   "w": 16,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 26
+  },
+  "L2UI_CH3.PARTYWND.SmallWindow_party_compact_back3": {
+   "file": "L2UI_CH3__SmallWindow_party_compact_back3.png",
+   "w": 16,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 26
+  },
+  "L2UI_CH3.PartyCommandWnd.HeroChatIcon": {
+   "file": "L2UI_CH3__HeroChatIcon.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
   },
   "L2UI_CH3.PartyMatchWnd.PartyMatch1_Back": {
    "file": "L2UI_CH3__PartyMatch1_Back.png",
@@ -2026,6 +2538,58 @@
    "cy": 0,
    "cw": 246,
    "ch": 466
+  },
+  "L2UI_CH3.PartyMatchWnd.PartyMatchIcon": {
+   "file": "L2UI_CH3__PartyMatchIcon.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
+  },
+  "L2UI_CH3.PartyWnd.party_buffbutton": {
+   "file": "L2UI_CH3__party_buffbutton.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 13
+  },
+  "L2UI_CH3.PartyWnd.party_buffbutton_down": {
+   "file": "L2UI_CH3__party_buffbutton_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 13
+  },
+  "L2UI_CH3.PartyWnd.party_optionbutton": {
+   "file": "L2UI_CH3__party_optionbutton.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 13
+  },
+  "L2UI_CH3.PartyWnd.party_optionbutton_down": {
+   "file": "L2UI_CH3__party_optionbutton_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 13
+  },
+  "L2UI_CH3.PetWnd.PetIcon": {
+   "file": "L2UI_CH3__PetIcon.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
   },
   "L2UI_CH3.PetWnd.Petinterface_back1": {
    "file": "L2UI_CH3__Petinterface_back1.png",
@@ -2147,6 +2711,16 @@
    "cw": 8,
    "ch": 12
   },
+  "L2UI_CH3.PlayerStatusWnd.ps_hpbar": {
+   "file": "L2UI_CH3__ps_hpbar.png",
+   "w": 8,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 12
+  },
   "L2UI_CH3.PlayerStatusWnd.ps_hpbar_back": {
    "file": "L2UI_CH3__ps_hpbar_back.png",
    "w": 8,
@@ -2237,6 +2811,16 @@
    "cw": 256,
    "ch": 335
   },
+  "L2UI_CH3.QUESTWND.QuestWndToolTipBtn": {
+   "file": "L2UI_CH3__QuestWndToolTipBtn.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
   "L2UI_CH3.QUESTWND.questinfo_back": {
    "file": "L2UI_CH3__questinfo_back.png",
    "w": 1024,
@@ -2246,6 +2830,64 @@
    "cy": 0,
    "cw": 600,
    "ch": 306
+  },
+  "L2UI_CH3.Radar.icon1": {
+   "file": "L2UI_CH3__icon1.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.Radar.icon2": {
+   "file": "L2UI_CH3__icon2.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.Radar.icon3": {
+   "file": "L2UI_CH3__icon3.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.Radar.icon4": {
+   "file": "L2UI_CH3__icon4.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.Radar.icon5": {
+   "file": "L2UI_CH3__icon5.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.Radar.icon6": {
+   "file": "L2UI_CH3__icon6.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 16
+  },
+  "L2UI_CH3.Radar.icon7": {
+   "file": "L2UI_CH3__icon7.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.Radar.icon8": {
+   "file": "L2UI_CH3__icon8.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
+  },
+  "L2UI_CH3.Radar.icon9": {
+   "file": "L2UI_CH3__icon9.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1
   },
   "L2UI_CH3.RecipeWnd.Recipe1_Back": {
    "file": "L2UI_CH3__Recipe1_Back.png",
@@ -2839,6 +3481,16 @@
    "cw": 14,
    "ch": 14
   },
+  "L2UI_CH3.SiegeWnd.Siege_Back2": {
+   "file": "L2UI_CH3__Siege_Back2.png",
+   "w": 256,
+   "h": 32,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 23
+  },
   "L2UI_CH3.SkillTrainWnd.SkillTrain1": {
    "file": "L2UI_CH3__SkillTrain1.png",
    "w": 256,
@@ -2899,6 +3551,16 @@
    "cw": 8,
    "ch": 6
   },
+  "L2UI_CH3.SmallWnd.FATIGUEBAR_BACK": {
+   "file": "L2UI_CH3__FATIGUEBAR_BACK.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 8,
+   "ch": 6
+  },
   "L2UI_CH3.SmallWnd.HpBar": {
    "file": "L2UI_CH3__HpBar.png",
    "w": 8,
@@ -2949,6 +3611,16 @@
    "cw": 16,
    "ch": 76
   },
+  "L2UI_CH3.SmallWnd.SmallWindow2_Back2": {
+   "file": "L2UI_CH3__SmallWindow2_Back2.png",
+   "w": 16,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 76
+  },
   "L2UI_CH3.SmallWnd.SmallWindow2_Back3_ex": {
    "file": "L2UI_CH3__SmallWindow2_Back3_ex.png",
    "w": 32,
@@ -2961,6 +3633,16 @@
   },
   "L2UI_CH3.SmallWnd.SmallWindow_Back1": {
    "file": "L2UI_CH3__SmallWindow_Back1.png",
+   "w": 16,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 46
+  },
+  "L2UI_CH3.SmallWnd.SmallWindow_Back2": {
+   "file": "L2UI_CH3__SmallWindow_Back2.png",
    "w": 16,
    "h": 64,
    "scale": 1,
@@ -2989,6 +3671,16 @@
    "cw": 16,
    "ch": 76
   },
+  "L2UI_CH3.SmallWnd.Smallwindow2_back2": {
+   "file": "L2UI_CH3__Smallwindow2_back2.png",
+   "w": 16,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 16,
+   "ch": 76
+  },
   "L2UI_CH3.SmallWnd.cpBar": {
    "file": "L2UI_CH3__cpBar.png",
    "w": 8,
@@ -2998,6 +3690,22 @@
    "cy": 0,
    "cw": 8,
    "ch": 6
+  },
+  "L2UI_CH3.StoreWnd.Store1_back": {
+   "file": "L2UI_CH3__Store1_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
+  "L2UI_CH3.SummonWnd.SummonIcon": {
+   "file": "L2UI_CH3__SummonIcon.png",
+   "w": 32,
+   "h": 32,
+   "scale": 1
   },
   "L2UI_CH3.SummonWnd.summon_back1": {
    "file": "L2UI_CH3__summon_back1.png",
@@ -3279,6 +3987,16 @@
    "cw": 44,
    "ch": 41
   },
+  "L2UI_CH3.Wnd.Store1_back": {
+   "file": "L2UI_CH3__Store1_back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 381
+  },
   "L2UI_CH3.button.bigbutton": {
    "file": "L2UI_CH3__bigbutton.png",
    "w": 128,
@@ -3319,6 +4037,46 @@
    "cw": 8,
    "ch": 15
   },
+  "L2UI_CH3.icn_aboutpoint_down": {
+   "file": "L2UI_CH3__icn_aboutpoint_down.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 14,
+   "ch": 14
+  },
+  "L2UI_CH3.icn_aboutpoint_over": {
+   "file": "L2UI_CH3__icn_aboutpoint_over.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 15,
+   "ch": 15
+  },
+  "L2UI_CH3.macrownd.macro_edit": {
+   "file": "L2UI_CH3__macro_edit.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
+  "L2UI_CH3.macrownd.macro_edit_Drag": {
+   "file": "L2UI_CH3__macro_edit_Drag.png",
+   "w": 64,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 34,
+   "ch": 34
+  },
   "L2UI_CH3.skillwnd.skill_tab1": {
    "file": "L2UI_CH3__skill_tab1.png",
    "w": 128,
@@ -3338,6 +4096,16 @@
    "cy": 0,
    "cw": 94,
    "ch": 23
+  },
+  "L2UI_CH3.wnd_pcpoint_back": {
+   "file": "L2UI_CH3__wnd_pcpoint_back.png",
+   "w": 128,
+   "h": 64,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 112,
+   "ch": 39
   },
   "L2UI_Ch3.BUTTON.btn1_normal": {
    "file": "L2UI_Ch3__btn1_normal.png",
@@ -3439,6 +4207,16 @@
    "cw": 14,
    "ch": 14
   },
+  "L2UI_ch3.Calculate.Calculate12_back": {
+   "file": "L2UI_ch3__Calculate12_back.png",
+   "w": 512,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 306,
+   "ch": 128
+  },
   "L2UI_ch3.Calculate.Calculate1_back": {
    "file": "L2UI_ch3__Calculate1_back.png",
    "w": 128,
@@ -3502,6 +4280,16 @@
    "w": 32,
    "h": 32,
    "scale": 1
+  },
+  "L2UI_ch3.DeliverWnd.Warehouse_back": {
+   "file": "L2UI_ch3__Warehouse_back.png",
+   "w": 256,
+   "h": 256,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 181
   },
   "L2UI_ch3.HennaWnd.Henna2_back": {
    "file": "L2UI_ch3__Henna2_back.png",
@@ -3741,6 +4529,16 @@
    "cw": 256,
    "ch": 28
   },
+  "L2UI_ch3.SiegeWnd.Siege_Back1": {
+   "file": "L2UI_ch3__Siege_Back1.png",
+   "w": 256,
+   "h": 128,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 105
+  },
   "L2UI_ch3.SiegeWnd.siege_Tab1": {
    "file": "L2UI_ch3__siege_Tab1.png",
    "w": 128,
@@ -3870,6 +4668,16 @@
    "cy": 0,
    "cw": 256,
    "ch": 91
+  },
+  "L2UI_ch3.TradeWnd.Trade_Back": {
+   "file": "L2UI_ch3__Trade_Back.png",
+   "w": 256,
+   "h": 512,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 256,
+   "ch": 451
   },
   "L2UI_ch3.button.SmallButton2": {
    "file": "L2UI_ch3__SmallButton2.png",
@@ -4020,6 +4828,174 @@
    "cy": 0,
    "cw": 74,
    "ch": 21
+  },
+  "Slideshow.Kamael_teaserquest.AlphaFrame": {
+   "file": "Slideshow__AlphaFrame.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 1024,
+   "ch": 768
+  },
+  "Slideshow.Kamael_teaserquest.Base_Frame": {
+   "file": "Slideshow__Base_Frame.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Battle01": {
+   "file": "Slideshow__Battle01.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Battle02": {
+   "file": "Slideshow__Battle02.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Battle03": {
+   "file": "Slideshow__Battle03.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Battle04": {
+   "file": "Slideshow__Battle04.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Frame_Text_0001": {
+   "file": "Slideshow__Frame_Text_0001.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Frame_Text_0002": {
+   "file": "Slideshow__Frame_Text_0002.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Frame_Text_0003": {
+   "file": "Slideshow__Frame_Text_0003.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Frame_Text_0004": {
+   "file": "Slideshow__Frame_Text_0004.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Frame_Text_0005": {
+   "file": "Slideshow__Frame_Text_0005.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Frame_Text_0006": {
+   "file": "Slideshow__Frame_Text_0006.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Frame_Text_0007": {
+   "file": "Slideshow__Frame_Text_0007.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Frame_Text_0008": {
+   "file": "Slideshow__Frame_Text_0008.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Island": {
+   "file": "Slideshow__Island.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Island02": {
+   "file": "Slideshow__Island02.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Man": {
+   "file": "Slideshow__Man.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Man01": {
+   "file": "Slideshow__Man01.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Mark": {
+   "file": "Slideshow__Mark.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1,
+   "cx": 317,
+   "cy": 175,
+   "cw": 394,
+   "ch": 425
+  },
+  "Slideshow.Kamael_teaserquest.Mark01": {
+   "file": "Slideshow__Mark01.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1,
+   "cx": 321,
+   "cy": 175,
+   "cw": 388,
+   "ch": 437
+  },
+  "Slideshow.Kamael_teaserquest.Meeting": {
+   "file": "Slideshow__Meeting.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Meeting01": {
+   "file": "Slideshow__Meeting01.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Meeting02": {
+   "file": "Slideshow__Meeting02.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Meeting03": {
+   "file": "Slideshow__Meeting03.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Woman01": {
+   "file": "Slideshow__Woman01.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
+  },
+  "Slideshow.Kamael_teaserquest.Woman02": {
+   "file": "Slideshow__Woman02.png",
+   "w": 1024,
+   "h": 1024,
+   "scale": 1
   },
   "l2ui.nwindow.icon_back": {
    "file": "l2ui__icon_back.png",

@@ -212,11 +212,10 @@ export class ClanWnd {
     classIcons().then(doc => { this._icons = doc || null; this._render(); });
 
     parent.appendChild(win.root);
-    // AUTHORED: WindowsInfo.ini has no [ClanWnd]; cascaded +84/+84 from
-    // SkillWnd's dock (right:12, top:60) so the toggle windows no longer
-    // spawn in an exact stack (audit B1). (The xdat (0,65) is a bare
-    // default every top window carries.)
-    this.defaultPlace = { right: 96, top: 144 };
+    // AUTHORED: WindowsInfo.ini has no [ClanWnd] and the xdat's (0,65) is
+    // a bare default every top-level record carries. Bottom-right cell of
+    // the toggle-window 2x2 tile (see skillwnd.js for the reasoning).
+    this.defaultPlace = { right: 276, top: 424 };
     this._render();
   }
 

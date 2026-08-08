@@ -120,10 +120,10 @@ export class QuestWnd {
     win.body.appendChild(ab);
 
     parent.appendChild(win.root);
-    // AUTHORED: WindowsInfo.ini not mined for this window; cascaded
-    // +56/+56 from SkillWnd's dock (right:12, top:60) so the toggle
-    // windows no longer spawn in an exact stack (audit B1).
-    this.defaultPlace = { right: 68, top: 116 };
+    // AUTHORED: WindowsInfo.ini has no [QuestTreeWnd] ([QuestListWnd] is
+    // the separate 600x326 GM window). Bottom-left cell of the
+    // toggle-window 2x2 tile (see skillwnd.js for the reasoning).
+    this.defaultPlace = { right: 12, top: 424 };
     this._render();
   }
 

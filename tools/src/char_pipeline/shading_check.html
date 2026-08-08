@@ -1,0 +1,63 @@
+<!doctype html>
+<html><body style="margin:0">
+<script type="importmap">
+{"imports": {"three": "/node_modules/three/build/three.module.js",
+             "three/addons/": "/node_modules/three/examples/jsm/"}}
+</script>
+<script type="module">
+// KEY-LIGHT-ONLY rig.  render_check.html deliberately floods the model with
+// ambient (1.2) so geometry defects show regardless of shading; that also
+// HIDES a winding defect, because ambient is normal-independent.  Here the
+// ambient is 0.02 and a single directional light sits at the camera, so the
+// front of a correctly wound model is bright and the front of an
+// inside-out one is nearly black: three.js flips the shading normal on
+// back-facing fragments of a doubleSided material, so the key light ends up
+// behind the surface it is pointing at.
+// The page also reports the mean luminance of the silhouette pixels, so the
+// difference is a number and not an impression.
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search);
+const W = 600, H = 800;
+const renderer = new THREE.WebGLRenderer({antialias: false, preserveDrawingBuffer: true});
+renderer.setSize(W, H);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+scene.add(new THREE.AmbientLight(0xffffff, 0.02));
+const key = new THREE.DirectionalLight(0xffffff, 3.0);
+scene.add(key);
+const camera = new THREE.PerspectiveCamera(35, W / H, 0.01, 100);
+window.__done = false; window.__err = null;
+new GLTFLoader().load(q.get('gltf'), (g) => {
+  scene.add(g.scene);
+  if (g.animations.length) {
+    const mixer = new THREE.AnimationMixer(g.scene);
+    const clip = g.animations.find(a => a.name === q.get('anim')) || g.animations[0];
+    mixer.clipAction(clip).play();
+    mixer.update(parseFloat(q.get('t') || '0.5'));
+  }
+  const box = new THREE.Box3().setFromObject(g.scene);
+  const c = box.getCenter(new THREE.Vector3());
+  const s = box.getSize(new THREE.Vector3());
+  camera.position.set(c.x, c.y, box.max.z + s.y * 1.35);
+  camera.lookAt(c);
+  key.position.copy(camera.position);      // light exactly at the eye
+  key.target.position.copy(c);
+  scene.add(key.target);
+  renderer.render(scene, camera);
+  // mean luminance over non-background pixels
+  const gl = renderer.getContext();
+  const px = new Uint8Array(W * H * 4);
+  gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  let lit = 0, n = 0;
+  for (let i = 0; i < px.length; i += 4) {
+    const l = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+    if (px[i + 3] > 0 && (px[i] | px[i + 1] | px[i + 2])) { lit += l; n++; }
+  }
+  window.__lum = n ? lit / n : 0;
+  window.__px = n;
+  window.__animCount = g.animations.length;
+  window.__done = true;
+}, undefined, (e) => { window.__err = String(e); window.__done = true; });
+</script></body></html>

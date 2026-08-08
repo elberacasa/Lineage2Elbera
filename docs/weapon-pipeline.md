@@ -224,16 +224,16 @@ inherits the character's scale through the socket.
     weapongrp lists a single texture and both slots are null.  The utx
     holds `nos_sword_t00_wp` and a *Package* named `nos_sword` (a group,
     not a material) — there is no second texture to bind.
-- **Pre-existing defect found in the shared skinned path, NOT fixed
-  here.**  `assemble.py::merge_parts` emits the psk face order unchanged,
-  so every character/monster/NPC glTF has the same inverted winding
-  described in §5 — measured 486/486 inverted faces on
-  `human_fighter_m`'s first primitive.  It is masked because everything
-  is `doubleSided`, but in three.js a double-sided material negates the
-  shading normal for back-facing fragments, so those models are lit from
-  the wrong side.  Fixing it means rebuilding all 14 characters and 150
-  monster/NPC entries and re-taking the verification renders; it is
-  deliberately left to a session that owns those manifests.
+- **The same defect in the shared skinned path — RESOLVED 2026-08-07.**
+  `assemble.py::merge_parts` used to emit the psk face order unchanged, so
+  every character/monster/NPC glTF carried the inverted winding described
+  in §5 (measured 486/486 inverted faces on `human_fighter_m`'s first
+  primitive, 2256/2256 over the whole model).  It now calls the shared
+  `assemble._face_indices`, which is also what the code above uses, so the
+  static and skinned paths cannot drift apart.  All 14 characters and 150
+  monster/NPC entries were rebuilt and re-verified; the measurement,
+  the residual source-data outliers and the A/B shading proof are in
+  `docs/character-pipeline.md` §3 and §5.
 - Bows are shipped static.  `Bow_anim` in the package animates the
   *character's* arms, not the bow; no weapon mesh in this roster has a
   matching MeshAnimation.

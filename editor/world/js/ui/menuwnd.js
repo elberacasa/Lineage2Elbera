@@ -25,8 +25,12 @@ import { WndMgr } from './wndmgr.js';
 
 // MenuWnd is FULLY decoded (docs/ui-mined-values.md §3): band and button
 // positions come from Layout.pos — no authored layout remains here.
-// Buttons still render as text labels: AUTHORED, the xdat carries NO
-// textures for them (native assigns them at runtime).
+//
+// The four buttons DO name their art in Interface.xdat — three refs each,
+// `MenuIcon.menuButtonN` / `_down` / `_over`, in that order. The port drew
+// text labels instead only because the old texture harvest walked past
+// them (see tools/ui/mine_texrefs.py); the labels are now the fallback for
+// a missing sprite, not the design.
 const MENU_BUTTONS = [
   { id: 'BtnCharInfo', label: 'Stat' },
   { id: 'BtnInventory', label: 'Inv' },
@@ -74,7 +78,12 @@ export class MenuWnd {
       const el = document.createElement('div');
       el.style.cssText = `position:absolute;left:${Skin.px(pos.x)}px;`
         + `top:${Skin.px(pos.y)}px;height:100%;width:${Skin.px(size.w)}px;`;
-      Skin.apply(el, tex, { content: size, stretch: true });
+      // Let the skin use the sprite's MEASURED content rect. Passing the
+      // control's declared 129x46 as the sprite's content told the skin the
+      // art was 129 wide; it is a 16px vertical strip, so the middle band
+      // painted 16px and left the remaining 113px transparent — the bar
+      // rendered as two floating caps with a hole between them.
+      Skin.apply(el, tex);
       root.appendChild(el);
     }
 
@@ -93,7 +102,24 @@ export class MenuWnd {
         + `top:${Skin.px(pos.y)}px;width:${Skin.px(bw)}px;`
         + `height:${Skin.px(bw)}px;display:flex;align-items:center;`
         + 'justify-content:center;cursor:pointer;';
-      Font.set(el, b.label, { color: '#c9a959' });
+      // xdat texture order for a Button is [normal, down, over]; paint the
+      // normal state and swap on hover/press exactly as the client does.
+      const tex = Layout.tex(WND, b.id).filter(r => Skin.sprite(r));
+      const [normal, down, over] = tex;
+      if (normal) {
+        Skin.apply(el, normal);
+        if (over) {
+          el.addEventListener('mouseenter', () => Skin.apply(el, over));
+          el.addEventListener('mouseleave', () => Skin.apply(el, normal));
+        }
+        if (down) {
+          el.addEventListener('pointerdown', () => Skin.apply(el, down));
+          el.addEventListener('pointerup', () => Skin.apply(el, normal));
+        }
+      } else {
+        // AUTHORED fallback only: no sprite staged for this button.
+        Font.set(el, b.label, { color: '#c9a959' });
+      }
       // claim the press: WndMgr makes the whole bar draggable, and an
       // unclaimed pointerdown would capture the pointer and eat the click
       el.addEventListener('pointerdown', (e) => e.preventDefault());

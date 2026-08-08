@@ -37,6 +37,7 @@ STAGE = '/tmp/l2char_stage'
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'tools/l2lib'))
+import anim_stances
 import assemble
 import scale_util
 import ue2package as up
@@ -389,6 +390,11 @@ def choose_texture(candidates, tmp_dir):
     return None
 
 
+# FROZEN CLIP NAMES.  editor/world/ addresses these 14 by name; they are
+# the unarmed/legacy set and must keep resolving to exactly what they
+# resolved to before stances existed.  Never rename or drop one — the
+# per-weapon clips are ADDED alongside them (see anim_stances.py), never
+# in place of them.  First candidate that exists wins.
 ANIM_CANDIDATES = {
     'idle':   ['Wait_Hand_{P}', 'Wait_1HS_{P}', 'SitWait_{P}'],
     'walk':   ['Walk_Hand_{P}', 'Walk_1HS_{P}'],
@@ -576,7 +582,21 @@ def build_combo(cid, race, gender, cname, pkg, prefix, texpkg, bindings):
     if 'idle' not in selection:
         print('  SKIP: no idle animation found')
         return None
-    print('  anims:', ', '.join('%s=%s' % kv for kv in selection.items()))
+    legacy = sorted(selection)
+    # ADD every per-weapon stance clip the package actually ships
+    # (idle_1hs, run_bow, atk01_dual, ...).  Never overwrites a frozen
+    # name: stance clip names all carry a '_<stance>' suffix that no
+    # frozen name has.
+    stanced = anim_stances.stance_clips(list(anims), prefix)
+    for k, v in stanced.items():
+        if k in selection:
+            raise SystemExit('FATAL: stance clip %s would overwrite the '
+                             'frozen clip of the same name' % k)
+        selection[k] = v
+    print('  anims: %d frozen (%s) + %d stanced across %s'
+          % (len(legacy), ', '.join(legacy), len(stanced),
+             ', '.join(sorted(set(k.rsplit('_', 1)[1]
+                                  for k in stanced)))))
 
     # assemble
     out_gltf = os.path.join(outdir, '%s.gltf' % cid)
@@ -589,7 +609,11 @@ def build_combo(cid, race, gender, cname, pkg, prefix, texpkg, bindings):
         f.write(bin_data)
     print('  -> %s (%d anims, %d parts)' % (out_gltf, len(g['animations']), len(parts)))
     entry = {'id': cid, 'race': race, 'gender': gender, 'className': cname,
-             'gltf': 'models/%s.gltf' % cid, 'animations': sorted(selection.keys())}
+             'gltf': 'models/%s.gltf' % cid,
+             'animations': sorted(selection.keys()),
+             # which stance suffixes this model carries a full locomotion
+             # set for; the client joins this with stances.json
+             'stances': sorted(set(k.rsplit('_', 1)[1] for k in stanced))}
     # true in-world height (L2 units) = glTF Y extent x 100 x MeshScale.z
     # decoded from the .ukx (scale_util) — the client sizes the model from
     # this, never from a hardcoded fallback

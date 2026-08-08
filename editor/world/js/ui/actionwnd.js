@@ -90,28 +90,41 @@ export class ActionWnd {
       grid.className = 'l2-action-grid';
       grid.style.cssText = 'position:absolute;display:flex;flex-wrap:wrap;'
         + 'align-content:flex-start;overflow:hidden;pointer-events:auto;';
+      const g = Layout.grid(WND, sec.item)
+        || { cellX: 32, cellY: 32, gapX: 5, gapY: 3 };
+      const pitchX = g.cellX + g.gapX;                         // 37
+
+      // Column count. A row holds n cells when n*cell + (n-1)*gap <= paneW,
+      // i.e. n = floor((paneW + gap) / pitch) — the trailing gap after the
+      // last cell is not inside the pane. The port was flowing cells into a
+      // paneW-wide flex box, which is floor(paneW / pitch): 5 columns in
+      // ActionWnd's 219px panes, where Action_Back is drawn with SIX cell
+      // wells per row. floor((219+5)/37) = 6 matches the art; the same
+      // formula leaves MagicSkillWnd (239) and InventoryWnd (236) at 6, so
+      // it agrees everywhere the old rule was already right.
+      const cols = Math.floor((size.w + g.gapX) / pitchX);
+
       grid.style.left = `${Skin.px(pos.x)}px`;
       grid.style.top = `${Skin.px(pos.y)}px`;
-      grid.style.width = `${Skin.px(size.w)}px`;
+      grid.style.width = `${Skin.px(cols * pitchX)}px`;
       grid.style.height = `${Skin.px(size.h)}px`;
       win.body.appendChild(grid);
 
-      const g = Layout.grid(WND, sec.item)
-        || { cellX: 32, cellY: 32, gapX: 5, gapY: 3 };
       this.sections[sec.cat] = {
         grid,
-        pitch: { x: g.cellX + g.gapX, y: g.cellY + g.gapY },   // 37 x 35
+        cols,
+        pitch: { x: pitchX, y: g.cellY + g.gapY },              // 37 x 35
         cellIcon: g.cellX,                                     // 32 icon
         count: 0,
       };
     }
 
     parent.appendChild(win.root);
-    // AUTHORED: no [ActionWnd] in WindowsInfo.ini; cascaded +28/+28 from
-    // SkillWnd's dock (right:12, top:60) so the toggle windows no longer
-    // spawn in an exact stack (audit B1). Alt+Enter (WndMgr reset)
-    // restores this spot.
-    this.defaultPlace = { right: 40, top: 88 };
+    // AUTHORED: no [ActionWnd] in WindowsInfo.ini. Top-right cell of the
+    // toggle-window 2x2 tile (see skillwnd.js for the reasoning): one
+    // window width + an 8px gutter left of SkillWnd. Alt+Enter (WndMgr
+    // reset) restores this spot.
+    this.defaultPlace = { right: 276, top: 60 };
   }
 
   /** Fill the three sections from actionname.json (fetched once). */

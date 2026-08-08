@@ -440,22 +440,12 @@ def emit_static_gltf(data, name, sections, out_path):
 
         iblob = bytearray()
         for w0, w1, w2, _mi in sfaces:
-            # WINDING: emit (v0, v2, v1), i.e. the psk face order reversed.
-            # ExportPsk.cpp mirrors the mesh (points Y negated, lines 98-112)
-            # and swaps WedgeIndex[0]/[1] to compensate (line 184), so psk
-            # faces are CCW *in psk space*.  The pipeline's psk->glTF map
-            # (x, z, -y) has determinant +1, but composed with that mirror
-            # the net UE->glTF map (x, z, y) has determinant -1, so the psk
-            # order comes out CW in glTF space while _point_normals()
-            # produces outward normals.  Measured on small_sword_m00_wp:
-            # unreversed, 86/86 faces have their geometric normal opposite
-            # to their vertex normals and every triangle is the mirror of
-            # umodel's own -gltf export; reversed, 0/86 disagree and the
-            # triangle set is identical to umodel's.  (assemble.py's skinned
-            # path has the same inversion — pre-existing, masked by
-            # doubleSided; see docs/weapon-pipeline.md.)
-            for v in (vidx(w0), vidx(w2), vidx(w1)):
-                iblob += struct.pack('<I', v)
+            # WINDING: assemble._face_indices reverses the psk face order.
+            # Rationale and the measurement live in its docstring; the
+            # skinned path in assemble.merge_parts now calls the same
+            # helper, so both paths cannot drift apart.
+            for w in assemble._face_indices(w0, w1, w2):
+                iblob += struct.pack('<I', vidx(w))
         pos_b, nrm_b, uv_b = bytearray(), bytearray(), bytearray()
         mins, maxs = [1e30] * 3, [-1e30] * 3
         for w in order:

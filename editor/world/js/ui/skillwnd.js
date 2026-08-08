@@ -141,10 +141,15 @@ export class SkillWnd {
     this.footEl = foot;
 
     parent.appendChild(win.root);
-    // AUTHORED dock: WindowsInfo.ini has no [MagicSkillWnd] section, so this
-    // is ours. First of the toggle-window family; the others (Action/Quest/
-    // Clan) cascade +28/+28 from this spot so no two share a spawn point —
-    // an exact stack hid every window but the last opened (audit B1).
+    // AUTHORED dock: WindowsInfo.ini has no [MagicSkillWnd] section and the
+    // xdat's (0,65) is the bare default every top-level record carries, so
+    // nothing sources this. The four toggle windows (Skill / Action / Quest
+    // / Clan) are TILED 2x2 rather than cascaded: they are all 256 wide and
+    // 355 tall, and the previous +28/+28 cascade left each one showing only
+    // its titlebar as soon as two were open. Columns are right 12 and 276
+    // (one window + an 8px gutter), rows are top 60 and 424 (355 + a 9px
+    // gutter). Row 1 stays at 60 because main.js also opens this window at
+    // {right:12, top:60} directly instead of through defaultPlace.
     this.defaultPlace = { right: 12, top: 60 };
     this.setTab('active');
     this._renderTabs();

@@ -136,7 +136,9 @@
      "height": null,
      "x": 0,
      "y": 0,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.BenchMarkWnd.BenchMark_Title"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -229,7 +231,9 @@
    "height": 530,
    "x": 0,
    "y": 0,
-   "textures": [],
+   "textures": [
+    "L2UI_CH3.BoardWnd.board_icon"
+   ],
    "children": [
     {
      "name": "texBackTop",
@@ -823,7 +827,9 @@
      "height": null,
      "x": 0,
      "y": 18,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.ChatWnd.Chatting_Back3"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -877,7 +883,10 @@
      "height": 15,
      "x": 5,
      "y": -51,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.ChatWnd.Chatting_Option1",
+      "L2UI_CH3.ChatWnd.Chatting_Option2"
+     ],
      "children": []
     },
     {
@@ -887,7 +896,10 @@
      "height": 15,
      "x": 5,
      "y": -5,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.ChatWnd.PartyMatchButton",
+      "L2UI_CH3.ChatWnd.PartyMatchButton_Down"
+     ],
      "children": []
     },
     {
@@ -897,7 +909,10 @@
      "height": 15,
      "x": 5,
      "y": -24,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.ChatWnd.Chatting_Msn4",
+      "L2UI_CH3.ChatWnd.Chatting_Msn4_down"
+     ],
      "children": []
     },
     {
@@ -1054,7 +1069,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BloodHoodWnd.BloodHoodsub1_Back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -1576,7 +1593,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BloodHoodWnd.BloodHoodsub2_Back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -1886,7 +1905,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BloodHoodWnd.BloodHoodsub3_Back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -2001,7 +2022,9 @@
          "height": 32,
          "x": 0,
          "y": 0,
-         "textures": [],
+         "textures": [
+          "L2UI_CH3.BloodHoodWnd.bloodhood_icon01"
+         ],
          "children": []
         }
        ]
@@ -2022,7 +2045,9 @@
          "height": 32,
          "x": 0,
          "y": 0,
-         "textures": [],
+         "textures": [
+          "L2UI_CH3.BloodHoodWnd.bloodhood_icon02"
+         ],
          "children": []
         }
        ]
@@ -2043,7 +2068,9 @@
          "height": 32,
          "x": 0,
          "y": 0,
-         "textures": [],
+         "textures": [
+          "L2UI_CH3.BloodHoodWnd.bloodhood_icon03"
+         ],
          "children": []
         }
        ]
@@ -2064,7 +2091,9 @@
          "height": 32,
          "x": 0,
          "y": 0,
-         "textures": [],
+         "textures": [
+          "L2UI_CH3.BloodHoodWnd.bloodhood_icon03"
+         ],
          "children": []
         }
        ]
@@ -2085,7 +2114,9 @@
          "height": 32,
          "x": 0,
          "y": 0,
-         "textures": [],
+         "textures": [
+          "L2UI_CH3.BloodHoodWnd.bloodhood_icon04"
+         ],
          "children": []
         }
        ]
@@ -2106,7 +2137,9 @@
          "height": 32,
          "x": 0,
          "y": 0,
-         "textures": [],
+         "textures": [
+          "L2UI_CH3.BloodHoodWnd.bloodhood_icon04"
+         ],
          "children": []
         }
        ]
@@ -2127,7 +2160,9 @@
          "height": 32,
          "x": 0,
          "y": 0,
-         "textures": [],
+         "textures": [
+          "L2UI_CH3.BloodHoodWnd.bloodhood_icon04"
+         ],
          "children": []
         }
        ]
@@ -2148,7 +2183,9 @@
          "height": 32,
          "x": 0,
          "y": 0,
-         "textures": [],
+         "textures": [
+          "L2UI_CH3.BloodHoodWnd.bloodhood_icon04"
+         ],
          "children": []
         }
        ]
@@ -2192,7 +2229,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BloodHoodWnd.BloodHoodsub4_Back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -2252,7 +2291,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BloodHoodWnd.BloodHoodsub7_Back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -2368,7 +2409,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BloodHoodWnd.BloodHoodsub2_Back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -2691,7 +2734,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BloodHoodWnd.BloodHoodsub5_Back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -2863,7 +2908,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BloodHoodWnd.BloodHoodsub4_Back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -3020,7 +3067,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BloodHoodWnd.BloodHoodsub4_Back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -3692,7 +3741,9 @@
      "height": null,
      "x": 0,
      "y": 20,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.StoreWnd.Store1_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -3877,7 +3928,9 @@
      "height": null,
      "x": 0,
      "y": 20,
-     "textures": [],
+     "textures": [
+      "L2UI_ch3.DeliverWnd.Warehouse_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -4625,7 +4678,9 @@
      "height": null,
      "x": 0,
      "y": 0,
-     "textures": [],
+     "textures": [
+      "L2UI_ch3.Calculate.Calculate12_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -4975,7 +5030,9 @@
        "height": null,
        "x": 16,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.SmallWnd.SmallWindow_Back2"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -5043,7 +5100,10 @@
        "height": null,
        "x": 4,
        "y": 21,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.SmallWnd.cpBar",
+        "L2UI_CH3.SmallWnd.CpBar_back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -5061,7 +5121,10 @@
        "height": null,
        "x": 4,
        "y": 28,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.SmallWnd.HpBar",
+        "L2UI_CH3.SmallWnd.HpBar_back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -5079,7 +5142,10 @@
        "height": null,
        "x": 4,
        "y": 35,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.SmallWnd.MpBar",
+        "L2UI_CH3.SmallWnd.MpBar_back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -5109,7 +5175,9 @@
        "height": null,
        "x": 16,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.SmallWnd.SmallWindow_Back2"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -5177,7 +5245,10 @@
        "height": null,
        "x": 4,
        "y": 21,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.SmallWnd.cpBar",
+        "L2UI_CH3.SmallWnd.CpBar_back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -5195,7 +5266,10 @@
        "height": null,
        "x": 4,
        "y": 28,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.SmallWnd.HpBar",
+        "L2UI_CH3.SmallWnd.HpBar_back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -5213,7 +5287,10 @@
        "height": null,
        "x": 4,
        "y": 35,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.SmallWnd.MpBar",
+        "L2UI_CH3.SmallWnd.MpBar_back"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -5251,7 +5328,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.PARTYWND.SmallWindow_party_compact_back1"
+       ],
        "children": [],
        "autosize": [
         0.0,
@@ -5269,7 +5348,9 @@
        "height": null,
        "x": 16,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.PARTYWND.SmallWindow_party_compact_back2"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -5287,7 +5368,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.PARTYWND.SmallWindow_party_compact_back3"
+       ],
        "children": [],
        "autosize": [
         0.0,
@@ -6178,7 +6261,9 @@
      "height": null,
      "x": 32,
      "y": 0,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.BroadcastObs.br_msg2_back2"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -6259,6 +6344,7 @@
        "x": null,
        "y": null,
        "textures": [
+        "EventMatchObserverWnd.TopWnd.BackTex1",
         "L2UI_CH3.BroadcastObs.br_top_back2"
        ],
        "children": []
@@ -6310,6 +6396,7 @@
        "x": null,
        "y": null,
        "textures": [
+        "EventMatchObserverWnd.TopWnd.BackTex5",
         "L2UI_CH3.BroadcastObs.br_top_back2"
        ],
        "children": []
@@ -6548,7 +6635,9 @@
        "height": null,
        "x": 32,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BroadcastObs.br_party1_back2"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -6578,7 +6667,10 @@
        "height": null,
        "x": 0,
        "y": 98,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BroadcastObs.br_bar1_cp",
+        "L2UI_CH3.BroadcastObs.br_bar1back_cp"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -6596,7 +6688,10 @@
        "height": null,
        "x": 0,
        "y": 112,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BroadcastObs.br_bar1_hp",
+        "L2UI_CH3.BroadcastObs.br_bar1back_hp"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -6614,7 +6709,10 @@
        "height": null,
        "x": 0,
        "y": 126,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BroadcastObs.br_bar1_mp",
+        "L2UI_CH3.BroadcastObs.br_bar1back_mp"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -6712,7 +6810,9 @@
        "height": null,
        "x": 32,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BroadcastObs.br_party1_back2"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -6742,7 +6842,10 @@
        "height": null,
        "x": 0,
        "y": 98,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BroadcastObs.br_bar1_cp",
+        "L2UI_CH3.BroadcastObs.br_bar1back_cp"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -6760,7 +6863,10 @@
        "height": null,
        "x": 0,
        "y": 112,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BroadcastObs.br_bar1_hp",
+        "L2UI_CH3.BroadcastObs.br_bar1back_hp"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -6778,7 +6884,10 @@
        "height": null,
        "x": 0,
        "y": 126,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.BroadcastObs.br_bar1_mp",
+        "L2UI_CH3.BroadcastObs.br_bar1back_mp"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -6864,7 +6973,9 @@
          "height": null,
          "x": 32,
          "y": 0,
-         "textures": [],
+         "textures": [
+          "L2UI_CH3.BroadcastObs.br_party2_back2"
+         ],
          "children": [],
          "autosize": [
           1.0,
@@ -7002,7 +7113,9 @@
            "height": null,
            "x": 32,
            "y": 0,
-           "textures": [],
+           "textures": [
+            "L2UI_CH3.BroadcastObs.br_partyon_back2"
+           ],
            "children": [],
            "autosize": [
             1.0,
@@ -7044,7 +7157,9 @@
            "height": null,
            "x": 32,
            "y": 0,
-           "textures": [],
+           "textures": [
+            "L2UI_CH3.BroadcastObs.br_partyon_back2"
+           ],
            "children": [],
            "autosize": [
             1.0,
@@ -7096,7 +7211,9 @@
          "height": null,
          "x": 32,
          "y": 0,
-         "textures": [],
+         "textures": [
+          "L2UI_CH3.BroadcastObs.br_party2_back2"
+         ],
          "children": [],
          "autosize": [
           1.0,
@@ -7287,7 +7404,9 @@
      "height": null,
      "x": 32,
      "y": 0,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.BroadcastObs.br_msg1_back2"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -8540,7 +8659,9 @@
    "height": 401,
    "x": 0,
    "y": -70,
-   "textures": [],
+   "textures": [
+    "L2UI_CH3.MenuIcon.Menuicon2"
+   ],
    "children": [
     {
      "name": "BackTexture",
@@ -8589,7 +8710,9 @@
      "height": 84,
      "x": 223,
      "y": 39,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.InventoryWnd.Inventory_Mark"
+     ],
      "children": [],
      "grid": {
       "rows": 1,
@@ -8656,7 +8779,10 @@
      "height": 34,
      "x": 14,
      "y": 351,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.InventoryWnd.Inventory_recipe",
+      "L2UI_CH3.InventoryWnd.Inventory_recipe_drag"
+     ],
      "children": []
     },
     {
@@ -8667,6 +8793,7 @@
      "x": 208,
      "y": 351,
      "textures": [
+      "L2UI_CH3.InventoryWnd.Inventory_trash",
       "L2UI_CH3.InventoryWnd.Inventory_trash_drag"
      ],
      "children": []
@@ -8788,7 +8915,9 @@
      "height": null,
      "x": 0,
      "y": 0,
-     "textures": [],
+     "textures": [
+      "L2Font.loading02-k"
+     ],
      "children": [
       {
        "name": "BackTex1",
@@ -8881,7 +9010,9 @@
        "height": null,
        "x": 16,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.SmallWnd.SmallWindow_Back2"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -8923,7 +9054,9 @@
        "height": null,
        "x": 16,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.SmallWnd.SmallWindow_Back2"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -8965,7 +9098,9 @@
        "height": null,
        "x": 16,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.SmallWnd.SmallWindow_Back2"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -9016,7 +9151,8 @@
    "x": 0,
    "y": -56,
    "textures": [
-    "l2ui_ch3.macrownd.macro1_back"
+    "l2ui_ch3.macrownd.macro1_back",
+    "L2UI_CH3.MacroWnd.MacroListIcon"
    ],
    "children": [
     {
@@ -9489,7 +9625,8 @@
    "x": 0,
    "y": -56,
    "textures": [
-    "l2ui_ch3.macrownd.macro2_back"
+    "l2ui_ch3.macrownd.macro2_back",
+    "L2UI_CH3.MacroWnd.MacroListIcon"
    ],
    "children": [
     {
@@ -9563,7 +9700,10 @@
      "height": 34,
      "x": 169,
      "y": 347,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.macrownd.macro_edit",
+      "L2UI_CH3.macrownd.macro_edit_Drag"
+     ],
      "children": []
     },
     {
@@ -9574,6 +9714,7 @@
      "x": 208,
      "y": 347,
      "textures": [
+      "L2UI_CH3.InventoryWnd.Inventory_trash",
       "L2UI_CH3.InventoryWnd.Inventory_trash_Drag"
      ],
      "children": []
@@ -10824,7 +10965,11 @@
      "height": 34,
      "x": 20,
      "y": 6,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.MenuIcon.menuButton1",
+      "L2UI_CH3.MenuIcon.menuButton1_down",
+      "L2UI_CH3.MenuIcon.menuButton1_over"
+     ],
      "children": []
     },
     {
@@ -10834,7 +10979,11 @@
      "height": 34,
      "x": 57,
      "y": 6,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.MenuIcon.menuButton2",
+      "L2UI_CH3.MenuIcon.menuButton2_down",
+      "L2UI_CH3.MenuIcon.menuButton2_over"
+     ],
      "children": []
     },
     {
@@ -10844,7 +10993,11 @@
      "height": 34,
      "x": 94,
      "y": 6,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.MenuIcon.menuButton3",
+      "L2UI_CH3.MenuIcon.menuButton3_down",
+      "L2UI_CH3.MenuIcon.menuButton3_over"
+     ],
      "children": []
     },
     {
@@ -10854,7 +11007,11 @@
      "height": 34,
      "x": 131,
      "y": 6,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.MenuIcon.menuButton4",
+      "L2UI_CH3.MenuIcon.menuButton4_down",
+      "L2UI_CH3.MenuIcon.menuButton4_over"
+     ],
      "children": []
     }
    ]
@@ -10867,7 +11024,8 @@
    "x": 0,
    "y": 0,
    "textures": [
-    "L2UI_CH3.Minimap.MapBack"
+    "L2UI_CH3.Minimap.MapBack",
+    "L2UI_CH3.MenuIcon.menuicon3"
    ],
    "children": [
     {
@@ -11102,7 +11260,9 @@
      "height": null,
      "x": 0,
      "y": 0,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.Minimap.MapWnd_back_max"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -11337,7 +11497,9 @@
      "height": null,
      "x": 0,
      "y": 20,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.MultiSellWnd.multicell_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -11810,7 +11972,9 @@
        "height": null,
        "x": 16,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.SmallWnd.SmallWindow2_Back2"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -13850,7 +14014,8 @@
    "x": 0,
    "y": 76,
    "textures": [
-    "L2UI_CH3.PartyMatchWnd.PartyMatch2_Back"
+    "L2UI_CH3.PartyMatchWnd.PartyMatch2_Back",
+    "L2UI_CH3.PartyMatchWnd.PartyMatchIcon"
    ],
    "children": [
     {
@@ -14111,7 +14276,8 @@
    "x": 0,
    "y": 76,
    "textures": [
-    "L2UI_CH3.PartyMatchWnd.PartyMatch1_Back"
+    "L2UI_CH3.PartyMatchWnd.PartyMatch1_Back",
+    "L2UI_CH3.PartyMatchWnd.PartyMatchIcon"
    ],
    "children": [
     {
@@ -14274,7 +14440,10 @@
      "height": 13,
      "x": 1,
      "y": 7,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.PartyWnd.party_buffbutton",
+      "L2UI_CH3.PartyWnd.party_buffbutton_down"
+     ],
      "children": []
     },
     {
@@ -14284,7 +14453,10 @@
      "height": 13,
      "x": 1,
      "y": 20,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.PartyWnd.party_optionbutton",
+      "L2UI_CH3.PartyWnd.party_optionbutton_down"
+     ],
      "children": []
     },
     {
@@ -14323,7 +14495,10 @@
      "height": 13,
      "x": 1,
      "y": 6,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.PartyWnd.party_buffbutton",
+      "L2UI_CH3.PartyWnd.party_buffbutton_down"
+     ],
      "children": []
     },
     {
@@ -14333,7 +14508,10 @@
      "height": 13,
      "x": 18,
      "y": 0,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.PartyWnd.party_optionbutton",
+      "L2UI_CH3.PartyWnd.party_optionbutton_down"
+     ],
      "children": []
     },
     {
@@ -14401,7 +14579,9 @@
    "height": 55,
    "x": null,
    "y": null,
-   "textures": [],
+   "textures": [
+    "L2UI_CH3.wnd_pcpoint_back"
+   ],
    "children": [
     {
      "name": "HelpButton",
@@ -14410,7 +14590,10 @@
      "height": 14,
      "x": 4,
      "y": 22,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.icn_aboutpoint_down",
+      "L2UI_CH3.icn_aboutpoint_over"
+     ],
      "children": []
     },
     {
@@ -14740,6 +14923,7 @@
      "x": 1,
      "y": 6,
      "textures": [
+      "L2UI_CH3.Etc.pet_button",
       "L2UI_CH3.Etc.pet_button_down"
      ],
      "children": []
@@ -14769,7 +14953,10 @@
      "height": null,
      "x": 16,
      "y": 19,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.SmallWnd.HpBar",
+      "L2UI_CH3.SmallWnd.HpBar_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -14787,7 +14974,10 @@
      "height": null,
      "x": 16,
      "y": 26,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.SmallWnd.MpBar",
+      "L2UI_CH3.SmallWnd.MpBar_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -14805,7 +14995,10 @@
      "height": null,
      "x": 16,
      "y": 33,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.SmallWnd.FATIGUEBAR",
+      "L2UI_CH3.SmallWnd.FATIGUEBAR_BACK"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -14835,7 +15028,9 @@
    "height": 229,
    "x": 172,
    "y": 76,
-   "textures": [],
+   "textures": [
+    "L2UI_CH3.PetWnd.PetIcon"
+   ],
    "children": [
     {
      "name": "BackTexTop",
@@ -15360,7 +15555,9 @@
      "height": null,
      "x": 0,
      "y": 20,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.Wnd.Store1_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -15580,7 +15777,9 @@
      "height": 15,
      "x": 578,
      "y": 30,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.QUESTWND.QuestWndToolTipBtn"
+     ],
      "children": []
     },
     {
@@ -15679,7 +15878,9 @@
      "height": 15,
      "x": 232,
      "y": 10,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.QUESTWND.QuestWndToolTipBtn"
+     ],
      "children": []
     }
    ]
@@ -15759,7 +15960,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.Radar.icon1"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -15788,7 +15991,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.Radar.icon2"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -15817,7 +16022,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.Radar.icon3"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -15846,7 +16053,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.Radar.icon4"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -15875,7 +16084,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.Radar.icon5"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -15904,7 +16115,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.Radar.icon6"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -15933,7 +16146,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.Radar.icon7"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -15962,7 +16177,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.Radar.icon8"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -15991,7 +16208,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "L2UI_CH3.Radar.icon9"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -16063,6 +16282,7 @@
      "x": 208,
      "y": 347,
      "textures": [
+      "L2UI_CH3.InventoryWnd.Inventory_trash",
       "L2UI_CH3.InventoryWnd.Inventory_trash_Drag"
      ],
      "children": []
@@ -16387,7 +16607,10 @@
      "height": 32,
      "x": 206,
      "y": 71,
-     "textures": [],
+     "textures": [
+      "L2UI.RecipeWnd.RecipeTreeBtn",
+      "L2UI.RecipeWnd.RecipeTreeBtn_click"
+     ],
      "children": []
     },
     {
@@ -16671,7 +16894,10 @@
      "height": 32,
      "x": 206,
      "y": 71,
-     "textures": [],
+     "textures": [
+      "L2UI.RecipeWnd.RecipeTreeBtn",
+      "L2UI.RecipeWnd.RecipeTreeBtn_click"
+     ],
      "children": []
     },
     {
@@ -17497,7 +17723,9 @@
      "height": null,
      "x": 20,
      "y": 20,
-     "textures": [],
+     "textures": [
+      "L2Font.replay_logo-k"
+     ],
      "children": [],
      "autosize": [
       0.17000000178813934,
@@ -17515,7 +17743,9 @@
      "height": null,
      "x": -20,
      "y": -20,
-     "textures": [],
+     "textures": [
+      "L2Font.mini_logo-k"
+     ],
      "children": [],
      "autosize": [
       0.18000000715255737,
@@ -17630,7 +17860,9 @@
      "height": null,
      "x": 0,
      "y": 20,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.StoreWnd.Store1_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -18838,7 +19070,9 @@
      "height": null,
      "x": 0,
      "y": 20,
-     "textures": [],
+     "textures": [
+      "L2UI_ch3.SiegeWnd.Siege_Back1"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -18856,7 +19090,9 @@
      "height": null,
      "x": 0,
      "y": 125,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.SiegeWnd.Siege_Back2"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -19999,7 +20235,9 @@
      "height": null,
      "x": 28,
      "y": 0,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.SmallWnd.Smallwindow2_back2"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -20053,6 +20291,7 @@
      "x": 16,
      "y": 27,
      "textures": [
+      "L2UI_CH3.PlayerStatusWnd.ps_cpbar",
       "L2UI_CH3.PlayerStatusWnd.ps_cpbar_back"
      ],
      "children": [],
@@ -20073,6 +20312,7 @@
      "x": 16,
      "y": 41,
      "textures": [
+      "L2UI_CH3.PlayerStatusWnd.ps_hpbar",
       "L2UI_CH3.PlayerStatusWnd.ps_hpbar_back",
       "L2UI_CH3.PlayerStatusWnd.ps_hpbarwarn1",
       "L2UI_CH3.PlayerStatusWnd.ps_hpbarfill"
@@ -20095,6 +20335,7 @@
      "x": 16,
      "y": 55,
      "textures": [
+      "L2UI_CH3.PlayerStatusWnd.ps_mpbar",
       "L2UI_CH3.PlayerStatusWnd.ps_mpbar_back"
      ],
      "children": [],
@@ -20183,6 +20424,7 @@
      "x": 1,
      "y": 6,
      "textures": [
+      "L2UI_CH3.Etc.pet_button",
       "L2UI_CH3.Etc.pet_button_down"
      ],
      "children": []
@@ -20212,7 +20454,10 @@
      "height": null,
      "x": 16,
      "y": 19,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.SmallWnd.HpBar",
+      "L2UI_CH3.SmallWnd.HpBar_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -20230,7 +20475,10 @@
      "height": null,
      "x": 16,
      "y": 26,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.SmallWnd.MpBar",
+      "L2UI_CH3.SmallWnd.MpBar_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -20249,6 +20497,7 @@
      "x": 16,
      "y": 33,
      "textures": [
+      "L2UI_CH3.SmallWnd.FATIGUEBAR_BACK",
       "L2UI_CH3.SmallWnd.FATIGUEBAR"
      ],
      "children": [],
@@ -20280,7 +20529,9 @@
    "height": 201,
    "x": 172,
    "y": 76,
-   "textures": [],
+   "textures": [
+    "L2UI_CH3.SummonWnd.SummonIcon"
+   ],
    "children": [
     {
      "name": "BackTexTop",
@@ -20677,7 +20928,8 @@
    "x": 0,
    "y": -46,
    "textures": [
-    "L2UI_CH3.SystemMenuWnd.systemmenu_back"
+    "L2UI_CH3.SystemMenuWnd.systemmenu_back",
+    "L2UI_CH3.MenuIcon.Menuicon4"
    ],
    "children": [
     {
@@ -20859,7 +21111,9 @@
      "height": null,
      "x": 0,
      "y": 0,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.ChatWnd.chatting_system"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -21061,7 +21315,10 @@
      "height": null,
      "x": 16,
      "y": 26,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.SmallWnd.HpBar",
+      "L2UI_CH3.SmallWnd.HpBar_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -21079,7 +21336,10 @@
      "height": null,
      "x": 16,
      "y": 33,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.SmallWnd.MpBar",
+      "L2UI_CH3.SmallWnd.MpBar_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -21117,7 +21377,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.AlphaFrame"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21222,7 +21484,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Base_Frame"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21251,7 +21515,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Base_Frame"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21280,7 +21546,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Base_Frame"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21309,7 +21577,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Battle04"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21338,7 +21608,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Battle01"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21367,7 +21639,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Battle02"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21396,7 +21670,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Battle03"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21425,7 +21701,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Woman01"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21454,7 +21732,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Woman02"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21483,7 +21763,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Island"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21512,7 +21794,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Island02"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21541,7 +21825,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Island02"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21570,7 +21856,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Man"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21599,7 +21887,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Man01"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21628,7 +21918,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Mark01"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21657,7 +21949,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Mark"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21686,7 +21980,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Meeting"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21715,7 +22011,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Meeting01"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21744,7 +22042,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Meeting02"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21773,7 +22073,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Meeting03"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21802,7 +22104,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Frame_Text_0001"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21831,7 +22135,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Frame_Text_0002"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21860,7 +22166,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Frame_Text_0003"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21889,7 +22197,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Frame_Text_0004"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21918,7 +22228,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Frame_Text_0005"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21947,7 +22259,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Frame_Text_0006"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -21976,7 +22290,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Frame_Text_0007"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -22005,7 +22321,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Slideshow.Kamael_teaserquest.Frame_Text_0008"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -22034,7 +22352,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "default.black"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -22104,7 +22424,9 @@
        "height": null,
        "x": 0,
        "y": 0,
-       "textures": [],
+       "textures": [
+        "Default.BlackTexture"
+       ],
        "children": [],
        "autosize": [
         1.0,
@@ -22147,7 +22469,9 @@
      "height": null,
      "x": 0,
      "y": 20,
-     "textures": [],
+     "textures": [
+      "L2UI_ch3.TradeWnd.Trade_Back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -22981,7 +23305,8 @@
    "x": 200,
    "y": 200,
    "textures": [
-    "L2UI_ch3.PartyCommandWnd.Herochat1_back"
+    "L2UI_ch3.PartyCommandWnd.Herochat1_back",
+    "L2UI_CH3.PartyCommandWnd.HeroChatIcon"
    ],
    "children": [
     {
@@ -23261,7 +23586,9 @@
      "height": null,
      "x": 0,
      "y": 20,
-     "textures": [],
+     "textures": [
+      "L2UI_CH3.Wnd.Store1_back"
+     ],
      "children": [],
      "autosize": [
       1.0,
@@ -23502,8 +23829,13 @@
   "Default.BlackTexture": "default/blacktexture",
   "Icon.skill_i.skill1313": "icon/skill1313",
   "Icon.skill_i.skill1314": "icon/skill1314",
+  "L2Font.loading02-k": "l2font/loading02-k",
+  "L2Font.mini_logo-k": "l2font/mini_logo-k",
+  "L2Font.replay_logo-k": "l2font/replay_logo-k",
   "L2UI.MacroWnd.Macro_Icon1": "l2ui/macro_icon1",
   "L2UI.MinimapWnd.MinimapBack": "l2ui/minimapback",
+  "L2UI.RecipeWnd.RecipeTreeBtn": "l2ui/recipetreebtn",
+  "L2UI.RecipeWnd.RecipeTreeBtn_click": "l2ui/recipetreebtn_click",
   "L2UI.WindowIcon.WindowIconAdena": "l2ui/windowiconadena",
   "L2UI.control.DefaultButton": "l2ui/defaultbutton",
   "L2UI.control.DefaultButton_click": "l2ui/defaultbutton_click",
@@ -23514,13 +23846,25 @@
   "L2UI_CH3.BUTTON.Btn1_normal": "l2ui_ch3/btn1_normal",
   "L2UI_CH3.BUTTON.Btn1_normalOn": "l2ui_ch3/btn1_normalon",
   "L2UI_CH3.BUTTON.Btn1_normalon": "l2ui_ch3/btn1_normalon",
+  "L2UI_CH3.BenchMarkWnd.BenchMark_Title": "l2ui_ch3/benchmark_title",
+  "L2UI_CH3.BloodHoodWnd.BloodHoodsub1_Back": "l2ui_ch3/bloodhoodsub1_back",
+  "L2UI_CH3.BloodHoodWnd.BloodHoodsub2_Back": "l2ui_ch3/bloodhoodsub2_back",
+  "L2UI_CH3.BloodHoodWnd.BloodHoodsub3_Back": "l2ui_ch3/bloodhoodsub3_back",
+  "L2UI_CH3.BloodHoodWnd.BloodHoodsub4_Back": "l2ui_ch3/bloodhoodsub4_back",
+  "L2UI_CH3.BloodHoodWnd.BloodHoodsub5_Back": "l2ui_ch3/bloodhoodsub5_back",
+  "L2UI_CH3.BloodHoodWnd.BloodHoodsub7_Back": "l2ui_ch3/bloodhoodsub7_back",
   "L2UI_CH3.BloodHoodWnd.bloodhood_back": "l2ui_ch3/bloodhood_back",
+  "L2UI_CH3.BloodHoodWnd.bloodhood_icon01": "l2ui_ch3/bloodhood_icon01",
+  "L2UI_CH3.BloodHoodWnd.bloodhood_icon02": "l2ui_ch3/bloodhood_icon02",
+  "L2UI_CH3.BloodHoodWnd.bloodhood_icon03": "l2ui_ch3/bloodhood_icon03",
+  "L2UI_CH3.BloodHoodWnd.bloodhood_icon04": "l2ui_ch3/bloodhood_icon04",
   "L2UI_CH3.BloodHoodWnd.bloodhoodsub6_tab1": "l2ui_ch3/bloodhoodsub6_tab1",
   "L2UI_CH3.BloodHoodWnd.bloodhoodsub6_tab2": "l2ui_ch3/bloodhoodsub6_tab2",
   "L2UI_CH3.BoardWnd.Board_tab1": "l2ui_ch3/board_tab1",
   "L2UI_CH3.BoardWnd.Board_tab2": "l2ui_ch3/board_tab2",
   "L2UI_CH3.BoardWnd.board_back1": "l2ui_ch3/board_back1",
   "L2UI_CH3.BoardWnd.board_back2": "l2ui_ch3/board_back2",
+  "L2UI_CH3.BoardWnd.board_icon": "l2ui_ch3/board_icon",
   "L2UI_CH3.BroadcastObs.br_bar1_cp": "l2ui_ch3/br_bar1_cp",
   "L2UI_CH3.BroadcastObs.br_bar1_hp": "l2ui_ch3/br_bar1_hp",
   "L2UI_CH3.BroadcastObs.br_bar1_mp": "l2ui_ch3/br_bar1_mp",
@@ -23528,18 +23872,23 @@
   "L2UI_CH3.BroadcastObs.br_bar1back_hp": "l2ui_ch3/br_bar1back_hp",
   "L2UI_CH3.BroadcastObs.br_bar1back_mp": "l2ui_ch3/br_bar1back_mp",
   "L2UI_CH3.BroadcastObs.br_msg1_back1": "l2ui_ch3/br_msg1_back1",
+  "L2UI_CH3.BroadcastObs.br_msg1_back2": "l2ui_ch3/br_msg1_back2",
   "L2UI_CH3.BroadcastObs.br_msg1_back3": "l2ui_ch3/br_msg1_back3",
   "L2UI_CH3.BroadcastObs.br_msg1_start": "l2ui_ch3/br_msg1_start",
   "L2UI_CH3.BroadcastObs.br_msg2_back1": "l2ui_ch3/br_msg2_back1",
+  "L2UI_CH3.BroadcastObs.br_msg2_back2": "l2ui_ch3/br_msg2_back2",
   "L2UI_CH3.BroadcastObs.br_msg2_back3": "l2ui_ch3/br_msg2_back3",
   "L2UI_CH3.BroadcastObs.br_msg3_back": "l2ui_ch3/br_msg3_back",
   "L2UI_CH3.BroadcastObs.br_party1_1": "l2ui_ch3/br_party1_1",
   "L2UI_CH3.BroadcastObs.br_party1_back1": "l2ui_ch3/br_party1_back1",
+  "L2UI_CH3.BroadcastObs.br_party1_back2": "l2ui_ch3/br_party1_back2",
   "L2UI_CH3.BroadcastObs.br_party1_back3": "l2ui_ch3/br_party1_back3",
   "L2UI_CH3.BroadcastObs.br_party2_1": "l2ui_ch3/br_party2_1",
   "L2UI_CH3.BroadcastObs.br_party2_back1": "l2ui_ch3/br_party2_back1",
+  "L2UI_CH3.BroadcastObs.br_party2_back2": "l2ui_ch3/br_party2_back2",
   "L2UI_CH3.BroadcastObs.br_party2_back3": "l2ui_ch3/br_party2_back3",
   "L2UI_CH3.BroadcastObs.br_partyon_back1": "l2ui_ch3/br_partyon_back1",
+  "L2UI_CH3.BroadcastObs.br_partyon_back2": "l2ui_ch3/br_partyon_back2",
   "L2UI_CH3.BroadcastObs.br_partyon_back3": "l2ui_ch3/br_partyon_back3",
   "L2UI_CH3.BroadcastObs.br_score0": "l2ui_ch3/br_score0",
   "L2UI_CH3.BroadcastObs.br_scorecolon": "l2ui_ch3/br_scorecolon",
@@ -23647,16 +23996,25 @@
   "L2UI_CH3.Calculate.Calculate2_sub_down": "l2ui_ch3/calculate2_sub_down",
   "L2UI_CH3.ChatWnd.Chatting_Back1": "l2ui_ch3/chatting_back1",
   "L2UI_CH3.ChatWnd.Chatting_Back2": "l2ui_ch3/chatting_back2",
+  "L2UI_CH3.ChatWnd.Chatting_Back3": "l2ui_ch3/chatting_back3",
   "L2UI_CH3.ChatWnd.Chatting_Back4": "l2ui_ch3/chatting_back4",
   "L2UI_CH3.ChatWnd.Chatting_Back5": "l2ui_ch3/chatting_back5",
   "L2UI_CH3.ChatWnd.Chatting_IMEkr": "l2ui_ch3/chatting_imekr",
+  "L2UI_CH3.ChatWnd.Chatting_Msn4": "l2ui_ch3/chatting_msn4",
+  "L2UI_CH3.ChatWnd.Chatting_Msn4_down": "l2ui_ch3/chatting_msn4_down",
+  "L2UI_CH3.ChatWnd.Chatting_Option1": "l2ui_ch3/chatting_option1",
+  "L2UI_CH3.ChatWnd.Chatting_Option2": "l2ui_ch3/chatting_option2",
   "L2UI_CH3.ChatWnd.Chatting_Tab1": "l2ui_ch3/chatting_tab1",
   "L2UI_CH3.ChatWnd.Chatting_Tab2": "l2ui_ch3/chatting_tab2",
+  "L2UI_CH3.ChatWnd.PartyMatchButton": "l2ui_ch3/partymatchbutton",
+  "L2UI_CH3.ChatWnd.PartyMatchButton_Down": "l2ui_ch3/partymatchbutton_down",
+  "L2UI_CH3.ChatWnd.chatting_system": "l2ui_ch3/chatting_system",
   "L2UI_CH3.Etc.TextBox1": "l2ui_ch3/textbox1",
   "L2UI_CH3.Etc.TextBox2": "l2ui_ch3/textbox2",
   "L2UI_CH3.Etc.TextBox3": "l2ui_ch3/textbox3",
   "L2UI_CH3.Etc.menu_outline": "l2ui_ch3/menu_outline",
   "L2UI_CH3.Etc.onscrmsg_pattern01_1": "l2ui_ch3/onscrmsg_pattern01_1",
+  "L2UI_CH3.Etc.pet_button": "l2ui_ch3/pet_button",
   "L2UI_CH3.Etc.pet_button_down": "l2ui_ch3/pet_button_down",
   "L2UI_CH3.Etc.textbox1": "l2ui_ch3/textbox1",
   "L2UI_CH3.Etc.textbox2": "l2ui_ch3/textbox2",
@@ -23674,8 +24032,12 @@
   "L2UI_CH3.GuideWnd.guide_tab2": "l2ui_ch3/guide_tab2",
   "L2UI_CH3.HeroTower.herotower1_back": "l2ui_ch3/herotower1_back",
   "L2UI_CH3.InventoryWnd.Inventory_Back": "l2ui_ch3/inventory_back",
+  "L2UI_CH3.InventoryWnd.Inventory_Mark": "l2ui_ch3/inventory_mark",
+  "L2UI_CH3.InventoryWnd.Inventory_recipe": "l2ui_ch3/inventory_recipe",
+  "L2UI_CH3.InventoryWnd.Inventory_recipe_drag": "l2ui_ch3/inventory_recipe_drag",
   "L2UI_CH3.InventoryWnd.Inventory_tab1": "l2ui_ch3/inventory_tab1",
   "L2UI_CH3.InventoryWnd.Inventory_tab2": "l2ui_ch3/inventory_tab2",
+  "L2UI_CH3.InventoryWnd.Inventory_trash": "l2ui_ch3/inventory_trash",
   "L2UI_CH3.InventoryWnd.Inventory_trash_Drag": "l2ui_ch3/inventory_trash_drag",
   "L2UI_CH3.InventoryWnd.Inventory_trash_drag": "l2ui_ch3/inventory_trash_drag",
   "L2UI_CH3.InventoryWnd.itemenchant_back": "l2ui_ch3/itemenchant_back",
@@ -23683,6 +24045,7 @@
   "L2UI_CH3.Joypad.joypad_back": "l2ui_ch3/joypad_back",
   "L2UI_CH3.LobbyWnd.lobby_menuback": "l2ui_ch3/lobby_menuback",
   "L2UI_CH3.LoginWnd.logon_back": "l2ui_ch3/logon_back",
+  "L2UI_CH3.MacroWnd.MacroListIcon": "l2ui_ch3/macrolisticon",
   "L2UI_CH3.Manor.manor1_back1": "l2ui_ch3/manor1_back1",
   "L2UI_CH3.Manor.manor1_back2": "l2ui_ch3/manor1_back2",
   "L2UI_CH3.Manor.manor1_tab1": "l2ui_ch3/manor1_tab1",
@@ -23690,6 +24053,21 @@
   "L2UI_CH3.Manor.manor2_back": "l2ui_ch3/manor2_back",
   "L2UI_CH3.Manor.manor3_back": "l2ui_ch3/manor3_back",
   "L2UI_CH3.Manor.manor4_back": "l2ui_ch3/manor4_back",
+  "L2UI_CH3.MenuIcon.Menuicon2": "l2ui_ch3/menuicon2",
+  "L2UI_CH3.MenuIcon.Menuicon4": "l2ui_ch3/menuicon4",
+  "L2UI_CH3.MenuIcon.menuButton1": "l2ui_ch3/menubutton1",
+  "L2UI_CH3.MenuIcon.menuButton1_down": "l2ui_ch3/menubutton1_down",
+  "L2UI_CH3.MenuIcon.menuButton1_over": "l2ui_ch3/menubutton1_over",
+  "L2UI_CH3.MenuIcon.menuButton2": "l2ui_ch3/menubutton2",
+  "L2UI_CH3.MenuIcon.menuButton2_down": "l2ui_ch3/menubutton2_down",
+  "L2UI_CH3.MenuIcon.menuButton2_over": "l2ui_ch3/menubutton2_over",
+  "L2UI_CH3.MenuIcon.menuButton3": "l2ui_ch3/menubutton3",
+  "L2UI_CH3.MenuIcon.menuButton3_down": "l2ui_ch3/menubutton3_down",
+  "L2UI_CH3.MenuIcon.menuButton3_over": "l2ui_ch3/menubutton3_over",
+  "L2UI_CH3.MenuIcon.menuButton4": "l2ui_ch3/menubutton4",
+  "L2UI_CH3.MenuIcon.menuButton4_down": "l2ui_ch3/menubutton4_down",
+  "L2UI_CH3.MenuIcon.menuButton4_over": "l2ui_ch3/menubutton4_over",
+  "L2UI_CH3.MenuIcon.menuicon3": "l2ui_ch3/menuicon3",
   "L2UI_CH3.Minimap.MapBack": "l2ui_ch3/mapback",
   "L2UI_CH3.Minimap.MapButton_ZoomOut1": "l2ui_ch3/mapbutton_zoomout1",
   "L2UI_CH3.Minimap.MapButton_ZoomOut2": "l2ui_ch3/mapbutton_zoomout2",
@@ -23698,12 +24076,23 @@
   "L2UI_CH3.Minimap.Map_Moon": "l2ui_ch3/map_moon",
   "L2UI_CH3.Minimap.Map_Sun": "l2ui_ch3/map_sun",
   "L2UI_CH3.Minimap.mapinfo_back": "l2ui_ch3/mapinfo_back",
+  "L2UI_CH3.MultiSellWnd.multicell_back": "l2ui_ch3/multicell_back",
   "L2UI_CH3.Olympiad.olympiad_back": "l2ui_ch3/olympiad_back",
   "L2UI_CH3.PARTYWND.Partywindow_option_back": "l2ui_ch3/partywindow_option_back",
+  "L2UI_CH3.PARTYWND.SmallWindow_party_compact_back1": "l2ui_ch3/smallwindow_party_compact_back1",
+  "L2UI_CH3.PARTYWND.SmallWindow_party_compact_back2": "l2ui_ch3/smallwindow_party_compact_back2",
+  "L2UI_CH3.PARTYWND.SmallWindow_party_compact_back3": "l2ui_ch3/smallwindow_party_compact_back3",
+  "L2UI_CH3.PartyCommandWnd.HeroChatIcon": "l2ui_ch3/herochaticon",
   "L2UI_CH3.PartyMatchWnd.PartyMatch1_Back": "l2ui_ch3/partymatch1_back",
   "L2UI_CH3.PartyMatchWnd.PartyMatch2_Back": "l2ui_ch3/partymatch2_back",
   "L2UI_CH3.PartyMatchWnd.PartyMatch3_Back": "l2ui_ch3/partymatch3_back",
   "L2UI_CH3.PartyMatchWnd.PartyMatch4_Back": "l2ui_ch3/partymatch4_back",
+  "L2UI_CH3.PartyMatchWnd.PartyMatchIcon": "l2ui_ch3/partymatchicon",
+  "L2UI_CH3.PartyWnd.party_buffbutton": "l2ui_ch3/party_buffbutton",
+  "L2UI_CH3.PartyWnd.party_buffbutton_down": "l2ui_ch3/party_buffbutton_down",
+  "L2UI_CH3.PartyWnd.party_optionbutton": "l2ui_ch3/party_optionbutton",
+  "L2UI_CH3.PartyWnd.party_optionbutton_down": "l2ui_ch3/party_optionbutton_down",
+  "L2UI_CH3.PetWnd.PetIcon": "l2ui_ch3/peticon",
   "L2UI_CH3.PetWnd.Petinterface_back1": "l2ui_ch3/petinterface_back1",
   "L2UI_CH3.PetWnd.Petinterface_back2": "l2ui_ch3/petinterface_back2",
   "L2UI_CH3.PetitionWnd.petition_fb_back": "l2ui_ch3/petition_fb_back",
@@ -23716,6 +24105,7 @@
   "L2UI_CH3.PlayerStatusWnd.ps_expbar": "l2ui_ch3/ps_expbar",
   "L2UI_CH3.PlayerStatusWnd.ps_expbar_back": "l2ui_ch3/ps_expbar_back",
   "L2UI_CH3.PlayerStatusWnd.ps_foodbar": "l2ui_ch3/ps_foodbar",
+  "L2UI_CH3.PlayerStatusWnd.ps_hpbar": "l2ui_ch3/ps_hpbar",
   "L2UI_CH3.PlayerStatusWnd.ps_hpbar_back": "l2ui_ch3/ps_hpbar_back",
   "L2UI_CH3.PlayerStatusWnd.ps_hpbarfill": "l2ui_ch3/ps_hpbarfill",
   "L2UI_CH3.PlayerStatusWnd.ps_hpbarwarn1": "l2ui_ch3/ps_hpbarwarn1",
@@ -23725,7 +24115,17 @@
   "L2UI_CH3.PlayerStatusWnd.ps_sizecontrol1": "l2ui_ch3/ps_sizecontrol1",
   "L2UI_CH3.PlayerStatusWnd.ps_weightbar1": "l2ui_ch3/ps_weightbar1",
   "L2UI_CH3.QUESTWND.QuestWndBack": "l2ui_ch3/questwndback",
+  "L2UI_CH3.QUESTWND.QuestWndToolTipBtn": "l2ui_ch3/questwndtooltipbtn",
   "L2UI_CH3.QUESTWND.questinfo_back": "l2ui_ch3/questinfo_back",
+  "L2UI_CH3.Radar.icon1": "l2ui_ch3/icon1",
+  "L2UI_CH3.Radar.icon2": "l2ui_ch3/icon2",
+  "L2UI_CH3.Radar.icon3": "l2ui_ch3/icon3",
+  "L2UI_CH3.Radar.icon4": "l2ui_ch3/icon4",
+  "L2UI_CH3.Radar.icon5": "l2ui_ch3/icon5",
+  "L2UI_CH3.Radar.icon6": "l2ui_ch3/icon6",
+  "L2UI_CH3.Radar.icon7": "l2ui_ch3/icon7",
+  "L2UI_CH3.Radar.icon8": "l2ui_ch3/icon8",
+  "L2UI_CH3.Radar.icon9": "l2ui_ch3/icon9",
   "L2UI_CH3.RecipeWnd.Recipe1_Back": "l2ui_ch3/recipe1_back",
   "L2UI_CH3.RecipeWnd.Recipe2_Back": "l2ui_ch3/recipe2_back",
   "L2UI_CH3.RecipeWnd.Recipe3_Back": "l2ui_ch3/recipe3_back",
@@ -23786,22 +24186,29 @@
   "L2UI_CH3.ShortcutWnd.shortcut_prevv_down": "l2ui_ch3/shortcut_prevv_down",
   "L2UI_CH3.ShortcutWnd.shortcut_rotate": "l2ui_ch3/shortcut_rotate",
   "L2UI_CH3.ShortcutWnd.shortcut_rotate_down": "l2ui_ch3/shortcut_rotate_down",
+  "L2UI_CH3.SiegeWnd.Siege_Back2": "l2ui_ch3/siege_back2",
   "L2UI_CH3.SkillTrainWnd.SkillTrain1": "l2ui_ch3/skilltrain1",
   "L2UI_CH3.SkillTrainWnd.SkillTrain2": "l2ui_ch3/skilltrain2",
   "L2UI_CH3.SkillWnd.skill_back": "l2ui_ch3/skill_back",
   "L2UI_CH3.SmallWnd.CpBar": "l2ui_ch3/cpbar",
   "L2UI_CH3.SmallWnd.CpBar_back": "l2ui_ch3/cpbar_back",
   "L2UI_CH3.SmallWnd.FATIGUEBAR": "l2ui_ch3/fatiguebar",
+  "L2UI_CH3.SmallWnd.FATIGUEBAR_BACK": "l2ui_ch3/fatiguebar_back",
   "L2UI_CH3.SmallWnd.HpBar": "l2ui_ch3/hpbar",
   "L2UI_CH3.SmallWnd.HpBar_back": "l2ui_ch3/hpbar_back",
   "L2UI_CH3.SmallWnd.MpBar": "l2ui_ch3/mpbar",
   "L2UI_CH3.SmallWnd.MpBar_back": "l2ui_ch3/mpbar_back",
   "L2UI_CH3.SmallWnd.SmallWindow2_Back1": "l2ui_ch3/smallwindow2_back1",
+  "L2UI_CH3.SmallWnd.SmallWindow2_Back2": "l2ui_ch3/smallwindow2_back2",
   "L2UI_CH3.SmallWnd.SmallWindow2_Back3_ex": "l2ui_ch3/smallwindow2_back3_ex",
   "L2UI_CH3.SmallWnd.SmallWindow_Back1": "l2ui_ch3/smallwindow_back1",
+  "L2UI_CH3.SmallWnd.SmallWindow_Back2": "l2ui_ch3/smallwindow_back2",
   "L2UI_CH3.SmallWnd.SmallWindow_Back3_ex": "l2ui_ch3/smallwindow_back3_ex",
   "L2UI_CH3.SmallWnd.Smallwindow2_back1": "l2ui_ch3/smallwindow2_back1",
+  "L2UI_CH3.SmallWnd.Smallwindow2_back2": "l2ui_ch3/smallwindow2_back2",
   "L2UI_CH3.SmallWnd.cpBar": "l2ui_ch3/cpbar",
+  "L2UI_CH3.StoreWnd.Store1_back": "l2ui_ch3/store1_back",
+  "L2UI_CH3.SummonWnd.SummonIcon": "l2ui_ch3/summonicon",
   "L2UI_CH3.SummonWnd.summon_back1": "l2ui_ch3/summon_back1",
   "L2UI_CH3.SummonWnd.summon_back2": "l2ui_ch3/summon_back2",
   "L2UI_CH3.SystemMenuWnd.system2_back": "l2ui_ch3/system2_back",
@@ -23830,12 +24237,18 @@
   "L2UI_CH3.TabButton.MainWndTabBtn4On": "l2ui_ch3/mainwndtabbtn4on",
   "L2UI_CH3.TabButton.MainWndTabBtn5": "l2ui_ch3/mainwndtabbtn5",
   "L2UI_CH3.TabButton.MainWndTabBtn5On": "l2ui_ch3/mainwndtabbtn5on",
+  "L2UI_CH3.Wnd.Store1_back": "l2ui_ch3/store1_back",
   "L2UI_CH3.button.bigbutton": "l2ui_ch3/bigbutton",
   "L2UI_CH3.button.bigbutton_down": "l2ui_ch3/bigbutton_down",
   "L2UI_CH3.button.slider_cursor": "l2ui_ch3/slider_cursor",
   "L2UI_CH3.button.slider_cursor_down": "l2ui_ch3/slider_cursor_down",
+  "L2UI_CH3.icn_aboutpoint_down": "l2ui_ch3/icn_aboutpoint_down",
+  "L2UI_CH3.icn_aboutpoint_over": "l2ui_ch3/icn_aboutpoint_over",
+  "L2UI_CH3.macrownd.macro_edit": "l2ui_ch3/macro_edit",
+  "L2UI_CH3.macrownd.macro_edit_Drag": "l2ui_ch3/macro_edit_drag",
   "L2UI_CH3.skillwnd.skill_tab1": "l2ui_ch3/skill_tab1",
   "L2UI_CH3.skillwnd.skill_tab2": "l2ui_ch3/skill_tab2",
+  "L2UI_CH3.wnd_pcpoint_back": "l2ui_ch3/wnd_pcpoint_back",
   "L2UI_Ch3.BUTTON.btn1_normal": "l2ui_ch3/btn1_normal",
   "L2UI_Ch3.BUTTON.btn1_normalon": "l2ui_ch3/btn1_normalon",
   "L2UI_Ch3.PetWnd.petinterface_tab1": "l2ui_ch3/petinterface_tab1",
@@ -23846,6 +24259,7 @@
   "L2UI_ch3.Button.Prev1_Down": "l2ui_ch3/prev1_down",
   "L2UI_ch3.Button.next1": "l2ui_ch3/next1",
   "L2UI_ch3.Button.next1_down": "l2ui_ch3/next1_down",
+  "L2UI_ch3.Calculate.Calculate12_back": "l2ui_ch3/calculate12_back",
   "L2UI_ch3.Calculate.Calculate1_back": "l2ui_ch3/calculate1_back",
   "L2UI_ch3.ConsoleBtn.MailBtn": "l2ui_ch3/mailbtn",
   "L2UI_ch3.ConsoleBtn.MailBtn_down": "l2ui_ch3/mailbtn_down",
@@ -23856,6 +24270,7 @@
   "L2UI_ch3.ConsoleBtn.TutorialBtn": "l2ui_ch3/tutorialbtn",
   "L2UI_ch3.ConsoleBtn.TutorialBtn_down": "l2ui_ch3/tutorialbtn_down",
   "L2UI_ch3.ConsoleBtn.TutorialBtn_light": "l2ui_ch3/tutorialbtn_light",
+  "L2UI_ch3.DeliverWnd.Warehouse_back": "l2ui_ch3/warehouse_back",
   "L2UI_ch3.HennaWnd.Henna2_back": "l2ui_ch3/henna2_back",
   "L2UI_ch3.HennaWnd.henna1_back": "l2ui_ch3/henna1_back",
   "L2UI_ch3.Joypad.joypad_L": "l2ui_ch3/joypad_l",
@@ -23881,6 +24296,7 @@
   "L2UI_ch3.RefineryWnd.refineslot1": "l2ui_ch3/refineslot1",
   "L2UI_ch3.RefineryWnd.refineslot2": "l2ui_ch3/refineslot2",
   "L2UI_ch3.SSQWnd.ssq_back": "l2ui_ch3/ssq_back",
+  "L2UI_ch3.SiegeWnd.Siege_Back1": "l2ui_ch3/siege_back1",
   "L2UI_ch3.SiegeWnd.siege_Tab1": "l2ui_ch3/siege_tab1",
   "L2UI_ch3.SiegeWnd.siege_Tab2": "l2ui_ch3/siege_tab2",
   "L2UI_ch3.SiegeWnd.siege_Tab3": "l2ui_ch3/siege_tab3",
@@ -23894,6 +24310,7 @@
   "L2UI_ch3.SmallWnd.Smallwindow_back3": "l2ui_ch3/smallwindow_back3",
   "L2UI_ch3.SummonedWnd.petinterface_back31": "l2ui_ch3/petinterface_back31",
   "L2UI_ch3.SummonedWnd.petinterface_back32": "l2ui_ch3/petinterface_back32",
+  "L2UI_ch3.TradeWnd.Trade_Back": "l2ui_ch3/trade_back",
   "L2UI_ch3.button.SmallButton2": "l2ui_ch3/smallbutton2",
   "L2UI_ch3.button.SmallButton2_Down": "l2ui_ch3/smallbutton2_down",
   "L2UI_ch3.button.btn1_normal": "l2ui_ch3/btn1_normal",
@@ -23909,6 +24326,33 @@
   "L2ui_ch3.PlayerStatusWnd.fontdeco": "l2ui_ch3/fontdeco",
   "L2ui_ch3.button.btn1_normal": "l2ui_ch3/btn1_normal",
   "L2ui_ch3.button.btn1_normalon": "l2ui_ch3/btn1_normalon",
+  "Slideshow.Kamael_teaserquest.AlphaFrame": "slideshow/alphaframe",
+  "Slideshow.Kamael_teaserquest.Base_Frame": "slideshow/base_frame",
+  "Slideshow.Kamael_teaserquest.Battle01": "slideshow/battle01",
+  "Slideshow.Kamael_teaserquest.Battle02": "slideshow/battle02",
+  "Slideshow.Kamael_teaserquest.Battle03": "slideshow/battle03",
+  "Slideshow.Kamael_teaserquest.Battle04": "slideshow/battle04",
+  "Slideshow.Kamael_teaserquest.Frame_Text_0001": "slideshow/frame_text_0001",
+  "Slideshow.Kamael_teaserquest.Frame_Text_0002": "slideshow/frame_text_0002",
+  "Slideshow.Kamael_teaserquest.Frame_Text_0003": "slideshow/frame_text_0003",
+  "Slideshow.Kamael_teaserquest.Frame_Text_0004": "slideshow/frame_text_0004",
+  "Slideshow.Kamael_teaserquest.Frame_Text_0005": "slideshow/frame_text_0005",
+  "Slideshow.Kamael_teaserquest.Frame_Text_0006": "slideshow/frame_text_0006",
+  "Slideshow.Kamael_teaserquest.Frame_Text_0007": "slideshow/frame_text_0007",
+  "Slideshow.Kamael_teaserquest.Frame_Text_0008": "slideshow/frame_text_0008",
+  "Slideshow.Kamael_teaserquest.Island": "slideshow/island",
+  "Slideshow.Kamael_teaserquest.Island02": "slideshow/island02",
+  "Slideshow.Kamael_teaserquest.Man": "slideshow/man",
+  "Slideshow.Kamael_teaserquest.Man01": "slideshow/man01",
+  "Slideshow.Kamael_teaserquest.Mark": "slideshow/mark",
+  "Slideshow.Kamael_teaserquest.Mark01": "slideshow/mark01",
+  "Slideshow.Kamael_teaserquest.Meeting": "slideshow/meeting",
+  "Slideshow.Kamael_teaserquest.Meeting01": "slideshow/meeting01",
+  "Slideshow.Kamael_teaserquest.Meeting02": "slideshow/meeting02",
+  "Slideshow.Kamael_teaserquest.Meeting03": "slideshow/meeting03",
+  "Slideshow.Kamael_teaserquest.Woman01": "slideshow/woman01",
+  "Slideshow.Kamael_teaserquest.Woman02": "slideshow/woman02",
+  "default.black": null,
   "l2ui.nwindow.icon_back": "l2ui/icon_back",
   "l2ui.nwindow.icon_click": "l2ui/icon_click",
   "l2ui_ch3.InventoryWnd.Inventory_OutLine": "l2ui_ch3/inventory_outline",
@@ -23941,9 +24385,11 @@
   "DialogBox.num7",
   "DialogBox.num8",
   "DialogBox.num9",
+  "EventMatchObserverWnd.TopWnd.BackTex1",
   "EventMatchObserverWnd.TopWnd.BackTex2",
   "EventMatchObserverWnd.TopWnd.BackTex3",
   "EventMatchObserverWnd.TopWnd.BackTex4",
+  "EventMatchObserverWnd.TopWnd.BackTex5",
   "EventMatchObserverWnd.TopWnd.BackTex6",
   "EventMatchObserverWnd.TopWnd.ScoreColonTex",
   "MainWnd.ClanWnd",

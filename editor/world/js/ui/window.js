@@ -116,21 +116,52 @@ export class L2Window {
     const body = document.createElement('div');
     body.className = 'l2wnd-body';
     body.style.position = 'relative';
+    // border-box: the 9-slice background below sets a 2px border, and with
+    // the default content-box that border ADDS 4px to the window's height.
+    // Every framed window was rendering 4px taller than the geometry it was
+    // given (measured: InventoryWnd 405 against a mined 401).
+    body.style.boxSizing = 'border-box';
     body.style.height = `${Skin.px(height)}px`;
     root.appendChild(body);
     this.body = body;
 
-    // Body background (docs/ui-port-handoff.md §2.1): the xdat names a
-    // per-window BackTexture for some windows (e.g. InventoryWnd); where it
-    // names nothing (MagicSkillWnd and most others) the staged flat panel
-    // is used — MEASURED from the skin manifest: L2UI_ch3.NpcWnd.Npc1_back,
-    // content 310x381 in a 512x512 export, 2px border (dark outline x=0,
-    // highlight x=1), interior alpha ~221. (The handoff names the atlas
-    // file L2UI_CH3/npc1_back.png; this is its manifest ref.)
+    // Body background (docs/ui-port-handoff.md §2.1), in the order the
+    // client's own data offers it:
+    //
+    //  1. a BackTexture CHILD — InventoryWnd's Inventory_Back, 256x381 of
+    //     art placed at y=20, i.e. the window minus its titlebar;
+    //  2. the WINDOW RECORD's own texture — MagicSkillWnd/ActionWnd/
+    //     ClanWnd/QuestTreeWnd each name a full-window interior
+    //     (skill_back, Action_Back, bloodhood_back, QuestWndBack), all
+    //     256x335 of art, exactly the declared window size. Accepted only
+    //     when the sprite's MEASURED content rect equals that size, so a
+    //     window whose record names an icon (InventoryWnd names
+    //     MenuIcon.Menuicon2, 32x32) is never mistaken for a background.
+    //     These arts were invisible to the port until the texture harvest
+    //     was repaired (tools/ui/mine_texrefs.py).
+    //  3. the staged flat panel — MEASURED from the skin manifest:
+    //     L2UI_ch3.NpcWnd.Npc1_back, content 310x381 in a 512x512 export,
+    //     2px border (dark outline x=0, highlight x=1), interior alpha ~221.
+    const own = winName ? Layout.tex0(winName) : null;
+    const ownArt = own ? Skin.content(own) : null;
+    const win = winName ? Layout.window(winName) : null;
+    const ownFits = !!(ownArt && win
+      && ownArt.w === win.width && ownArt.h === win.height);
     const backRef = back !== undefined ? back
       : (winName && Layout.tex0(winName, 'BackTexture'))
+        || (ownFits ? own : null)
         || 'L2UI_ch3.NpcWnd.Npc1_back';
-    if (backRef !== 'none') Skin.nine(body, backRef, 2);
+    if (backRef === 'none') {
+      /* caller paints its own */
+    } else if (backRef === own && ownFits) {
+      // a full-window interior: draw it 1:1, never 9-slice it (slicing a
+      // window-sized art stretches its middle and shifts every cutout)
+      body.style.height = `${Skin.px(win.height)}px`;
+      Skin.apply(body, backRef);
+      this.height = win.height;
+    } else {
+      Skin.nine(body, backRef, 2);
+    }
 
     if (draggable) this._makeDraggable(bar);
     this.setTitle(title);

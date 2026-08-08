@@ -342,7 +342,8 @@ def _mat_inv_rigid(m):
 #   inverse bind matrices: world bind transforms rebuilt from
 #     conj(node rotation) locals, then inverted (as ExportGLTF does)
 #   normals: angle-weighted, shared by wedge PointIndex (BuildNormalsCommon)
-#   indices/UVs: emitted unchanged (no winding flip, no V flip)
+#   UVs: emitted unchanged (no V flip)
+#   indices: face order REVERSED (v0, v2, v1) — see _face_indices()
 
 def _xf_pos(p):
     return (p[0] * 0.01, p[2] * 0.01, -p[1] * 0.01)
@@ -354,6 +355,31 @@ def _xf_dir(v):
 
 def _xf_rot(q):
     return (q[0], q[2], -q[1], -q[3])
+
+
+def _face_indices(w0, w1, w2):
+    """psk wedge triple -> glTF index triple, winding corrected.
+
+    ExportPsk.cpp MIRRORS the mesh on export (MIRROR_MESH negates every
+    point's Y, lines 98-112) and swaps WedgeIndex[0]/[1] (line 184) to
+    compensate, so psk faces are CCW *in psk space*.  _xf_pos above is the
+    proper rotation (x, z, -y), determinant +1 — but composed with that
+    mirror the net UE->glTF map is (x, z, y), determinant -1.  So the psk
+    face order arrives CLOCKWISE in glTF space, i.e. back-facing under
+    glTF 2.0 §3.7.2.1, while _point_normals() produces outward normals.
+
+    Emitting (v0, v2, v1) undoes it.  Measured with winding_check.py on
+    human_fighter_m: unreversed 2256/2256 faces have their geometric
+    normal opposite to their own vertex normals; reversed, 0/2256.  Same
+    correction build_weapons.py already applies to the static path, where
+    the reversed triangle set was additionally verified byte-identical to
+    umodel's own -gltf export of small_sword_m00_wp.
+
+    It matters even though every material is doubleSided: three.js negates
+    the shading normal on back-facing fragments, so an inverted mesh is
+    lit from the wrong side rather than being invisible.
+    """
+    return (w0, w2, w1)
 
 
 # ------------------------------------------------------------- glTF emitter
@@ -622,8 +648,8 @@ def merge_parts(parts, out_path):
 
             iblob = bytearray()
             for w0, w1, w2, _mi in sfaces:
-                for v in (vidx(w0), vidx(w1), vidx(w2)):
-                    iblob += struct.pack('<I', v)
+                for w in _face_indices(w0, w1, w2):
+                    iblob += struct.pack('<I', vidx(w))
             pos_b = bytearray()
             nrm_b = bytearray()
             uv_b = bytearray()
@@ -788,8 +814,41 @@ def inject_animations(g, bin_data, psa_path, selection, ctx):
         tblob = struct.pack('<%df' % nframes, *times)
         tacc = add_accessor(push(tblob), 5126, nframes, 'SCALAR',
                             mn=[times[0]], mx=[times[-1]])
+        # endpoints-only time accessor, shared by every constant track in
+        # this clip (see _emit below).  Two keys, not one, so the clip's
+        # duration in three.js (max track time) is unchanged even if every
+        # track of the clip happens to be constant.
+        tacc2 = None
+        if nframes > 2:
+            t2 = struct.pack('<2f', times[0], times[-1])
+            tacc2 = add_accessor(push(t2), 5126, 2, 'SCALAR',
+                                 mn=[times[0]], mx=[times[-1]])
         channels = []
         samplers = []
+
+        def _emit(node_idx, path, blob, atype, stride):
+            """One channel; collapses a bit-constant track to 2 keyframes.
+
+            LOSSLESS BY CONSTRUCTION: the collapse fires only when every
+            frame's packed bytes are byte-identical, and LINEAR
+            interpolation between two identical keys yields that same
+            value at every t in [t0, t1].  It is worth doing because psa
+            data is overwhelmingly rotation-only — every bone except the
+            pelvis repeats its bind translation for all N frames.
+            """
+            n = nframes
+            if tacc2 is not None:
+                first = blob[:stride]
+                if all(blob[i:i + stride] == first
+                       for i in range(stride, len(blob), stride)):
+                    blob = first + first
+                    n = 2
+            acc = add_accessor(push(bytes(blob)), 5126, n, atype)
+            samplers.append({'input': tacc if n == nframes else tacc2,
+                             'output': acc, 'interpolation': 'LINEAR'})
+            channels.append({'sampler': len(samplers) - 1,
+                             'target': {'node': node_idx, 'path': path}})
+
         for bi, node_idx in enumerate(bone_node):
             if node_idx is None:
                 continue
@@ -806,20 +865,8 @@ def inject_animations(g, bin_data, psa_path, selection, ctx):
                     # root bone: conjugated after conversion
                     rx, ry, rz = -rx, -ry, -rz
                 rot_blob += struct.pack('<4f', rx, ry, rz, rw)
-            pacc = add_accessor(push(bytes(pos_blob)), 5126, nframes,
-                                'VEC3')
-            racc = add_accessor(push(bytes(rot_blob)), 5126, nframes,
-                                'VEC4')
-            samplers.append({'input': tacc, 'output': pacc,
-                             'interpolation': 'LINEAR'})
-            channels.append({'sampler': len(samplers) - 1,
-                             'target': {'node': node_idx,
-                                        'path': 'translation'}})
-            samplers.append({'input': tacc, 'output': racc,
-                             'interpolation': 'LINEAR'})
-            channels.append({'sampler': len(samplers) - 1,
-                             'target': {'node': node_idx,
-                                        'path': 'rotation'}})
+            _emit(node_idx, 'translation', pos_blob, 'VEC3', 12)
+            _emit(node_idx, 'rotation', rot_blob, 'VEC4', 16)
         g['animations'].append({'name': out_name, 'channels': channels,
                                 'samplers': samplers})
     g['buffers'][0]['byteLength'] = len(bin_data)

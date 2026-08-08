@@ -1,0 +1,404 @@
+{
+ "scale": 1,
+ "windows": {
+  "StatusWnd": {
+   "rootScreen": {
+    "left": 513,
+    "top": 0,
+    "w": 176,
+    "h": 84
+   },
+   "minedWindow": {
+    "w": 176,
+    "h": 84
+   },
+   "rows": [
+    {
+     "ctrl": "StatusWndLeftTex",
+     "rendered": {
+      "x": 12,
+      "y": 0,
+      "w": 16,
+      "h": 84
+     },
+     "mined": {
+      "x": 12,
+      "y": 0,
+      "w": 16,
+      "h": 84
+     },
+     "autosize": null,
+     "insets": null
+    },
+    {
+     "ctrl": "StatusWndCenterTex",
+     "rendered": {
+      "x": 28,
+      "y": 0,
+      "w": 144,
+      "h": 84
+     },
+     "mined": {
+      "x": 28,
+      "y": 0,
+      "w": null,
+      "h": null
+     },
+     "autosize": [
+      1,
+      1
+     ],
+     "insets": [
+      -32,
+      0
+     ]
+    },
+    {
+     "ctrl": "StatusWndRightTex",
+     "rendered": {
+      "x": 172,
+      "y": 0,
+      "w": 4,
+      "h": 84
+     },
+     "mined": {
+      "x": null,
+      "y": null,
+      "w": 4,
+      "h": 84
+     },
+     "autosize": null,
+     "insets": null
+    },
+    {
+     "ctrl": "StatusWnd_LevelTextBox_back",
+     "rendered": {
+      "x": 15,
+      "y": 6,
+      "w": 22,
+      "h": 20
+     },
+     "mined": {
+      "x": 15,
+      "y": 6,
+      "w": 22,
+      "h": 20
+     },
+     "autosize": null,
+     "insets": null
+    },
+    {
+     "ctrl": "UserName",
+     "rendered": {
+      "x": 40,
+      "y": 9,
+      "w": 35,
+      "h": 18
+     },
+     "mined": {
+      "x": 40,
+      "y": 9,
+      "w": null,
+      "h": null
+     },
+     "autosize": [
+      1,
+      1
+     ],
+     "insets": [
+      -50,
+      -162
+     ]
+    },
+    {
+     "ctrl": "CPBar",
+     "rendered": {
+      "x": 16,
+      "y": 27,
+      "w": 150,
+      "h": 12
+     },
+     "mined": {
+      "x": 16,
+      "y": 27,
+      "w": null,
+      "h": null
+     },
+     "autosize": [
+      1,
+      1
+     ],
+     "insets": [
+      -26,
+      -72
+     ]
+    },
+    {
+     "ctrl": "HPBar",
+     "rendered": {
+      "x": 16,
+      "y": 41,
+      "w": 150,
+      "h": 12
+     },
+     "mined": {
+      "x": 16,
+      "y": 41,
+      "w": null,
+      "h": null
+     },
+     "autosize": [
+      1,
+      1
+     ],
+     "insets": [
+      -26,
+      -72
+     ]
+    },
+    {
+     "ctrl": "MPBar",
+     "rendered": {
+      "x": 16,
+      "y": 55,
+      "w": 150,
+      "h": 12
+     },
+     "mined": {
+      "x": 16,
+      "y": 55,
+      "w": null,
+      "h": null
+     },
+     "autosize": [
+      1,
+      1
+     ],
+     "insets": [
+      -26,
+      -72
+     ]
+    },
+    {
+     "ctrl": "EXPBar",
+     "rendered": {
+      "x": 16,
+      "y": 69,
+      "w": 150,
+      "h": 12
+     },
+     "mined": {
+      "x": 16,
+      "y": 69,
+      "w": null,
+      "h": null
+     },
+     "autosize": [
+      1,
+      1
+     ],
+     "insets": [
+      -26,
+      -72
+     ]
+    }
+   ],
+   "gaugeLabels": {}
+  },
+  "MenuWnd": {
+   "rootScreen": {
+    "left": 1419,
+    "top": 946,
+    "w": 173,
+    "h": 46
+   },
+   "minedWindow": {
+    "w": 173,
+    "h": 46
+   },
+   "rows": [
+    {
+     "ctrl": "BtnCharInfo",
+     "rendered": {
+      "x": 20,
+      "y": 6,
+      "w": 34,
+      "h": 34
+     },
+     "mined": {
+      "x": 20,
+      "y": 6,
+      "w": 34,
+      "h": 34
+     },
+     "autosize": null,
+     "insets": null
+    },
+    {
+     "ctrl": "BtnInventory",
+     "rendered": {
+      "x": 57,
+      "y": 6,
+      "w": 34,
+      "h": 34
+     },
+     "mined": {
+      "x": 57,
+      "y": 6,
+      "w": 34,
+      "h": 34
+     },
+     "autosize": null,
+     "insets": null
+    },
+    {
+     "ctrl": "BtnMap",
+     "rendered": {
+      "x": 94,
+      "y": 6,
+      "w": 34,
+      "h": 34
+     },
+     "mined": {
+      "x": 94,
+      "y": 6,
+      "w": 34,
+      "h": 34
+     },
+     "autosize": null,
+     "insets": null
+    },
+    {
+     "ctrl": "BtnSystemMenu",
+     "rendered": {
+      "x": 131,
+      "y": 6,
+      "w": 34,
+      "h": 34
+     },
+     "mined": {
+      "x": 131,
+      "y": 6,
+      "w": 34,
+      "h": 34
+     },
+     "autosize": null,
+     "insets": null
+    }
+   ],
+   "bandCount": 3,
+   "buttonsAreText": true
+  }
+ },
+ "shortcut": {
+  "rootScreen": {
+   "left": 347,
+   "top": 722,
+   "w": 504,
+   "h": 46
+  },
+  "slotX": [
+   32,
+   69,
+   106,
+   143,
+   185,
+   222,
+   259,
+   296,
+   338,
+   375,
+   412,
+   449
+  ]
+ },
+ "docks": {
+  "InventoryWnd": {
+   "left": 0,
+   "top": 0,
+   "w": 0,
+   "h": 0,
+   "visible": false
+  },
+  "MagicSkillWnd": {
+   "left": 0,
+   "top": 0,
+   "w": 0,
+   "h": 0,
+   "visible": false
+  },
+  "ActionWnd": {
+   "left": 0,
+   "top": 0,
+   "w": 0,
+   "h": 0,
+   "visible": false
+  },
+  "QuestListWnd": {
+   "left": 0,
+   "top": 0,
+   "w": 0,
+   "h": 0,
+   "visible": false
+  },
+  "MinimapWnd": {
+   "left": 0,
+   "top": 0,
+   "w": 0,
+   "h": 0,
+   "visible": false
+  },
+  "PartyWnd": {
+   "left": 0,
+   "top": 0,
+   "w": 0,
+   "h": 0,
+   "visible": false
+  },
+  "ClanWnd": {
+   "left": 0,
+   "top": 0,
+   "w": 0,
+   "h": 0,
+   "visible": false
+  },
+  "AbnormalStatusWnd": {
+   "left": 0,
+   "top": 0,
+   "w": 0,
+   "h": 0,
+   "visible": false
+  }
+ },
+ "openDocks": {
+  "InventoryWnd": {
+   "left": 722,
+   "top": 127,
+   "w": 256,
+   "h": 405,
+   "z": 37
+  },
+  "MagicSkillWnd": {
+   "left": 1332,
+   "top": 60,
+   "w": 256,
+   "h": 359,
+   "z": 38
+  },
+  "ActionWnd": {
+   "left": 1304,
+   "top": 88,
+   "w": 256,
+   "h": 359,
+   "z": 39
+  },
+  "QuestListWnd": {
+   "left": 1276,
+   "top": 116,
+   "w": 256,
+   "h": 355,
+   "z": 40
+  }
+ },
+ "consoleErrors": []
+}

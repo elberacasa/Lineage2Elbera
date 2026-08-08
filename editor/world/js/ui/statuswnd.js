@@ -35,11 +35,28 @@ const BARS = [
 // Gauge row height: MEASURED from the bar art (ps_hpbar_back is 8x12 of art
 // inside an 8x16 export), not eyeballed.
 const ROW_REF = 'L2UI_CH3.PlayerStatusWnd.ps_hpbar_back';
-// INSET still spaces the four gauges, the name and the HP readout from the
-// caps: those controls (StatusBar x4, UserName) are hasSize == 0 and do NOT
-// decode at body+12 (docs/ui-mined-values.md §5) — that undecoded tail is
-// the blocker, not a missing lookup. Left band and level box are mined.
+// INSET is only a fallback now: every control in this window (bands, level
+// box, name and the four gauges) decodes its own x/y out of the xdat
+// (docs/ui-mined-values.md §3, docs/xdat-tail-has0.md §4).
 const INSET = 4;
+
+// The gauge label, SOURCED from the native control that draws it:
+// NWindow.dll NCStatusBarCtrl render (RTTI .?AVNCStatusBarCtrl@@ at
+// 0x1034c8d0 -> vtable 0x102412a4, slot 99 -> 0x1004c7c0).
+//
+//   0x1004c9f8  mov 0x35c(esi),eax / test / jne 0x1004cb5f   <- mode switch
+//   mode 0  draws  current, "/", max        (three FString::Format calls,
+//           formats "%d" @0x10233718 and "/" @0x1023d810)
+//   mode 1  draws  (cur-base)/(max-base)*100 with "%.2f%s" @0x1024128c and
+//           the suffix "%" @0x1024129c   (x100 double @0x10234778)
+//   both    push colour 0xFFDCDCDC (#DCDCDC) at 0x1004ca18 / 0x1004ca65 /
+//           0x1004cad3 / 0x1004cc06, and centre on the bar:
+//           flds 0x88(esi) (bar width) * 0.5 (@0x1022f270) - textWidth/2.
+//
+// StatusWnd.uc drives CP/HP/MP through SetPoint (mode 0 -> "cur/max") and
+// EXP through SetPointExp (mode 1 -> "nn.nn%"), which is why the exp gauge
+// reads as a percentage and the other three as a pair.
+const LABEL_COLOR = '#DCDCDC';
 
 // StatusWnd.uc drives the EXP gauge with SetPointExp(curExp, level): the
 // client receives ABSOLUTE exp and derives the fraction itself from the level
@@ -104,16 +121,16 @@ export class StatusWnd {
     this.root = root;
 
     // --- background bands ---
-    // DEVIATION, flagged: StatusWndCenterTex carries NO texture reference in
-    // the xdat — the control exists but names no art — so the middle band
-    // stretches the left cap's content across the gap. Its WIDTH comes from
-    // the has0 auto-size block (docs/xdat-tail-has0.md): width =
-    // parent.width + insetA (insetA = -32 -> 176-32 = 144 at default).
-    // StatusWndRightTex stays AUTHORED (its record is among the 23
-    // hasSize==0 records the decode does not cover).
-    this.bandL = this._band(this.lTex, { w: this.lSize.w, h: this.h });
-    this.bandC = this._band(this.lTex, { w: this.lSize.w, h: this.h });
-    this.bandR = this._band(this.rTex, { w: this.rSize.w, h: this.h });
+    // All three bands name their own art in the xdat; the middle one
+    // (Smallwindow2_back2) only became visible once the texture harvest was
+    // fixed (tools/ui/mine_texrefs.py) — before that the port stretched the
+    // LEFT cap across the gap, which is why the strip read as flat.
+    // The band WIDTH comes from the has0 auto-size block
+    // (docs/xdat-tail-has0.md): width = parent.width + insetA (-32 -> 144).
+    this.cTex = Layout.tex0(WND, 'StatusWndCenterTex');
+    this.bandL = this._band(this.lTex);
+    this.bandC = this._band(this.cTex || this.lTex);
+    this.bandR = this._band(this.rTex);
     this.centerInset = (Layout.autosize(WND, 'StatusWndCenterTex')
       || { insets: [0, 0] }).insets[0];
 
@@ -153,6 +170,7 @@ export class StatusWnd {
     // follows the auto-size rule width = parent.width + insetA (-26).
     this.rows = {};
     this.set = {};
+    this.labels = {};
     for (const { key, ctrl } of BARS) {
       const { fill, back, warn } = barTextures(ctrl);
       const pos = Layout.pos(WND, ctrl) ?? { x: INSET, y: 4 + lvlSize.h + 3 };
@@ -163,17 +181,20 @@ export class StatusWnd {
       root.appendChild(row);
       this.set[key] = Skin.gauge(row, fill, back,
                                  { width: this._gaugeW(), height: ROW_H });
-      this.rows[key] = { el: row, fill, back, warn, frac: 0 };
-    }
+      this.rows[key] = { el: row, fill, back, warn, frac: 0, pos };
 
-    // --- HP readout, over the gauge stack as the retail window shows ---
-    const text = document.createElement('div');
-    text.style.position = 'absolute';
-    text.style.left = `${Skin.px((Layout.pos(WND, 'CPBar') ?? { x: INSET }).x + 3)}px`;
-    text.style.top = `${Skin.px((Layout.pos(WND, 'CPBar') ?? { y: 4 + lvlSize.h + 3 }).y)}px`;
-    text.style.pointerEvents = 'none';
-    root.appendChild(text);
-    this.textEl = text;
+      // The gauge label is a SIBLING of the bar, not a child: Skin.gauge
+      // clips `el.lastElementChild` as the fill, so anything appended into
+      // the gauge would be mistaken for it.
+      const label = document.createElement('div');
+      label.style.cssText = 'position:absolute;display:flex;pointer-events:none;'
+        + 'align-items:center;justify-content:center;';
+      label.style.left = `${Skin.px(pos.x)}px`;
+      label.style.top = `${Skin.px(pos.y)}px`;
+      label.style.height = `${Skin.px(ROW_H)}px`;
+      root.appendChild(label);
+      this.labels[key] = label;
+    }
 
     // --- resize grip: the right cap IS the size control ---
     this._makeResizable();
@@ -184,12 +205,24 @@ export class StatusWnd {
     this.clear();
   }
 
-  _band(tex, content) {
+  /** One background band, stretched over the full window height.
+   *
+   *  MEASURED: all three band sprites carry 76 rows of art inside their
+   *  128-tall padded export (verified per-row on the staged PNGs:
+   *  Smallwindow2_back1/back2 and ps_sizecontrol1 are opaque on rows 0..75,
+   *  empty from 76). The xdat declares the controls 84 tall — the window
+   *  height in both Interface.xdat and WindowsInfo.ini [StatusWnd] — so the
+   *  client scales the 76px band into its 84px rect. Passing the DECLARED
+   *  84 as the sprite's content rect (the old code) told the skin the art
+   *  was already 84 tall and drew it at native size, leaving the bottom 8px
+   *  of the window unpainted and the EXP gauge hanging outside the frame.
+   *  Letting Skin.apply use the sprite's own measured rect fixes it. */
+  _band(tex) {
     const d = document.createElement('div');
     d.style.position = 'absolute';
     d.style.top = '0';
     d.style.height = `${Skin.px(this.h)}px`;
-    if (tex) Skin.apply(d, tex, { content });
+    if (tex) Skin.apply(d, tex);
     this.root.appendChild(d);
     return d;
   }
@@ -222,6 +255,9 @@ export class StatusWnd {
     for (const key of Object.keys(this.rows)) {
       const r = this.rows[key];
       r.el.style.width = `${Skin.px(this._gaugeW())}px`;
+      // the native centres its label on the bar (width * 0.5 - textW / 2),
+      // so the label box tracks the gauge's width
+      this.labels[key].style.width = `${Skin.px(this._gaugeW())}px`;
       const fill = r.el.lastElementChild;
       if (fill) fill.style.clipPath = `inset(0 ${(1 - r.frac) * 100}% 0 0)`;
     }
@@ -333,10 +369,16 @@ export class StatusWnd {
 
     Font.set(this.levelEl, String(s.level ?? 1), { color: '#ffffff' });
     if (s.name) this.setName(s.name);
-    if (s.maxHp) {
-      Font.set(this.textEl, `${s.hp ?? 0} / ${s.maxHp}`,
-               { color: '#ffffff', shadow: true });
-    }
+
+    // Gauge labels, exactly what NCStatusBarCtrl's render writes (see
+    // LABEL_COLOR above): "cur/max" on the SetPoint bars, "nn.nn%" on the
+    // SetPointExp bar. No separator spaces — the native draws "%d", "/",
+    // "%d" back to back.
+    this._label('cp', s.cp, s.maxCp);
+    this._label('hp', s.hp, s.maxHp);
+    this._label('mp', s.mp, s.maxMp);
+    const ef = this.rows.exp.frac;
+    Font.set(this.labels.exp, `${(ef * 100).toFixed(2)}%`, { color: LABEL_COLOR });
 
     // low HP: the client swaps the fill for its 'warn' texture
     const hp = this.rows.hp;
@@ -350,12 +392,19 @@ export class StatusWnd {
     }
   }
 
+  /** "cur/max" on one gauge, or nothing when the payload omits the pair. */
+  _label(key, cur, max) {
+    if (max == null) return;
+    Font.set(this.labels[key], `${cur ?? 0}/${max}`, { color: LABEL_COLOR });
+  }
+
   setName(n) {
     if (n) Font.set(this.nameEl, n, { color: '#e8dcc0' });
   }
 
   clear() {
     for (const k of Object.keys(this.set)) this._setBar(k, 0);
+    for (const k of Object.keys(this.labels)) this.labels[k].replaceChildren();
     this.hide();
   }
 }
