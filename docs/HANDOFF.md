@@ -646,7 +646,7 @@ gate is `tools/battery.sh`. This is the house rule — follow it.
 | `Interface.xdat` layout file, byte level | `docs/xdat-format.md` |
 | Protocol contract + crypto gotchas | `gateway/README.md` |
 | scene.json contract | `tools/world/README.md` |
-| Model pipeline + output contract | `docs/character-pipeline.md`, `docs/monster-pipeline.md` |
+| Model pipeline + output contract | `docs/character-pipeline.md`, `docs/monster-pipeline.md`, `docs/weapon-pipeline.md` |
 | .unr/map format lore | `docs/map-format.md`, `docs/tile-map.md` |
 | .dat schemas | `docs/dat-format-notes.md` |
 | Ground-truth oracle | `docs/ground-truth.md` |

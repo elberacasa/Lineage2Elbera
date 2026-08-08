@@ -19,6 +19,7 @@ import { isBeneficialAnim } from './skillfx_anim.js';
 import { audio } from './audio.js';
 import { gameSound } from './gamesound.js';
 import { worldAudio } from './worldaudio.js';
+import { loadEquipment } from './equipment.js';
 import { CharSheet } from './charsheet.js';
 import { MenuWnd, SystemMenuWnd } from './ui/menuwnd.js';
 import { TargetStatusWnd } from './ui/targetstatuswnd.js';
@@ -507,6 +508,12 @@ net.on('charSheet', (msg) => {
   // aCis re-sends UserInfo on every stat change, so this is also how a haste
   // buff, a slow, or a weight penalty reaches locomotion
   if (character) character.setSpeeds(msg);
+  // ...and how an equip/unequip reaches the hand: the paperdoll rides the same
+  // UserInfo, so swapping a weapon in a shop updates the model with no extra op
+  if (character && msg.paperdoll) {
+    character.setWeapon(msg.paperdoll.rhand);
+    gameSound.setWeapon(msg.paperdoll.rhand);   // weapon impact sounds follow the weapon
+  }
   if (document.getElementById('charsheet-panel').classList.contains('visible')) {
     sheetPanel.render();
   }
@@ -1816,7 +1823,8 @@ renderer.setAnimationLoop(() => {
     // client then runs silent instead of failing to boot
     await Promise.all([Skin.load(), Font.load(), Layout.load(),
                        loadExpTable(), loadSkillTypes(), weaponGate.load(),
-                       skillAnimMeta(), shotMeta(), audio.init(), gameSound.load()]);
+                       skillAnimMeta(), shotMeta(), loadEquipment(),
+                       audio.init(), gameSound.load()]);
     makeChat();
     statusWnd = new StatusWnd(document.body);
     statusWnd.show();     // retail keeps it on screen; gauges fill on selfStatus

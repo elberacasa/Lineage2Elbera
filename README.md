@@ -520,6 +520,7 @@ from zero context · [docs/web-port-architecture.md](docs/web-port-architecture.
 contract + crypto gotchas · deep dives:
 [character pipeline](docs/character-pipeline.md) ·
 [monsters](docs/monster-pipeline.md) ·
+[weapons](docs/weapon-pipeline.md) ·
 [map format](docs/map-format.md) · [tile map](docs/tile-map.md) ·
 [ground truth](docs/ground-truth.md) · [assets tooling](docs/assets-tooling.md) ·
 [dat formats](docs/dat-format-notes.md) · per-tool READMEs under `tools/`.

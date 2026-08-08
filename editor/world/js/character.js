@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { L2_TO_M } from './coords.js';
+import { equipWeapon } from './equipment.js';
 
 const CHAR_HEIGHT = 1.75;      // meters — fallback normalization (~1.7 charcreate)
 
@@ -40,6 +41,20 @@ export class Character {
     // metres/second, replaced by the server's values on the first charSheet
     this.runSpeed = DEFAULT_RUN_SPEED_L2 * L2_TO_M;
     this.walkSpeed = DEFAULT_WALK_SPEED_L2 * L2_TO_M;
+    // right-hand weapon: { object, meshId, handness, weaponType }, owned by
+    // equipment.js. `wantWeapon` survives a model reload — race/class changes
+    // rebuild the skeleton and the weapon has to be re-hung on the new sockets.
+    this.weapon = { object: null, meshId: null };
+    this.wantWeapon = 0;
+  }
+
+  // The equipped right-hand item id, straight from the server's paperdoll.
+  // Safe to call before the model has loaded: the id is remembered and applied
+  // when load() finishes.
+  setWeapon(itemId) {
+    this.wantWeapon = itemId || 0;
+    if (!this.model) return Promise.resolve(null);
+    return equipWeapon(this.model, this.wantWeapon, this.weapon);
   }
 
   // aCis reports speed in L2 units/second on every UserInfo, so this is also
@@ -83,6 +98,10 @@ export class Character {
       this.actions[clip.name] = this.mixer.clipAction(clip);
     }
     this.play('idle');
+    // A model reload builds a new skeleton, so any weapon we were told about
+    // before or during the load has to be re-hung on the new sockets.
+    this.weapon = { object: null, meshId: null };
+    if (this.wantWeapon) equipWeapon(this.model, this.wantWeapon, this.weapon);
     return this;
   }
 

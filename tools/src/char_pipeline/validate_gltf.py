@@ -75,10 +75,16 @@ def validate(path):
 
     # JOINTS_0 values must index into the skin's joint list
     for mi, me in enumerate(g.get('meshes', [])):
-        skin = g['skins'][mi] if mi < len(g.get('skins', [])) else g['skins'][0]
         for prim in me['primitives']:
             if 'JOINTS_0' not in prim['attributes']:
                 continue
+            # look the skin up only for skinned primitives: a static mesh
+            # (the weapon pipeline) has no "skins" array at all
+            skins = g.get('skins', [])
+            if not skins:
+                errs.append('mesh %d has JOINTS_0 but no skins' % mi)
+                continue
+            skin = skins[mi] if mi < len(skins) else skins[0]
             vals = read_accessor(g, blob, prim['attributes']['JOINTS_0'])
             mx = max(max(v) for v in vals)
             if mx >= len(skin['joints']):

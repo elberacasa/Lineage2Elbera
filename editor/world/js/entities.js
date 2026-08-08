@@ -409,6 +409,10 @@ export class EntityManager {
       const modelId = pickModelId(this.manifest, msg.race, msg.classId, msg.sex);
       const entry = this.manifest.find(m => m.id === modelId) || this.manifest[0];
       const ch = new Character();
+      // Tell it what it is holding BEFORE the model loads: load() re-hangs the
+      // remembered weapon once the sockets exist, so this avoids a second pass
+      // and the frame or two of empty-handedness it would cause.
+      if (msg.paperdoll && msg.paperdoll.rhand) ch.wantWeapon = msg.paperdoll.rhand;
       await ch.load(`/characters/${entry.gltf}`, entry.nativeHeight || null);
       if (this.entities.has(id)) return;   // raced with a duplicate add
       ch.id = id;

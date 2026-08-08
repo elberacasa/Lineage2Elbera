@@ -1,0 +1,1264 @@
+{
+  "models": [
+    {
+      "id": "bastard_sword_m00_wp",
+      "gltf": "models/bastard_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.1,
+      "nativeLength": 33.1
+    },
+    {
+      "id": "apprentices_staff_m00_wp",
+      "gltf": "models/apprentices_staff_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 4.2,
+      "nativeLength": 43.5
+    },
+    {
+      "id": "knights_sword_m00_wp",
+      "gltf": "models/knights_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.5,
+      "nativeLength": 39.7
+    },
+    {
+      "id": "spinebone_sword_m00_wp",
+      "gltf": "models/spinebone_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.6,
+      "nativeLength": 34.5
+    },
+    {
+      "id": "vipers_canine_m00_wp",
+      "gltf": "models/vipers_canine_m00_wp.gltf",
+      "handness": 7,
+      "nativeHeight": 1.0,
+      "nativeLength": 11.7
+    },
+    {
+      "id": "artisans_sword_m00_wp",
+      "gltf": "models/artisans_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.9,
+      "nativeLength": 31.9
+    },
+    {
+      "id": "crimson_sword_m00_wp",
+      "gltf": "models/crimson_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.9,
+      "nativeLength": 32.1
+    },
+    {
+      "id": "saber_m00_wp",
+      "gltf": "models/saber_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.1,
+      "nativeLength": 27.7
+    },
+    {
+      "id": "knife_m00_wp",
+      "gltf": "models/knife_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 0.9,
+      "nativeLength": 16.4
+    },
+    {
+      "id": "apprentices_spellbook_m00_wp",
+      "gltf": "models/apprentices_spellbook_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.1,
+      "nativeLength": 7.8
+    },
+    {
+      "id": "baghnakh_m00_wp",
+      "gltf": "models/baghnakh_m00_wp.gltf",
+      "handness": 7,
+      "nativeHeight": 7.3,
+      "nativeLength": 12.1
+    },
+    {
+      "id": "club_m00_wp",
+      "gltf": "models/club_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.8,
+      "nativeLength": 21.1
+    },
+    {
+      "id": "elven_sword_m00_wp",
+      "gltf": "models/elven_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.2,
+      "nativeLength": 33.4
+    },
+    {
+      "id": "long_sword_m00_wp",
+      "gltf": "models/long_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.9,
+      "nativeLength": 31.9
+    },
+    {
+      "id": "triple-edged_jamadhr_m00_wp",
+      "gltf": "models/triple-edged_jamadhr_m00_wp.gltf",
+      "handness": 7,
+      "nativeHeight": 1.1,
+      "nativeLength": 10.6
+    },
+    {
+      "id": "bow_m00_wp",
+      "gltf": "models/bow_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 1.7,
+      "nativeLength": 33.7
+    },
+    {
+      "id": "broad_sword_m00_wp",
+      "gltf": "models/broad_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.6,
+      "nativeLength": 31.4
+    },
+    {
+      "id": "dirk_m00_wp",
+      "gltf": "models/dirk_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.4,
+      "nativeLength": 18.0
+    },
+    {
+      "id": "doomed_dagger_m00_wp",
+      "gltf": "models/doomed_dagger_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 0.9,
+      "nativeLength": 13.9
+    },
+    {
+      "id": "iron_glove_m00_wp",
+      "gltf": "models/iron_glove_m00_wp.gltf",
+      "handness": 7,
+      "nativeHeight": 4.2,
+      "nativeLength": 6.0
+    },
+    {
+      "id": "strengthening_bow_m00_wp",
+      "gltf": "models/strengthening_bow_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 1.2,
+      "nativeLength": 37.5
+    },
+    {
+      "id": "tomahawk_m00_wp",
+      "gltf": "models/tomahawk_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.1,
+      "nativeLength": 20.6
+    },
+    {
+      "id": "bow_of_forest_m00_wp",
+      "gltf": "models/bow_of_forest_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 1.2,
+      "nativeLength": 24.2
+    },
+    {
+      "id": "brandish_m00_wp",
+      "gltf": "models/brandish_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 1.0,
+      "nativeLength": 36.0
+    },
+    {
+      "id": "cedar_staff_m00_wp",
+      "gltf": "models/cedar_staff_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 2.9,
+      "nativeLength": 39.7
+    },
+    {
+      "id": "dagger_of_mana_m00_wp",
+      "gltf": "models/dagger_of_mana_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.6,
+      "nativeLength": 21.6
+    },
+    {
+      "id": "dark_elven_bow_m00_wp",
+      "gltf": "models/dark_elven_bow_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 1.8,
+      "nativeLength": 55.7
+    },
+    {
+      "id": "divine_tome_m00_wp",
+      "gltf": "models/divine_tome_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.6,
+      "nativeLength": 25.2
+    },
+    {
+      "id": "falchion_m00_wp",
+      "gltf": "models/falchion_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 3.6,
+      "nativeLength": 33.6
+    },
+    {
+      "id": "gastraphetes_m00_wp",
+      "gltf": "models/gastraphetes_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 1.8,
+      "nativeLength": 45.0
+    },
+    {
+      "id": "gladius_m00_wp",
+      "gltf": "models/gladius_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 3.2,
+      "nativeLength": 31.1
+    },
+    {
+      "id": "heavy_mace_m00_wp",
+      "gltf": "models/heavy_mace_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 5.1,
+      "nativeLength": 30.0
+    },
+    {
+      "id": "hoplon_m00_sh",
+      "gltf": "models/hoplon_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 12.6,
+      "nativeLength": 22.1
+    },
+    {
+      "id": "iron_hammer_m00_wp",
+      "gltf": "models/iron_hammer_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.5,
+      "nativeLength": 20.2
+    },
+    {
+      "id": "kukuri_m00_wp",
+      "gltf": "models/kukuri_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.2,
+      "nativeLength": 19.9
+    },
+    {
+      "id": "mace_of_prayer_m00_wp",
+      "gltf": "models/mace_of_prayer_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.5,
+      "nativeLength": 26.2
+    },
+    {
+      "id": "pike_m00_wp",
+      "gltf": "models/pike_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 1.9,
+      "nativeLength": 53.5
+    },
+    {
+      "id": "shining_knife_m00_wp",
+      "gltf": "models/shining_knife_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 0.9,
+      "nativeLength": 16.4
+    },
+    {
+      "id": "spike_club_m00_wp",
+      "gltf": "models/spike_club_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 4.0,
+      "nativeLength": 19.9
+    },
+    {
+      "id": "staff_of_magicpower_m00_wp",
+      "gltf": "models/staff_of_magicpower_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 12.0,
+      "nativeLength": 54.2
+    },
+    {
+      "id": "staff_of_mana_m00_wp",
+      "gltf": "models/staff_of_mana_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 12.0,
+      "nativeLength": 54.2
+    },
+    {
+      "id": "twohanded_sword_m00_wp",
+      "gltf": "models/twohanded_sword_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 1.8,
+      "nativeLength": 44.9
+    },
+    {
+      "id": "war_hammer_m00_wp",
+      "gltf": "models/war_hammer_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 2.4,
+      "nativeLength": 47.1
+    },
+    {
+      "id": "apprentices_rod_m00_wp",
+      "gltf": "models/apprentices_rod_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.5,
+      "nativeLength": 25.5
+    },
+    {
+      "id": "apprentices_wand_m00_wp",
+      "gltf": "models/apprentices_wand_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.9,
+      "nativeLength": 24.2
+    },
+    {
+      "id": "assassin_knife_m00_wp",
+      "gltf": "models/assassin_knife_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 5.6,
+      "nativeLength": 22.7
+    },
+    {
+      "id": "bichhwa_m00_wp",
+      "gltf": "models/bichhwa_m00_wp.gltf",
+      "handness": 7,
+      "nativeHeight": 2.0,
+      "nativeLength": 9.9
+    },
+    {
+      "id": "bone_shield_m00_sh",
+      "gltf": "models/bone_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 13.1,
+      "nativeLength": 13.1
+    },
+    {
+      "id": "buckler_m00_sh",
+      "gltf": "models/buckler_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 13.1,
+      "nativeLength": 13.1
+    },
+    {
+      "id": "chrono_maracas_m00_wp",
+      "gltf": "models/chrono_maracas_m00_wp.gltf",
+      "handness": 3,
+      "nativeHeight": 3.7,
+      "nativeLength": 15.8
+    },
+    {
+      "id": "chrono_tambourine_m00_wp",
+      "gltf": "models/chrono_tambourine_m00_wp.gltf",
+      "handness": 7,
+      "nativeHeight": 1.4,
+      "nativeLength": 13.5
+    },
+    {
+      "id": "composition_bow_m00_wp",
+      "gltf": "models/composition_bow_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 1.2,
+      "nativeLength": 45.5
+    },
+    {
+      "id": "crucifix_of_blessing_m00_wp",
+      "gltf": "models/crucifix_of_blessing_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.6,
+      "nativeLength": 29.7
+    },
+    {
+      "id": "dagger_m00_wp",
+      "gltf": "models/dagger_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 0.9,
+      "nativeLength": 18.9
+    },
+    {
+      "id": "doll_knife_m00_wp",
+      "gltf": "models/doll_knife_m00_wp.gltf",
+      "handness": 3,
+      "nativeHeight": 1.7,
+      "nativeLength": 16.7
+    },
+    {
+      "id": "doom_hammer_m00_wp",
+      "gltf": "models/doom_hammer_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 5.1,
+      "nativeLength": 33.3
+    },
+    {
+      "id": "fishing_rod_m00_wp",
+      "gltf": "models/fishing_rod_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 1.0,
+      "nativeLength": 101.0
+    },
+    {
+      "id": "foxs_nail_m00_wp",
+      "gltf": "models/foxs_nail_m00_wp.gltf",
+      "handness": 7,
+      "nativeHeight": 3.8,
+      "nativeLength": 11.2
+    },
+    {
+      "id": "krono_bow_m00_wp",
+      "gltf": "models/krono_bow_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 5.3,
+      "nativeLength": 42.3
+    },
+    {
+      "id": "leather_shield_m00_sh",
+      "gltf": "models/leather_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 13.1,
+      "nativeLength": 13.1
+    },
+    {
+      "id": "long_spear_m00_wp",
+      "gltf": "models/long_spear_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 1.6,
+      "nativeLength": 54.9
+    },
+    {
+      "id": "mace_m00_wp",
+      "gltf": "models/mace_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 4.6,
+      "nativeLength": 23.2
+    },
+    {
+      "id": "maingauche_m00_wp",
+      "gltf": "models/maingauche_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 3.5,
+      "nativeLength": 24.9
+    },
+    {
+      "id": "orcish_sword_m00_wp",
+      "gltf": "models/orcish_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.0,
+      "nativeLength": 22.4
+    },
+    {
+      "id": "pledge_shield_m00_sh",
+      "gltf": "models/pledge_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 13.5,
+      "nativeLength": 21.9
+    },
+    {
+      "id": "round_shield_m00_sh",
+      "gltf": "models/round_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 13.1,
+      "nativeLength": 13.1
+    },
+    {
+      "id": "scallop_jamadhr_m00_wp",
+      "gltf": "models/scallop_jamadhr_m00_wp.gltf",
+      "handness": 7,
+      "nativeHeight": 3.2,
+      "nativeLength": 10.9
+    },
+    {
+      "id": "short_bow_m00_wp",
+      "gltf": "models/short_bow_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 1.1,
+      "nativeLength": 23.3
+    },
+    {
+      "id": "short_spear_m00_wp",
+      "gltf": "models/short_spear_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 1.3,
+      "nativeLength": 44.0
+    },
+    {
+      "id": "single-edged_jamadhr_m00_wp",
+      "gltf": "models/single-edged_jamadhr_m00_wp.gltf",
+      "handness": 7,
+      "nativeHeight": 1.3,
+      "nativeLength": 11.9
+    },
+    {
+      "id": "small_shield_m00_sh",
+      "gltf": "models/small_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 10.7,
+      "nativeLength": 14.4
+    },
+    {
+      "id": "spike_glove_m00_wp",
+      "gltf": "models/spike_glove_m00_wp.gltf",
+      "handness": 7,
+      "nativeHeight": 3.0,
+      "nativeLength": 6.8
+    },
+    {
+      "id": "squires_sword_m00_wp",
+      "gltf": "models/squires_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.1,
+      "nativeLength": 21.3
+    },
+    {
+      "id": "sword_breaker_m00_wp",
+      "gltf": "models/sword_breaker_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 0.9,
+      "nativeLength": 17.8
+    },
+    {
+      "id": "sword_of_magic_m00_wp",
+      "gltf": "models/sword_of_magic_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.2,
+      "nativeLength": 32.7
+    },
+    {
+      "id": "sword_of_watershadow_m00_wp",
+      "gltf": "models/sword_of_watershadow_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.9,
+      "nativeLength": 31.9
+    },
+    {
+      "id": "training_gloves_m00_wp",
+      "gltf": "models/training_gloves_m00_wp.gltf",
+      "handness": 7,
+      "nativeHeight": 1.3,
+      "nativeLength": 4.9
+    },
+    {
+      "id": "voodoo_doll_m00_wp",
+      "gltf": "models/voodoo_doll_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 4.2,
+      "nativeLength": 14.4
+    },
+    {
+      "id": "aka_m00_wp",
+      "gltf": "models/aka_m00_wp.gltf",
+      "handness": 3,
+      "nativeHeight": 3.3,
+      "nativeLength": 46.1
+    },
+    {
+      "id": "aspis_m00_sh",
+      "gltf": "models/aspis_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 12.7,
+      "nativeLength": 16.6
+    },
+    {
+      "id": "atuba_hammer_m00_wp",
+      "gltf": "models/atuba_hammer_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 6.3,
+      "nativeLength": 42.8
+    },
+    {
+      "id": "atuba_mace_m00_wp",
+      "gltf": "models/atuba_mace_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 2.9,
+      "nativeLength": 26.5
+    },
+    {
+      "id": "bech_de_corbin_m00_wp",
+      "gltf": "models/bech_de_corbin_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 1.5,
+      "nativeLength": 56.3
+    },
+    {
+      "id": "big_hammer_m00_wp",
+      "gltf": "models/big_hammer_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 5.3,
+      "nativeLength": 20.7
+    },
+    {
+      "id": "blood_of_saints_m00_wp",
+      "gltf": "models/blood_of_saints_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 5.3,
+      "nativeLength": 29.7
+    },
+    {
+      "id": "bone_dagger_m00_wp",
+      "gltf": "models/bone_dagger_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 0.9,
+      "nativeLength": 17.8
+    },
+    {
+      "id": "bonebreaker_m00_wp",
+      "gltf": "models/bonebreaker_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.7,
+      "nativeLength": 32.2
+    },
+    {
+      "id": "branch_of_life_m00_wp",
+      "gltf": "models/branch_of_life_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.6,
+      "nativeLength": 34.1
+    },
+    {
+      "id": "bronze_shield_m00_sh",
+      "gltf": "models/bronze_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 13.1,
+      "nativeLength": 13.1
+    },
+    {
+      "id": "buffalo_horn_m00_wp",
+      "gltf": "models/buffalo_horn_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.3,
+      "nativeLength": 14.0
+    },
+    {
+      "id": "caliburs_m00_wp",
+      "gltf": "models/caliburs_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.6,
+      "nativeLength": 35.7
+    },
+    {
+      "id": "chrono_campana_m00_wp",
+      "gltf": "models/chrono_campana_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 7.7,
+      "nativeLength": 53.4
+    },
+    {
+      "id": "chrono_cithara_m00_wp",
+      "gltf": "models/chrono_cithara_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 6.0,
+      "nativeLength": 26.9
+    },
+    {
+      "id": "chrono_darbuka_m00_wp",
+      "gltf": "models/chrono_darbuka_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 12.2,
+      "nativeLength": 39.0
+    },
+    {
+      "id": "claymore_m00_wp",
+      "gltf": "models/claymore_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 1.8,
+      "nativeLength": 44.9
+    },
+    {
+      "id": "conjure_knife_m00_wp",
+      "gltf": "models/conjure_knife_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.2,
+      "nativeLength": 19.9
+    },
+    {
+      "id": "conjure_staff_m00_wp",
+      "gltf": "models/conjure_staff_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 7.8,
+      "nativeLength": 43.6
+    },
+    {
+      "id": "crokian_blade_m00_wp",
+      "gltf": "models/crokian_blade_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 7.0,
+      "nativeLength": 50.0
+    },
+    {
+      "id": "crucifix_of_blood_m00_wp",
+      "gltf": "models/crucifix_of_blood_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.9,
+      "nativeLength": 30.0
+    },
+    {
+      "id": "cyclone_bow_m00_wp",
+      "gltf": "models/cyclone_bow_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 0.9,
+      "nativeLength": 47.2
+    },
+    {
+      "id": "dailaon_knife_m00_wp",
+      "gltf": "models/dailaon_knife_m00_wp.gltf",
+      "handness": 6,
+      "nativeHeight": 4.2,
+      "nativeLength": 38.2
+    },
+    {
+      "id": "dark_crystal_shield_m00_sh",
+      "gltf": "models/dark_crystal_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 14.1,
+      "nativeLength": 25.6
+    },
+    {
+      "id": "death_knight_blader_m00_wp",
+      "gltf": "models/death_knight_blader_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 3.2,
+      "nativeLength": 103.6
+    },
+    {
+      "id": "demon_fangs_m00_wp",
+      "gltf": "models/demon_fangs_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 4.0,
+      "nativeLength": 25.7
+    },
+    {
+      "id": "duskk_shield_m00_sh",
+      "gltf": "models/duskk_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 54.7,
+      "nativeLength": 71.3
+    },
+    {
+      "id": "dwarven_chain_shield_m00_sh",
+      "gltf": "models/dwarven_chain_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 10.7,
+      "nativeLength": 14.4
+    },
+    {
+      "id": "dwarven_pike_m00_wp",
+      "gltf": "models/dwarven_pike_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 1.5,
+      "nativeLength": 53.9
+    },
+    {
+      "id": "dwarven_trident_m00_wp",
+      "gltf": "models/dwarven_trident_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 1.7,
+      "nativeLength": 57.0
+    },
+    {
+      "id": "elven_bow_m00_wp",
+      "gltf": "models/elven_bow_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 0.9,
+      "nativeLength": 43.0
+    },
+    {
+      "id": "elven_long_sword_m00_wp",
+      "gltf": "models/elven_long_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.1,
+      "nativeLength": 36.9
+    },
+    {
+      "id": "flower_m00",
+      "gltf": "models/flower_m00.gltf",
+      "handness": 1,
+      "nativeHeight": 54.7,
+      "nativeLength": 71.3
+    },
+    {
+      "id": "ghost_staff_m00_wp",
+      "gltf": "models/ghost_staff_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 5.0,
+      "nativeLength": 44.2
+    },
+    {
+      "id": "giant_bar_m00_wp",
+      "gltf": "models/giant_bar_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 18.2,
+      "nativeLength": 68.4
+    },
+    {
+      "id": "giant_rod_m00_wp",
+      "gltf": "models/giant_rod_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 9.9,
+      "nativeLength": 94.1
+    },
+    {
+      "id": "giants_hammer_m00_wp",
+      "gltf": "models/giants_hammer_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 7.2,
+      "nativeLength": 40.9
+    },
+    {
+      "id": "giants_sword_m00_wp",
+      "gltf": "models/giants_sword_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 1.5,
+      "nativeLength": 46.5
+    },
+    {
+      "id": "glaive_m00_wp",
+      "gltf": "models/glaive_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 6.0,
+      "nativeLength": 56.0
+    },
+    {
+      "id": "goathead_staff_m00_wp",
+      "gltf": "models/goathead_staff_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 3.4,
+      "nativeLength": 40.2
+    },
+    {
+      "id": "guard_spear_m00_wp",
+      "gltf": "models/guard_spear_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 1.6,
+      "nativeLength": 68.8
+    },
+    {
+      "id": "hammer_in_flames_m00_wp",
+      "gltf": "models/hammer_in_flames_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 4.5,
+      "nativeLength": 45.1
+    },
+    {
+      "id": "hand_axe_m00_wp",
+      "gltf": "models/hand_axe_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.1,
+      "nativeLength": 20.6
+    },
+    {
+      "id": "handiwork_dagger_m00_wp",
+      "gltf": "models/handiwork_dagger_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.6,
+      "nativeLength": 21.6
+    },
+    {
+      "id": "handmade_sword_m00_wp",
+      "gltf": "models/handmade_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 0.6,
+      "nativeLength": 20.0
+    },
+    {
+      "id": "heavy_bone_club_m00_wp",
+      "gltf": "models/heavy_bone_club_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.8,
+      "nativeLength": 30.2
+    },
+    {
+      "id": "heavy_chisel_m00_wp",
+      "gltf": "models/heavy_chisel_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.4,
+      "nativeLength": 26.5
+    },
+    {
+      "id": "heavy_sword_m00_wp",
+      "gltf": "models/heavy_sword_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 2.5,
+      "nativeLength": 39.8
+    },
+    {
+      "id": "hunting_bow_m00_wp",
+      "gltf": "models/hunting_bow_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 2.2,
+      "nativeLength": 33.1
+    },
+    {
+      "id": "iron_sword_m00_wp",
+      "gltf": "models/iron_sword_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 2.1,
+      "nativeLength": 47.8
+    },
+    {
+      "id": "kite_shield_m00_sh",
+      "gltf": "models/kite_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 12.6,
+      "nativeLength": 22.1
+    },
+    {
+      "id": "knife_o'_silenus_m00_wp",
+      "gltf": "models/knife_o'_silenus_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.1,
+      "nativeLength": 25.1
+    },
+    {
+      "id": "ladys_fan_m00_wp",
+      "gltf": "models/ladys_fan_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.2,
+      "nativeLength": 17.8
+    },
+    {
+      "id": "lancia_m00_wp",
+      "gltf": "models/lancia_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 2.1,
+      "nativeLength": 62.7
+    },
+    {
+      "id": "life_stick_m00_wp",
+      "gltf": "models/life_stick_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.9,
+      "nativeLength": 44.4
+    },
+    {
+      "id": "lizardspear_m00_wp",
+      "gltf": "models/lizardspear_m00_wp.gltf",
+      "handness": 6,
+      "nativeHeight": 1.3,
+      "nativeLength": 41.0
+    },
+    {
+      "id": "long_bow_m00_wp",
+      "gltf": "models/long_bow_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 0.9,
+      "nativeLength": 46.6
+    },
+    {
+      "id": "mace_of_judgment_m00_wp",
+      "gltf": "models/mace_of_judgment_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 4.9,
+      "nativeLength": 26.3
+    },
+    {
+      "id": "mace_of_miracle_m00_wp",
+      "gltf": "models/mace_of_miracle_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 6.6,
+      "nativeLength": 26.3
+    },
+    {
+      "id": "mace_of_priest_m00_wp",
+      "gltf": "models/mace_of_priest_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.3,
+      "nativeLength": 32.0
+    },
+    {
+      "id": "manaf_m00_wp",
+      "gltf": "models/manaf_m00_wp.gltf",
+      "handness": 3,
+      "nativeHeight": 2.0,
+      "nativeLength": 35.0
+    },
+    {
+      "id": "mithril_dagger_m00_wp",
+      "gltf": "models/mithril_dagger_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.6,
+      "nativeLength": 21.6
+    },
+    {
+      "id": "mon_follower_of_frintessa_calibur_m00_wp",
+      "gltf": "models/mon_follower_of_frintessa_calibur_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 17.0,
+      "nativeLength": 154.3
+    },
+    {
+      "id": "morning_star_m00_wp",
+      "gltf": "models/morning_star_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 8.4,
+      "nativeLength": 22.7
+    },
+    {
+      "id": "mystic_knife_m00_wp",
+      "gltf": "models/mystic_knife_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 0.9,
+      "nativeLength": 16.4
+    },
+    {
+      "id": "mystic_staff_m00_wp",
+      "gltf": "models/mystic_staff_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 1.7,
+      "nativeLength": 50.1
+    },
+    {
+      "id": "nos_sword_m00_wp",
+      "gltf": "models/nos_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.3,
+      "nativeLength": 80.7
+    },
+    {
+      "id": "parhit_staff_m00_wp",
+      "gltf": "models/parhit_staff_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 22.3,
+      "nativeLength": 96.4
+    },
+    {
+      "id": "plate_shield_m00_sh",
+      "gltf": "models/plate_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 12.7,
+      "nativeLength": 19.6
+    },
+    {
+      "id": "proof_of_revenge_m00_wp",
+      "gltf": "models/proof_of_revenge_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 4.2,
+      "nativeLength": 27.6
+    },
+    {
+      "id": "scalpel_m00_wp",
+      "gltf": "models/scalpel_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 3.4,
+      "nativeLength": 30.2
+    },
+    {
+      "id": "scroll_of_wisdom_m00_wp",
+      "gltf": "models/scroll_of_wisdom_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.4,
+      "nativeLength": 11.1
+    },
+    {
+      "id": "sickle_m00_wp",
+      "gltf": "models/sickle_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.2,
+      "nativeLength": 18.5
+    },
+    {
+      "id": "silenos_blowgun_m00_wp",
+      "gltf": "models/silenos_blowgun_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 5.1,
+      "nativeLength": 32.5
+    },
+    {
+      "id": "skeleton_buckler_m00_sh",
+      "gltf": "models/skeleton_buckler_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 13.1,
+      "nativeLength": 13.1
+    },
+    {
+      "id": "skull_breaker_m00_wp",
+      "gltf": "models/skull_breaker_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 4.0,
+      "nativeLength": 19.9
+    },
+    {
+      "id": "small_sword_m00_wp",
+      "gltf": "models/small_sword_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 0.6,
+      "nativeLength": 23.9
+    },
+    {
+      "id": "square_shield_m00_sh",
+      "gltf": "models/square_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 12.2,
+      "nativeLength": 22.8
+    },
+    {
+      "id": "strengthening_long_bow_m00_wp",
+      "gltf": "models/strengthening_long_bow_m00_wp.gltf",
+      "handness": 5,
+      "nativeHeight": 2.3,
+      "nativeLength": 60.3
+    },
+    {
+      "id": "sword_of_delusion_m00_wp",
+      "gltf": "models/sword_of_delusion_m00_wp.gltf",
+      "handness": 3,
+      "nativeHeight": 3.9,
+      "nativeLength": 39.5
+    },
+    {
+      "id": "sword_of_magic_fog_m00_wp",
+      "gltf": "models/sword_of_magic_fog_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.1,
+      "nativeLength": 38.7
+    },
+    {
+      "id": "sword_of_mystic_m00_wp",
+      "gltf": "models/sword_of_mystic_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.2,
+      "nativeLength": 32.7
+    },
+    {
+      "id": "sword_of_occult_m00_wp",
+      "gltf": "models/sword_of_occult_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.2,
+      "nativeLength": 32.7
+    },
+    {
+      "id": "sword_of_priest_m00_wp",
+      "gltf": "models/sword_of_priest_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 0.9,
+      "nativeLength": 29.9
+    },
+    {
+      "id": "sword_of_revolution_m00_wp",
+      "gltf": "models/sword_of_revolution_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.4,
+      "nativeLength": 36.5
+    },
+    {
+      "id": "tarbar_m00_wp",
+      "gltf": "models/tarbar_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.9,
+      "nativeLength": 33.1
+    },
+    {
+      "id": "tears_of_eva_m00_wp",
+      "gltf": "models/tears_of_eva_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 2.4,
+      "nativeLength": 20.3
+    },
+    {
+      "id": "temple_axe_m00_wp",
+      "gltf": "models/temple_axe_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 4.0,
+      "nativeLength": 94.0
+    },
+    {
+      "id": "temple_spear_m00_wp",
+      "gltf": "models/temple_spear_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 3.9,
+      "nativeLength": 87.3
+    },
+    {
+      "id": "temptation_of_abyss_m00_wp",
+      "gltf": "models/temptation_of_abyss_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 7.2,
+      "nativeLength": 30.2
+    },
+    {
+      "id": "throw_knife_m00_wp",
+      "gltf": "models/throw_knife_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 0.7,
+      "nativeLength": 17.8
+    },
+    {
+      "id": "tomb_cudgel_m00_wp",
+      "gltf": "models/tomb_cudgel_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 30.2,
+      "nativeLength": 53.9
+    },
+    {
+      "id": "tomb_mace_m00_wp",
+      "gltf": "models/tomb_mace_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 30.8,
+      "nativeLength": 60.7
+    },
+    {
+      "id": "tome_of_blood_m00_wp",
+      "gltf": "models/tome_of_blood_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 1.6,
+      "nativeLength": 22.5
+    },
+    {
+      "id": "tower_shield_m00_sh",
+      "gltf": "models/tower_shield_m00_sh.gltf",
+      "handness": 0,
+      "nativeHeight": 11.8,
+      "nativeLength": 19.2
+    },
+    {
+      "id": "trident_m00_wp",
+      "gltf": "models/trident_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 2.0,
+      "nativeLength": 54.3
+    },
+    {
+      "id": "unique_zariche_m00_wp",
+      "gltf": "models/unique_zariche_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 8.9,
+      "nativeLength": 60.7
+    },
+    {
+      "id": "wgiant_spear_m00_wp",
+      "gltf": "models/wgiant_spear_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 3.6,
+      "nativeLength": 55.9
+    },
+    {
+      "id": "willow_staff_m00_wp",
+      "gltf": "models/willow_staff_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 2.7,
+      "nativeLength": 38.9
+    },
+    {
+      "id": "winged_spear_m00_wp",
+      "gltf": "models/winged_spear_m00_wp.gltf",
+      "handness": 4,
+      "nativeHeight": 1.6,
+      "nativeLength": 54.8
+    },
+    {
+      "id": "work_hammer_m00_wp",
+      "gltf": "models/work_hammer_m00_wp.gltf",
+      "handness": 1,
+      "nativeHeight": 4.3,
+      "nativeLength": 24.2
+    },
+    {
+      "id": "zweihander_m00_wp",
+      "gltf": "models/zweihander_m00_wp.gltf",
+      "handness": 2,
+      "nativeHeight": 1.4,
+      "nativeLength": 39.6
+    }
+  ]
+}
