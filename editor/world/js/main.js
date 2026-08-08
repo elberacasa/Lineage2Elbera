@@ -20,6 +20,17 @@ import { audio } from './audio.js';
 import { gameSound } from './gamesound.js';
 import { worldAudio } from './worldaudio.js';
 import { loadEquipment } from './equipment.js';
+import { L2Window } from './ui/window.js';
+import { UI_WINDOW_SOUND } from './gamesound.js';
+
+// Window open/close sounds. Injected rather than imported: js/ui/** must not
+// depend on the 3D engine (audio.js imports three, and verify_ui.js loads the
+// UI modules on a page with no importmap), so main.js — which already owns
+// both sides — supplies the hook.
+L2Window.soundHook = (winName, i) => {
+  const pair = UI_WINDOW_SOUND[winName] || UI_WINDOW_SOUND._default;
+  if (pair && pair[i]) audio.play2D(pair[i], { bus: 'ui' });
+};
 import { CharSheet } from './charsheet.js';
 import { MenuWnd, SystemMenuWnd } from './ui/menuwnd.js';
 import { TargetStatusWnd } from './ui/targetstatuswnd.js';
@@ -348,6 +359,12 @@ const _headPos = new THREE.Vector3();
 // Shots the server has confirmed as automatic, by ITEM id. The shortcut bar
 // marks by inventory objectId, so the mapping is recomputed rather than stored:
 // a stack can be split or consumed and its object ids change under us.
+// Last right-hand item id seen on a charSheet. null until the first one, so
+// logging in wearing a sword does not play an equip sound for gear you were
+// already holding.
+let lastRhand = null;
+// scratch for the drop sound's world position (audio.playAt snapshots it)
+const _dropSndPos = new THREE.Vector3();
 const activeShotItems = new Set();
 function refreshShotMarks() {
   if (!shortcutWnd) return;
@@ -511,9 +528,16 @@ net.on('charSheet', (msg) => {
   // ...and how an equip/unequip reaches the hand: the paperdoll rides the same
   // UserInfo, so swapping a weapon in a shop updates the model with no extra op
   if (character && msg.paperdoll) {
-    character.setWeapon(msg.paperdoll.rhand);
+    // UserInfo re-sends constantly, so the equip sound must fire on an actual
+    // change of weapon, not on every packet.
+    const rh = msg.paperdoll.rhand;
+    if (rh !== lastRhand) {
+      if (lastRhand !== null && rh) gameSound.equip(rh);
+      lastRhand = rh;
+    }
+    character.setWeapon(rh);
     character.setOffhand(msg.paperdoll.lhand);  // shields, dual-wield second blade
-    gameSound.setWeapon(msg.paperdoll.rhand);   // weapon impact sounds follow the weapon
+    gameSound.setWeapon(rh);                    // impact sounds follow the weapon
   }
   if (document.getElementById('charsheet-panel').classList.contains('visible')) {
     sheetPanel.render();
@@ -1146,6 +1170,13 @@ net.on('addNpc', (msg) => {
 // server routes to pickup. Despawn rides the shared 'remove' op.
 net.on('addDrop', (msg) => {
   itemMeta().then(meta => entities.addDrop(msg, itemInfo(meta, msg.itemId).name, terrain));
+  // weapongrp carries a drop_sound per item; it lands where the item lands.
+  // The entity itself is created inside the async branch above, so the
+  // position comes from the message rather than from a lookup that would
+  // still return null here.
+  if (msg.x != null) {
+    gameSound.drop(msg.itemId, l2ToThree(msg.x, msg.y, msg.z, _dropSndPos));
+  }
 });
 net.on('move', (msg) => {
   if (msg.id === selfId && character) {
@@ -1207,6 +1238,10 @@ net.on('attack', (msg) => {
   if (pos) combat.damage(pos, msg);
   // the blow: impact on the victim + its cry, and our weapon when we swung it
   if (pos) gameSound.attack(msg, pos, selfId);
+  // the attacker's own swing (npcgrp attack_sound), at the attacker — a
+  // separate bank from the impact, and it belongs at the other end of the blow
+  const swingPos = entityHeadPos(msg.id);
+  if (swingPos) gameSound.swing(msg.id, swingPos);
   // soulshot: the SS bit rides the blow (Attack.HITFLAG_SS) — there is no
   // separate packet, so this is the only moment a shot is observable
   if (msg.soulshot) {

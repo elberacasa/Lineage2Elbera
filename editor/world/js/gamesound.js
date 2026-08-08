@@ -197,10 +197,14 @@ export const UI_SOUND = {
   close:          'interfacesound.system_close_01',
 };
 
-// Window title -> its own open/close pair where the bank provides one.
+// Window -> its [open, close] pair. Keyed by the SAME winName the geometry is
+// mined under, so the key set is the xdat's, not one invented here. The bank
+// ships a dedicated pair for exactly three windows plus the system pair;
+// everything else falls back to system, which is what retail does with the
+// windows it gave no sound of their own.
 export const UI_WINDOW_SOUND = {
-  CharSheet:     ['interfacesound.charstat_open_01',   'interfacesound.charstat_close_01'],
+  _default:      ['interfacesound.system_open_01',     'interfacesound.system_close_01'],
   InventoryWnd:  ['interfacesound.inventory_open_01',  'interfacesound.inventory_close_01'],
   MinimapWnd:    ['interfacesound.map_open_01',        'interfacesound.map_close_01'],
-  SystemMenuWnd: ['interfacesound.system_open_01',     'interfacesound.system_close_01'],
+  CharSheet:     ['interfacesound.charstat_open_01',   'interfacesound.charstat_close_01'],
 };

@@ -123,6 +123,7 @@ export class L2Window {
     body.style.boxSizing = 'border-box';
     body.style.height = `${Skin.px(height)}px`;
     root.appendChild(body);
+    this.winName = winName;
     this.body = body;
 
     // The frame art goes on its OWN layer, not on the body.
@@ -223,8 +224,34 @@ export class L2Window {
     return this;
   }
 
-  show() { this.root.style.display = 'block'; return this; }
-  hide() { this.root.style.display = 'none'; return this; }
+  // Opening and closing a window makes a sound in retail, and the interface
+  // bank is explicit about which: charstat, inventory and map each have their
+  // own open/close pair, everything else uses the system pair. Mapping lives in
+  // gamesound.js UI_WINDOW_SOUND, keyed by the same winName the geometry is
+  // mined under. Only fires on an actual state change — show() is called on
+  // already-visible windows during layout.
+  show() {
+    const was = this.root.style.display;
+    this.root.style.display = 'block';
+    if (was === 'none') this._wndSound(0);
+    return this;
+  }
+
+  hide() {
+    const was = this.root.style.display;
+    this.root.style.display = 'none';
+    if (was !== 'none') this._wndSound(1);
+    return this;
+  }
+
+  // Injected by main.js, not imported. js/ui/** deliberately does not depend on
+  // the 3D engine — verify_ui.js loads these modules on a bare page with no
+  // three.js importmap, so an `import { audio }` here (audio.js imports three)
+  // breaks the whole UI suite. The boundary is real; the hook respects it.
+  _wndSound(i) {
+    const fn = L2Window.soundHook;
+    if (fn) fn(this.winName, i);
+  }
   get visible() { return this.root.style.display !== 'none'; }
   toggle(force) {
     const v = force ?? !this.visible;
