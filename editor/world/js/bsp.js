@@ -90,7 +90,12 @@ export class Bsp {
     try {
       // plain GET, not HEAD: editor/world/server.py implements GET only.
       const res = await fetch(url);
-      if (!res.ok) return null;              // tile ships no BSP
+      if (!res.ok) {
+        // drain the 404 body: an unread body leaves the request in flight
+        // and never lets the page reach networkidle0 (see bspfloor.js)
+        await res.arrayBuffer().catch(() => {});
+        return null;                         // tile ships no BSP
+      }
       text = await res.text();
     } catch {
       return null;

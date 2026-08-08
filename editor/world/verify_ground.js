@@ -80,10 +80,17 @@ const AUDIT = TILES.length ? TILES
             // correction defers those cells to the neighbor median
             // (terrain.geoDeferred, MESH_GEO_MAX_FIX) — metric A cannot
             // hold there by design.
+            // State 3 (added 2026-08-08) is the SAME exemption with harder
+            // evidence: the cell carries a decoded BSP floor that the
+            // geodata layer sits on (heightfix.js hazard 3), so geodata
+            // there describes the pavement, not the terrain, and the mesh
+            // is deliberately the natural ground under it. Asserting
+            // mesh == geodata on those cells is asserting the bug.
             const dgx = Math.round((wx - def.origin[0]) / def.spacing);
             const dgy = Math.round((wy - def.origin[1]) / def.spacing);
-            const deferred = w.terrain.geoDeferred
-              && w.terrain.geoDeferred[dgy * 256 + dgx] === 2;
+            const st = w.terrain.geoDeferred
+              ? w.terrain.geoDeferred[dgy * 256 + dgx] : 0;
+            const deferred = st === 2 || st === 3;
             if (slope < 0.3 && !deferred) {
               aTotal++;
               const d = Math.abs(meshY - gLow / L2);

@@ -47,9 +47,14 @@
 //   buffs       <- 3 timed effects + 1 toggle (Relax 226, a REAL toggle per
 //                  skilltypes.json) at enterChar; buffUpdate removes the
 //                  short one at +12s; casting Relax toggles its buff off/on
-//   skillCoolTime <- login snapshot at enterChar (skill 3, 10s reuse, 5s
-//                  left); useSkill's skillCast carries reuse ms (aCis
-//                  sends no SkillCoolTime on cast)
+//   skillCoolTime <- login snapshot at enterChar. The code sends reuse 600 /
+//                  remaining 300 SECONDS (deliberately long, so a suite can
+//                  observe the 50% sweep whenever it gets there); this header
+//                  used to claim "10s reuse, 5s left", which is 60x off and
+//                  never matched the payload. useSkill's skillCast carries
+//                  reuse in ms (aCis sends no SkillCoolTime on cast — the
+//                  reuse rides inside MagicSkillUse, confirmed live in
+//                  gateway/test/capture-skills.js)
 //   questList   <- sent at enterChar (Q1 cond1 + Q6 cond3, REAL names)
 //   questAbort  -> removes the quest and re-sends questList (server push)
 //   partyAsk    <- incoming invite (Aria), ON DEMAND via say "/partyask"

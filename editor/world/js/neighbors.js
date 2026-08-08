@@ -24,7 +24,8 @@
 import * as THREE from 'three';
 import { L2_TO_M, l2ToThree } from './coords.js';
 import { Geodata, GEO_ANCHOR_MAX } from './geodata.js';
-import { correctHeightsWithGeodata } from './terrain.js';
+import { BspFloor } from './bspfloor.js';
+import { correctHeightsWithGeodata } from './heightfix.js';
 
 // walking rule, same constant as terrain.js: a walker gains at most this
 // much in one step — taller layers are walls, not floors (L2 units). 48 =
@@ -54,6 +55,7 @@ export class NeighborTile {
     this.mesh = null;
     this.group = new THREE.Group();
     this.geodata = null;        // lazy — see ensureGeodata()
+    this.bspFloor = null;       // lazy, alongside geodata (bspfloor.js)
     this._geoPromise = null;
   }
 
@@ -271,9 +273,16 @@ export class NeighborTile {
   // first heightAtWorld that lands on this tile. Safe to call repeatedly.
   ensureGeodata() {
     if (!this._geoPromise) {
-      this._geoPromise = Geodata.load(this.baseUrl, this.def)
-        .then(g => {
+      // the BSP floor raster rides along: the correction and heightAtWorld
+      // both need it, and a neighbor that corrects differently from the
+      // center tile steps the walker at the border (see heightfix.js)
+      this._geoPromise = Promise.all([
+        Geodata.load(this.baseUrl, this.def),
+        BspFloor.load(this.baseUrl).catch(() => null),
+      ])
+        .then(([g, bf]) => {
           this.geodata = g;
+          this.bspFloor = bf;
           if (g) this._applyGeodataCorrection();
           return g;
         })
@@ -296,7 +305,8 @@ export class NeighborTile {
     const heightScale = def.heightScale ?? 0.296875;
     const origin = def.origin || [0, 0, 0];
     const r = correctHeightsWithGeodata(
-      this.heights, g, def.spacing || 128, origin, heightScale, this.geodata);
+      this.heights, g, def.spacing || 128, origin, heightScale, this.geodata,
+      this.bspFloor);
     this.geoFixedCells = r.fixed;
     if (!this.mesh || r.fixed === 0) return;
     const n = MESH_RES;
@@ -334,12 +344,25 @@ export class NeighborTile {
     const v = this._sample(g, fx, fy);
     const terrainZ = origin[2] + (v - 32768) * heightScale;   // L2 units
     if (this.geodata) {
+      // and the same BSP-floor rule as Terrain._drawnGroundL2: over a slab
+      // the drawn ground is the slab, not the mesh under it
+      const xL2 = x / L2_TO_M, yL2 = -z / L2_TO_M;
+      let drawn = terrainZ;
+      if (this.bspFloor) {
+        const b = this.bspFloor.nearestAtWorld(
+          xL2, yL2, currentZ == null ? terrainZ : currentZ / L2_TO_M);
+        if (b != null && b > terrainZ) {
+          const gz = this.geodata.heightAt(xL2, yL2, b);
+          if (gz != null && Math.abs(gz - b) <= GEO_ANCHOR_MAX) drawn = b;
+        }
+      }
       const h = this.geodata.anchoredHeightAt(
-        x / L2_TO_M, -z / L2_TO_M,
+        xL2, yL2,
         currentZ == null ? null : currentZ / L2_TO_M,
         currentZ == null ? null : MAX_STEP_UP_L2,
-        terrainZ, GEO_ANCHOR_MAX);
+        drawn, GEO_ANCHOR_MAX);
       if (h != null) return h * L2_TO_M;
+      return drawn * L2_TO_M;
     }
     return terrainZ * L2_TO_M;
   }

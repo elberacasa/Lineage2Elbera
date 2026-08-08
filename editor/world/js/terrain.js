@@ -21,6 +21,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { L2_TO_M, l2ToThree } from './coords.js';
 import { Geodata, GEO_ANCHOR_MAX } from './geodata.js';
 import { Bsp } from './bsp.js';
+import { BspFloor } from './bspfloor.js';
+import { correctHeightsWithGeodata } from './heightfix.js';
 
 const UE_ROT_TO_RAD = (Math.PI * 2) / 65536;
 const PROP_CLUSTER_SIZE = 48;  // meters, instanced-prop cluster grid cell
@@ -29,137 +31,10 @@ const PROP_CLUSTER_SIZE = 48;  // meters, instanced-prop cluster grid cell
 // aCis's per-cell climb limit (GeoStructure.CELL_IGNORE_HEIGHT =
 // CELL_HEIGHT*6, consumed by GeoEngine's move validation).
 const MAX_STEP_UP_L2 = 48;
-// mesh correction: max allowed heightmap-vs-geodata deviation before the
-// geodata layer replaces the (stale) heightmap value (L2 units; 1m)
-const MESH_GEO_MAX_DEV = 100;
-// mesh correction: max deviation the correction may APPLY (L2 units; 2m).
-// Geodata covers walkable surfaces only — under a building there is NO
-// ground layer, so the layer-nearest-heightmap pick lands on a floor or the
-// roof. Verified on 22_22: every >100 deviation cell lacks a near layer;
-// the legit stale-rectangle repairs are ~1-2m, the rest are roofs/spires
-// (up to +22m — the giant "cone" walls over towns). Bigger deviations are
-// filled from trustworthy neighbors instead.
-const MESH_GEO_MAX_FIX = 200;
-// mesh correction: an accepted pick must belong to a 4-connected cluster of
-// at least this many grid cells. Geodata covers WALKABLE surfaces, so the
-// walkable TOPS of small structures (market stalls, carts, fences — 1-2m
-// above ground with no ground layer beneath them) also parse as accepted
-// picks and render as grass pyramids rising through the prop. Measured
-// across all 100 tiles: every verified legit stale-rectangle repair is a
-// broad zone >= 200 cells (22_22's Giran square = one 1196-cell cluster),
-// the structure tops cluster at <= 25 cells (90%+ sit on a placed prop).
-// Small clusters are demoted to the neighbor-median fill (state 2).
-const MESH_GEO_MIN_CLUSTER = 50;
-// ring radius (grid cells) for the neighbor-median ground fill above
-const MESH_GEO_FILL_R = 4;
-
-// Stale-rectangle heightmap correction, shared by the center tile (Terrain)
-// and the decimated neighbor meshes (neighbors.js). Some tiles carry STALE
-// heightmap rectangles: sharp axis-aligned zones (village squares) where the
-// .unr heightmap disagrees with geodata by meters, while server z, retail
-// spawn z and building props all agree with geodata (delta map: near-r=1
-// globally, rectangular defect zones). Retail ground truth there is geodata;
-// everywhere else the smooth heightmap wins. Rule: per grid point, when
-// |heightmap - geodata layer NEAREST the heightmap| exceeds MESH_GEO_MAX_DEV,
-// take that geodata layer (nearest picks the ground, never a roof layer).
-//
-// The roof hazard (verified on 22_22): geodata covers WALKABLE surfaces
-// only, so cells under a building have no ground layer at all — the nearest
-// pick lands on an interior floor or the roof (up to +22m, rendering as
-// giant terrain walls swallowing the town). So the pick is accepted only
-// within MESH_GEO_MAX_FIX (the documented defect size); beyond it the ground
-// comes from the median of trustworthy neighbors (uncorrected cells +
-// accepted picks) in a MESH_GEO_FILL_R ring.
-//
-// Mutates `heights` (Uint16Array gridSize*gridSize, G16 encoding) in place.
-// `geodata` must be a loaded Geodata (caller skips when null). Returns
-// { fixed, deferred, deferredCells }: fixed = cells rewritten (accepted
-// picks + ring fills), deferred = per-cell state array (2 = ring-filled
-// roof-hazard override), deferredCells = count of state-2 cells.
-export function correctHeightsWithGeodata(heights, gridSize, spacing, origin, heightScale, geodata) {
-  const g = gridSize;
-  const picks = new Float32Array(g * g);  // geodata candidate z per cell
-  const state = new Uint8Array(g * g);    // 0 keep-hm, 1 take-geo, 2 defer
-  const hmAt = (i) => origin[2] + (heights[i] - 32768) * heightScale;
-  for (let gy = 0; gy < g; gy++) {
-    for (let gx = 0; gx < g; gx++) {
-      const i = gy * g + gx;
-      const hm = hmAt(i);
-      const geo = geodata.heightAt(
-        origin[0] + gx * spacing,
-        origin[1] + gy * spacing, hm);
-      if (geo == null) continue;
-      const dev = Math.abs(geo - hm);
-      if (dev <= MESH_GEO_MAX_DEV) continue;
-      picks[i] = geo;
-      state[i] = dev <= MESH_GEO_MAX_FIX ? 1 : 2;
-    }
-  }
-  // demote structure-top picks (small 4-connected clusters, see
-  // MESH_GEO_MIN_CLUSTER) to the ring fill
-  const seen = new Uint8Array(g * g);
-  for (let i = 0; i < g * g; i++) {
-    if (state[i] !== 1 || seen[i]) continue;
-    const stack = [i];
-    seen[i] = 1;
-    const cluster = [];
-    while (stack.length) {
-      const c = stack.pop();
-      cluster.push(c);
-      const cx = c % g, cy = (c / g) | 0;
-      if (cx + 1 < g && state[c + 1] === 1 && !seen[c + 1]) {
-        seen[c + 1] = 1; stack.push(c + 1);
-      }
-      if (cx > 0 && state[c - 1] === 1 && !seen[c - 1]) {
-        seen[c - 1] = 1; stack.push(c - 1);
-      }
-      if (cy + 1 < g && state[c + g] === 1 && !seen[c + g]) {
-        seen[c + g] = 1; stack.push(c + g);
-      }
-      if (cy > 0 && state[c - g] === 1 && !seen[c - g]) {
-        seen[c - g] = 1; stack.push(c - g);
-      }
-    }
-    if (cluster.length < MESH_GEO_MIN_CLUSTER) {
-      for (const c of cluster) state[c] = 2;
-    }
-  }
-  let fixed = 0;
-  const R = MESH_GEO_FILL_R;
-  for (let gy = 0; gy < g; gy++) {
-    for (let gx = 0; gx < g; gx++) {
-      const i = gy * g + gx;
-      let z = null;
-      if (state[i] === 1) {
-        z = picks[i];
-      } else if (state[i] === 2) {
-        const ring = [];
-        for (let dy = -R; dy <= R; dy++) {
-          for (let dx = -R; dx <= R; dx++) {
-            const nx = gx + dx, ny = gy + dy;
-            if (nx < 0 || ny < 0 || nx >= g || ny >= g) continue;
-            const j = ny * g + nx;
-            if (state[j] === 0) ring.push(hmAt(j));
-            else if (state[j] === 1) ring.push(picks[j]);
-          }
-        }
-        ring.sort((a, b) => a - b);
-        // no trustworthy neighbor at all: keep the heightmap (terrain-like),
-        // never the roof pick
-        z = ring.length ? ring[ring.length >> 1] : hmAt(i);
-      }
-      if (z != null) {
-        heights[i] = Math.round(32768 + (z - origin[2]) / heightScale);
-        fixed++;
-      }
-    }
-  }
-  return {
-    fixed,
-    deferred: state,
-    deferredCells: state.reduce((n, s) => n + (s === 2 ? 1 : 0), 0),
-  };
-}
+// The stale-rectangle heightmap correction (and its three hazards, incl.
+// the BSP-pavement one) now lives in heightfix.js, dependency-free so the
+// browser and tools/world/verify_bspfloor.mjs run the same code. Both this
+// file and neighbors.js import it from there.
 
 // water planes (scene.json "water", tools/world/README.md): one repeat per
 // 128 L2 units (the terrain diffuse rule), alpha-blended, uv-scrolled by
@@ -209,6 +84,7 @@ export class Terrain {
     this.waterTex = null;   // shared water diffuse (uv-scrolled by main.js)
     this.fireLights = [];   // interior fire-prop point lights
     this.bsp = null;        // decoded level BSP (the buildings), or null
+    this.bspFloor = null;   // BSP floor raster (bspfloor.js), or null
   }
 
   // fallback interior detection: tiles whose props are (almost) all below
@@ -274,9 +150,13 @@ export class Terrain {
       this.interior = this._detectInterior();
     }
 
-    // geodata BEFORE the mesh: the stale-rectangle correction needs it
-    this.geodata = await Geodata.load(this.baseUrl, this.def)
-      .catch(() => null);                    // heightmap fallback on failure
+    // geodata AND the BSP floor raster BEFORE the mesh: the stale-rectangle
+    // correction needs both (heightfix.js hazard 3 — a town square is a
+    // stone slab over the natural ground, not a stale heightmap)
+    [this.geodata, this.bspFloor] = await Promise.all([
+      Geodata.load(this.baseUrl, this.def).catch(() => null),  // hm fallback
+      BspFloor.load(this.baseUrl).catch(() => null),
+    ]);
     this._correctHeights();
 
     if (!this.interior) await this._buildMesh();   // interiors: no terrain plane
@@ -295,16 +175,40 @@ export class Terrain {
     if (this.bsp) this.group.add(this.bsp.group);
   }
 
-  // Stale-rectangle correction: see correctHeightsWithGeodata (module
-  // scope, shared with the neighbor tiles in neighbors.js).
+  // Stale-rectangle correction: see heightfix.js (shared with the neighbor
+  // tiles in neighbors.js and with tools/world/verify_bspfloor.mjs).
   _correctHeights() {
     if (!this.geodata) return;
     const r = correctHeightsWithGeodata(
       this.heights, this.gridSize, this.spacing, this.origin, this.heightScale,
-      this.geodata);
+      this.geodata, this.bspFloor);
     this.geoFixedCells = r.fixed;
-    this.geoDeferred = r.deferred;   // 2 = ring-filled (roof-hazard override)
+    this.geoDeferred = r.deferred;   // 2 = ring-filled (roof-hazard override),
+                                     // 3 = BSP-floored (pavement above)
     this.geoDeferredCells = r.deferredCells;
+    this.geoBspCells = r.bspCells;
+  }
+
+  // The surface the player actually SEES at L2 (x, y): the terrain mesh,
+  // unless the level BSP floors that spot — a town square is a stone slab
+  // built over the natural ground, and over a slab the drawn ground is the
+  // slab. `terrainZ` is the mesh height there, `hintZ` the walker's current
+  // z (the multi-layer rule: which storey).
+  //
+  // Two guards, so this only fires where the slab really is the ground:
+  //   * the floor must be ABOVE the mesh (below it, the mesh is what shows);
+  //   * geodata must describe that floor — its nearest layer within
+  //     GEO_ANCHOR_MAX, the same measured geodata-over-surface band the
+  //     anchoring uses. One grid point outside the slab geodata drops to the
+  //     natural ground, the test fails, and the mesh takes over again, so
+  //     the raster's 128-unit sampling cannot leak the slab height outward.
+  _drawnGroundL2(xL2, yL2, terrainZ, hintZ) {
+    if (!this.bspFloor || !this.geodata) return terrainZ;
+    const b = this.bspFloor.nearestAtWorld(xL2, yL2, hintZ ?? terrainZ);
+    if (b == null || b <= terrainZ) return terrainZ;
+    const g = this.geodata.heightAt(xL2, yL2, b);
+    if (g == null || Math.abs(g - b) > GEO_ANCHOR_MAX) return terrainZ;
+    return b;
   }
 
   // -- grid -> world helpers ----------------------------------------------
@@ -371,17 +275,26 @@ export class Terrain {
     // that are walls (roofs/decks), not floors. 2m matches the steepest retail
     // stairs without letting a ground walker snap onto rooftops beside tall
     // buildings.
+    //
+    // "The terrain the client draws" is not always the terrain MESH: where
+    // the level BSP floors the world (a plaza slab, a building floor) the
+    // drawn ground is that floor, and the mesh is the natural ground hidden
+    // under it. _drawnGroundL2 is what anchors the walker onto the pavement
+    // instead of leaving it hovering the geodata offset above it.
     const s = L2_TO_M;
     const fx = (x / s - this.origin[0]) / this.spacing;
     const fy = (-z / s - this.origin[1]) / this.spacing;
     const terrainY = this._sampleBilinear(fx, fy);
     if (this.geodata) {
+      const drawn = this._drawnGroundL2(
+        x / s, -z / s, terrainY / s, currentZ == null ? null : currentZ / s);
       const h = this.geodata.anchoredHeightAt(
         x / s, -z / s,
         currentZ == null ? null : currentZ / s,
         currentZ == null ? null : MAX_STEP_UP_L2,
-        terrainY / s, GEO_ANCHOR_MAX);
+        drawn, GEO_ANCHOR_MAX);
       if (h != null) return h * s;
+      return drawn * s;
     }
     return terrainY;
   }

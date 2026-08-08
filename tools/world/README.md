@@ -276,30 +276,74 @@ Client-side verification: `node editor/world/verify_bsp.js` (before/after
 from one build via `?bsp=off`, plus numeric chunk/triangle/bounding-box
 assertions; shots in `editor/world/verify_shots/bsp_*`).
 
-### Open finding: the BSP floor vs the terrain mesh (NOT fixed here)
+### The BSP floor vs the terrain mesh — CLOSED 2026-08-08
 
 Measured on the Giran square (22_22, world x 82000 y 148000):
 
 | surface | z |
 |---|---|
-| raw `.unr` heightmap terrain | **−3600.8** |
-| decoded BSP pavement slab (`Giran_floor03`) top | **−3496** |
-| aCis geodata (walkable) | **−3464** |
-| terrain as the client renders it (after `correctHeightsWithGeodata`) | **−3464** |
+| raw `.unr` heightmap terrain (natural ground, UNDER the slab) | **-3600.8** |
+| decoded BSP pavement slab (`Giran_floor03`/`04`) top | **-3496** |
+| aCis geodata (walkable) | **-3464** |
+| terrain the client drew, before the fix | **-3464** |
+| terrain the client draws now | **-3600.8** |
+| where `heightAtWorld` puts the walker now | **-3496** (on the pavement) |
 
-So the retail town square is a BSP slab laid ~105 units above the natural
-ground, and geodata describes the slab top (+32), not the terrain. The
-client's stale-rectangle repair raises the terrain mesh to the geodata
-level, which now buries the newly decoded pavement by ~32 units. Two
-existing notes are affected and should be revisited by whoever owns the
-terrain/geodata correction: `docs/HANDOFF.md` "town floors painted with the
-base dirt are a retail fact" (the pavement is real — it is BSP, not a
-terrain layer) and the `MESH_GEO_*` heuristic in `terrain.js` (at the square
-the heightmap is not stale; the missing slab explained the deviation). This
-BSP work deliberately does **not** change the terrain correction — that
-would be a cross-cutting change to the walking router, and a depth nudge to
-make the slab win would be exactly the kind of magic offset this project
-forbids.
+A retail town square is a BSP slab laid ~105 units above the natural ground,
+and the geodata describes the SLAB (+32, the same measured
+geodata-over-drawn-surface band as anywhere else), not the terrain. The
+client's stale-rectangle repair read that gap as a stale heightmap and
+raised the terrain mesh onto it, burying the newly decoded pavement.
+
+Fixed by giving the correction the BSP as evidence:
+
+* **`bspfloor.py` -> `bspfloor.bin`** (sibling file, contract below) — per
+  terrain grid point, the Z of every upward-facing level-BSP surface.
+* **`editor/world/js/heightfix.js`** (the correction, moved out of
+  `terrain.js` and made dependency-free) gained hazard 3: a geodata pick
+  that matches a BSP floor is that floor's geodata, not a stale heightmap,
+  so the cell keeps the heightmap, capped under the slab.
+* **`Terrain.heightAtWorld` / `NeighborTile.heightAtWorld`** anchor onto the
+  BSP floor where one is the drawn ground, so the walker stands ON the
+  pavement instead of the geodata offset above it.
+
+Extent, measured over all 100 tiles with
+`node tools/world/verify_bspfloor.mjs`: **12,512 grid points on 47 tiles**
+had the correction drawn over a BSP floor the raw heightmap left visible
+(median burial 32.1 L2u, p95 548, max 4546; worst tiles 25_18 = 4036,
+22_22 = 1634, 24_18 = 1280, 24_16 = 941). After: **0** at grid resolution,
+and at 16-unit triangle resolution against `bsp.gltf` itself 22_22 goes
+130,404 → 0 sample points, 25_18 253,025 → 553, 24_18 84,078 → 2,109,
+20_22 3,485 → 804 — what is left is not the raster but the 128-unit mesh,
+which can still cross a slab edge by a few units between two capped
+vertices (22_22 measured median 2.9, max 24 L2u before it reached zero).
+
+What the old code called the legitimate stale-rectangle repair was mostly
+this bug: accepted geodata picks fall from **6,929 cells to 912**, and on
+22_22 the whole 1,196-cell "Giran square stale rectangle" turns out to be
+the slab. The remaining 912 are on tiles whose stale zone carries no BSP
+floor (26_14 keeps all 254, 24_18 keeps 163) plus the four BSP-less tiles,
+which are untouched.
+
+### bspfloor.bin contract (sibling file — the BSP floor raster)
+
+Written by `python3 tools/world/bspfloor.py --all` from the SHIPPED
+`bsp.gltf` (identity node transforms, raw L2 world units), gate
+`--check` (re-derives and compares byte for byte; 100/100 OK). One file per
+converted tile, ~83 KB average, 8.3 MB for the set.
+
+```
+u32  magic 'BSPF' 0x46505342
+u16  gridSize (256)        u16 maxLayers (15)
+i32  originX, originY      i32 spacing (128)
+then gridSize*gridSize records, row-major, gx FASTEST (heightmap.u16 order):
+  u8 count, count x i16 floor Z (L2 world, ASCENDING, deduped within 8)
+```
+
+A "floor" is a triangle whose geometric normal points up by at least 0.5;
+walls and undersides floor nothing. Heights are sampled at the grid points
+themselves (the terrain vertices), so the raster and the heightmap address
+exactly the same lattice.
 
 ## geodata.json contract (FROZEN)
 

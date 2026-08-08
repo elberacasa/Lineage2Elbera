@@ -236,6 +236,38 @@ worldZ(x,y)     = TerrainInfo.Location.Z + (h[x,y] - 32768) * TerrainScale.Z / 2
   `docs/tile-map.md`. 3 other tiles (17_23, 19_22, 21_16) carry real,
   smoothly varying height data.
 
+### 6.1 The heightmap is the NATURAL ground — the BSP floors sit ON it
+
+The heightmap is not "the ground the player sees" in a town. It is the
+terrain surface, and a town square is a stone slab **built on top of it** as
+level BSP (section 3.3). All three surfaces are simultaneously correct, and
+they are three different numbers. Measured at the Giran square (22_22,
+world x 82000 y 148000):
+
+| surface | z |
+|---|---|
+| `heightmap.u16` — natural ground, under the slab | **-3600.8** |
+| level BSP slab top (`Giran_floor03`/`Giran_floor04`) | **-3496** |
+| aCis geodata (walkable) | **-3464** |
+
+The geodata stands +32 over the SLAB, which is the same measured
+geodata-over-drawn-surface band (+26.9..+34.2, one CELL_HEIGHT wide) that
+holds over plain terrain in open country — see `editor/world/js/geodata.js`,
+`GEO_ANCHOR_MAX`. That is the evidence that at a town square the geodata is
+describing the pavement, not the heightmap: over 60,092 candidate cells on
+the 100 converted tiles, the gap `geodata pick - nearest BSP floor` spikes
+hard on +32 (4-unit bins: +28:4447 **+32:20027** +36:7074, falling to a
+~100/bin background by +48).
+
+Reading the heightmap as "wrong wherever it disagrees with geodata by
+metres" therefore mis-reads every town square: the client's stale-rectangle
+correction did exactly that and drew dirt terrain over 11,942 grid points of
+decoded pavement on 47 tiles. The per-grid-point BSP floor heights are now
+extracted to `assets/world/<tile>/bspfloor.bin`
+(`tools/world/bspfloor.py`, contract in `tools/world/README.md`) and the
+correction consults them — `editor/world/js/heightfix.js`, hazard 3.
+Re-runnable measurement: `node tools/world/verify_bspfloor.mjs`.
+
 Extraction tool: `tools/maps/unrmap.py terrain <tile>` →
 `tools/maps/out/<tile>.heightmap.{u16,png,json}` (raw LE u16, normalized
 PNG, world-space vertex-grid JSON). Rendered PNGs of 21_16 and 19_22 were
