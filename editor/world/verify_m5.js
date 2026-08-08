@@ -71,13 +71,27 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     });
 
     // -- char sheet ----------------------------------------------------------
+    // Alt+T is now the mined DetailStatusWnd, not the authored #charsheet-panel
+    // (#charsheet-panel survives as the flag main.js reads, and .sheet-body is
+    // gone with the authored markup). The deep assertions live in
+    // verify_detailstatuswnd.js; this only checks the M5 wiring still opens it
+    // and that the payload reaches its boxes. Bitmap-font text is read back off
+    // Font.set's __l2text stamp, not textContent.
     await page.keyboard.press('KeyC');
     await sleep(500);
-    summary.charSheet = await page.evaluate(() => ({
-      visible: document.getElementById('charsheet-panel').classList.contains('visible'),
-      text: document.querySelector('.sheet-body').textContent.slice(0, 200),
-      str: window.__world.charSheet.str, pAtk: window.__world.charSheet.pAtk,
-    }));
+    summary.charSheet = await page.evaluate(() => {
+      const root = document.getElementById('l2-detailstatuswnd');
+      const box = (n) => {
+        const el = root && root.querySelector(`[data-ctrl="${n}"]`);
+        return el && typeof el.__l2text === 'string' ? el.__l2text.split('|')[0] : '';
+      };
+      return {
+        visible: !!root && root.style.display !== 'none',
+        text: ['txtHeadSTR', 'txtSTR', 'txtHeadPhysicalAttack', 'txtPhysicalAttack']
+          .map(box).join(' '),
+        str: window.__world.charSheet.str, pAtk: window.__world.charSheet.pAtk,
+      };
+    });
     await page.screenshot({ path: path.join(OUT, 'm5_02_charsheet.png') });
     await page.keyboard.press('KeyC');
 

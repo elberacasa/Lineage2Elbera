@@ -42,6 +42,56 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     }));
     await page.screenshot({ path: path.join(OUT, 'sw_01_empty.png') });
 
+    // -- the retail plate is PAINTED, and the slots sit in its wells --------
+    //
+    // This is the regression this suite did not catch before. The bar was
+    // rendering with NO background at all: ShortcutWndHorizontal's texture
+    // list opens with the intra-UI control ref `ShortcutWnd.ShortcutWndVertical`,
+    // which resolves to no sprite, and Skin.apply answers an unknown ref with
+    // `background: none`. Every slot origin was still exactly right, so a
+    // geometry-only check stayed green while the window was a bare rectangle
+    // of CSS boxes. Assert the ART, against the mined placement.
+    const wells = JSON.parse(fs.readFileSync(
+      path.join(__dirname, 'ui/shortcutslots.json'), 'utf8'))
+      .orientations.ShortcutWndHorizontal;
+    summary.plate = await page.evaluate(() => {
+      const root = document.getElementById('l2-shortcutwnd');
+      const bar = root.firstElementChild;
+      const back = bar.firstElementChild;
+      const rb = bar.getBoundingClientRect();
+      const rp = back.getBoundingClientRect();
+      const slot = root.querySelector('.shortcut-slot').getBoundingClientRect();
+      const cs = getComputedStyle(root.querySelector('.shortcut-slot'));
+      return {
+        image: getComputedStyle(back).backgroundImage,
+        x: Math.round(rp.x - rb.x), y: Math.round(rp.y - rb.y),
+        w: Math.round(rp.width), h: Math.round(rp.height),
+        slotX: Math.round(slot.x - rb.x), slotY: Math.round(slot.y - rb.y),
+        slotW: Math.round(slot.width),
+        // the slot must not paint its own box over the well the plate draws
+        slotBg: cs.backgroundImage, slotBorder: cs.borderTopWidth,
+        slotRadius: cs.borderTopLeftRadius,
+      };
+    });
+    const p = summary.plate;
+    summary.plateChecks = {
+      'background is the mined shortcut_back sprite':
+        /shortcut_back\.png/.test(p.image),
+      'plate is drawn at its measured size, not the window size':
+        p.w === wells.artWidth && p.h === wells.artHeight,
+      'plate sits at the mined art offset':
+        p.x === wells.artOffsetX && p.y === wells.artOffsetY,
+      'slot 1 lands in the plate\'s first well':
+        p.slotX === wells.slotOrigins[0] + wells.iconInset
+        && p.slotY === wells.slotShort + wells.iconInset,
+      'the icon box is the well interior (32px)': p.slotW === wells.iconCell,
+      'slots paint no box of their own over the retail well':
+        p.slotBg === 'none' && p.slotBorder === '0px' && p.slotRadius === '0px',
+    };
+    for (const [k, v] of Object.entries(summary.plateChecks)) {
+      if (!v) summary.consoleLogs.push(`PLATE CHECK FAILED: ${k}`);
+    }
+
     // -- assign: right-click a skill in the SkillWnd, right-click an item ----
     await page.keyboard.down('Alt'); await page.keyboard.press('k'); await page.keyboard.up('Alt');
     await sleep(600);
@@ -210,4 +260,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await browser.close();
   }
   console.log(JSON.stringify(summary, null, 2));
+  const bad = Object.entries(summary.plateChecks || {}).filter(([, v]) => !v);
+  if (bad.length) {
+    console.error('VERIFY SHORTCUT FAILED: ' + bad.map(([k]) => k).join('; '));
+    process.exit(1);
+  }
+  console.log('VERIFY SHORTCUT: PASS');
 })().catch(e => { console.error('VERIFY SHORTCUT FAILED:', e.message); process.exit(1); });
