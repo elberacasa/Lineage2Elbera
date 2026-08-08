@@ -1212,25 +1212,82 @@ net.on('addDrop', (msg) => {
     gameSound.drop(msg.itemId, l2ToThree(msg.x, msg.y, msg.z, _dropSndPos));
   }
 });
+// MoveToLocation — a walk ORDER: a destination (tx,ty,tz) AND the mover's
+// current server position (x,y,z). The two used to arrive as one field pair
+// (destination only), shared with teleports and position corrections; they are
+// now three separate ops because they mean three different things.
 net.on('move', (msg) => {
   if (msg.id === selfId && character) {
     // Self-reconcile policy (click-walk and streamed WASD legs both ride
     // the moveTo op):
     // - while a walk target is active, the server broadcast is a
     //   walk order -> adopt it as our target (server-adjusted destination)
-    // - if the server position disagrees by > 5 m (teleport/respawn/
-    //   enterWorld), snap to it
-    // - otherwise (ValidateLocation drift) ignore it
+    // - if the server position disagrees by > 5 m, snap to it
     const p = l2ToThree(msg.tx || 0, msg.ty || 0, msg.tz || 0);
-    const d = p.distanceTo(character.group.position);
+    // The order is answered from where the SERVER has us, which is the honest
+    // measure of drift — the destination is not a position.
+    const here = (msg.x != null && msg.y != null && msg.z != null)
+      ? l2ToThree(msg.x, msg.y, msg.z) : null;
+    const d = (here || p).distanceTo(character.group.position);
+    if (here && d > 5) {
+      character.group.position.x = here.x;
+      character.group.position.z = here.z;
+      character.group.position.y = heightRouter.heightAtWorld(
+        here.x, here.z, character.group.position.y);
+    }
     if (character.target) character.setTarget(p);
-    else if (d > 5) {
+    else if (!here && d > 5) {
       character.group.position.copy(p);
       character.clearTarget();
     }
     return;
   }
-  entities.move(msg);
+  entities.move(msg, heightRouter);
+});
+// TeleportToLocation — NOT a walk order. Collapsing it into `move` made a
+// teleport arriving mid-walk into a destination the character WALKED to;
+// measured live (verify-movement.js C1/C2), the server sends 0x28 and the
+// character is at the point on the next position sample, 2121 units from where
+// it had been walking.
+net.on('teleport', (msg) => {
+  const p = l2ToThree(msg.x || 0, msg.y || 0, msg.z || 0);
+  if (msg.id === selfId && character) {
+    moveQueue.length = 0;         // legs in flight are for the old location
+    pendingGoal = null;
+    wasdLeg = null;
+    character.clearTarget();
+    character.group.position.x = p.x;
+    character.group.position.z = p.z;
+    character.group.position.y = heightRouter.heightAtWorld(p.x, p.z, p.y);
+    // The click marker is deliberately left alone: MarkProjector's own Timer()
+    // is what detaches it (10 s), and whether retail clears it on a teleport is
+    // not something this repo can source.
+    return;
+  }
+  entities.place(msg, heightRouter);
+});
+// ValidateLocation — a position correction, again with no destination. aCis
+// sends it to the client whose ValidatePosition desynced, on knockback
+// (Pdam/InstantJump/EffectThrowUp) and for a newly targeted creature.
+net.on('validate', (msg) => {
+  const p = l2ToThree(msg.x || 0, msg.y || 0, msg.z || 0);
+  if (msg.id === selfId && character) {
+    if (p.distanceTo(character.group.position) > 5) {
+      character.group.position.x = p.x;
+      character.group.position.z = p.z;
+      character.group.position.y = heightRouter.heightAtWorld(p.x, p.z, p.y);
+      // The walk target is deliberately KEPT: ValidateLocation states a
+      // position and says nothing about movement, and aCis does not stop the
+      // character when it sends one. Clearing it would leave the drawn body
+      // standing while the server walked on, with no later packet to correct
+      // it; keeping it can only overshoot, which the next MoveToLocation
+      // fixes. (Self ValidateLocation is rare today — the gateway sends no
+      // ValidatePosition, see gameclient.validatePosition — so this is the
+      // conservative choice, not a measured one.)
+    }
+    return;
+  }
+  entities.place(msg, heightRouter);
 });
 net.on('remove', (msg) => {
   if (combat.targetId === msg.id) combat.clearTarget();
@@ -1537,11 +1594,13 @@ async function loadCharacter(id) {
   // `if (character) character.setSpeeds(msg)` found nothing and the speeds
   // AND the walk/run stance were dropped on the floor. Measured live
   // 2026-08-08: charSheet said runSpeed 122 / walkSpeed 85 / running true and
-  // the character was still carrying the offline fallbacks 115/80 with
-  // forcedMoveAnim undefined, so every leg shorter than the RUN_THRESHOLD
-  // guess walked at 0.80 m/s while the server ran it at 1.22 — a 34 % speed
-  // disagreement that leaves the drawn body metres behind where the server
-  // has it, and every following click is then aimed from a stale position.
+  // the character was still carrying the offline fallbacks 115/80 with the
+  // stance unset, so every short leg walked at 0.80 m/s while the server ran
+  // it at 1.22 — a 34 % speed disagreement that leaves the drawn body metres
+  // behind where the server has it, and every following click is then aimed
+  // from a stale position. (The distance guess that made short legs walk is
+  // gone — see character.js — but this replay is still what carries the
+  // speeds, the multiplier and the stance onto a late-loading model.)
   if (charSheetData) ch.setSpeeds(charSheetData);
   followCam.setScale(ch.heightM || 1.75);
   // Re-frame on a (re)load with retail's own FixedDefaultCamera[0] preset.
@@ -1583,7 +1642,31 @@ canvas.addEventListener('pointerup', e => {
   // M3: entity picking first (target/attack), terrain walk otherwise.
   // Raycast against entity meshes; fall back to a screen-space nearest
   // pick (skinned meshes raycast against bind pose, small monsters are
-  // hard to hit) — L2 has generous click boxes anyway.
+  // hard to hit).
+  //
+  // THE FALLBACK BELOW IS AUTHORED. Investigated 2026-08-08 and NOT sourced:
+  // retail's pick is native. Engine.u (l2encdec -p 111) carries the full
+  // UnrealScript source, and the pick appears there only as results — LevelInfo
+  // declares `var int LastHitObject; var bool bClicked; var float
+  // ClickedMouseX, ClickedMouseY; var vector ClickLocation; var plane
+  // ClickPlane; var Actor ClickActor;` under `#ifdef __L2 Hunter` — with no
+  // script anywhere that computes them, so the geometry of the test is inside
+  // the engine binary and cannot be read out of the shipped packages. The
+  // earlier note that "retail hit-tests the model" is an inference, not a
+  // source, and is not repeated here as fact.
+  //
+  // What IS sourced, for whoever replaces this: every creature's collision
+  // cylinder arrives in-protocol — UserInfo, CharInfo and NpcInfo each write
+  // getCollisionRadius() and getCollisionHeight() right after the speed
+  // multipliers, and gameclient.js currently reads and discards both
+  // (`r.readF(); r.readF(); // collision radius/height`). A cylinder pick built
+  // from those two numbers would be made of server data instead of a pixel
+  // radius; that UE2 traces a Pawn against its cylinder is the usual engine
+  // default but was NOT verified for this client, so it stays a proposal.
+  //
+  // Known defect, unfixed and deliberately not papered over: the radius applies
+  // to EVERY entity at any distance, so a ground click near a mob can be
+  // swallowed by it.
   if (online && entities.entities.size) {
     const groups = [...entities.entities.values()].map(en => en.group);
     const hitE = ray.intersectObjects(groups, true)[0];
@@ -1592,7 +1675,7 @@ canvas.addEventListener('pointerup', e => {
       while (o && o.userData.entityId == null) o = o.parent;
       if (o) { clickEntity(o.userData.entityId); return; }
     }
-    let best = null, bestD = 40;   // px pick radius
+    let best = null, bestD = 40;   // px pick radius — AUTHORED, see above
     const v = new THREE.Vector3();
     for (const [id, en] of entities.entities) {
       if (en.dead) continue;
@@ -1909,7 +1992,15 @@ function pumpMoveQueue() {
   character.setTarget(leg);
   if (online) {
     notePlayerAction('move');
-    net.send('moveTo', serverDest(leg));
+    // MoveBackwardToLocation carries an ORIGIN as well as a destination, and
+    // the origin is where the character is — the retail client sends its own
+    // position there. It is not decoration: aCis refuses a destination more
+    // than 9900 units from that origin
+    // (`targetLoc.isIn3DRadius(_originX,_originY,_originZ, 9900)`), and the
+    // gateway used to fill it with the destination, so the guard measured 0 and
+    // could never fire (verify-movement.js D1/D2).
+    const from = serverDest(character.group.position);
+    net.send('moveTo', { ...serverDest(leg), ox: from.x, oy: from.y, oz: from.z });
   }
 }
 

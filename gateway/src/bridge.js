@@ -173,6 +173,20 @@ class Bridge {
     if (!this.closed && this.ws.readyState === 1) this.ws.send(JSON.stringify(obj));
   }
 
+  // The character's POSITION, as the server itself last stated it. Every
+  // client->server packet that carries an origin (MoveBackwardToLocation,
+  // Action, AttackRequest, ValidatePosition) reads it from GameSession.pos, so
+  // this is the one place allowed to write it. Sources, in the order they
+  // arrive: UserInfo (gameclient sets pos directly), MoveToLocation's cx,cy,cz,
+  // ValidateLocation, TeleportToLocation. A DESTINATION is never a position.
+  _notePos(x, y, z, heading) {
+    if (!this.game) return;
+    this.game.pos = {
+      x: x | 0, y: y | 0, z: z | 0,
+      heading: heading == null ? this.game.pos.heading : heading | 0,
+    };
+  }
+
   async _onMessage(data) {
     let msg;
     try {
@@ -223,8 +237,24 @@ class Bridge {
           break;
         }
         case 'moveTo':
+          // MoveBackwardToLocation carries a destination AND an origin, and the
+          // origin is the character's position — it used to be overwritten with
+          // the DESTINATION here, so every move packet claimed origin ==
+          // target. That is not cosmetic: aCis refuses a destination further
+          // than 9900 units from the origin
+          // (`targetLoc.isIn3DRadius(_originX,_originY,_originZ, 9900)`), and
+          // with origin == target the distance is 0, so the guard could never
+          // fire. Measured live (verify-movement.js D1/D2): a 12000-unit order
+          // with the real origin is refused with ActionFailed and no
+          // MoveToLocation; the same order with origin == target is accepted.
+          // The origin is now a real position: the browser's own (ox,oy,oz),
+          // which is what the retail client puts there, falling back to the
+          // last position the server stated (_notePos) when the client does
+          // not send one.
           if (this.game) {
-            this.game.pos = { ...this.game.pos, x: msg.x | 0, y: msg.y | 0, z: msg.z | 0 };
+            if (msg.ox != null && msg.oy != null && msg.oz != null) {
+              this._notePos(msg.ox, msg.oy, msg.oz);
+            }
             this.game.moveTo(msg.x | 0, msg.y | 0, msg.z | 0);
           }
           break;
@@ -740,6 +770,13 @@ class Bridge {
         pAtk: u.pAtk, pDef: u.pDef, mAtk: u.mAtk, mDef: u.mDef,
         accuracy: u.accuracy, evasion: u.evasion, critical: u.critical,
         runSpeed: u.runSpeed, walkSpeed: u.walkSpeed,
+        // The multiplier the two speeds above are NOT scaled by. aCis moves the
+        // character at getMoveSpeed() = base x speedMul (CreatureMove
+        // .updatePosition covers getMoveSpeed()/10 every 100 ms), so the client
+        // must draw base x speedMul or it trails the server for good. Measured
+        // live (gateway/test/verify-movement.js): base runSpeed 115, speedMul
+        // 1.10, server ground speed 125.3 u/s — 9% above the base alone.
+        speedMul: u.speedMul,
         pAtkSpd: u.pAtkSpd, mAtkSpd: u.mAtkSpd,
         // Attack cadence and swing-animation rate. pAtkSpd feeds
         // Formulas.calculateTimeBetweenAttacks = max(100, 500000 / pAtkSpd);
@@ -751,6 +788,10 @@ class Bridge {
         // entry never broadcasts ChangeMoveType, so without this the client has
         // to guess the stance.
         running: u.running,
+        // Inventory weight gauge: BOTH halves. UserInfo carries
+        // getCurrentWeight() immediately before getWeightLimit(), and only
+        // maxLoad was being forwarded — so the gauge had a scale and no needle.
+        curLoad: u.currentWeight,
         maxLoad: u.maxLoad,
         // equipped item ids (UserInfo's 17-slot layout) — what the client
         // renders in the hand and on the body
@@ -778,7 +819,12 @@ class Bridge {
         x: n.x, y: n.y, z: n.z, heading: n.heading,
         // L2 units/s, straight from NpcInfo — the client animates with these
         // instead of one constant for every creature in the game
-        runSpeed: n.runSpeed, walkSpeed: n.walkSpeed, running: n.running,
+        // NpcInfo writes the BASE speeds (AbstractNpcInfo's constructor calls
+        // getBaseRunSpeed/getBaseWalkSpeed) and the multiplier separately, the
+        // same as UserInfo — every Creature carries FuncMoveSpeed, so a mob's
+        // multiplier is not 1 either.
+        runSpeed: n.runSpeed, walkSpeed: n.walkSpeed, speedMul: n.speedMul,
+        running: n.running,
         // attack cadence / swing rate, same fields and same meaning as on
         // charSheet (NpcInfo carries them per creature)
         pAtkSpd: n.pAtkSpd, mAtkSpd: n.mAtkSpd, atkSpdMul: n.atkSpdMul,
@@ -811,31 +857,42 @@ class Bridge {
         // meaning as on charSheet (CharInfo carries them per player)
         pAtkSpd: c.pAtkSpd, mAtkSpd: c.mAtkSpd, atkSpdMul: c.atkSpdMul,
         running: c.running,
+        // locomotion, same three fields as charSheet: CharInfo writes the base
+        // run/walk speeds and the multiplier separately (CharInfo.java:89-103)
+        runSpeed: c.runSpeed, walkSpeed: c.walkSpeed, speedMul: c.speedMul,
       });
     });
 
+    // THREE DIFFERENT THINGS, three different ops. MoveToLocation,
+    // TeleportToLocation and ValidateLocation used to collapse into one `move`
+    // op carrying only a destination, which made a teleport indistinguishable
+    // from a walk order — a teleport landing mid-walk had the client WALK to
+    // the teleport point. Verified live (verify-movement.js C1/C2): the server
+    // sends TeleportToLocation (0x28) and the character is AT the point on the
+    // next position sample, 2121 units from where it was walking.
     game.on('move', (m) => {
-      if (m.id === this.selfId) {
-        this.send({ op: 'move', id: m.id, tx: m.tx, ty: m.ty, tz: m.tz });
-        return;
-      }
-      this.send({ op: 'move', id: m.id, tx: m.tx, ty: m.ty, tz: m.tz });
+      // MoveToLocation carries the mover's CURRENT server position (cx,cy,cz)
+      // alongside the destination. For ourselves that is the only in-protocol
+      // statement of where the server thinks we are, and it is what every
+      // outgoing packet must use as its origin.
+      if (m.id === this.selfId) this._notePos(m.x, m.y, m.z);
+      this.send({ op: 'move', id: m.id, tx: m.tx, ty: m.ty, tz: m.tz, x: m.x, y: m.y, z: m.z });
     });
 
     game.on('teleport', (t) => {
       if (t.id === this.selfId) {
-        this.game.pos = { ...this.game.pos, x: t.x, y: t.y, z: t.z };
+        this._notePos(t.x, t.y, t.z);
         // aCis keeps _isTeleporting until the client answers with
         // Appearing(0x30) (clientpackets/Appearing.java -> onTeleported);
         // while set, denyAiAction() rejects interacts/attacks silently.
         this.game.appearing();
       }
-      this.send({ op: 'move', id: t.id, tx: t.x, ty: t.y, tz: t.z });
+      this.send({ op: 'teleport', id: t.id, x: t.x, y: t.y, z: t.z });
     });
 
     game.on('validate', (v) => {
-      if (v.id === this.selfId) this.game.pos = { x: v.x, y: v.y, z: v.z, heading: v.heading };
-      this.send({ op: 'move', id: v.id, tx: v.x, ty: v.y, tz: v.z });
+      if (v.id === this.selfId) this._notePos(v.x, v.y, v.z, v.heading);
+      this.send({ op: 'validate', id: v.id, x: v.x, y: v.y, z: v.z, heading: v.heading });
     });
 
     game.on('delete', (id) => {
@@ -1029,6 +1086,9 @@ class Bridge {
           objectId: it.objectId,
           itemId: it.itemId,
           count: it.count,
+          // Item.TYPE2_* (3 == QUEST): the inventory's quest tab has no other
+          // source — the client's etcitemgrp does not carry quest-ness.
+          type2: it.type2,
           slot: it.slot,
           equipped: it.equipped,
           enchant: it.enchant,

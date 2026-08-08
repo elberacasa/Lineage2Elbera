@@ -14,22 +14,31 @@ const CHAR_HEIGHT = 1.75;      // meters — fallback normalization (~1.7 charcr
 // difference reaches us — a Dagger elf and a plate-armoured knight do not move
 // at the same rate, and no constant here can express that.
 //
+// THOSE TWO ARE BASE VALUES AND ARE NOT WHAT THE SERVER MOVES AT. UserInfo.java
+// writes getStatus().getBaseRunSpeed() / getBaseWalkSpeed() and, four fields
+// later, getStatus().getMovementSpeedMultiplier(); CreatureMove.updatePosition
+// covers `getMoveSpeed() / 10` every 100 ms, and getMoveSpeed() is
+// calcStat(Stats.RUN_SPEED, base) — the base times exactly that multiplier.
+// Measured live against the server's own broadcast positions
+// (gateway/test/verify-movement.js, 2026-08-08, unbuffed human fighter on dry
+// ground): runSpeed 115, speedMul 1.10, ground speed 125.3 u/s over a 6.3 s
+// least-squares fit — the base alone is 9.0% slow, permanently. Every Creature
+// carries FuncMoveSpeed (= Formulas.DEX_BONUS[DEX], which is 1.10 at the human
+// fighter's DEX 30), and PlayerStatus.getMoveSpeed folds the swim, swamp,
+// weight-penalty and armour-grade maluses in on top — which is also how those
+// become visible here. It CAN be exactly 1 (DEX_BONUS rounds to 1.00 around
+// DEX 19 and nothing else applies), so 1 is a legitimate value, not a
+// missing-field sentinel.
+//
 // These fallbacks are only for the offline/solo path, where no server is
 // speaking. They are the class table's own values for a level-1 human fighter
-// (server/aCis_datapack/data/xml/classes/humanFighter.xml: runSpd 120,
-// walkSpd 80), converted with L2_TO_M, so offline movement matches what the
-// same character would do online instead of the 3.4x-too-fast placeholder that
-// used to live here.
+// (server/aCis_datapack/data/xml/classes/humanFighter.xml: runSpd 115,
+// walkSpd 80), converted with L2_TO_M. There is deliberately NO fallback
+// multiplier: 1 is what "nothing has spoken yet" means, and inventing a DEX
+// bonus for a character the server has not described would be a guess.
 const DEFAULT_RUN_SPEED_L2 = 115;
 const DEFAULT_WALK_SPEED_L2 = 80;
 
-// OFFLINE-ONLY fallback. The walk/run stance is the server's: aCis calls
-// Player.setRunning(true) when a character enters the world and only changes it
-// through the walk/run toggle, which broadcasts ChangeMoveType. Both reach us —
-// the entry stance on charSheet.running (UserInfo's isRunning byte) and the
-// toggle as the changeMove op — and either one sets forcedMoveAnim, which wins
-// over this. It only decides the animation when nothing has spoken at all.
-const RUN_THRESHOLD = 6;       // click farther than this => run anim
 const TURN_RATE = 10;          // rad/s toward heading — NOT sourced, see report
 
 // Arrival. aCis has NO arrival epsilon: CreatureMove.updatePosition runs on a
@@ -66,12 +75,31 @@ export class Character {
     this.actions = {};                // name -> AnimationAction
     this.current = null;
     this.target = null;               // THREE.Vector3 | null
-    this.moveAnim = 'walk';
+    // WALK/RUN IS A STATE, NOT A DISTANCE. aCis has exactly one flag for it,
+    // Creature._isRunning: Player.restore sets it true at world entry (which is
+    // why 'run' is the default here), and Player.setWalkOrRun is the only thing
+    // that changes it. For a player it is reached by RequestChangeMoveType, by
+    // RequestActionUse id 1 ("Walk/Run"), by Playable.fleeFrom (fear forces the
+    // run stance) and by mounting — an exhaustive grep of setWalkOrRun /
+    // forceWalkStance / forceRunStance callers, and not one of them looks at a
+    // distance. There is no distance rule anywhere in the server —
+    // verified live: a 500-unit (5 m) leg is covered at 125.8 u/s, the RUN
+    // speed, where the old RUN_THRESHOLD had the client walk anything under
+    // 6 m at 0.80 m/s while the server ran it at 1.33 (metres of drift per
+    // click). Both signals reach us: the entry stance on charSheet.running
+    // (UserInfo's isRunning byte) and later changes as the changeMove op
+    // (ChangeMoveType).
+    this.moveMode = 'run';
+    this.moveAnim = 'run';
     this.keys = new Set();
     this.speed = 0;                   // current planar speed (for verification)
-    // metres/second, replaced by the server's values on the first charSheet
+    // metres/second, replaced by the server's values on the first charSheet.
+    // These are the EFFECTIVE speeds — base x speedMul (see setSpeeds).
+    this.speedMul = 1;
     this.runSpeed = DEFAULT_RUN_SPEED_L2 * L2_TO_M;
     this.walkSpeed = DEFAULT_WALK_SPEED_L2 * L2_TO_M;
+    this.baseRunSpeed = DEFAULT_RUN_SPEED_L2;    // L2 units/s, as sent
+    this.baseWalkSpeed = DEFAULT_WALK_SPEED_L2;
     // attack cadence (see DEFAULT_ATK_SPD_MUL): replaced by the server's own
     // values on the first charSheet (self) or addPlayer (remote players)
     this.pAtkSpd = 0;
@@ -121,21 +149,45 @@ export class Character {
   // it must be re-applied on each charSheet, not just at login.
   // Takes the whole charSheet (self) or addPlayer (remote) payload; every field
   // is optional so a payload that carries only some of them still applies.
-  setSpeeds({ runSpeed, walkSpeed, pAtkSpd, atkSpdMul, running }) {
-    if (runSpeed > 0) this.runSpeed = runSpeed * L2_TO_M;
-    if (walkSpeed > 0) this.walkSpeed = walkSpeed * L2_TO_M;
+  setSpeeds({ runSpeed, walkSpeed, speedMul, pAtkSpd, atkSpdMul, running }) {
+    if (runSpeed > 0) this.baseRunSpeed = runSpeed;
+    if (walkSpeed > 0) this.baseWalkSpeed = walkSpeed;
+    // The multiplier the base speeds are NOT scaled by — see the top of this
+    // file. It arrives on the same UserInfo, so a payload carrying speeds
+    // without it means the server really did send 1.
+    //
+    // IT BELONGS TO THE CURRENT STANCE, and it is not always above 1. Measured
+    // live with the fixture standing in water: getMovementSpeedMultiplier() is
+    // getMoveSpeed() / getBaseMoveSpeed(), PlayerStatus.getMoveSpeed switches
+    // its base to getBaseSwimSpeed() (50) in water, and the server sent 0.478
+    // while running (55/115) and 0.6875 after the walk toggle (55/80) — the
+    // same 55 u/s both times, measured 54.8 and 55.1. So the product is only
+    // meaningful for the stance the UserInfo describes; aCis re-broadcasts
+    // UserInfo on every stance change (Player.setWalkOrRun -> broadcastUserInfo),
+    // which is what keeps it honest. Applying it to both speeds here is
+    // therefore right for the one being drawn and stale for the other, exactly
+    // as the protocol affords — and it is why a fallback multiplier would be a
+    // lie rather than a default.
+    if (speedMul > 0) this.speedMul = speedMul;
+    this.runSpeed = this.baseRunSpeed * this.speedMul * L2_TO_M;
+    this.walkSpeed = this.baseWalkSpeed * this.speedMul * L2_TO_M;
     if (pAtkSpd > 0) this.pAtkSpd = pAtkSpd;
     if (atkSpdMul > 0) this.atkSpdMul = atkSpdMul;
     // Walk/run stance. aCis's setRunning(true) at world entry does NOT
     // broadcast ChangeMoveType, so this UserInfo/CharInfo byte is the only
-    // signal that a freshly entered character is running — without it the
-    // client fell back to guessing from the click distance and short clicks
-    // walked, which retail never does.
+    // signal a freshly entered character gets; ChangeMoveType carries every
+    // later change.
     if (running != null) {
-      this.forcedMoveAnim = running ? 'run' : 'walk';
-      if (this.target) this.moveAnim = this.forcedMoveAnim;
+      this.moveMode = running ? 'run' : 'walk';
+      if (this.target) this.moveAnim = this.moveMode;
     }
   }
+
+  // The stance under its old name. entities.js and the browser suites reach for
+  // `forcedMoveAnim` — it never "forced" anything over a guess, because there
+  // is no guess: it IS Creature.isRunning().
+  get forcedMoveAnim() { return this.moveMode; }
+  set forcedMoveAnim(v) { this.moveMode = v === 'walk' ? 'walk' : 'run'; }
 
   /**
    * ms between swings for this character — Formulas.calculateTimeBetweenAttacks.
@@ -276,10 +328,9 @@ export class Character {
 
   setTarget(point) {
     this.target = point.clone();
-    const d = this._planarDist(this.target);
-    // ChangeMoveType is authoritative when the server sent it; otherwise
-    // guess run/walk from the leg distance
-    this.moveAnim = this.forcedMoveAnim || (d > RUN_THRESHOLD ? 'run' : 'walk');
+    // The stance decides, and only the stance: aCis's own move code reads
+    // Creature.isRunning() and nothing else (CreatureStatus.getBaseMoveSpeed).
+    this.moveAnim = this.moveMode;
   }
 
   clearTarget() { this.target = null; }
@@ -296,10 +347,13 @@ export class Character {
     let vx = 0, vz = 0, running = false, moving = false;
 
     if (moveDir && moveDir.lengthSq() > 0) {
-      // WASD overrides click target
+      // WASD overrides click target. It streams real move orders to the
+      // server, which moves at the STANCE speed like any other order — a
+      // walking character does not sprint because the input came from a key.
       this.target = null;
-      vx = moveDir.x * this.runSpeed; vz = moveDir.z * this.runSpeed;
-      running = true; moving = true;
+      const keySpeed = this.moveMode === 'run' ? this.runSpeed : this.walkSpeed;
+      vx = moveDir.x * keySpeed; vz = moveDir.z * keySpeed;
+      running = this.moveMode === 'run'; moving = true;
     } else if (this.target) {
       const d = this._planarDist(this.target);
       const speed = this.moveAnim === 'run' ? this.runSpeed : this.walkSpeed;

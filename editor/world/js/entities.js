@@ -166,7 +166,7 @@ class DropEntity {
 }
 
 class NpcEntity {
-  constructor({ id, npcId, name, level, runSpeed, walkSpeed, running,
+  constructor({ id, npcId, name, level, runSpeed, walkSpeed, speedMul, running,
                 pAtkSpd, atkSpdMul }) {
     this.id = id;
     this.kind = 'npc';
@@ -180,9 +180,17 @@ class NpcEntity {
     this.pAtkSpd = pAtkSpd > 0 ? pAtkSpd : 0;
     this.atkSpdMul = atkSpdMul > 0 ? atkSpdMul : 1;
     // NpcInfo speeds in L2 units/s -> m/s; absent for entities that predate the
-    // gateway forwarding them, and Entity.update falls back in that case
-    this.runSpeed = runSpeed > 0 ? runSpeed * L2_TO_M : 0;
-    this.walkSpeed = walkSpeed > 0 ? walkSpeed * L2_TO_M : 0;
+    // gateway forwarding them, and Entity.update falls back in that case.
+    // AbstractNpcInfo writes the BASE speeds (getBaseRunSpeed/getBaseWalkSpeed)
+    // and getMovementSpeedMultiplier() as separate fields, exactly like
+    // UserInfo — and every Creature carries FuncMoveSpeed, so a mob's
+    // multiplier is its own DEX_BONUS and is not 1 either. What the server
+    // moves the mob at is the product (CreatureMove.updatePosition covers
+    // getMoveSpeed()/10 per 100 ms tick, and getMoveSpeed() =
+    // calcStat(RUN_SPEED, base)).
+    this.speedMul = speedMul > 0 ? speedMul : 1;
+    this.runSpeed = runSpeed > 0 ? runSpeed * this.speedMul * L2_TO_M : 0;
+    this.walkSpeed = walkSpeed > 0 ? walkSpeed * this.speedMul * L2_TO_M : 0;
     if (running != null) this.running = !!running;
     this.target = null;
     this.dead = false;
@@ -729,13 +737,45 @@ export class EntityManager {
 
   getEntity(id) { return this.entities.get(id); }
 
-  move(msg) {
+  // MoveToLocation: "this creature is at (x,y,z) and is walking to
+  // (tx,ty,tz)". The origin half used to be dropped by the gateway; it is the
+  // server's own statement of where the creature IS, so the drawn body starts
+  // each leg from the server's position instead of accumulating drift.
+  move(msg, terrain) {
     const e = this.entities.get(msg.id);
     if (!e) return;
+    if (msg.x != null && msg.y != null && msg.z != null) {
+      const here = l2ToThree(msg.x, msg.y, msg.z);
+      e.group.position.x = here.x;
+      e.group.position.z = here.z;
+      e.group.position.y = this._groundY(here.x, here.z, msg.z * L2_TO_M, terrain);
+    }
     const target = l2ToThree(msg.tx || 0, msg.ty || 0, msg.tz || 0);
     e.serverZ = (msg.tz || 0) * L2_TO_M;
     if (e.kind === 'player') e.setTarget(target);
     else e.target = target;
+  }
+
+  // ValidateLocation / TeleportToLocation: a POSITION, with no destination.
+  // aCis broadcasts ValidateLocation for knockback (Pdam), InstantJump and
+  // EffectThrowUp, and sends it for a newly targeted creature
+  // (Player.java:2480) — in every case the creature IS there now, so the drawn
+  // body goes there and stops rather than walking.
+  place(msg, terrain) {
+    const e = this.entities.get(msg.id);
+    if (!e) return;
+    const p = l2ToThree(msg.x || 0, msg.y || 0, msg.z || 0);
+    e.group.position.x = p.x;
+    e.group.position.z = p.z;
+    e.serverZ = (msg.z || 0) * L2_TO_M;
+    e.group.position.y = this._groundY(p.x, p.z, e.serverZ, terrain);
+    e.target = null;
+    // NpcEntity.update leaves the last clip running when there is no target,
+    // so a creature stopped mid-leg would keep its run clip playing forever.
+    if (e.kind === 'npc' && e.actions && !e.dead) e._play('idle');
+    if (msg.heading != null && e.kind === 'player') {
+      e.group.rotation.y = l2HeadingToThreeYaw(msg.heading);
+    }
   }
 
   remove(id) {

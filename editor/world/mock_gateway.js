@@ -544,16 +544,24 @@ wss.on('connection', (ws) => {
         { id: 28, level: 1, passive: false, disabled: false },
         { id: 141, level: 1, passive: true, disabled: false },
       ] });
+      // type2 is Item.TYPE2_* and rides every ItemList entry on the wire:
+      // 0 WEAPON, 1 SHIELD_ARMOR, 2 ACCESSORY, 3 QUEST, 4 MONEY, 5 OTHER.
+      // Each value below is the one aCis computes for that exact item id —
+      // Weapon.java sets TYPE2_WEAPON, Armor.java TYPE2_SHIELD_ARMOR, and
+      // EtcItem.java sets TYPE2_MONEY for adena (57), TYPE2_QUEST when
+      // etcitem_type is QUEST, TYPE2_OTHER otherwise. 1001 "Book of Aklantoth
+      // - Part 4" is the quest-item fixture (data/xml/items/1000-1099.xml).
       items.push(
-        { objectId: 90001, itemId: 57, count: 1200, slot: 0, equipped: 0, enchant: 0 },
-        { objectId: 90002, itemId: 1147, count: 5, slot: 0, equipped: 0, enchant: 0 },
+        { objectId: 90001, itemId: 57, count: 1200, type2: 4, slot: 0, equipped: 0, enchant: 0 },
+        { objectId: 90002, itemId: 1147, count: 5, type2: 1, slot: 0, equipped: 0, enchant: 0 },
         // slot is the REAL bodyPart (aCis Item.java SLOT_R_HAND = 0x0080,
         // Squire's Sword is one-handed) — the weapon gate keys off it
-        { objectId: 90003, itemId: 2369, count: 1, slot: 128, equipped: 1, enchant: 3 },
-        { objectId: 90004, itemId: 2509, count: 1, slot: 0, equipped: 0, enchant: 0 },
-        { objectId: 90005, itemId: 1060, count: 12, slot: 0, equipped: 0, enchant: 0 },
-        { objectId: 90006, itemId: 1835, count: 7, slot: 0, equipped: 0, enchant: 0 },
-        { objectId: 90007, itemId: 734, count: 2, slot: 0, equipped: 0, enchant: 0 },
+        { objectId: 90003, itemId: 2369, count: 1, type2: 0, slot: 128, equipped: 1, enchant: 3 },
+        { objectId: 90004, itemId: 2509, count: 1, type2: 5, slot: 0, equipped: 0, enchant: 0 },
+        { objectId: 90005, itemId: 1060, count: 12, type2: 5, slot: 0, equipped: 0, enchant: 0 },
+        { objectId: 90006, itemId: 1835, count: 7, type2: 5, slot: 0, equipped: 0, enchant: 0 },
+        { objectId: 90007, itemId: 734, count: 2, type2: 5, slot: 0, equipped: 0, enchant: 0 },
+        { objectId: 90008, itemId: 1001, count: 1, type2: 3, slot: 0, equipped: 0, enchant: 0 },
       );
       send('itemList', { items });
 
@@ -561,9 +569,20 @@ wss.on('connection', (ws) => {
       send('charSheet', {
         str: 35, dex: 26, con: 32, int: 21, wit: 19, men: 25,
         pAtk: 42, pDef: 36, mAtk: 28, mDef: 31, accuracy: 33, evasion: 29,
-        critical: 44, runSpeed: 126, walkSpeed: 88,
+        critical: 44,
+        // The real protocol shape: UserInfo carries the BASE speeds and the
+        // movement multiplier as separate fields, and the server moves at the
+        // product (115 x 1.10 = 126.5 u/s, measured live against aCis in
+        // gateway/test/verify-movement.js). The mock used to send a single
+        // pre-multiplied 126/88, which is not a shape the client can ever see.
+        runSpeed: 115, walkSpeed: 80, speedMul: 1.1,
         pAtkSpd: SELF_PATK_SPD, mAtkSpd: 213, atkSpdMul: SELF_ATK_SPD_MUL,
         running: true,
+        // Both halves of the inventory weight gauge (UserInfo writes
+        // getCurrentWeight() immediately before getWeightLimit()). FIXTURE
+        // VALUES, like every other number in this mock — the point is that the
+        // client receives both fields, not that they are this character's.
+        curLoad: 3140, maxLoad: 69000,
       });
       send('sysMsg', { id: 1087, params: [] });
 
@@ -656,8 +675,14 @@ wss.on('connection', (ws) => {
         send('chat', { from: WALKER.name, channel: 'all', text: AMBIENT[ci++ % AMBIENT.length] });
       }, 8000));
     } else if (msg.op === 'moveTo') {
-      // server-authoritative echo: client reconciles its own movement
-      send('move', { id: self.id, tx: msg.x, ty: msg.y, tz: msg.z });
+      // server-authoritative echo: client reconciles its own movement.
+      // MoveToLocation carries the mover's CURRENT position beside the
+      // destination — the client sends its own as the packet origin, so the
+      // echo mirrors it back the way aCis does.
+      send('move', {
+        id: self.id, tx: msg.x, ty: msg.y, tz: msg.z,
+        x: msg.ox, y: msg.oy, z: msg.oz,
+      });
     } else if (msg.op === 'say') {
       // whisper (channel 2) carries a target; echo + fake reply
       if (msg.channel === 2 && msg.target) {

@@ -128,6 +128,22 @@ class GameSession extends EventEmitter {
     );
   }
 
+  // RequestChangeMoveType (0x1c): D 1 = run, 0 = walk
+  // (clientpackets/RequestChangeMoveType.java -> forceRunStance /
+  // forceWalkStance). The server answers with a ChangeMoveType broadcast AND a
+  // fresh UserInfo (Player.setWalkOrRun -> broadcastUserInfo) — both measured
+  // in gateway/test/verify-movement.js, which is this method's only caller.
+  //
+  // It is NOT the only way to reach the stance: RequestActionUse action id 1
+  // ("Walk/Run", RequestActionUse.java case 1) does the same forceWalkStance /
+  // forceRunStance, and the browser already has a path to that one through the
+  // bridge's `action` op. Which of the two the retail client sends for the
+  // status-window toggle is not something this repo can source, so no bridge op
+  // is wired to this — an unused second path would be a guess wearing an API.
+  changeMoveType(run) {
+    this._send(new PacketWriter().writeC(0x1c).writeD(run ? 1 : 0).build());
+  }
+
   say(channel, text, target) {
     // Say2 (0x38): S text, D type, and S target only when type == TELL (2)
     // (clientpackets/Say2.java).
@@ -525,6 +541,28 @@ class GameSession extends EventEmitter {
     this._send(w.build());
   }
 
+  // ValidatePosition (0x48) — DEFINED AND STILL NOT CALLED, on purpose, and
+  // here is what an audit found when it asked why:
+  //
+  // aCis's ValidatePosition.runImpl changes no server state outside
+  // CAMERA_MODE. All it does is (a) run `Player.isFalling(z)`, which is what
+  // applies FALL DAMAGE, and (b) answer ValidateLocation when
+  // `dist > getMoveSpeed()`. So calling it with the position the gateway
+  // tracks — which IS the server's own last statement of where we are — is a
+  // guaranteed no-op: the distance is 0 and nothing can ever come back.
+  // (Proven live: verify-movement.js uses this method as its position sampler
+  // precisely by sending a DELIBERATELY wrong x,y, and that is the only way it
+  // answers.)
+  //
+  // Making it meaningful means sending the BROWSER's drawn position, which is
+  // the only thing here that can genuinely desync — and that is a change with
+  // teeth: a drawn Z below the server's by more than the template's
+  // safeFallHeight (270/250 for a human, data/xml/classes/humanFighter.xml)
+  // costs real HP. The retail cadence is not recoverable either:
+  // Engine.LineagePlayerController declares `var float ValidateLocationTime`
+  // but the class is `native` and no UnrealScript in Engine.u ever reads it.
+  // So the interval would have to be invented, and this repo does not invent.
+  // Reported rather than guessed.
   validatePosition() {
     const o = this.pos;
     this._send(
@@ -1392,8 +1430,16 @@ function parseCharInfo(r) {
   const mAtkSpd = r.readD();
   const pAtkSpd = r.readD();
   r.readD(); r.readD(); // pvp, karma
-  for (let j = 0; j < 8; j++) r.readD(); // speeds
-  r.readF();                    // movement speed multiplier
+  // 8 speed fields (CharInfo.java): run, walk, swim, swim, run, walk, fly, fly.
+  // The first two are the BASE speeds; only the multiplier below turns them
+  // into what the server moves the character at.
+  const runSpeed = r.readD();
+  const walkSpeed = r.readD();
+  for (let j = 0; j < 6; j++) r.readD(); // swim/fly pairs — unused on land
+  // movement speed multiplier — same field, same meaning as in parseUserInfo:
+  // CharInfo writes the BASE speeds and this multiplier separately, so a
+  // remote player's drawn speed needs the product.
+  const speedMul = r.readF();
   // CreatureStatus.getAttackSpeedMultiplier() — javadoc: "used by client to
   // set correct character/object attack speed", value 1.1 * pAtkSpd /
   // template basePAtkSpd. This is the swing-animation rate, and it was being
@@ -1426,7 +1472,7 @@ function parseCharInfo(r) {
   const heading = r.readD();
   // pledgeClass, pledgeType, titleColor, cursed weapon stage follow; not needed
   return { id: objectId, name, race, sex, classId, x, y, z, heading, paperdoll,
-           pAtkSpd, mAtkSpd, atkSpdMul, running };
+           runSpeed, walkSpeed, pAtkSpd, mAtkSpd, speedMul, atkSpdMul, running };
 }
 
 function parseNpcInfo(r) {
@@ -1447,7 +1493,13 @@ function parseNpcInfo(r) {
   const runSpeed = r.readD();
   const walkSpeed = r.readD();
   for (let j = 0; j < 6; j++) r.readD(); // swim/fly speeds — unused on land
-  const speedMul = r.readF();   // movement multiplier; run/walk are pre-scaled
+  // Movement multiplier. The comment that used to sit here said "run/walk are
+  // pre-scaled" — that is FALSE and was never checked: AbstractNpcInfo.NpcInfo
+  // writes `creature.getStatus().getBaseRunSpeed()` / `getBaseWalkSpeed()`
+  // (super's constructor) and this multiplier separately, exactly like
+  // UserInfo. Every Creature carries FuncMoveSpeed, so an NPC's multiplier is
+  // its own DEX_BONUS and is not 1 either.
+  const speedMul = r.readF();
   // attack-speed multiplier = CreatureStatus.getAttackSpeedMultiplier(),
   // documented in aCis as the value "used by client to set correct
   // character/object attack speed" (see parseCharInfo).
@@ -1518,7 +1570,19 @@ function parseUserInfo(r) {
   r.readD(); r.readD(); // swim speed x2
   r.readD(); r.readD(); // 0, 0
   r.readD(); r.readD(); // fly run/walk speed
-  r.readF();                    // movement speed multiplier
+  // MOVEMENT SPEED MULTIPLIER — the field the speeds above are NOT scaled by.
+  // UserInfo.java writes getStatus().getBaseRunSpeed()/getBaseWalkSpeed() (the
+  // raw template numbers) and then, four fields later,
+  // getStatus().getMovementSpeedMultiplier(). What the server actually MOVES at
+  // is CreatureMove.updatePosition's `passedDistance = getMoveSpeed() / 10` per
+  // 100 ms tick, and getMoveSpeed() is calcStat(Stats.RUN_SPEED, base) — base
+  // times exactly this multiplier (getMovementSpeedMultiplier() is defined as
+  // getMoveSpeed() / getBaseMoveSpeed()). It is never 1 for a player: every
+  // Creature carries FuncMoveSpeed (Creature.java addStatFunc), which
+  // multiplies by Formulas.DEX_BONUS[DEX], and PlayerStatus.getMoveSpeed folds
+  // the swamp, weight-penalty and armour-grade maluses in on top. Reading it
+  // and dropping it made the browser draw movement permanently slow.
+  const speedMul = r.readF();
   const atkSpdMul = r.readF();  // attack speed multiplier (see parseCharInfo)
   r.readF(); r.readF(); // collision radius/height
   r.readD(); r.readD(); r.readD(); // hairStyle, hairColor, face
@@ -1567,7 +1631,7 @@ function parseUserInfo(r) {
     id: objectId, name, race, sex, classId, level, exp, sp, hp, maxHp, mp, maxMp, cp, maxCp, x, y, z, heading,
     str, dex, con, int, wit, men, currentWeight, maxLoad,
     pAtk, pAtkSpd, pDef, evasion, accuracy, critical, mAtk, mAtkSpd, mDef,
-    runSpeed, walkSpeed, atkSpdMul, running, operateType, paperdoll,
+    runSpeed, walkSpeed, speedMul, atkSpdMul, running, operateType, paperdoll,
   };
 }
 
@@ -1607,7 +1671,11 @@ function parseItemEntry(r) {
   const objectId = r.readD();
   const itemId = r.readD();
   const count = r.readD();
-  r.readH(); // type2
+  // type2 — Item.java: 0 WEAPON, 1 SHIELD_ARMOR, 2 ACCESSORY, 3 QUEST,
+  // 4 MONEY, 5 OTHER. This is the ONLY in-protocol source of quest-ness: the
+  // client's own etcitemgrp carries no such flag, so the inventory's quest tab
+  // cannot be filled without it. It was being read and dropped.
+  const type2 = r.readH();
   r.readH(); // custom type 1
   const equipped = r.readH();
   const slot = r.readD(); // body part
@@ -1615,7 +1683,7 @@ function parseItemEntry(r) {
   r.readH(); // custom type 2
   r.readD(); // augmentation id
   r.readD(); // mana left
-  return { objectId, itemId, count, slot, equipped, enchant };
+  return { objectId, itemId, count, type2, slot, equipped, enchant };
 }
 
 // Shared trade item entry (TradeStart / TradeOwnAdd / TradeOtherAdd —
