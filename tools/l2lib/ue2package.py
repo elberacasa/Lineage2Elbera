@@ -761,6 +761,390 @@ def mesh_material_slots(pkg, export):
 
 
 # --------------------------------------------------------------------------
+# UModel / UPolys -- the BSP (every building shell and interior in a .unr)
+# --------------------------------------------------------------------------
+# A map tile carries one UModel per Brush actor (the brush SHAPE, still in
+# brush-local space) plus exactly ONE level UModel: the post-CSG world BSP
+# that the retail engine actually rasterises. The level model is the only
+# one with NumZones > 0 and its Points are already in WORLD coordinates --
+# no brush Location/Rotation/PrePivot placement is involved (verified: on
+# 22_22 the decoded Giran_wall07 surfaces span x 77403..85821,
+# y 144778..152447, exactly where scene.json puts the Giran props).
+#
+# UModel::Serialize, as it actually lies in Interlude .unr bodies (v123,
+# licensee 25/28) -- every field below was recovered by byte-consumption
+# bisection and holds EXACTLY (last byte) for all 167/167 brush models of
+# 17_25, 291/291 of 22_22 and 502/502 of 20_21:
+#
+#   UObject::Serialize     property stream (always just the "None" name)
+#   UPrimitive::Serialize  FBox BoundingBox (Min 12 + Max 12 + IsValid 1)
+#                          + FSphere BoundingSphere (16)
+#   Vectors    TArray<FVector>    plane normals AND texture axes; the
+#                                 texture axes are NOT unit -- their length
+#                                 is the texture scale (1/UScale)
+#   Points     TArray<FVector>    vertex pool
+#   Nodes      TArray<FBspNode>   see below (variable length: compacts)
+#   Surfs      TArray<FBspSurf>   see below
+#   Verts      TArray<FVert>      cidx pVertex, cidx iSide
+#   i32 NumSharedSides
+#   i32 NumZones, then NumZones x FZoneProperties:
+#                          cidx ZoneActor, u64 Connectivity, u64 Visibility,
+#                          f32 LastRenderTime
+#   cidx Polys             -> the UPolys export holding the source FPolys
+#   Bounds     TArray<FBox>       25 bytes each
+#   LeafHulls  TArray<i32>
+#   Leaves     TArray<FLeaf>      cidx iZone, cidx iPermeating,
+#                                 cidx iVolumetric, u64 VisibleZones
+#   Lights     TArray<AActor*>    cidx each (Light / NMovableSunLight)
+#   i32 RootOutside, i32 Linked
+#   ... lightmap tail (FLightMapIndex array + the raw LightBits blob).
+#   NOT DECODED -- baked lighting is out of scope for the web port. On a
+#   brush model the tail is 3 zero bytes (three empty arrays); on the level
+#   model it is ~1.8 MB and read_model() reports its size instead of
+#   parsing it (see Model.lightmap_tail).
+#
+# FBspNode:
+#   FPlane Plane (16)            unit normal + distance, verified |n| == 1
+#   u64  ZoneMask
+#   u8   NodeFlags
+#   cidx iVertPool, iSurf, iBack, iFront, iPlane, iCollisionBound,
+#        iRenderBound
+#   FSphere ExclusiveSphereBound (16) + 16 reserved bytes (zero on every
+#        node of every tile checked)
+#   u8   iZone[2], u8 NumVertices
+#   i32  iLeaf[2]
+#   i32  x3 (render-section indices; -1/0/-1 on brush models)
+#
+# FBspSurf:
+#   cidx Material            -> Texture or Shader, resolve_material() it
+#   u32  PolyFlags           EPolyFlags, see PF_* below
+#   cidx pBase               index into Points: the texture origin
+#   cidx vNormal             index into Vectors
+#   cidx vTextureU, vTextureV index into Vectors (scaled axes)
+#   cidx iBrushPoly          index into the source brush's Polys
+#   cidx Actor               -> the Brush actor this surface came from
+#                              (all 1091 surfs of 22_22 resolve to class
+#                              Brush -- that is what identifies this field)
+#   FPlane Plane (16), f32 LightMapScale, i32 iLightmapIndex
+#
+# A node is a convex polygon: Verts[iVertPool .. iVertPool+NumVertices) ->
+# Points. Winding is CCW seen from +Plane.Normal -- measured, not assumed:
+# the Newell normal of the stored vertex order agrees in sign with the
+# node plane on 1819/1819 (17_25), 2770/2770 (22_22) and 4493/4493 (20_21)
+# node polygons, and node.Plane agrees in sign with its surf's Plane on all
+# of them too. So a triangle fan in stored order is already front-facing
+# under the glTF/OpenGL CCW rule.
+#
+# Surface UV (the retail BSP texture mapping):
+#   U = dot(P - Points[pBase], Vectors[vTextureU])   (texture pixels)
+#   V = dot(P - Points[pBase], Vectors[vTextureV])
+# divide by the texture's width/height for normalised UVs.
+#
+# EPolyFlags -- only the bits this repo needs are named, and each one is
+# named because the retail DATA identifies it, not because a header says so
+# (histogram over the level models of 17_25 + 22_22 + 20_21):
+#   0x00000001  every surface carrying it is textured with
+#               L2_ETC_Textures.AntiPortal (659 nodes),
+#               L2_ETC_Textures.WaterAntiportal (478) or
+#               L2_ETC_Textures.ZonePortal (30) -- i.e. exactly the
+#               invisible helper surfaces  => PF_INVISIBLE
+#   0x04000000  co-occurs with the ZonePortal texture => PF_PORTAL
+#   0x08000000  co-occurs with the AntiPortal texture => PF_ANTIPORTAL
+#               (PF_Mirrored in stock UE1 numbering; L2 reuses it)
+#   0x00000080  the only surfaces carrying it are the ±327680-unit world
+#               box faces (T_texture.g_01, interior_A_ch02-3, ...Base,
+#               SL_S1) => PF_FAKEBACKDROP (the sky)
+#   0x00000002  PF_MASKED (alpha-cutout); 0x00000100 PF_TWOSIDED
+# Bits seen but not needed (0x8 not-solid, 0x20 semisolid, 0x2000/0x8000
+# detail, 0x400000 unlit, 0x80000) are passed through untouched.
+
+PF_INVISIBLE = 0x00000001
+PF_MASKED = 0x00000002
+PF_FAKEBACKDROP = 0x00000080
+PF_TWOSIDED = 0x00000100
+PF_PORTAL = 0x04000000
+PF_ANTIPORTAL = 0x08000000
+
+
+class BspNode(object):
+    __slots__ = ("plane", "zone_mask", "flags", "i_vert_pool", "i_surf",
+                 "i_back", "i_front", "i_plane", "num_vertices", "i_zone")
+
+
+class BspSurf(object):
+    __slots__ = ("material", "flags", "p_base", "v_normal", "v_texture_u",
+                 "v_texture_v", "i_brush_poly", "actor", "plane",
+                 "light_map_scale")
+
+
+class Poly(object):
+    """One FPoly of a UPolys export (brush-local source geometry)."""
+    __slots__ = ("base", "normal", "texture_u", "texture_v", "vertices",
+                 "flags", "actor", "material", "item_name", "i_link",
+                 "i_brush_poly", "shadow_map_scale", "lighting_channels")
+
+
+class Model(object):
+    """A parsed UModel. `is_level` marks the post-CSG world BSP."""
+
+    __slots__ = ("export", "bounds", "vectors", "points", "nodes", "surfs",
+                 "verts", "num_shared_sides", "zones", "polys",
+                 "root_outside", "linked", "lightmap_tail")
+
+    @property
+    def is_level(self):
+        return bool(self.zones)
+
+
+def _read_fplane(r):
+    return struct.unpack("<4f", r.bytes(16))
+
+
+def _read_model(pkg, export, extra_field):
+    end = export.serial_offset + export.serial_size
+    r = pkg.body_reader(export)
+    read_properties(pkg, r)
+    box = r.bytes(41)                      # FBox (25) + FSphere (16)
+    m = Model()
+    m.export = export
+    m.bounds = (struct.unpack("<3f", box[0:12]),
+                struct.unpack("<3f", box[12:24]), box[24])
+
+    def farray(n, what):
+        if not 0 <= n < 4000000:
+            raise L2Error("%s: %s: implausible %s count %d"
+                          % (pkg.path, pkg.export_name(export), what, n))
+        return n
+
+    n = farray(r.compact(), "Vectors")
+    m.vectors = [struct.unpack("<3f", r.bytes(12)) for _ in range(n)]
+    n = farray(r.compact(), "Points")
+    m.points = [struct.unpack("<3f", r.bytes(12)) for _ in range(n)]
+
+    n = farray(r.compact(), "Nodes")
+    m.nodes = []
+    for i in range(n):
+        nd = BspNode()
+        nd.plane = _read_fplane(r)
+        if abs(nd.plane[0] ** 2 + nd.plane[1] ** 2
+               + nd.plane[2] ** 2 - 1.0) > 2e-3:
+            raise L2Error("%s: %s: node %d plane is not unit-length "
+                          "(parse desync)"
+                          % (pkg.path, pkg.export_name(export), i))
+        nd.zone_mask = struct.unpack("<Q", r.bytes(8))[0]
+        nd.flags = r.u8()
+        nd.i_vert_pool = r.compact()
+        nd.i_surf = r.compact()
+        nd.i_back = r.compact()
+        nd.i_front = r.compact()
+        nd.i_plane = r.compact()
+        r.compact()                        # iCollisionBound
+        r.compact()                        # iRenderBound
+        r.bytes(32)                        # ExclusiveSphereBound + reserved
+        nd.i_zone = (r.u8(), r.u8())
+        nd.num_vertices = r.u8()
+        r.bytes(8)                         # iLeaf[2]
+        r.bytes(12)                        # render-section indices
+        m.nodes.append(nd)
+
+    n = farray(r.compact(), "Surfs")
+    m.surfs = []
+    for i in range(n):
+        s = BspSurf()
+        s.material = r.compact()
+        s.flags = r.u32()
+        s.p_base = r.compact()
+        s.v_normal = r.compact()
+        s.v_texture_u = r.compact()
+        s.v_texture_v = r.compact()
+        s.i_brush_poly = r.compact()
+        s.actor = r.compact()
+        s.plane = _read_fplane(r)
+        if abs(s.plane[0] ** 2 + s.plane[1] ** 2
+               + s.plane[2] ** 2 - 1.0) > 2e-3:
+            raise L2Error("%s: %s: surf %d plane is not unit-length "
+                          "(parse desync)"
+                          % (pkg.path, pkg.export_name(export), i))
+        s.light_map_scale = r.f32()
+        if extra_field:
+            r.i32()                        # iLightmapIndex (licensee >= 23)
+        m.surfs.append(s)
+
+    n = farray(r.compact(), "Verts")
+    m.verts = [(r.compact(), r.compact()) for _ in range(n)]
+
+    m.num_shared_sides = r.i32()
+    nz = r.i32()
+    if not 0 <= nz <= 64:                  # FZoneSet is a 64-bit mask
+        raise L2Error("%s: %s: implausible NumZones %d"
+                      % (pkg.path, pkg.export_name(export), nz))
+    m.zones = []
+    for _ in range(nz):
+        actor = r.compact()
+        conn, vis = struct.unpack("<QQ", r.bytes(16))
+        m.zones.append((actor, conn, vis, r.f32()))
+
+    m.polys = r.compact()
+    r.bytes(25 * farray(r.compact(), "Bounds"))
+    r.bytes(4 * farray(r.compact(), "LeafHulls"))
+    for _ in range(farray(r.compact(), "Leaves")):
+        r.compact(); r.compact(); r.compact(); r.bytes(8)
+    for _ in range(farray(r.compact(), "Lights")):
+        r.compact()
+    m.root_outside = r.i32()
+    m.linked = r.i32()
+    m.lightmap_tail = end - r.pos
+    if m.lightmap_tail < 0:
+        raise L2Error("%s: %s: UModel body overran by %d bytes"
+                      % (pkg.path, pkg.export_name(export), -m.lightmap_tail))
+
+    # structural cross-checks: every index the renderer follows must resolve
+    for i, nd in enumerate(m.nodes):
+        if not 0 <= nd.i_surf < len(m.surfs):
+            raise L2Error("%s: %s: node %d iSurf %d out of range"
+                          % (pkg.path, pkg.export_name(export), i, nd.i_surf))
+        if nd.i_vert_pool + nd.num_vertices > len(m.verts):
+            raise L2Error("%s: %s: node %d vert pool out of range"
+                          % (pkg.path, pkg.export_name(export), i))
+    for i, s in enumerate(m.surfs):
+        if not 0 <= s.p_base < max(1, len(m.points)) or \
+                not 0 <= s.v_texture_u < max(1, len(m.vectors)) or \
+                not 0 <= s.v_texture_v < max(1, len(m.vectors)):
+            raise L2Error("%s: %s: surf %d references a missing point/vector"
+                          % (pkg.path, pkg.export_name(export), i))
+    for i, nd in enumerate(m.nodes):
+        for k in range(nd.num_vertices):
+            pv = m.verts[nd.i_vert_pool + k][0]
+            if not 0 <= pv < len(m.points):
+                raise L2Error("%s: %s: node %d FVert pVertex %d out of range"
+                              % (pkg.path, pkg.export_name(export), i, pv))
+    return m
+
+
+# The 2003-era tiles (LicenseeVersion <= 20: entry, ship_position, 17_18,
+# 17_19, 18_15, 18_18, 23_10, 24_10, 24_26, 25_10, 26_11, 26_12 -- 12 of the
+# 157 shipped maps, all near-empty 7-9 brush stubs) predate two fields: the
+# FPoly LightingChannels DWORD and the FBspSurf iLightmapIndex. Which form a
+# package uses is DETECTED, not assumed from the version number: the long
+# form is tried first and a UPolys/UModel body that does not consume its
+# serial size to the last byte is rejected in favour of the short one. Every
+# retail tile lands on exactly one of the two.
+
+
+def _bsp_long_form(pkg):
+    """True when this package uses the post-2004 FPoly/FBspSurf layout."""
+    cached = getattr(pkg, "_bsp_long_form", None)
+    if cached is not None:
+        return cached
+    probes = [e for e in pkg.exports
+              if pkg.class_name_of(e) == "Polys" and e.serial_size][:12]
+    score = {}
+    for form in (True, False):
+        ok = 0
+        for e in probes:
+            try:
+                _read_polys(pkg, e, form)
+                ok += 1
+            except L2Error:
+                pass
+        score[form] = ok
+    long_form = score[True] >= score[False]
+    pkg._bsp_long_form = long_form
+    return long_form
+
+
+def read_model(pkg, export):
+    """Parse a UModel export -> Model. See the block comment above.
+
+    Raises L2Error on any structural implausibility (non-unit node/surf
+    plane, out-of-range index, overrun) so a desync can never be mistaken
+    for data. Consumption is exact for every brush model; on the level
+    model the undecoded lightmap tail is recorded in `lightmap_tail`.
+    """
+    return _read_model(pkg, export, _bsp_long_form(pkg))
+
+
+def read_polys(pkg, export):
+    """Parse a UPolys export -> [Poly] (brush-local source geometry).
+
+    UPolys::Serialize is the property stream, then i32 Num, i32 Max, then
+    Num x FPoly:
+
+        cidx NumVertices
+        FVector Base, Normal, TextureU, TextureV
+        FVector Vertex[NumVertices]
+        u32  PolyFlags
+        cidx Actor, cidx Material, cidx ItemName
+        cidx iLink, cidx iBrushPoly
+        f32  ShadowMapScale        (32.0 on 640/736 polys of 17_25)
+        u32  LightingChannels      (0xFFFFFFFF on every poly of every tile;
+                                    absent on LicenseeVersion <= 20)
+
+    Byte consumption is EXACT for all 168 Polys exports of 17_25, 329 of
+    22_22 and 518 of 20_21 (1015 exports, 5096 polygons, zero slack).
+    """
+    return _read_polys(pkg, export, _bsp_long_form(pkg))
+
+
+def _read_polys(pkg, export, extra_field):
+    end = export.serial_offset + export.serial_size
+    r = pkg.body_reader(export)
+    read_properties(pkg, r)
+    num = r.i32()
+    r.i32()                                # Max (== Num in every retail map)
+    if not 0 <= num < 100000:
+        raise L2Error("%s: %s: implausible poly count %d"
+                      % (pkg.path, pkg.export_name(export), num))
+    out = []
+    for i in range(num):
+        p = Poly()
+        nv = r.compact()
+        if not 3 <= nv <= 64:
+            raise L2Error("%s: %s: poly %d has %d vertices (parse desync)"
+                          % (pkg.path, pkg.export_name(export), i, nv))
+        p.base = struct.unpack("<3f", r.bytes(12))
+        p.normal = struct.unpack("<3f", r.bytes(12))
+        p.texture_u = struct.unpack("<3f", r.bytes(12))
+        p.texture_v = struct.unpack("<3f", r.bytes(12))
+        p.vertices = [struct.unpack("<3f", r.bytes(12)) for _ in range(nv)]
+        p.flags = r.u32()
+        p.actor = r.compact()
+        p.material = r.compact()
+        p.item_name = r.compact()
+        p.i_link = r.compact()
+        p.i_brush_poly = r.compact()
+        p.shadow_map_scale = r.f32()
+        p.lighting_channels = r.u32() if extra_field else 0xFFFFFFFF
+        out.append(p)
+    if r.pos != end:
+        raise L2Error("%s: %s: UPolys consumed %d of %d bytes"
+                      % (pkg.path, pkg.export_name(export),
+                         r.pos - export.serial_offset, export.serial_size))
+    return out
+
+
+def level_model(pkg):
+    """-> the tile's post-CSG world BSP Model, or None.
+
+    Identified structurally: it is the single UModel with NumZones > 0
+    (a brush model has none). Every retail tile checked has exactly one.
+    """
+    found = None
+    for e in pkg.exports:
+        if pkg.class_name_of(e) != "Model" or not e.serial_size:
+            continue
+        m = read_model(pkg, e)
+        if not m.is_level:
+            continue
+        if found is not None:
+            raise L2Error("%s: more than one zoned UModel (%s, %s)"
+                          % (pkg.path, pkg.export_name(found.export),
+                             pkg.export_name(e)))
+        found = m
+    return found
+
+
+# --------------------------------------------------------------------------
 # Lineage2Ver file encryption
 # --------------------------------------------------------------------------
 # Encrypted L2 files start with a UTF-16LE header "Lineage2VerNNN" (28

@@ -17,6 +17,7 @@ FIGHTER_UKX = os.path.join(ROOT, "assets", "interlude", "animations",
 TEXTURES_DIR = os.path.join(ROOT, "assets", "interlude", "textures")
 SYSTEX_DIR = os.path.join(ROOT, "assets", "interlude", "systextures")
 SYSTEM_DIR = os.path.join(ROOT, "assets", "interlude", "system")
+MAPS_DIR = os.path.join(ROOT, "assets", "interlude", "maps")
 
 # collected during the test run, printed by run_tests.py
 STATS = {

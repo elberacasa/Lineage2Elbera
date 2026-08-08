@@ -19,7 +19,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { L2_TO_M, l2ToThree } from './coords.js';
-import { Geodata } from './geodata.js';
+import { Geodata, GEO_ANCHOR_MAX } from './geodata.js';
+import { Bsp } from './bsp.js';
 
 const UE_ROT_TO_RAD = (Math.PI * 2) / 65536;
 const PROP_CLUSTER_SIZE = 48;  // meters, instanced-prop cluster grid cell
@@ -207,6 +208,7 @@ export class Terrain {
     this.geodata = null;    // blockstream-v1 heights when the tile ships them
     this.waterTex = null;   // shared water diffuse (uv-scrolled by main.js)
     this.fireLights = [];   // interior fire-prop point lights
+    this.bsp = null;        // decoded level BSP (the buildings), or null
   }
 
   // fallback interior detection: tiles whose props are (almost) all below
@@ -282,6 +284,15 @@ export class Terrain {
     // after geodata: fire lights clamp above the local floor
     if (this.interior) this._buildFireLights();
     await this._loadProps();
+    await this._loadBsp();
+  }
+
+  // BSP buildings (bsp.js). Sibling file to the frozen scene.json, written
+  // by tools/world/bsp.py; tiles without one just render as before.
+  // Interiors load it too — a dungeon is mostly BSP.
+  async _loadBsp() {
+    this.bsp = await Bsp.load(this.baseUrl);
+    if (this.bsp) this.group.add(this.bsp.group);
   }
 
   // Stale-rectangle correction: see correctHeightsWithGeodata (module
@@ -345,21 +356,34 @@ export class Terrain {
       }
       return this.floorY;
     }
-    if (this.geodata) {
-      // MAX_STEP_UP: a walker can only gain this much in one cell — layers
-      // above that are walls (roofs/decks), not floors. 2m matches the
-      // steepest retail stairs without letting a ground walker snap onto
-      // rooftops beside tall buildings.
-      const h = this.geodata.heightAt(
-        x / L2_TO_M, -z / L2_TO_M,
-        currentZ == null ? null : currentZ / L2_TO_M,
-        currentZ == null ? null : MAX_STEP_UP_L2);
-      if (h != null) return h * L2_TO_M;
-    }
+    // The geodata surface stands about +30 L2 units above the terrain the
+    // client actually DRAWS — measured at +28.14 median on flat ground, a
+    // constant offset, not a slope or scale error (tools/world/verify_terrain_z.py,
+    // editor/world/verify_feet.js). Placing feet on raw geodata while drawing
+    // the heightmap is what made characters hover 0.6 of their own height.
+    //
+    // Geodata still chooses the LEVEL — which floor of a building, which side
+    // of a bridge — and the heightfield supplies the Z of that level, so the
+    // feet touch what is rendered. No constant is subtracted anywhere: the
+    // offset comes per-cell from the two surfaces themselves.
+    //
+    // MAX_STEP_UP: a walker can only gain this much in one cell — layers above
+    // that are walls (roofs/decks), not floors. 2m matches the steepest retail
+    // stairs without letting a ground walker snap onto rooftops beside tall
+    // buildings.
     const s = L2_TO_M;
     const fx = (x / s - this.origin[0]) / this.spacing;
     const fy = (-z / s - this.origin[1]) / this.spacing;
-    return this._sampleBilinear(fx, fy);
+    const terrainY = this._sampleBilinear(fx, fy);
+    if (this.geodata) {
+      const h = this.geodata.anchoredHeightAt(
+        x / s, -z / s,
+        currentZ == null ? null : currentZ / s,
+        currentZ == null ? null : MAX_STEP_UP_L2,
+        terrainY / s, GEO_ANCHOR_MAX);
+      if (h != null) return h * s;
+    }
+    return terrainY;
   }
 
   _sampleBilinear(fx, fy) {
@@ -818,7 +842,9 @@ export class Terrain {
     }
   }
 
-  // draw-distance: toggle cluster visibility by distance to a world point
+  // draw-distance: toggle cluster visibility by distance to a world point.
+  // The BSP chunks ride the same budget (bsp.py buckets them on the same
+  // 48 m grid), so buildings and their decoration pop together.
   setPropDrawDistance(dist, from) {
     for (const c of this.propClusters || []) {
       const v = !dist || c.center.distanceTo(from) < dist;
@@ -827,6 +853,7 @@ export class Terrain {
         for (const m of c.meshes) m.visible = v;
       }
     }
+    if (this.bsp) this.bsp.setDrawDistance(dist, from);
   }
 
   // legacy path: one clone per placement (best-effort; contract allows gltf:null)

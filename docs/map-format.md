@@ -93,6 +93,54 @@ converted with undercounted props (some −1500). All reconverted.
 (object references; N = 59 = ambient sound count in 16_10 — likely the
 actor index lists; not fully decoded).
 
+`Model` and `Polys` **are** decoded now (2026-08-07) — see §3.3. Their
+bodies do begin with a property stream, but it only ever holds the
+terminating `None`, which is why they read as "fully native" above.
+
+### 3.3 Model / Polys — the BSP (SOLVED)
+
+Reader: `l2lib.read_model()` / `l2lib.read_polys()` / `l2lib.level_model()`.
+The full field-by-field layout, the flag derivations and the byte-consumption
+evidence live in the "UModel / UPolys" block comment of
+`tools/l2lib/ue2package.py`; the converter is `tools/world/bsp.py` and the
+output contract is in `tools/world/README.md` ("bsp.gltf contract").
+
+The shape of the answer:
+
+- A tile carries **one UModel + one UPolys per Brush actor** (the brush
+  *shape*, in brush-local space) **plus exactly one level UModel** — the
+  post-CSG world BSP the retail engine rasterises. The level model is the
+  only one with `NumZones > 0`, and its `Points` are already **world
+  coordinates**: no brush `Location`/`Rotation`/`PrePivot` placement is
+  involved (verified — 22_22's `Giran_wall07` surfaces land at world
+  x 77403..85821, y 144778..152447, on top of the Giran props).
+- `UModel::Serialize` = property stream, `FBox`+`FSphere`, then `Vectors`,
+  `Points`, `Nodes` (`FBspNode`), `Surfs` (`FBspSurf`), `Verts` (`FVert`),
+  `NumSharedSides`, `NumZones` + `FZoneProperties[]`, the `Polys` ref,
+  `Bounds`, `LeafHulls`, `Leaves`, `Lights`, `RootOutside`, `Linked`, then
+  the lightmap tail.
+- A node is a convex polygon: `Verts[iVertPool .. +NumVertices) -> Points`,
+  wound CCW about the node plane (measured on 9082 node polygons over three
+  tiles — Newell normal agrees in sign with the plane on every one).
+- Texture mapping:
+  `U = dot(P - Points[pBase], Vectors[vTextureU])` in texture pixels (the
+  texture-axis `Vectors` are deliberately non-unit; their length is the
+  scale), same for V.
+- Two serialisation variants exist and are **detected**, not assumed:
+  `LicenseeVersion <= 20` (12 of the 157 shipped maps) has no FPoly
+  `LightingChannels` and no FBspSurf `iLightmapIndex`.
+
+Verification bar met: byte consumption is **exact** for all 18 861 `Polys`
+exports (108 390 polygons) and all 18 704 brush `UModel`s across all 157
+`.unr` files; the 157 level models parse with every structural invariant
+holding (unit planes, in-range indices, zone actors resolving to
+ZoneInfo/SkyZoneInfo, `Polys` ref resolving to a Polys export).
+
+**Still not decoded:** the level model's lightmap tail (an
+`FLightMapIndex` array + the raw `LightBits` blob, ~1.8 MB on 17_25).
+Baked lighting is out of scope for the web port; `Model.lightmap_tail`
+reports its size rather than pretending to read it.
+
 ## 4. TerrainInfo
 
 ### 4.1 Properties (decoded in full)
@@ -212,7 +260,8 @@ inspected visually and show clear terrain relief (ridges, valleys, crater).
 - TerrainSector `middle` blocks and the 17×17 i16 tail (sentinels
   -1/-2/0x440 suggest flags/indices, maybe LOD/edge/visibility).
 - The 262144-byte per-cell block in the TerrainInfo tail.
-- `Model`/`Polys` BSP geometry (buildings constructed from brushes),
+- ~~`Model`/`Polys` BSP geometry (buildings constructed from brushes)~~ —
+  **SOLVED 2026-08-07, see §3.3** (only the lightmap tail is left).
   `StaticMeshInstance` body, `Level` actor lists.
 - Emitter/Mover/L2FogInfo native tails (props parse; tails skipped).
 - The slight mismatch between heightmap-derived max Z and sector-bbox max Z
@@ -236,8 +285,7 @@ inspected visually and show clear terrain relief (ridges, valleys, crater).
 - Walkability: use the aCis geodata
   (`server/aCis_gameserver/build/dist/gameserver/data/geodata/<tile>_conv.dat`)
   which covers the same grid — no need to derive collision from the BSP.
-- Remaining gaps for full visual parity: BSP brush buildings (`Model`/`Polys`
-  undecoded), water volumes, emitters/particles, baked lighting
+- Remaining gaps for full visual parity: emitters/particles, baked lighting
   (TerrainSector per-vertex arrays + TIntMap time-of-day maps).
 
 ## 10. Verification log

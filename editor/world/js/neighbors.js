@@ -23,7 +23,7 @@
 
 import * as THREE from 'three';
 import { L2_TO_M, l2ToThree } from './coords.js';
-import { Geodata } from './geodata.js';
+import { Geodata, GEO_ANCHOR_MAX } from './geodata.js';
 import { correctHeightsWithGeodata } from './terrain.js';
 
 // walking rule, same constant as terrain.js: a walker gains at most this
@@ -319,13 +319,11 @@ export class NeighborTile {
   // layer rule when loaded, heightmap bilinear otherwise (and as fallback
   // when geodata has no answer, e.g. before the lazy load lands).
   heightAtWorld(x, z, currentZ = null) {
-    if (this.geodata) {
-      const h = this.geodata.heightAt(
-        x / L2_TO_M, -z / L2_TO_M,
-        currentZ == null ? null : currentZ / L2_TO_M,
-        currentZ == null ? null : MAX_STEP_UP_L2);
-      if (h != null) return h * L2_TO_M;
-    }
+    // Same anchoring rule as Terrain.heightAtWorld: the geodata surface sits
+    // ~+30 L2u above the drawn heightfield, so geodata picks the LEVEL and the
+    // heightfield supplies its Z. Walking across a tile border must not step
+    // up 30 units, which is what a router disagreeing with the center's would
+    // do — so the neighbour meshes have to anchor identically.
     const def = this.def;
     const g = def.gridSize || 256;
     const spacing = def.spacing || 128;
@@ -334,7 +332,16 @@ export class NeighborTile {
     const fx = Math.min(Math.max((x / L2_TO_M - origin[0]) / spacing, 0), g - 1.001);
     const fy = Math.min(Math.max((-z / L2_TO_M - origin[1]) / spacing, 0), g - 1.001);
     const v = this._sample(g, fx, fy);
-    return (origin[2] + (v - 32768) * heightScale) * L2_TO_M;
+    const terrainZ = origin[2] + (v - 32768) * heightScale;   // L2 units
+    if (this.geodata) {
+      const h = this.geodata.anchoredHeightAt(
+        x / L2_TO_M, -z / L2_TO_M,
+        currentZ == null ? null : currentZ / L2_TO_M,
+        currentZ == null ? null : MAX_STEP_UP_L2,
+        terrainZ, GEO_ANCHOR_MAX);
+      if (h != null) return h * L2_TO_M;
+    }
+    return terrainZ * L2_TO_M;
   }
 
   // Stitch this neighbor's edge that abuts the CENTER tile to the center's

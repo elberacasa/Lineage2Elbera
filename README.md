@@ -469,8 +469,16 @@ ours.
   retail registration; `editor/world/verify_terrain.js`). Residual gaps:
   per-layer `UScale`/`VScale` are deliberately absent from the frozen
   scene.json contract (~20% of layers tile at the default density), and
-  BSP brush buildings, particles and baked lighting are not extracted
-  (dungeons get prop-based torch lights instead).
+  particles and baked lighting are not extracted (dungeons get prop-based
+  torch lights instead).
+- **BSP brush buildings are extracted** (2026-08-07): the post-CSG level
+  UModel of every tile decodes to a sibling `assets/world/<tile>/bsp.gltf`
+  — 118,310 of 146,740 node polygons over the 100 converted tiles, textured
+  and world-placed, rendered by `editor/world/js/bsp.js`. Contract and the
+  drop rules: `tools/world/README.md` ("bsp.gltf contract"); format:
+  `docs/map-format.md` §3.3. Lightmaps are still not decoded, and the
+  terrain mesh currently buries the BSP town-square slab by ~32 units on
+  Giran — measured and documented, not papered over (same README section).
 - **HD is expensive.** 4x textures weigh ~24x the LQ set (pilot tiles went
   76 MB → 1.86 GB) and HD is off by default for that reason; the full
   21,589-texture pass is staged but not finished (1,268 done).

@@ -45,6 +45,20 @@ const CELL_EPS = 1e-6;
 // +2.28m onto TI village foundations with the old 200 cap).
 const MAX_STEP_UP = 48;
 
+// How far the geodata ground layer may sit from the drawn terrain and still
+// be taken for the same surface (anchoredHeightAt below). MEASURED, not
+// chosen for looks: the geodata-over-terrain band on flat ground is
+// +26.9..+34.2 (one CELL_HEIGHT quantum wide), and on real ground the
+// per-point gap |nearest layer - drawn terrain| has p95 = 33..43 on the
+// open tiles (16_21, 16_24) and 110..148 on the town tiles, where the two
+// surfaces genuinely disagree (stale heightmap rectangles, building floors
+// and roofs that no terrain vertex describes). 64 = 8 x CELL_HEIGHT sits
+// above the whole open-ground distribution and below the structure
+// population: it accepts 98%/97% of the sampled points on 16_21/16_24 and
+// 84% on Giran (22_22), leaving the rest on the raw geodata height, which
+// is the correct answer where there is no terrain counterpart.
+export const GEO_ANCHOR_MAX = 64;
+
 export class Geodata {
   constructor(meta, buf) {
     this.meta = meta;
@@ -165,6 +179,55 @@ export class Geodata {
       if (d < bestD) { bestD = d; best = layers[i].height; }
     }
     return best;
+  }
+
+  /** Walking height RE-ANCHORED onto the terrain the client actually draws.
+   *
+   *  The geodata surface and the .unr terrain surface are NOT the same
+   *  surface. Measured (tools/world/verify_terrain_z.py, section B) over
+   *  50 453 dead-flat cells inside FLAT geodata blocks on 16_21, and
+   *  reproduced on every tile tried: the geodata height stands
+   *  +26.9 .. +34.2 L2 units above the decoded heightmap surface — a band
+   *  exactly one CELL_HEIGHT (8) wide, i.e. one constant offset of ~30 plus
+   *  the 8-unit quantisation of the packed cell word. It is a constant, not
+   *  a scale error: fitting it against (h - 32768) over the full 22 000-unit
+   *  height range of 17_22 gives a slope of -1.3e-3, 0.4% of heightScale.
+   *
+   *  The heightmap surface is the one that is right for RENDERING: it
+   *  reproduces the .unr's own TerrainSector bounding boxes to within one
+   *  G16 step (verify_terrain_z.py section A, 33-95% of sectors landing on
+   *  exactly +1 step), and retail flat-bottomed props rest on it — the 49
+   *  V_Obj_S.O_Box01 crates of 17_25 sit +0.5 above it and -68.6 below
+   *  geodata. Putting the model's feet on the geodata height therefore
+   *  floats it ~30 units, 0.6 of a 46-unit character, over the ground the
+   *  player is looking at.
+   *
+   *  So: geodata still chooses the LEVEL (walking rule, bridges, floors),
+   *  and the drawn terrain supplies the Z of the ground level. No constant
+   *  is subtracted — the offset is taken from the cell itself: the layer
+   *  NEAREST the drawn terrain IS this cell's ground layer, so replacing it
+   *  by terrainZ and carrying every other layer's relative offset removes
+   *  the bias wherever the two surfaces describe the same ground, and
+   *  leaves multi-level geometry intact.
+   *
+   *  terrainZ: the drawn terrain height at (x, y), L2 units.
+   *  anchorMax: how far the ground layer may sit from the drawn terrain and
+   *    still be the same surface. Beyond it the cell has no terrain
+   *    counterpart (under a building, a stale-heightmap rectangle, a
+   *    dungeon) and the raw geodata height is returned unchanged.
+   *  Returns null only when the cell has no geodata at all. */
+  anchoredHeightAt(x, y, z, maxUp, terrainZ, anchorMax = GEO_ANCHOR_MAX) {
+    const layers = this._layersAt(x, y);
+    if (!layers || !layers.length) return null;
+    const picked = this.heightAt(x, y, z, maxUp);
+    if (picked == null) return null;
+    let ground = null, best = Infinity;
+    for (const l of layers) {
+      const d = Math.abs(l.height - terrainZ);
+      if (d < best) { best = d; ground = l.height; }
+    }
+    if (ground == null || best > anchorMax) return picked;
+    return terrainZ + (picked - ground);
   }
 
   /** NSWE passage check between ADJACENT cells (consumed by the NavGrid

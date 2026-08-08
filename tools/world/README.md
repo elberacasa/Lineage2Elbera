@@ -125,6 +125,124 @@ world Z = z0 + (h - 32768) * heightScale        (heightScale = 76/256 = 0.296875
   headless (three.js + puppeteer, `preview.html`/`shot.js`) and eyeballed:
   buildings, fences, boards come out textured and correctly shaped.
 
+## bsp.gltf contract (sibling file — the BSP buildings)
+
+`scene.json` is frozen, so the decoded BSP ships beside it. Written by
+`tools/world/bsp.py`; loaded by `editor/world/js/bsp.js`.
+
+```
+assets/world/<tile>/bsp.gltf     glTF 2.0, external buffer, no extensions
+assets/world/<tile>/bsp.bin      vertex + index data
+assets/world/<tile>/bsp/*.png    the surface textures (one per material)
+```
+
+```
+python3 tools/world/bsp.py 22_22 [17_25 ...]   # convert
+python3 tools/world/bsp.py --all               # every converted tile
+python3 tools/world/bsp.py --check [tiles]     # validate (exit 1 on fail)
+```
+
+Why this file exists: every building shell, wall, floor, stair and
+**interior** in an Interlude town is BSP brush geometry, which `convert.py`
+never read — the static meshes it does read are the *decoration bolted onto
+these shells*. A town tile carries 300–500 brushes; the 100 converted tiles
+carry 146 740 BSP node polygons between them.
+
+- **Source**: the tile's single post-CSG **level UModel** (the one with
+  `NumZones > 0`), i.e. the geometry the retail engine rasterises —
+  doorways already cut, rooms already hollow. NOT the per-brush source
+  UPolys, which would render a subtracted room as a solid box.
+- **Units and placement**: raw **L2 world units, Z-up**, exactly like
+  `scene.json` props ("UE2 units = glTF units; handedness conversion is the
+  client's job"). The level model's Points are already world-placed, so the
+  converter applies **no** translation, rotation or scale — there is no
+  brush `Location`/`PrePivot` step to get wrong. The client applies the
+  coords.js map as one group transform (`rotation.x = -PI/2`, `scale 0.01`).
+- **Structure**: one glTF node per spatial chunk (4800 L2u = 48 m grid,
+  matching the client's `PROP_CLUSTER_SIZE`), one primitive per material
+  inside a chunk. Attributes `POSITION`, `NORMAL` (the BSP node plane),
+  `TEXCOORD_0`; indices are a triangle fan per BSP node, wound CCW.
+- **Materials**: `pbrMetallicRoughness` with `baseColorTexture` →
+  `bsp/<name>.png`, `metallicFactor 0`, `roughnessFactor 1`,
+  `doubleSided: true` (the player walks *inside* these shells),
+  `alphaMode: MASK` + `alphaCutoff 0.5` when the surface is PF_Masked or the
+  PNG carries real transparency — the same rule the prop path uses.
+- **UVs** are the retail BSP projection
+  `U = dot(P - Points[pBase], Vectors[vTextureU]) / texture width` (same for
+  V), i.e. texture *pixels* normalised by the shipped PNG's size.
+- `asset.extras` records the per-tile stats (nodes drawn/skipped by
+  category, triangles, cluster size).
+
+### What is dropped, and on what evidence
+
+Every exclusion is decided from the retail data, never from a texture name:
+
+| dropped | rule | 17_25 / 22_22 |
+|---|---|---|
+| invisible helpers | `PolyFlags & PF_INVISIBLE (0x1)` | 800 / 638 nodes (with the two below) |
+| zone portals | `PolyFlags & PF_PORTAL (0x4000000)` | ” |
+| sky-box faces | `PolyFlags & PF_FAKEBACKDROP (0x80)` | ” |
+| the sky room | node has the `SkyZoneInfo` zone on one side (`iZone`) | 53 / 53 |
+| the world box | brush whose UModel bbox is wider than a whole tile (`GRID*SPACING`) | 36 / 31 |
+| water already drawn from `scene.json.water` | material is `FX_E_T.WaterShader01`, tile has water entries | 244 / 100 |
+
+`PF_INVISIBLE` is *named from the data*: across 17_25 + 22_22 + 20_21 a
+surface carries 0x1 if and only if it is an editor helper (painted
+`AntiPortal` / `WaterAntiportal` / `ZonePortal`, or flagged portal /
+antiportal). Full flag→material histogram and the byte-level structure
+evidence: the "UModel / UPolys" block in `tools/l2lib/ue2package.py`.
+
+### NOT decoded
+
+- **Lightmaps / baked lighting.** The level UModel ends with an
+  `FLightMapIndex` array plus the raw `LightBits` blob (~1.8 MB on 17_25);
+  `read_model()` reports its size in `Model.lightmap_tail` and does not
+  parse it. The client lights the BSP with the same rig it lights props
+  with. Nothing here fakes retail's baked light.
+- `Engine.DefaultTexture` surfaces (the UnrealEd "no texture assigned"
+  placeholder) are skipped: 213 nodes on 22_25, 209 on 24_18, 186 on 25_18,
+  10 on 25_15, 4 on 21_16, 0 everywhere else.
+
+### Result over the converted set
+
+100/100 tiles converted and `--check` clean: **118 310 of 146 740 BSP node
+polygons drawn, 332 717 triangles**, 3904 primitives, 24 MB of
+`bsp.gltf`+`bsp.bin` and 227 MB of `bsp/*.png` (per-tile texture copies, the
+same convention `props/textures/` already uses; worst tile 21_16 at 7.9 MB).
+Whole run: ~1 min for all 100 tiles. 20 tiles are countryside with no BSP at
+all (60-node stubs = world box + sky) and ship an empty `bsp.gltf`.
+Cost in the client, measured on Giran with `?bsp=off` as the baseline:
+**+37 draw calls** (1159 → 1196) and +35 geometries; triangles in view are
+unchanged because most of the BSP sits behind the static-mesh facades.
+Client-side verification: `node editor/world/verify_bsp.js` (before/after
+from one build via `?bsp=off`, plus numeric chunk/triangle/bounding-box
+assertions; shots in `editor/world/verify_shots/bsp_*`).
+
+### Open finding: the BSP floor vs the terrain mesh (NOT fixed here)
+
+Measured on the Giran square (22_22, world x 82000 y 148000):
+
+| surface | z |
+|---|---|
+| raw `.unr` heightmap terrain | **−3600.8** |
+| decoded BSP pavement slab (`Giran_floor03`) top | **−3496** |
+| aCis geodata (walkable) | **−3464** |
+| terrain as the client renders it (after `correctHeightsWithGeodata`) | **−3464** |
+
+So the retail town square is a BSP slab laid ~105 units above the natural
+ground, and geodata describes the slab top (+32), not the terrain. The
+client's stale-rectangle repair raises the terrain mesh to the geodata
+level, which now buries the newly decoded pavement by ~32 units. Two
+existing notes are affected and should be revisited by whoever owns the
+terrain/geodata correction: `docs/HANDOFF.md` "town floors painted with the
+base dirt are a retail fact" (the pavement is real — it is BSP, not a
+terrain layer) and the `MESH_GEO_*` heuristic in `terrain.js` (at the square
+the heightmap is not stale; the missing slab explained the deviation). This
+BSP work deliberately does **not** change the terrain correction — that
+would be a cross-cutting change to the walking router, and a depth nudge to
+make the slab win would be exactly the kind of magic offset this project
+forbids.
+
 ## geodata.json contract (FROZEN)
 
 Per-tile ground truth for "height at (x, y, z)" — decoded from the installed
@@ -201,7 +319,9 @@ shipping geodata instead of using the terrain heightmap.
   same-named materials in different packages would share the first PNG
   found. Not observed to matter on these tiles. `dummy_material_N` slots
   (unassigned in the retail meshes) are left unwired.
-- Not extracted (out of M1 scope): BSP brush buildings (`Model`/`Polys`),
+- BSP brush buildings (`Model`/`Polys`) are no longer missing — they ship in
+  the sibling `bsp.gltf` (contract above), not in scene.json.
+- Not extracted (out of M1 scope):
   emitters, decals, baked lighting
   (TerrainSector per-vertex arrays + TIntMap), ambient sounds, deco-layer
   grass scatter (DecoLayers parsed as raw array but unused).
@@ -306,6 +426,8 @@ mesh-and-location-required rule).
 
 - `convert.py` — the converter (single file, see module docstring). Emits
   geodata too when a matching region exists.
+- `bsp.py` — the BSP (buildings) converter: level UModel → `bsp.gltf`
+  (contract above). `--all` / `--check` like the others.
 - `geodata.py` — per-tile geodata extraction/validation (standalone:
   `python3 tools/world/geodata.py --all` regenerates geodata + patches the
   scene.json pointer without a full reconversion; `--check [tiles]` does a
