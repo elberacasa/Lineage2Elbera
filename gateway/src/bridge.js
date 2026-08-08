@@ -678,6 +678,9 @@ class Bridge {
         runSpeed: u.runSpeed, walkSpeed: u.walkSpeed,
         pAtkSpd: u.pAtkSpd, mAtkSpd: u.mAtkSpd,
         maxLoad: u.maxLoad,
+        // equipped item ids (UserInfo's 17-slot layout) — what the client
+        // renders in the hand and on the body
+        paperdoll: u.paperdoll,
       });
     });
 
@@ -716,6 +719,9 @@ class Bridge {
         // aCis 409 CharInfo carries no level field; unavailable in-protocol.
         level: null,
         x: c.x, y: c.y, z: c.z, heading: c.heading,
+        // equipped item ids (CharInfo's 12-slot layout — a different order
+        // from UserInfo's, see readPaperdollItems)
+        paperdoll: c.paperdoll,
       });
     });
 

@@ -42,7 +42,8 @@ if [ "$MODE" != "--client-only" ]; then
            verify-mods verify-level verify-dialog verify-action \
            verify-party verify-quest verify-buffs verify-shop \
            verify-multisell verify-trade verify-store verify-clan \
-           verify-warehouse verify-create verify-tutorial verify-shots; do
+           verify-warehouse verify-create verify-tutorial verify-shots \
+           verify-paperdoll; do
     run "$t" gateway "test/$t.js"
   done
   # verify-respawn spawns its own mock (default port 8086 — free here: the

@@ -1277,6 +1277,45 @@ class GameSession extends EventEmitter {
   }
 }
 
+// The 17 paperdoll ITEM ids, in the order UserInfo.java / CharInfo.java write
+// them (getItemIdFrom(Paperdoll.X), one writeD each):
+//
+//   0 HAIRALL  1 REAR   2 LEAR   3 NECK    4 RFINGER 5 LFINGER
+//   6 HEAD     7 RHAND  8 LHAND  9 GLOVES 10 CHEST  11 LEGS
+//  12 FEET    13 CLOAK 14 RHAND 15 HAIR   16 FACE
+//
+// RHAND appears TWICE — at 7 and again at 14. In retail the second one is the
+// two-handed (LRHAND) slot, but aCis writes `Paperdoll.RHAND` for both, so the
+// two values are ALWAYS identical and carry no extra information. Verified
+// live: equipping a Claymore (handness 2) sets index 7 exactly like a
+// one-hander does. Whether a weapon is two-handed therefore cannot be derived
+// here at all — it comes from weapongrp.json's `handness`, which the client
+// already holds. Slot 14 is read and ignored.
+// CharInfo.java writes a DIFFERENT, shorter set for other players — 12 slots,
+// not the same list truncated:
+//
+//   0 HAIRALL 1 HEAD  2 RHAND 3 LHAND 4 GLOVES 5 CHEST
+//   6 LEGS    7 FEET  8 CLOAK 9 RHAND 10 HAIR  11 FACE
+//
+// So the right hand is index 7 in UserInfo and index 2 in CharInfo. Reading one
+// layout with the other's indices yields a plausible-looking wrong item id,
+// which is exactly the kind of bug that survives review — hence two tables.
+const PAPERDOLL_USER = { RHAND: 7, LHAND: 8, GLOVES: 9, CHEST: 10, LEGS: 11, FEET: 12, RHAND2: 14 };
+const PAPERDOLL_CHAR = { RHAND: 2, LHAND: 3, GLOVES: 4, CHEST: 5, LEGS: 6, FEET: 7, RHAND2: 9 };
+
+function readPaperdollItems(r, count = 17, map = PAPERDOLL_USER) {
+  const slots = [];
+  for (let j = 0; j < count; j++) slots.push(r.readD());
+  return {
+    rhand: slots[map.RHAND] || slots[map.RHAND2] || 0,
+    lhand: slots[map.LHAND] || 0,
+    gloves: slots[map.GLOVES] || 0,
+    chest: slots[map.CHEST] || 0,
+    legs: slots[map.LEGS] || 0,
+    feet: slots[map.FEET] || 0,
+  };
+}
+
 function parseCharSelectInfo(r) {
   const size = r.readD();
   const chars = [];
@@ -1322,7 +1361,7 @@ function parseCharInfo(r) {
   const race = r.readD();
   const sex = r.readD();
   const classId = r.readD();
-  for (let j = 0; j < 12; j++) r.readD(); // paperdoll item ids
+  const paperdoll = readPaperdollItems(r, 12, PAPERDOLL_CHAR);
   for (let j = 0; j < 4; j++) r.readH();
   r.readD(); // rhand augmentation
   for (let j = 0; j < 12; j++) r.readH();
@@ -1357,7 +1396,7 @@ function parseCharInfo(r) {
   r.readD(); // name color
   const heading = r.readD();
   // pledgeClass, pledgeType, titleColor, cursed weapon stage follow; not needed
-  return { id: objectId, name, race, sex, classId, x, y, z, heading };
+  return { id: objectId, name, race, sex, classId, x, y, z, heading, paperdoll };
 }
 
 function parseNpcInfo(r) {
@@ -1419,7 +1458,7 @@ function parseUserInfo(r) {
   const maxLoad = r.readD(); // weight limit
   r.readD(); // weapon timer
   for (let j = 0; j < 17; j++) r.readD(); // paperdoll object ids
-  for (let j = 0; j < 17; j++) r.readD(); // paperdoll item ids
+  const paperdoll = readPaperdollItems(r);
   for (let j = 0; j < 14; j++) r.readH();
   r.readD(); // rhand augmentation
   for (let j = 0; j < 12; j++) r.readH();
@@ -1471,7 +1510,7 @@ function parseUserInfo(r) {
     id: objectId, name, race, sex, classId, level, exp, sp, hp, maxHp, mp, maxMp, cp, maxCp, x, y, z, heading,
     str, dex, con, int, wit, men, currentWeight, maxLoad,
     pAtk, pAtkSpd, pDef, evasion, accuracy, critical, mAtk, mAtkSpd, mDef,
-    runSpeed, walkSpeed, operateType,
+    runSpeed, walkSpeed, operateType, paperdoll,
   };
 }
 
