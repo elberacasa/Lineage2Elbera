@@ -167,7 +167,9 @@ touch: a browser, a protocol gateway, and the real game server.
  │ ElberaBsp      BSP → buildings      │──►   + bsp.gltf     the architecture
  │ ElberaLight    sun · fog · ambient  │──►   + light.json   the tile's own sun
  │ ElberaSound    .uax → Opus          │──► assets/audio     250 music, 5,128 sfx
+ │ ElberaSteps    footstep banks       │──►   + steps.json   12,015 actors, 4 surfaces
  │ ElberaModeler  .ukx → glTF          │──► editor/characters    772 glTF total
+ │ ElberaAnim     mesh → animation     │──►   + binding audit vs the retail .psa sets
  │ ElberaArms     weapons · shields    │──►   + weapons/     180 arms and shields
  │ ElberaFx       skill particles      │──► assets/gamedata  skillvfx + skillmesh
  │ ElberaDat      .dat → JSON          │──►   + decoded tables, names, icons
@@ -177,6 +179,20 @@ touch: a browser, a protocol gateway, and the real game server.
  │ ElberaView     ground truth         │──► renders retail data to compare against
  └─────────────────────────────────────┘
          ▲ ElberaView + official NCSoft captures verify every conversion
+
+ SOURCING GATES — what keeps the port honest
+ ──────────────────────────────────────────────────────────────────────────────
+  Every tool above carries --check: it re-runs its own verification and exits
+  nonzero on regression. Several go further and refuse to emit at all unless
+  the output ties back to the client's own data:
+
+   prop_census.py     163,953 placements → every one a drawable primitive
+   mine_invslots.py   won't write unless it reproduces every xdat anchor
+   audit_guesses.py   gates the UI port: no unjustified pixel ships
+   unsourced.py       classifies all 8,192 literals; baseline fails on drift
+
+  This is why a gap here is usually DOCUMENTED rather than quietly filled —
+  a plausible guess cannot pass a gate that demands a source.
 
  PLAY PLANE — what a player touches
  ──────────────────────────────────────────────────────────────────────────────
@@ -203,6 +219,15 @@ reimplemented.** aCis runs the world — spawns, combat formulas, skills,
 inventory, clans, plus this project's custom mods (offline shops, `.menu`,
 autoloot). The gateway is a dumb pipe plus a codec; the server cannot tell
 a browser from a retail client.
+
+The second decision, which shapes the *build* plane: **the running server is
+an oracle, not just a backend.** Where a value could be read from Java source
+or measured from the live server's own reply, the port measures it — fire the
+action, intercept the packet, record what actually came back. Attack timing,
+movement speed multipliers and walkable heights were all settled that way
+rather than by reading code that might not be the code in use. `ElberaView`
+(umodel) plays the same role for the client binaries: whatever it renders is
+ground truth, and a conversion that disagrees with it is wrong by definition.
 
 ---
 
