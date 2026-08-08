@@ -62,7 +62,13 @@ import { L2Window } from './window.js';
 import { itemMeta, itemInfo } from '../gamedata.js';
 
 const WND = 'WarehouseWnd';
-const SUB_COLOR = '#b09b79';   // the L2 secondary text tone (QuestTreeWnd.uc:570)
+// Text colour is never typed here: every label and value resolves through
+// Layout.textColor(WND, <record>). WarehouseWnd's eight TextBox records are
+// TopText/BottomText/PriceConstText/AdenaConstText/PriceText/AdenaText
+// (#DCDCDC) and TopCountText/BottomCountText (#B09B79) -- so the two count
+// lines really are the tan and the rest really are the grey. The port used
+// to paint all eight #b09b79 on the strength of QuestTreeWnd.uc:570, which
+// governs a different control in a different window.
 
 const KEEPING_PRICE = 30;      // SOURCED WarehouseWnd.uc:3
 const DEFAULT_MAX_COUNT = 200; // SOURCED WarehouseWnd.uc:5 (see header)
@@ -169,7 +175,9 @@ export class WarehouseWnd {
       + 'align-items:center;justify-content:center;';
     const tex = Layout.tex(WND, ctrl).filter(r => Skin.sprite(r));
     if (tex[0]) Skin.apply(b, tex[0], { stretch: true });
-    if (label) Font.set(b, label, { color: '#c9a959' });   // AUTHORED
+    // Button labels carry no colour in the xdat (352 Button records, none
+    // coloured); NCButton picks it per draw. SOURCED NWindow.dll 0x100035a8.
+    if (label) Font.set(b, label, { color: Layout.native('buttonLabel') });
     b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
     this.win.body.appendChild(b);
     return b;
@@ -181,7 +189,9 @@ export class WarehouseWnd {
       const l = document.createElement('div');
       l.style.cssText = 'position:absolute;pointer-events:none;'
         + `left:${Skin.px(lp.x)}px;top:${Skin.px(lp.y)}px;`;
-      Font.set(l, label, { color: SUB_COLOR });   // AUTHORED label text
+      // the label's own record governs its colour (PriceConstText /
+      // AdenaConstText, both #DCDCDC in Interface.xdat)
+      Font.set(l, label, { color: Layout.textColor(WND, labelCtrl) });
       this.win.body.appendChild(l);
     }
     const vp = Layout.pos(WND, valueCtrl);
@@ -224,8 +234,13 @@ export class WarehouseWnd {
     // warehouse; withdraw mirrors it.
     const top = this.mode === 'deposit' ? 'Inventory' : 'Warehouse';
     const bottom = this.mode === 'deposit' ? 'Warehouse' : 'Inventory';
-    if (this.labels.top) Font.set(this.labels.top, top, { color: SUB_COLOR });
-    if (this.labels.bottom) Font.set(this.labels.bottom, bottom, { color: SUB_COLOR });
+    if (this.labels.top) {
+      Font.set(this.labels.top, top, { color: Layout.textColor(WND, 'TopText') });
+    }
+    if (this.labels.bottom) {
+      Font.set(this.labels.bottom, bottom,
+               { color: Layout.textColor(WND, 'BottomText') });
+    }
     this.win.setTitle(this.whType === 2 ? 'Clan Warehouse'
       : this.whType === 3 ? 'Castle Warehouse' : 'Warehouse');
   }
@@ -324,14 +339,14 @@ export class WarehouseWnd {
       + `top:${Skin.px(38)}px;width:${Skin.px(76)}px;height:${Skin.px(23)}px;`
       + 'cursor:pointer;display:flex;align-items:center;justify-content:center;';
     Skin.apply(ok, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-    Font.set(ok, 'OK', { color: '#c9a959' });
+    Font.set(ok, 'OK', { color: Layout.native('buttonLabel') });
     win.body.appendChild(ok);
     // AUTHORED (same prompt layout as above — the cancel mirrors OK)
     const cancel = document.createElement('div');
     cancel.style.cssText = ok.style.cssText.replace(
       /left:\s*\d+(?:\.\d+)?px/, 'left:' + Skin.px(94) + 'px');
     Skin.apply(cancel, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-    Font.set(cancel, 'Cancel', { color: '#c9a959' });
+    Font.set(cancel, 'Cancel', { color: Layout.native('buttonLabel') });
     win.body.appendChild(cancel);
     parent.appendChild(win.root);
     this.amountWin = win;
@@ -396,6 +411,9 @@ export class WarehouseWnd {
       img.draggable = false;
       icon.appendChild(img);
     } else {
+      // AUTHORED: retail draws nothing when an icon is missing -- NCItemWnd
+      // paints the slot art and the icon texture, with no placeholder glyph.
+      // This '?' is a port-only affordance, so no record can govern it.
       Font.set(icon, '?', { color: '#8a93a5' });
     }
     cell.appendChild(icon);
@@ -403,7 +421,8 @@ export class WarehouseWnd {
       const c = document.createElement('div');
       c.style.cssText = 'position:absolute;right:2px;bottom:0;pointer-events:none;'
         + 'text-shadow:0 1px 1px #000;';
-      Font.set(c, String(entry.count > 9999 ? '9999+' : entry.count), { color: '#e8e8e8' });
+      Font.set(c, String(entry.count > 9999 ? '9999+' : entry.count),
+               { color: Layout.native('itemSlotCount') });
       cell.appendChild(c);
     }
     cell.addEventListener('click', () => {
@@ -434,7 +453,9 @@ export class WarehouseWnd {
       // retail shows the bare grid — the placeholder line is AUTHORED
       const empty = document.createElement('div');
       empty.className = 'l2-wh-empty';
-      Font.set(empty, '(empty)', { color: SUB_COLOR });
+      // the placeholder LINE is authored (retail shows the bare grid), but it
+      // sits in the top pane, so it takes that pane's label colour
+      Font.set(empty, '(empty)', { color: Layout.textColor(WND, 'TopText') });
       top.appendChild(empty);
     }
     for (let i = 0; i < this.topItems.length; i++) {
@@ -447,14 +468,19 @@ export class WarehouseWnd {
     // fee: 30 adena PER STAGED ENTRY, deposit mode only (uc:386-397);
     // withdraw leaves PriceText at "0" (uc:57)
     const fee = this.mode === 'deposit' ? cartItems.length * KEEPING_PRICE : 0;
-    Font.set(this.priceEl, costString(fee), { color: '#e8dcc0' });
+    Font.set(this.priceEl, costString(fee),
+             { color: Layout.textColor(WND, 'PriceText') });
     this.priceEl.title = String(fee);   // ConvertNumToText stand-in
     // entry count "(num/max)" (uc:399-419): staged entries in deposit,
     // source entries in withdraw
     const num = this.mode === 'deposit' ? cartItems.length : this.topItems.length;
     const countEl = this.mode === 'deposit' ? this.counts.bottom : this.counts.top;
     const otherEl = this.mode === 'deposit' ? this.counts.top : this.counts.bottom;
-    if (countEl) Font.set(countEl, `(${num}/${DEFAULT_MAX_COUNT})`, { color: SUB_COLOR });
+    const countCtrl = this.mode === 'deposit' ? 'BottomCountText' : 'TopCountText';
+    if (countEl) {
+      Font.set(countEl, `(${num}/${DEFAULT_MAX_COUNT})`,
+               { color: Layout.textColor(WND, countCtrl) });
+    }
     if (otherEl) otherEl.textContent = '';
     this._renderAdena();
   }
@@ -463,7 +489,8 @@ export class WarehouseWnd {
    *  truth via invUpdate). */
   _renderAdena() {
     const adena = this.getAdena() || this.adena || 0;
-    Font.set(this.adenaEl, costString(adena), { color: '#e8dcc0' });
+    Font.set(this.adenaEl, costString(adena),
+             { color: Layout.textColor(WND, 'AdenaText') });
     this.adenaEl.title = String(adena);
   }
 

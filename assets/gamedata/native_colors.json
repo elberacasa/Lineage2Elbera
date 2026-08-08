@@ -1,0 +1,27 @@
+{
+  "_note": "Colours the UI paints that Interface.xdat does not declare. Every entry carries the instruction site it was read from; re-verify with --check.",
+  "_source": "assets/interlude/system/NWindow.dll",
+  "_tool": "tools/ui/mine_native_colors.py",
+  "colors": {
+    "buttonLabel": {
+      "color": "#E6DCBE",
+      "evidence": "NWindow.dll NCButton::paint 0x100034b0 -- 0x100035a2 and ebx,0x463C1E / 0x100035a8 add ebx,0xFFA0A0A0, taken when IsEnableWindow() (vtable slot 27) is true; ebx is the colour argument pushed at 0x1000365e. Shared by NCExButton/NCThumbButton/NCPushButton/NCTabButton, which carry the same slot-99 paint",
+      "role": "Button label text, enabled"
+    },
+    "buttonLabelDisabled": {
+      "color": "#A0A0A0",
+      "evidence": "NWindow.dll NCButton::paint 0x100034b0 -- 0x100035a8 add ebx,0xFFA0A0A0 with the mask zeroed, taken when IsEnableWindow() is false",
+      "role": "Button label text, disabled"
+    },
+    "itemSlotCount": {
+      "color": "#DCDCDC",
+      "evidence": "NWindow.dll NCItemWnd render 0x10030d90 -- 0x1003118d push <colour>, the 4th argument of the badge helper 0x10064790, read back at 0x10064849/0x100648c0/0x10064934/0x100649ac",
+      "role": "Item slot stack-count badge, drawn over the icon"
+    },
+    "textBoxDefault": {
+      "color": "#DCDCDC",
+      "evidence": "NWindow.dll 0x10052aca mov [esi+0x348],<colour> -- field 0x348 is the text colour, since the exported ?execGetTextColor@UTextBoxHandle@@ (0x10131690) returns it via 0x10051682",
+      "role": "TextBox text, when the record carries no colour"
+    }
+  }
+}

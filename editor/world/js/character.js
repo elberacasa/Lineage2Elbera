@@ -201,6 +201,12 @@ export class Character {
   // contract). When present it is authoritative (exact scale, no guard);
   // when absent, the legacy 1.75 m guarded normalization applies.
   async load(url, nativeHeight = null) {
+    // The pawn this body is. entities.js picks a manifest entry and hands over
+    // only its `gltf` path, and steps.js needs the id to find this pawn's
+    // footfall frames — the file's own basename is that id (manifest.json
+    // models[].gltf is "models/<id>.gltf" for all 14), so it is read here
+    // rather than added to the addPlayer contract.
+    this.modelId = String(url).split('/').pop().replace(/\.gltf$/i, '') || null;
     const gltf = await new GLTFLoader().loadAsync(url);
     const root = gltf.scene;
 

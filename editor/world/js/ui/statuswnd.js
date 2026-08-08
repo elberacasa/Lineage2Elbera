@@ -370,7 +370,11 @@ export class StatusWnd {
     const expFrac = expFraction(e, s.level);
     this._setBar('exp', expFrac != null ? expFrac : (e > 0 && e < 1 ? e : 0));
 
-    Font.set(this.levelEl, String(s.level ?? 1), { color: '#ffffff' });
+    // StatusWnd_LevelTextBox is a real TextBox record that carries NO colour
+    // (8 of the 658 do not), so the engine default applies -- NCTextBox
+    // initialises its colour field to #DCDCDC (NWindow.dll 0x10052aca).
+    Font.set(this.levelEl, String(s.level ?? 1),
+             { color: Layout.textColor('StatusWnd', 'StatusWnd_LevelTextBox') });
     if (s.name) this.setName(s.name);
 
     // Gauge labels, exactly what NCStatusBarCtrl's render writes (see
@@ -402,6 +406,9 @@ export class StatusWnd {
   }
 
   setName(n) {
+    // AUTHORED: StatusWnd/UserName is a NameCtrl, not a TextBox. Its record
+    // carries no colour and NCNameCtrl's paint (0x1004b510) holds no colour
+    // immediate, so nothing decodable governs the player-name tint.
     if (n) Font.set(this.nameEl, n, { color: '#e8dcc0' });
   }
 

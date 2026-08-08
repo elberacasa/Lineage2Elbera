@@ -160,8 +160,12 @@ export class SkillWnd {
       const active = this.tab === key;
       const ref = active ? t.onTex : t.offTex;
       if (ref) Skin.apply(t.el, ref, { stretch: true });
-      Font.set(t.el, t.label,
-               { color: active ? '#f0e0b0' : '#9a9a8c' });
+      // A tab's label is a BUTTON label: NCTabButton shares NCButton's paint
+      // (both vtables carry 0x10005e00 at slot 99, which calls 0x100034b0),
+      // so it takes the same IsEnableWindow()-driven colour. Retail marks the
+      // SELECTED tab with a different TEXTURE, not a different text colour --
+      // the Skin.apply above already does that. SOURCED NWindow.dll 0x100035a8.
+      Font.set(t.el, t.label, { color: Layout.native('buttonLabel') });
     }
   }
 
@@ -177,6 +181,9 @@ export class SkillWnd {
 
   _renderFoot() {
     const list = this.skills.filter(s => this._bucket(s) === this.tab);
+    // AUTHORED: a port-only footer. MagicSkillWnd declares no TextBox record
+    // (6 controls: the window, two panes, two ItemWindows and a Tab), so
+    // nothing decoded governs it.
     Font.set(this.footEl, `${list.length} skills`, { color: '#8a93a5' });
   }
 

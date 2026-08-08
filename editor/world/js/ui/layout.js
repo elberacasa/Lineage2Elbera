@@ -25,10 +25,21 @@ const WELLS = '/ui/invslots.json';
 // xdat's own twelve slot records. Needed because the xdat says where the SLOTS
 // are but not where the ART goes, and the art is 492px inside a 504px window.
 const SHORTCUT = '/ui/shortcutslots.json';
+// The text colours the UI paints that Interface.xdat does NOT declare, read
+// out of NWindow.dll by tools/ui/mine_native_colors.py: a Button's label
+// (352 Button records carry no colour, and ButtonHandle.uc exposes no colour
+// API -- the value is chosen per draw from the button's enabled state), an
+// item slot's stack-count badge (drawn by NCItemWnd's own render, not by any
+// declared control), and the fallback a TextBox uses when its own record
+// carries no colour. Each entry ships the instruction site it came from;
+// `python3 tools/ui/mine_native_colors.py --check` re-reads the DLL and fails
+// on drift.
+const NATIVE = '/gamedata/native_colors.json';
 
 let _doc = null;
 let _wells = null;
 let _shortcut = null;
+let _native = null;
 const _index = new Map();       // 'Window/Control' -> node (FLAT, see below)
 const _pathIndex = new Map();   // 'Window/Sub/.../Control' -> node (full path)
 
@@ -49,6 +60,7 @@ export const Layout = {
     if (_doc) return Layout;
     _wells = await fetch(WELLS).then(r => (r.ok ? r.json() : null)).catch(() => null);
     _shortcut = await fetch(SHORTCUT).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    _native = await fetch(NATIVE).then(r => (r.ok ? r.json() : null)).catch(() => null);
     _doc = await fetch(SRC).then(r => (r.ok ? r.json() : null)).catch(() => null);
     if (!_doc) { _doc = { windows: [], textures: {} }; return Layout; }
     for (const w of _doc.windows) {
@@ -151,6 +163,29 @@ export const Layout = {
   color(winName, ctrlName) {
     const n = ctrlName ? Layout.find(winName, ctrlName) : Layout.window(winName);
     return (n && n.color) || null;
+  },
+
+  /** A colour NWindow.dll decides in code because no xdat record carries it.
+   *  Keys: 'buttonLabel', 'buttonLabelDisabled', 'itemSlotCount',
+   *  'textBoxDefault' -- see the NATIVE comment above and
+   *  tools/ui/mine_native_colors.py for the instruction site behind each.
+   *  Null when the harvest is absent, which is the caller's cue to degrade,
+   *  never to substitute a typed colour. */
+  native(key) {
+    const c = _native && _native.colors && _native.colors[key];
+    return (c && c.color) || null;
+  },
+
+  /** The colour a piece of TEXT should be painted, resolved the way the
+   *  client resolves it: the control's own Interface.xdat record first, and
+   *  when that record carries no colour, NCTextBox's field-0x348 initialiser
+   *  (#DCDCDC) -- which is exactly the fallback the engine applies.
+   *
+   *  Prefer this over a literal at every text site. If it returns null both
+   *  decodes are missing, and the caller should degrade rather than type a
+   *  number. */
+  textColor(winName, ctrlName) {
+    return Layout.color(winName, ctrlName) || Layout.native('textBoxDefault');
   },
 
   /** 'left' | 'center' | 'right' from the control's own record, or null when

@@ -50,6 +50,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk01_1hs",
@@ -99,7 +110,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "human_fighter_f",
@@ -151,6 +176,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk01_1hs",
@@ -200,7 +236,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "human_mystic_m",
@@ -252,6 +302,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk02_1hs",
@@ -273,7 +334,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "human_mystic_f",
@@ -325,6 +400,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk02_1hs",
@@ -346,7 +432,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "elf_m",
@@ -398,6 +498,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk01_1hs",
@@ -424,7 +535,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "elf_f",
@@ -476,6 +601,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk01_1hs",
@@ -502,7 +638,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "darkelf_m",
@@ -554,6 +704,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk01_1hs",
@@ -587,7 +748,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "darkelf_f",
@@ -639,6 +814,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk01_1hs",
@@ -672,7 +858,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "orc_fighter_m",
@@ -726,6 +926,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk01_1hs",
@@ -775,7 +986,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "orc_fighter_f",
@@ -829,6 +1054,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk01_1hs",
@@ -878,7 +1114,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "orc_mystic_m",
@@ -932,6 +1182,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk01_1hs",
@@ -956,7 +1217,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "orc_mystic_f",
@@ -1010,6 +1285,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk01_1hs",
@@ -1034,7 +1320,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "dwarf_m",
@@ -1086,6 +1386,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk01_1hs",
@@ -1111,7 +1422,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     },
     {
       "id": "dwarf_f",
@@ -1163,6 +1488,17 @@
         "run_pole",
         "shieldatk_1hs",
         "sit",
+        "social_atk",
+        "social_bow",
+        "social_clap",
+        "social_laugh",
+        "social_no",
+        "social_nod",
+        "social_sad",
+        "social_unaware",
+        "social_victory",
+        "social_waiting_a",
+        "social_yes",
         "spAtk01",
         "spAtk02",
         "spatk01_1hs",
@@ -1188,7 +1524,21 @@
         "dual",
         "hand",
         "pole"
-      ]
+      ],
+      "socialActions": {
+        "2": "social_nod",
+        "3": "social_victory",
+        "4": "social_atk",
+        "5": "social_no",
+        "6": "social_yes",
+        "7": "social_bow",
+        "8": "social_unaware",
+        "9": "social_waiting_a",
+        "10": "social_laugh",
+        "11": "social_clap",
+        "12": "dance",
+        "13": "social_sad"
+      }
     }
   ]
 }

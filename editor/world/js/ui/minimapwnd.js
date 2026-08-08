@@ -156,7 +156,8 @@ export class MinimapWnd {
       b.addEventListener('mouseup', () => Skin.apply(b, tex[0], { stretch: true }));
     }
     // AUTHORED English label (retail uses system strings, not extracted)
-    Font.set(b, label, { color: '#c9a959' });
+    // SOURCED NWindow.dll 0x100035a8 -- Button records carry no xdat colour
+    Font.set(b, label, { color: Layout.native('buttonLabel') });
     if (onClick) b.addEventListener('click', onClick);
     this.win.body.appendChild(b);
     return b;
@@ -363,7 +364,8 @@ export class MinimapWnd {
       + `width:${Skin.px(76)}px;height:${Skin.px(23)}px;cursor:pointer;`
       + 'display:flex;align-items:center;justify-content:center;';
     Skin.apply(close, 'L2UI_CH3.Button.Btn1_Normal', { stretch: true });
-    Font.set(close, 'Collapse', { color: '#c9a959' });   // AUTHORED label
+    // AUTHORED label text; the COLOUR is NCButton's (NWindow.dll 0x100035a8)
+    Font.set(close, 'Collapse', { color: Layout.native('buttonLabel') });
     close.addEventListener('click', () => this.showExpand(false));
     box.appendChild(close);
 

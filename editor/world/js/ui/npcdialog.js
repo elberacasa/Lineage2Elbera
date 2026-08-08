@@ -24,6 +24,7 @@ import { L2Window } from './window.js';
 import { Skin } from './skin.js';
 import { Font } from './font.js';
 import { WndMgr } from './wndmgr.js';
+import { Layout } from './layout.js';
 
 // AUTHORED dialog geometry (no NpcHtmlWnd in the xdat): width 360,
 // content height capped before scrolling.
@@ -148,7 +149,11 @@ export class NpcDialog {
       if (cmd) el.dataset.bypass = cmd;
       else el.disabled = true;
       const label = node.getAttribute('value') || node.textContent.trim() || 'OK';
-      Font.set(el, label, { color: '#e6dcc0' });
+      // an NPC-HTML <button> is a button: no xdat record carries a Button
+      // colour, NCButton chooses it per draw. SOURCED NWindow.dll 0x100035a8
+      // (the literal here used to be #e6dcc0 -- two units off the decoded
+      // #E6DCBE, i.e. remembered rather than read).
+      Font.set(el, label, { color: Layout.native('buttonLabel') });
       return el;
     }
     if (tag === 'font') {

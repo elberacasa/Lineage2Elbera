@@ -52,7 +52,11 @@ import { L2Window } from './window.js';
 import { itemMeta, itemInfo } from '../gamedata.js';
 
 const WND = 'TradeWnd';
-const SUB_COLOR = '#b09b79';   // the L2 secondary text tone (QuestTreeWnd.uc:570)
+// Text colour is never typed here: it resolves through
+// Layout.textColor(WND, <record>). TradeWnd declares two TextBox records,
+// TradeNameTextConst and TargetName, both #DCDCDC. The port used to paint
+// them #b09b79 on the strength of QuestTreeWnd.uc:570, which governs a
+// different control in a different window.
 
 export class TradeWnd {
   constructor(parent = document.body, { onAdd, onDone, onCancel, onAnswer } = {}) {
@@ -112,7 +116,10 @@ export class TradeWnd {
       const el = document.createElement('div');
       el.style.cssText = 'position:absolute;pointer-events:none;'
         + `left:${Skin.px(myLabelPos.x)}px;top:${Skin.px(myLabelPos.y)}px;`;
-      Font.set(el, 'My offer', { color: SUB_COLOR });   // AUTHORED label text
+      // AUTHORED English (retail uses a system string); the COLOUR is the
+      // TradeNameTextConst record's own
+      Font.set(el, 'My offer',
+               { color: Layout.textColor(WND, 'TradeNameTextConst') });
       win.body.appendChild(el);
     }
 
@@ -154,7 +161,9 @@ export class TradeWnd {
       + 'align-items:center;justify-content:center;';
     const tex = Layout.tex(WND, ctrl).filter(r => Skin.sprite(r));
     if (tex[0]) Skin.apply(b, tex[0], { stretch: true });
-    if (label) Font.set(b, label, { color: '#c9a959' });   // AUTHORED
+    // Button labels carry no colour in the xdat (352 Button records, none
+    // coloured); NCButton picks it per draw. SOURCED NWindow.dll 0x100035a8.
+    if (label) Font.set(b, label, { color: Layout.native('buttonLabel') });
     b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
     this.win.body.appendChild(b);
     return b;
@@ -174,9 +183,10 @@ export class TradeWnd {
     this.panes.my.el.style.opacity = '';
     if (this.okBtn) {
       this.okBtn.style.opacity = '';
-      Font.set(this.okBtn, 'OK', { color: '#c9a959' });   // AUTHORED label
+      Font.set(this.okBtn, 'OK', { color: Layout.native('buttonLabel') });
     }
-    Font.set(this.targetNameEl, this.partner || '', { color: SUB_COLOR });
+    Font.set(this.targetNameEl, this.partner || '',
+             { color: Layout.textColor(WND, 'TargetName') });
     this._render();
     this.show();
   }
@@ -232,7 +242,11 @@ export class TradeWnd {
     this.panes.my.el.style.opacity = '0.45';
     if (this.okBtn) {
       this.okBtn.style.opacity = '0.45';
-      Font.set(this.okBtn, 'Waiting', { color: '#c9a959' });   // AUTHORED
+      // AUTHORED English; the COLOUR is NCButton's disabled branch, which is
+      // what retail paints once the button stops accepting clicks
+      // (NWindow.dll 0x100035a8 with IsEnableWindow() false)
+      Font.set(this.okBtn, 'Waiting',
+               { color: Layout.native('buttonLabelDisabled') });
     }
     this.onDone();
   }
@@ -265,14 +279,14 @@ export class TradeWnd {
       + `top:${Skin.px(38)}px;width:${Skin.px(76)}px;height:${Skin.px(23)}px;`
       + 'cursor:pointer;display:flex;align-items:center;justify-content:center;';
     Skin.apply(ok, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-    Font.set(ok, 'OK', { color: '#c9a959' });
+    Font.set(ok, 'OK', { color: Layout.native('buttonLabel') });
     win.body.appendChild(ok);
     // AUTHORED (same prompt layout as above — the cancel mirrors OK)
     const cancel = document.createElement('div');
     cancel.style.cssText = ok.style.cssText.replace(
       /left:\s*\d+(?:\.\d+)?px/, 'left:' + Skin.px(94) + 'px');
     Skin.apply(cancel, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-    Font.set(cancel, 'Cancel', { color: '#c9a959' });
+    Font.set(cancel, 'Cancel', { color: Layout.native('buttonLabel') });
     win.body.appendChild(cancel);
     parent.appendChild(win.root);
     this.amountWin = win;
@@ -331,7 +345,7 @@ export class TradeWnd {
       b.style.cssText = 'width:49px;height:23px;display:flex;'
         + 'align-items:center;justify-content:center;cursor:pointer;';
       Skin.apply(b, 'L2UI_CH3.Button.SmallButton1', { stretch: true });
-      Font.set(b, label, { color: '#c9a959' });   // AUTHORED labels
+      Font.set(b, label, { color: Layout.native('buttonLabel') });
       b.addEventListener('click', (e) => { e.stopPropagation(); cb(); });
       return b;
     };
@@ -346,8 +360,10 @@ export class TradeWnd {
   showAsk(from) {
     this.askFrom = from;
     // AUTHORED prompt text (retail: sysmsg-driven DialogBox content)
+    // AUTHORED English; the COLOUR is DialogBox/DialogText's own record
+    // (#DCDCDC), which is the control retail would put this prompt in
     Font.set(this.askText, `${from || '?'} wants to trade with you.`,
-             { color: '#e8e8e8' });
+             { color: Layout.textColor('DialogBox', 'DialogText') });
     this.askWin.place({ left: window.innerWidth / 2 - 110, top: 200 });
     this.askWin.show();
   }
@@ -386,6 +402,9 @@ export class TradeWnd {
       img.draggable = false;
       icon.appendChild(img);
     } else {
+      // AUTHORED: retail draws nothing when an icon is missing -- NCItemWnd
+      // paints the slot art and the icon texture, with no placeholder glyph.
+      // This '?' is a port-only affordance, so no record can govern it.
       Font.set(icon, '?', { color: '#8a93a5' });
     }
     cell.appendChild(icon);
@@ -393,7 +412,8 @@ export class TradeWnd {
       const c = document.createElement('div');
       c.style.cssText = 'position:absolute;right:2px;bottom:0;pointer-events:none;'
         + 'text-shadow:0 1px 1px #000;';
-      Font.set(c, String(entry.count > 9999 ? '9999+' : entry.count), { color: '#e8e8e8' });
+      Font.set(c, String(entry.count > 9999 ? '9999+' : entry.count),
+               { color: Layout.native('itemSlotCount') });
       cell.appendChild(c);
     }
     if (pane === 'inventory') {

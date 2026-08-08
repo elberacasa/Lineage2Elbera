@@ -55,7 +55,12 @@ import { L2Window } from './window.js';
 import { itemMeta, itemInfo } from '../gamedata.js';
 
 const WND = 'PrivateShopWnd';
-const SUB_COLOR = '#b09b79';   // the L2 secondary text tone (QuestTreeWnd.uc:570)
+// Text colour is never typed here: it resolves through
+// Layout.textColor(WND, <record>). WND is PrivateShopWnd, whose seven
+// TextBox records are TopText/BottomText/PriceConstText/AdenaConstText/
+// PriceText/AdenaText (#DCDCDC) and BottomCountText (#B09B79). The port used
+// to paint them all #b09b79 on the strength of QuestTreeWnd.uc:570, which
+// governs a different control in a different window.
 
 // MakeCostString (PrivateShopWnd.uc:1014) — thousand separators; the
 // tooltip (ConvertNumToText) spells it out
@@ -175,7 +180,9 @@ export class StoreWnd {
       + 'align-items:center;justify-content:center;';
     const tex = Layout.tex(WND, ctrl).filter(r => Skin.sprite(r));
     if (tex[0]) Skin.apply(b, tex[0], { stretch: true });
-    if (label) Font.set(b, label, { color: '#c9a959' });   // AUTHORED
+    // Button labels carry no colour in the xdat (352 Button records, none
+    // coloured); NCButton picks it per draw. SOURCED NWindow.dll 0x100035a8.
+    if (label) Font.set(b, label, { color: Layout.native('buttonLabel') });
     b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
     this.win.body.appendChild(b);
     return b;
@@ -187,7 +194,9 @@ export class StoreWnd {
       const l = document.createElement('div');
       l.style.cssText = 'position:absolute;pointer-events:none;'
         + `left:${Skin.px(lp.x)}px;top:${Skin.px(lp.y)}px;`;
-      Font.set(l, label, { color: SUB_COLOR });   // AUTHORED label text
+      // the label's own record governs its colour (PriceConstText /
+      // AdenaConstText, both #DCDCDC in Interface.xdat)
+      Font.set(l, label, { color: Layout.textColor(WND, labelCtrl) });
       this.win.body.appendChild(l);
     }
     const vp = Layout.pos(WND, valueCtrl);
@@ -273,14 +282,19 @@ export class StoreWnd {
 
   _renderLabels() {
     const t = MODE_TEXT[this.mode] || MODE_TEXT.observeSell;
-    if (this.labels.top) Font.set(this.labels.top, t[1], { color: SUB_COLOR });
-    if (this.labels.bottom) Font.set(this.labels.bottom, t[2], { color: SUB_COLOR });
+    if (this.labels.top) {
+      Font.set(this.labels.top, t[1], { color: Layout.textColor(WND, 'TopText') });
+    }
+    if (this.labels.bottom) {
+      Font.set(this.labels.bottom, t[2],
+               { color: Layout.textColor(WND, 'BottomText') });
+    }
     // AUTHORED button visibility per mode (uc:889-963): Stop/Title only in
     // the manage views; the observer store title rides the window title
     const manage = this.mode === 'manageSell' || this.mode === 'manageBuy';
     if (this.stopBtn) this.stopBtn.style.display = manage ? 'flex' : 'none';
     if (this.msgBtn) this.msgBtn.style.display = manage ? 'flex' : 'none';
-    if (this.okBtn) Font.set(this.okBtn, t[3], { color: '#c9a959' });
+    if (this.okBtn) Font.set(this.okBtn, t[3], { color: Layout.native('buttonLabel') });
     let title = t[0];
     if (!manage && this.storeTitle) title = this.storeTitle;   // their sign
     if (manage && this.title) title = `${t[0]} — ${this.title}`;
@@ -397,14 +411,14 @@ export class StoreWnd {
       + `top:${Skin.px(38)}px;width:${Skin.px(76)}px;height:${Skin.px(23)}px;`
       + 'cursor:pointer;display:flex;align-items:center;justify-content:center;';
     Skin.apply(ok, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-    Font.set(ok, 'OK', { color: '#c9a959' });
+    Font.set(ok, 'OK', { color: Layout.native('buttonLabel') });
     win.body.appendChild(ok);
     // AUTHORED (same prompt layout as above — the cancel mirrors OK)
     const cancel = document.createElement('div');
     cancel.style.cssText = ok.style.cssText.replace(
       /left:\s*\d+(?:\.\d+)?px/, 'left:' + Skin.px(94) + 'px');
     Skin.apply(cancel, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-    Font.set(cancel, 'Cancel', { color: '#c9a959' });
+    Font.set(cancel, 'Cancel', { color: Layout.native('buttonLabel') });
     win.body.appendChild(cancel);
     parent.appendChild(win.root);
     this.amountWin = win;
@@ -454,7 +468,10 @@ export class StoreWnd {
       const l = document.createElement('div');
       l.style.cssText = `position:absolute;left:${Skin.px(10)}px;`
         + `top:${Skin.px(top + 3)}px;`;
-      Font.set(l, label, { color: SUB_COLOR });
+      // our own count/price prompt (retail uses DIALOG_NumberPad); the row
+      // labels take DialogBox/DialogText's colour, the record that governs
+      // the text of the dialog retail would have opened
+      Font.set(l, label, { color: Layout.textColor('DialogBox', 'DialogText') });
       win.body.appendChild(l);
       const input = document.createElement('input');
       input.type = 'number';
@@ -478,14 +495,14 @@ export class StoreWnd {
       + `top:${Skin.px(64)}px;width:${Skin.px(76)}px;height:${Skin.px(23)}px;`
       + 'cursor:pointer;display:flex;align-items:center;justify-content:center;';
     Skin.apply(ok, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-    Font.set(ok, 'OK', { color: '#c9a959' });
+    Font.set(ok, 'OK', { color: Layout.native('buttonLabel') });
     win.body.appendChild(ok);
     const cancel = document.createElement('div');
     // AUTHORED (same prompt layout as above — the cancel mirrors OK)
     cancel.style.cssText = ok.style.cssText.replace(
       /left:\s*\d+(?:\.\d+)?px/, 'left:' + Skin.px(94) + 'px');
     Skin.apply(cancel, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-    Font.set(cancel, 'Cancel', { color: '#c9a959' });
+    Font.set(cancel, 'Cancel', { color: Layout.native('buttonLabel') });
     win.body.appendChild(cancel);
     parent.appendChild(win.root);
     this.priceWin = win;
@@ -558,7 +575,7 @@ export class StoreWnd {
         + `top:${Skin.px(44)}px;width:${Skin.px(76)}px;height:${Skin.px(23)}px;`
         + 'cursor:pointer;display:flex;align-items:center;justify-content:center;';
       Skin.apply(b, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-      Font.set(b, label, { color: '#c9a959' });   // AUTHORED labels
+      Font.set(b, label, { color: Layout.native('buttonLabel') });
       b.addEventListener('click', (e) => { e.stopPropagation(); cb(); });
       win.body.appendChild(b);
       return b;
@@ -616,6 +633,12 @@ export class StoreWnd {
       img.draggable = false;
       icon.appendChild(img);
     } else {
+      // AUTHORED: retail draws nothing when an icon is missing -- NCItemWnd
+      // paints the slot art and the icon texture, with no placeholder glyph.
+      // This '?' is a port-only affordance, so no record can govern it.
+      // AUTHORED: retail draws nothing when an icon is missing -- NCItemWnd
+      // paints the slot art and the icon texture, with no placeholder glyph.
+      // This '?' is a port-only affordance, so no record can govern it.
       Font.set(icon, '?', { color: '#8a93a5' });
     }
     cell.appendChild(icon);
@@ -623,7 +646,8 @@ export class StoreWnd {
       const c = document.createElement('div');
       c.style.cssText = 'position:absolute;right:2px;bottom:0;pointer-events:none;'
         + 'text-shadow:0 1px 1px #000;';
-      Font.set(c, String(entry.count > 9999 ? '9999+' : entry.count), { color: '#e8e8e8' });
+      Font.set(c, String(entry.count > 9999 ? '9999+' : entry.count),
+               { color: Layout.native('itemSlotCount') });
       cell.appendChild(c);
     }
     cell.addEventListener('click', () => {
@@ -659,7 +683,8 @@ export class StoreWnd {
     // price total: accumulated price x count (AdjustPrice, uc:986-1017),
     // MakeCostString formatting
     const total = cartItems.reduce((s, e) => s + e.price * e.count, 0);
-    Font.set(this.priceEl, costString(total), { color: '#e8dcc0' });
+    Font.set(this.priceEl, costString(total),
+             { color: Layout.textColor(WND, 'PriceText') });
     this.priceEl.title = String(total);   // ConvertNumToText stand-in
     this._renderAdena();
   }
@@ -667,7 +692,8 @@ export class StoreWnd {
   /** Adena line follows the inventory (server truth via invUpdate). */
   _renderAdena() {
     const adena = this.getAdena();
-    Font.set(this.adenaEl, costString(adena), { color: '#e8dcc0' });
+    Font.set(this.adenaEl, costString(adena),
+             { color: Layout.textColor(WND, 'AdenaText') });
     this.adenaEl.title = String(adena);
   }
 

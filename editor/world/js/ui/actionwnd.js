@@ -81,7 +81,9 @@ export class ActionWnd {
         ? { x: headers[s].x, y: headers[s].y } : { x: 22, y: 11 + s * 120 };
       head.style.left = `${Skin.px(hp.x)}px`;
       head.style.top = `${Skin.px(hp.y)}px`;
-      Font.set(head, sec.label, { color: '#c8b98a' });
+      // ActionWnd declares three txtBasic TextBox records (textIds 129/130/
+      // 204 = the three section heads), all #DCDCDC in Interface.xdat
+      Font.set(head, sec.label, { color: Layout.textColor('ActionWnd', 'txtBasic') });
       win.body.appendChild(head);
 
       const pos = Layout.pos(WND, sec.item) ?? { x: 18, y: 25 + s * 113 };

@@ -126,7 +126,10 @@ export class TargetStatusWnd {
       + `height:${Skin.px(closeSize ? closeSize.h : 15)}px;`
       + 'cursor:pointer;pointer-events:auto;display:flex;'
       + 'align-items:center;justify-content:center;';
-    Font.set(close, '×', { color: '#8a93a5' });
+    // AUTHORED: retail's TargetStatusWnd has no close control, so no record
+    // governs this. 'x' not U+00D7: the -e font sheets cover code points
+    // 32..126 only, so the multiplication sign rendered as a blank advance.
+    Font.set(close, 'x', { color: '#8a93a5' });
     close.addEventListener('click', () => this.hide());
     root.appendChild(close);
 

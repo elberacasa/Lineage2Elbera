@@ -118,7 +118,10 @@ export class MenuWnd {
         }
       } else {
         // AUTHORED fallback only: no sprite staged for this button.
-        Font.set(el, b.label, { color: '#c9a959' });
+        // MenuWnd declares four Button records and no TextBox; Button records
+        // carry no colour, so NCButton's own choice governs.
+        // SOURCED NWindow.dll 0x100035a8.
+        Font.set(el, b.label, { color: Layout.native('buttonLabel') });
       }
       // claim the press: WndMgr makes the whole bar draggable, and an
       // unclaimed pointerdown would capture the pointer and eat the click
@@ -227,7 +230,12 @@ export class SystemMenuWnd {
       label.style.cssText = `position:absolute;left:${Skin.px(lx)}px;`
         + `top:${Skin.px(ly)}px;width:${Skin.px(ls.w)}px;height:${Skin.px(ls.h)}px;`
         + 'display:flex;align-items:center;';
-      Font.set(label, r.label, { color: r.enabled ? '#cfd4de' : '#5a6274' });
+      // an enabled/disabled pair on button-like rows is exactly what
+      // NCButton's paint decides: IsEnableWindow() picks #E6DCBE, else
+      // #A0A0A0 (NWindow.dll 0x100035a2/0x100035a8)
+      Font.set(label, r.label, {
+        color: Layout.native(r.enabled ? 'buttonLabel' : 'buttonLabelDisabled'),
+      });
       root.appendChild(label);
     });
 

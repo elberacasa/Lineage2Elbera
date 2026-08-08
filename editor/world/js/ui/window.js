@@ -192,6 +192,9 @@ export class L2Window {
 
   setTitle(text) {
     this.title = text;
+    // AUTHORED: the title bar is the PORT's chrome. Retail windows carry no
+    // title TextBox -- of the 103 title/head controls in Interface.xdat none
+    // belongs to a window frame -- so no record governs this text.
     if (Font.ready) Font.set(this.label, text, { font: 'small', color: '#c8b98a' });
   }
 

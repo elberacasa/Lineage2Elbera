@@ -61,8 +61,13 @@ import { sysStringMeta, classIcons } from '../gamedata.js';
 const WND = 'ClanWnd';
 
 // Member row colours: SOURCED — ClanWnd.uc AddToList (uc:1175-1189).
-const COLOR_NAME = '#aaaaaa';        // White 170,170,170
-const COLOR_SELF = '#ffffff';        // BrightWhite 255,255,255
+// Member-row name tints. No xdat record governs a ListCtrl row, but the
+// window's own uscript does: ClanWnd.uc:1178-1180 sets White = (170,170,170)
+// and :1175-1177 BrightWhite = (255,255,255), and :1269 assigns BrightWhite
+// to a row's LVDataList[0].TextColor. SOURCED, from the .uc oracle rather
+// than from Interface.xdat -- both values are also in the xdat's 22.
+const COLOR_NAME = '#aaaaaa';        // ClanWnd.uc:1178-1180 White
+const COLOR_SELF = '#ffffff';        // ClanWnd.uc:1175-1177 BrightWhite
 
 // ListCtrl "ClanInfo" schema, mined from the xdat record (see header):
 // header dwords (100,6,1,19,19) then per column (sysid, width, ...).
@@ -185,7 +190,10 @@ export class ClanWnd {
         + 'justify-content:center;';
       const tex = Layout.tex(WND, b.id).filter(r => Skin.sprite(r));
       if (tex[0]) Skin.apply(el, tex[0], { stretch: true });
-      Font.set(el, this._str(b.sysid, b.fallback), { color: '#c9a959' });
+      // BUTTONS are real ClanWnd Button records; Button records carry no
+      // colour in the xdat, so NCButton's own choice governs.
+      // SOURCED NWindow.dll 0x100035a8.
+      Font.set(el, this._str(b.sysid, b.fallback), { color: Layout.native('buttonLabel') });
       if (b.role === 'leave') {
         el.addEventListener('click', () => {
           if (this._leaveEnabled()) this.onLeave();
@@ -236,7 +244,7 @@ export class ClanWnd {
   _refreshLabels() {
     for (const b of BUTTONS) {
       const el = this._btns.get(b.id);
-      if (el) Font.set(el, this._str(b.sysid, b.fallback), { color: '#c9a959' });
+      if (el) Font.set(el, this._str(b.sysid, b.fallback), { color: Layout.native('buttonLabel') });
     }
     this._render();
   }
@@ -282,25 +290,35 @@ export class ClanWnd {
     const clan = this.clan;
     // value fields (ClanAgitText/ClanStatusText: contract carries no agit,
     // castle or war state — Clear()'s defaults, uc:938-939)
-    Font.set(this.nameEl, clan ? clan.name || '' : '', { color: '#dcdcdc' });
-    Font.set(this.masterEl, clan ? clan.leaderName || '' : '', { color: '#dcdcdc' });
-    Font.set(this.agitEl, clan ? this._str(SYS_AGIT_NONE, 'None') : '', { color: '#dcdcdc' });
-    Font.set(this.statusEl, '', { color: '#dcdcdc' });
-    Font.set(this.levelEl, clan && clan.level != null ? String(clan.level) : '', { color: '#dcdcdc' });
+    // each value field takes its OWN record's colour. All five are #AF9878
+    // in Interface.xdat -- the port painted them #dcdcdc, which is the
+    // colour of the title0..3 LABELS beside them, not of the values.
+    Font.set(this.nameEl, clan ? clan.name || '' : '',
+             { color: Layout.textColor(WND, 'ClanNameText') });
+    Font.set(this.masterEl, clan ? clan.leaderName || '' : '',
+             { color: Layout.textColor(WND, 'ClanMasterNameText') });
+    Font.set(this.agitEl, clan ? this._str(SYS_AGIT_NONE, 'None') : '',
+             { color: Layout.textColor(WND, 'ClanAgitText') });
+    Font.set(this.statusEl, '',
+             { color: Layout.textColor(WND, 'ClanStatusText') });
+    Font.set(this.levelEl, clan && clan.level != null ? String(clan.level) : '',
+             { color: Layout.textColor(WND, 'ClanLevelText') });
 
     // combobox: "<group> - <clan name>" (uc:1594), one entry (DEVIATION)
     this.comboEl.replaceChildren();
     if (clan) {
       const entry = document.createElement('div');
+      // ComboboxMainClanWnd is a real record that carries no colour, so the
+      // engine default applies (NCTextBox field 0x348, NWindow.dll 0x10052aca)
       Font.set(entry, `${this._str(SYS_GROUP_MAIN, 'Main Clan')} - ${clan.name || ''}`,
-               { color: '#dcdcdc' });
+               { color: Layout.textColor(WND, 'ComboboxMainClanWnd') });
       this.comboEl.appendChild(entry);
     }
 
     // "(online/total)" — uc:1317
     const online = this.members.filter(m => m.online || m.id > 0).length;
     Font.set(this.countEl, clan ? `(${online}/${this.members.length})` : '',
-             { color: '#dcdcdc' });
+             { color: Layout.textColor(WND, 'ClanCurrentNum') });
 
     // column header (the schema's mined sysids)
     this.headerEl.replaceChildren();
@@ -308,6 +326,14 @@ export class ClanWnd {
       const cell = document.createElement('div');
       cell.style.cssText = `width:${Skin.px(c.w)}px;flex:none;`
         + 'display:flex;justify-content:center;pointer-events:none;';
+      // AUTHORED: these are ClanMemberList's COLUMN headers. The xdat
+      // declares ClanMemberList as a ListCtrl with no colour, and NCListCtrl
+      // takes its header colour from an instance field rather than an inline
+      // constant (its paint at 0x10035670 contains no colour immediate), so
+      // nothing decodable governs this. NOTE: #c9a959 appears in NEITHER
+      // Interface.xdat's 22 colours NOR NWindow.dll's immediates -- it is a
+      // standing defect, left in place only because inventing a replacement
+      // would be worse. Fix needs NCListCtrl's header field decoded.
       Font.set(cell, this._str(c.sysid, ''), { color: '#c9a959' });
       this.headerEl.appendChild(cell);
     }
@@ -374,7 +400,11 @@ export class ClanWnd {
       if (leader && m.name !== selfName && m.name !== clan.leaderName) {
         const kick = document.createElement('div');
         kick.style.cssText = 'position:absolute;right:0;cursor:pointer;';
-        Font.set(kick, '×', { color: '#d86a6a' });
+        // AUTHORED: retail banishes from the ClanMemberInfoWnd drawer, so no
+        // record governs a per-row control that retail does not have.
+        // 'x' not U+00D7: the -e font sheets cover code points 32..126 only,
+        // so the multiplication sign rendered as a blank advance.
+        Font.set(kick, 'x', { color: '#d86a6a' });
         kick.title = `Dismiss ${m.name} (no confirm — DEVIATION)`;
         kick.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -436,7 +466,7 @@ export class ClanWnd {
         + 'display:flex;align-items:center;justify-content:center;cursor:pointer;';
       Skin.apply(b, 'L2UI_CH3.Button.SmallButton1', { stretch: true });
       // AUTHORED labels (retail's dialog buttons are system strings)
-      Font.set(b, label, { color: '#c9a959' });
+      Font.set(b, label, { color: Layout.native('buttonLabel') });
       b.addEventListener('click', () => { win.hide(); this.onAnswer(accept); });
       return b;
     };
@@ -452,7 +482,7 @@ export class ClanWnd {
     // AUTHORED prompt text (retail: sysmsg-driven DialogBox content)
     Font.set(this.askText,
              `${from || '?'} invites you to join ${clanName || 'the clan'}.`,
-             { color: '#e8e8e8' });
+             { color: Layout.textColor('DialogBox', 'DialogText') });
     this.askWin.place({ left: window.innerWidth / 2 - 110, top: 200 });
     // an incoming invite must be topmost — above every WndMgr window
     WndMgr.raiseEl(this.askWin.root);

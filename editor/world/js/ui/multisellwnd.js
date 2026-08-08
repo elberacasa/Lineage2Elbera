@@ -54,8 +54,17 @@ import { L2Window } from './window.js';
 import { itemMeta, itemInfo } from '../gamedata.js';
 
 const WND = 'MultiSellWnd';
-const SUB_COLOR = '#b09b79';   // the L2 secondary text tone (QuestTreeWnd.uc:570)
-const SHORT_COLOR = '#c04040'; // AUTHORED shortfall tint (insufficient count)
+// Text colour is never typed here: it resolves through
+// Layout.textColor(WND, <record>). MultiSellWnd declares four TextBox
+// records, Text1..Text4, all #DCDCDC. The port used to paint them #b09b79 on
+// the strength of QuestTreeWnd.uc:570, which governs a different control in
+// a different window.
+// AUTHORED: retail's MultiSellWnd does not tint the owned/required line at
+// all -- it shows the ingredient counts plainly and refuses the trade
+// server-side. The shortfall red and the sufficiency green are both port
+// affordances, so no record and no NWindow constant governs either.
+const SHORT_COLOR = '#c04040';    // AUTHORED (see above)
+const ENOUGH_COLOR = '#9fb07a';   // AUTHORED (see above)
 
 function displayName(info, enchant) {
   return (enchant ? `+${enchant} ` : '') + info.name;
@@ -129,7 +138,7 @@ export class MultiSellWnd {
       const el = document.createElement('div');
       el.style.cssText = 'position:absolute;pointer-events:none;'
         + `left:${Skin.px(pos.x)}px;top:${Skin.px(pos.y)}px;`;
-      Font.set(el, labelText[ctrl], { color: SUB_COLOR });
+      Font.set(el, labelText[ctrl], { color: Layout.textColor(WND, ctrl) });
       win.body.appendChild(el);
       this.labels[ctrl] = el;
     }
@@ -157,7 +166,9 @@ export class MultiSellWnd {
       + 'align-items:center;justify-content:center;';
     const tex = Layout.tex(WND, ctrl).filter(r => Skin.sprite(r));
     if (tex[0]) Skin.apply(b, tex[0], { stretch: true });
-    if (label) Font.set(b, label, { color: '#c9a959' });   // AUTHORED
+    // Button labels carry no colour in the xdat (352 Button records, none
+    // coloured); NCButton picks it per draw. SOURCED NWindow.dll 0x100035a8.
+    if (label) Font.set(b, label, { color: Layout.native('buttonLabel') });
     b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
     this.win.body.appendChild(b);
     return b;
@@ -246,7 +257,7 @@ export class MultiSellWnd {
       + `top:${Skin.px(38)}px;width:${Skin.px(76)}px;height:${Skin.px(23)}px;`
       + 'cursor:pointer;display:flex;align-items:center;justify-content:center;';
     Skin.apply(ok, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-    Font.set(ok, 'OK', { color: '#c9a959' });
+    Font.set(ok, 'OK', { color: Layout.native('buttonLabel') });
     win.body.appendChild(ok);
     // AUTHORED (same prompt layout as above — the cancel mirrors OK)
     const cancel = document.createElement('div');
@@ -254,7 +265,7 @@ export class MultiSellWnd {
       + `top:${Skin.px(38)}px;width:${Skin.px(76)}px;height:${Skin.px(23)}px;`
       + 'cursor:pointer;display:flex;align-items:center;justify-content:center;';
     Skin.apply(cancel, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-    Font.set(cancel, 'Cancel', { color: '#c9a959' });
+    Font.set(cancel, 'Cancel', { color: Layout.native('buttonLabel') });
     win.body.appendChild(cancel);
     parent.appendChild(win.root);
     this.amountWin = win;
@@ -322,6 +333,9 @@ export class MultiSellWnd {
       img.draggable = false;
       icon.appendChild(img);
     } else {
+      // AUTHORED: retail draws nothing when an icon is missing -- NCItemWnd
+      // paints the slot art and the icon texture, with no placeholder glyph.
+      // This '?' is a port-only affordance, so no record can govern it.
       Font.set(icon, '?', { color: '#8a93a5' });
     }
     cell.appendChild(icon);
@@ -366,20 +380,27 @@ export class MultiSellWnd {
       img.draggable = false;
       icon.appendChild(img);
     } else {
+      // AUTHORED: retail draws nothing when an icon is missing -- NCItemWnd
+      // paints the slot art and the icon texture, with no placeholder glyph.
+      // This '?' is a port-only affordance, so no record can govern it.
       Font.set(icon, '?', { color: '#8a93a5' });
     }
     row.appendChild(icon);
     const text = document.createElement('div');
     const name = document.createElement('div');
-    Font.set(name, displayName(info, item.enchant), { color: '#e8dcc0' });
+    // the row sits under the Text2/Text3 pane headings; MultiSellWnd has no
+    // per-row record, so the item name takes the window's own text colour
+    Font.set(name, displayName(info, item.enchant),
+             { color: Layout.textColor(WND, 'Text2') });
     text.appendChild(name);
     const counts = document.createElement('div');
     if (owned != null) {
       // ingredient: owned/required — red when short
       const short = owned < item.count;
-      Font.set(counts, `${owned}/${item.count}`, { color: short ? SHORT_COLOR : '#9fb07a' });
+      Font.set(counts, `${owned}/${item.count}`,
+               { color: short ? SHORT_COLOR : ENOUGH_COLOR });
     } else if (item.count > 1) {
-      Font.set(counts, `x${item.count}`, { color: SUB_COLOR });
+      Font.set(counts, `x${item.count}`, { color: Layout.textColor(WND, 'Text3') });
     }
     text.appendChild(counts);
     row.appendChild(text);

@@ -46,7 +46,6 @@ const MAX_QUESTS = 25;   // QUESTTREEWND_MAX_COUNT, QuestTreeWnd.uc:3
 
 // Secondary text colour: SOURCED from QuestTreeWnd.uc:570-572 (the
 // level/journal node items, R176 G155 B121).
-const SUB_COLOR = '#b09b79';
 
 /** aCis QuestState flags dword -> cond number (see header). */
 export function questCond(progress) {
@@ -112,7 +111,8 @@ export class QuestWnd {
     const abTex = Layout.tex(WND, 'btnClose').filter(r => Skin.sprite(r));
     if (abTex[0]) Skin.apply(ab, abTex[0], { stretch: true });
     // AUTHORED label (retail's is a system string, not extracted)
-    Font.set(ab, 'Abort', { color: '#c9a959' });
+    // AUTHORED label text; the COLOUR is NCButton's (NWindow.dll 0x100035a8)
+    Font.set(ab, 'Abort', { color: Layout.native('buttonLabel') });
     ab.addEventListener('click', () => {
       if (this.selected != null) this.onAbort(this.selected);
     });
@@ -139,8 +139,10 @@ export class QuestWnd {
   }
 
   _render() {
+    // numEl sits at the txtQuestNum rect, so that record governs it
+    // (#B09B79 in Interface.xdat)
     Font.set(this.numEl, `(${this.quests.length}/${MAX_QUESTS})`,
-             { color: SUB_COLOR });
+             { color: Layout.textColor(WND, 'txtQuestNum') });
     this.listEl.replaceChildren();
 
     for (const q of this.quests) {
@@ -157,6 +159,9 @@ export class QuestWnd {
       });
 
       const name = document.createElement('div');
+      // AUTHORED: quest names are rows of QuestListWnd/lstQuest, a ListCtrl
+      // whose record carries no colour and whose paint (0x10035670) holds no
+      // colour immediate -- nothing decodable governs a list row's text.
       Font.set(name, q.name || `Quest #${q.id}`, { color: '#e8e8e8' });
       name.style.pointerEvents = 'none';
       row.appendChild(name);
@@ -165,7 +170,8 @@ export class QuestWnd {
         const cond = document.createElement('div');
         // bare state text — the contract carries no journal names, so the
         // cond number is all that can honestly be shown (AUTHORED format)
-        Font.set(cond, `cond ${questCond(q.progress)}`, { color: SUB_COLOR });
+        Font.set(cond, `cond ${questCond(q.progress)}`,
+                 { color: Layout.textColor(WND, 'txtQuestNum') });
         cond.style.pointerEvents = 'none';
         row.appendChild(cond);
       }

@@ -50,6 +50,7 @@ import { Skin } from './skin.js';
 import { Font } from './font.js';
 import { L2Window } from './window.js';
 import { WndMgr } from './wndmgr.js';
+import { Layout } from './layout.js';
 
 const WND_W = 176;    // WindowsInfo.ini [PartyWnd] width
 const ROW_H = 46;     // NPARTYSTATUS_HEIGHT, PartyWnd.uc:5
@@ -68,7 +69,9 @@ const MP_FILL = 'L2UI_CH3.PlayerStatusWnd.ps_mpbar';
 const MP_BACK = 'L2UI_CH3.PlayerStatusWnd.ps_mpbar_back';
 const CROWN = 'L2UI_CH3.PartyWnd.party_leadericon';   // PartyWnd.uc:393
 
-const SUB_COLOR = '#b09b79';   // the L2 secondary text tone (QuestTreeWnd.uc:570)
+// PartyWnd declares only Buttons and the PartyStatusWnd0 sub-window -- it has
+// NO TextBox record at all, so nothing in Interface.xdat governs a member
+// row's text. The row colours below are AUTHORED and say so individually.
 
 export class PartyWnd {
   constructor(parent = document.body,
@@ -135,7 +138,10 @@ export class PartyWnd {
       + 'display:flex;align-items:center;justify-content:center;cursor:pointer;';
     Skin.apply(b, 'L2UI_CH3.Button.SmallButton1', { stretch: true });
     // AUTHORED labels (retail's are system strings, not extracted)
-    Font.set(b, label, { color: '#c9a959' });
+    // PartyWnd/btnBuff and btnCompact are real Button records; Button records
+    // carry no xdat colour, so NCButton's own choice governs.
+    // SOURCED NWindow.dll 0x100035a8.
+    Font.set(b, label, { color: Layout.native('buttonLabel') });
     b.addEventListener('pointerdown', (e) => e.stopPropagation());
     b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
     return b;
@@ -169,9 +175,11 @@ export class PartyWnd {
 
   showAsk(from) {
     this.askFrom = from;
-    // AUTHORED prompt text (retail: sysmsg-drived DialogBox content)
+    // AUTHORED prompt TEXT (retail: sysmsg-driven DialogBox content); the
+    // COLOUR is DialogBox/DialogText's own record, the control retail would
+    // have put this prompt in
     Font.set(this.askText, `${from || '?'} invites you to a party.`,
-             { color: '#e8e8e8' });
+             { color: Layout.textColor('DialogBox', 'DialogText') });
     this.askWin.place({ left: window.innerWidth / 2 - 110, top: 200 });
     // an incoming invite must be topmost — above every WndMgr window
     WndMgr.raiseEl(this.askWin.root);
@@ -216,7 +224,7 @@ export class PartyWnd {
   _refreshInviteBtn() {
     const t = this.getTarget();
     const armed = this._targetIsPlayer();
-    Font.set(this.inviteBtn, armed ? 'Invite' : 'Invite', { color: '#c9a959' });
+    Font.set(this.inviteBtn, armed ? 'Invite' : 'Invite', { color: Layout.native('buttonLabel') });
     this.inviteBtn.style.opacity = armed ? '1' : '0.45';
     this.inviteBtn.style.cursor = armed ? 'pointer' : 'default';
     this.inviteBtn.title = armed ? `Invite ${t.name} to a party`
@@ -256,6 +264,8 @@ export class PartyWnd {
       const name = document.createElement('div');
       name.style.cssText = 'position:absolute;left:0;right:0;top:1px;'
         + 'display:flex;justify-content:center;pointer-events:none;';
+      // AUTHORED: PartyWnd carries no TextBox record (see the header note),
+      // so no decoded value governs a member row's name.
       Font.set(name, m.name || `#${m.id}`, { color: '#e8e8e8' });
       row.appendChild(name);
 
@@ -276,6 +286,8 @@ export class PartyWnd {
         // AUTHORED fallback if the crown art ever fails to stage
         const mark = document.createElement('div');
         mark.style.cssText = 'position:absolute;top:1px;left:2px;pointer-events:none;';
+        // AUTHORED: retail marks the leader with a crown TEXTURE, not a
+        // coloured letter, so no colour record exists for this at all.
         Font.set(mark, 'L', { color: '#ffd24a' });
         row.appendChild(mark);
       }
@@ -304,7 +316,10 @@ export class PartyWnd {
         kick.className = 'l2-party-kick';
         kick.style.cssText = `position:absolute;right:${Skin.px(2)}px;`
           + 'top:1px;cursor:pointer;';
-        Font.set(kick, '×', { color: '#d86a6a' });
+        // AUTHORED: no PartyWnd record governs a per-row control.
+        // 'x' not U+00D7: the -e font sheets cover code points 32..126 only,
+        // so the multiplication sign rendered as a blank advance.
+        Font.set(kick, 'x', { color: '#d86a6a' });
         kick.title = `Dismiss ${m.name} (no confirm — DEVIATION)`;
         kick.addEventListener('pointerdown', (e) => e.stopPropagation());
         kick.addEventListener('click', (e) => {
