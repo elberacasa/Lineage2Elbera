@@ -221,7 +221,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 .shortcut-btn.disabled { opacity: .35; cursor: default; pointer-events: none; }
 
 /* InventoryWnd paperdoll + cells (js/ui/inventorywnd.js) */
+/* border-box: these are sized from the mined rects (EquipItem_* is 34x34,
+   InventoryItem's grid cell 32x32), and with the default content-box the 1px
+   border ADDS 2px to each — a 34px slot rendered 36px and the grid pitch drifted
+   with it. Same class of bug as the window body's +4. */
 .doll-slot {
+  box-sizing: border-box;
   border-radius: 3px; background: rgba(12,14,18,.5); border: 1px solid #2a3140;
   overflow: hidden; cursor: pointer;
 }
@@ -229,6 +234,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 .doll-slot.henna { cursor: default; opacity: .5; }
 .doll-slot img, .inv-cell img { width: 100%; height: 100%; display: block; }
 .inv-cell {
+  box-sizing: border-box;
   position: relative; border-radius: 3px; background: rgba(12,14,18,.5);
   border: 1px solid #2a3140; overflow: hidden; cursor: pointer;
 }
