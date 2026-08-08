@@ -31,7 +31,7 @@ project's house rule.
 | ![TI village NPCs as real models](docs/img/world-ti-village-npcs.jpg) | ![Character sheet with live server stats](docs/img/character-sheet.jpg) |
 | **Towns populated** — Roien, Newbie Helper and 53 more civilians rendered as their real retail models, live from the server | **Character sheet** — live STR/DEX/CON… from the server's own UserInfo, byte-verified against the datapack |
 | ![Elven Ruins dungeon interior](docs/img/dungeon-elven-ruins.jpg) | ![Hotbar, skill cast and system messages](docs/img/hotbar-cast.jpg) |
-| **Dungeon interiors** — the Elven Ruins catacomb rendered as an interior: no sky, torch-lit, props below the terrain plane | **Skills, hotbar, real game text** — cast skills on cooldown, hotbar with items, and the client's own system messages decoded |
+| **Dungeon interiors** — the Elven Ruins, now with its architecture: tiled floor, carved columns and the decorated gallery, all BSP geometry decoded from the map | **Skills, hotbar, real game text** — cast skills on cooldown, hotbar with items, and the client's own system messages decoded |
 | ![Retail UI replica: chat channels, casting bar, shortcut bar](docs/img/retail-ui.jpg) | ![Water plane and terrain splat blending on the TI coast](docs/img/water-splat-beach.jpg) |
 | **The retail UI, rebuilt** — 16 windows at geometry mined pixel-for-pixel from the original `Interface.xdat`, chat channels in L2 colors | **Water + splat terrain** — retail water planes and per-layer blend maps composited with the exact UE2 layer rule |
 
