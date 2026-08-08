@@ -761,12 +761,13 @@ net.on('skillCast', (msg) => {
 net.on('skillLaunch', (msg) => {
   skillBar.finishCast(msg.skillId);
   entities.skillFlash(msg.casterId);
+  // No colour is computed here any more. This used to hash the skill id into a
+  // hue (skillId * 47 % 360) — an invented value standing in for the retail
+  // effect. skillvfx.js now drives the visuals from the decoded effect tables,
+  // and a skill with no sourced effect renders nothing rather than a made-up
+  // colour.
   const pos = entityHeadPos(msg.targetId);
-  if (pos) {
-    const hue = (msg.skillId * 47 % 360) / 360;
-    skillFx.flash(pos, new THREE.Color().setHSL(hue, 0.8, 0.6).getHex());
-    gameSound.launch(msg.skillId, pos);
-  }
+  if (pos) gameSound.launch(msg.skillId, pos);
 });
 // Social action broadcast (gateway op socialAction{id, actionId}, decoded
 // from gameclient 0x2d). Other entities flash their 'special' clip; when
