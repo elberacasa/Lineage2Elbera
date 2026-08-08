@@ -597,7 +597,7 @@ against the real server.
 
 ```
 assets/interlude/    your client data (gitignored — never committed)
-assets/gamedata/     decoded .dat tables + UI metadata as JSON (19 files, icons gitignored)
+assets/gamedata/     decoded .dat tables + UI metadata as JSON (tracked; icons gitignored)
 assets/world/        100 converted tiles + tile-map.json (gitignored, regenerable)
 server/              aCis rev 409 — separate third-party repo, own license
 gateway/             ElberaGate (:8090)          panel/   ElberaPanel (:8080)
@@ -625,8 +625,13 @@ contract + crypto gotchas · deep dives:
 - **Lineage 2 game assets are not included and are not redistributable.**
   Textures, models, maps, audio and `.dat` tables are © NCSoft Corporation.
   You need a legally obtained Lineage 2 Interlude client; Elbera's tools
-  extract and convert assets from your own copy at build time. All
-  converted outputs are gitignored.
+  extract and convert assets from your own copy at build time. The bulk
+  outputs — converted tiles, textures, models, audio, icons — are gitignored
+  and regenerable (see `.gitignore`). The decoded `.dat` tables under
+  `assets/gamedata/*.json` are the exception: they are tracked, so the
+  toolchain's output can be inspected without owning a client. They are
+  NCSoft's data in a different container, and regenerable from your own copy
+  with `tools/dat/`.
 - **The server emulator is a separate project.** `server/` is a third-party
   aCis rev 409 mirror (L2J lineage) with its own history and license — see
   `server/LICENSE`. Elbera's MIT license does not cover it.
