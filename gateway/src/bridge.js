@@ -7,6 +7,7 @@ const { login } = require('./loginclient.js');
 const { GameSession } = require('./gameclient.js');
 const { npcName, npcLevel } = require('./npcnames.js');
 const { questName } = require('./questnames.js');
+const { weaponType } = require('./weapontypes.js');
 
 // actionname-e.dat UI id -> aCis RequestSocialAction id. aCis carries no
 // social NAMES (verified: RequestSocialAction relays the number only); the
@@ -25,6 +26,45 @@ const SOCIAL_NAMES = {
   2: 'Greeting', 3: 'Victory', 4: 'Advance', 5: 'No', 6: 'Yes', 7: 'Bow',
   8: 'Unaware', 9: 'Waiting', 10: 'Laugh', 11: 'Applaud', 12: 'Dance', 13: 'Sorrow',
 };
+
+// ---------------------------------------------------------------- hit timing
+//
+// aCis broadcasts ONE Attack packet at the START of a swing, carrying every
+// hit's damage — but it APPLIES those hits later, and at different moments per
+// weapon class. A client that draws the damage the instant the packet arrives
+// puts the number at the start of the swing, ~half a swing before the target's
+// HP actually moves (the StatusUpdate and the damage system message both ride
+// the later application). These offsets are transcribed from
+// CreatureAttack.doAttack / onHitTimer, with Formulas.calculateTimeBetweenAttacks:
+//
+//   timeAtk = max(100, 500000 / pAtkSpd)                      [Formulas.java:761]
+//   BOW            sAtk = timeAtk      -> hit 0 at timeAtk
+//   DUAL/DUALFIST  sAtk = timeAtk / 2  -> onHitTimer at sAtk/2, hit 0 there,
+//                                         hit 1 one _afterAttackDelay (sAtk/2)
+//                                         later  -> timeAtk/4 and timeAtk/2
+//   POLE           sAtk = timeAtk / 2  -> every hit at timeAtk / 2
+//   default        sAtk = timeAtk / 2  -> hit 0 at timeAtk / 2
+//
+// Java integer division throughout, so Math.floor is deliberate.
+function hitDelays(pAtkSpd, atkType, hitCount) {
+  if (!(pAtkSpd > 0)) return null;                  // attacker never described
+  const timeAtk = Math.max(100, Math.floor(500000 / pAtkSpd));
+  switch (atkType) {
+    case 'BOW':
+      return [timeAtk];
+    case 'DUAL':
+    case 'DUALFIST': {
+      const sAtk = Math.floor(timeAtk / 2);
+      const after = Math.floor(sAtk / 2);
+      return Array.from({ length: hitCount }, (_, i) => after + i * after);
+    }
+    default: {
+      // POLE and every melee weapon land their hits together at timeAtk / 2.
+      const sAtk = Math.floor(timeAtk / 2);
+      return Array.from({ length: hitCount }, () => sAtk);
+    }
+  }
+}
 
 function deriveCredentials(deviceId) {
   const id = String(deviceId || 'anonymous');
@@ -73,6 +113,11 @@ class Bridge {
     this.closed = false;
     // M3 combat state: merged attribute view per object id, and self stats.
     this.statusById = new Map(); // id -> {hp, maxHp, mp, maxMp}
+    // Attack timing inputs per object id: {pAtkSpd, rhand}. UserInfo, CharInfo
+    // and NpcInfo all carry pAtkSpd and the right-hand item; together they are
+    // everything CreatureAttack.doAttack needs to say WHEN each hit of a swing
+    // lands (see hitDelays()).
+    this.atkById = new Map();
     this.self = null; // {hp, maxHp, mp, maxMp, cp, maxCp, level, exp, sp}
     this.entered = false; // enterWorld must fire exactly once
     // Respawn vertical: SELF death state (Die 0x06 for own objectId). The
@@ -667,6 +712,11 @@ class Bridge {
         this.ownStoreType = nowType;
         if (nowType) this.send({ op: 'storeState', open: true, type: nowType });
       }
+      // attack-timing inputs for our own swings (see hitDelays)
+      this.atkById.set(u.id, {
+        pAtkSpd: u.pAtkSpd,
+        rhand: (u.paperdoll && u.paperdoll.rhand) || 0,
+      });
       this.send({ op: 'selfStatus', ...this.self });
       // charSheet: sent right after enterWorld (first UserInfo) and again on
       // every UserInfo re-send (stat changes).
@@ -702,6 +752,7 @@ class Bridge {
     });
 
     game.on('npcInfo', (n) => {
+      this.atkById.set(n.id, { pAtkSpd: n.pAtkSpd, rhand: n.rhand || 0 });
       this.send({
         op: 'addNpc',
         id: n.id,
@@ -726,6 +777,10 @@ class Bridge {
     game.on('charInfo', (c) => {
       if (c.id === this.selfId) return;
       this.playersByName.set(c.id, c.name);
+      this.atkById.set(c.id, {
+        pAtkSpd: c.pAtkSpd,
+        rhand: (c.paperdoll && c.paperdoll.rhand) || 0,
+      });
       this.send({
         op: 'addPlayer',
         id: c.id,
@@ -771,6 +826,7 @@ class Bridge {
 
     game.on('delete', (id) => {
       this.playersByName.delete(id);
+      this.atkById.delete(id);
       this.playerStores.delete(id);
       this.storeTitles.delete(id);
       this.send({ op: 'remove', id });
@@ -823,6 +879,11 @@ class Bridge {
     });
 
     game.on('attack', ({ attackerId, hits }) => {
+      const atk = this.atkById.get(attackerId);
+      // Creature.getAttackType() = the wielded weapon's type, NONE unarmed
+      // (a Player's fists are FIST items, so they take the default branch too).
+      const atkType = atk ? weaponType(atk.rhand) : 'NONE';
+      const delays = atk ? hitDelays(atk.pAtkSpd, atkType, hits.length) : null;
       for (let i = 0; i < hits.length; i++) {
         const h = hits[i];
         this.send({
@@ -836,6 +897,13 @@ class Bridge {
           // client cannot reproduce the cadence from a flat stream of ops.
           hitIndex: i,
           hitCount: hits.length,
+          // ms after this packet at which the server actually applies this
+          // hit (CreatureAttack; see hitDelays). null when the attacker was
+          // never described to us — the client then shows the hit at once,
+          // which is the old behaviour.
+          hitDelay: delays ? delays[i] : null,
+          // the attacker's aCis WeaponType, which is what selected the branch
+          attackType: atkType,
           // Attack.java: HITFLAG_SS 0x10, CRIT 0x20, SHLD 0x40, MISS 0x80.
           // The soulshot bit is how a shot becomes visible at all — there is
           // no separate packet for it, the flash and its sound ride the blow.

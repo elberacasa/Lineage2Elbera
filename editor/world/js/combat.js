@@ -5,7 +5,11 @@
 
 import * as THREE from 'three';
 
+// Authored UI constants with NO retail or server source — neither aCis nor any
+// decoded client table carries them. Left as they were rather than tuned by
+// feel; see the report's open questions for what evidence would settle them.
 const HP_BAR_TTL = 8;           // s an engaged entity keeps its overhead bar
+const FLOAT_TTL_MS = 1300;      // ms a damage number stays on screen
 
 export class CombatUI {
   constructor() {
@@ -70,16 +74,42 @@ export class CombatUI {
 
   // -- combat events ------------------------------------------------------
 
-  damage(worldPos, { damage, critical, miss }) {
+  // A blow. `msg` is the gateway's attack op.
+  //
+  // TIMING: aCis broadcasts ONE Attack packet at the START of a swing carrying
+  // every hit's damage, and applies those hits later — CreatureAttack schedules
+  // them at timeAtk/2 for a melee weapon, timeAtk for a bow, timeAtk/4 and
+  // timeAtk/2 for the two halves of a dual wield (timeAtk =
+  // Formulas.calculateTimeBetweenAttacks = max(100, 500000/pAtkSpd)). The
+  // target's HP, its StatusUpdate, and the "you hit for N" system message all
+  // move at that later moment. Drawing the number the instant the packet
+  // arrives put it a whole half-swing before the health bar moved, and made a
+  // dual wield's two numbers land on top of each other instead of one after the
+  // other. `hitDelay` is that offset, computed by the bridge from the packet's
+  // own attacker (gateway/src/bridge.js hitDelays); null when the attacker was
+  // never described to us, and then the blow shows immediately as before.
+  damage(worldPos, msg = {}) {
+    const delay = msg.hitDelay > 0 ? msg.hitDelay : 0;
+    const at = worldPos.clone();
+    if (!delay) { this._spawnFloat(at, msg); return; }
+    setTimeout(() => this._spawnFloat(at, msg), delay);
+  }
+
+  // The `shield` flag deliberately gets no extra visual here: aCis's own
+  // feedback for a successful block is SystemMessage 111
+  // (SHIELD_DEFENCE_SUCCESSFULL, Formulas.calcShldUse), sent to the defender
+  // and already rendered by the chat window, and a PERFECT block arrives as
+  // damage 0. Anything else would be an invented effect.
+  _spawnFloat(worldPos, { damage, critical, miss }) {
     const el = document.createElement('div');
     el.className = 'dmg-float' + (critical ? ' crit' : '') + (miss ? ' miss' : '');
     el.textContent = miss ? 'miss' : String(damage);
     this.el.floats.appendChild(el);
-    this.floats.push({ el, world: worldPos.clone(), t0: performance.now() });
+    this.floats.push({ el, world: worldPos, t0: performance.now() });
     setTimeout(() => {
       el.remove();
       this.floats = this.floats.filter(f => f.el !== el);
-    }, 1300);
+    }, FLOAT_TTL_MS);
   }
 
   markDead(id) {

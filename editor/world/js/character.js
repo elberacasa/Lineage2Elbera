@@ -23,9 +23,40 @@ const CHAR_HEIGHT = 1.75;      // meters — fallback normalization (~1.7 charcr
 const DEFAULT_RUN_SPEED_L2 = 115;
 const DEFAULT_WALK_SPEED_L2 = 80;
 
+// OFFLINE-ONLY fallback. The walk/run stance is the server's: aCis calls
+// Player.setRunning(true) when a character enters the world and only changes it
+// through the walk/run toggle, which broadcasts ChangeMoveType. Both reach us —
+// the entry stance on charSheet.running (UserInfo's isRunning byte) and the
+// toggle as the changeMove op — and either one sets forcedMoveAnim, which wins
+// over this. It only decides the animation when nothing has spoken at all.
 const RUN_THRESHOLD = 6;       // click farther than this => run anim
-const TURN_RATE = 10;          // rad/s toward heading
-const ARRIVE_DIST = 0.15;
+const TURN_RATE = 10;          // rad/s toward heading — NOT sourced, see report
+
+// Arrival. aCis has NO arrival epsilon: CreatureMove.updatePosition runs on a
+// fixed 100 ms task and covers `passedDistance = getMoveSpeed() / 10` per tick,
+// and the moment the remaining distance is not more than that it sets the
+// position to the destination outright ("Already there : set the position to
+// the destination"). So the threshold is one tick of travel — speed-dependent —
+// and the character lands ON the destination. The 0.15 m constant that used to
+// live here stopped a hasted character exactly as far short as a walking one.
+export const MOVE_TICK_S = 0.1;   // CreatureMove task period, seconds
+
+// Attack cadence, straight from the server, exactly like locomotion speed:
+//
+//   pAtkSpd   -> Formulas.calculateTimeBetweenAttacks(attacker)
+//                = max(100, 500000 / pAtkSpd)  ms per swing
+//   atkSpdMul -> CreatureStatus.getAttackSpeedMultiplier(), whose javadoc reads
+//                "the attack speed multiplier, which is used by client to set
+//                correct character/object attack speed"; its value is
+//                1.1 * pAtkSpd / template basePAtkSpd. aCis sends it on
+//                UserInfo/CharInfo/NpcInfo and the gateway forwards it.
+//
+// It is the animation RATE, not a duration: at the player template's base
+// atkSpd (300) it is 1.1, and it scales linearly with pAtkSpd, so a swing
+// always occupies the same fraction of the attack cycle no matter how fast the
+// character gets. Live: pAtkSpd 416 -> mul 1.5253, cycle 1201 ms, and the
+// 1.500 s atk01_1hs clip plays in 983 ms.
+const DEFAULT_ATK_SPD_MUL = 1;   // no scaling until the server has spoken
 
 export class Character {
   constructor() {
@@ -41,6 +72,10 @@ export class Character {
     // metres/second, replaced by the server's values on the first charSheet
     this.runSpeed = DEFAULT_RUN_SPEED_L2 * L2_TO_M;
     this.walkSpeed = DEFAULT_WALK_SPEED_L2 * L2_TO_M;
+    // attack cadence (see DEFAULT_ATK_SPD_MUL): replaced by the server's own
+    // values on the first charSheet (self) or addPlayer (remote players)
+    this.pAtkSpd = 0;
+    this.atkSpdMul = DEFAULT_ATK_SPD_MUL;
     // right-hand weapon: { object, meshId, handness, weaponType }, owned by
     // equipment.js. `wantWeapon` survives a model reload — race/class changes
     // rebuild the skeleton and the weapon has to be re-hung on the new sockets.
@@ -84,9 +119,30 @@ export class Character {
   // aCis reports speed in L2 units/second on every UserInfo, so this is also
   // the path by which a haste buff, a slow, or a weight penalty takes effect —
   // it must be re-applied on each charSheet, not just at login.
-  setSpeeds({ runSpeed, walkSpeed }) {
+  // Takes the whole charSheet (self) or addPlayer (remote) payload; every field
+  // is optional so a payload that carries only some of them still applies.
+  setSpeeds({ runSpeed, walkSpeed, pAtkSpd, atkSpdMul, running }) {
     if (runSpeed > 0) this.runSpeed = runSpeed * L2_TO_M;
     if (walkSpeed > 0) this.walkSpeed = walkSpeed * L2_TO_M;
+    if (pAtkSpd > 0) this.pAtkSpd = pAtkSpd;
+    if (atkSpdMul > 0) this.atkSpdMul = atkSpdMul;
+    // Walk/run stance. aCis's setRunning(true) at world entry does NOT
+    // broadcast ChangeMoveType, so this UserInfo/CharInfo byte is the only
+    // signal that a freshly entered character is running — without it the
+    // client fell back to guessing from the click distance and short clicks
+    // walked, which retail never does.
+    if (running != null) {
+      this.forcedMoveAnim = running ? 'run' : 'walk';
+      if (this.target) this.moveAnim = this.forcedMoveAnim;
+    }
+  }
+
+  /**
+   * ms between swings for this character — Formulas.calculateTimeBetweenAttacks.
+   * null while the server has not described the character's pAtkSpd.
+   */
+  attackInterval() {
+    return this.pAtkSpd > 0 ? Math.max(100, Math.floor(500000 / this.pAtkSpd)) : null;
   }
 
   // nativeHeight: true height in L2 world units (frozen M3 manifest
@@ -165,16 +221,46 @@ export class Character {
     this.oneShot(name, 0.15);
   }
 
-  // Play a clip once for its own duration (skill cast gestures, emotes).
-  // The update() idle/sit fallback stays suppressed via emoteUntil.
-  oneShot(name, fade = 0.1) {
+  // Play a clip once (skill cast gestures, emotes, swings). The update()
+  // idle/sit fallback stays suppressed via emoteUntil.
+  //
+  // opts.rate       playback multiplier (swings: the server's atkSpdMul)
+  // opts.durationMs make the clip last exactly this long (casts: the server's
+  //                 MagicSkillUse hitTime) — overrides rate
+  //
+  // Neither is a free parameter: both are values the server computed for the
+  // client. The clip's own length only decides the animation when nothing
+  // sourced is available.
+  oneShot(name, fade = 0.1, opts = {}) {
     // resolve the stance here too, so the hold time matches the clip that
     // actually plays — a 1HS swing and the unarmed one are different lengths
     const resolved = this._clip(name);
-    const clip = this.actions[resolved];
-    if (!clip) return;
-    this.play(resolved, fade);
-    this.emoteUntil = performance.now() + clip.getClip().duration * 1000;
+    const action = this.actions[resolved];
+    if (!action) return;
+    const clipSec = action.getClip().duration;
+    let rate = opts.rate > 0 ? opts.rate : 1;
+    if (opts.durationMs > 0 && clipSec > 0) rate = (clipSec * 1000) / opts.durationMs;
+    if (!(rate > 0) || !isFinite(rate)) rate = 1;
+    if (action === this.current) {
+      // Same clip again — a repeating swing. play() short-circuits on the
+      // current action, so without this the second swing of a chain never
+      // restarted and the clip just kept free-running out of phase.
+      action.reset().play();
+      this.current = action;
+    } else {
+      this.play(resolved, fade);
+    }
+    action.setEffectiveTimeScale(rate);
+    this.lastOneShot = { clip: resolved, rate, ms: (clipSec / rate) * 1000 };
+    this.emoteUntil = performance.now() + (clipSec / rate) * 1000;
+  }
+
+  /**
+   * One attack swing, played at the rate the server computed for it.
+   * Source: CreatureStatus.getAttackSpeedMultiplier (see the top of this file).
+   */
+  attackSwing() {
+    this.oneShot('attack', 0.1, { rate: this.atkSpdMul });
   }
 
   setTarget(point) {
@@ -205,10 +291,15 @@ export class Character {
       running = true; moving = true;
     } else if (this.target) {
       const d = this._planarDist(this.target);
-      if (d <= ARRIVE_DIST) {
+      const speed = this.moveAnim === 'run' ? this.runSpeed : this.walkSpeed;
+      if (d <= speed * MOVE_TICK_S) {
+        // land on the destination, the way the server does
+        this.group.position.x = this.target.x;
+        this.group.position.z = this.target.z;
+        this.group.position.y = terrain.heightAtWorld(
+          this.group.position.x, this.group.position.z, this.group.position.y);
         this.target = null;
       } else {
-        const speed = this.moveAnim === 'run' ? this.runSpeed : this.walkSpeed;
         const step = Math.min(speed * dt, d);
         vx = (this.target.x - this.group.position.x) / d * (step / dt);
         vz = (this.target.z - this.group.position.z) / d * (step / dt);

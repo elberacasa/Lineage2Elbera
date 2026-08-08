@@ -349,6 +349,19 @@ wss.on('connection', (ws) => {
     trade = null;
   };
 
+  // Attack timing, so the offline path exercises the same fields the real
+  // bridge sends. Values are the ones OBSERVED live against aCis
+  // (gateway/test/verify-atkspeed.js): self pAtkSpd 416 / atkSpdMul 1.5253,
+  // Gremlin (npcId 18342) pAtkSpd 272 / atkSpdMul 1.2093 — not invented.
+  const SELF_PATK_SPD = 416;
+  const SELF_ATK_SPD_MUL = 1.525333285331726;
+  const MOB_PATK_SPD = 272;
+  const MOB_ATK_SPD_MUL = 1.2092797756195068;
+  // Formulas.calculateTimeBetweenAttacks; the default (non-bow, non-dual)
+  // CreatureAttack branch applies its single hit at timeAtk / 2.
+  const timeAtk = (spd) => Math.max(100, Math.floor(500000 / spd));
+  const meleeHitDelay = (spd) => Math.floor(timeAtk(spd) / 2);
+
   // M3 combat loop: player whacks the gremlin, gremlin counters
   const startCombat = (mobId) => {
     const mob = MOBS[mobId];
@@ -360,13 +373,17 @@ wss.on('connection', (ws) => {
       const miss = Math.random() < 0.1;
       const critical = !miss && Math.random() < 0.15;
       const damage = miss ? 0 : Math.round((40 + Math.random() * 40) * (critical ? 2 : 1));
-      send('attack', { id: self.id, targetId: mobId, damage, critical, miss });
+      send('attack', { id: self.id, targetId: mobId, damage, critical, miss,
+        shield: false, soulshot: false, hitIndex: 0, hitCount: 1,
+        attackType: 'SWORD', hitDelay: meleeHitDelay(SELF_PATK_SPD) });
       if (!miss) mob.hp = Math.max(0, mob.hp - damage);
       send('status', { id: mobId, hp: mob.hp, maxHp: mob.maxHp });
       // gremlin counters every other tick; keeps player hp above ~30%
       if (tick % 2 === 0 && !mob.dead) {
         const md = 8 + Math.round(Math.random() * 8);
-        send('attack', { id: mobId, targetId: self.id, damage: md, critical: false, miss: false });
+        send('attack', { id: mobId, targetId: self.id, damage: md, critical: false, miss: false,
+          shield: false, soulshot: false, hitIndex: 0, hitCount: 1,
+          attackType: 'NONE', hitDelay: meleeHitDelay(MOB_PATK_SPD) });
         selfStats.hp = Math.max(240, selfStats.hp - md);
         send('selfStatus', selfStats);
       }
@@ -501,7 +518,13 @@ wss.on('connection', (ws) => {
           x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, heading: 32768,
         },
       });
-      for (const n of NPCS) send('addNpc', n);
+      // pAtkSpd/atkSpdMul ride NpcInfo on the real bridge. Values are the
+      // ones observed live for the tutorial Gremlin (npcId 18342, datapack
+      // atkSpd 247.42 -> pAtkSpd 272, multiplier 1.2093); the mock's npcIds
+      // are placeholders, the timing fields are not invented.
+      for (const n of NPCS) {
+        send('addNpc', { ...n, pAtkSpd: 272, mAtkSpd: 333, atkSpdMul: 1.2092797756195068, rhand: 0 });
+      }
       for (const p of PLAYERS) send('addPlayer', p);
       send('addPlayer', WALKER);
       send('selfStatus', selfStats);
@@ -533,7 +556,9 @@ wss.on('connection', (ws) => {
       send('charSheet', {
         str: 35, dex: 26, con: 32, int: 21, wit: 19, men: 25,
         pAtk: 42, pDef: 36, mAtk: 28, mDef: 31, accuracy: 33, evasion: 29,
-        critical: 44, runSpeed: 126, walkSpeed: 88, pAtkSpd: 300, mAtkSpd: 333,
+        critical: 44, runSpeed: 126, walkSpeed: 88,
+        pAtkSpd: SELF_PATK_SPD, mAtkSpd: 213, atkSpdMul: SELF_ATK_SPD_MUL,
+        running: true,
       });
       send('sysMsg', { id: 1087, params: [] });
 
@@ -750,7 +775,9 @@ wss.on('connection', (ws) => {
         const mob = MOBS[targetId];
         if (mob && !mob.dead) {
           const damage = 60 + Math.round(Math.random() * 40);
-          send('attack', { id: self.id, targetId, damage, critical: false, miss: false });
+          send('attack', { id: self.id, targetId, damage, critical: false, miss: false,
+            shield: false, soulshot: false, hitIndex: 0, hitCount: 1,
+            attackType: 'SWORD', hitDelay: meleeHitDelay(SELF_PATK_SPD) });
           mob.hp = Math.max(0, mob.hp - damage);
           send('status', { id: targetId, hp: mob.hp, maxHp: mob.maxHp });
         }

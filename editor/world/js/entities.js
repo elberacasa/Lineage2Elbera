@@ -6,7 +6,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Character } from './character.js';
+import { Character, MOVE_TICK_S } from './character.js';
 import { l2ToThree, l2HeadingToThreeYaw, L2_TO_M } from './coords.js';
 import { makeLabel } from './labels.js';
 import { skillAnimMeta, skillAnimInfo } from './gamedata.js';
@@ -166,12 +166,19 @@ class DropEntity {
 }
 
 class NpcEntity {
-  constructor({ id, npcId, name, level, runSpeed, walkSpeed, running }) {
+  constructor({ id, npcId, name, level, runSpeed, walkSpeed, running,
+                pAtkSpd, atkSpdMul }) {
     this.id = id;
     this.kind = 'npc';
     this.npcId = npcId;
     this.level = level ?? null;   // addNpc.level from the datapack template
     this.name = name;
+    // Attack cadence from NpcInfo (see character.js). A Gremlin's pAtkSpd is
+    // 272 -> a 1,838 ms cycle and a 1.209 swing rate; a Guard's is 243 ->
+    // 2,057 ms. One constant cannot express that, and the old code used the
+    // clip's own length for every creature in the game.
+    this.pAtkSpd = pAtkSpd > 0 ? pAtkSpd : 0;
+    this.atkSpdMul = atkSpdMul > 0 ? atkSpdMul : 1;
     // NpcInfo speeds in L2 units/s -> m/s; absent for entities that predate the
     // gateway forwarding them, and Entity.update falls back in that case
     this.runSpeed = runSpeed > 0 ? runSpeed * L2_TO_M : 0;
@@ -286,9 +293,17 @@ class NpcEntity {
     }
   }
 
-  _play(state, fade = 0.2, once = false) {
+  _play(state, fade = 0.2, once = false, rate = 1) {
     const next = this.actions && this.actions[state];
-    if (!next || next === this.current) return;
+    if (!next) return;
+    if (next === this.current) {
+      // A repeated one-shot (swing after swing) must restart in phase; a
+      // repeated loop must not be reset every frame.
+      if (!once) return;
+      next.reset().play();
+      next.setEffectiveTimeScale(rate);
+      return;
+    }
     next.reset();
     if (once) {
       next.setLoop(THREE.LoopOnce, 1);
@@ -297,30 +312,38 @@ class NpcEntity {
       next.setLoop(THREE.LoopRepeat, Infinity);
     }
     next.setEffectiveWeight(1).fadeIn(fade).play();
+    next.setEffectiveTimeScale(rate);
     if (this.current) this.current.fadeOut(fade);
     this.current = next;
   }
 
+  // One swing, played at the rate the server computed for this creature
+  // (NpcInfo attackSpeedMultiplier — see character.js) and held for exactly as
+  // long as it then lasts. The old code played every monster's clip at its
+  // authored speed and returned to idle after `max(300, duration - 100)` ms,
+  // two numbers with no source at all.
   attackFlash() {
     if (!this.actions || this.dead) return;
-    this._play('attack', 0.1, true);
-    // back to idle after the swing
-    const dur = this.actions.attack.getClip().duration;
-    clearTimeout(this._attackTimer);
-    this._attackTimer = setTimeout(() => {
-      if (!this.dead) this._play(this.target ? 'walk' : 'idle');
-    }, Math.max(300, dur * 1000 - 100));
+    this._playTimed('attack', this.atkSpdMul);
   }
 
   // M4: skill cast visual — monsters prefer their 'special' clip
   skillFlash() {
     if (!this.actions || this.dead) return;
-    this._play('special', 0.1, true);
-    const dur = this.actions.special.getClip().duration;
+    this._playTimed('special', this.atkSpdMul);
+  }
+
+  _playTimed(state, rate) {
+    const action = this.actions[state];
+    if (!action) return;
+    const r = rate > 0 && isFinite(rate) ? rate : 1;
+    this._play(state, 0.1, true, r);
+    const ms = (action.getClip().duration / r) * 1000;
+    this.lastFlash = { state, rate: r, ms };   // verification hook
     clearTimeout(this._attackTimer);
     this._attackTimer = setTimeout(() => {
       if (!this.dead) this._play(this.target ? 'walk' : 'idle');
-    }, Math.max(300, dur * 1000 - 100));
+    }, ms);
   }
 
   die() {
@@ -361,17 +384,25 @@ class NpcEntity {
     const pos = this.group.position;
     const dx = this.target.x - pos.x, dz = this.target.z - pos.z;
     const d = Math.hypot(dx, dz);
-    if (d < 0.1) { this.target = null; if (this.actions) this._play('idle'); return; }
-    // ChangeMoveType override: run vs walk (mapAnimations falls back to
-    // walk/first clip when a monster has no run clip)
-    if (this.actions && this.current !== this.actions.attack) {
-      this._play(this.running ? 'run' : 'walk');
-    }
     // per-creature speed from NpcInfo; NPC_SPEED only covers entities that
     // arrived before the gateway forwarded speeds (other players, old mocks)
     const speed = this.running
       ? (this.runSpeed || NPC_SPEED)
       : (this.walkSpeed || NPC_SPEED);
+    // Arrival is the server's rule, not a fixed epsilon: one CreatureMove tick
+    // of travel (see character.js MOVE_TICK_S), then snap to the destination.
+    if (d <= speed * MOVE_TICK_S) {
+      pos.x = this.target.x; pos.z = this.target.z;
+      pos.y = terrain.heightAtWorld(pos.x, pos.z, pos.y);
+      this.target = null;
+      if (this.actions) this._play('idle');
+      return;
+    }
+    // ChangeMoveType override: run vs walk (mapAnimations falls back to
+    // walk/first clip when a monster has no run clip)
+    if (this.actions && this.current !== this.actions.attack) {
+      this._play(this.running ? 'run' : 'walk');
+    }
     const step = Math.min(speed * dt, d);
     pos.x += dx / d * step;
     pos.z += dz / d * step;
@@ -424,6 +455,9 @@ export class EntityManager {
       if (this.entities.has(id)) return;   // raced with a duplicate add
       ch.id = id;
       ch.kind = 'player';
+      // CharInfo carries this player's attack cadence and walk/run stance;
+      // same fields, same meaning, as the self charSheet (character.js).
+      ch.setSpeeds(msg);
       ch.level = msg.level ?? null;   // addPlayer.level: null in-protocol (aCis 409)
       ch.name = msg.name || `player#${id}`;
       l2ToThree(msg.x || 0, msg.y || 0, msg.z || 0, ch.group.position);
@@ -492,12 +526,15 @@ export class EntityManager {
 
   // M3 combat visuals -------------------------------------------------
 
+  // A swing. The clip plays at the attacker's own server-computed rate
+  // (Character.attackSwing / NpcEntity.attackFlash), not at whatever speed the
+  // .psa happened to be authored at.
   attackFlash(id) {
     const e = this.entities.get(id);
     if (e && !e.dead) {
       // oneShot holds the swing against update()'s idle fallback (emoteUntil)
       if (e.kind === 'npc') e.attackFlash();
-      else e.oneShot('attack');
+      else e.attackSwing();
       return;
     }
     // the local player is NOT in the EntityManager (main.js keeps it as a
@@ -505,7 +542,7 @@ export class EntityManager {
     // self fallback as skillFlash below)
     const w = typeof window !== 'undefined' && window.__world;
     if (w && w.net.selfId === id && w.character && !w.character.dead) {
-      w.character.oneShot('attack');
+      w.character.attackSwing();
     }
   }
 
@@ -542,16 +579,28 @@ export class EntityManager {
   // 'castShort/Mid/Long' by duration. Pre-rebuild models lack those clips —
   // the documented 'attack' fallback keeps a gesture until they land.
   // Without skill context the legacy generic swing remains.
+  // ... and the gesture lasts exactly hitTime, because hitTime IS the cast
+  // duration the server told the client to display: CreatureCast.doCast
+  // computes it as Formulas.calcAtkSpd(skillTime * 333 / mAtkSpd), sends it in
+  // MagicSkillUse, and drives its own SetupGauge(BLUE, hitTime) with the same
+  // number. Playing the clip at its authored length instead made every cast
+  // gesture disagree with its own cast bar — a 1.5 s animation over a 400 ms
+  // Wind Strike, or a stubby one over a slow chant.
+  //
+  // skillLaunch re-enters this path at hitTime-400 (CreatureCast.onMagicLaunch);
+  // the second gesture is deliberately NOT restarted mid-swing.
   _playerCastGesture(ch, msg) {
     if (!msg) {
       ch.oneShot('attack');
       return;
     }
+    if (msg.op === 'skillLaunch' && ch.emoteUntil > performance.now()) return;
     skillAnimMeta().then(meta => {
       const entry = skillAnimInfo(meta, msg.skillId, msg.level || 1);
       const clip = clipForSkill(entry, msg.hitTime) || 'attack';
       this.lastCastClip = clip;   // verification hook (name logic picked)
-      ch.oneShot(ch.actions && ch.actions[clip] ? clip : 'attack');
+      ch.oneShot(ch.actions && ch.actions[clip] ? clip : 'attack', 0.1,
+        { durationMs: msg.hitTime });
     });
   }
 
@@ -591,6 +640,15 @@ export class EntityManager {
     if (!e) {
       if (this.pending.has(id)) {
         (this._moveState || (this._moveState = new Map())).set(id, !!running);
+      }
+      // The local player is not in the EntityManager (same self fallback as
+      // attackFlash/skillFlash). Without this the walk/run toggle — the ONE
+      // thing that changes the stance after world entry — never reached the
+      // character the player is actually looking at.
+      const w = typeof window !== 'undefined' && window.__world;
+      if (w && w.net.selfId === id && w.character) {
+        w.character.forcedMoveAnim = running ? 'run' : 'walk';
+        if (w.character.target) w.character.moveAnim = w.character.forcedMoveAnim;
       }
       return;
     }
