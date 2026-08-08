@@ -1770,13 +1770,36 @@ function repathPending() {
   pumpMoveQueue();
 }
 
+// The Z we DRAW and the Z we SEND are two different surfaces, and conflating
+// them is what made the server refuse moves.
+//
+// Since the ground-height fix, the height router returns the drawn terrain
+// height: geodata picks the walkable LEVEL and the heightfield supplies its Z,
+// so feet touch what is rendered. But aCis validates movement against geodata,
+// which sits ~30 L2 units above that surface, so sending the rendered Z asks
+// the server to walk to a point below its own floor — it answers ActionFailed,
+// and the client honestly reports "Can't reach that."
+//
+// So: render at the anchored height, send the raw geodata height. When there is
+// no geodata under the point (no coverage, or offline) the rendered Z is still
+// the best answer available and goes out unchanged.
+function serverDest(p) {
+  const l2 = threeToL2(p);
+  const geo = terrain && terrain.geodata;
+  if (geo) {
+    const z = geo.heightAt(l2.x, l2.y, l2.z);
+    if (z != null) l2.z = Math.round(z);
+  }
+  return l2;
+}
+
 function pumpMoveQueue() {
   if (!moveQueue.length) return;
   const leg = moveQueue.shift();
   character.setTarget(leg);
   if (online) {
     notePlayerAction('move');
-    net.send('moveTo', threeToL2(leg));
+    net.send('moveTo', serverDest(leg));
   }
 }
 
