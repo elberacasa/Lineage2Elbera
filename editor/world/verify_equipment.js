@@ -24,6 +24,7 @@ const OUT = path.join(__dirname, 'ui_shots');
 const ONE_HAND = 69;     // Bastard Sword  (handness 1)
 const TWO_HAND = 70;     // Claymore       (handness 2)
 const STARTER = 2369;    // Squire's Sword — what a new character actually holds
+const SHIELD = 102;      // Round Shield — weaponmesh: lineageweapons.round_shield_m00_sh
 
 let pass = 0, fail = 0;
 const check = (name, ok, detail = '') => {
@@ -106,6 +107,26 @@ const check = (name, ok, detail = '') => {
   const bare = await equip(0);
   check('unequipping clears the hand', bare.name === null && bare.children === 0,
         `children=${bare.children}`);
+
+  // --- off hand -------------------------------------------------------------
+  // Shields and the second blade of a dual set hang on Weapon_L_Bone. The data
+  // is fully sourced — 95 shield item ids, 17 shield meshes built — so there is
+  // nothing to invent here, only to attach.
+  const off = await page.evaluate(async (shieldId) => {
+    const ch = window.__world.character;
+    await ch.setOffhand(shieldId);
+    const socket = ch.model.getObjectByName('Weapon_L_Bone');
+    const held = socket && socket.children.find(c => c.name && c.name.startsWith('weapon_'));
+    const res = { name: held ? held.name : null, children: socket ? socket.children.length : -1 };
+    await ch.setOffhand(0);
+    const after = socket.children.filter(c => c.name && c.name.startsWith('weapon_')).length;
+    return { ...res, clearedTo: after };
+  }, SHIELD);
+
+  check('a shield attaches to the left socket',
+        !!off.name && off.name.includes('shield'), off.name || 'nothing attached');
+  check('unequipping the off hand clears it', off.clearedTo === 0,
+        `${off.clearedTo} left on the bone`);
 
   // --- stance ---------------------------------------------------------------
   // The clips are per weapon stance (Wait_1HS_MFighter and friends). Holding a

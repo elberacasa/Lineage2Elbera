@@ -46,8 +46,21 @@ export class Character {
     // rebuild the skeleton and the weapon has to be re-hung on the new sockets.
     this.weapon = { object: null, meshId: null };
     this.wantWeapon = 0;
+    // off hand: shields, and the second blade of a dual set. Same shape as
+    // `weapon`, hung on Weapon_L_Bone. A two-handed weapon leaves the server's
+    // lhand slot empty (verified live in gateway/test/verify-paperdoll.js), so
+    // nothing special is needed to keep a shield off a two-hander.
+    this.offhand = { object: null, meshId: null };
+    this.wantOffhand = 0;
     // animation stance the equipped weapon calls for; 'hand' is unarmed
     this.stance = 'hand';
+  }
+
+  // The equipped left-hand item id from the server's paperdoll.
+  setOffhand(itemId) {
+    this.wantOffhand = itemId || 0;
+    if (!this.model) return Promise.resolve(null);
+    return equipWeapon(this.model, this.wantOffhand, this.offhand, 'L');
   }
 
   // The equipped right-hand item id, straight from the server's paperdoll.
@@ -112,7 +125,9 @@ export class Character {
     // A model reload builds a new skeleton, so any weapon we were told about
     // before or during the load has to be re-hung on the new sockets.
     this.weapon = { object: null, meshId: null };
+    this.offhand = { object: null, meshId: null };
     if (this.wantWeapon) equipWeapon(this.model, this.wantWeapon, this.weapon);
+    if (this.wantOffhand) equipWeapon(this.model, this.wantOffhand, this.offhand, 'L');
     return this;
   }
 

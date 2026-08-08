@@ -512,6 +512,7 @@ net.on('charSheet', (msg) => {
   // UserInfo, so swapping a weapon in a shop updates the model with no extra op
   if (character && msg.paperdoll) {
     character.setWeapon(msg.paperdoll.rhand);
+    character.setOffhand(msg.paperdoll.lhand);  // shields, dual-wield second blade
     gameSound.setWeapon(msg.paperdoll.rhand);   // weapon impact sounds follow the weapon
   }
   if (document.getElementById('charsheet-panel').classList.contains('visible')) {

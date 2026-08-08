@@ -419,6 +419,7 @@ export class EntityManager {
       // remembered weapon once the sockets exist, so this avoids a second pass
       // and the frame or two of empty-handedness it would cause.
       if (msg.paperdoll && msg.paperdoll.rhand) ch.wantWeapon = msg.paperdoll.rhand;
+      if (msg.paperdoll && msg.paperdoll.lhand) ch.wantOffhand = msg.paperdoll.lhand;
       await ch.load(`/characters/${entry.gltf}`, entry.nativeHeight || null);
       if (this.entities.has(id)) return;   // raced with a duplicate add
       ch.id = id;
