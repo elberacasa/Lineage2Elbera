@@ -125,6 +125,28 @@ export class L2Window {
     root.appendChild(body);
     this.body = body;
 
+    // The frame art goes on its OWN layer, not on the body.
+    //
+    // Skin.nine paints through border-image, which only renders on a real
+    // border-width. A border moves the body's padding box inward, and CSS
+    // anchors absolutely positioned children to the padding box — so every
+    // child landed inset by the border while the mined coordinates are
+    // relative to the window's outer edge. Measured on InventoryWnd: the tab
+    // strip, the item grid and every paperdoll slot all sat at exactly +2,+2
+    // from their xdat positions.
+    //
+    // A constant -2 correction would have been wrong as well as invented:
+    // the width comes from each skin's own insets, so it is not the same
+    // number for every window. Painting the frame on a backdrop pinned to the
+    // body's edges leaves the body itself border-free, so children anchor at
+    // the window origin whatever the art's insets are.
+    const backdrop = document.createElement('div');
+    backdrop.className = 'l2wnd-back';
+    backdrop.style.cssText =
+      'position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;';
+    body.appendChild(backdrop);
+    this.backdrop = backdrop;
+
     // Body background (docs/ui-port-handoff.md §2.1), in the order the
     // client's own data offers it:
     //
@@ -157,10 +179,10 @@ export class L2Window {
       // a full-window interior: draw it 1:1, never 9-slice it (slicing a
       // window-sized art stretches its middle and shifts every cutout)
       body.style.height = `${Skin.px(win.height)}px`;
-      Skin.apply(body, backRef);
+      Skin.apply(backdrop, backRef);
       this.height = win.height;
     } else {
-      Skin.nine(body, backRef, 2);
+      Skin.nine(backdrop, backRef, 2);
     }
 
     if (draggable) this._makeDraggable(bar);
