@@ -110,14 +110,27 @@ export class GameSound {
     }
   }
 
-  // A soulshot firing. The bank has one recording for it (sc_shot_01) and it
-  // is not table-driven — the shot rides the Attack packet's SS flag, there is
-  // no per-item sound in weapongrp. Non-positional when it is our own shot:
-  // that sound is feedback, and in retail it sits on top of the mix.
-  shot(pos, isSelf) {
-    if (isSelf) audio.play2D(UI_SOUND.soulshot, { bus: 'sfx' });
-    else if (pos) audio.playAt(UI_SOUND.soulshot, pos, { volume: 200, radius: 40 });
-  }
+  // A soulshot firing — now SILENT, and that is the sourced answer.
+  //
+  // This used to play InterfaceSound.sc_shot_01 on every hit carrying the
+  // Attack packet's HITFLAG_SS. Two things are wrong with that and both were
+  // checked (2026-08-08):
+  //   1. WRONG SOUND. sc_shot_01 has no binding anywhere in the decoded client
+  //      data (grep assets/gamedata) and it lives in interfacesound.uax next
+  //      to click_01 / inventory_open_01 — it is a UI sound, picked by hand.
+  //      The retail shot sounds are SkillSound.soul_shot_cast (soulshots) and
+  //      SkillSound.spirits_shot_cast (spirit/blessed), which skillsoundgrp.dat
+  //      binds to the shot SKILLS 2039/2047/2061 and 2150..2164.
+  //   2. WRONG MOMENT. Retail's sound rides the shot's own MagicSkillUse, not
+  //      the hit: aCis SoulShots.useItem charges the weapon, then broadcasts
+  //      MagicSkillUse(player, player, <item_skill>, 1, 0, 0). That reaches the
+  //      client as skillCast, and main.js's skillCast handler already calls
+  //      cast() below, which already finds those exact sounds in
+  //      assets/audio/bindings.json. The path was complete; this method was
+  //      simply a second, invented sound layered on top of it.
+  // Kept as a no-op so main.js's call site (js/main.js:1339, another worker's
+  // file) stays valid.
+  shot(_pos, _isSelf) { /* retail plays the shot sound on skillCast, see above */ }
 
   // The attacker's swing. Separate from attack() because a miss still swings.
   swing(entityId, pos) {
@@ -192,7 +205,10 @@ export const gameSound = new GameSound();
 export const UI_SOUND = {
   click:          'interfacesound.click_01',
   questAccept:    'interfacesound.quest_accept_01',
-  soulshot:       'interfacesound.sc_shot_01',
+  // UNBOUND. The bank ships sc_shot_01 and nothing in the decoded client data
+  // says what plays it — the old `soulshot` name was a guess and the shot path
+  // no longer uses it (see GameSound.shot). Listed so the bank stays complete.
+  scShot01:       'interfacesound.sc_shot_01',
   open:           'interfacesound.system_open_01',
   close:          'interfacesound.system_close_01',
 };

@@ -1,0 +1,2477 @@
+{
+ "Death_Blader_Raid_m00": {
+  "anim": "Death_Blader_Raid_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "Drake_Raid_m00": {
+  "anim": "Drake_Raid_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "Evilate_m00": {
+  "anim": "Evilate_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "Kernon_Raid_m00": {
+  "anim": "Kernon_Raid_raid",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "Ol_Mahum_Raid_m00": {
+  "anim": "Ol_Mahum_Raid_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "Zenta_Lizardman_Raid_m00": {
+  "anim": "Zenta_lizardman_Raid_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "Zombie_Raid_m00": {
+  "anim": "Zombie_Raid_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "a_casino_FDarkElf_m00": {
+  "anim": "a_casino_FDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_casino_MHuman_m00": {
+  "anim": "a_casino_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_chamberlain_MHuman_m00": {
+  "anim": "a_chamberlain_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_child_people_Mhuman_m00": {
+  "anim": "a_child_people_mhuman_anim",
+  "pkg": "LineageNPCs2",
+  "ukx": "animations/LineageNPCs2.ukx"
+ },
+ "a_clergyman_FDarkElf_m00": {
+  "anim": "a_clergyman_FDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_clergyman_MDarkElf_m00": {
+  "anim": "a_clergyman_MDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_common_peopleA_FHuman_m00": {
+  "anim": "a_common_peopleA_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_common_peopleA_MHuman_m00": {
+  "anim": "a_common_peopleA_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_common_peopleB_FHuman_m00": {
+  "anim": "a_common_peopleB_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_common_peopleB_MHuman_m00": {
+  "anim": "a_common_peopleB_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_common_peopleC_Fhuman_m00": {
+  "anim": "a_sanctuary_teacher_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_common_peopleC_Mhuman_m00": {
+  "anim": "a_traderA_Mhuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_common_people_FDarkElf_m00": {
+  "anim": "a_common_people_FDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_common_people_FElf_m00": {
+  "anim": "a_common_people_FElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_common_people_MDarkelf_m00": {
+  "anim": "a_common_people_MDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_common_people_MElf_m00": {
+  "anim": "a_common_people_MElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_fighterguild_master_FHuman_m00": {
+  "anim": "a_fighterguild_master_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_fighterguild_master_Mhuman_m00": {
+  "anim": "a_fighterguild_master_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_fighterguild_teacher_FDarkElf_m00": {
+  "anim": "a_fighterguild_teacher_FDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_fighterguild_teacher_FElf_m00": {
+  "anim": "a_fighterguild_teacher_FElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_fighterguild_teacher_FHuman_m00": {
+  "anim": "a_fighterguild_teacher_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_fighterguild_teacher_MDarkElf_m00": {
+  "anim": "a_fighterguild_teacher_MDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_fighterguild_teacher_MElf_m00": {
+  "anim": "a_mageguild_teacher_MElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_fighterguild_teacher_MHuman_m00": {
+  "anim": "a_fighterguild_teacher_Mhuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_fisherA_Mhuman_m00": {
+  "anim": "a_wharfinger_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_guard_FDarkelf_m00": {
+  "anim": "a_guard_FDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_guard_MElf_m00": {
+  "anim": "a_guard_MElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_guard_MHuman_m00": {
+  "anim": "a_guard_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_guild_master_MDarkElf_m00": {
+  "anim": "a_guild_master_MDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_hardin_MHuman_m00": {
+  "anim": "a_hardin_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_hardins_pupil_FHuman_m00": {
+  "anim": "a_hardins_pupil_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_hardins_pupil_MHuman_m00": {
+  "anim": "a_hardins_pupil_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_king_MHuman_m00": {
+  "anim": "a_king_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_lord_MHuman_m00": {
+  "anim": "a_lord_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_mageguild_master_FHuman_m00": {
+  "anim": "a_mageguild_master_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_mageguild_master_MHuman_m00": {
+  "anim": "a_mageguild_master_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_mageguild_teacher_FDarkElf_m00": {
+  "anim": "a_mageguild_teacher_FDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_mageguild_teacher_FElf_m00": {
+  "anim": "a_mageguild_teacher_FElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_mageguild_teacher_FHuman_m00": {
+  "anim": "a_mageguild_teacher_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_mageguild_teacher_MDarkElf_m00": {
+  "anim": "a_mageguild_teacher_MDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_mageguild_teacher_MElf_m00": {
+  "anim": "a_mageguild_teacher_MElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_mageguild_teacher_MHuman_m00": {
+  "anim": "a_mageguild_teacher_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_mageguild_teacher_MHuman_m00_mon": {
+  "anim": "a_mageguild_teacher_MHuman_mon_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_maidA_FHuman_m00": {
+  "anim": "a_maidA_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_maidB_FHuman_m00": {
+  "anim": "a_maidB_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_old_people_Mhuman_m00": {
+  "anim": "a_old_people_Mhuman_anim",
+  "pkg": "LineageNPCs2",
+  "ukx": "animations/LineageNPCs2.ukx"
+ },
+ "a_patriarch_MDarkElf_m00": {
+  "anim": "a_patriarch_MDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_patriarch_MElf_m00": {
+  "anim": "a_patriarch_MElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_royal_guardA_MHuman_m00": {
+  "anim": "a_royal_guardA_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_royal_guardB_MHuman_m00": {
+  "anim": "a_royal_guardB_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_sanctuary_master_MHuman_m00": {
+  "anim": "a_sanctuary_master_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_sanctuary_teacher_FHuman_m00": {
+  "anim": "a_sanctuary_teacher_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_sanctuary_teacher_MHuman_m00": {
+  "anim": "a_sanctuary_teacher_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_smith_MDwarf_m00": {
+  "anim": "a_smith_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_teleporter_FDarkElf_m00": {
+  "anim": "a_teleporter_FDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_teleporter_FElf_m00": {
+  "anim": "a_teleporter_FElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_teleporter_FHuman_m00": {
+  "anim": "a_teleporter_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_temple_master_Mhuman_m00": {
+  "anim": "a_hardin_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_temple_teacher_Mhuman_m00": {
+  "anim": "a_sanctuary_teacher_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_tombkeeperA_m00": {
+  "anim": "a_mageguild_master_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_traderA_FHuman_m00": {
+  "anim": "a_traderA_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_traderA_MDwarf_m00": {
+  "anim": "a_traderA_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_traderA_MHuman_m00": {
+  "anim": "a_traderA_Mhuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_traderB_FHuman_m00": {
+  "anim": "a_traderB_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_traderB_MHuman_m00": {
+  "anim": "a_traderB_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_traderC_Fhuman_m00": {
+  "anim": "a_sanctuary_teacher_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_traderC_Mhuman_m00": {
+  "anim": "a_wharfinger_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_traderD_Fhuman_m00": {
+  "anim": "a_traderB_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_traderD_Mhuman_m00": {
+  "anim": "a_traderB_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_trader_FDarkelf_m00": {
+  "anim": "a_trader_FDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_trader_FElf_m00": {
+  "anim": "a_trader_FElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_trader_MDarkElf_m00": {
+  "anim": "a_trader_MDarkElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_trader_MElf_m00": {
+  "anim": "a_trader_MElf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_warehouse_keeper_MDwarf_m00": {
+  "anim": "a_warehouse_keeper_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "a_wharfinger_MHuman_m00": {
+  "anim": "a_wharfinger_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "ahrimanes_m00": {
+  "anim": "ahrimanes_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "alchemic_box_m00": {
+  "anim": "mimic_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "anakim_m00": {
+  "anim": "anakim_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "angel_m00": {
+  "anim": "angel_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ant_larva_m00": {
+  "anim": "ant_larva_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ant_m00": {
+  "anim": "ant_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ant_soldier_m00": {
+  "anim": "soldier_ant_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "antaras_m00": {
+  "anim": "antaras_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "antelope_ec_m00": {
+  "anim": "antelope_ec_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "antelope_m00": {
+  "anim": "antelope_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "apostle_grail_a_m00": {
+  "anim": "Apostle_grail_bow_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "apostle_grail_m00": {
+  "anim": "Apostle_grail_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "apostle_mage_m00": {
+  "anim": "Apostle_Mage_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "apostle_warrior_m00": {
+  "anim": "Apostle_Warrior_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "arachnoid_m00": {
+  "anim": "arachnoid_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "aracne_m00": {
+  "anim": "aracne_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "archangel_m00": {
+  "anim": "archangel_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "argos_eye_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "ashuras_m00": {
+  "anim": "ashuras_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "baby_buffalo_m00": {
+  "anim": "baby_buffalo_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "baby_ostrich_m00": {
+  "anim": "Baby_Ostrich_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "baby_tiger_m00": {
+  "anim": "baby_tiger_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "baium_m00": {
+  "anim": "Baium_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "bandersnatch_a_m00": {
+  "anim": "BanderSnatch_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "bandersnatch_ec_m00": {
+  "anim": "Bandersnach_ec_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "bandersnatch_m00": {
+  "anim": "BanderSnatch_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "banshee_m00": {
+  "anim": "banshee_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "barka_silenos_archer_m00": {
+  "anim": "Barka_Silenos_Archer_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "barka_silenos_chieftain_m00": {
+  "anim": "Barka_silenos_chieftain_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "barka_silenos_hunter_m00": {
+  "anim": "Barka_Silenos_hunter_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "barka_silenos_mage_m00": {
+  "anim": "Barka_Silenos_Mage_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "barka_silenos_priest_m00": {
+  "anim": "Barka_Silenos_Mage_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "barka_silenos_shaman_m00": {
+  "anim": "Barka_Silenos_Shaman_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "barka_silenos_warrior_m00": {
+  "anim": "Barka_Silenos_Warrior_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "batur_orc_archer_m00": {
+  "anim": "batur_orc_archer_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "batur_orc_m00": {
+  "anim": "batur_orc_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "batur_orc_overlord_m00": {
+  "anim": "batur_orc_overlord_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "batur_orc_shaman_a_m00": {
+  "anim": "batur_orc_shaman_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "batur_orc_warrior_m00": {
+  "anim": "batur_orc_warrior_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "benom_m00": {
+  "anim": "Benom_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "binding_m00": {
+  "anim": "binding_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "bionic_bear_ec_m00": {
+  "anim": "bionic_bear_ec_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "bionic_bear_m00": {
+  "anim": "bionic_bear_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "black_magician_m00": {
+  "anim": "Black_magician_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "black_market_trader_MDwarf_m00": {
+  "anim": "Black_Market_trader_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "black_market_trader_MDwarf_set_m00": {
+  "anim": "Black_Market_trader_set_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "blade_stakato_drone_m00": {
+  "anim": "Blade_Stakato_Drone_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "blade_stakato_m00": {
+  "anim": "Blade_Stakato_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "blade_stakato_queen_m00": {
+  "anim": "blade_stakato_queen_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "blade_stakato_soldier_m00": {
+  "anim": "Blade_Stakato_Soldier_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "blade_stakato_worker_m00": {
+  "anim": "Blade_Stakato_Worker_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "bloody_queen_m00": {
+  "anim": "bloody_queen_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "bloody_queen_raid_m00": {
+  "anim": "Bloody_Queen_Raid_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "box_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "buffalo_ec_m00": {
+  "anim": "Buffalo_ec_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "buffalo_m00": {
+  "anim": "Buffalo_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "bugbear_m00": {
+  "anim": "bugbear_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "cannibal_stakato_leader_m00": {
+  "anim": "Cannibal_Stakato_Leader_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "cannibal_stakato_leader_tran_m00": {
+  "anim": "Cannibal_Stakato_Leader_Tran_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "castle_aden_controltower_jewel_m00": {
+  "anim": "castle_aden_controltower_jewel_anim",
+  "pkg": "LineageNpcs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "castle_kent_statue_jewel_m00": {
+  "anim": "castle_kent_statue_jewel_m00_anim",
+  "pkg": "LineageNpcs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "cat_the_cat_m00": {
+  "anim": "cat_the_cat_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "cave_maiden_m00": {
+  "anim": "cave_maiden_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "codex_stone_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "coffer_a_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "coffer_b_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "coffer_c_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "coffer_d_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "core_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "crimson_bear_m00": {
+  "anim": "crimson_bear_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "crimson_doll_m00": {
+  "anim": "crimson_doll_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "crocodile_m00": {
+  "anim": "crocodile_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "crokian_elder_m00": {
+  "anim": "crokian_elder_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "crokian_m00": {
+  "anim": "Crokian_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "crokian_officer_m00": {
+  "anim": "crokian_officer_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "crokian_sorcerer_m00": {
+  "anim": "crokian_sorcerer_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "crokian_vice_elder_m00": {
+  "anim": "crokian_vice_elder_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "cruel_rider_m00": {
+  "anim": "cruel_rider_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "cutie_cat_m00": {
+  "anim": "cutie_cat_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "dailaon_m00": {
+  "anim": "Dailaon_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "dark_fencer_m00": {
+  "anim": "dark_fencer_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "dark_horror_m00": {
+  "anim": "dark_horror_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "death_blader_m00": {
+  "anim": "death_blader_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "death_knight_m00": {
+  "anim": "death_knight_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "death_lord_m00": {
+  "anim": "death_lord_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "deinonychus_m00": {
+  "anim": "Deinonychus_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "devastator_m00": {
+  "anim": "devastator_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "dinosaur_nest_m00": {
+  "anim": null,
+  "pkg": "LineageNPCsEV",
+  "ukx": null
+ },
+ "dire_wolf_m00": {
+  "anim": "dire_wolf_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "doctor_chaos_m00": {
+  "anim": "doctor_chaos_anim",
+  "pkg": "LineageNPCs2",
+  "ukx": "animations/LineageNPCs2.ukx"
+ },
+ "doll_blader_m00": {
+  "anim": "Doll_Blader_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "doll_master_m00": {
+  "anim": "doll_master_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "drake_m00": {
+  "anim": "drake_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "dre_vanul_m00": {
+  "anim": "dre_vanul_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "drop_gourd_m00": {
+  "anim": "drop_gourd_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "drop_leaf_m00": {
+  "anim": null,
+  "pkg": "dropitems",
+  "ukx": null
+ },
+ "dryad_m00": {
+  "anim": "dryad_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "dwarf_ghost_m00": {
+  "anim": "dwarf_ghost_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "e_bath_Mdwarf_m00": {
+  "anim": "e_Bath_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_celebrant_MDwarf_m00": {
+  "anim": "e_celebrant_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_clergyman_FOrc_m00": {
+  "anim": "e_clergyman_FOrc_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_clergyman_MDwarf_m00": {
+  "anim": "e_clergyman_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_clergyman_MOrc_m00": {
+  "anim": "e_clergyman_MOrc_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_collector_master_MDwarf_m00": {
+  "anim": "e_collector_master_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_collector_teacher_FDwarf_m00": {
+  "anim": "e_collector_teacher_FDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_collector_teacher_FDwarf_m00_mon": {
+  "anim": "e_collector_teacher_FDwarf_mon_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_collector_teacher_MDwarf_m00": {
+  "anim": "e_collector_teacher_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_collector_teacher_MDwarf_m00_mon": {
+  "anim": "e_collector_teacher_MDwarf_mon_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_common_people_FDwarf_m00": {
+  "anim": "e_common_people_FDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_common_people_MDwarf_m00": {
+  "anim": "e_common_people_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_common_people_MOrc_m00": {
+  "anim": "e_Common_people_MOrc_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_elmore_guard_Mhuman_m00": {
+  "anim": "e_elmore_guard_MHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_fighterguild_teacher_MOrc_m00": {
+  "anim": "e_fighterguild_teacher_MOrc_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_guard_MDwarf_m00": {
+  "anim": "e_guard_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_guard_MOrc_m00": {
+  "anim": "e_guard_MOrc_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_mageguild_teacher_FOrc_m00": {
+  "anim": "e_mageguild_teacher_FOrc_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_mageguild_teacher_MOrc_m00": {
+  "anim": "e_mageguild_teacher_MOrc_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_mine_master_MDwarf_m00": {
+  "anim": "e_mine_master_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_mine_teacher_FDwarf_m00": {
+  "anim": "e_mine_teacher_FDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_mine_teacher_MDwarf_m00": {
+  "anim": "e_mine_teacher_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_patriarch_MOrc_m00": {
+  "anim": "e_patriarch_MOrc_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_smith_Fdwarf_m00": {
+  "anim": "e_smith_FDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_smith_master_MDwarf_m00": {
+  "anim": "e_smith_master_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_teleporter_FDwarf_m00": {
+  "anim": "e_teleporter_FDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_teleporter_FOrc_m00": {
+  "anim": "e_Teleporter_FOrc_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_teleporter_Fhuman_m00": {
+  "anim": "e_teleporter_FHuman_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_traderA_FDwarf_m00": {
+  "anim": "e_traderA_FDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_traderA_master_MDwarf_m00": {
+  "anim": "e_traderA_master_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_traderB_FDwarf_m00": {
+  "anim": "e_traderB_FDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_traderB_FDwarf_m00_mon": {
+  "anim": "e_traderB_FDwarf_mon_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_traderB_MDwarf_m00": {
+  "anim": "e_traderB_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_traderB_master_MDwarf_m00": {
+  "anim": "e_traderB_master_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_trader_FOrc_m00": {
+  "anim": "e_trader_FOrc_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_trader_MOrc_m00": {
+  "anim": "e_trader_MOrc_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_warehouse_keeper_FDwarf_m00": {
+  "anim": "e_warehouse_keeper_FDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "e_warehouse_master_MDwarf_m00": {
+  "anim": "e_warehouse_master_MDwarf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "elder_troll_m00": {
+  "anim": "Elder_troll_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "elf_ghost_m00": {
+  "anim": "elf_ghost_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "elite_mage_m00": {
+  "anim": "Elite_Mage_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "elpy_m00": {
+  "anim": "Rabbit_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "erinyes_m00": {
+  "anim": "erinyes_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "evil_altar_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "farhite_m00": {
+  "anim": "Farhite_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "field_stalker_m00": {
+  "anim": "field_stalker_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "fiend_archer_m00": {
+  "anim": "fiend_archer_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "flag_ssq_m00": {
+  "anim": "Flag_SSQ_anim",
+  "pkg": "LineageDecos",
+  "ukx": "animations/lineagedecos.ukx"
+ },
+ "flava_m00": {
+  "anim": "Flava_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "follower_of_frintessa_m00": {
+  "anim": "Follower_Of_Frintessa_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "follower_of_frintessa_tran_m00": {
+  "anim": "Follower_Of_Frintessa_Tran_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "fox_m00": {
+  "anim": "Fox_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "frintessa_m00": {
+  "anim": "Frintessa_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "gamlin_m00": {
+  "anim": "gamlin_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "gargoyle_m00": {
+  "anim": "gargoyle_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "giant_bee_m00": {
+  "anim": "giant_bee_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "giant_leech_m00": {
+  "anim": "giant_leech_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "giant_spider_m00": {
+  "anim": "giant_spider_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "giant_wild_hog_m00": {
+  "anim": "giant_wild_hog_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "giant_zombie_m00": {
+  "anim": "giant_zombie_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "gianteye_altar_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "goblin_m00": {
+  "anim": "Goblin_animation",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "golem_cannon_catapult_m00": {
+  "anim": "Golem_Cannon_Captapult_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "golem_carrier_m00": {
+  "anim": "Golem_Carrier_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "golem_guardian_m00": {
+  "anim": "Golem_Guardian_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "golem_microscout_m00": {
+  "anim": "microscout_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "golem_prop_m00": {
+  "anim": "Golem_Prop_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "golem_repair_m00": {
+  "anim": "Golem_Repair_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "grail_brazier_b_m00": {
+  "anim": "grail_brazier_b_anim",
+  "pkg": "LineageNPCsEV",
+  "ukx": "animations/lineagenpcsev.ukx"
+ },
+ "grail_protection_m00": {
+  "anim": "grail_protection_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "grave_keeper_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "grave_m00": {
+  "anim": "grave_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "great_white_shark_m00": {
+  "anim": "great_white_shark_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "gremlin_m00": {
+  "anim": "gremlin_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "grizzly_m00": {
+  "anim": "grizzly_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "halisha_a_m00": {
+  "anim": "Shadow_Of_Halisha_a_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "halisha_b_m00": {
+  "anim": "Shadow_Of_Halisha_a_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "halisha_c_m00": {
+  "anim": "Shadow_Of_Halisha_b_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "halisha_d_m00": {
+  "anim": "Shadow_Of_Halisha_b_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "hanged_man_ripper_m00": {
+  "anim": "hanged_man_ripper_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "harpy_m00": {
+  "anim": "harpy_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "headless_knight_m00": {
+  "anim": "headless_knight_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "heltor_silenos_chieftain_m00": {
+  "anim": "heltor_silenos_chieftain_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "heltor_silenos_m00": {
+  "anim": "heltor_silenos_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "heltor_silenos_shaman_m00": {
+  "anim": "heltor_silenos_shaman_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "heltor_silenos_warrior_m00": {
+  "anim": "heltor_silenos_warrior_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "heretic_priest_a_m00": {
+  "anim": "heretic_priest_dualblader_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "heretic_priest_m00": {
+  "anim": "heretic_priest_orb_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "heretic_privates_a_m00": {
+  "anim": "heretic_privates_hatchet_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "heretic_privates_m00": {
+  "anim": "heretic_privates_anathema_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "heretical_sanctuary_gatekeeper_a_m00": {
+  "anim": null,
+  "pkg": "LineageNPCsEV",
+  "ukx": null
+ },
+ "heretical_sanctuary_gatekeeper_b_m00": {
+  "anim": null,
+  "pkg": "LineageNPCsEV",
+  "ukx": null
+ },
+ "heretical_sanctuary_openner_a_m00": {
+  "anim": null,
+  "pkg": "LineageNPCsEV",
+  "ukx": null
+ },
+ "heroes_obelisk_darkelf_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "heroes_obelisk_dwarf_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "heroes_obelisk_elf_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "heroes_obelisk_human_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "heroes_obelisk_orc_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "hobgoblin_m00": {
+  "anim": "hobgoblin_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "holy_altar_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "holy_grail_m00": {
+  "anim": null,
+  "pkg": "LineageNPCsEV",
+  "ukx": null
+ },
+ "homunculus_m00": {
+  "anim": "Homunculus_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "human_ghost_m00": {
+  "anim": "human_ghost_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "human_tree_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "hundred_eye_m00": {
+  "anim": "Hundred_eye_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "hungry_spirit_m00": {
+  "anim": "hungry_spirit_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "hunter_gargoyle_m00": {
+  "anim": "hunter_gargolye_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ice_fairy_m00": {
+  "anim": "ice_fairy_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "ice_sculpture_b_m00": {
+  "anim": null,
+  "pkg": "LineageNPCsEV",
+  "ukx": null
+ },
+ "ice_sculpture_c_m00": {
+  "anim": null,
+  "pkg": "LineageNPCsEV",
+  "ukx": null
+ },
+ "ice_shelf_m00": {
+  "anim": null,
+  "pkg": "LineageNPCsEV",
+  "ukx": null
+ },
+ "ifrit_m00": {
+  "anim": "Ifrit_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "imp_m00": {
+  "anim": "imp_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "imperial_warlord_zombie_m00": {
+  "anim": "Imperial_Warlord_Zombie_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "inferno_drake_m00": {
+  "anim": "Inferno_drake_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "iron_golem_m00": {
+  "anim": "iron_golem_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "jungle_bleeze_m00": {
+  "anim": "Jungle_bleeze_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "kailiharim_m00": {
+  "anim": "Kailiharim_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "kaim_vanul_m00": {
+  "anim": "kaim_vanul_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "karik_m00": {
+  "anim": "karik_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "kel_mahum_archer_m00": {
+  "anim": "kel_mahum_archer_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "kel_mahum_champion_m00": {
+  "anim": "kel_mahum_champion_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "kel_mahum_m00": {
+  "anim": "kel_mahum_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "kel_mahum_warrior_m00": {
+  "anim": "kel_mahum_warrior_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "kel_mahum_witch_doctor_m00": {
+  "anim": "kel_mahum_witch_doctor_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ketra_orc_archer_a_m00": {
+  "anim": "ketra_orc_archer_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ketra_orc_chieftain_m00": {
+  "anim": "Ketra_orc_cheiftain_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "ketra_orc_m00": {
+  "anim": "ketra_orc_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ketra_orc_overload_m00": {
+  "anim": "ketra_orc_overload_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ketra_orc_shaman_m00": {
+  "anim": "ketra_orc_shaman_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ketra_orc_warlord_m00": {
+  "anim": "Ketra_orc_warlord_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "ketra_orc_warrior_a_m00": {
+  "anim": "ketra_orc_warrior_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ketra_warbeast_m00": {
+  "anim": "ketra_warbeast_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "king_bugbear_m00": {
+  "anim": "king_bugbear_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "kobold_m00": {
+  "anim": "kobold_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "lava_golem_m00": {
+  "anim": "Lava_Golem_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "leogul_m00": {
+  "anim": "leogul_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "lesser_basilisk_m00": {
+  "anim": "lesser_basilisk_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "lesser_giant_m00": {
+  "anim": "lesser_giant_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "lesser_giant_mage_m00": {
+  "anim": "lesser_giant_mage_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "lesser_giant_shooter_m00": {
+  "anim": "lesser_giant_shooter_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "lidia_von_helmann_m00": {
+  "anim": "Lidia_von_helmann_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "lienrik_m00": {
+  "anim": "lienrik_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "light_bringer_m00": {
+  "anim": "Light_bringer_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "light_worm_m00": {
+  "anim": "light_worm_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "lilim_assassin_m00": {
+  "anim": "lilim_assassin_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "lilim_knight_m00": {
+  "anim": "lilim_kinght_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "lilim_wizard_m00": {
+  "anim": "lilim_wizard_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "lilith_m00": {
+  "anim": "Lilith_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "liviona_m00": {
+  "anim": "liviona_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "magical_weaver_m00": {
+  "anim": "magical_weaver_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "magmagoil_lad_m00": {
+  "anim": "Magmagoil_lad_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "magmagoil_m00": {
+  "anim": "Magmagoil_lad_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "mana_vampire_m00": {
+  "anim": "mana_vampire_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "manadragora_m00": {
+  "anim": "mandragora_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "mandragora_a_m00": {
+  "anim": "mandragora_a_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "mandragora_b_m00": {
+  "anim": "mandragora_b_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "marsh_stakato_drone_m00": {
+  "anim": "marsh_stakato_drone_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "marsh_stakato_m00": {
+  "anim": "marsh_stakarto_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "marsh_stakato_queen_m00": {
+  "anim": "marsh_stakato_queen_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "marsh_stakato_soldier_m00": {
+  "anim": "marsh_stakato_soldier_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "marsh_stakato_worker_m00": {
+  "anim": "marsh_stakato_worker_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "mechanic_golem_m00": {
+  "anim": "Mechanic_golem_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "medusa_m00": {
+  "anim": "medusa_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "mimic1_m00": {
+  "anim": "mimic_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "minotaur_m00": {
+  "anim": "minotaur_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "mirror_m00": {
+  "anim": "mirror_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "monk_warrior_m00": {
+  "anim": "monk_warrior_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "monster_eye_m00": {
+  "anim": "monster_eye_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "neer_crawler_m00": {
+  "anim": "neer_crawler_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "nephenthes_m00": {
+  "anim": "Nephenthes_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "nephilim_lord_m00": {
+  "anim": "Nephilim_Lord_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "nephilim_priest_m00": {
+  "anim": "nephilim_priest_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "nephilim_slayer_m00": {
+  "anim": "Nephilim_Slayer_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "noble_ant_m00": {
+  "anim": "noble_ant_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "northern_goblin_m00": {
+  "anim": "northern_goblin_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "nos_m00": {
+  "anim": "Nos_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "oel_mahum_m00": {
+  "anim": "oel_mahum_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "oel_mahum_warrior_m00": {
+  "anim": "oel_mahum_warrior_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "oel_mahum_witch_doctor_m00": {
+  "anim": "oel_mahum_witch_doctor_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ogre_m00": {
+  "anim": "ogre_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ol_mahum_archer_m00": {
+  "anim": "ol_mahum_archer_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ol_mahum_champion_m00": {
+  "anim": "ol_mahum_champion_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ol_mahum_m00": {
+  "anim": "ol_mahum_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "old_bookshelf_m00": {
+  "anim": "old_bookshelf_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "old_tablet_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "old_tomb_stone_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "onyx_beast_m00": {
+  "anim": "onyx_beast_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "orc_archer_m00": {
+  "anim": "orc_archer_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "orc_champion_m00": {
+  "anim": "orc_champion_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "orc_fighter_m00": {
+  "anim": "orc_fighter_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "orc_head_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "orc_m00": {
+  "anim": "orc_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "orc_shaman_m00": {
+  "anim": "orc_shaman_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "orcish_totem_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "orfen_m00": {
+  "anim": "orfen_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ornithomimus_m00": {
+  "anim": "Ornithomimus_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "pachycephalosaurus_m00": {
+  "anim": "Pachycephalosaurus_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "pan_m00": {
+  "anim": "pan_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "parasitic_eye_m00": {
+  "anim": "parasitic_eye_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "pavel_weather_controller_m00": {
+  "anim": "pavel_weather_controller_anim",
+  "pkg": "LineageNPCsEV",
+  "ukx": "animations/lineagenpcsev.ukx"
+ },
+ "pig_ball_m00": {
+  "anim": "Pig_Ball_anim",
+  "pkg": "LineageNPCs2",
+  "ukx": "animations/LineageNPCs2.ukx"
+ },
+ "pirates_zombie_captain_m00": {
+  "anim": "Pirates_Zombie_Captain_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "pirates_zombie_m00": {
+  "anim": "Pirates_Zombie_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "pixy_m00": {
+  "anim": "pixy_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "poison_spider_m00": {
+  "anim": "poison_spider_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "poison_toad_m00": {
+  "anim": "poison_toad_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "portrait_spirit_m00": {
+  "anim": "portrait_spirit_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "portrait_spirit_winged_m00": {
+  "anim": "portrait_spirit_winged_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "pot_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "priest_of_dawn_m00": {
+  "anim": "priest_of_dawn_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "priest_of_dusk_m00": {
+  "anim": "priest_of_dusk_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "primeval_raid_teleporter_m00": {
+  "anim": null,
+  "pkg": "LineageNPCsEV",
+  "ukx": null
+ },
+ "queen_ant_m00": {
+  "anim": "queen_ant_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "queen_of_cat_m00": {
+  "anim": "Queen_Of_Cat_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "rabbit_m00": {
+  "anim": "Rabbit_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "raikel_m00": {
+  "anim": "Raikel_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "rakul_m00": {
+  "anim": "rakul_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "rhamphorhynchus_m00": {
+  "anim": "rhamphorhynchus_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "riba_m00": {
+  "anim": "Riba_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "rift_keeper_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "rough_ostrich_m00": {
+  "anim": "Rough_Ostrich_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "saber_toothed_tiger_m00": {
+  "anim": "saber_toothed_tiger_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "sailren_m00": {
+  "anim": "Sailren_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "saints_coffin_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "salamander_m00": {
+  "anim": "salamander_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "scarab_m00": {
+  "anim": "scarab_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "scorpion_m00": {
+  "anim": "scorpion_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "self_blaster_m00": {
+  "anim": "self_blaster_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "serpent_slave_m00": {
+  "anim": "serpent_slave_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "shadeless_m00": {
+  "anim": "shadeless_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "shadow_m00": {
+  "anim": "shadow_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "silenos_m00": {
+  "anim": "silenos_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "silenos_totem_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "silhouette_m00": {
+  "anim": "silhouette_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "silver_cat_m00": {
+  "anim": "Silver_Cat_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "skeleton_archer_m00": {
+  "anim": "skeleton_archer_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "skeleton_knight_m00": {
+  "anim": "skeleton_knight_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "skeleton_m00": {
+  "anim": "skeleton_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "skeleton_pikeman_m00": {
+  "anim": "skeleton_pikeman_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "skeleton_royal_guard_m00": {
+  "anim": "skeleton_royal_guard_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "solina_brother_m00": {
+  "anim": "Solina_brother_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "solina_father_m00": {
+  "anim": "solina_father_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "solina_priest_m00": {
+  "anim": "solina_priest_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "spartoi_m00": {
+  "anim": "spartoi_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "spike_stakato_m00": {
+  "anim": "spike_stakato_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "steel_trapper_m00": {
+  "anim": "steel_trapper_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "stone_golem_m00": {
+  "anim": "stone_golem_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "strange_mechanical_instrument_m00": {
+  "anim": null,
+  "pkg": "LineageNPCsEV",
+  "ukx": null
+ },
+ "succubus_m00": {
+  "anim": "succubus_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "succubus_raid_m00": {
+  "anim": "Succubus_Raid_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "susceptor_m00": {
+  "anim": "susceptor_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "susceptor_prime_m00": {
+  "anim": "susceptor_prime_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "sylph_m00": {
+  "anim": "sylph_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "temple_guard_a_m00": {
+  "anim": "temple_guard_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "temple_guard_b_m00": {
+  "anim": "temple_guard_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "temple_savant_a_m00": {
+  "anim": "Temple_savant_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "tera_beetle_m00": {
+  "anim": "tera_beetle_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "theeder_m00": {
+  "anim": "theeder_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ti_mi_riran_m00": {
+  "anim": "ti_mi_riran_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "ti_mi_tran_m00": {
+  "anim": "ti_mi_riran_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "tomb_guard_a_m00": {
+  "anim": "Tomb_Guard_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "tomb_guard_b_m00": {
+  "anim": "Tomb_Guard_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "tomb_savant_a_m00": {
+  "anim": "Tomb_Savant_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "training_doll_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "trioll_altar_a_m00": {
+  "anim": null,
+  "pkg": "LineageNPCsEV",
+  "ukx": null
+ },
+ "troll_m00": {
+  "anim": "troll_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "twin_headed_giant_m00": {
+  "anim": "twin_headed_giant_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "tyranosaurus_m00": {
+  "anim": "tyranosaurus_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "umul_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "undine_m00": {
+  "anim": "undine_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "unicorn_boxer_m00": {
+  "anim": "unicorn_boxer_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "unicorn_m00": {
+  "anim": "Unicorn_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "unicorn_mirage_m00": {
+  "anim": "unicorn_mirage_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "unpleasant_humming_m00": {
+  "anim": "unpleasant_humming_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "valakas_m00": {
+  "anim": "valakas_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "vale_master_m00": {
+  "anim": "Vale_Master_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "vampire_bat_m00": {
+  "anim": "vampire_bat_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "vampire_lord_m00": {
+  "anim": "Vampire_lord_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "vampire_soldier_m00": {
+  "anim": "vampire_soldier_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "vampire_warrior_m00": {
+  "anim": "vampire_warrior_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "vampire_witch_m00": {
+  "anim": "vampire_witch_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "vampire_wizard_m00": {
+  "anim": "vampire_wizard_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "velociraptor_m00": {
+  "anim": "velociraptor_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "virud_lizardman_m00": {
+  "anim": "virud_lizardman_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "virud_lizardman_matriarch_m00": {
+  "anim": "virud_lizardman_matriarch_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "virud_lizardman_scout_m00": {
+  "anim": "virud_lizardman_scout_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "virud_lizardman_shaman_a_m00": {
+  "anim": "virud_lizardman_shaman_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "virud_lizardman_shaman_b_m00": {
+  "anim": "virud_lizardman_shaman_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "virud_lizardman_warrior_m00": {
+  "anim": "virud_lizardman_warrior_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "walking_fungus_m00": {
+  "anim": "walking_fungus_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "water_drake_m00": {
+  "anim": "Water_drake_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "water_giant_m00": {
+  "anim": "Water_Giant_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "wererat_m00": {
+  "anim": "wererat_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "werewolf_m00": {
+  "anim": "werewolf_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "wild_giant_strider_m00": {
+  "anim": "Wild_giant_strider_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "will_o_wisp_m00": {
+  "anim": "will_o_wisp_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "wolf_m00": {
+  "anim": "wolf_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "wyrm_m00": {
+  "anim": "wyrm_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "x_mas_tree_m00": {
+  "anim": null,
+  "pkg": "LineageDecos",
+  "ukx": null
+ },
+ "yeti_cute_m00": {
+  "anim": "Yeti_Cute_anim",
+  "pkg": "LineageNPCs",
+  "ukx": "animations/LineageNpcs.ukx"
+ },
+ "yeti_m00": {
+  "anim": "Yeti_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "yetis_dinner_table_m00": {
+  "anim": null,
+  "pkg": "LineageNPCs",
+  "ukx": null
+ },
+ "youth_ostrich_m00": {
+  "anim": "Rough_Ostrich_anim",
+  "pkg": "LineageMonsters2",
+  "ukx": "animations/LineageMonsters2.ukx"
+ },
+ "zaken_m00": {
+  "anim": "Zaken_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "zenta_lizardman_m00": {
+  "anim": "zenta_lizardman_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "zenta_lizardman_matriarch_m00": {
+  "anim": "zenta_lizardman_matriarch_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "zenta_lizardman_scout_m00": {
+  "anim": "zenta_lizardman_scout_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "zenta_lizardman_shaman_m00": {
+  "anim": "zenta_lizardman_shaman_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "zenta_lizardman_warrior_m00": {
+  "anim": "zenta_lizardman_warrior_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ },
+ "zombie_em_knight_m00": {
+  "anim": "Zombie_em_knight_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "zombie_enlisted_man_m00": {
+  "anim": "Zombie_enlisted_man_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "zombie_gateguard_m00": {
+  "anim": "zombie_gateguard_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "zombie_laborer_m00": {
+  "anim": "Zombie_Laborer_anim",
+  "pkg": "LineageMonsters3",
+  "ukx": "animations/LineageMonsters3.ukx"
+ },
+ "zombie_m00": {
+  "anim": "zombie_anim",
+  "pkg": "LineageMonsters",
+  "ukx": "animations/LineageMonsters.ukx"
+ }
+}

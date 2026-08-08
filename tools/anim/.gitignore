@@ -1,0 +1,8 @@
+# Regenerable, large, and derived from copyrighted NCSoft client assets —
+# same policy as assets/interlude/ in the root .gitignore.
+#   psa/      ~900 MB of umodel exports  -> tools/anim/export_psa.sh
+#   rebuilt/  comparison models          -> tools/anim/rebuild_one.py
+# The small derived tables (bindings.json, baseline.json,
+# player_animsets.json) ARE tracked: they are the audit's frozen contract.
+psa/
+rebuilt/

@@ -1,0 +1,26 @@
+{
+ "creatures": 495,
+ "buckets": {
+  "full": 352,
+  "partial": 92,
+  "none": 51
+ },
+ "no_anim_binding": 42,
+ "psa_missing": 0,
+ "dropped_by_slot": {
+  "idle": 4,
+  "walk": 0,
+  "run": 2,
+  "attack": 2,
+  "die": 4
+ },
+ "gap_by_slot": {
+  "idle": 47,
+  "walk": 116,
+  "run": 119,
+  "attack": 136,
+  "die": 83
+ },
+ "creatures_with_dropped_clips": 6,
+ "special_is_wait_not_spatk": 235
+}

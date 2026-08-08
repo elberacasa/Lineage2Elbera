@@ -1,0 +1,97 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>skeleton_m00 &mdash; monster skill-cast clip, before / after</title>
+<style>
+  body { margin:0; background:#14110d; color:#c9a959;
+         font:13px/1.4 "Trebuchet MS",sans-serif; }
+  #row { display:flex; }
+  .cell { width:440px; }
+  .cap { padding:6px 10px 2px; }
+  .cap b { color:#e8dcc0; font-size:14px; }
+  .sub { color:#9a8f78; padding:0 10px 6px; }
+  canvas { display:block; }
+</style>
+<div id="row"></div>
+<!-- GLTFLoader.js imports the bare specifier "three"; same map as
+     editor/world/index.html, rooted absolutely so it resolves off the
+     throwaway server verify_anim.js --shots starts. -->
+<script type="importmap">
+{ "imports": {
+    "three": "/editor/world/vendor/three.module.min.js",
+    "three/addons/": "/editor/world/vendor/addons/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// Left: the clip entities.js:skillFlash() plays today for a monster skill
+// cast -- `special`, which build_monsters.py sourced from SpWait01.
+// Right: the same creature rebuilt with tools/anim/rebuild_one.py, playing
+// `spatk` (retail spatk01), the sequence the retail set actually carries for
+// a special attack.  Same mesh, same camera, same frame of the clip.
+const PANELS = [
+  { url: '/editor/characters/monsters/models/skeleton_m00.gltf',
+    clip: 'special', title: 'BEFORE',
+    sub: 'clip "special" &larr; retail SpWait01 (a taunt loop, 168 f, motion 0.0096 rad/f)' },
+  { url: '/tools/anim/rebuilt/skeleton_m00.gltf',
+    clip: 'spatk', title: 'AFTER',
+    sub: 'clip "spatk" &larr; retail spatk01 (a strike, 76 f, motion 0.0237 rad/f)' },
+];
+const W = 440, H = 460;
+const AT = 0.55;   // fraction into the clip to sample (mid-swing)
+
+const row = document.getElementById('row');
+const loader = new GLTFLoader();
+
+function panel(p) {
+  return new Promise((resolve) => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.innerHTML = `<div class="cap"><b>${p.title}</b></div>
+                      <div class="sub">${p.sub}</div>`;
+    row.appendChild(cell);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(W, H);
+    cell.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x14110d);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x404030, 2.2));
+    const key = new THREE.DirectionalLight(0xfff0d0, 2.0);
+    key.position.set(2, 4, 3); scene.add(key);
+    const cam = new THREE.PerspectiveCamera(35, W / H, 0.01, 100);
+
+    loader.load(p.url, (gltf) => {
+      const root = gltf.scene;
+      scene.add(root);
+      const box = new THREE.Box3().setFromObject(root);
+      const size = box.getSize(new THREE.Vector3());
+      const k = 1.7 / (size.y || 1);          // normalise both to ~1.7 m
+      root.scale.setScalar(k);
+      const b2 = new THREE.Box3().setFromObject(root);
+      const c = b2.getCenter(new THREE.Vector3());
+      root.position.sub(new THREE.Vector3(c.x, b2.min.y, c.z));
+      cam.position.set(2.0, 1.35, 2.6);
+      cam.lookAt(0, 0.85, 0);
+
+      const mixer = new THREE.AnimationMixer(root);
+      const clip = gltf.animations.find(a => a.name === p.clip);
+      if (clip) {
+        const a = mixer.clipAction(clip);
+        a.play();
+        mixer.setTime(clip.duration * AT);
+      }
+      renderer.render(scene, cam);
+      resolve(!!clip);
+    }, undefined, () => resolve(false));
+  });
+}
+
+(async () => {
+  const ok = [];
+  for (const p of PANELS) ok.push(await panel(p));
+  window.__clips = ok;
+  window.__ready = true;
+})();
+</script>

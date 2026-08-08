@@ -19,26 +19,50 @@
 // skillsoundgrp, `SoundVolume`/`SoundRadius` on the map's AmbientSoundObjects).
 // Volume is a 0..255 byte — 250 is the usual "full".
 //
-// RADIUS_UNIT IS THE ONE UNSOURCED CONSTANT IN THIS FILE, and the note that
-// used to sit here overstated its basis. Setting the record straight:
+// RADIUS_UNIT AND THE FALLOFF CURVE ARE NOW DECODED FROM THE CLIENT'S OWN
+// AUDIO DRIVER. Both used to be calibrations; neither is any more.
 //
-//   - The radii cannot be plain L2 world units. Read literally a skill's 40
-//     would be 0.4 m and a monster's 250 would be 2.5 m, which no sound in the
-//     game behaves like. That part is solid.
-//   - The 25 came from stock Unreal, where SoundRadius is a BYTE quantized in
-//     steps of 25. But Lineage 2 redeclares it: the decrypted Engine.u reads
-//     `var(Sound) float SoundRadius;  // Radius of ambient sound.` — a float,
-//     with no unit given. So the byte-quantization convention does not apply
-//     here and cannot be cited as the source for 25.
-//   - What 25 still has going for it is only this: it puts all three
-//     independent tables in plausible ranges at once (ambient 80 -> 20 m,
-//     skills 40 -> 10 m, monsters 250 -> 62 m). That is corroboration, not a
-//     derivation, and it would be satisfied by nearby values too.
+// The consumer of SoundRadius is ALAudio.dll (the OpenAL driver the Interlude
+// client ships). It is an unpacked PE, so it disassembles. It imports two
+// float globals from Core.dll:
 //
-// So this is a calibration, not a decode. Settling it needs the retail client
-// audible side by side, or the native code that consumes the field — the
-// UnrealScript declaration does not carry the answer. Everything else in this
-// module comes out of the game's own data; this single number does not.
+//     ?GAudioMaxRadiusMultiplier@@3MA   Core.dll .data rva 0x1352EC = 50.0f
+//     ?GAudioDefaultRadius@@3MA         Core.dll .data rva 0x1352F0 = 80.0f
+//
+// (Read straight out of Core.dll's export table + .data — see
+// tools/audio/verify_falloff.py, which re-reads both and fails on drift.)
+//
+// ALAudio.dll dereferences the multiplier at nine call sites, always against
+// the source's radius field, always in the same shape. Site 0x1000ADE8:
+//
+//     flds  0x20(%eax)        ; SoundRadius
+//     movl  0x1004E7B4, %ecx  ; -> &GAudioMaxRadiusMultiplier
+//     fmuls (%ecx)            ; R*M
+//     fsubs 0x2C(%ebp)        ; R*M - distance
+//     fmuls 0x20(%ebp)        ; * volume
+//     flds  0x20(%eax)
+//     fmuls (%ecx)            ; R*M
+//     fdivrp                  ; -> volume * (R*M - d) / (R*M)
+//     ... clamp(x, 0, 1) ... alSourcef(src, AL_GAIN /*0x100A*/, x)
+//
+// Two things follow, and neither was true of what this file used to do:
+//
+//   1. The multiplier is 50, not 25. A monster's 250 reaches 125 m, an
+//      ambient's 80 reaches 40 m, a skill's 40 reaches 20 m.
+//   2. The falloff is LINEAR to zero at the radius — gain = 1 - d/(R*50) —
+//      and the client writes it to AL_GAIN itself rather than letting OpenAL
+//      attenuate. So the Web Audio equivalent is distanceModel 'linear' with
+//      refDistance 0 and rolloffFactor 1, which evaluates to exactly the same
+//      expression. It is NOT the inverse-square curve this file used to use.
+//
+// The 80.0 default is the same number worldaudio.js already falls back to for
+// an AmbientSoundObject that omits SoundRadius; that was a guess when it was
+// written and it happens to be right.
+//
+// Still NOT settled: VOLUME_SCALE. ALAudio has a second gain path that scales
+// a byte field by 0.04 (=1/25) and another that runs it through a log curve,
+// and I could not prove which field is SoundVolume. 1/255 is left in place as
+// the pre-existing assumption rather than replaced by a different guess.
 //
 // Autoplay. Browsers refuse to start an AudioContext without a user gesture, so
 // the context is created suspended and resumed on the first click or keypress.
@@ -52,9 +76,14 @@ import { L2_TO_M } from './coords.js';
 const BASE = '/audio';
 const MANIFEST_URL = `${BASE}/manifest.json`;
 
-// Unreal quantizes sound radii in steps of 25 world units; L2_TO_M converts
-// world units to the metres the scene graph is built in.
-const RADIUS_UNIT = 25;
+// GAudioMaxRadiusMultiplier from Core.dll (.data, 50.0f): a table's radius
+// times this is the audible range in L2 world units. L2_TO_M then converts to
+// the metres the scene graph is built in. Exported because worldaudio.js sizes
+// its emitter-culling reach with the same rule and must not re-hardcode it.
+export const RADIUS_UNIT = 50;
+// GAudioDefaultRadius from Core.dll (.data, 80.0f): what the driver uses when
+// a source carries no radius of its own.
+export const DEFAULT_RADIUS = 80;
 const VOLUME_SCALE = 1 / 255;      // table volumes are a 0..255 byte
 
 // Beyond this a sound is inaudible anyway; skipping the decode keeps a busy
@@ -226,6 +255,34 @@ export class AudioEngine {
 
   // ---- playback ---------------------------------------------------------
 
+  // The retail falloff, expressed as a PannerNode. ALAudio.dll computes
+  // gain = clamp(1 - d/(SoundRadius*50), 0, 1) and writes it to AL_GAIN
+  // itself; Web Audio's 'linear' distance model with refDistance 0 and
+  // rolloffFactor 1 is the same expression, so the panner reproduces it
+  // rather than approximating it. See the header block for the disassembly.
+  //
+  // Measured in headless Chrome through an OfflineAudioContext with
+  // maxDistance 125 (a monster's radius 250): gain fell 1.00 / 0.75 / 0.50 /
+  // 0.25 / 0.00 at d = 0 / 31.25 / 62.5 / 93.75 / 125 and stayed 0 past it.
+  // Exactly 1 - d/125. refDistance 0 is accepted (the spec only rejects
+  // negative values) and does not degenerate under the linear model.
+  _panner(x, y, z, maxDistance) {
+    const p = this.ctx.createPanner();
+    p.panningModel = 'HRTF';
+    p.distanceModel = 'linear';
+    p.refDistance = 0;
+    p.rolloffFactor = 1;
+    p.maxDistance = maxDistance;
+    if (p.positionX) {
+      p.positionX.value = x;
+      p.positionY.value = y;
+      p.positionZ.value = z;
+    } else {
+      p.setPosition(x, y, z);
+    }
+    return p;
+  }
+
   // One-shot at a world position. `volume` and `radius` are the raw table
   // values (0..255 byte, Unreal radius units); pass them straight through.
   playAt(ref, position, { volume = 250, radius = 50, bus = 'sfx', pitch = 1 } = {}) {
@@ -248,22 +305,7 @@ export class AudioEngine {
 
     this._buffer(ref).then(buf => {
       if (!buf || !this.unlocked) return;
-      const panner = this.ctx.createPanner();
-      panner.panningModel = 'HRTF';
-      panner.distanceModel = 'inverse';
-      // refDistance is where attenuation begins; a fraction of the audible
-      // radius keeps a sound at full strength near its source and fading to
-      // nothing at the edge, which is how the retail falloff reads.
-      panner.refDistance = Math.max(0.5, maxDistance * 0.15);
-      panner.maxDistance = maxDistance;
-      panner.rolloffFactor = 1;
-      if (panner.positionX) {
-        panner.positionX.value = px;
-        panner.positionY.value = py;
-        panner.positionZ.value = pz;
-      } else {
-        panner.setPosition(px, py, pz);
-      }
+      const panner = this._panner(px, py, pz, maxDistance);
 
       const gain = this.ctx.createGain();
       gain.gain.value = volume * VOLUME_SCALE;
@@ -308,6 +350,26 @@ export class AudioEngine {
   // Crossfades to `name` (a filename in the manifest's music list, with or
   // without the .ogg). Re-requesting the current track is a no-op, so a caller
   // can drive this from a zone check every frame without restarting the music.
+  //
+  // fade = 2.0 IS UNSOURCED, and so is the crossfade shape. What the client
+  // does say, in Engine.u's PlayerController:
+  //
+  //     function ClientSetMusic( string NewSong, EMusicTransition NewTransition )
+  //         StopAllMusic( 0.0 );
+  //         PlayMusic( NewSong, 3.0 );
+  //
+  // — a HARD STOP followed by a 3.0 s fade-in, not a crossfade, and 3.0 is
+  // the only fade number anywhere in the client's script. But that is the
+  // stock Unreal path, driven by Level.Song / MusicEvent / ACTION_PlayMusic,
+  // and Interlude zone music does not use it: MusicVolume is
+  // `native nativereplication`, carries only nMusicID / bForcePlayMusic /
+  // bLoopMusic, and its PostBeginPlay does nothing but call Super. The switch
+  // is made in engine.dll, which ships packed. audio_extract.py confirms no
+  // shipped tile authors Level.Song at all.
+  //
+  // So 3.0-with-a-hard-stop is real but on the wrong path, and the right
+  // path's number is not readable. 2.0-with-a-crossfade is left as-is rather
+  // than swapped for a number that is sourced from somewhere else entirely.
   async music(name, { loop = true, fade = 2.0 } = {}) {
     if (!this.ready || !this.ctx) return;
     const file = name && (name.endsWith('.ogg') ? name : `${name}.ogg`);
@@ -361,18 +423,7 @@ export class AudioEngine {
     if (!buf || this._ambient.has(key)) return;
 
     const maxDistance = Math.max(1, radius * RADIUS_UNIT * L2_TO_M);
-    const panner = this.ctx.createPanner();
-    panner.panningModel = 'HRTF';
-    panner.distanceModel = 'inverse';
-    panner.refDistance = Math.max(0.5, maxDistance * 0.15);
-    panner.maxDistance = maxDistance;
-    if (panner.positionX) {
-      panner.positionX.value = position.x;
-      panner.positionY.value = position.y;
-      panner.positionZ.value = position.z;
-    } else {
-      panner.setPosition(position.x, position.y, position.z);
-    }
+    const panner = this._panner(position.x, position.y, position.z, maxDistance);
     const gain = this.ctx.createGain();
     gain.gain.value = volume * VOLUME_SCALE;
     const src = this.ctx.createBufferSource();

@@ -6,16 +6,18 @@
 //
 // Text is composited into a canvas rather than set as DOM text, because
 // there is no TTF to fall back on — the glyphs only exist as pixels. Colour
-// comes from a 'source-in' tint pass over the alpha, which is how the client
-// recolours the same white glyphs per chat channel.
+// comes from modulating each texel by the text colour and compositing through
+// the sheet's own alpha, which keeps the font's built-in dark outline dark
+// while the glyph core takes the colour (see tintedSheet below).
 //
 //   await Font.load()
 //   Font.measure('Talking Island', 'small')      -> retail px width
 //   Font.canvas('Talking Island', {color})       -> HTMLCanvasElement
-//   Font.canvas(name, {shadow:true})             -> with the 1px drop shadow
-//                                                   the HUD uses over the 3D
-//                                                   scene (off inside windows)
 //   Font.set(el, 'Talking Island', {color})      -> replaces el's content
+//
+// `shadow:true` additionally stamps a 1px black offset copy. It has NO
+// callers, and the sheets carry their own outline, so it would now double up;
+// left in place only so the option keeps working if something calls it.
 
 import { Skin } from './skin.js';
 
@@ -37,12 +39,33 @@ function loadImage(src) {
 
 /** Pre-tint the whole sheet once; per-glyph blits are then plain copies.
  *
- *  Coverage comes from RGB LUMINANCE, not from the alpha channel. Both
- *  exported sheets are clean intensity maps -- black field, white glyphs --
- *  but their alpha carries a pedestal (LargeFont-e's background sits at
- *  alpha 34, not 0). Tinting through that alpha paints a visible box around
- *  every glyph cell. Same family of trap as the `_sp` textures in
- *  docs/HANDOFF.md: the channel is not what its name suggests.
+ *  These sheets are PALETTED, and the palette is tiny -- verified by counting
+ *  distinct (luminance, alpha) texel classes inside the glyph band
+ *  (editor/world/verify_text.js, gate B):
+ *
+ *    SmallFont-e   0/0        49/119     255/255                (3 classes)
+ *    LargeFont-e   0/34       0/102      0/238      255/255     (4 classes)
+ *
+ *  Read that table: the glyph CORE is white and opaque (255/255); every other
+ *  class is DARK (luminance 0, or 49) at a PARTIAL alpha. Those are the
+ *  retail font's built-in dark OUTLINE, stepped over two or three levels.
+ *  So coverage is the ALPHA channel and colour is the texel's own RGB
+ *  modulated by the text colour -- core takes the full colour, outline stays
+ *  dark. That is a plain UE2 DrawTile modulate, not an invented model.
+ *
+ *  This replaces coverage = max(R,G,B). Luminance is 255 only on the core and
+ *  0 on every outline level, so it dropped the outline entirely: measured at
+ *  78.1% of retail coverage mass surviving for SmallFont and just 26.8% for
+ *  LargeFont. The old comment justified luminance with a real measurement --
+ *  LargeFont-e's alpha field really does sit at 34, not 0 -- but inferred from
+ *  it that alpha could not be coverage anywhere, which was never tested.
+ *
+ *  DOCUMENTED GAP: that 34 is both the outermost outline step and the
+ *  palette's clear colour, so drawing a glyph box faithfully lays down a
+ *  ~13%-black tint at the box edge. Whether retail shows that is UNVERIFIED --
+ *  it needs a screenshot of LargeFont text over a light background. The value
+ *  is used exactly as the texture ships it rather than rescaled, because
+ *  rescaling would be inventing a number.
  */
 function tintedSheet(name, color) {
   const key = `${name}|${color}`;
@@ -63,9 +86,11 @@ function tintedSheet(name, color) {
   const [tr, tg, tb] = tint.getImageData(0, 0, 1, 1).data;
 
   for (let i = 0; i < d.length; i += 4) {
-    // luminance of the intensity map becomes coverage
-    const a = Math.max(d[i], d[i + 1], d[i + 2]);
-    d[i] = tr; d[i + 1] = tg; d[i + 2] = tb; d[i + 3] = a;
+    // modulate the texel by the text colour; alpha carries the coverage,
+    // outline included
+    d[i] = (d[i] * tr) / 255;
+    d[i + 1] = (d[i + 1] * tg) / 255;
+    d[i + 2] = (d[i + 2] * tb) / 255;
   }
   ctx.putImageData(px, 0, 0);
 

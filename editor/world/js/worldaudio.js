@@ -25,7 +25,8 @@
 
 import * as THREE from 'three';
 import { l2ToThree } from './coords.js';
-import { audio } from './audio.js';
+import { audio, RADIUS_UNIT, DEFAULT_RADIUS } from './audio.js';
+import { L2_TO_M } from './coords.js';
 
 const MAX_LIVE = 16;          // concurrent ambient loops
 const UPDATE_HZ = 4;
@@ -78,8 +79,10 @@ export class WorldAudio {
         pos: l2ToThree(a.position[0], a.position[1], a.position[2]),
         // radius/volume/pitch are null where the actor omitted the property;
         // audio_extract.py deliberately does not invent UE2 class defaults, so
-        // the fallbacks belong here, at the point of use.
-        radius: a.radius == null ? 80 : a.radius,
+        // the fallbacks belong here, at the point of use. The radius fallback
+        // is Core.dll's GAudioDefaultRadius (80.0f) — the driver's own default,
+        // not a chosen number.
+        radius: a.radius == null ? DEFAULT_RADIUS : a.radius,
         volume: a.volume == null ? 250 : a.volume,
         pitch: a.pitch == null ? 1 : a.pitch,
       });
@@ -129,6 +132,12 @@ export class WorldAudio {
       const vol = (m.max.x - m.min.x) * (m.max.z - m.min.z);
       if (vol < bestVol) { best = m; bestVol = vol; }
     }
+    // songs[0] IS A CHOICE WE CANNOT SOURCE. musicinfo.dat gives 266 of its
+    // 358 ids more than one track (id 1, character creation, lists CC_01..06;
+    // several field ids list seven), and the client picks among them in
+    // native code. Always taking the first means those zones only ever play
+    // one of their tracks. Recorded rather than papered over with a random
+    // pick, which would be a different invention.
     const song = best ? best.songs[0] : null;
     if (song === this._song) return;
     this._song = song;
@@ -139,7 +148,9 @@ export class WorldAudio {
     const want = [];
     for (const a of this.ambient) {
       const d = a.pos.distanceTo(pos);
-      const reach = a.radius * 25 * 0.01;    // same unit rule as audio.playAt
+      // Same unit rule as audio.playAt, from the same source: ALAudio.dll
+      // multiplies SoundRadius by Core.dll's GAudioMaxRadiusMultiplier (50).
+      const reach = a.radius * RADIUS_UNIT * L2_TO_M;
       const limit = this.live.has(a.key) ? reach * HYSTERESIS : reach;
       if (d <= limit) want.push({ a, d });
     }
