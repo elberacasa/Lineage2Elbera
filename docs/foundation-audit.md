@@ -533,13 +533,15 @@ above), with the derivation in the comment.
 
 ```
 mirrored (glTF z == +UE y, determinant -1): 0
-proper   (glTF z == -UE y, determinant +1): 151
-unknown                                   : 22
+proper   (glTF z == -UE y, determinant +1): 155
+unknown                                   : 16
+exit 0
 ```
 
-(was `mirrored 17 / proper 0` on 22_22 alone. The `unknown` packages are
-Y-symmetric meshes that carry no information either way — the audit
-already recorded 2 of them on 22_22.)
+(was `mirrored 17 / proper 0` on 22_22 alone; on 22_22 alone it is now
+`proper 17 / mirrored 0`. The `unknown` packages are Y-symmetric meshes that
+carry no information either way — the audit already recorded 2 of them on
+22_22.)
 
 ## F2 — prop scale axes
 
@@ -580,9 +582,22 @@ oracle's own renderer, not from a reading of the audit's table:
 | Texture, neither | `OPAQUE` | `UnRenderer.cpp:1261` (alpha test AND blend explicitly disabled) |
 | `TwoSided` / `TreatAsTwoSided` / `bTwoSided` | `doubleSided` | `UnRenderer.cpp:1430,1235` |
 
-Every real prop material name resolves: the only unresolved names across all
-100 tiles are umodel's 82 `dummy_material_N` placeholders, which never get a
-texture wired either. The name→export index costs ~80 s to build and is
+Every real prop material name resolves. The only names with no retail state
+are umodel's 82 `dummy_material_N` placeholders, which never get a texture
+wired either. Two decode refinements were needed to get there, both found by
+running the converter over the whole world:
+
+* `FinalBlend` (199 materials / 1,848 placements) carries its blend mode in
+  `FrameBufferBlending`, not `OutputBlending`; and `TexPanner` /
+  `TexOscillator` / `Combiner` (80 materials / ~570 placements) are
+  modifiers, so their render state is the wrapped material's. Both are now
+  decoded (`UnMaterial2.h:719, :752, :775, :856, :944`).
+* 9 names (`frame01`..`frame07`, `Stone`, `corpse`) collide with a
+  non-material export — `frame01` is a `StaticMesh` in `deco01.utx` *and*
+  the `Shader` the props actually reference in `interior_s_t.utx`, and
+  alphabetical first-wins picked the mesh. The index now lets a material
+  class win a name collision, and `_decode` refuses to read a non-material
+  export as a material rather than returning a plausible wrong answer. The name→export index costs ~80 s to build and is
 cached in `assets/world/.utx_material_index.json`, keyed on the `.utx` file
 list + sizes; per-tile conversion went from ~112 s to ~30 s after the first
 build.
@@ -595,13 +610,15 @@ build.
 **Gate — `audit_prop_materials.py --check`, all 100 tiles:**
 
 ```
-materials with a baseColor texture : 71322
-  marked alphaMode MASK            : 1121
+materials with a baseColor texture : 73876
+  marked alphaMode MASK            : 1745
   of those, 100% invisible         : 0 material(s) in 0 prop glTF(s), 0 placement(s)
 PASS: no prop surface is fully cut away
 ```
 
-(was 9,440 MASK, 209 of them fully invisible, 1,131 placements.)
+(was 9,440 MASK of 75,650, 209 of them fully invisible over 1,131
+placements. The MASK count collapses because MASK now means *retail
+AlphaTest*, not "this PNG has some transparent texels".)
 
 **`--shaders` cross-check on 22_22: 409 → 35 disagreements.** All 35
 residuals are the *gate's* blind spot, not the converter's: its
@@ -695,3 +712,72 @@ of which **2 are 100% invisible** — `18_19 test` (max alpha 68) and
 BSP path landed hours before this change and the instruction was not to
 regress it; the fix is to give `bsp.py` the same `RetailMaterialIndex`
 lookup as the prop path, keeping `PF_MASKED` as the primary signal.
+
+## Gates and suites actually observed
+
+Run after re-converting all 100 tiles (`convert.py <tile>` per tile, ~30 s
+each with the .utx index cached; one tile, 23_23, failed on a mid-edit
+import and was re-converted successfully).
+
+| gate | result |
+| --- | --- |
+| `python3 tools/world/convert.py --check` × 100 tiles | exit 0, no contract violation |
+| `python3 tools/src/char_pipeline/audit_prop_basis.py --check` (all tiles) | exit 0 — **mirrored 0**, proper 155, unknown 16 |
+| `python3 tools/src/char_pipeline/audit_prop_materials.py --check` (all tiles) | exit 0 — **0 fully-invisible surfaces** of 73,876 textured materials |
+| `python3 tools/src/char_pipeline/audit_prop_materials.py --tiles 22_22 --shaders` | 409 → **35** disagreements, all in the gate's un-read `Texture` branch |
+| `python3 tools/world/bsp.py --check` | **100/100 tiles OK** (unchanged — the BSP path was not touched) |
+| `editor/world/verify_terrain.js` | PASS |
+| `editor/world/verify_geodata.js` | PASS |
+| `editor/world/verify_interior.js` | PASS |
+| `editor/world/verify_civilians.js` | PASS |
+| `editor/world/verify_app.js` | PASS |
+| `editor/world/verify_bsp.js` | FAILS on this machine — **not caused by this change**, see below |
+
+`verify_bsp.js` passes tile-by-tile (`node verify_bsp.js 22_22` → PASS,
+`node verify_bsp.js 17_25` → PASS) but times out on the 22_22 → 17_25 scene
+switch when both run in one browser session. Reduced to a minimal script
+(load 22_22, take the suite's five 1280×900 screenshots under
+`--use-angle=swiftshader`, switch tile) and A/B'd against `git show
+HEAD:editor/world/js/terrain.js`: **both the old and the new terrain.js time
+out identically** at that switch, with the old tile's geometries/textures
+still resident (2,110 / 1,997) and the new tile never built. It is a
+software-GL/host-resource flake in the harness, not a rendering regression.
+The first three suite runs also failed spuriously because the three
+`mock_gateway.js` processes had been reaped — that produces exactly the
+misleading navigation timeout the handoff warns about.
+
+Renderer cost for the record (`verify_terrain` perf block, same machine and
+software renderer): draw calls 838 → 932 (+11%, the mirrored-instance split
+plus the wider material variety), triangles 210,449 → 216,237 (+3%).
+
+## Screenshots inspected (before / after)
+
+`editor/world/audit_shots/fixbefore_*.png` vs `fix2after_*.png`, identical
+camera stations, opened and read.
+
+* **24_17, the volcanic plain (the F3 test case).** Before: a bare grey
+  plain with two black dead trees and nothing else. After: dozens of
+  boulders across the foreground and mid-ground, the lava rivers read as
+  bright orange rather than washed-out dark, the dead trees have visible
+  bark instead of pure silhouette, and the cliff faces show their lava
+  bands. This is the 424-of-492 invisible placements the audit predicted on
+  that tile.
+* **22_22, the Giran north gate.** Before: the right-hand wing of the
+  gatehouse was a flat dark block and the field trees were sparse
+  silhouettes. After: the full half-timbered facade with its window
+  frames, the gate's wooden doors, warm interior light in the windows, and
+  fully-leafed trees (the 0.5 cutoff was eating ~5% of every leaf card at
+  its softest edges).
+* **22_22, the plaza and the south block.** Buildings sit in different
+  places — F1 moves geometry — and read as a coherent street: shop awnings,
+  door surrounds and lit windows appear where the shipped build had flat
+  dark facades. The clock-tower windows are lit.
+* **23_24, Innadril.** The arcade behind the clock tower resolves into a
+  row of arched, lit windows instead of a dark brown mass; the cathedral's
+  stained glass and the red roof tiles are visible.
+
+Caveat, unchanged from the audit: **no retail screenshot was available as an
+oracle.** The claim these shots support is "more of the decoded source is
+now being drawn, and the town reads as a town", not "this matches retail
+pixel for pixel". The proof that the *basis* is right is the byte-level psk
+match in `audit_prop_basis.py`, not the pictures.

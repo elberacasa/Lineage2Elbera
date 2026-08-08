@@ -133,10 +133,17 @@ and the corrected one (`scale`-aware, rotation-aware):
 | 23_24 | 547 | 352 | 38.3 m (`Innadrile_Sideblock02_fence02`) |
 | 21_16 | 548 | 221 | 42.9 m (`rune_main01`) |
 | 23_22 | 322 | 206 | 20.1 m (`SSQ_Room01_Wall01`) |
+| **all 100 tiles (157,157 placements)** | **21,526** | **7,676** | 247.4 m (`24_18 Aden_castlesidewall02`) |
 
-(The audit's F1-only table reported 559 / 437 / 36.6 m for 23_24; the small
-differences are the F2 scale swap being included here and the centroid being
-taken from the POSITION accessor bounding boxes rather than the vertex mean.)
+(The audit's F1-only table reported 559 / 437 / 36.6 m for 23_24 and
+19,657 / 5,766 world-wide; the differences are the F2 scale swap being
+included here and the centroid being taken from the POSITION accessor
+bounding boxes rather than the vertex mean.)
+
+Measurement script: `docs/` carries no code, so this was computed ad hoc
+from the shipped glTFs — `old_world(v) = pos + S·R·S · diag(sx,sy,sz) · S·v`
+against `new_world(v) = pos + R · diag(sx,sz,sy) · v`, with `v` the
+vertex-count-weighted mean of the POSITION accessor bounding-box centres.
 
 ## What this does NOT touch
 

@@ -20,6 +20,7 @@ import { audio } from './audio.js';
 import { gameSound } from './gamesound.js';
 import { worldAudio } from './worldaudio.js';
 import { loadEquipment } from './equipment.js';
+import { WorldLight } from './worldlight.js';
 import { L2Window } from './ui/window.js';
 import { UI_WINDOW_SOUND } from './gamesound.js';
 
@@ -121,8 +122,13 @@ sun.shadow.camera.right = sun.shadow.camera.top = 45;
 sun.shadow.camera.near = 1;
 sun.shadow.camera.far = 400;
 sun.shadow.bias = -0.0005;
+// Client-chosen fallback direction, used only where the map supplies none
+// (interiors, or a tile converted before light_extract.py ran). The real sun
+// angle comes from the tile's NMovableSunLight — see worldlight.js.
 const SUN_DIR = new THREE.Vector3(0.5, 1.0, 0.35).normalize();
+sun.userData.dir = SUN_DIR.clone();
 scene.add(sun, sun.target);
+const worldLight = new WorldLight(scene, sun, scene.children.find(o => o.isAmbientLight));
 
 // M5 interior (dungeon) rendering mode: dark warm ambience, no sky, no
 // sun; a warm point light travels with the player (torch feel)
@@ -1289,7 +1295,7 @@ onlineToggle.addEventListener('change', () => setOnline(onlineToggle.checked));
 window.__world = {
   scene, camera, renderer,
   hd: HD_ENABLED,
-  audio, gameSound, worldAudio,
+  audio, gameSound, worldAudio, worldLight,
   // verification hook: verify_resilience.js drives a scene load whose fetch is
   // made to fail, to prove one bad request cannot strand the client
   loadScene: (tile, opts) => loadScene(tile, opts),
@@ -1410,6 +1416,7 @@ async function loadScene(tile, { keepCharPos = false } = {}) {
     // Always from /scenes — audio.json has no HD variant. Not awaited: the
     // world must not block on it, and it degrades to silence on its own.
     worldAudio.load(tile);
+    worldLight.load(tile);   // the tile's own sun angle, ambient and fog
 
     // the 3x3 window of cheap neighbor tiles shifts with the new center
     // (dungeons have no surface neighborhood — interiors skip it entirely)
@@ -1445,7 +1452,7 @@ async function loadScene(tile, { keepCharPos = false } = {}) {
       // the route on the new tile's geodata
       if (!keepCharPos) pendingGoal = null;
     }
-    sun.position.copy(SUN_DIR).multiplyScalar(150).add(character ? character.group.position : t.center());
+    sun.position.copy(worldLight.direction).multiplyScalar(-150).add(character ? character.group.position : t.center());
     setStatus(`scene: ${tile} (${def.gridSize}x${def.gridSize})`);
     loadingEl.classList.add('hidden');
   } catch (err) {
@@ -1494,7 +1501,7 @@ async function loadCharacter(id) {
   followCam.setScale(ch.heightM || 1.75);
   camera.near = Math.max(0.02, (ch.heightM || 1.75) * 0.1);
   camera.updateProjectionMatrix();
-  sun.position.copy(SUN_DIR).multiplyScalar(150).add(ch.group.position);
+  sun.position.copy(worldLight.direction).multiplyScalar(-150).add(ch.group.position);
   sun.target.position.copy(ch.group.position);
 
   setStatus(`character: ${id}`);
@@ -1876,7 +1883,7 @@ renderer.setAnimationLoop(() => {
       terrain.setPropDrawDistance(PROP_DRAW_DIST, character.group.position);
     }
     // shadow frustum follows the character
-    sun.position.copy(SUN_DIR).multiplyScalar(150).add(character.group.position);
+    sun.position.copy(worldLight.direction).multiplyScalar(-150).add(character.group.position);
     sun.target.position.copy(character.group.position);
     followCam.update(dt, character.group.position, heightRouter);
     sky.position.copy(camera.position);

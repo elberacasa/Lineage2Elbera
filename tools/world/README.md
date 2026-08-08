@@ -97,7 +97,10 @@ world Z = z0 + (h - 32768) * heightScale        (heightScale = 76/256 = 0.296875
   `alphaMode`/`alphaCutoff`/`doubleSided`; idempotent).
 - Prop `.gltf`/`.bin` files in `props/` that are not referenced by
   `scene.json` are deleted at conversion time (leftovers from an earlier
-  build of the same tile).
+  build of the same tile). `--check` now also opens every referenced prop
+  glTF and verifies its external buffer and images exist — a `.gltf` with a
+  missing `.bin` used to validate clean and then fail silently in the
+  client.
 - `layers[].splat` is `null` for the UE2 **base layer** (weight 255 over the
   whole tile). `layers[].diffuse` is `null` never happened in practice;
   placeholder layers (`Texture.Base` with no real texture) are dropped.

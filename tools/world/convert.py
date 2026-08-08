@@ -1676,10 +1676,30 @@ def validate_scene(scene, out_dir):
             if lay.get(k):
                 need(os.path.exists(os.path.join(out_dir, lay[k])),
                      "missing " + lay[k])
+    seen_gltf = set()
     for p in scene.get("props", []):
-        if p.get("gltf"):
-            need(os.path.exists(os.path.join(out_dir, p["gltf"])),
-                 "missing " + p["gltf"])
+        rel = p.get("gltf")
+        if not rel or rel in seen_gltf:
+            continue
+        seen_gltf.add(rel)
+        path = os.path.join(out_dir, rel)
+        if not need(os.path.exists(path), "missing " + rel):
+            continue
+        # a prop glTF is useless without its external buffer and images;
+        # nothing else checks them, and the props/ prune could in principle
+        # take a .bin whose casing differs from its .gltf
+        try:
+            with open(path) as f:
+                gl = json.load(f)
+        except (OSError, ValueError) as exc:
+            need(False, "%s unreadable: %s" % (rel, exc))
+            continue
+        base = os.path.dirname(path)
+        for entry in list(gl.get("buffers", [])) + list(gl.get("images", [])):
+            uri = entry.get("uri")
+            if uri and not uri.startswith("data:"):
+                need(os.path.exists(os.path.join(base, uri)),
+                     "%s references missing %s" % (rel, uri))
     for w in scene.get("water") or []:
         if w.get("texture"):
             need(os.path.exists(os.path.join(out_dir, w["texture"])),
