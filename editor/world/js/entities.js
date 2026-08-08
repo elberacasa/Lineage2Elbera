@@ -166,12 +166,17 @@ class DropEntity {
 }
 
 class NpcEntity {
-  constructor({ id, npcId, name, level }) {
+  constructor({ id, npcId, name, level, runSpeed, walkSpeed, running }) {
     this.id = id;
     this.kind = 'npc';
     this.npcId = npcId;
     this.level = level ?? null;   // addNpc.level from the datapack template
     this.name = name;
+    // NpcInfo speeds in L2 units/s -> m/s; absent for entities that predate the
+    // gateway forwarding them, and Entity.update falls back in that case
+    this.runSpeed = runSpeed > 0 ? runSpeed * L2_TO_M : 0;
+    this.walkSpeed = walkSpeed > 0 ? walkSpeed * L2_TO_M : 0;
+    if (running != null) this.running = !!running;
     this.target = null;
     this.dead = false;
     this.mixer = null;
@@ -356,7 +361,12 @@ class NpcEntity {
     if (this.actions && this.current !== this.actions.attack) {
       this._play(this.running ? 'run' : 'walk');
     }
-    const step = Math.min(NPC_SPEED * dt, d);
+    // per-creature speed from NpcInfo; NPC_SPEED only covers entities that
+    // arrived before the gateway forwarded speeds (other players, old mocks)
+    const speed = this.running
+      ? (this.runSpeed || NPC_SPEED)
+      : (this.walkSpeed || NPC_SPEED);
+    const step = Math.min(speed * dt, d);
     pos.x += dx / d * step;
     pos.z += dz / d * step;
     pos.y = terrain.heightAtWorld(pos.x, pos.z, pos.y);

@@ -6,8 +6,22 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { L2_TO_M } from './coords.js';
 
 const CHAR_HEIGHT = 1.75;      // meters — fallback normalization (~1.7 charcreate)
-const WALK_SPEED = 1.6;        // m/s
-const RUN_SPEED = 4.2;         // m/s
+
+// Locomotion speed is the server's, not ours. aCis sends runSpeed/walkSpeed in
+// L2 units per second on every UserInfo (gateway forwards them on `charSheet`),
+// which is also how every speed buff, weapon weight penalty and class
+// difference reaches us — a Dagger elf and a plate-armoured knight do not move
+// at the same rate, and no constant here can express that.
+//
+// These fallbacks are only for the offline/solo path, where no server is
+// speaking. They are the class table's own values for a level-1 human fighter
+// (server/aCis_datapack/data/xml/classes/humanFighter.xml: runSpd 120,
+// walkSpd 80), converted with L2_TO_M, so offline movement matches what the
+// same character would do online instead of the 3.4x-too-fast placeholder that
+// used to live here.
+const DEFAULT_RUN_SPEED_L2 = 115;
+const DEFAULT_WALK_SPEED_L2 = 80;
+
 const RUN_THRESHOLD = 6;       // click farther than this => run anim
 const TURN_RATE = 10;          // rad/s toward heading
 const ARRIVE_DIST = 0.15;
@@ -23,6 +37,17 @@ export class Character {
     this.moveAnim = 'walk';
     this.keys = new Set();
     this.speed = 0;                   // current planar speed (for verification)
+    // metres/second, replaced by the server's values on the first charSheet
+    this.runSpeed = DEFAULT_RUN_SPEED_L2 * L2_TO_M;
+    this.walkSpeed = DEFAULT_WALK_SPEED_L2 * L2_TO_M;
+  }
+
+  // aCis reports speed in L2 units/second on every UserInfo, so this is also
+  // the path by which a haste buff, a slow, or a weight penalty takes effect —
+  // it must be re-applied on each charSheet, not just at login.
+  setSpeeds({ runSpeed, walkSpeed }) {
+    if (runSpeed > 0) this.runSpeed = runSpeed * L2_TO_M;
+    if (walkSpeed > 0) this.walkSpeed = walkSpeed * L2_TO_M;
   }
 
   // nativeHeight: true height in L2 world units (frozen M3 manifest
@@ -109,14 +134,14 @@ export class Character {
     if (moveDir && moveDir.lengthSq() > 0) {
       // WASD overrides click target
       this.target = null;
-      vx = moveDir.x * RUN_SPEED; vz = moveDir.z * RUN_SPEED;
+      vx = moveDir.x * this.runSpeed; vz = moveDir.z * this.runSpeed;
       running = true; moving = true;
     } else if (this.target) {
       const d = this._planarDist(this.target);
       if (d <= ARRIVE_DIST) {
         this.target = null;
       } else {
-        const speed = this.moveAnim === 'run' ? RUN_SPEED : WALK_SPEED;
+        const speed = this.moveAnim === 'run' ? this.runSpeed : this.walkSpeed;
         const step = Math.min(speed * dt, d);
         vx = (this.target.x - this.group.position.x) / d * (step / dt);
         vz = (this.target.z - this.group.position.z) / d * (step / dt);

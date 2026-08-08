@@ -58,6 +58,95 @@ set; the 2 civilian NPCs (commoner, trader) ship `idle`+`special` only
 (non-combat NPCs — their packages have no combat anims; the guard NPC
 has the full set).
 
+## Coverage: how much of the world actually renders
+
+`tools/src/char_pipeline/coverage.py` measures the only thing that matters
+to a player — the share of **spawned instances** (not distinct npcIds) that
+resolve all the way to a glTF. It walks the client's own three hops
+(npcId → npcgrp mesh_name → manifest id) over the aCis spawn tables,
+weighting each npcId by its `total` across `spawnlist/*.xml` (54,901
+instances in 102 tiles).
+
+```
+python3 tools/src/char_pipeline/coverage.py                 # overall + per tile + worklist
+python3 tools/src/char_pipeline/coverage.py --starter       # the six newbie regions
+python3 tools/src/char_pipeline/coverage.py --tiles 17_25   # one tile
+python3 tools/src/char_pipeline/coverage.py --check         # exits 1 if coverage regressed
+python3 tools/src/char_pipeline/coverage.py --update-baseline
+```
+
+Baseline: `tools/src/char_pipeline/coverage_baseline.json`.
+
+| scope | before | after |
+|---|---|---|
+| all 102 tiles | 22.0% | **71.4%** |
+| six starter regions (33 tiles) | 39.4% | **90.7%** |
+| human newbie tiles (17_25, 16_25, 16_24, 21_25, 17_22, 17_23) | 69.4% | **99.1%** |
+
+Two caveats the script reports rather than hides:
+- `maximumNpcs` vs per-`<npc>` `total` is unverified upstream
+  (docs/spawn-tables.md §9); `--sensitivity` recomputes under a
+  proportional cap and moves the headline by 0.6 pp.
+- Tiles come from the spawn **filename**; `--verify-tiles` re-checks it
+  against `pos` for the 9,286 fixed spawns (22, 0.237%, land outside).
+
+## Builder: arbitrary meshes, not a fixed roster
+
+`build_monsters.py <mesh_id> ...` now builds **any** mesh id, taking its
+package from npcgrp (`LineageMonsters`/`2`/`3`, `LineageNpcs`,
+`LineageNPCs2`, `LineageDecos`) and resolving the `.ukx` filename
+case-insensitively against the real directory. The ranked worklist from
+coverage.py feeds straight in. With no arguments the static starter roster
+builds exactly as before.
+
+**Run it serially, one id per process.** The manifest is shared
+append-merge state; two concurrent builders corrupt it.
+
+## Fixed: npcgrp `textures` is per-section, not a variant list
+
+The monster path used `textures[0]` for every section, so a multi-section
+monster was painted with its body texture everywhere — `skeleton_archer_m00`
+referenced the same PNG three times where retail has t00/t01/t02.
+
+Evidence for the correction: for meshes carrying both, the in-package
+`ULodMesh.Textures` slots and npcgrp's `textures` array agree
+element-for-element — `orc_fighter_m00` slots `[orc_fighter_t00,
+orc_fighter_t01]` vs npcgrp `[...t00, ...t01]`, `mats=[0,1]`; likewise
+`elpy_m00`, `undine_m00`. Monsters and NPCs now share one ordinal section
+path (mesh slots first, npcgrp refs as fallback for null slots). Output
+naming: `<id>.png` when there is one section, `<id>_sN.png` when there are
+several. 19 pre-existing monsters were rebuilt under the fix (goblin,
+skeleton, both spiders, zombie, troll, harpy, …).
+
+## Fixed: meshes with no animation set ship static, not skipped
+
+Some monster meshes are inanimate props — `alchemic_box_m00` (a chest) has
+no `alchemic_box_anim` in the package. The mesh→MeshAnimation binding lives
+in the `LineageMonster` uscript classes, which are **not** in this repo, so
+pairing it with the similarly-named `mimic_anim` would be a guess. The
+builder now ships the static mesh with `animations: []` (what
+`build_npcs.py` already did for retail-static NPCs) rather than leaving a
+capsule. Currently static: `alchemic_box_m00`, `elpy_m00`.
+
+## Known defect (pre-existing, NOT fixed here)
+
+The manifest carries **two entries for the dwarf trader** differing only in
+case — `Black_Market_Trader_MDwarf_m00` (from `build_monsters.NPCS`) and
+`black_market_trader_MDwarf_m00` (from `build_npcs`' npcgrp-derived
+roster). Only the capitalised files exist on disk; the lowercase entry
+points at `models/black_market_trader_MDwarf_m00.gltf`, which resolves on
+macOS's case-insensitive filesystem and **404s on a case-sensitive Linux
+web server**, dropping that NPC back to a capsule in production.
+`validate_gltf.py` cannot see it for the same reason (`os.path.exists`
+is case-insensitive here).
+
+Fix (scripted, not a hand-edit): drop `'Black_Market_Trader_MDwarf_m00'`
+from `build_monsters.NPCS` — npcgrp's spelling is authoritative since the
+client keys off it — then rebuild that id and have the merge step reject
+any two ids equal under `lower()`. Add a case-sensitive image check to
+`validate_gltf.py` (compare `im['uri']` against `os.listdir` of the model
+directory instead of calling `os.path.exists`).
+
 ## Notes / caveats
 
 - Skeletons generalize: quadrupeds (wolf/fox/spider/bear) and
@@ -77,6 +166,10 @@ has the full set).
   skeleton archer, zombie, pirate zombie, imp, pixy, dryad, bugbear,
   troll, batur orc, wererat, crimson bear, virud lizardman, stone golem,
   harpy) + 3 village NPCs (elf guard, human commoner, dwarf trader).
+- Roster is no longer a fixed list — see "Builder: arbitrary meshes"
+  above. As of the coverage pass the manifest holds **150 entries**
+  (149 glTFs; the 150th is the duplicate-case defect noted above), all
+  149 passing validate_gltf.py.
 - Verified: 28/28 validate; renders of 8 diverse monsters at
   idle+attack (`tools/src/char_pipeline/verify/after/monsters/`); live
   world smoke test (real gateway on :8083) shows gremlins as real models

@@ -52,6 +52,26 @@ from build_characters import (decode_texture_png, library_png, load_utx,
 
 MONSTER_PKG = 'LineageMonsters'
 
+# npcgrp package name -> .ukx filename on disk.  Resolved case-insensitively
+# against the real directory (npcgrp writes "LineageNPCs", the file is
+# "LineageNpcs.ukx"; "LineageDecos" is "lineagedecos.ukx") so nothing here
+# is a guessed spelling.
+_UKX_BY_NAME = None
+
+
+def ukx_for_package(pkg_name):
+    """-> ('animations/<File>.ukx', '<File>') for an npcgrp package name,
+    or (None, None) when that package has no .ukx in the client."""
+    global _UKX_BY_NAME
+    if _UKX_BY_NAME is None:
+        d = os.path.join(CLIENT, 'animations')
+        _UKX_BY_NAME = {f[:-4].lower(): f[:-4]
+                        for f in os.listdir(d) if f.lower().endswith('.ukx')}
+    real = _UKX_BY_NAME.get((pkg_name or '').lower())
+    if not real:
+        return None, None
+    return 'animations/%s.ukx' % real, real
+
 MONSTERS = [
     # starter fields: Talking Island + race villages
     'gremlin_m00', 'rabbit_m00', 'fox_m00', 'wolf_m00', 'dire_wolf_m00',
@@ -148,8 +168,10 @@ PKG_CACHE = {}
 def load_ukx(pkg):
     key = pkg.lower()
     if key not in PKG_CACHE:
-        p, _proto = up.load_package(
-            os.path.join(CLIENT, 'animations/%s.ukx' % pkg))
+        rel, _real = ukx_for_package(pkg)
+        if not rel:
+            raise RuntimeError('no .ukx for package %s' % pkg)
+        p, _proto = up.load_package(os.path.join(CLIENT, rel))
         PKG_CACHE[key] = p
     return PKG_CACHE[key]
 
@@ -229,25 +251,19 @@ def resolve_tex_png(texpkg, obj_name, tmp_dir, keep_alpha=False):
     return None, resolved
 
 
-def monster_texture(mesh_id, tmp_dir):
-    """npcgrp texture ref for a monster mesh -> (png, refname) or None."""
-    entry = npcgrp_bindings().get(mesh_id.lower())
-    if not entry:
-        print('  WARNING: no npcgrp entry for %s' % mesh_id)
-        return None, None
-    _pkg, texs = entry
-    if not texs:
-        return None, None
-    ref = texs[0]  # textures[0] = default variant (t00); t01+ are variants
-    tp, tn = ref.split('.', 1)
-    return resolve_tex_png(tp, tn, tmp_dir, keep_alpha=True)
-
-
 def npc_sections(pkg, mesh_name, psk_path, tmp_dir):
-    """Per-section textures for a LineageNpcs mesh, from its own .ukx
-    material slots (ordinal section order — verified visually), with
-    npcgrp texture refs as fallback when a slot is null (some NPC meshes
-    carry no in-package reference, e.g. a_mageguild_teacher_FElf_m00)."""
+    """Per-section textures for ANY .ukx mesh, from its own material
+    slots (ordinal section order), with the npcgrp texture refs as
+    ordinal fallback when a slot is null.
+
+    Cross-check that established the ordinal rule holds for MONSTERS too,
+    not just LineageNpcs: for meshes that carry both, the in-package
+    slots and the npcgrp `textures` array agree element-for-element —
+    orc_fighter_m00 slots ['orc_fighter_t00','orc_fighter_t01'] vs npcgrp
+    ['LineageMonstersTex.orc_fighter_t00','...t01'], mats [0,1]; likewise
+    elpy_m00 and undine_m00.  npcgrp `textures` is therefore a per-section
+    list, NOT a variant list, and a multi-section monster must not be
+    painted with textures[0] on every section."""
     ukx_pkg = load_ukx(pkg)
     ex = ukx_pkg.find_export(mesh_name)
     if ex is None:
@@ -280,7 +296,10 @@ def npc_sections(pkg, mesh_name, psk_path, tmp_dir):
 # ---------------------------------------------------------------- build
 
 def build_one(mesh_id, pkg, stage, outdir):
-    ukx = 'animations/%s.ukx' % pkg
+    ukx, _real = ukx_for_package(pkg)
+    if not ukx:
+        print('  SKIP: no .ukx for package %s' % pkg)
+        return None
     objects = list_objects(ukx)
     mesh_name = find_ci(objects.get('SkeletalMesh', []), mesh_id)
     if not mesh_name:
@@ -292,30 +311,24 @@ def build_one(mesh_id, pkg, stage, outdir):
         print('  SKIP: no psk for %s' % mesh_id)
         return None
 
-    is_npc = pkg == NPC_PKG
+    # One ordinal section path for monsters and NPCs alike (see
+    # npc_sections docstring for the cross-check).  Single-section meshes
+    # keep the historical flat "<id>.png" name so existing outputs and
+    # their manifest entries stay byte-stable on a rebuild.
     tmp_tex = os.path.join(stage, 'tex')
+    secs = npc_sections(pkg, mesh_name, psk, tmp_tex)
     sections = []
-    if is_npc:
-        for s in npc_sections(pkg, mesh_name, psk, tmp_tex):
-            uri = None
-            if s['texture']:
-                uri = '%s_s%d.png' % (mesh_id, len(sections)) \
-                    if True else None
-                dst = os.path.join(outdir, uri)
-                with open(s['texture'], 'rb') as fi, open(dst, 'wb') as fo:
-                    fo.write(fi.read())
-            sections.append({'texture': uri, 'alpha_mode': None})
-    else:
-        png, ref = monster_texture(mesh_id, tmp_tex)
+    for si, s in enumerate(secs):
         uri = None
-        if png:
-            uri = '%s.png' % mesh_id
-            with open(png, 'rb') as fi, open(os.path.join(outdir, uri), 'wb') as fo:
+        if s['texture']:
+            uri = ('%s.png' % mesh_id if len(secs) == 1
+                   else '%s_s%d.png' % (mesh_id, si))
+            with open(s['texture'], 'rb') as fi, \
+                    open(os.path.join(outdir, uri), 'wb') as fo:
                 fo.write(fi.read())
-            print('  tex %s -> %s' % (ref, os.path.basename(png)))
-        else:
-            print('  WARNING: no texture for %s' % mesh_id)
         sections.append({'texture': uri, 'alpha_mode': None})
+    if not any(s['texture'] for s in sections):
+        print('  WARNING: no texture resolved for %s' % mesh_id)
 
     # animations: monster anims are named after the CREATURE, not the
     # full mesh name (gremlin_m00 -> gremlin_anim; goblin_m00 ->
@@ -330,29 +343,41 @@ def build_one(mesh_id, pkg, stage, outdir):
             if base.lower().startswith(nb):
                 anim_obj = n
                 break
-    if not anim_obj:
-        print('  SKIP: no MeshAnimation for %s' % mesh_id)
-        return None
-    export_one(ukx, anim_obj, [], stage)
-    psa = find_exported(stage, anim_obj, '.psa')
-    bones, anims = assemble.parse_psa(psa)
-    names_ci = {n.lower(): n for n in anims}
+    psa = None
     selection = {}
-    for anim_id, cands in ANIM_CANDIDATES.items():
-        for c in cands:
-            hit = names_ci.get(c.lower())
-            if hit:
-                selection[anim_id] = hit
-                break
+    if anim_obj:
+        export_one(ukx, anim_obj, [], stage)
+        psa = find_exported(stage, anim_obj, '.psa')
+    if psa:
+        _bones, anims = assemble.parse_psa(psa)
+        names_ci = {n.lower(): n for n in anims}
+        for anim_id, cands in ANIM_CANDIDATES.items():
+            for c in cands:
+                hit = names_ci.get(c.lower())
+                if hit:
+                    selection[anim_id] = hit
+                    break
     if 'idle' not in selection:
-        print('  SKIP: no idle animation for %s' % mesh_id)
-        return None
-    print('  anims:', ', '.join('%s=%s' % kv for kv in selection.items()))
+        # No MeshAnimation whose name matches this mesh.  Some monster
+        # meshes are inanimate props (alchemic_box_m00 — a chest) and the
+        # package genuinely holds no <base>_anim for them.  The
+        # mesh->MeshAnimation binding lives in the LineageMonster uscript
+        # classes, which are NOT in this repo, so pairing such a mesh with
+        # a similarly-named anim set (mimic_anim) would be a guess.  Ship
+        # the static mesh instead: a correct still model beats a coloured
+        # capsule, and it is what build_npcs.py already does for the
+        # retail-static NPCs.  Re-run once the uscript is decoded.
+        print('  note: no animation set for %s — shipping static mesh'
+              % mesh_id)
+        selection, psa = {}, None
+    else:
+        print('  anims:', ', '.join('%s=%s' % kv for kv in selection.items()))
 
     out_gltf = os.path.join(outdir, '%s.gltf' % mesh_id)
     parts = [{'psk': psk, 'name': mesh_name, 'sections': sections}]
     g, bin_data, ctx = assemble.merge_parts(parts, out_gltf)
-    bin_data = assemble.inject_animations(g, bin_data, psa, selection, ctx)
+    if psa and selection:
+        bin_data = assemble.inject_animations(g, bin_data, psa, selection, ctx)
     g['buffers'][0]['byteLength'] = len(bin_data)
     with open(out_gltf, 'w') as f:
         json.dump(g, f)
@@ -365,31 +390,57 @@ def build_one(mesh_id, pkg, stage, outdir):
     # true in-world height (L2 units) = glTF Y extent x 100 x MeshScale.z
     # decoded from the .ukx (scale_util) — the client sizes the model from
     # this, never from a hardcoded fallback
-    nh = scale_util.native_height(
-        out_gltf, os.path.join(CLIENT, 'animations/%s.ukx' % pkg), mesh_id)
+    nh = scale_util.native_height(out_gltf, os.path.join(CLIENT, ukx), mesh_id)
     if nh:
         entry['nativeHeight'] = nh
         print('  nativeHeight %.1f L2 units' % nh)
     return entry
 
 
+def resolve_roster(only):
+    """-> [(mesh_id, package)] to build.
+
+    With no arguments: the static starter roster (unchanged behaviour).
+    With arguments: any mesh id, with its package taken from npcgrp.dat
+    (which is what binds npcId -> "<Package>.<mesh>"), so the ranked
+    worklist from coverage.py can be fed straight in.  A requested id
+    that is in the static roster keeps the roster's package.
+    """
+    static = [(m, MONSTER_PKG) for m in MONSTERS] + \
+             [(n, NPC_PKG) for n in NPCS]
+    if not only:
+        return static
+    by_id = {m: p for m, p in static}
+    grp = npcgrp_bindings()
+    roster, missing = [], []
+    for mesh_id in only:
+        if mesh_id in by_id:
+            roster.append((mesh_id, by_id[mesh_id]))
+            continue
+        entry = grp.get(mesh_id.lower())
+        if not entry:
+            missing.append(mesh_id)
+            continue
+        roster.append((mesh_id, entry[0]))
+    for m in missing:
+        print('== %s ==\n  SKIP: no npcgrp record, cannot resolve package' % m)
+    return roster
+
+
 def main():
-    only = set(sys.argv[1:])
+    only = list(dict.fromkeys(sys.argv[1:]))   # keep the caller's order
     outdir = os.path.join(OUT, 'models')
     os.makedirs(outdir, exist_ok=True)
     manifest_path = os.path.join(OUT, 'manifest.json')
-    existing = {}
+    # MERGE ONLY — the manifest is shared state; never drop an entry and
+    # never reorder the ones already there (see docs/monster-pipeline.md).
+    existing, order = {}, []
     if os.path.isfile(manifest_path):
-        try:
-            for m in json.load(open(manifest_path)).get('models', []):
-                existing[m['id']] = m
-        except Exception:
-            pass
-    roster = [(m, MONSTER_PKG) for m in MONSTERS] + \
-             [(n, NPC_PKG) for n in NPCS]
-    for mesh_id, pkg in roster:
-        if only and mesh_id not in only:
-            continue
+        for m in json.load(open(manifest_path)).get('models', []):
+            existing[m['id']] = m
+            order.append(m['id'])
+    built = failed = 0
+    for mesh_id, pkg in resolve_roster(only):
         print('== %s (%s) ==' % (mesh_id, pkg))
         stage = os.path.join(STAGE, mesh_id)
         if os.path.isdir(stage):
@@ -400,14 +451,19 @@ def main():
             print('  FAILED: %s' % e)
             m = None
         if m:
+            if m['id'] not in existing:
+                order.append(m['id'])
             existing[m['id']] = m
-    order = [m for m, _p in roster]
-    models = ([existing[k] for k in order if k in existing] +
-              [v for k, v in existing.items() if k not in order])
+            built += 1
+        else:
+            failed += 1
+    models = [existing[k] for k in order if k in existing]
     with open(manifest_path, 'w') as f:
         json.dump({'models': models}, f, indent=2)
-    print('\nmanifest: %d models -> %s' % (len(models), manifest_path))
+    print('\nbuilt %d, failed/skipped %d; manifest: %d models -> %s'
+          % (built, failed, len(models), manifest_path))
+    return 1 if failed and built == 0 else 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

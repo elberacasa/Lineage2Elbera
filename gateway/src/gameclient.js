@@ -1332,12 +1332,19 @@ function parseNpcInfo(r) {
   const heading = r.readD();
   r.readD(); // 0
   r.readD(); r.readD(); // mAtkSpd, pAtkSpd
-  for (let j = 0; j < 8; j++) r.readD(); // speeds
-  r.readF(); r.readF(); // multipliers
+  // 8 speed fields: run, walk, then the swim and fly pairs. The first two are
+  // what the client animates with — a hunting-zone wolf and a town guard move
+  // at very different rates and the whole world reads as sluggish without them.
+  const runSpeed = r.readD();
+  const walkSpeed = r.readD();
+  for (let j = 0; j < 6; j++) r.readD(); // swim/fly speeds — unused on land
+  const speedMul = r.readF();   // movement multiplier; run/walk are pre-scaled
+  r.readF();                    // attack-speed multiplier
   r.readF(); r.readF(); // collision
-  r.readD(); r.readD(); r.readD(); // rhand, chest, lhand
+  const rhand = r.readD(); const chest = r.readD(); const lhand = r.readD();
   r.readC(); // name above
-  r.readC(); r.readC(); r.readC(); r.readC(); // running, combat, alikeDead, summon anim
+  const running = r.readC();
+  r.readC(); r.readC(); r.readC(); // combat, alikeDead, summon anim
   const name = r.readS();
   const title = r.readS();
   // aCis 409 NpcInfo has NO level field; when Config.ShowNpcLevel is on the
@@ -1345,7 +1352,8 @@ function parseNpcInfo(r) {
   let level = null;
   const lvlMatch = /^Lv (\d+)/.exec(title);
   if (lvlMatch) level = Number(lvlMatch[1]);
-  return { id: objectId, npcId, isAttackable, name, title, level, x, y, z, heading };
+  return { id: objectId, npcId, isAttackable, name, title, level, x, y, z, heading,
+           runSpeed, walkSpeed, speedMul, running, rhand, chest, lhand };
 }
 
 // Full UserInfo layout (serverpackets/UserInfo.java). Remember: writeF is an

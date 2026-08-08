@@ -685,6 +685,9 @@ class Bridge {
         // prefix (ShowNpcLevel), else the datapack template level, else null.
         level: n.level ?? npcLevel(n.npcId),
         x: n.x, y: n.y, z: n.z, heading: n.heading,
+        // L2 units/s, straight from NpcInfo — the client animates with these
+        // instead of one constant for every creature in the game
+        runSpeed: n.runSpeed, walkSpeed: n.walkSpeed, running: n.running,
       });
     });
 
