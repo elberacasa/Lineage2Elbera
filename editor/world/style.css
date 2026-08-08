@@ -157,8 +157,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 /* sysMsg lines: distinct from player chat */
 #chat-log .line.sysmsg { color: #e8d57f; font-style: italic; }
 
-/* M5 chat channels + tabs (L2 colors) */
-#chat-tabs button.active { color: #c9a959; border-color: #c9a959; }
+/* M5 chat channels + tabs (L2 colors).
+   The tabs are painted with the xdat's own Chatting_Tab1/Tab2 sprites by
+   js/chat.js, so nothing here may draw a box: browser <button> chrome was
+   what made the strip look like a web form. */
+#chat-tabs .chat-tab { background-repeat: no-repeat; }
+#chat-log { line-height: 1.35; }
+#chat-log .line { padding: 0 1px; }
 #chat-log .line.ch-all { color: #e6eaf2; }
 #chat-log .line.ch-shout { color: #ff9c40; }
 #chat-log .line.ch-tell { color: #e07fe8; }
@@ -220,30 +225,34 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 .shortcut-slot img { width: 100%; height: 100%; display: block; }
 .shortcut-btn.disabled { opacity: .35; cursor: default; pointer-events: none; }
 
-/* InventoryWnd paperdoll + cells (js/ui/inventorywnd.js) */
-/* border-box: these are sized from the mined rects (EquipItem_* is 34x34,
-   InventoryItem's grid cell 32x32), and with the default content-box the 1px
-   border ADDS 2px to each — a 34px slot rendered 36px and the grid pitch drifted
-   with it. Same class of bug as the window body's +4. */
-.doll-slot {
+/* InventoryWnd paperdoll + cells (js/ui/inventorywnd.js)
+
+   These sit exactly ON the slot wells that Inventory_Back already paints
+   (rects mined by tools/ui/mine_invslots.py), so they must NOT fill or
+   frame themselves: an opaque panel here hides the retail art underneath,
+   which is what the port used to do — every well was covered by a
+   rgba(12,14,18,.5) box with its own 1px border. Only the transient states
+   (hover, drop target) draw anything, as an inset ring so the 34px box
+   keeps its mined size with no border-box arithmetic. */
+.doll-slot, .inv-cell {
   box-sizing: border-box;
-  border-radius: 3px; background: rgba(12,14,18,.5); border: 1px solid #2a3140;
-  overflow: hidden; cursor: pointer;
+  background: none; border: 0; overflow: hidden; cursor: pointer;
 }
-.doll-slot.filled { border-color: #5a7fe0; }
-.doll-slot.henna { cursor: default; opacity: .5; }
-.doll-slot img, .inv-cell img { width: 100%; height: 100%; display: block; }
-.inv-cell {
-  box-sizing: border-box;
-  position: relative; border-radius: 3px; background: rgba(12,14,18,.5);
-  border: 1px solid #2a3140; overflow: hidden; cursor: pointer;
-}
-.inv-cell:hover, .doll-slot:hover { border-color: #c9a959; }
+.doll-slot { position: absolute; }
+.doll-slot.henna { cursor: default; }
+.doll-slot img, .inv-cell img { display: block; }
+/* AUTHORED affordances: retail marks these with native ItemWindow states we
+   have not mined, so hover/equipped are shown as a 1px inset ring rather
+   than by guessing at a sprite. */
+.inv-cell:hover, .doll-slot:hover { box-shadow: inset 0 0 0 1px #c9a959; }
+.doll-slot.filled { box-shadow: inset 0 0 0 1px rgba(90,127,224,.55); }
+.doll-slot.filled:hover { box-shadow: inset 0 0 0 1px #c9a959; }
 .inv-cell .count {
-  position: absolute; right: 2px; bottom: 0;
-  font: 10px -apple-system, sans-serif; color: #e6eaf2; text-shadow: 0 1px 2px #000;
+  position: absolute; right: 1px; bottom: 0; line-height: 0;
 }
+.inv-cell .count canvas { display: block; }
 .inv-bottom-btn:hover { filter: brightness(1.25); }
+.inv-bottom-btn.over { filter: brightness(1.6); }
 
 /* ChatWnd side buttons */
 .chat-side-btn { pointer-events: auto; cursor: pointer; }

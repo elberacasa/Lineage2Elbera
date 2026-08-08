@@ -25,7 +25,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     page.on('console', m => summary.consoleLogs.push(m.text()));
     page.on('pageerror', e => summary.consoleLogs.push('PAGEERROR: ' + e.message));
 
-    await page.goto(BASE, { waitUntil: 'networkidle0' });
+    await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForFunction('window.__world && window.__world.ready', { timeout: 30000 });
     await page.click('#online-toggle');
     await page.waitForFunction(
@@ -34,9 +34,25 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
     summary.chrome = await page.evaluate(() => ({
       head: !!window.__world.chat.headEl,
-      tabs: document.querySelectorAll('#chat-tabs button').length,
-      tabLabels: [...document.querySelectorAll('#chat-tabs button')]
-        .map(b => b.textContent || b.dataset.tab),
+      // five tabs (ChatWnd.uc CHAT_WINDOW_COUNT), painted with the xdat's
+      // own Chatting_Tab1/Tab2 sprites rather than browser <button> chrome
+      tabs: document.querySelectorAll('#chat-tabs .chat-tab').length,
+      tabLabels: [...document.querySelectorAll('#chat-tabs .chat-tab')]
+        .map(b => b.dataset.tab),
+      tabArt: [...document.querySelectorAll('#chat-tabs .chat-tab')]
+        .map(b => /Chatting_Tab([12])/.exec(getComputedStyle(b).backgroundImage)?.[1]),
+      // ChatWndBodyTex: the log background that used to be missing entirely
+      body: (() => {
+        const el = document.getElementById('chat-body');
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        const b = window.__world.chat.root.getBoundingClientRect();
+        return {
+          x: Math.round(r.x - b.x), y: Math.round(r.y - b.y),
+          w: Math.round(r.width), h: Math.round(r.height),
+          tex: /Chatting_Back3/.test(getComputedStyle(el).backgroundImage),
+        };
+      })(),
       inputMined: (() => {
         const i = document.getElementById('chat-input');
         return { left: i.style.left, top: i.style.top };
@@ -60,9 +76,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       `window.__world.chat.lines.some(l => l.channel === 'tell' && l.from.startsWith('Cora'))`,
       { timeout: 8000 });
 
-    // tab filtering: 'party' tab shows only party+shout+whisper(+system)
+    // tab filtering: ChatWnd.uc's PARTY filter row — party + shout +
+    // whisper + system (bSystem is 1 in every retail tab)
     await page.evaluate(() => {
-      [...document.querySelectorAll('#chat-tabs button')]
+      [...document.querySelectorAll('#chat-tabs .chat-tab')]
         .find(b => b.dataset.tab === 'party').click();
     });
     await sleep(300);
@@ -74,7 +91,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
     // 'all' tab shows everything again; channel classes present
     await page.evaluate(() => {
-      [...document.querySelectorAll('#chat-tabs button')]
+      [...document.querySelectorAll('#chat-tabs .chat-tab')]
         .find(b => b.dataset.tab === 'all').click();
     });
     await sleep(300);
@@ -95,4 +112,4 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await browser.close();
   }
   console.log(JSON.stringify(summary, null, 2));
-})().catch(e => { console.error('VERIFY CHAT FAILED:', e.message); process.exit(1); });
+})().catch(e => { console.error('VERIFY CHAT FAILED:', e.stack); process.exit(1); });

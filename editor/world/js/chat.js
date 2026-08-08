@@ -12,10 +12,21 @@
 // doc's low-confidence flag on BottomTex1's y=0 resolves to "flush with
 // the bottom edge" under this anchoring (confirmed against the render).
 //
-// Behavior spec: ChatWnd.uc — tab model (CHAT_WINDOW_NORMAL/TRADE/PARTY/
-// CLAN/ALLY + SYSTEM), MergeTab on OnDefaultPosition, and the
-// SetDefaultFilterValue defaults (each tab shows its own type + shout +
-// whisper + system; NORMAL shows everything but trade/ally/hero).
+// The body texture was MISSING until 2026-08: _buildAll painted the head
+// strip and both bottom bands but never ChatWndBodyTex, so the chat log had
+// no background at all and the lines sat straight on the 3D scene. Its rect
+// is fully mined: x=0 y=18, autosize [1,1] insets [0,-82] => 348x105, i.e.
+// exactly the band between the head strip and the divider.
+//
+// Behavior spec: ChatWnd.uc (assets/uscript/Interface) — the tab model is
+// CHAT_WINDOW_NORMAL/TRADE/PARTY/CLAN/ALLY with CHAT_WINDOW_COUNT = 5.
+// CHAT_WINDOW_SYSTEM = 5 is NOT a sixth tab: the .uc comments it as a spare
+// filter slot ("CheckFilter를 좀 더 간편하게 짜기위해"), its filter row is all
+// zeros, and the geometry agrees — ChatTabCtrl is 320 wide and the tab
+// sprite is 64, so the strip holds exactly five. The port used to draw six.
+// MergeTab on OnDefaultPosition folds Trade/Party/Clan/Ally back into
+// NORMAL. The per-tab filters below are transcribed from
+// SetDefaultFilterValue, not approximated.
 //
 // COLORS: evidence chain (docs task): ChatWnd.uc:401-407 parses ColorR/G/B
 // FROM THE MESSAGE — chat line colors are assigned by the native layer,
@@ -54,16 +65,51 @@ const CHANNELS = {
 };
 const DEFAULT_CHAT_COLOR = '#DCDCDC';
 
-// Retail tabs and their default-visible channel sets (ChatWnd.uc
-// SetDefaultFilterValue): own type + shout(1) + whisper(2) + system.
+// ChatWnd.uc CheckFilter maps each say type to one filter flag:
+//   bNormal->0  bShout->1  bWhisper->2  bParty->3  bClan->4  bTrade->8
+//   bAlly->9  bHero->17  bUnion->15,16
+// and announces (10, 18) plus pet chat return true unconditionally, in every
+// tab. bSystem gates the sysmsg lines and is 1 in ALL FIVE tabs — the port
+// used to hide system lines everywhere but "All".
+const ALWAYS = [10, 18];              // CHAT_ANNOUNCE, CHAT_CRITICAL_ANNOUNCE
+const FLAG_CHANNEL = {
+  bNormal: [0], bShout: [1], bWhisper: [2], bParty: [3], bClan: [4],
+  bTrade: [8], bAlly: [9], bHero: [17], bUnion: [15, 16],
+};
+
+// Transcribed verbatim from ChatWnd.uc SetDefaultFilterValue (uc:698-777),
+// in the CHAT_WINDOW_* constant order. `system` is bSystem.
 const TABS = [
-  ['all', 'All', null],                       // NORMAL: everything
-  ['trade', 'Trade', [8, 1, 2]],
-  ['party', 'Party', [3, 1, 2]],
-  ['clan', 'Clan', [4, 1, 2]],
-  ['alliance', 'Alliance', [7, 1, 2]],        // no alliance traffic bridged yet
-  ['system', 'System', []],
+  ['all', 'All', {
+    system: 1, bNormal: 1, bShout: 1, bClan: 1, bParty: 1, bTrade: 0,
+    bWhisper: 1, bAlly: 0, bHero: 0, bUnion: 1,
+  }],
+  ['trade', 'Trade', {
+    system: 1, bNormal: 0, bShout: 1, bClan: 0, bParty: 0, bTrade: 1,
+    bWhisper: 1, bAlly: 0, bHero: 0, bUnion: 0,
+  }],
+  ['party', 'Party', {
+    system: 1, bNormal: 0, bShout: 1, bClan: 0, bParty: 1, bTrade: 0,
+    bWhisper: 1, bAlly: 0, bHero: 0, bUnion: 0,
+  }],
+  ['clan', 'Clan', {
+    system: 1, bNormal: 0, bShout: 1, bClan: 1, bParty: 0, bTrade: 0,
+    bWhisper: 1, bAlly: 0, bHero: 0, bUnion: 0,
+  }],
+  ['alliance', 'Alliance', {
+    system: 1, bNormal: 0, bShout: 1, bClan: 0, bParty: 0, bTrade: 0,
+    bWhisper: 1, bAlly: 1, bHero: 0, bUnion: 0,
+  }],
 ];
+
+/** The channel ids a tab shows, expanded from its filter row. */
+function visibleChannels(filter) {
+  const out = new Set(ALWAYS);
+  for (const [flag, chans] of Object.entries(FLAG_CHANNEL)) {
+    if (filter[flag]) for (const c of chans) out.add(c);
+  }
+  return out;
+}
 
 export class ChatBox {
   constructor(rootEl, logEl, inputEl, { onSend } = {}) {
@@ -106,6 +152,27 @@ export class ChatBox {
       root.appendChild(el);
       this.headEl = el;
     }
+    // BODY: the log's background. hasSize==0 with autosize [1,1] and insets
+    // [0,-82] => width = 348+0, height = 187-82 = 105, at the mined (0,18).
+    // The art (Chatting_Back3) is a 348x15 semi-transparent tile, so it
+    // REPEATS down the band rather than stretching.
+    const bodyTex = Layout.tex0(WND, 'ChatWndBodyTex');
+    const bodyPos = Layout.pos(WND, 'ChatWndBodyTex');
+    const bodyAuto = Layout.autosize(WND, 'ChatWndBodyTex');
+    if (bodyTex && bodyPos && bodyAuto) {
+      const bw = this.w + bodyAuto.insets[0];
+      const bh = this.h + bodyAuto.insets[1];
+      const el = document.createElement('div');
+      el.id = 'chat-body';
+      el.style.cssText = `position:absolute;left:${Skin.px(bodyPos.x)}px;`
+        + `top:${Skin.px(bodyPos.y)}px;width:${Skin.px(bw)}px;`
+        + `height:${Skin.px(bh)}px;pointer-events:none;`;
+      Skin.apply(el, bodyTex, { content: Skin.content(bodyTex) });
+      root.appendChild(el);
+      this.bodyEl = el;
+      this.bodyRect = { x: bodyPos.x, y: bodyPos.y, w: bw, h: bh };
+    }
+
     // bottom chrome: BottomTex1 covers the bottom strip (flush, y=0 under
     // far-edge anchoring); BottomTex is the divider above it
     const bt1Tex = Layout.tex0(WND, 'ChatWndBottomTex1');
@@ -136,23 +203,30 @@ export class ChatBox {
     const root = this.root;
     const WND = 'ChatWnd';
     const logEl = this._logEl, inputEl = this._inputEl;
-    const headSize = Layout.size(WND, 'ChatWndHeadTex');
-    const logTop = headSize ? headSize.h : 18;
-    // divider TOP: BottomTex (h18) sits at far-edge y=-46 => bottom edge
-    // 141, top edge 123 (the header's decode). The log ends above it.
-    const logBottom = this.h - 46 - 18;
+    // The log lives ON the body texture, inset by that sprite's own frame.
+    // MEASURED from Chatting_Back3: columns 0-1 and 346-347 are the frame
+    // (opaque black + highlight), the interior starts at 2. The body rect
+    // itself is mined (autosize above), so nothing here is eyeballed.
+    const BODY_FRAME = 2;
+    const b = this.bodyRect || { x: 0, y: 18, w: this.w, h: this.h - 46 - 18 - 18 };
     this.log = document.createElement('div');
     this.log.id = 'chat-log';
-    this.log.style.cssText = `position:absolute;left:${Skin.px(4)}px;`
-      + `top:${Skin.px(logTop)}px;width:${Skin.px(this.w - 8)}px;`
-      + `height:${Skin.px(logBottom - logTop)}px;overflow-y:auto;`
+    this.log.style.cssText = `position:absolute;`
+      + `left:${Skin.px(b.x + BODY_FRAME)}px;top:${Skin.px(b.y + BODY_FRAME)}px;`
+      + `width:${Skin.px(b.w - BODY_FRAME * 2)}px;`
+      + `height:${Skin.px(b.h - BODY_FRAME * 2)}px;overflow-y:auto;`
       + 'pointer-events:auto;';
     root.appendChild(this.log);
     if (logEl && logEl !== this.log) logEl.remove();
 
     // --- tab strip at its mined rect (23,-23 => bottom edge 164) ----------
+    // ChatTabCtrl is 320 wide and its sprites (Chatting_Tab2 unselected,
+    // Chatting_Tab1 selected) are 64 — five tabs, exactly filling the strip,
+    // which is CHAT_WINDOW_COUNT.
     const tabPos = Layout.pos(WND, 'ChatTabCtrl');
     const tabSize = Layout.size(WND, 'ChatTabCtrl');
+    const tabTex = Layout.tex(WND, 'ChatTabCtrl').filter(r => Skin.sprite(r));
+    const tabArt = tabTex[0] ? Skin.content(tabTex[0]) : null;
     this.tabs = document.createElement('div');
     this.tabs.id = 'chat-tabs';
     this.tabs.style.cssText = 'position:absolute;display:flex;pointer-events:auto;';
@@ -162,19 +236,40 @@ export class ChatBox {
       this.tabs.style.width = `${Skin.px(tabSize.w)}px`;
       this.tabs.style.height = `${Skin.px(tabSize.h)}px`;
     }
+    // TabBackgroundTexture: the plate behind the strip, same rect
+    const tabBackTex = Layout.tex0(WND, 'TabBackgroundTexture');
+    const tabBackPos = Layout.pos(WND, 'TabBackgroundTexture');
+    const tabBackSize = Layout.size(WND, 'TabBackgroundTexture');
+    if (tabBackTex && Skin.sprite(tabBackTex) && tabBackPos && tabBackSize) {
+      const el = document.createElement('div');
+      el.style.cssText = `position:absolute;left:${Skin.px(tabBackPos.x)}px;`
+        + `top:${Skin.px(this.h + tabBackPos.y - tabBackSize.h)}px;`
+        + `width:${Skin.px(tabBackSize.w)}px;height:${Skin.px(tabBackSize.h)}px;`
+        + 'pointer-events:none;';
+      Skin.apply(el, tabBackTex, { stretch: true });
+      root.appendChild(el);
+    }
     root.appendChild(this.tabs);
+    this.tabTex = tabTex;
     for (const [key, label] of TABS) {
-      const b = document.createElement('button');
-      b.dataset.tab = key;
-      b.className = key === 'all' ? 'active' : '';
-      b.addEventListener('click', () => {
+      const t = document.createElement('div');
+      t.dataset.tab = key;
+      t.className = 'chat-tab' + (key === 'all' ? ' active' : '');
+      // each tab is one sprite wide (64), which is how the strip's 320 is
+      // divided — no flex share, no invented width
+      t.style.cssText = 'position:relative;display:flex;align-items:center;'
+        + 'justify-content:center;cursor:pointer;'
+        + (tabArt ? `width:${Skin.px(tabArt.w)}px;height:${Skin.px(tabArt.h)}px;`
+                  : 'flex:1;');
+      t.addEventListener('click', () => {
         this.filter = key;
-        for (const x of this.tabs.children) x.classList.toggle('active', x === b);
+        this._paintTabs();
         this._applyFilter();
       });
-      this.tabs.appendChild(b);
-      Font.set(b, label, { color: key === 'all' ? '#c9a959' : '#8a93a5' });
+      this.tabs.appendChild(t);
+      Font.set(t, label, { color: key === 'all' ? '#e8dcc0' : '#a09274' });
     }
+    this._paintTabs();
 
     // --- side buttons at x=5, far-edge anchored ----------------------------
     for (const [ctrl, note] of [
@@ -217,14 +312,18 @@ export class ChatBox {
     this.input.type = 'text';
     this.input.maxLength = 200;
     this.input.placeholder = 'say… (Enter to send, Esc to close)';
+    // ChatEditBox carries NO texture in the xdat: its well is painted by
+    // ChatWndBottomTex1, which the window already draws. So the box is
+    // transparent — the hand-rolled dark panel + border used to sit on top
+    // of that art and hide it.
     this.input.style.cssText = `position:absolute;`
       + `left:${Skin.px(editPos ? editPos.x : 39)}px;`
       + `top:${Skin.px(editPos ? this.h + editPos.y - editSize.h : this.h - 22)}px;`
       + `width:${Skin.px(editSize ? editSize.w : 303)}px;`
       + `height:${Skin.px(editSize ? editSize.h : 16)}px;`
       + 'display:none;pointer-events:auto;box-sizing:border-box;'
-      + 'background:rgba(16,19,26,.92);color:#e6eaf2;border:1px solid #333a48;'
-      + 'border-radius:2px;font:inherit;outline:none;padding:0 4px;';
+      + 'background:transparent;color:#e6eaf2;border:0;'
+      + 'font:inherit;outline:none;padding:0 2px;';
     if (inputEl && inputEl !== this.input) inputEl.remove();
     root.appendChild(this.input);
 
@@ -253,7 +352,7 @@ export class ChatBox {
     el.style.left = '8px';
     el.style.bottom = '8px';
     this.filter = 'all';
-    for (const x of this.tabs.children) x.classList.toggle('active', x.dataset.tab === 'all');
+    this._paintTabs();
     this._applyFilter();
   }
 
@@ -268,16 +367,30 @@ export class ChatBox {
 
   // -- behavior ----------------------------------------------------------------
 
+  /** Paint the strip: Chatting_Tab1 on the selected tab, Chatting_Tab2 on
+   *  the rest (the xdat lists them in that [unselected, selected] order). */
+  _paintTabs() {
+    if (!this.tabs) return;
+    for (const t of this.tabs.children) {
+      const on = t.dataset.tab === this.filter;
+      t.classList.toggle('active', on);
+      const ref = this.tabTex[on ? 1 : 0] || this.tabTex[0];
+      if (ref) Skin.apply(t, ref, { content: Skin.content(ref) });
+      const label = (TABS.find(x => x[0] === t.dataset.tab) || [, ''])[1];
+      Font.set(t, label, { color: on ? '#e8dcc0' : '#a09274' });
+    }
+  }
+
+  /** ChatWnd.uc CheckFilter, per the current tab's filter row. */
   _applyFilter() {
     const tab = TABS.find(t => t[0] === this.filter) || TABS[0];
+    const shown = visibleChannels(tab[2]);
     for (const line of this.log.children) {
       const ch = Number(line.dataset.channel);
       const sys = line.dataset.system === '1';
-      let show;
-      if (this.filter === 'all') show = true;
-      else if (this.filter === 'system') show = sys;
-      else show = !sys && tab[2].includes(ch);
-      line.style.display = show ? '' : 'none';
+      // bSystem is 1 in every retail tab, so system lines follow the tab's
+      // own flag rather than being confined to "All"
+      line.style.display = (sys ? !!tab[2].system : shown.has(ch)) ? '' : 'none';
     }
   }
 

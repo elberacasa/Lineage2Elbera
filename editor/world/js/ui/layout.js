@@ -15,8 +15,14 @@
 // substitute an invented number.
 
 const SRC = '/gamedata/interface.json';
+// Rects measured out of the shipped background art by tools/ui/mine_invslots.py
+// (tier 3) and cross-checked against the xdat anchors it does have. Needed
+// because parse_xdat.py recovers only 1 of InventoryWnd's 15 EquipItem_*
+// records; see that tool's docstring.
+const WELLS = '/ui/invslots.json';
 
 let _doc = null;
+let _wells = null;
 const _index = new Map();       // 'Window/Control' -> node (FLAT, see below)
 const _pathIndex = new Map();   // 'Window/Sub/.../Control' -> node (full path)
 
@@ -35,6 +41,7 @@ function indexTree(winName, node, path) {
 export const Layout = {
   async load() {
     if (_doc) return Layout;
+    _wells = await fetch(WELLS).then(r => (r.ok ? r.json() : null)).catch(() => null);
     _doc = await fetch(SRC).then(r => (r.ok ? r.json() : null)).catch(() => null);
     if (!_doc) { _doc = { windows: [], textures: {} }; return Layout; }
     for (const w of _doc.windows) {
@@ -107,5 +114,12 @@ export const Layout = {
   /** First texture reference, the one drawn in the resting state. */
   tex0(winName, ctrlName) {
     return Layout.tex(winName, ctrlName)[0] || null;
+  },
+
+  /** Slot wells measured out of a window's own background art, in BODY
+   *  pixels (see tools/ui/mine_invslots.py). Null when that window has no
+   *  harvest — the caller's cue to degrade, never to substitute a number. */
+  wells(winName) {
+    return (_wells && _wells.window === winName) ? _wells : null;
   },
 };

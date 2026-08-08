@@ -1,7 +1,12 @@
 // InventoryWnd verification (mock gateway on 8085): retail layout from the
-// mined table, item grid, paperdoll with equipped items, adena count,
-// drag to equip/unequip (useItem), reorder (client-side), dblclick use,
-// trash/crystallize ops (aCis 0x59/0x72 through the gateway).
+// mined table AND from ui/invslots.json (the slot wells measured out of
+// Inventory_Back by tools/ui/mine_invslots.py), item grid, paperdoll with
+// equipped items, adena count, drag to equip/unequip (useItem), reorder
+// (client-side), dblclick use, trash/crystallize ops (aCis 0x59/0x72).
+//
+// Counts and the adena figure are drawn with the client's own bitmap font,
+// so they are canvases: read Font's cache key (el.__l2text), never
+// textContent, which is always ''.
 // Output: verify_shots/inv_*.png + JSON summary.
 const fs = require('fs');
 const path = require('path');
@@ -26,7 +31,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     page.on('console', m => summary.consoleLogs.push(m.text()));
     page.on('pageerror', e => summary.consoleLogs.push('PAGEERROR: ' + e.message));
 
-    await page.goto(BASE, { waitUntil: 'networkidle0' });
+    await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForFunction('window.__world && window.__world.ready', { timeout: 30000 });
     await page.click('#online-toggle');
     await page.waitForFunction(
@@ -53,6 +58,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         tabsOk: (w.tabs.offsetLeft === 12 && w.tabs.offsetTop === 139),
         gridOk: (w.grid.offsetLeft === 9 && w.grid.offsetTop === 168),
         cells: document.querySelectorAll('.inv-cell').length,
+        // InventoryWnd.uc HandleAddItem: equipped items go to the paperdoll
+        // ONLY, so the grid lists items minus equipped
+        serverItems: window.__world.inventory.items.size,
+        serverEquipped: [...window.__world.inventory.items.values()]
+          .filter(i => i.equipped).length,
+        // mined well 34x34 on the mined 37x35 pitch (NOT the pitch-sized
+        // cells the port used to draw, which stretched every 32px icon)
+        cellRects: [...document.querySelectorAll('.inv-cell')].slice(0, 8)
+          .map(c => { const b = c.getBoundingClientRect();
+            return { w: Math.round(b.width), h: Math.round(b.height),
+                     x: Math.round(b.x), y: Math.round(b.y) }; }),
+        gridScroll: { sh: w.grid.scrollHeight, ch: w.grid.clientHeight },
         dollSlots: document.querySelectorAll('.doll-slot').length,
         dollFilled: [...document.querySelectorAll('.doll-slot.filled')]
           .map(e => e.dataset.slot),
@@ -62,9 +79,12 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     });
     await page.screenshot({ path: path.join(OUT, 'inv_01_window.png') });
 
-    // dblclick use on the consumable (count 5 -> 4)
-    const before = await page.evaluate(() =>
-      document.querySelector('.inv-cell[data-oid="90002"] .count')?.textContent);
+    // dblclick use on the consumable (count 5 -> 4). The count is a Font
+    // canvas; its text lives in the cache key.
+    const readCount = () => page.evaluate(() =>
+      document.querySelector('.inv-cell[data-oid="90002"] .count')
+        ?.__l2text?.split('|')[0] ?? null);
+    const before = await readCount();
     await page.evaluate(() => {
       document.querySelector('.inv-cell[data-oid="90002"]')
         .dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
@@ -73,10 +93,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       `window.__world.net.log.some(m => m.dir === 'out' && m.op === 'useItem')`,
       { timeout: 8000 });
     await sleep(600);
-    summary.useItem = await page.evaluate(() => ({
-      countAfter: document.querySelector('.inv-cell[data-oid="90002"] .count')?.textContent,
-    }));
-    summary.useItem.countBefore = before;
+    summary.useItem = { countBefore: before, countAfter: await readCount() };
 
     // drag an unequipped item onto a paperdoll slot -> useItem (equip path)
     await page.evaluate(() => {
@@ -93,8 +110,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     // adena count + tab flip to quest pane
     summary.adena = await page.evaluate(() => ({
       itemCount: (window.__world.inventory.items.get(90001) || {}).count,
-      adenaShown: window.__world.inventory.adenaEl.childElementCount > 0
-        || window.__world.inventory.adenaEl.textContent !== '',
+      adenaShown: window.__world.inventory.adenaEl.childElementCount > 0,
+      adenaText: window.__world.inventory.adenaEl.__l2text?.split('|')[0] ?? null,
     }));
     await page.evaluate(() => {
       [...document.querySelectorAll('#l2-inventorywnd [class]')].length;

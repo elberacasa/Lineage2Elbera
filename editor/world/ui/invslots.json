@@ -1,0 +1,126 @@
+{
+ "adenaField": {
+  "h": 17,
+  "w": 85,
+  "x": 117,
+  "y": 332
+ },
+ "doll": {
+  "chest": {
+   "h": 34,
+   "w": 34,
+   "x": 53,
+   "y": 54
+  },
+  "feet": {
+   "h": 34,
+   "w": 34,
+   "x": 92,
+   "y": 92
+  },
+  "gloves": {
+   "h": 34,
+   "w": 34,
+   "x": 14,
+   "y": 92
+  },
+  "hair": {
+   "h": 34,
+   "w": 34,
+   "x": 14,
+   "y": 16
+  },
+  "hair2": {
+   "h": 34,
+   "w": 34,
+   "x": 92,
+   "y": 16
+  },
+  "head": {
+   "h": 34,
+   "w": 34,
+   "x": 53,
+   "y": 16
+  },
+  "lear": {
+   "h": 34,
+   "w": 34,
+   "x": 176,
+   "y": 54
+  },
+  "legs": {
+   "h": 34,
+   "w": 34,
+   "x": 53,
+   "y": 92
+  },
+  "lfinger": {
+   "h": 34,
+   "w": 34,
+   "x": 176,
+   "y": 92
+  },
+  "lhand": {
+   "h": 34,
+   "w": 34,
+   "x": 92,
+   "y": 54
+  },
+  "neck": {
+   "h": 34,
+   "w": 34,
+   "x": 176,
+   "y": 16
+  },
+  "rear": {
+   "h": 34,
+   "w": 34,
+   "x": 137,
+   "y": 54
+  },
+  "rfinger": {
+   "h": 34,
+   "w": 34,
+   "x": 137,
+   "y": 92
+  },
+  "rhand": {
+   "h": 34,
+   "w": 34,
+   "x": 14,
+   "y": 54
+  },
+  "underwear": {
+   "h": 34,
+   "w": 34,
+   "x": 137,
+   "y": 16
+  }
+ },
+ "dollCell": 34,
+ "grid": {
+  "cols": 6,
+  "icon": 32,
+  "pitchX": 37,
+  "pitchY": 35,
+  "rows": 4,
+  "well": 34,
+  "x": 9,
+  "y": 168
+ },
+ "source": "L2UI_CH3.InventoryWnd.Inventory_Back (tier 3, measured) cross-checked against Interface.xdat (tier 1)",
+ "space": "InventoryWnd body pixels (xdat y minus the 20px titlebar)",
+ "weightGauge": {
+  "bar": {
+   "h": 12,
+   "w": 85,
+   "x": 117,
+   "y": 352
+  },
+  "h": 12,
+  "w": 85,
+  "x": 117,
+  "y": 352
+ },
+ "window": "InventoryWnd"
+}
