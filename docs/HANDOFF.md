@@ -471,6 +471,36 @@ regenerate with `tools/ui/mine_classicons.py`, guard `--check`).
 
 ## 5. Known gotchas (each one cost real time — respect them)
 
+> **Read this section as evidence, not as scripture.**
+>
+> The goal is a 1:1 replica: every value decoded from the binary, the server
+> data, or a umodel cross-check. Nothing below is exempt from that, including
+> the entries that sound most settled. Several claims in this repository —
+> in this file, in `docs/monster-pipeline.md`, in `docs/skillfx-data.md`, in
+> the README, and in code comments — turned out to be false when someone
+> finally checked, and each had been quietly steering work for months:
+>
+> | claim | what checking found |
+> |---|---|
+> | "the unmodified game server" (README) | the server carries our own protocol mods |
+> | "town floors are dirt, a retail fact" (below) | the pavement is BSP geometry, buried by our own terrain correction |
+> | "the mesh→animation binding is not in this repo" (monster pipeline) | it is a `USkeletalMesh::Animation` reference inside the `.ukx` — 42 creatures were animated from the wrong data, some from a different animal |
+> | "`AttachOn` was not recovered" (skill fx) | the ordinals are in `Engine.u`'s enum export |
+> | "umodel cannot export VertMesh" (skill fx) | it can; only a `.3d` decoder is missing |
+> | "all converted outputs are gitignored" (README) | the decoded `.dat` tables are tracked |
+> | the audit's own roll-sign spec for props | an exhaustive sign search found no match for it |
+>
+> The pattern in almost every case was the same and is worth naming: a
+> **correct measurement** followed by an **unexamined inference**, written up
+> as a single confident fact. The measurement survives; the inference does
+> not; and once they are welded into one sentence nobody re-checks either.
+>
+> So when you write here: state what you measured and where, keep what you
+> think it implies in a separate sentence labelled as inference, and say what
+> would falsify it. When you read here: if an entry tells you NOT to fix
+> something, treat that as the highest-value thing to re-verify — that is
+> exactly the shape the town-floor entry had.
+
 ### Protocol / crypto (details: gateway/README.md)
 
 - **aCis `writeF` is a DOUBLE (8 bytes), not a float.** Parsers written
@@ -546,12 +576,33 @@ regenerate with `tools/ui/mine_classicons.py`, guard `--check`).
   fact** (chargrp has 14 records), not a bug.
 - Dungeon tiles 19_16/21_25: all props are below the flat terrain plane —
   correct conversion; the client needs an interior mode, not a converter fix.
-- **Town floors painted with the base dirt are a retail fact too.** The
-  Giran squares read as pavement in later chronicles, but the Interlude
-  TerrainInfo layers 1-7 are ~0 there (verified in T_22_22.utx) and
-  layer0's alphamap is solid white — the base INNS_05 dirt is what the
-  client renders. Cobblestone (GI_S1) only appears on outskirt roads.
-  Don't "repair" a town floor into pavement the source doesn't paint.
+- **CORRECTED 2026-08-08 — town floors are NOT dirt.** This entry used to
+  read "town floors painted with the base dirt are a retail fact", and it
+  was wrong in a way worth understanding, because the mistake is the kind
+  this document exists to prevent.
+
+  What it got right, and what is still true: the Interlude TerrainInfo
+  layers 1-7 really are ~0 over the Giran squares (verified in T_22_22.utx)
+  and layer0's alphamap really is solid white, so the TERRAIN there is
+  painted with base INNS_05 dirt. Every one of those measurements holds.
+
+  What it got wrong: it concluded from that what the PLAYER should see. The
+  pavement was never in the terrain layers — it is BSP brush geometry
+  sitting on a raised slab above the natural ground, and at the time this
+  note was written BSP had not been decoded, so the only floor anyone could
+  find was the dirt. Measured at the Giran square (x 82000 y 148000):
+  raw heightmap -3600.8 (natural ground, under the slab), BSP slab top
+  ~-3496 (the stone floor), geodata -3464 (walkable, ~+32 above the slab —
+  the same systematic offset documented above). The client's
+  `correctHeightsWithGeodata` then lifts the dirt terrain to -3464 and
+  buries the pavement it is standing on.
+
+  The lesson, not the fact: a correct measurement plus an unexamined
+  assumption about what it implies produces a confident, wrong instruction.
+  "The terrain layers paint dirt" was evidence. "So the floor is dirt" was
+  an inference, and it silently became a rule telling future work not to
+  fix a real defect. State what you measured; keep what it implies
+  separate and label it as inference.
 
 ### Repo / process hygiene
 
