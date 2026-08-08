@@ -251,15 +251,22 @@ def scan(data):
     for i, rec in enumerate(records):
         end = records[i + 1]["off"] if i + 1 < len(records) else len(data)
         rec["end"] = end
-        refs, p = [], rec["body"]
-        while p < end:
+        # Try EVERY byte offset, not a walk. A walk has to advance by a fixed
+        # stride wherever a string does not parse, and record bodies open with
+        # int32s, so a 4-byte stride starts off the string lattice and steps
+        # straight over anything that is not aligned to it. Measured on the
+        # shipped Interface.xdat, that silently lost at least one texture in
+        # 156 of 1,962 records — including every gauge FILL sprite
+        # (ps_hpbar, ps_mpbar, ps_cpbar), which is why the status bars rendered
+        # as flat coloured stripes: only the *_back empty plate survived, and
+        # the port used the empty plate as the fill. A byte scan recovers 192
+        # references, 133 of the 138 distinct names resolving to PNGs umodel
+        # had already exported — chance would give ~0.
+        refs = []
+        for p in range(rec["body"], end):
             got = r.string(p)
-            if got and got[0] and got[1] <= end:
-                if TEXREF.match(got[0]):
-                    refs.append(got[0])
-                p = got[1]
-            else:
-                p += 4
+            if got and got[0] and got[1] <= end and TEXREF.match(got[0]):
+                refs.append(got[0])
         # preserve order, drop repeats
         rec["textures"] = list(dict.fromkeys(refs))
 

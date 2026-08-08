@@ -107,6 +107,32 @@ const check = (name, ok, detail = '') => {
   check('unequipping clears the hand', bare.name === null && bare.children === 0,
         `children=${bare.children}`);
 
+  // --- stance ---------------------------------------------------------------
+  // The clips are per weapon stance (Wait_1HS_MFighter and friends). Holding a
+  // sword must actually select them, or the character stands unarmed with a
+  // sword in its hand — which is what play testing reported.
+  const stance = await page.evaluate(async (ids) => {
+    const ch = window.__world.character;
+    const out = {};
+    for (const [label, id] of Object.entries(ids)) {
+      await ch.setWeapon(id);
+      out[label] = { stance: ch.stance, idle: ch._clip('idle'), attack: ch._clip('attack') };
+    }
+    out.clips = Object.keys(ch.actions).length;
+    out.has1hs = !!ch.actions.idle_1hs;
+    return out;
+  }, { unarmed: 0, sword: ONE_HAND, claymore: TWO_HAND });
+
+  check('model carries the stanced clip set', stance.clips > 20 && stance.has1hs,
+        `${stance.clips} clips, idle_1hs=${stance.has1hs}`);
+  check('unarmed uses the hand stance', stance.unarmed.stance === 'hand'
+        && stance.unarmed.idle === 'idle', JSON.stringify(stance.unarmed));
+  check('a one-handed sword selects the 1HS stance', stance.sword.stance === '1hs'
+        && stance.sword.idle === 'idle_1hs' && stance.sword.attack === 'atk01_1hs',
+        JSON.stringify(stance.sword));
+  check('a two-handed sword selects the 2HS stance', stance.claymore.stance === '2hs'
+        && stance.claymore.idle === 'idle_2hs', JSON.stringify(stance.claymore));
+
   // Put it back on and photograph it — the numbers above cannot tell us it
   // looks right, only that it is present and untransformed.
   await equip(ONE_HAND);

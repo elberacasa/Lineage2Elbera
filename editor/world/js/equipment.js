@@ -28,11 +28,13 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const WEAPON_BASE = '/characters/weapons/';
 const MESH_INDEX_URL = '/gamedata/weaponmesh.json';
+const STANCES_URL = '/characters/stances.json';
 
 const loader = new GLTFLoader();
 
 let _index = null;      // { meshes[], textures[], items: {itemId: {m,t,h,w}} }
 let _manifest = null;   // { meshId: entry }
+let _stances = null;    // { no_weapon, by_handness: {h: {stance}} }
 let _ready = null;
 
 export function equipmentReady() { return _ready; }
@@ -41,10 +43,14 @@ export async function loadEquipment() {
   if (_ready) return _ready;
   _ready = (async () => {
     try {
-      const [idx, man] = await Promise.all([
+      const [idx, man, st] = await Promise.all([
         fetch(MESH_INDEX_URL).then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))),
         fetch(WEAPON_BASE + 'manifest.json').then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))),
+        // Optional: without it every character just keeps the unarmed stance,
+        // which is what the client did before stances existed.
+        fetch(STANCES_URL).then(r => r.ok ? r.json() : null).catch(() => null),
       ]);
+      _stances = st;
       _index = idx;
       _manifest = {};
       for (const m of (man.models || [])) _manifest[m.id.toLowerCase()] = m;
@@ -72,6 +78,22 @@ export function weaponInfo(itemId) {
   // package prefix because that is how weapongrp writes it.
   const mesh = full.includes('.') ? full.slice(full.indexOf('.') + 1) : full;
   return { mesh, handness: rec.h || 1, weaponType: rec.w || 0 };
+}
+
+// Which animation stance a weapon puts a character in.
+//
+// The mapping is the retail client's own: NWindow.dll's NCPawnViewerWnd lists
+// 7(DUALFIST) 5(BOW) 4(POLE) 3(DUAL) 2(2HS) 1(1HS) 0(HAND), and those numbers
+// are weapongrp's `handness` — the domains match 1:1. `weapon_type` is a
+// DIFFERENT domain (DUAL is 8 there, BOW 6), so it is not what the enum counts.
+// Two rows of the table are marked unsourced upstream and fall back to `hand`.
+export function stanceFor(itemId) {
+  if (!_stances) return 'hand';
+  if (!itemId) return _stances.no_weapon || 'hand';
+  const info = weaponInfo(itemId);
+  if (!info) return _stances.no_weapon || 'hand';
+  const row = _stances.by_handness && _stances.by_handness[String(info.handness)];
+  return (row && row.stance) || _stances.no_weapon || 'hand';
 }
 
 const _cache = new Map();   // meshId -> Promise<THREE.Object3D|null>

@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { L2_TO_M } from './coords.js';
-import { equipWeapon } from './equipment.js';
+import { equipWeapon, stanceFor } from './equipment.js';
 
 const CHAR_HEIGHT = 1.75;      // meters — fallback normalization (~1.7 charcreate)
 
@@ -46,6 +46,8 @@ export class Character {
     // rebuild the skeleton and the weapon has to be re-hung on the new sockets.
     this.weapon = { object: null, meshId: null };
     this.wantWeapon = 0;
+    // animation stance the equipped weapon calls for; 'hand' is unarmed
+    this.stance = 'hand';
   }
 
   // The equipped right-hand item id, straight from the server's paperdoll.
@@ -53,6 +55,15 @@ export class Character {
   // when load() finishes.
   setWeapon(itemId) {
     this.wantWeapon = itemId || 0;
+    const stance = stanceFor(this.wantWeapon);
+    if (stance !== this.stance) {
+      this.stance = stance;
+      // Re-enter the pose in the new stance, otherwise the character keeps
+      // standing unarmed until something else changes its state. Idle is safe
+      // even while walking: update()'s moving branch calls play() every frame
+      // and will correct it on the next one.
+      if (this.mixer && !this.emoteUntil) this.play('idle');
+    }
     if (!this.model) return Promise.resolve(null);
     return equipWeapon(this.model, this.wantWeapon, this.weapon);
   }
@@ -105,7 +116,26 @@ export class Character {
     return this;
   }
 
+  // Logical clip name -> the stanced clip the equipped weapon calls for.
+  //
+  // Retail names its sequences per weapon stance (Wait_1HS_MFighter,
+  // Run_Bow_MElf...), and the pipeline emits them as idle_1hs / run_bow /
+  // atk01_2hs alongside the original unstanced names. `attack` maps to atk01
+  // because that is the retail token; the rest keep their own.
+  //
+  // Falls back to the unstanced clip whenever a stance lacks one — retail
+  // genuinely does not ship every combination (no Atk02 for Bow, no Dual
+  // SpAtk for elves), so a miss here is data, not an error.
+  _clip(name) {
+    const stance = this.stance;
+    if (!stance || stance === 'hand') return name;
+    const token = name === 'attack' ? 'atk01' : name;
+    const stanced = `${token}_${stance}`;
+    return this.actions[stanced] ? stanced : name;
+  }
+
   play(name, fade = 0.25) {
+    name = this._clip(name);
     const next = this.actions[name] || this.actions.idle;
     if (!next || next === this.current) return;
     next.reset().setEffectiveWeight(1).fadeIn(fade).play();
@@ -123,9 +153,12 @@ export class Character {
   // Play a clip once for its own duration (skill cast gestures, emotes).
   // The update() idle/sit fallback stays suppressed via emoteUntil.
   oneShot(name, fade = 0.1) {
-    const clip = this.actions[name];
+    // resolve the stance here too, so the hold time matches the clip that
+    // actually plays — a 1HS swing and the unarmed one are different lengths
+    const resolved = this._clip(name);
+    const clip = this.actions[resolved];
     if (!clip) return;
-    this.play(name, fade);
+    this.play(resolved, fade);
     this.emoteUntil = performance.now() + clip.getClip().duration * 1000;
   }
 

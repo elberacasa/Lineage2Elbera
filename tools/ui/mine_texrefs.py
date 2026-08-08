@@ -1,12 +1,27 @@
 #!/usr/bin/env python3
-"""Re-harvest the texture references out of Interface.xdat (phase-safe).
+"""Guard the texture references harvested out of Interface.xdat.
 
-WHY THIS EXISTS
----------------
+WHAT THIS IS NOW
+----------------
+This began as a fix: it re-harvested the references that `parse_xdat.py` was
+dropping, because that file was not ours to edit at the time. The byte-scan
+has since been folded into `parse_xdat.py` itself, so the decoder no longer
+loses anything and this script now recovers ZERO — which is exactly the point.
+It is kept as the regression gate for that fix: `--check` re-derives the
+harvest independently and fails if the decoder ever starts missing references
+again, plus it asserts nine per-control texture guards (the status gauge
+fills, the menu button art, the chat body) that name the specific sprites
+whose loss was visible on screen.
+
+If `--check` ever reports a non-zero recovery count, `parse_xdat.py` has
+regressed to a phase-losing harvest; the explanation below is why that matters.
+
+THE BUG IT GUARDS AGAINST
+-------------------------
 `tools/xdat/parse_xdat.py` anchors records by their header shape and then
-collects the texture names living in each record's span by *walking* the span
-as a string stream: read a string, jump to its end, and when a byte is not a
-string start, step forward 4 bytes.
+collects the texture names living in each record's span. It used to *walk* the
+span as a string stream: read a string, jump to its end, and when a byte is not
+a string start, step forward 4 bytes.
 
 That walk loses phase. A record body begins with int32 fields, so the walk
 starts in `p += 4` mode; whenever a variable-length field pushes the stream off
