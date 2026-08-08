@@ -21,7 +21,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { L2_TO_M, l2ToThree } from './coords.js';
 import { Geodata, GEO_ANCHOR_MAX } from './geodata.js';
 import { Bsp } from './bsp.js';
-import { BspFloor } from './bspfloor.js';
+import { BspFloor, drawnGroundL2 } from './bspfloor.js';
 import { correctHeightsWithGeodata } from './heightfix.js';
 
 const UE_ROT_TO_RAD = (Math.PI * 2) / 65536;
@@ -189,26 +189,13 @@ export class Terrain {
     this.geoBspCells = r.bspCells;
   }
 
-  // The surface the player actually SEES at L2 (x, y): the terrain mesh,
-  // unless the level BSP floors that spot — a town square is a stone slab
-  // built over the natural ground, and over a slab the drawn ground is the
-  // slab. `terrainZ` is the mesh height there, `hintZ` the walker's current
-  // z (the multi-layer rule: which storey).
-  //
-  // Two guards, so this only fires where the slab really is the ground:
-  //   * the floor must be ABOVE the mesh (below it, the mesh is what shows);
-  //   * geodata must describe that floor — its nearest layer within
-  //     GEO_ANCHOR_MAX, the same measured geodata-over-surface band the
-  //     anchoring uses. One grid point outside the slab geodata drops to the
-  //     natural ground, the test fails, and the mesh takes over again, so
-  //     the raster's 128-unit sampling cannot leak the slab height outward.
+  // The surface the player actually SEES at L2 (x, y) — the terrain mesh
+  // unless something is drawn over that spot (a plaza slab, a staircase),
+  // and then that. The rule itself lives in bspfloor.js because the
+  // decimated NEIGHBOR meshes have to answer identically at a tile border.
   _drawnGroundL2(xL2, yL2, terrainZ, hintZ) {
-    if (!this.bspFloor || !this.geodata) return terrainZ;
-    const b = this.bspFloor.nearestAtWorld(xL2, yL2, hintZ ?? terrainZ);
-    if (b == null || b <= terrainZ) return terrainZ;
-    const g = this.geodata.heightAt(xL2, yL2, b);
-    if (g == null || Math.abs(g - b) > GEO_ANCHOR_MAX) return terrainZ;
-    return b;
+    return drawnGroundL2(
+      this.bspFloor, this.geodata, xL2, yL2, terrainZ, hintZ);
   }
 
   // -- grid -> world helpers ----------------------------------------------

@@ -1,0 +1,39 @@
+{
+  "note": "Live-aCis ground truth, written by `node verify_walksurface.js --server`. Each probe teleports the GM fixture to (x, y, sendZ) and then reads the server's OWN position back with ValidatePosition -> ValidateLocation. sendZ is deliberately the plaza slab top so the server has to correct it. Nothing here is hand-typed.",
+  "measured": "2026-08-08",
+  "server": "aCis 127.0.0.1:7777, GeoDataType L2OFF, ./data/geodata/",
+  "scans": [
+    {
+      "id": "giran_plaza_stair_x",
+      "tile": "22_22",
+      "what": "east across Giran_V_Plaza_Stair01 (scene.json prop at 83172/148618/-3447), from the lower plaza slab to the upper terrace",
+      "axis": "x",
+      "y": 148618,
+      "sendZ": -3496,
+      "points": [
+        [82900, -3464], [82932, -3464], [82964, -3464], [82996, -3464],
+        [83028, -3464], [83060, -3464], [83092, -3464], [83124, -3448],
+        [83156, -3432], [83188, -3416], [83220, -3400], [83252, -3400],
+        [83284, -3400], [83316, -3400], [83348, -3400], [83380, -3400],
+        [83412, -3400], [83444, -3400], [83476, -3400]
+      ]
+    },
+    {
+      "id": "giran_plaza_flat_y",
+      "tile": "22_22",
+      "what": "north across the lower plaza slab at x=83074 — flat, and the control the transposed cell index sawtoothed on a 128-unit (one block) period",
+      "axis": "y",
+      "x": 83074,
+      "sendZ": -3496,
+      "points": [
+        [148300, -3464], [148316, -3464], [148332, -3464], [148348, -3464],
+        [148364, -3464], [148380, -3464], [148396, -3464], [148412, -3464],
+        [148428, -3464], [148444, -3464], [148460, -3464], [148476, -3464],
+        [148492, -3464], [148508, -3464], [148524, -3464], [148540, -3464],
+        [148556, -3464], [148572, -3464], [148588, -3464], [148604, -3464],
+        [148620, -3464], [148636, -3464], [148652, -3464], [148668, -3464],
+        [148684, -3464], [148700, -3464]
+      ]
+    }
+  ]
+}

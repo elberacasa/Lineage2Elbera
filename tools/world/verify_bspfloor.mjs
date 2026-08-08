@@ -24,6 +24,11 @@
 //              the drawn surface is max(terrain mesh, BSP floor under the
 //              prop). Props are placed on the ground the retail client
 //              draws; over a slab that ground is the slab, not the mesh.
+//   walk       bspfloor.bin's SECTION 2, the 16-unit walk raster (BSP *and*
+//              props) that terrain.js _drawnGroundL2 reads. Everything above
+//              is about section 1 and must NOT move when section 2 changes:
+//              heightfix.js reads section 1 only, and section 1 is written by
+//              code this change did not touch.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -166,6 +171,37 @@ function propOracle(t, m) {
   return rows;
 }
 
+// Section 2 coverage, and how much of it section 1 could not have said: a
+// walk cell "adds" when no section-1 layer over the terrain grid point that
+// covers it is within CELL_HEIGHT of any of its own layers. That is the
+// staircase case counted -- the 128-unit raster had a height there, but not
+// THIS height, at THIS point.
+function walkStats(t) {
+  const { scene, bspFloor } = t;
+  const spacing = scene.spacing || 128;
+  const f = bspFloor.fine;
+  const out = { cells: 0, layers: 0, adds: 0, bytes: bspFloor.view.byteLength };
+  for (let cy = 0; cy < f.cells; cy++) {
+    for (let cx = 0; cx < f.cells; cx++) {
+      const bi = ((cy / f.blockCells) | 0) * f.nb + ((cx / f.blockCells) | 0);
+      if (f.offsets[bi] < 0) { cx |= f.blockCells - 1; continue; }
+      const x = scene.origin[0] + (cx + 0.5) * f.spacing;
+      const y = scene.origin[1] + (cy + 0.5) * f.spacing;
+      const layers = bspFloor.walkLayersAtWorld(x, y);
+      if (!layers.length) continue;
+      out.cells++;
+      out.layers += layers.length;
+      const coarse = bspFloor.layersAt(
+        Math.round((x - scene.origin[0]) / spacing),
+        Math.round((y - scene.origin[1]) / spacing));
+      for (const h of layers) {
+        if (!coarse.some((c) => Math.abs(c - h) <= 8)) { out.adds++; break; }
+      }
+    }
+  }
+  return out;
+}
+
 const median = (a) => {
   if (!a.length) return NaN;
   const s = [...a].sort((x, y) => x - y);
@@ -190,10 +226,17 @@ function main() {
   let totBuried = 0, tilesBuried = 0, totBsp = 0, totStaleB = 0, totStaleA = 0;
   let totDefB = 0, totDefA = 0;
   const allGaps = [], allBuriedBy = [], propRows = [];
-  const worst = [];
+  const worst = [], noWalk = [];
+  let walkCells = 0, walkLayers = 0, walkAdds = 0, walkBytes = 0;
   for (const tile of tiles) {
     const t = loadTile(tile);
     if (!t) { console.log(`${tile}: no geodata, skipped`); continue; }
+    if (t.bspFloor && !t.bspFloor.fine) noWalk.push(tile);
+    if (t.bspFloor && t.bspFloor.fine) {
+      const w = walkStats(t);
+      walkCells += w.cells; walkLayers += w.layers; walkAdds += w.adds;
+      walkBytes += w.bytes;
+    }
     const m = measure(t);
     totBuried += m.buried;
     if (m.buried) { tilesBuried++; worst.push([m.buried, tile, m]); }
@@ -224,6 +267,16 @@ function main() {
   }
   console.log('worst tiles              : '
     + worst.slice(0, 12).map(w => `${w[1]}=${w[0]}`).join(' '));
+
+  console.log('\n== section 2, the walk raster (terrain.js _drawnGroundL2) ==');
+  console.log(`tiles without one         : ${noWalk.length}`
+    + (noWalk.length ? ` (${noWalk.slice(0, 8).join(' ')}${noWalk.length > 8 ? ' ...' : ''})` : ''));
+  console.log(`16-unit cells with a surface: ${walkCells}`);
+  console.log(`surfaces (layers)         : ${walkLayers}`);
+  console.log(`cells section 1 could not have answered: ${walkAdds}`
+    + ` (${(100 * walkAdds / Math.max(1, walkCells)).toFixed(1)}%)`);
+  console.log(`bspfloor.bin total         : ${(walkBytes / 1048576).toFixed(1)} MiB`
+    + ` over ${tiles.length - noWalk.length} tiles`);
 
   console.log('\n== what the hazard-3 rule does ==');
   console.log(`state 3 (BSP-floored)    : ${totBsp}`);
@@ -277,6 +330,13 @@ function main() {
 
   if (check) {
     const fail = [];
+    // a tile with geodata but no section 2 is a PRE-FIX asset: the walker
+    // reads the 128-unit BSP-only raster there and walks through staircases
+    if (noWalk.length) {
+      fail.push(`${noWalk.length} tile(s) ship a bspfloor.bin with no WALK `
+        + `section (rebuild: python3 tools/world/bspfloor.py --all): `
+        + noWalk.slice(0, 6).join(' '));
+    }
     // the whole point: no BSP floor may be buried by the corrected mesh
     for (const [, tile, m] of worst) {
       const t = loadTile(tile);

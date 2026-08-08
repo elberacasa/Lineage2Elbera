@@ -24,7 +24,7 @@
 import * as THREE from 'three';
 import { L2_TO_M, l2ToThree } from './coords.js';
 import { Geodata, GEO_ANCHOR_MAX } from './geodata.js';
-import { BspFloor } from './bspfloor.js';
+import { BspFloor, drawnGroundL2 } from './bspfloor.js';
 import { correctHeightsWithGeodata } from './heightfix.js';
 
 // walking rule, same constant as terrain.js: a walker gains at most this
@@ -344,18 +344,15 @@ export class NeighborTile {
     const v = this._sample(g, fx, fy);
     const terrainZ = origin[2] + (v - 32768) * heightScale;   // L2 units
     if (this.geodata) {
-      // and the same BSP-floor rule as Terrain._drawnGroundL2: over a slab
-      // the drawn ground is the slab, not the mesh under it
+      // and the same drawn-surface rule as Terrain._drawnGroundL2 — literally
+      // the same function, so a walker crossing the border cannot step
+      // between two different answers (it used to be a copy of the rule here,
+      // which went stale the moment the walk raster gave the center tile the
+      // props and the 16-unit resolution)
       const xL2 = x / L2_TO_M, yL2 = -z / L2_TO_M;
-      let drawn = terrainZ;
-      if (this.bspFloor) {
-        const b = this.bspFloor.nearestAtWorld(
-          xL2, yL2, currentZ == null ? terrainZ : currentZ / L2_TO_M);
-        if (b != null && b > terrainZ) {
-          const gz = this.geodata.heightAt(xL2, yL2, b);
-          if (gz != null && Math.abs(gz - b) <= GEO_ANCHOR_MAX) drawn = b;
-        }
-      }
+      const drawn = drawnGroundL2(
+        this.bspFloor, this.geodata, xL2, yL2, terrainZ,
+        currentZ == null ? null : currentZ / L2_TO_M);
       const h = this.geodata.anchoredHeightAt(
         xL2, yL2,
         currentZ == null ? null : currentZ / L2_TO_M,
