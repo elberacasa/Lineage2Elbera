@@ -91,7 +91,7 @@ from l2lib import (L2Error, PF_FAKEBACKDROP, PF_INVISIBLE,  # noqa: E402
                    PF_MASKED, PF_PORTAL, extract_texture_rgba, level_model,
                    load_package, read_model, read_polys, resolve_material,
                    write_png)
-from convert import (GRID, SPACING, find_library_png,  # noqa: E402
+from convert import (GRID, SPACING, RETAIL_MATERIALS, find_library_png,  # noqa: E402
                      find_prop_start, png_has_significant_alpha, prop_objref)
 
 CLIENT = os.path.join(ROOT, "assets", "interlude")
@@ -399,7 +399,26 @@ def write_gltf(out_dir, tile, buckets, stats):
             key = (uri, masked)
             if key not in mat_index:
                 png = os.path.join(out_dir, uri)
-                alpha = masked or png_has_significant_alpha(png)
+                # Alpha state, in order of how well it is sourced:
+                #   1. PF_MASKED on the BSP surface — the map itself saying so.
+                #   2. the retail UE2 material, which states AlphaRef exactly
+                #      (RetailMaterialIndex.state, the same reader the prop
+                #      path uses since audit F3).
+                #   3. only if the name resolves to no retail material at all:
+                #      the old PNG alpha histogram. That guess is what made two
+                #      BSP materials render 100% invisible on surfaces retail
+                #      declares OPAQUE, so it is now the last resort rather
+                #      than the first answer.
+                name = os.path.splitext(os.path.basename(uri))[0]
+                retail = RETAIL_MATERIALS.state(name)
+                cutoff = None
+                if masked:
+                    alpha = True
+                elif retail is not None:
+                    alpha = retail[0] == "MASK"
+                    cutoff = retail[1]
+                else:
+                    alpha = png_has_significant_alpha(png)
                 images.append({"uri": uri})
                 gtextures.append({"source": len(images) - 1, "sampler": 0})
                 mat = {
@@ -415,7 +434,10 @@ def write_gltf(out_dir, tile, buckets, stats):
                 }
                 if alpha:
                     mat["alphaMode"] = "MASK"
-                    mat["alphaCutoff"] = 0.5
+                    # retail states AlphaRef; 0.5 is only the fallback for a
+                    # PF_MASKED surface whose material we could not read, and
+                    # real foliage refs are 10 or 30, not 128
+                    mat["alphaCutoff"] = cutoff if cutoff is not None else 0.5
                 materials.append(mat)
                 mat_index[key] = len(materials) - 1
             nvert = len(bucket["pos"]) // 3
