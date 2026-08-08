@@ -31,7 +31,8 @@ if [ "$MODE" != "--gateway-only" ]; then
            verify_partywnd verify_abnormal verify_combat verify_skills \
            verify_clanwnd verify_charcreate verify_charsel \
            verify_m5 verify_app verify_civilians verify_interior verify_geodata \
-           verify_terrain verify_audio verify_equipment; do
+           verify_terrain verify_audio verify_equipment verify_resilience \
+           verify_skillvfx; do
     run "$v" editor/world "$v.js"
   done
   pkill -f mock_gateway.js 2>/dev/null

@@ -885,7 +885,13 @@ net.on('close', () => {
   setStatus('online: disconnected');
   chat.addSystem('connection lost');
   entities.clear();
+  gameSound.clear();     // entity -> creature sound bindings die with the world
   selfId = null;
+  // Until this was set, `online` stayed true after a drop: the world emptied,
+  // every send silently no-opped, and nothing said why. The toggle now reflects
+  // reality, so a player can see the state and reconnect.
+  online = false;
+  if (onlineToggle) onlineToggle.checked = false;
 });
 net.on('error', () => {
   chat.addSystem(`cannot reach gateway (${net.url}) — is it running?`);
@@ -1239,6 +1245,9 @@ window.__world = {
   scene, camera, renderer,
   hd: HD_ENABLED,
   audio, gameSound, worldAudio,
+  // verification hook: verify_resilience.js drives a scene load whose fetch is
+  // made to fail, to prove one bad request cannot strand the client
+  loadScene: (tile, opts) => loadScene(tile, opts),
   get terrain() { return terrain; },
   get character() { return character; },
   get selfModelId() { return selfModelId; },
@@ -1330,13 +1339,24 @@ async function loadScene(tile, { keepCharPos = false } = {}) {
   loadingEl.classList.remove('hidden');
   sceneLoading = true;
   pendingSceneSwitch = null;   // an explicit load supersedes a queued crossing
+  const prevTile = currentTile;
   try {
-    if (terrain) { scene.remove(terrain.group); terrain.dispose(); terrain = null; }
-
+    // Build the replacement BEFORE retiring what is on screen. This used to
+    // dispose the old terrain first, so any failure below — a 502 crossing a
+    // border, a dropped connection — left the world with nothing to stand on
+    // and nothing to fall back to. Holding both for the duration of one load
+    // costs a little memory and is the difference between a hiccup and a dead
+    // session.
     const baseUrl = `${HD_ENABLED ? '/scenes-hd' : '/scenes'}/${encodeURIComponent(tile)}/`;
-    const def = await (await fetch(baseUrl + 'scene.json')).json();
+    const res = await fetch(baseUrl + 'scene.json');
+    // fetch only rejects on network failure; an HTTP error still resolves, and
+    // .json() on an error body throws something that tells you nothing.
+    if (!res.ok) throw new Error(`scene.json: HTTP ${res.status}`);
+    const def = await res.json();
     const t = new Terrain(def, baseUrl);
     await t.load();
+
+    if (terrain) { scene.remove(terrain.group); terrain.dispose(); }
     terrain = t;
     scene.add(t.group);
     currentTile = tile;
@@ -1383,6 +1403,21 @@ async function loadScene(tile, { keepCharPos = false } = {}) {
     sun.position.copy(SUN_DIR).multiplyScalar(150).add(character ? character.group.position : t.center());
     setStatus(`scene: ${tile} (${def.gridSize}x${def.gridSize})`);
     loadingEl.classList.add('hidden');
+  } catch (err) {
+    // There was no catch here at all, and terrain is nulled above BEFORE the
+    // fetch. So a single failed request — a 502 while crossing a tile border,
+    // a dropped connection — left the world with no terrain and the #loading
+    // overlay still up. That overlay is opaque and covers the viewport, and it
+    // swallows clicks, so the client was permanently dead with no way back
+    // short of a reload. One transient error should not end the session.
+    console.error(`[scene] ${tile}:`, err);
+    setStatus(`scene ${tile} failed to load`);
+    loadingEl.classList.add('hidden');
+    if (chat) chat.addSystem(`Could not load ${tile}. Staying where you were.`);
+    // Nothing was replaced if the failure happened before the new terrain was
+    // adopted, so let the boundary watcher retry the crossing later rather
+    // than pinning us to a tile we never managed to load.
+    currentTile = terrain ? currentTile : prevTile;
   } finally {
     sceneLoading = false;
   }
@@ -1813,6 +1848,18 @@ renderer.setAnimationLoop(() => {
 });
 
 // --- boot ----------------------------------------------------------------------
+
+// Last-resort backstop. The loading overlay is opaque and swallows clicks, so
+// any path that raises it and then throws before lowering it kills the session.
+// loadScene now catches its own failures; this covers the ones nobody
+// anticipated, which are exactly the ones that would otherwise strand a player.
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('[unhandled]', e.reason);
+  if (loadingEl && !loadingEl.classList.contains('hidden')) {
+    loadingEl.classList.add('hidden');
+    setStatus('something failed to load — see the console');
+  }
+});
 
 (async function boot() {
   try {
