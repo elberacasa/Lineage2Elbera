@@ -204,10 +204,16 @@ class NpcEntity {
     this.capsuleMeshes.push(ring);
   }
 
-  setLabel(text) {
+  // `color` is retail's own nickcolor for this NPC (RRGGBBAA). It is not
+  // decoration: the 537 NPCs carrying 3F8BFEFF are the Raid Bosses and their
+  // escorts, so painting every nameplate the same green made a raid boss look
+  // like a gremlin. NPC_LABEL remains the fallback and is the same green the
+  // table's own default spells.
+  setLabel(text, color = null) {
     if (this.label) this.group.remove(this.label);
     this.name = text;
-    this.label = makeLabel(text, NPC_LABEL, labelScale(this.heightM));
+    if (color) this.labelColor = color;
+    this.label = makeLabel(text, this.labelColor || NPC_LABEL, labelScale(this.heightM));
     this.label.position.y = this.heightM * 1.25;
     this.group.add(this.label);
   }
@@ -460,9 +466,12 @@ export class EntityManager {
     npc.upgradeToMonster();      // M3: async swap capsule -> real model
   }
 
-  setNpcName(id, name) {
+  setNpcName(id, name, color = null) {
     const e = this.entities.get(id);
-    if (e && e.kind === 'npc' && name && name !== e.name) e.setLabel(name);
+    if (!e || e.kind !== 'npc' || !name) return;
+    // repaint on a colour change too, not just a name change — the colour is
+    // what distinguishes a raid boss and it can arrive after the name
+    if (name !== e.name || (color && color !== e.labelColor)) e.setLabel(name, color);
   }
 
   // Ground drop spawn (see DropEntity). name comes from itemmeta via the

@@ -58,6 +58,10 @@ NPCS_XML_DIR = os.path.normpath(os.path.join(
     "gameserver", "data", "xml", "npcs"))
 PORT = 8083
 
+# The nickcolor 5,715 of the 6,519 NPCs carry. Rows matching it and having no
+# title collapse to a bare name string, which is most of the map.
+NPC_NAME_DEFAULT_COLOR = "9CE8A9FF"
+
 # compact npcId -> display name map, built once from assets/gamedata/npcname.json
 _npc_names = None
 # compact npcId -> short mesh name (e.g. "gremlin_m00"), from npcgrp.json
@@ -65,6 +69,18 @@ _npc_meshes = None
 
 
 def npc_names():
+    """npcId -> [name, nickcolor, nick].
+
+    `nickcolor` is retail's own nameplate colour and it is not decorative: of
+    the 6,519 records only three values occur, and the 537 NPCs carrying
+    3F8BFEFF are the Raid Bosses and their escorts. Dropping it, as this map
+    used to, made a raid boss render with exactly the same green nameplate as a
+    gremlin. Stored as the raw 8-hex-digit string from the table (RRGGBBAA);
+    the client decides what to do with the alpha.
+
+    Entries are trimmed to the shortest useful form so the map stays small:
+    name alone when the colour is the common green and there is no title.
+    """
     global _npc_names
     if _npc_names is None:
         _npc_names = {}
@@ -72,7 +88,16 @@ def npc_names():
         try:
             with open(src, "r", encoding="utf-8") as fh:
                 for entry in json.load(fh):
-                    _npc_names[str(entry["id"])] = entry.get("name", "")
+                    name = entry.get("name", "")
+                    color = (entry.get("nickcolor") or "").upper()
+                    nick = entry.get("nick") or ""
+                    if nick:
+                        row = [name, color, nick]
+                    elif color and color != NPC_NAME_DEFAULT_COLOR:
+                        row = [name, color]
+                    else:
+                        row = name
+                    _npc_names[str(entry["id"])] = row
         except (OSError, ValueError, KeyError):
             pass
     return _npc_names

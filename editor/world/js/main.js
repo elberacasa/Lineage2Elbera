@@ -1125,11 +1125,20 @@ net.on('addNpc', (msg) => {
   // the first blow must not wait on a fetch
   gameSound.trackNpc(msg.id, msg.npcId);
   // name enrichment: fill placeholders from gamedata once loaded
-  if (!msg.name) {
-    npcNames().then(map => {
-      if (map[String(msg.npcId)]) entities.setNpcName(msg.id, map[String(msg.npcId)]);
-    });
-  }
+  // Name + nameplate colour from the retail table. A row is either a bare
+  // name string (the common case: default green, no title) or
+  // [name, nickcolor, nick?] — server.py trims it to keep the map small.
+  npcNames().then(map => {
+    const row = map[String(msg.npcId)];
+    if (!row) return;
+    const name = Array.isArray(row) ? row[0] : row;
+    const rgba = Array.isArray(row) ? row[1] : null;
+    // RRGGBBAA -> #RRGGBB; the alpha is FF on every row in the table
+    const color = rgba && rgba.length >= 6 ? `#${rgba.slice(0, 6).toLowerCase()}` : null;
+    // Even when the server supplied a name, the colour still has to land —
+    // that is what marks a raid boss.
+    entities.setNpcName(msg.id, msg.name || name, color);
+  });
 });
 // Ground drops (aCis SpawnItem/DropItem): nameplate + marker via
 // entities.addDrop; clicking one sends target{id} (clickEntity), which the
