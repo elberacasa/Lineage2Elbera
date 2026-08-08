@@ -286,6 +286,18 @@ export class InventoryWnd {
 
   // -- data ------------------------------------------------------------------
 
+  /** Inventory object ids holding a given item type. Shortcut slots key on
+   *  objectId, but the server talks about shots by itemId (ExAutoSoulShot,
+   *  RequestAutoSoulShot both use getItemByItemId), so something has to
+   *  bridge the two. Returns a list: a stack can legitimately be split. */
+  objectIdsForItem(itemId) {
+    const out = [];
+    for (const [oid, it] of this.items) {
+      if (it.itemId === itemId) out.push(oid);
+    }
+    return out;
+  }
+
   async setItems(items) {
     if (!this.meta) this.meta = await itemMeta();
     this.items.clear();

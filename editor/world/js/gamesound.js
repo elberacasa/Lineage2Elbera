@@ -110,6 +110,15 @@ export class GameSound {
     }
   }
 
+  // A soulshot firing. The bank has one recording for it (sc_shot_01) and it
+  // is not table-driven — the shot rides the Attack packet's SS flag, there is
+  // no per-item sound in weapongrp. Non-positional when it is our own shot:
+  // that sound is feedback, and in retail it sits on top of the mix.
+  shot(pos, isSelf) {
+    if (isSelf) audio.play2D(UI_SOUND.soulshot, { bus: 'sfx' });
+    else if (pos) audio.playAt(UI_SOUND.soulshot, pos, { volume: 200, radius: 40 });
+  }
+
   // The attacker's swing. Separate from attack() because a miss still swings.
   swing(entityId, pos) {
     if (!this.ready || !pos) return;

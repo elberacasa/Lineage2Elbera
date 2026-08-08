@@ -51,6 +51,24 @@ export function itemTypes() {
   return _itemTypes;
 }
 
+// Shot items, mined from the datapack's default_action by
+// tools/dat/export_shots.py — the client's own etcitemgrp cannot distinguish a
+// soulshot from any other etcitem. Needed because clicking a shot toggles
+// AUTOMATIC use (RequestAutoSoulShot), it does not consume one.
+// {itemId: {kind: 'soulshot'|'spiritshot', blessed, grade, name}}
+let _shots = null;
+export function shotMeta() {
+  if (!_shots) _shots = loadMeta('/gamedata/shots.json');
+  return _shots;
+}
+
+let _shotsLoaded = null;
+export function shotsReady() { return _shotsLoaded; }
+export function isShot(itemId) {
+  return !!(_shotsLoaded && _shotsLoaded[String(itemId)]);
+}
+shotMeta().then(m => { _shotsLoaded = m; }).catch(() => { _shotsLoaded = {}; });
+
 // sysstring-e.dat UI strings (tools/dat extraction): {id: {id, string}}.
 // UI labels cite the retail string by ID, never a retyped translation.
 export function sysStringMeta() {

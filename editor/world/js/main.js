@@ -14,7 +14,7 @@ import { CombatUI, bindProjection } from './combat.js';
 import { SkillBar, SkillFx } from './skills.js';
 import { InventoryWnd } from './ui/inventorywnd.js';
 import { ShortcutWnd } from './ui/shortcutwnd.js';
-import { skillMeta, skillInfo, itemMeta, itemInfo, sysMsgMeta, renderSysMsg, sysMsgColor, skillAnimMeta, skillAnimInfo, skillAnimLoaded } from './gamedata.js';
+import { skillMeta, skillInfo, itemMeta, itemInfo, sysMsgMeta, renderSysMsg, sysMsgColor, skillAnimMeta, skillAnimInfo, skillAnimLoaded, shotMeta, isShot } from './gamedata.js';
 import { isBeneficialAnim } from './skillfx_anim.js';
 import { audio } from './audio.js';
 import { gameSound } from './gamesound.js';
@@ -344,6 +344,19 @@ bindProjection(camera, canvas);
 
 // head position (for HP bars / damage floats) of an entity, or null
 const _headPos = new THREE.Vector3();
+// Shots the server has confirmed as automatic, by ITEM id. The shortcut bar
+// marks by inventory objectId, so the mapping is recomputed rather than stored:
+// a stack can be split or consumed and its object ids change under us.
+const activeShotItems = new Set();
+function refreshShotMarks() {
+  if (!shortcutWnd) return;
+  const oids = new Set();
+  for (const itemId of activeShotItems) {
+    for (const oid of inventory.objectIdsForItem(itemId)) oids.add(oid);
+  }
+  shortcutWnd.setActiveShots(oids);
+}
+
 function entityHeadPos(id) {
   // the local player is not in the EntityManager (main.js keeps it as a
   // separate Character) — resolve self the same way skills.js entityPos does
@@ -537,6 +550,7 @@ net.on('skillList', (msg) => {
 net.on('itemList', async (msg) => {
   await inventory.setItems(msg.items || []);
   refreshWeaponGate();
+  refreshShotMarks();   // object ids change when a stack splits or is consumed
   // aCis answers shop transactions with a FULL ItemList (no InventoryUpdate)
   if (shopWnd) shopWnd.onInvUpdate();
   if (storeWnd) storeWnd.onInvUpdate();
@@ -751,6 +765,18 @@ net.on('skillLaunch', (msg) => {
 // from gameclient 0x2d). Other entities flash their 'special' clip; when
 // it's us, dance on the local character model ('dance' exists on all 14
 // models; play() falls back to idle if a clip is ever absent).
+// ExAutoSoulShot — the server confirming a shot toggle. It answers only on
+// success (RequestAutoSoulShot returns silently when the item is missing or
+// the player is dead/trading), so this, not the click, is the truth.
+net.on('autoShotState', (msg) => {
+  if (msg.enabled) activeShotItems.add(msg.itemId);
+  else activeShotItems.delete(msg.itemId);
+  refreshShotMarks();
+  itemMeta().then(meta => {
+    chat.addSystem(`${itemInfo(meta, msg.itemId).name}: `
+      + (msg.enabled ? 'automatic use enabled' : 'automatic use disabled'));
+  });
+});
 net.on('socialAction', (msg) => {
   entities.socialFlash(msg.id);
   if (msg.id === selfId && character) character.emote('dance');
@@ -1157,6 +1183,13 @@ net.on('attack', (msg) => {
   if (pos) combat.damage(pos, msg);
   // the blow: impact on the victim + its cry, and our weapon when we swung it
   if (pos) gameSound.attack(msg, pos, selfId);
+  // soulshot: the SS bit rides the blow (Attack.HITFLAG_SS) — there is no
+  // separate packet, so this is the only moment a shot is observable
+  if (msg.soulshot) {
+    gameSound.shot(entityHeadPos(msg.id), msg.id === selfId);
+    const shotPos = entityHeadPos(msg.id);
+    if (shotPos) skillFx.flash(shotPos, 0xfff2a8);   // retail shot glint
+  }
   // rebuilt models carry a 'damage' flinch clip; oneShot no-ops without it
   if (msg.targetId === selfId && character) character.oneShot('damage');
 });
@@ -1783,7 +1816,7 @@ renderer.setAnimationLoop(() => {
     // client then runs silent instead of failing to boot
     await Promise.all([Skin.load(), Font.load(), Layout.load(),
                        loadExpTable(), loadSkillTypes(), weaponGate.load(),
-                       skillAnimMeta(), audio.init(), gameSound.load()]);
+                       skillAnimMeta(), shotMeta(), audio.init(), gameSound.load()]);
     makeChat();
     statusWnd = new StatusWnd(document.body);
     statusWnd.show();     // retail keeps it on screen; gauges fill on selfStatus
@@ -2016,7 +2049,19 @@ renderer.setAnimationLoop(() => {
 
     shortcutWnd = new ShortcutWnd(document.body, {
       onUseSkill: (id) => { if (online) skillBar.castSkill(id); },
-      onUseItem: (oid) => { if (online) net.send('useItem', { objectId: oid }); },
+      onUseItem: (oid) => {
+        if (!online) return;
+        // A shot is not "used" by clicking it — the click toggles automatic
+        // use, which is a different packet entirely (RequestAutoSoulShot vs
+        // UseItem). Retail behaves the same way; sending UseItem here would
+        // burn a single shot and never turn automation on.
+        const it = inventory.items.get(oid);
+        if (it && isShot(it.itemId)) {
+          net.send('autoShot', { itemId: it.itemId, enable: !activeShotItems.has(it.itemId) });
+          return;
+        }
+        net.send('useItem', { objectId: oid });
+      },
       onUseAction: (id) => useAction(id),
       onNote: (text) => chat.addSystem(text),
     });

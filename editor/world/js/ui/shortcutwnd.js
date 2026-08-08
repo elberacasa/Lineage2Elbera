@@ -408,6 +408,24 @@ export class ShortcutWnd {
         ids.has(id) && skillType(id) === 'TOGGLE');
     }
     this._applyWeaponMarks();
+    this._applyShotMarks();
+  }
+
+  /** Soulshot/spiritshot automatic use. Same standing-state problem as a
+   *  toggle skill, but shots sit in ITEM slots, so the toggle query above
+   *  never reaches them. Driven by ExAutoSoulShot, which the server sends
+   *  only when the toggle actually took — never from the click. */
+  setActiveShots(ids) {
+    this._activeShots = ids || new Set();
+    this._applyShotMarks();
+    return this;
+  }
+
+  _applyShotMarks() {
+    const ids = this._activeShots || new Set();
+    for (const el of this.root.querySelectorAll('.shortcut-slot[data-stype="item"]')) {
+      el.classList.toggle('l2-toggle-active', ids.has(+el.dataset.sid));
+    }
   }
 
   /** Weapon-condition gray-out — the SIGNAL is sourced (aCis weaponsAllowed

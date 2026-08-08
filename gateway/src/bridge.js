@@ -209,6 +209,12 @@ class Bridge {
         case 'useItem':
           if (this.game) this.game.useItem(msg.objectId | 0);
           break;
+        case 'autoShot':
+          // Toggle automatic soulshot/spiritshot use. itemId is the ITEM id
+          // (1463 = Soulshot D...), not an inventory object id — the server
+          // looks it up with getItemByItemId.
+          if (this.game) this.game.autoSoulShot(msg.itemId | 0, !!msg.enable);
+          break;
         case 'talk':
           // Talk/interact with an NPC. aCis Creature.onAction: first Action
           // only TARGETS; a second Action on the current target INTERACTS
@@ -675,6 +681,13 @@ class Bridge {
       });
     });
 
+    // ExAutoSoulShot — the server's confirmation that the toggle took. Only
+    // arrives on success, so the client should drive its shot indicator from
+    // this rather than from its own optimistic click.
+    game.on('autoShot', (s) => {
+      this.send({ op: 'autoShotState', itemId: s.itemId, enabled: s.enabled });
+    });
+
     game.on('npcInfo', (n) => {
       this.send({
         op: 'addNpc',
@@ -790,7 +803,12 @@ class Bridge {
           id: attackerId,
           targetId: h.targetId,
           damage: h.damage,
+          // Attack.java: HITFLAG_SS 0x10, CRIT 0x20, SHLD 0x40, MISS 0x80.
+          // The soulshot bit is how a shot becomes visible at all — there is
+          // no separate packet for it, the flash and its sound ride the blow.
+          soulshot: (h.flags & 0x10) !== 0,
           critical: (h.flags & 0x20) !== 0,
+          shield: (h.flags & 0x40) !== 0,
           miss: (h.flags & 0x80) !== 0,
         });
       }

@@ -136,6 +136,24 @@ class GameSession extends EventEmitter {
     this._send(w.build());
   }
 
+  // RequestAutoSoulShot: the client->server extended opcode is 0xD0 with an H
+  // sub-opcode (GamePacketHandler.java:666 -> case 5), NOT the 0xFE the server
+  // uses coming the other way. Payload is D itemId, D type (1 on / 0 off).
+  //
+  // The server answers ExAutoSoulShot only on success; a silent non-answer
+  // means it refused (no such item in the inventory, dead, trading), so the
+  // client must not assume the toggle took.
+  autoSoulShot(itemId, enable) {
+    this._send(
+      new PacketWriter()
+        .writeC(0xd0)
+        .writeH(5)
+        .writeD(itemId | 0)
+        .writeD(enable ? 1 : 0)
+        .build()
+    );
+  }
+
   // Action (0x04): plain click — target/interact (shift=0).
   action(objectId) {
     const o = this.pos;
@@ -1232,6 +1250,24 @@ class GameSession extends EventEmitter {
         const x = r.readD(); const y = r.readD(); const z = r.readD();
         const heading = r.readD();
         this.emit('validate', { id, x, y, z, heading });
+        break;
+      }
+      // Extended server packets. aCis writes 0xFE followed by an H sub-opcode
+      // (the client->server direction uses 0xD0 instead — they are NOT the
+      // same number, which is the easiest way to get this wrong).
+      case 0xfe: {
+        const sub = r.readH();
+        switch (sub) {
+          case 0x12: {   // ExAutoSoulShot: D itemId, D type (1 on / 0 off)
+            const itemId = r.readD();
+            const enabled = r.readD() === 1;
+            this.emit('autoShot', { itemId, enabled });
+            break;
+          }
+          default:
+            this.packetLog.set(`fe:${sub}`, (this.packetLog.get(`fe:${sub}`) || 0) + 1);
+            this.emit('packet', `fe:${sub}`);
+        }
         break;
       }
       default:

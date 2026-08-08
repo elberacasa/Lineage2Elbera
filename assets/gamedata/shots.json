@@ -1,0 +1,122 @@
+{
+ "1463": {
+  "blessed": false,
+  "grade": "D",
+  "kind": "soulshot",
+  "name": "Soulshot: D-grade"
+ },
+ "1464": {
+  "blessed": false,
+  "grade": "C",
+  "kind": "soulshot",
+  "name": "Soulshot: C-grade"
+ },
+ "1465": {
+  "blessed": false,
+  "grade": "B",
+  "kind": "soulshot",
+  "name": "Soulshot: B-grade"
+ },
+ "1466": {
+  "blessed": false,
+  "grade": "A",
+  "kind": "soulshot",
+  "name": "Soulshot: A-grade"
+ },
+ "1467": {
+  "blessed": false,
+  "grade": "S",
+  "kind": "soulshot",
+  "name": "Soulshot: S-grade"
+ },
+ "1835": {
+  "blessed": false,
+  "grade": null,
+  "kind": "soulshot",
+  "name": "Soulshot: No Grade"
+ },
+ "2509": {
+  "blessed": false,
+  "grade": null,
+  "kind": "spiritshot",
+  "name": "Spiritshot: No Grade"
+ },
+ "2510": {
+  "blessed": false,
+  "grade": "D",
+  "kind": "spiritshot",
+  "name": "Spiritshot: D-grade"
+ },
+ "2511": {
+  "blessed": false,
+  "grade": "C",
+  "kind": "spiritshot",
+  "name": "Spiritshot: C-grade"
+ },
+ "2512": {
+  "blessed": false,
+  "grade": "B",
+  "kind": "spiritshot",
+  "name": "Spiritshot: B-grade"
+ },
+ "2513": {
+  "blessed": false,
+  "grade": "A",
+  "kind": "spiritshot",
+  "name": "Spiritshot: A-grade"
+ },
+ "2514": {
+  "blessed": false,
+  "grade": "S",
+  "kind": "spiritshot",
+  "name": "Spiritshot: S-grade"
+ },
+ "3947": {
+  "blessed": true,
+  "grade": null,
+  "kind": "spiritshot",
+  "name": "Blessed Spiritshot: No Grade"
+ },
+ "3948": {
+  "blessed": true,
+  "grade": "D",
+  "kind": "spiritshot",
+  "name": "Blessed Spiritshot: D-Grade"
+ },
+ "3949": {
+  "blessed": true,
+  "grade": "C",
+  "kind": "spiritshot",
+  "name": "Blessed Spiritshot: C-Grade"
+ },
+ "3950": {
+  "blessed": true,
+  "grade": "B",
+  "kind": "spiritshot",
+  "name": "Blessed Spiritshot: B-Grade"
+ },
+ "3951": {
+  "blessed": true,
+  "grade": "A",
+  "kind": "spiritshot",
+  "name": "Blessed Spiritshot: A-Grade"
+ },
+ "3952": {
+  "blessed": true,
+  "grade": "S",
+  "kind": "spiritshot",
+  "name": "Blessed Spiritshot: S Grade"
+ },
+ "5789": {
+  "blessed": false,
+  "grade": null,
+  "kind": "soulshot",
+  "name": "Soulshot: No Grade for Beginners"
+ },
+ "5790": {
+  "blessed": false,
+  "grade": null,
+  "kind": "spiritshot",
+  "name": "Spiritshot: No Grade for Beginners"
+ }
+}
