@@ -33,6 +33,23 @@ Export entry:        cidx ClassIndex, cidx SuperIndex, i32 PackageIndex,
 
 Object references are FCompactIndex values: 0 = None, >0 = export (1-based),
 <0 = import (-ci-1 indexes the import table).
+
+Exports whose ObjectFlags carry RF_HasStack (0x02000000) serialise a UE2
+FStateFrame BEFORE the property stream. Every scripted Actor in a .unr map
+tile has it (StaticMeshActor, ZoneInfo, MusicVolume, LevelInfo, Light, ...):
+
+    cidx  Node            (the actor's class import; 0 = None)
+    cidx  StateNode       (same value as Node in every retail map actor)
+    i64   ProbeMask       (-1 in every retail map actor)
+    i32   LatentAction
+    cidx  Offset          (present only when Node != 0; -1 in retail maps)
+
+The frame is 15 bytes when Node encodes in one compact byte and 17 when it
+needs two -- which is the "15- or 17-byte native header" of
+docs/map-format.md 3.1, finally given a name (that section guessed the size
+tracked LicenseeVersion; it actually tracks the class's import index).
+read_state_frame() / Package.actor_body_reader() skip it. Exports without
+the flag (AmbientSoundObject, LevelSummary) begin at their properties.
 """
 
 import os
@@ -42,6 +59,9 @@ import subprocess
 import tempfile
 
 PACKAGE_TAG = 0x9E2A83C1
+
+# UE2 EObjectFlags: the object's body starts with a serialised FStateFrame
+RF_HAS_STACK = 0x02000000
 
 # ETextureFormat (UE2, from UEViewer UnMaterial2.h)
 TEXF_P8 = 0
@@ -331,6 +351,46 @@ class Package(object):
 
     def body_reader(self, export):
         return Reader(self.data, export.serial_offset, path=self.path)
+
+    def actor_body_reader(self, export):
+        """body_reader positioned past the RF_HasStack FStateFrame, if any.
+
+        Use this instead of body_reader for map actors: scripted Actors
+        (ObjectFlags & RF_HAS_STACK) do not begin with properties.
+        """
+        r = self.body_reader(export)
+        if export.object_flags & RF_HAS_STACK:
+            read_state_frame(self, r)
+        return r
+
+
+class StateFrame(object):
+    """A UE2 FStateFrame as serialised in front of an RF_HasStack body."""
+
+    __slots__ = ("node", "state_node", "probe_mask", "latent_action",
+                 "offset", "size")
+
+    def __repr__(self):
+        return ("<StateFrame node=%d state=%d probe=%d latent=%d offset=%s "
+                "size=%d>" % (self.node, self.state_node, self.probe_mask,
+                              self.latent_action, self.offset, self.size))
+
+
+def read_state_frame(pkg, r):
+    """Consume the FStateFrame at r (see the module docstring) -> StateFrame.
+
+    Offset is only serialised when Node is a real reference; a None Node
+    (index 0) has no execution position to record.
+    """
+    start = r.pos
+    f = StateFrame()
+    f.node = r.compact()
+    f.state_node = r.compact()
+    f.probe_mask = struct.unpack("<q", r.bytes(8))[0]
+    f.latent_action = r.i32()
+    f.offset = r.compact() if f.node else None
+    f.size = r.pos - start
+    return f
 
 
 # --------------------------------------------------------------------------

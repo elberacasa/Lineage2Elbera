@@ -16,6 +16,9 @@ import { InventoryWnd } from './ui/inventorywnd.js';
 import { ShortcutWnd } from './ui/shortcutwnd.js';
 import { skillMeta, skillInfo, itemMeta, itemInfo, sysMsgMeta, renderSysMsg, sysMsgColor, skillAnimMeta, skillAnimInfo, skillAnimLoaded } from './gamedata.js';
 import { isBeneficialAnim } from './skillfx_anim.js';
+import { audio } from './audio.js';
+import { gameSound } from './gamesound.js';
+import { worldAudio } from './worldaudio.js';
 import { CharSheet } from './charsheet.js';
 import { MenuWnd, SystemMenuWnd } from './ui/menuwnd.js';
 import { TargetStatusWnd } from './ui/targetstatuswnd.js';
@@ -488,6 +491,9 @@ net.on('npcHtml', (msg) => {
 });
 net.on('charSheet', (msg) => {
   charSheetData = msg;
+  // aCis re-sends UserInfo on every stat change, so this is also how a haste
+  // buff, a slow, or a weight penalty reaches locomotion
+  if (character) character.setSpeeds(msg);
   if (document.getElementById('charsheet-panel').classList.contains('visible')) {
     sheetPanel.render();
   }
@@ -719,6 +725,8 @@ net.on('invUpdate', async (msg) => {
 });
 net.on('skillCast', (msg) => {
   entities.skillFlash(msg.casterId);
+  const castPos = entityHeadPos(msg.casterId);
+  if (castPos) gameSound.cast(msg.skillId, castPos);
   if (msg.casterId === selfId) {
     // per-cast reuse: aCis sends NO SkillCoolTime on cast — the reuse
     // delay rides inside MagicSkillUse itself (ms, gateway M10 bridge)
@@ -736,6 +744,7 @@ net.on('skillLaunch', (msg) => {
   if (pos) {
     const hue = (msg.skillId * 47 % 360) / 360;
     skillFx.flash(pos, new THREE.Color().setHSL(hue, 0.8, 0.6).getHex());
+    gameSound.launch(msg.skillId, pos);
   }
 });
 // Social action broadcast (gateway op socialAction{id, actionId}, decoded
@@ -1072,6 +1081,9 @@ net.on('addPlayer', (msg) => {
 });
 net.on('addNpc', (msg) => {
   entities.addNpc(msg, terrain);
+  // bind this entity to its creature's sound bank and warm the buffers now —
+  // the first blow must not wait on a fetch
+  gameSound.trackNpc(msg.id, msg.npcId);
   // name enrichment: fill placeholders from gamedata once loaded
   if (!msg.name) {
     npcNames().then(map => {
@@ -1108,6 +1120,7 @@ net.on('move', (msg) => {
 net.on('remove', (msg) => {
   if (combat.targetId === msg.id) combat.clearTarget();
   entities.remove(msg.id);
+  gameSound.forget(msg.id);
 });
 net.on('chat', (msg) => chat.addChat(msg.from ?? '?', msg.channel, msg.text ?? '', msg.target));
 net.on('sysMsg', (msg) => {
@@ -1142,10 +1155,14 @@ net.on('attack', (msg) => {
   // damage float over the victim (self included: the op carries targetId)
   const pos = entityHeadPos(msg.targetId);
   if (pos) combat.damage(pos, msg);
+  // the blow: impact on the victim + its cry, and our weapon when we swung it
+  if (pos) gameSound.attack(msg, pos, selfId);
   // rebuilt models carry a 'damage' flinch clip; oneShot no-ops without it
   if (msg.targetId === selfId && character) character.oneShot('damage');
 });
 net.on('die', (msg) => {
+  const deathPos = entityHeadPos(msg.id);
+  if (deathPos) gameSound.die(msg.id, deathPos);   // before the entity is torn down
   entities.die(msg.id);
   combat.markDead(msg.id);
   if (msg.id === selfId && character) {
@@ -1180,6 +1197,7 @@ onlineToggle.addEventListener('change', () => setOnline(onlineToggle.checked));
 window.__world = {
   scene, camera, renderer,
   hd: HD_ENABLED,
+  audio, gameSound, worldAudio,
   get terrain() { return terrain; },
   get character() { return character; },
   get selfModelId() { return selfModelId; },
@@ -1282,6 +1300,10 @@ async function loadScene(tile, { keepCharPos = false } = {}) {
     scene.add(t.group);
     currentTile = tile;
     applyInteriorMode(!!t.interior);
+    // the tile's own soundscape: MusicVolume zones + placed ambient emitters.
+    // Always from /scenes — audio.json has no HD variant. Not awaited: the
+    // world must not block on it, and it degrades to silence on its own.
+    worldAudio.load(tile);
 
     // the 3x3 window of cheap neighbor tiles shifts with the new center
     // (dungeons have no surface neighborhood — interiors skip it entirely)
@@ -1705,6 +1727,9 @@ renderer.setAnimationLoop(() => {
     }
     combat.update(entityHeadPos);
     skillFx.update();
+    // zone music + ambient emitters follow the character's body, not the
+    // camera: standing inside a town's MusicVolume is what starts its theme
+    worldAudio.update(dt, character.group.position);
     // interior torch light follows the player
     if (terrain.interior) {
       torch.position.copy(character.group.position);
@@ -1740,6 +1765,9 @@ renderer.setAnimationLoop(() => {
     if (shortcutWnd) shortcutWnd.tickCooldowns(skillBar);
     if (skillWnd) skillWnd.tickCooldowns(skillBar);
   }
+  // the ear rides the camera, not the character: the panner has to agree with
+  // what is on screen or sounds pan the wrong way whenever the camera orbits
+  audio.setListener(camera);
   renderer.render(scene, camera);
 });
 
@@ -1750,9 +1778,12 @@ renderer.setAnimationLoop(() => {
     // The retail skin must be resident before any window is constructed.
     // skillAnimMeta prefetches so the cast-time beneficial check (onCast)
     // has the anim codes synchronously.
+    // audio.init()/gameSound.load() resolve false when assets/audio is absent
+    // (it is gitignored and regenerated by tools/audio/build_audio.py) — the
+    // client then runs silent instead of failing to boot
     await Promise.all([Skin.load(), Font.load(), Layout.load(),
                        loadExpTable(), loadSkillTypes(), weaponGate.load(),
-                       skillAnimMeta()]);
+                       skillAnimMeta(), audio.init(), gameSound.load()]);
     makeChat();
     statusWnd = new StatusWnd(document.body);
     statusWnd.show();     // retail keeps it on screen; gauges fill on selfStatus

@@ -52,6 +52,7 @@ CHARCREATE_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "charcreate"))
 LIBRARY_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "library"))
 GAMEDATA_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "gamedata"))
 MINIMAP_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "world", "minimap"))
+AUDIO_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "audio"))
 NPCS_XML_DIR = os.path.normpath(os.path.join(
     BASE_DIR, "..", "..", "server", "aCis_gameserver", "build", "dist",
     "gameserver", "data", "xml", "npcs"))
@@ -146,6 +147,7 @@ CONTENT_TYPES = {
     ".u16": "application/octet-stream",
     ".png": "image/png",
     ".jpg": "image/jpeg",
+    ".ogg": "audio/ogg",
     ".jpeg": "image/jpeg",
     ".webp": "image/webp",
     ".svg": "image/svg+xml",
@@ -302,6 +304,14 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/gamedata/"):
             rel = path[len("/gamedata/"):]
             self._send_file(safe_join(GAMEDATA_DIR, rel))
+            return
+
+        # retail audio: manifest.json, music/*.ogg, sfx/<pkg>/*.ogg (gitignored;
+        # 404 until tools/audio/build_audio.py stages it — the client checks the
+        # manifest first and runs silent rather than failing when it is absent)
+        if path.startswith("/audio/"):
+            rel = path[len("/audio/"):]
+            self._send_file(safe_join(AUDIO_DIR, rel))
             return
 
         # minimap imagery (gitignored; 404 until build_minimap.py stages it)

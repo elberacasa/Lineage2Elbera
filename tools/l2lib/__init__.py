@@ -17,8 +17,8 @@ Quick start:
 """
 
 from .ue2package import (
-    PACKAGE_TAG, L2Error, Reader, encode_compact,
-    Export, Import, Package,
+    PACKAGE_TAG, RF_HAS_STACK, L2Error, Reader, encode_compact,
+    Export, Import, Package, StateFrame, read_state_frame,
     read_properties, read_fstring, read_lineage_material_block,
     parse_texture, parse_palette, mip_bytes, Mip, TextureInfo,
     resolve_material, mesh_material_slots,
@@ -38,8 +38,8 @@ from .textures import (
 __version__ = "1.0.0"
 
 __all__ = [
-    "PACKAGE_TAG", "L2Error", "Reader", "encode_compact",
-    "Export", "Import", "Package",
+    "PACKAGE_TAG", "RF_HAS_STACK", "L2Error", "Reader", "encode_compact",
+    "Export", "Import", "Package", "StateFrame", "read_state_frame",
     "read_properties", "read_fstring", "read_lineage_material_block",
     "parse_texture", "parse_palette", "mip_bytes", "Mip", "TextureInfo",
     "resolve_material", "mesh_material_slots",
