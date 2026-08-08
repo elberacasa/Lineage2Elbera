@@ -26,16 +26,41 @@
 //
 // Absent fields are absent because the property equalled its UE2 class default
 // and the packed stream omitted it. light_extract.py emits null rather than
-// substituting a default it cannot read, so every fallback below is visibly
-// the client's, not retail's.
+// substituting a default it cannot read — and the defaults are now READ, from
+// the engine package itself (below), so the fog fallbacks are retail's.
 
 import * as THREE from 'three';
 import { L2_TO_M } from './coords.js';
 
-// Fog: retail gives an end distance but rarely a start. Retail's own default
-// start is not in the stream, so the near plane stays the client's existing
-// value rather than a fabricated fraction of the end.
-const CLIENT_FOG_START_M = 60;
+// ZoneInfo's own defaultproperties, decoded from the packed stream at the tail
+// of the Engine.ZoneInfo UClass export in assets/interlude/system/Engine.u
+// (Lineage2Ver111; `tools/bin/l2encdec -c decode -p 111`). The stream is
+// identified by the parse that consumes the class body EXACTLY and whose every
+// property name is a real UProperty export — one candidate offset satisfies
+// both, and it decodes to a coherent ZoneInfo block:
+//
+//   KillZ -10000, AmbientSaturation 255, DistanceFogColor (128,128,128,0),
+//   DistanceFogStart 3000, DistanceFogEnd 8000, DistanceFogBlendTime 1,
+//   TexUPanSpeed 1, TexVPanSpeed 1, bStatic, bNoDelete, bSunAffect,
+//   Texture S_ZoneInfo
+//
+// Confirmed against the data rather than taken on trust: UE2 serialises an
+// actor property only when it DIFFERS from the class default, so these three
+// values must never appear in a map. Across all 100 extracted tiles the
+// serialised sets are
+//   start  {0, 100, 120, 200, 300, 500, 1000, 1500, 6000, 8000}
+//   end    {3000, 5000, 7000, 9000, 10000, 12000, 13000, 15000, 18000,
+//           20000, 25000, 30000}
+//   color  22 distinct values, incl. (105,105,105) and (147,147,147)
+// and none of them contains 3000, 8000 or (128,128,128) respectively —
+// 3 for 3, which is what these being the defaults predicts.
+//
+// These replace the client's own invented fallbacks (a 60 m near plane and
+// the blue sky-horizon colour). 72 of the 100 tiles omit both start and
+// colour, so this is the fog most of the world actually renders with.
+const FOG_START_L2 = 3000;                     // Engine.ZoneInfo default
+const FOG_END_L2 = 8000;                       // Engine.ZoneInfo default
+const FOG_COLOR_DEFAULT = [128, 128, 128];     // Engine.ZoneInfo default, RGB
 
 export class WorldLight {
   constructor(scene, sun, ambient) {
@@ -92,14 +117,28 @@ export class WorldLight {
 
     if (this.scene.fog) {
       const fog = d && d.fog;
-      const c = fog && fog.color;
-      if (c) this.scene.fog.color.setRGB(c[0] / 255, c[1] / 255, c[2] / 255);
-      else if (this.fallback.fog) this.scene.fog.color.copy(this.fallback.fog.color);
-
-      if (fog && fog.enabled && fog.end != null) {
-        this.scene.fog.far = fog.end * L2_TO_M;
-        this.scene.fog.near = fog.start != null ? fog.start * L2_TO_M : CLIENT_FOG_START_M;
+      if (fog && fog.enabled) {
+        // Every absent field means "equal to the ZoneInfo class default", and
+        // the defaults are sourced (above), so each one is filled in rather
+        // than falling back to the client's rig.
+        const c = fog.color || FOG_COLOR_DEFAULT;
+        // DistanceFogColor is 8-bit RGBA. Every other 8-bit colour in this
+        // client enters three through a hex/byte constructor, which tags it
+        // sRGB; bare setRGB() would instead plant the byte in the LINEAR
+        // working space and render it far too light (128 came out as 0xbc).
+        this.scene.fog.color.setRGB(
+          c[0] / 255, c[1] / 255, c[2] / 255, THREE.SRGBColorSpace);
+        this.scene.fog.near = (fog.start != null ? fog.start : FOG_START_L2) * L2_TO_M;
+        this.scene.fog.far = (fog.end != null ? fog.end : FOG_END_L2) * L2_TO_M;
       } else if (this.fallback.fog) {
+        // bDistanceFog absent or false. Whether the ZoneInfo default is
+        // "off" was NOT readable from the part of the defaults stream that
+        // decoded, so this deliberately keeps the client's own rig rather
+        // than asserting retail draws no fog here. Affects 3 tiles
+        // (17_20, 22_24, 25_21), all of which DO carry a fog colour.
+        const c = fog && fog.color;
+        if (c) this.scene.fog.color.setRGB(c[0] / 255, c[1] / 255, c[2] / 255);
+        else this.scene.fog.color.copy(this.fallback.fog.color);
         this.scene.fog.near = this.fallback.fog.near;
         this.scene.fog.far = this.fallback.fog.far;
       }

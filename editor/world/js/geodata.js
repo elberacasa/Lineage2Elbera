@@ -215,18 +215,42 @@ export class Geodata {
    *    still be the same surface. Beyond it the cell has no terrain
    *    counterpart (under a building, a stale-heightmap rectangle, a
    *    dungeon) and the raw geodata height is returned unchanged.
-   *  Returns null only when the cell has no geodata at all. */
+   *  Returns null only when the cell has no geodata at all.
+   *
+   *  FRAMES. Anchoring makes the returned height live on the DRAWN terrain
+   *  surface, and the walker feeds that height back in as the next step's z.
+   *  The layer heights, MAX_STEP_UP and the whole walking rule live on the
+   *  GEODATA surface, `delta = ground - terrainZ` above it. So z has to be
+   *  lifted into the geodata frame before the layer query and the answer
+   *  dropped back afterwards — the two are exact inverses, for every layer,
+   *  not just the ground one, so bridges and building floors round-trip.
+   *
+   *  Querying the raw z against raw layers (as this did when it was written)
+   *  is a runaway, not a small error: on any cell where delta exceeds
+   *  MAX_STEP_UP the walking rule sees every layer as a wall and returns z
+   *  itself, and `terrainZ + (z - ground)` then subtracts delta from the
+   *  walker's height — once per frame, compounding, with the growing gap
+   *  making the next step worse. Measured on 17_23 at (-910.2, -1818.4):
+   *  the per-step height change goes -0.8 -> -48.8 -> -49.6 -> -51.9 L2
+   *  units the instant delta crosses 48, and the character is 200 m under
+   *  the world inside a second. The camera follows it below the (front-side
+   *  only) terrain, which then draws nothing, and the sky dome fills the
+   *  screen: the reported "the whole screen suddenly goes blue".
+   *  Regression gate: editor/world/verify_walkfall.js. */
   anchoredHeightAt(x, y, z, maxUp, terrainZ, anchorMax = GEO_ANCHOR_MAX) {
     const layers = this._layersAt(x, y);
     if (!layers || !layers.length) return null;
-    const picked = this.heightAt(x, y, z, maxUp);
-    if (picked == null) return null;
     let ground = null, best = Infinity;
     for (const l of layers) {
       const d = Math.abs(l.height - terrainZ);
       if (d < best) { best = d; ground = l.height; }
     }
-    if (ground == null || best > anchorMax) return picked;
+    // No terrain counterpart here: the raw geodata height is the answer, and
+    // the incoming z is already in the geodata frame.
+    if (ground == null || best > anchorMax) return this.heightAt(x, y, z, maxUp);
+    const delta = ground - terrainZ;
+    const picked = this.heightAt(x, y, z == null ? null : z + delta, maxUp);
+    if (picked == null) return null;
     return terrainZ + (picked - ground);
   }
 

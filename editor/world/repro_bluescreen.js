@@ -26,6 +26,8 @@ const YAW_DEG = Number(process.argv[3] ?? 0);
 const SECONDS = Number(process.argv[4] ?? 40);
 const OUT = process.argv[5] || '/tmp/bluescreen';
 const START_M = Number(process.argv[6] ?? 25);   // metres before the boundary to start
+// optional explicit start, three.js world "x,z" (overrides START_M placement)
+const AT = process.argv[7] ? process.argv[7].split(',').map(Number) : null;
 
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -100,7 +102,7 @@ fs.mkdirSync(OUT, { recursive: true });
   // aim the camera, then teleport to a point START_M metres before the tile
   // boundary the walk direction will hit, so a real walk crosses it in the
   // sample window (retail run speed is ~1.2 m/s and a tile edge is 327 m).
-  const placed = await page.evaluate((yaw, startM) => {
+  const placed = await page.evaluate((yaw, startM, at) => {
     const w = window.__world;
     w.followCam.yaw = yaw;
     const fwd = { x: Math.sin(yaw), z: Math.cos(yaw) };
@@ -119,12 +121,15 @@ fs.mkdirSync(OUT, { recursive: true });
     for (const t of cand) if (t > 0 && t < tmin) tmin = t;
     if (!isFinite(tmin)) return null;
     const d = Math.max(0, tmin - startM);
-    p.x += fwd.x * d; p.z += fwd.z * d;
-    p.y = w.heightAt(p.x, p.z, p.y);
+    if (at) { p.x = at[0]; p.z = at[1]; } else { p.x += fwd.x * d; p.z += fwd.z * d; }
+    // spawn/teleport lookup (currentZ = null -> nearest-layer semantics), NOT
+    // the walking rule: a teleport has no previous step to be blocked by, and
+    // feeding the old tile-centre z in plants the character under the ground.
+    p.y = w.heightAt(p.x, p.z, null);
     w.character.group.position.copy(p);
     w.character.clearTarget();
     return { x: +p.x.toFixed(1), y: +p.y.toFixed(2), z: +p.z.toFixed(1), toEdge: +tmin.toFixed(1) };
-  }, YAW_DEG * Math.PI / 180, START_M);
+  }, YAW_DEG * Math.PI / 180, START_M, AT);
   await new Promise(r => setTimeout(r, 1200));
   await page.evaluate(() => window.dispatchEvent(
     new KeyboardEvent('keydown', { code: 'KeyW', bubbles: true })));
@@ -144,6 +149,6 @@ fs.mkdirSync(OUT, { recursive: true });
   await page.evaluate(() => window.dispatchEvent(
     new KeyboardEvent('keyup', { code: 'KeyW', bubbles: true })));
 
-  console.log(JSON.stringify({ tile: TILE, yawDeg: YAW_DEG, placed, errors, trace }, null, 1));
+  console.log(JSON.stringify({ tile: TILE, yawDeg: YAW_DEG, at: AT, placed, errors, trace }, null, 1));
   await browser.close();
 })();
