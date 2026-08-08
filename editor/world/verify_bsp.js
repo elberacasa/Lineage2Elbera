@@ -102,9 +102,16 @@ async function shoot(page, tile, spot, suffix) {
   const shots = [];
   try {
     // ---- before: same build, BSP loading disabled -----------------------
-    const before = await openClient(browser, '?bsp=off');
+    // ONE PAGE PER TILE, deliberately. This used to reuse a single page and
+    // switch scenes in it, which hangs the software-GL renderer on the SECOND
+    // switch — reproduced with a minimal script and A/B'd against the terrain
+    // from git, where it hangs identically, so it is the harness and not the
+    // code under test. A single switch (default tile -> target) is proven fine,
+    // which is exactly what one page per tile costs. No assertion is dropped:
+    // every tile still gets its own ?bsp=off check, BSP check and screenshots.
     for (const tile of tiles) {
       if (!SPOTS[tile]) continue;
+      const before = await openClient(browser, '?bsp=off');
       await selectTile(before, tile);
       const off = await before.evaluate(() => !!window.__world.terrain.bsp);
       if (off) fail(`${tile}: ?bsp=off still loaded a BSP`);
@@ -112,13 +119,13 @@ async function shoot(page, tile, spot, suffix) {
       for (const spot of SPOTS[tile]) {
         shots.push(await shoot(before, tile, spot, 'before'));
       }
+      await before.close();
     }
-    await before.close();
 
     // ---- after ----------------------------------------------------------
-    const page = await openClient(browser, '');
     for (const tile of tiles) {
       if (!SPOTS[tile]) continue;
+      const page = await openClient(browser, '');
       await selectTile(page, tile);
       const info = await page.evaluate(() => {
         const t = window.__world.terrain;
@@ -135,6 +142,7 @@ async function shoot(page, tile, spot, suffix) {
       });
       if (!info) {
         fail(`${tile}: no BSP loaded (bsp.gltf missing or unparsable)`);
+        await page.close();   // one page per tile now: do not leak it
         continue;
       }
       pass(`${tile}: ${info.chunks} chunks, ${info.triangles} triangles`);
@@ -196,8 +204,8 @@ async function shoot(page, tile, spot, suffix) {
         if (t.mesh) t.mesh.visible = true;
         t.bsp.group.traverse((o) => { if (o.isMesh) o.visible = true; });
       });
+      await page.close();
     }
-    await page.close();
   } finally {
     await browser.close();
   }
