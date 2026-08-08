@@ -87,3 +87,7 @@ editor/world/verify_shots/
 
 # The owner's own reference screenshots — input to the work, not source
 editor/world/human_shots/
+
+# Outreach drafts and their screenshots — the owner's own marketing material,
+# not part of the port. Kept local; regenerable via outreach/shots/capture.js.
+outreach/
