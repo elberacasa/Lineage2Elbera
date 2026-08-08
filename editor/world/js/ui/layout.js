@@ -20,9 +20,15 @@ const SRC = '/gamedata/interface.json';
 // because parse_xdat.py recovers only 1 of InventoryWnd's 15 EquipItem_*
 // records; see that tool's docstring.
 const WELLS = '/ui/invslots.json';
+// ShortcutWnd's background placement, measured out of shortcut_back /
+// shortcut_backv by tools/ui/mine_shortcutslots.py and reconciled against the
+// xdat's own twelve slot records. Needed because the xdat says where the SLOTS
+// are but not where the ART goes, and the art is 492px inside a 504px window.
+const SHORTCUT = '/ui/shortcutslots.json';
 
 let _doc = null;
 let _wells = null;
+let _shortcut = null;
 const _index = new Map();       // 'Window/Control' -> node (FLAT, see below)
 const _pathIndex = new Map();   // 'Window/Sub/.../Control' -> node (full path)
 
@@ -42,6 +48,7 @@ export const Layout = {
   async load() {
     if (_doc) return Layout;
     _wells = await fetch(WELLS).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    _shortcut = await fetch(SHORTCUT).then(r => (r.ok ? r.json() : null)).catch(() => null);
     _doc = await fetch(SRC).then(r => (r.ok ? r.json() : null)).catch(() => null);
     if (!_doc) { _doc = { windows: [], textures: {} }; return Layout; }
     for (const w of _doc.windows) {
@@ -121,5 +128,35 @@ export const Layout = {
    *  harvest — the caller's cue to degrade, never to substitute a number. */
   wells(winName) {
     return (_wells && _wells.window === winName) ? _wells : null;
+  },
+
+  /** ShortcutWnd art placement for one orientation sub-window, measured by
+   *  tools/ui/mine_shortcutslots.py: {texture, artWidth/Height,
+   *  artOffsetX/Y, slotOrigins[12], slotShort, slot, well, wellInset,
+   *  iconCell, iconInset}. Null when the harvest is absent — the caller's
+   *  cue to degrade, never to substitute a number. */
+  shortcutArt(subName) {
+    return (_shortcut && _shortcut.orientations
+      && _shortcut.orientations[subName]) || null;
+  },
+
+  /** The system-string id a control's record carries (its label text lives in
+   *  sysstring.json, not in the .uc), or null when it has none. */
+  textId(winName, ctrlName) {
+    const n = ctrlName ? Layout.find(winName, ctrlName) : Layout.window(winName);
+    return (n && n.textId != null) ? n.textId : null;
+  },
+
+  /** The '#RRGGBB' the control's record stores for its text, or null. */
+  color(winName, ctrlName) {
+    const n = ctrlName ? Layout.find(winName, ctrlName) : Layout.window(winName);
+    return (n && n.color) || null;
+  },
+
+  /** 'left' | 'center' | 'right' from the control's own record, or null when
+   *  the record's alignment enum took a value the decoder does not name. */
+  align(winName, ctrlName) {
+    const n = ctrlName ? Layout.find(winName, ctrlName) : Layout.window(winName);
+    return (n && n.align) || null;
   },
 };

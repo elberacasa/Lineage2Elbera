@@ -42,7 +42,10 @@
      "x": 22,
      "y": 11,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 129,
+     "align": "left"
     },
     {
      "name": "ActionBasicItem",
@@ -70,7 +73,10 @@
      "x": 22,
      "y": 141,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 130,
+     "align": "left"
     },
     {
      "name": "ActionPartyItem",
@@ -98,7 +104,10 @@
      "x": 22,
      "y": 235,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 204,
+     "align": "left"
     },
     {
      "name": "ActionSocialItem",
@@ -599,7 +608,8 @@
      "x": 19,
      "y": 17,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC"
     },
     {
      "name": "CheckBoxChat",
@@ -609,7 +619,9 @@
      "x": 23,
      "y": 83,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 358
     },
     {
      "name": "CheckBoxSystem",
@@ -1181,7 +1193,9 @@
        "x": 15,
        "y": 15,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#F0F0F0",
+       "align": "left"
       },
       {
        "name": "Clan1_CurrentSelectedMemberSNameTitle",
@@ -1191,7 +1205,10 @@
        "x": 16,
        "y": 35,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#BBBBBB",
+       "textId": 1327,
+       "align": "left"
       },
       {
        "name": "Clan1_CurrentSelectedMemberGradeTitle",
@@ -1201,7 +1218,10 @@
        "x": 16,
        "y": 50,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#BBBBBB",
+       "textId": 1328,
+       "align": "left"
       },
       {
        "name": "Clan1_CurrentSelectedKnighthoodNameTitle",
@@ -1211,7 +1231,10 @@
        "x": 16,
        "y": 65,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#BBBBBB",
+       "textId": 1450,
+       "align": "left"
       },
       {
        "name": "Clan1_CurrentSelectedMemberSName",
@@ -1221,7 +1244,9 @@
        "x": 60,
        "y": 35,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#AF9878",
+       "align": "left"
       },
       {
        "name": "Clan1_CurrentSelectedMemberGrade",
@@ -1231,7 +1256,9 @@
        "x": 60,
        "y": 50,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#AF9878",
+       "align": "left"
       },
       {
        "name": "Clan1_CurrentSelectedMemberOrderName",
@@ -1241,7 +1268,9 @@
        "x": 60,
        "y": 65,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#AF9878",
+       "align": "left"
       },
       {
        "name": "Clan1_CurrentSelectedApprenticeTitle",
@@ -1251,7 +1280,10 @@
        "x": 16,
        "y": 118,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#BBBBBB",
+       "textId": 1332,
+       "align": "left"
       },
       {
        "name": "Clan1_CurrentSelectedApprentice",
@@ -1261,7 +1293,9 @@
        "x": 76,
        "y": 118,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#AF9878",
+       "align": "left"
       },
       {
        "name": "Clan1_ChangeMemberNameWnd",
@@ -1290,7 +1324,10 @@
          "x": 20,
          "y": 35,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#BBBBBB",
+         "textId": 1336,
+         "align": "left"
         },
         {
          "name": "Clan1_ChangeNameInstructionText3",
@@ -1300,7 +1337,10 @@
          "x": 20,
          "y": 135,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#BBBBBB",
+         "textId": 1441,
+         "align": "left"
         },
         {
          "name": "Clan1_ChangeNameTextEditbox",
@@ -1370,7 +1410,10 @@
          "x": 23,
          "y": 31,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#FFFFFF",
+         "textId": 1331,
+         "align": "left"
         },
         {
          "name": "Clan1_MemberGradeList",
@@ -1427,7 +1470,10 @@
          "x": 10,
          "y": 10,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#FFFFFF",
+         "textId": 1469,
+         "align": "left"
         },
         {
          "name": "Clan1_ChangeMemberKnightHoodTXT1",
@@ -1437,7 +1483,10 @@
          "x": 15,
          "y": 27,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#BBBBBB",
+         "textId": 1469,
+         "align": "left"
         },
         {
          "name": "Clan1_txtxtx1",
@@ -1447,7 +1496,10 @@
          "x": 15,
          "y": 63,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#BBBBBB",
+         "textId": 1470,
+         "align": "left"
         },
         {
          "name": "Clan1_txtxtx2",
@@ -1457,7 +1509,10 @@
          "x": 15,
          "y": 88,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#BBBBBB",
+         "textId": 1471,
+         "align": "left"
         },
         {
          "name": "Clan1_targetknighthoodcombobox",
@@ -1614,7 +1669,9 @@
        "x": 15,
        "y": 14,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "Clan2_OKBtn",
@@ -1926,7 +1983,9 @@
        "x": 15,
        "y": 15,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#E6CC5B",
+       "align": "left"
       },
       {
        "name": "Clan3_ClanPointTitle",
@@ -1936,7 +1995,10 @@
        "x": 15,
        "y": 37,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#BBBBBB",
+       "textId": 1372,
+       "align": "left"
       },
       {
        "name": "Clan3_ClanRankingTitle",
@@ -1946,7 +2008,10 @@
        "x": 15,
        "y": 55,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#BBBBBB",
+       "textId": 1373,
+       "align": "left"
       },
       {
        "name": "Clan3_ClanPoint",
@@ -1956,7 +2021,9 @@
        "x": 140,
        "y": 37,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "Clan3_ClanRanking",
@@ -1966,7 +2033,9 @@
        "x": 140,
        "y": 55,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#AF9878",
+       "align": "left"
       },
       {
        "name": "Clan3_OrganizationChartText",
@@ -1976,7 +2045,10 @@
        "x": 15,
        "y": 82,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#BBBBBB",
+       "textId": 1371,
+       "align": "left"
       },
       {
        "name": "Clan3_OrganizationChartText",
@@ -1986,7 +2058,10 @@
        "x": 15,
        "y": 248,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#BBBBBB",
+       "textId": 1370,
+       "align": "left"
       },
       {
        "name": "ClanSkillWnd",
@@ -2351,7 +2426,10 @@
        "x": 22,
        "y": 20,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#AF9779",
+       "textId": 1453,
+       "align": "left"
       },
       {
        "name": "Clan5_AuthListCtrl",
@@ -2371,7 +2449,10 @@
        "x": 22,
        "y": 200,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#AF9779",
+       "textId": 1451,
+       "align": "left"
       },
       {
        "name": "Clan5_AuthListCtrl2",
@@ -2430,7 +2511,9 @@
        "x": 15,
        "y": 14,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#E6CC5B",
+       "align": "left"
       },
       {
        "name": "Clan6_ApplyBtn",
@@ -2765,7 +2848,10 @@
        "x": 15,
        "y": 35,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#F0F0F0",
+       "textId": 1338,
+       "align": "left"
       },
       {
        "name": "Clan7_ManageEmb1Text1",
@@ -2775,7 +2861,9 @@
        "x": 27,
        "y": 56,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A0A0A0",
+       "align": "left"
       },
       {
        "name": "Clan7_ManageEmb1Text2",
@@ -2785,7 +2873,9 @@
        "x": 27,
        "y": 73,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A0A0A0",
+       "align": "left"
       },
       {
        "name": "Clan7_ManageEmb2Text",
@@ -2795,7 +2885,10 @@
        "x": 15,
        "y": 143,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#F0F0F0",
+       "textId": 1340,
+       "align": "left"
       },
       {
        "name": "Clan7_ManageEmb2Text1",
@@ -2805,7 +2898,9 @@
        "x": 27,
        "y": 163,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A0A0A0",
+       "align": "left"
       },
       {
        "name": "Clan7_ManageEmb2Text2",
@@ -2815,7 +2910,9 @@
        "x": 27,
        "y": 180,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A0A0A0",
+       "align": "left"
       },
       {
        "name": "Clan7_RegEmbBtn",
@@ -3107,7 +3204,10 @@
          "x": 20,
          "y": 35,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#BBBBBB",
+         "textId": 1336,
+         "align": "left"
         },
         {
          "name": "Clan1_ChangeNameInstructionText3",
@@ -3117,7 +3217,10 @@
          "x": 20,
          "y": 135,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#BBBBBB",
+         "textId": 1441,
+         "align": "left"
         },
         {
          "name": "Clan1_ChangeNobNameTextEditbox",
@@ -3224,7 +3327,10 @@
      "x": 0,
      "y": 13,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1427,
+     "align": "center"
     },
     {
      "name": "ComboboxInviteClandPopWnd",
@@ -3283,7 +3389,10 @@
      "x": 15,
      "y": 9,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "textId": 1321,
+     "align": "left"
     },
     {
      "name": "title1",
@@ -3293,7 +3402,10 @@
      "x": 15,
      "y": 24,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "textId": 342,
+     "align": "left"
     },
     {
      "name": "title2",
@@ -3303,7 +3415,10 @@
      "x": 15,
      "y": 39,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "textId": 343,
+     "align": "left"
     },
     {
      "name": "title3",
@@ -3313,7 +3428,10 @@
      "x": 195,
      "y": 24,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "textId": 88,
+     "align": "left"
     },
     {
      "name": "ClanNameText",
@@ -3323,7 +3441,9 @@
      "x": 56,
      "y": 9,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#AF9878",
+     "align": "left"
     },
     {
      "name": "ClanMasterNameText",
@@ -3333,7 +3453,9 @@
      "x": 56,
      "y": 24,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#AF9878",
+     "align": "left"
     },
     {
      "name": "ClanAgitText",
@@ -3343,7 +3465,9 @@
      "x": 56,
      "y": 39,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#AF9878",
+     "align": "left"
     },
     {
      "name": "ClanStatusText",
@@ -3353,7 +3477,9 @@
      "x": 195,
      "y": 9,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#AF9878",
+     "align": "left"
     },
     {
      "name": "ClanLevelText",
@@ -3363,7 +3489,9 @@
      "x": 215,
      "y": 24,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#AF9878",
+     "align": "left"
     },
     {
      "name": "ClanCurrentNum",
@@ -3373,7 +3501,9 @@
      "x": 198,
      "y": 65,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#AFAFAF",
+     "align": "center"
     },
     {
      "name": "ComboboxMainClanWnd",
@@ -3671,7 +3801,10 @@
      "x": 13,
      "y": 158,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1449,
+     "align": "left"
     },
     {
      "name": "notice1",
@@ -3711,7 +3844,9 @@
      "x": 13,
      "y": 221,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#AAAAAA",
+     "align": "left"
     },
     {
      "name": "notice5",
@@ -3721,7 +3856,9 @@
      "x": 13,
      "y": 236,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#AAAAAA",
+     "align": "left"
     }
    ]
   },
@@ -3848,7 +3985,10 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 138,
+     "align": "left"
     },
     {
      "name": "BottomText",
@@ -3858,7 +3998,10 @@
      "x": 11,
      "y": 198,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 560,
+     "align": "left"
     },
     {
      "name": "PriceConstText",
@@ -3868,7 +4011,10 @@
      "x": 100,
      "y": 332,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 561,
+     "align": "right"
     },
     {
      "name": "AdenaConstText",
@@ -3878,7 +4024,10 @@
      "x": 100,
      "y": 351,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 134,
+     "align": "right"
     },
     {
      "name": "PriceText",
@@ -3888,7 +4037,9 @@
      "x": 158,
      "y": 332,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "AdenaText",
@@ -3898,7 +4049,9 @@
      "x": 158,
      "y": 351,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "InvenWeight",
@@ -4008,7 +4161,9 @@
      "x": 15,
      "y": 9,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtName2",
@@ -4018,7 +4173,9 @@
      "x": 15,
      "y": 9,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtHeadPledge",
@@ -4028,7 +4185,10 @@
      "x": 15,
      "y": 25,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 430,
+     "align": "left"
     },
     {
      "name": "texPledgeCrest",
@@ -4048,7 +4208,9 @@
      "x": 88,
      "y": 25,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "texHero",
@@ -4068,7 +4230,10 @@
      "x": 15,
      "y": 46,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 88,
+     "align": "left"
     },
     {
      "name": "txtLvName",
@@ -4078,7 +4243,9 @@
      "x": 33,
      "y": 46,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtHeadRank",
@@ -4088,7 +4255,10 @@
      "x": 150,
      "y": 46,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 1432,
+     "align": "left"
     },
     {
      "name": "txtRank",
@@ -4098,7 +4268,9 @@
      "x": 188,
      "y": 46,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "texHP",
@@ -4168,7 +4340,9 @@
      "x": 35,
      "y": 61,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "txtMP",
@@ -4178,7 +4352,9 @@
      "x": 35,
      "y": 75,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "txtExp",
@@ -4188,7 +4364,9 @@
      "x": 35,
      "y": 89,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B4B4B4",
+     "align": "center"
     },
     {
      "name": "txtCP",
@@ -4198,7 +4376,9 @@
      "x": 156,
      "y": 61,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "txtWeight",
@@ -4208,7 +4388,9 @@
      "x": 156,
      "y": 75,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "txtSP",
@@ -4218,7 +4400,9 @@
      "x": 156,
      "y": 89,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "center"
     },
     {
      "name": "txtHeadFight",
@@ -4228,7 +4412,10 @@
      "x": 22,
      "y": 110,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 93,
+     "align": "left"
     },
     {
      "name": "txtHeadPhysicalAttack",
@@ -4238,7 +4425,10 @@
      "x": 16,
      "y": 132,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 94,
+     "align": "left"
     },
     {
      "name": "txtHeadPhysicalDefense",
@@ -4248,7 +4438,10 @@
      "x": 16,
      "y": 147,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 95,
+     "align": "left"
     },
     {
      "name": "txtHeadHitRate",
@@ -4258,7 +4451,10 @@
      "x": 16,
      "y": 162,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 96,
+     "align": "left"
     },
     {
      "name": "txtHeadCriticalRate",
@@ -4268,7 +4464,10 @@
      "x": 16,
      "y": 177,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 113,
+     "align": "left"
     },
     {
      "name": "txtHeadPhysicalAttackSpeed",
@@ -4278,7 +4477,10 @@
      "x": 16,
      "y": 192,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 111,
+     "align": "left"
     },
     {
      "name": "txtHeadMagicalAttack",
@@ -4288,7 +4490,10 @@
      "x": 137,
      "y": 132,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 98,
+     "align": "left"
     },
     {
      "name": "txtHeadMagicDefense",
@@ -4298,7 +4503,10 @@
      "x": 137,
      "y": 147,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 99,
+     "align": "left"
     },
     {
      "name": "txtHeadPhysicalAvoid",
@@ -4308,7 +4516,10 @@
      "x": 137,
      "y": 162,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 97,
+     "align": "left"
     },
     {
      "name": "txtHeadMovingSpeed",
@@ -4318,7 +4529,10 @@
      "x": 137,
      "y": 177,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 432,
+     "align": "left"
     },
     {
      "name": "txtHeadMagicCastingSpeed",
@@ -4328,7 +4542,10 @@
      "x": 137,
      "y": 192,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 112,
+     "align": "left"
     },
     {
      "name": "txtHeadBasic",
@@ -4338,7 +4555,10 @@
      "x": 22,
      "y": 214,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 103,
+     "align": "left"
     },
     {
      "name": "txtHeadSTR",
@@ -4348,7 +4568,10 @@
      "x": 16,
      "y": 236,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 104,
+     "align": "left"
     },
     {
      "name": "txtHeadDEX",
@@ -4358,7 +4581,10 @@
      "x": 96,
      "y": 236,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 105,
+     "align": "left"
     },
     {
      "name": "txtHeadCON",
@@ -4368,7 +4594,10 @@
      "x": 177,
      "y": 236,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 106,
+     "align": "left"
     },
     {
      "name": "txtHeadINT",
@@ -4378,7 +4607,10 @@
      "x": 16,
      "y": 251,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 107,
+     "align": "left"
     },
     {
      "name": "txtHeadWIT",
@@ -4388,7 +4620,10 @@
      "x": 96,
      "y": 251,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 108,
+     "align": "left"
     },
     {
      "name": "txtHeadMEN",
@@ -4398,7 +4633,10 @@
      "x": 177,
      "y": 251,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 109,
+     "align": "left"
     },
     {
      "name": "txtHeadSocial",
@@ -4408,7 +4646,10 @@
      "x": 22,
      "y": 273,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 100,
+     "align": "left"
     },
     {
      "name": "txtHeadCriminalRate",
@@ -4418,7 +4659,10 @@
      "x": 16,
      "y": 294,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 101,
+     "align": "left"
     },
     {
      "name": "txtHeadPVP",
@@ -4428,7 +4672,10 @@
      "x": 137,
      "y": 294,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 102,
+     "align": "left"
     },
     {
      "name": "txtHeadSociality",
@@ -4438,7 +4685,10 @@
      "x": 16,
      "y": 310,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 709,
+     "align": "left"
     },
     {
      "name": "txtHeadRemainSulffrage",
@@ -4448,7 +4698,10 @@
      "x": 137,
      "y": 310,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 710,
+     "align": "left"
     },
     {
      "name": "txtPhysicalAttack",
@@ -4458,7 +4711,9 @@
      "x": 65,
      "y": 132,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtPhysicalDefense",
@@ -4468,7 +4723,9 @@
      "x": 65,
      "y": 147,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtHitRate",
@@ -4478,7 +4735,9 @@
      "x": 65,
      "y": 162,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtCriticalRate",
@@ -4488,7 +4747,9 @@
      "x": 65,
      "y": 177,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtPhysicalAttackSpeed",
@@ -4498,7 +4759,9 @@
      "x": 65,
      "y": 192,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtMagicalAttack",
@@ -4508,7 +4771,9 @@
      "x": 186,
      "y": 132,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtMagicDefense",
@@ -4518,7 +4783,9 @@
      "x": 186,
      "y": 147,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtPhysicalAvoid",
@@ -4528,7 +4795,9 @@
      "x": 186,
      "y": 162,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtGmMoving",
@@ -4538,7 +4807,9 @@
      "x": 186,
      "y": 177,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtMovingSpeed",
@@ -4548,7 +4819,9 @@
      "x": 186,
      "y": 177,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtMagicCastingSpeed",
@@ -4558,7 +4831,9 @@
      "x": 186,
      "y": 192,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtSTR",
@@ -4568,7 +4843,9 @@
      "x": 30,
      "y": 236,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "center"
     },
     {
      "name": "txtDEX",
@@ -4578,7 +4855,9 @@
      "x": 113,
      "y": 236,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "center"
     },
     {
      "name": "txtCON",
@@ -4588,7 +4867,9 @@
      "x": 194,
      "y": 236,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "center"
     },
     {
      "name": "txtINT",
@@ -4598,7 +4879,9 @@
      "x": 30,
      "y": 251,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "center"
     },
     {
      "name": "txtWIT",
@@ -4608,7 +4891,9 @@
      "x": 113,
      "y": 251,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "center"
     },
     {
      "name": "txtMEN",
@@ -4618,7 +4903,9 @@
      "x": 194,
      "y": 251,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "center"
     },
     {
      "name": "txtCriminalRate",
@@ -4628,7 +4915,9 @@
      "x": 64,
      "y": 294,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtPVP",
@@ -4638,7 +4927,9 @@
      "x": 185,
      "y": 294,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtSociality",
@@ -4648,7 +4939,9 @@
      "x": 64,
      "y": 310,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "txtRemainSulffrage",
@@ -4658,7 +4951,9 @@
      "x": 185,
      "y": 310,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     }
    ]
   },
@@ -4708,7 +5003,9 @@
        "x": 41,
        "y": 9,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "DialogReadingText",
@@ -4718,7 +5015,9 @@
        "x": 0,
        "y": 57,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#E4CA7F",
+       "align": "center"
       },
       {
        "name": "DialogBoxEdit",
@@ -5682,7 +5981,9 @@
      "x": 25,
      "y": 35,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1065
     },
     {
      "name": "TextBox1",
@@ -5692,7 +5993,9 @@
      "x": 25,
      "y": 70,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1066
     },
     {
      "name": "TextBox1",
@@ -5702,7 +6005,9 @@
      "x": 150,
      "y": 70,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1067
     }
    ]
   },
@@ -6069,7 +6374,9 @@
      "x": 25,
      "y": 35,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1085
     },
     {
      "name": "TextBox2",
@@ -6079,7 +6386,9 @@
      "x": 265,
      "y": 35,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1086
     },
     {
      "name": "TextBox3",
@@ -6089,7 +6398,9 @@
      "x": 495,
      "y": 55,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1107
     },
     {
      "name": "TextBox4",
@@ -6099,7 +6410,8 @@
      "x": null,
      "y": null,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC"
     },
     {
      "name": "MatchIDTextBox",
@@ -6109,7 +6421,8 @@
      "x": null,
      "y": null,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC"
     },
     {
      "name": "TextBox5",
@@ -6119,7 +6432,9 @@
      "x": 25,
      "y": 90,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1087
     },
     {
      "name": "TextBox6",
@@ -6129,7 +6444,9 @@
      "x": 265,
      "y": 90,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1088
     },
     {
      "name": "TextBox7",
@@ -6139,7 +6456,9 @@
      "x": 25,
      "y": 150,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1089
     },
     {
      "name": "TextBox8",
@@ -6149,7 +6468,9 @@
      "x": 350,
      "y": 150,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1090
     },
     {
      "name": "TextBox9",
@@ -6159,7 +6480,9 @@
      "x": 25,
      "y": 235,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1091
     },
     {
      "name": "TextBox10",
@@ -6169,7 +6492,9 @@
      "x": 355,
      "y": 235,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1092
     },
     {
      "name": "TextBox11",
@@ -6179,7 +6504,9 @@
      "x": 25,
      "y": 420,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1093
     },
     {
      "name": "TextBox12",
@@ -6189,7 +6516,9 @@
      "x": 80,
      "y": 420,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1094
     },
     {
      "name": "TextBox13",
@@ -6199,7 +6528,8 @@
      "x": 140,
      "y": 420,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC"
     },
     {
      "name": "TextBox14",
@@ -6209,7 +6539,9 @@
      "x": 150,
      "y": 420,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1095
     },
     {
      "name": "TextBox15",
@@ -6219,7 +6551,9 @@
      "x": 25,
      "y": 450,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1096
     },
     {
      "name": "TextBox16",
@@ -6229,7 +6563,8 @@
      "x": null,
      "y": null,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC"
     }
    ]
   },
@@ -6302,7 +6637,9 @@
      "insets": [
       0,
       -30
-     ]
+     ],
+     "color": "#DCDCDC",
+     "align": "center"
     }
    ]
   },
@@ -6468,7 +6805,9 @@
        "insets": [
         -280,
         100
-       ]
+       ],
+       "color": "#DCDCDC",
+       "align": "right"
       },
       {
        "name": "TeamName2",
@@ -6486,7 +6825,9 @@
        "insets": [
         -280,
         100
-       ]
+       ],
+       "color": "#DCDCDC",
+       "align": "left"
       }
      ],
      "autosize": [
@@ -6535,7 +6876,9 @@
            "x": 0,
            "y": 0,
            "textures": [],
-           "children": []
+           "children": [],
+           "color": "#DCDCDC",
+           "align": "left"
           },
           {
            "name": "Brace",
@@ -6545,7 +6888,9 @@
            "x": null,
            "y": null,
            "textures": [],
-           "children": []
+           "children": [],
+           "color": "#DCDCDC",
+           "align": "left"
           },
           {
            "name": "Defender",
@@ -6555,7 +6900,9 @@
            "x": null,
            "y": null,
            "textures": [],
-           "children": []
+           "children": [],
+           "color": "#DCDCDC",
+           "align": "left"
           },
           {
            "name": "Colon",
@@ -6565,7 +6912,9 @@
            "x": null,
            "y": null,
            "textures": [],
-           "children": []
+           "children": [],
+           "color": "#DCDCDC",
+           "align": "left"
           },
           {
            "name": "Skill",
@@ -6575,7 +6924,9 @@
            "x": null,
            "y": null,
            "textures": [],
-           "children": []
+           "children": [],
+           "color": "#FFD23C",
+           "align": "left"
           }
          ],
          "autosize": [
@@ -6739,7 +7090,9 @@
        "insets": [
         -40,
         0
-       ]
+       ],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "NameTextBox",
@@ -6757,7 +7110,9 @@
        "insets": [
         -40,
         0
-       ]
+       ],
+       "color": "#DCDCDC",
+       "align": "left"
       }
      ]
     },
@@ -6914,7 +7269,9 @@
        "insets": [
         -40,
         0
-       ]
+       ],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "NameTextBox",
@@ -6932,7 +7289,9 @@
        "insets": [
         -40,
         0
-       ]
+       ],
+       "color": "#DCDCDC",
+       "align": "left"
       }
      ]
     },
@@ -7065,7 +7424,9 @@
          "insets": [
           -68,
           40
-         ]
+         ],
+         "color": "#DCDCDC",
+         "align": "left"
         },
         {
          "name": "Class",
@@ -7083,7 +7444,9 @@
          "insets": [
           -68,
           40
-         ]
+         ],
+         "color": "#DCDCDC",
+         "align": "left"
         },
         {
          "name": "SelectedTex",
@@ -7303,7 +7666,9 @@
          "insets": [
           -68,
           40
-         ]
+         ],
+         "color": "#DCDCDC",
+         "align": "right"
         },
         {
          "name": "Class",
@@ -7321,7 +7686,9 @@
          "insets": [
           -68,
           40
-         ]
+         ],
+         "color": "#DCDCDC",
+         "align": "right"
         },
         {
          "name": "SelectedTex",
@@ -7511,7 +7878,10 @@
      "insets": [
       0,
       0
-     ]
+     ],
+     "color": "#AAAA00",
+     "textId": 1455,
+     "align": "center"
     },
     {
      "name": "GameTipText1-1",
@@ -7529,7 +7899,10 @@
      "insets": [
       0,
       0
-     ]
+     ],
+     "color": "#000000",
+     "textId": 1455,
+     "align": "center"
     },
     {
      "name": "GameTipText1-2",
@@ -7547,7 +7920,10 @@
      "insets": [
       0,
       0
-     ]
+     ],
+     "color": "#000000",
+     "textId": 1455,
+     "align": "center"
     },
     {
      "name": "GameTipText",
@@ -7565,7 +7941,9 @@
      "insets": [
       0,
       0
-     ]
+     ],
+     "color": "#C8C8C8",
+     "align": "center"
     },
     {
      "name": "GameTipText-2",
@@ -7583,7 +7961,9 @@
      "insets": [
       0,
       0
-     ]
+     ],
+     "color": "#000000",
+     "align": "center"
     },
     {
      "name": "GameTipText-1",
@@ -7601,7 +7981,9 @@
      "insets": [
       0,
       0
-     ]
+     ],
+     "color": "#000000",
+     "align": "center"
     }
    ],
    "autosize": [
@@ -7760,7 +8142,9 @@
      "x": 7,
      "y": 55,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 50
     }
    ]
   },
@@ -7792,7 +8176,10 @@
        "x": 15,
        "y": 5,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "textId": 1309,
+       "align": "left"
       },
       {
        "name": "QuestComboBox",
@@ -7833,7 +8220,10 @@
        "x": 15,
        "y": 5,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "textId": 1309,
+       "align": "left"
       },
       {
        "name": "HuntingZoneComboBox",
@@ -7893,7 +8283,10 @@
          "x": 0,
          "y": 0,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#DCDCDC",
+         "textId": 1320,
+         "align": "left"
         },
         {
          "name": "Ranking",
@@ -7903,7 +8296,9 @@
          "x": 45,
          "y": 0,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#AD9978",
+         "align": "left"
         },
         {
          "name": "SeasonTotalPointText",
@@ -7913,7 +8308,10 @@
          "x": 120,
          "y": 0,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#DCDCDC",
+         "textId": 1307,
+         "align": "left"
         },
         {
          "name": "SeasonTotalPoint",
@@ -7923,7 +8321,9 @@
          "x": 185,
          "y": 0,
          "textures": [],
-         "children": []
+         "children": [],
+         "color": "#AD9978",
+         "align": "left"
         }
        ]
       }
@@ -7946,7 +8346,10 @@
        "x": 15,
        "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "textId": 1309,
+       "align": "left"
       },
       {
        "name": "AreaInfoComboBox",
@@ -8049,7 +8452,9 @@
        "x": 18,
        "y": 43,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "textureDyeIconName",
@@ -8071,7 +8476,9 @@
        "x": 58,
        "y": 71,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "txtFee",
@@ -8081,7 +8488,9 @@
        "x": 58,
        "y": 90,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "txtAdena",
@@ -8091,7 +8500,9 @@
        "x": 105,
        "y": 90,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "txtAdenaString",
@@ -8101,7 +8512,9 @@
        "x": 150,
        "y": 90,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "txtTattooInfo",
@@ -8111,7 +8524,9 @@
        "x": 18,
        "y": 132,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "textureTattooIconName",
@@ -8133,7 +8548,9 @@
        "x": 58,
        "y": 160,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "txtTattooAddName",
@@ -8143,7 +8560,9 @@
        "x": 58,
        "y": 180,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       }
      ]
     },
@@ -8164,7 +8583,9 @@
        "x": 18,
        "y": 43,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "textureTattooIconNameUnEquip",
@@ -8186,7 +8607,9 @@
        "x": 58,
        "y": 71,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "txtTattooAddNameUnEquip",
@@ -8196,7 +8619,9 @@
        "x": 58,
        "y": 90,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "txtDyeInfoUnEquip",
@@ -8206,7 +8631,9 @@
        "x": 18,
        "y": 132,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "textureDyeIconNameUnEquip",
@@ -8228,7 +8655,9 @@
        "x": 58,
        "y": 160,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "txtFeeUnEquip",
@@ -8238,7 +8667,9 @@
        "x": 58,
        "y": 180,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "txtAdenaUnEquip",
@@ -8248,7 +8679,9 @@
        "x": 105,
        "y": 180,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "txtAdenaStringUnEquip",
@@ -8258,7 +8691,9 @@
        "x": 150,
        "y": 180,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       }
      ]
     },
@@ -8270,7 +8705,10 @@
      "x": 18,
      "y": 221,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 640,
+     "align": "left"
     },
     {
      "name": "txtSTRString",
@@ -8280,7 +8718,10 @@
      "x": 17,
      "y": 247,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 104,
+     "align": "left"
     },
     {
      "name": "txtDEXString",
@@ -8290,7 +8731,10 @@
      "x": 17,
      "y": 263,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 105,
+     "align": "left"
     },
     {
      "name": "txtCONString",
@@ -8300,7 +8744,10 @@
      "x": 17,
      "y": 279,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 106,
+     "align": "left"
     },
     {
      "name": "txtINTString",
@@ -8310,7 +8757,10 @@
      "x": 135,
      "y": 247,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 107,
+     "align": "left"
     },
     {
      "name": "txtWITString",
@@ -8320,7 +8770,10 @@
      "x": 135,
      "y": 263,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 108,
+     "align": "left"
     },
     {
      "name": "txtMENString",
@@ -8330,7 +8783,10 @@
      "x": 135,
      "y": 279,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 109,
+     "align": "left"
     },
     {
      "name": "txtSTRBefore",
@@ -8340,7 +8796,9 @@
      "x": 64,
      "y": 247,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtArrow",
@@ -8350,7 +8808,9 @@
      "x": 84,
      "y": 247,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtSTRAfter",
@@ -8360,7 +8820,9 @@
      "x": 97,
      "y": 247,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtDEXBefore",
@@ -8370,7 +8832,9 @@
      "x": 64,
      "y": 263,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtArrow",
@@ -8380,7 +8844,9 @@
      "x": 84,
      "y": 263,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtDEXAfter",
@@ -8390,7 +8856,9 @@
      "x": 97,
      "y": 263,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtCONBefore",
@@ -8400,7 +8868,9 @@
      "x": 64,
      "y": 279,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtArrow",
@@ -8410,7 +8880,9 @@
      "x": 84,
      "y": 279,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtCONAfter",
@@ -8420,7 +8892,9 @@
      "x": 97,
      "y": 279,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtINTBefore",
@@ -8430,7 +8904,9 @@
      "x": 182,
      "y": 247,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtArrow",
@@ -8440,7 +8916,9 @@
      "x": 202,
      "y": 247,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtINTAfter",
@@ -8450,7 +8928,9 @@
      "x": 215,
      "y": 247,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtWITBefore",
@@ -8460,7 +8940,9 @@
      "x": 182,
      "y": 263,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtArrow",
@@ -8470,7 +8952,9 @@
      "x": 202,
      "y": 263,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtWITAfter",
@@ -8480,7 +8964,9 @@
      "x": 215,
      "y": 263,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtMENBefore",
@@ -8490,7 +8976,9 @@
      "x": 182,
      "y": 279,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtArrow",
@@ -8500,7 +8988,9 @@
      "x": 202,
      "y": 279,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtMENAfter",
@@ -8510,7 +9000,9 @@
      "x": 215,
      "y": 279,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtHaveAdena",
@@ -8520,7 +9012,9 @@
      "x": 146,
      "y": 329,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "btnPrev",
@@ -8569,7 +9063,9 @@
      "x": 15,
      "y": 28,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtAdena",
@@ -8579,7 +9075,9 @@
      "x": 145,
      "y": 374,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "HennaListTree",
@@ -8683,7 +9181,9 @@
      "x": 241,
      "y": 162,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "EquipItem_Underwear",
@@ -8806,7 +9306,9 @@
      "x": 110,
      "y": 356,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "AdenaIcon",
@@ -8851,7 +9353,10 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1221,
+     "align": "left"
     },
     {
      "name": "ItemWnd",
@@ -9163,7 +9668,10 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 656,
+     "align": "left"
     },
     {
      "name": "txtNameHead",
@@ -9173,7 +9681,10 @@
      "x": 65,
      "y": 63,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 50,
+     "align": "left"
     },
     {
      "name": "txtName",
@@ -9193,7 +9704,10 @@
      "x": 65,
      "y": 86,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 653,
+     "align": "left"
     },
     {
      "name": "txtShortName",
@@ -9225,7 +9739,8 @@
      "x": 17,
      "y": 55,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC"
     },
     {
      "name": "btnLeft",
@@ -9270,7 +9785,9 @@
        "x": 2,
        "y": 11,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "align": "left"
       },
       {
        "name": "txtMacro1",
@@ -9280,7 +9797,9 @@
        "x": 2,
        "y": 37,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "align": "left"
       },
       {
        "name": "txtMacro2",
@@ -9290,7 +9809,9 @@
        "x": 2,
        "y": 63,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "align": "left"
       },
       {
        "name": "txtMacro3",
@@ -9300,7 +9821,9 @@
        "x": 2,
        "y": 89,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "align": "left"
       },
       {
        "name": "txtMacro4",
@@ -9310,7 +9833,9 @@
        "x": 2,
        "y": 115,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "align": "left"
       },
       {
        "name": "txtMacro5",
@@ -9320,7 +9845,9 @@
        "x": 2,
        "y": 141,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "align": "left"
       },
       {
        "name": "txtMacro6",
@@ -9330,7 +9857,9 @@
        "x": 2,
        "y": 167,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "align": "left"
       },
       {
        "name": "txtMacro7",
@@ -9340,7 +9869,9 @@
        "x": 2,
        "y": 193,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "align": "left"
       },
       {
        "name": "txtMacro8",
@@ -9350,7 +9881,9 @@
        "x": 2,
        "y": 219,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "align": "left"
       },
       {
        "name": "txtMacro9",
@@ -9360,7 +9893,9 @@
        "x": 2,
        "y": 245,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "align": "left"
       },
       {
        "name": "txtMacro10",
@@ -9370,7 +9905,9 @@
        "x": 2,
        "y": 271,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "align": "left"
       },
       {
        "name": "txtMacro11",
@@ -9380,7 +9917,9 @@
        "x": 2,
        "y": 297,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "align": "left"
       },
       {
        "name": "txtEdit0",
@@ -9577,7 +10116,10 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 57,
+     "align": "left"
     },
     {
      "name": "txtInfo",
@@ -9637,7 +10179,10 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 655,
+     "align": "left"
     },
     {
      "name": "txtCount",
@@ -9647,7 +10192,9 @@
      "x": 200,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "MacroItem",
@@ -9871,7 +10418,9 @@
      "x": 21,
      "y": 40,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtTomorrowAmountOfPurchase",
@@ -9881,7 +10430,10 @@
      "x": 31,
      "y": 71,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1225,
+     "align": "left"
     },
     {
      "name": "ebTomorrowAmountOfPurchase",
@@ -9901,7 +10453,10 @@
      "x": 31,
      "y": 96,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1226,
+     "align": "left"
     },
     {
      "name": "txtVarTomorrowPurchaseLimit",
@@ -9911,7 +10466,9 @@
      "x": 145,
      "y": 96,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtTomorrowPurchasePrice",
@@ -9921,7 +10478,10 @@
      "x": 31,
      "y": 121,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1149,
+     "align": "left"
     },
     {
      "name": "ebTomorrowPurchasePrice",
@@ -9941,7 +10501,10 @@
      "x": 31,
      "y": 146,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1150,
+     "align": "left"
     },
     {
      "name": "cbTomorrowReward",
@@ -10010,7 +10573,9 @@
      "x": 16,
      "y": 47,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "ManorCropInfoSettingListCtrl",
@@ -10030,7 +10595,10 @@
      "x": 16,
      "y": 279,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1141,
+     "align": "left"
     },
     {
      "name": "texAdena",
@@ -10088,7 +10656,9 @@
      "x": 130,
      "y": 279,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "btnChangeSell",
@@ -10176,7 +10746,10 @@
      "x": 15,
      "y": 38,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1124,
+     "align": "left"
     },
     {
      "name": "txtVarCropName",
@@ -10186,7 +10759,9 @@
      "x": 76,
      "y": 38,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtRewardType1",
@@ -10196,7 +10771,10 @@
      "x": 15,
      "y": 54,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1134,
+     "align": "left"
     },
     {
      "name": "txtVarRewardType1",
@@ -10206,7 +10784,9 @@
      "x": 76,
      "y": 54,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtRewardType2",
@@ -10216,7 +10796,10 @@
      "x": 15,
      "y": 70,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1135,
+     "align": "left"
     },
     {
      "name": "txtVarRewardType2",
@@ -10226,7 +10809,9 @@
      "x": 76,
      "y": 70,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "ManorCropSellChangeListCtrl",
@@ -10246,7 +10831,10 @@
      "x": 75,
      "y": 219,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1153,
+     "align": "left"
     },
     {
      "name": "cbPurchasePlace",
@@ -10266,7 +10854,10 @@
      "x": 75,
      "y": 244,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1156,
+     "align": "left"
     },
     {
      "name": "ebSalesVolume",
@@ -10446,7 +11037,10 @@
      "x": 16,
      "y": 15,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1114,
+     "align": "left"
     },
     {
      "name": "cbTimeInCropInfo",
@@ -10512,7 +11106,10 @@
      "x": 16,
      "y": 15,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1131,
+     "align": "left"
     },
     {
      "name": "txt2",
@@ -10522,7 +11119,9 @@
      "x": 16,
      "y": 250,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "btnBuySeed",
@@ -10581,7 +11180,10 @@
      "x": 16,
      "y": 15,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1113,
+     "align": "left"
     },
     {
      "name": "txtNotice",
@@ -10591,7 +11193,9 @@
      "x": 16,
      "y": 250,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "cbTimeInSeedInfo",
@@ -10647,7 +11251,9 @@
      "x": 21,
      "y": 40,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtTomorrowSalesVolume",
@@ -10657,7 +11263,10 @@
      "x": 31,
      "y": 71,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1139,
+     "align": "left"
     },
     {
      "name": "ebTomorrowSalesVolume",
@@ -10677,7 +11286,10 @@
      "x": 31,
      "y": 96,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1224,
+     "align": "left"
     },
     {
      "name": "txtVarTomorrowLimit",
@@ -10687,7 +11299,9 @@
      "x": 145,
      "y": 96,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtTomorrowPrice",
@@ -10697,7 +11311,10 @@
      "x": 31,
      "y": 121,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1140,
+     "align": "left"
     },
     {
      "name": "ebTomorrowPrice",
@@ -10766,7 +11383,9 @@
      "x": 16,
      "y": 47,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "ManorSeedInfoSettingListCtrl",
@@ -10786,7 +11405,10 @@
      "x": 16,
      "y": 279,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1141,
+     "align": "left"
     },
     {
      "name": "texAdena",
@@ -10844,7 +11466,9 @@
      "x": 130,
      "y": 279,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "btnChangeSell",
@@ -11096,7 +11720,9 @@
      "textures": [
       "MinimapWnd.texSun"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "btnReduce",
@@ -11119,7 +11745,10 @@
      "x": 24,
      "y": -52,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 833,
+     "align": "left"
     },
     {
      "name": "txtColonSSQ",
@@ -11131,7 +11760,9 @@
      "textures": [
       "MinimapWnd.txtSSQ"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtVarSSQType",
@@ -11143,7 +11774,9 @@
      "textures": [
       "MinimapWnd.txtColonSSQ"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtCurLoc",
@@ -11153,7 +11786,10 @@
      "x": 24,
      "y": -36,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 471,
+     "align": "left"
     },
     {
      "name": "txtColonCurLoc",
@@ -11165,7 +11801,9 @@
      "textures": [
       "MinimapWnd.txtCurLoc"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtVarCurLoc",
@@ -11177,7 +11815,9 @@
      "textures": [
       "MinimapWnd.txtColonCurLoc"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "ExpandButton",
@@ -11317,7 +11957,9 @@
      "textures": [
       "MinimapWnd_Expand.texSun"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "btnReduce",
@@ -11342,7 +11984,10 @@
      "textures": [
       "MinimapWnd_Expand.Minimap"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 833,
+     "align": "left"
     },
     {
      "name": "txtColonSSQ",
@@ -11354,7 +11999,9 @@
      "textures": [
       "MinimapWnd_Expand.txtSSQ"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtVarSSQType",
@@ -11366,7 +12013,9 @@
      "textures": [
       "MinimapWnd_Expand.txtColonSSQ"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtCurLoc",
@@ -11378,7 +12027,10 @@
      "textures": [
       "MinimapWnd_Expand.Minimap"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 471,
+     "align": "left"
     },
     {
      "name": "txtColonCurLoc",
@@ -11390,7 +12042,9 @@
      "textures": [
       "MinimapWnd_Expand.txtCurLoc"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtVarCurLoc",
@@ -11402,7 +12056,9 @@
      "textures": [
       "MinimapWnd_Expand.txtColonCurLoc"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "CursedComboBox",
@@ -11518,7 +12174,9 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 562
     },
     {
      "name": "Text2",
@@ -11528,7 +12186,9 @@
      "x": 267,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 564
     },
     {
      "name": "Text3",
@@ -11538,7 +12198,9 @@
      "x": 267,
      "y": 203,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 565
     },
     {
      "name": "Text4",
@@ -11548,7 +12210,10 @@
      "x": 110,
      "y": 378,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 808,
+     "align": "right"
     },
     {
      "name": "ItemList",
@@ -11825,7 +12490,9 @@
        "x": 6,
        "y": 45,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#FFFFFF",
+       "align": "left"
       },
       {
        "name": "txtMsg3",
@@ -11835,7 +12502,9 @@
        "x": 6,
        "y": 60,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#FFFFFF",
+       "align": "left"
       },
       {
        "name": "txtMsg2",
@@ -11845,7 +12514,9 @@
        "x": 6,
        "y": 75,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#FFFFFF",
+       "align": "left"
       },
       {
        "name": "txtMsg1",
@@ -11855,7 +12526,9 @@
        "x": 6,
        "y": 90,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#FFFFFF",
+       "align": "left"
       },
       {
        "name": "txtMsg0",
@@ -11865,7 +12538,9 @@
        "x": 6,
        "y": 105,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#FFFFFF",
+       "align": "left"
       },
       {
        "name": "BackExpTex1",
@@ -11911,7 +12586,9 @@
        "x": 6,
        "y": 45,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#FFFFFF",
+       "align": "left"
       },
       {
        "name": "txtMsg3",
@@ -11921,7 +12598,9 @@
        "x": 6,
        "y": 60,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#FFFFFF",
+       "align": "left"
       },
       {
        "name": "txtMsg2",
@@ -11931,7 +12610,9 @@
        "x": 6,
        "y": 75,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#FFFFFF",
+       "align": "left"
       },
       {
        "name": "txtMsg1",
@@ -11941,7 +12622,9 @@
        "x": 6,
        "y": 90,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#FFFFFF",
+       "align": "left"
       },
       {
        "name": "txtMsg0",
@@ -11951,7 +12634,9 @@
        "x": 6,
        "y": 105,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#FFFFFF",
+       "align": "left"
       },
       {
        "name": "BackExpTex1",
@@ -12007,7 +12692,9 @@
      "x": 25,
      "y": 6,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#FFFFFF",
+     "align": "left"
     },
     {
      "name": "texCPBack",
@@ -12096,7 +12783,9 @@
      "x": 25,
      "y": 6,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#FFFFFF",
+     "align": "left"
     },
     {
      "name": "texCPBack",
@@ -12201,7 +12890,9 @@
      "x": 25,
      "y": 6,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#FFFFFF",
+     "align": "left"
     },
     {
      "name": "texCPBack",
@@ -12270,7 +12961,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "TextBox1-0",
@@ -12280,7 +12973,9 @@
      "x": 2,
      "y": 2,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "left"
     },
     {
      "name": "TextBox1-1",
@@ -12290,7 +12985,9 @@
      "x": 0,
      "y": 30,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "TextBox1-1-0",
@@ -12300,7 +12997,9 @@
      "x": 2,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "left"
     },
     {
      "name": "TextBoxsm1",
@@ -12310,7 +13009,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "TextBoxsm1-1",
@@ -12320,7 +13021,9 @@
      "x": 0,
      "y": 18,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     }
    ]
   },
@@ -12341,7 +13044,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "TextBox2-0",
@@ -12351,7 +13056,9 @@
      "x": 2,
      "y": 2,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "center"
     },
     {
      "name": "TextBox2-1",
@@ -12361,7 +13068,9 @@
      "x": 0,
      "y": 30,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "TextBox2-1-0",
@@ -12371,7 +13080,9 @@
      "x": 2,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "center"
     },
     {
      "name": "TextBoxsm2",
@@ -12381,7 +13092,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "TextBoxsm2-1",
@@ -12391,7 +13104,9 @@
      "x": 0,
      "y": 18,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "texturetype1",
@@ -12435,7 +13150,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "TextBox3-0",
@@ -12445,7 +13162,9 @@
      "x": 2,
      "y": 2,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "right"
     },
     {
      "name": "TextBox3-1",
@@ -12455,7 +13174,9 @@
      "x": 0,
      "y": 30,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "TextBox3-1-0",
@@ -12465,7 +13186,9 @@
      "x": 2,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "right"
     },
     {
      "name": "TextBoxsm3",
@@ -12475,7 +13198,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "TextBoxsm3-1",
@@ -12485,7 +13210,9 @@
      "x": 0,
      "y": 18,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     }
    ]
   },
@@ -12506,7 +13233,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "TextBox4-0",
@@ -12516,7 +13245,9 @@
      "x": 2,
      "y": 2,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "left"
     },
     {
      "name": "TextBox4-1",
@@ -12526,7 +13257,9 @@
      "x": 0,
      "y": 30,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "TextBox4-1-0",
@@ -12536,7 +13269,9 @@
      "x": 2,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "left"
     },
     {
      "name": "TextBoxsm4",
@@ -12546,7 +13281,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "TextBoxsm4-1",
@@ -12556,7 +13293,9 @@
      "x": 0,
      "y": 18,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     }
    ]
   },
@@ -12577,7 +13316,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "TextBox5-0",
@@ -12587,7 +13328,9 @@
      "x": 2,
      "y": 2,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "center"
     },
     {
      "name": "TextBox5-1",
@@ -12597,7 +13340,9 @@
      "x": 0,
      "y": 30,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "TextBox5-1-0",
@@ -12607,7 +13352,9 @@
      "x": 2,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "center"
     },
     {
      "name": "TextBoxsm5",
@@ -12617,7 +13364,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "TextBoxsm5-1",
@@ -12627,7 +13376,9 @@
      "x": 0,
      "y": 18,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     }
    ]
   },
@@ -12648,7 +13399,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "TextBox6-0",
@@ -12658,7 +13411,9 @@
      "x": 2,
      "y": 2,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "right"
     },
     {
      "name": "TextBox6-1",
@@ -12668,7 +13423,9 @@
      "x": 0,
      "y": 30,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "TextBox6-1-0",
@@ -12678,7 +13435,9 @@
      "x": 2,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "right"
     },
     {
      "name": "TextBoxsm6",
@@ -12688,7 +13447,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "TextBoxsm6-1",
@@ -12698,7 +13459,9 @@
      "x": 0,
      "y": 18,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     }
    ]
   },
@@ -12719,7 +13482,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "TextBox7-0",
@@ -12729,7 +13494,9 @@
      "x": 2,
      "y": 2,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "center"
     },
     {
      "name": "TextBox7-1",
@@ -12739,7 +13506,9 @@
      "x": 0,
      "y": 30,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "TextBox7-1-0",
@@ -12749,7 +13518,9 @@
      "x": 2,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "center"
     },
     {
      "name": "TextBoxsm7",
@@ -12759,7 +13530,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "TextBoxsm7-1",
@@ -12769,7 +13542,9 @@
      "x": 0,
      "y": 18,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     }
    ]
   },
@@ -12790,7 +13565,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "TextBox8-0",
@@ -12800,7 +13577,9 @@
      "x": 2,
      "y": 2,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "right"
     },
     {
      "name": "TextBox8-1",
@@ -12810,7 +13589,9 @@
      "x": 0,
      "y": 30,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "TextBox8-1-0",
@@ -12820,7 +13601,9 @@
      "x": 2,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "right"
     },
     {
      "name": "TextBoxsm8",
@@ -12830,7 +13613,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "TextBoxsm8-1",
@@ -12840,7 +13625,9 @@
      "x": 0,
      "y": 18,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     }
    ]
   },
@@ -12948,7 +13735,10 @@
      "x": 0,
      "y": 14,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 216,
+     "align": "right"
     },
     {
      "name": "text14",
@@ -12958,7 +13748,10 @@
      "x": 0,
      "y": 33,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 217,
+     "align": "right"
     },
     {
      "name": "text15",
@@ -12968,7 +13761,10 @@
      "x": 0,
      "y": 52,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 977,
+     "align": "right"
     },
     {
      "name": "text16",
@@ -12978,7 +13774,10 @@
      "x": 0,
      "y": 71,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 978,
+     "align": "right"
     },
     {
      "name": "EffectVolumeSliderCtrl",
@@ -13395,7 +14194,10 @@
      "x": 0,
      "y": 14,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 209,
+     "align": "right"
     },
     {
      "name": "text1",
@@ -13405,7 +14207,10 @@
      "x": 0,
      "y": 33,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 351,
+     "align": "right"
     },
     {
      "name": "text2",
@@ -13415,7 +14220,10 @@
      "x": 0,
      "y": 52,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 210,
+     "align": "right"
     },
     {
      "name": "text3",
@@ -13425,7 +14233,10 @@
      "x": 0,
      "y": 71,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 211,
+     "align": "right"
     },
     {
      "name": "text4",
@@ -13435,7 +14246,10 @@
      "x": 0,
      "y": 90,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 594,
+     "align": "right"
     },
     {
      "name": "text5",
@@ -13445,7 +14259,10 @@
      "x": 0,
      "y": 109,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 607,
+     "align": "right"
     },
     {
      "name": "text6",
@@ -13455,7 +14272,10 @@
      "x": 0,
      "y": 142,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 214,
+     "align": "right"
     },
     {
      "name": "text7",
@@ -13465,7 +14285,10 @@
      "x": 0,
      "y": 161,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 215,
+     "align": "right"
     },
     {
      "name": "text8",
@@ -13475,7 +14298,10 @@
      "x": 0,
      "y": 180,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 540,
+     "align": "right"
     },
     {
      "name": "text9",
@@ -13485,7 +14311,10 @@
      "x": 0,
      "y": 232,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 352,
+     "align": "right"
     },
     {
      "name": "text10",
@@ -13495,7 +14324,10 @@
      "x": 0,
      "y": 251,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 868,
+     "align": "right"
     },
     {
      "name": "text11",
@@ -13505,7 +14337,10 @@
      "x": 0,
      "y": 320,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 979,
+     "align": "right"
     },
     {
      "name": "text12",
@@ -13515,7 +14350,10 @@
      "x": 0,
      "y": 339,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1229,
+     "align": "right"
     },
     {
      "name": "ResBox",
@@ -13665,7 +14503,10 @@
      "x": 0,
      "y": 358,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1418,
+     "align": "right"
     },
     {
      "name": "WeatherEffectComboBox",
@@ -13738,7 +14579,10 @@
      "x": 17,
      "y": 20,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#AF9779",
+     "textId": 1457,
+     "align": "left"
     },
     {
      "name": "TitleTextBox",
@@ -13748,7 +14592,10 @@
      "x": 0,
      "y": 45,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 413,
+     "align": "right"
     },
     {
      "name": "TitleEditBox",
@@ -13768,7 +14615,10 @@
      "x": 0,
      "y": 65,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1042,
+     "align": "right"
     },
     {
      "name": "MaxPartyMemberCountComboBox",
@@ -13788,7 +14638,10 @@
      "x": 0,
      "y": 85,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1030,
+     "align": "right"
     },
     {
      "name": "MinLevelTextBox",
@@ -13798,7 +14651,10 @@
      "x": 102,
      "y": 85,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1043,
+     "align": "right"
     },
     {
      "name": "MinLevelEditBox",
@@ -13818,7 +14674,10 @@
      "x": 172,
      "y": 85,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1044,
+     "align": "right"
     },
     {
      "name": "MaxLevelEditBox",
@@ -13877,7 +14736,10 @@
      "x": 10,
      "y": 23,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#AF9779",
+     "textId": 1440,
+     "align": "left"
     },
     {
      "name": "Instruction",
@@ -13887,7 +14749,10 @@
      "x": 13,
      "y": 50,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1035,
+     "align": "left"
     },
     {
      "name": "Instruction",
@@ -13897,7 +14762,10 @@
      "x": 70,
      "y": 50,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1043,
+     "align": "left"
     },
     {
      "name": "Instruction",
@@ -13907,7 +14775,10 @@
      "x": 130,
      "y": 50,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1044,
+     "align": "left"
     },
     {
      "name": "MinLevel",
@@ -13950,7 +14821,9 @@
      "x": 0,
      "y": 363,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "WaitListCtrl",
@@ -14026,7 +14899,10 @@
      "x": 0,
      "y": 41,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 416,
+     "align": "right"
     },
     {
      "name": "RoomNumber",
@@ -14036,7 +14912,9 @@
      "x": 68,
      "y": 41,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "RoomTitleTitle",
@@ -14046,7 +14924,10 @@
      "x": 0,
      "y": 56,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 413,
+     "align": "right"
     },
     {
      "name": "RoomTitle",
@@ -14056,7 +14937,9 @@
      "x": 68,
      "y": 56,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "LocationTitle",
@@ -14066,7 +14949,10 @@
      "x": 0,
      "y": 71,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1029,
+     "align": "right"
     },
     {
      "name": "Location",
@@ -14076,7 +14962,9 @@
      "x": 68,
      "y": 71,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "PartyMemberCountTitle",
@@ -14086,7 +14974,10 @@
      "x": 0,
      "y": 71,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1036,
+     "align": "right"
     },
     {
      "name": "PartyMemberCount",
@@ -14096,7 +14987,9 @@
      "x": 263,
      "y": 71,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "LootingMethodTitle",
@@ -14106,7 +14999,10 @@
      "x": 0,
      "y": 86,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 489,
+     "align": "right"
     },
     {
      "name": "LootingMethod",
@@ -14116,7 +15012,9 @@
      "x": 68,
      "y": 86,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "LevelLimitTitle",
@@ -14126,7 +15024,10 @@
      "x": 0,
      "y": 86,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1030,
+     "align": "right"
     },
     {
      "name": "LevelLimit",
@@ -14136,7 +15037,9 @@
      "x": 263,
      "y": 86,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "PartyMemberListCtrl",
@@ -14202,7 +15105,10 @@
      "x": 10,
      "y": 23,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#AF9779",
+     "textId": 1440,
+     "align": "left"
     },
     {
      "name": "MemberCount",
@@ -14212,7 +15118,9 @@
      "x": 0,
      "y": 363,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "WaitListCtrl",
@@ -14290,7 +15198,10 @@
      "textures": [
       "PartyMatchWnd.LocationFilterComboBox"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1034,
+     "align": "left"
     },
     {
      "name": "LocationFilterComboBox",
@@ -14312,7 +15223,10 @@
      "textures": [
       "PartyMatchWnd.LevelFilterComboBox"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1035,
+     "align": "left"
     },
     {
      "name": "LevelFilterComboBox",
@@ -14355,7 +15269,10 @@
      "x": 15,
      "y": 379,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#AF9779",
+     "textId": 1439,
+     "align": "left"
     },
     {
      "name": "PrevBtn",
@@ -14545,7 +15462,9 @@
      "x": 26,
      "y": 17,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1487
     },
     {
      "name": "ShowSmallPartyWndCheck",
@@ -14612,7 +15531,10 @@
      "insets": [
       0,
       20
-     ]
+     ],
+     "color": "#DCDCDC",
+     "textId": 1277,
+     "align": "center"
     },
     {
      "name": "PointTextBox",
@@ -14622,7 +15544,9 @@
      "x": null,
      "y": null,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "PointAddTextBox",
@@ -14632,7 +15556,9 @@
      "x": null,
      "y": null,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     }
    ]
   },
@@ -14854,7 +15780,10 @@
      "x": 22,
      "y": 30,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 705,
+     "align": "left"
     },
     {
      "name": "CategoryTextBox",
@@ -14864,7 +15793,10 @@
      "x": 22,
      "y": 53,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 412,
+     "align": "left"
     },
     {
      "name": "InputPetitionTextBox",
@@ -14874,7 +15806,10 @@
      "x": 22,
      "y": 226,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 707,
+     "align": "left"
     },
     {
      "name": "HelpHtmlCtrl",
@@ -15077,7 +16012,10 @@
      "x": 15,
      "y": 35,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 88,
+     "align": "left"
     },
     {
      "name": "txtLvName",
@@ -15087,7 +16025,9 @@
      "x": 33,
      "y": 35,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "texHP",
@@ -15157,7 +16097,9 @@
      "x": 35,
      "y": 53,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "txtMP",
@@ -15167,7 +16109,9 @@
      "x": 35,
      "y": 67,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "txtWeight",
@@ -15177,7 +16121,9 @@
      "x": 156,
      "y": 53,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "txtSP",
@@ -15187,7 +16133,9 @@
      "x": 156,
      "y": 67,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "center"
     },
     {
      "name": "txtExp",
@@ -15197,7 +16145,9 @@
      "x": 35,
      "y": 81,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B4B4B4",
+     "align": "center"
     },
     {
      "name": "txtFatigue",
@@ -15207,7 +16157,9 @@
      "x": 35,
      "y": 95,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B4B4B4",
+     "align": "center"
     },
     {
      "name": "PetWnd_Status",
@@ -15228,7 +16180,10 @@
        "x": 17,
        "y": 3,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 94,
+       "align": "left"
       },
       {
        "name": "txtHeadPhysicalDefense",
@@ -15238,7 +16193,10 @@
        "x": 17,
        "y": 17,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 95,
+       "align": "left"
       },
       {
        "name": "txtHeadHitRate",
@@ -15248,7 +16206,10 @@
        "x": 17,
        "y": 31,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 96,
+       "align": "left"
       },
       {
        "name": "txtHeadCriticalRate",
@@ -15258,7 +16219,10 @@
        "x": 17,
        "y": 45,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 113,
+       "align": "left"
       },
       {
        "name": "txtHeadPhysicalAttackSpeed",
@@ -15268,7 +16232,10 @@
        "x": 17,
        "y": 59,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 111,
+       "align": "left"
       },
       {
        "name": "txtHeadSoulShotCosume",
@@ -15278,7 +16245,10 @@
        "x": 17,
        "y": 73,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 404,
+       "align": "left"
       },
       {
        "name": "txtHeadMagicalAttack",
@@ -15288,7 +16258,10 @@
        "x": 132,
        "y": 3,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 98,
+       "align": "left"
       },
       {
        "name": "txtHeadMagicDefense",
@@ -15298,7 +16271,10 @@
        "x": 132,
        "y": 17,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 99,
+       "align": "left"
       },
       {
        "name": "txtHeadPhysicalAvoid",
@@ -15308,7 +16284,10 @@
        "x": 132,
        "y": 31,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 97,
+       "align": "left"
       },
       {
        "name": "txtHeadMovingSpeed",
@@ -15318,7 +16297,10 @@
        "x": 132,
        "y": 45,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 432,
+       "align": "left"
       },
       {
        "name": "txtHeadMagicCastingSpeed",
@@ -15328,7 +16310,10 @@
        "x": 132,
        "y": 59,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 112,
+       "align": "left"
       },
       {
        "name": "txtHeadSpiritShotConsume",
@@ -15338,7 +16323,10 @@
        "x": 132,
        "y": 73,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 496,
+       "align": "left"
       },
       {
        "name": "txtPhysicalAttack",
@@ -15348,7 +16336,9 @@
        "x": 73,
        "y": 3,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtPhysicalDefense",
@@ -15358,7 +16348,9 @@
        "x": 73,
        "y": 17,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtHitRate",
@@ -15368,7 +16360,9 @@
        "x": 73,
        "y": 31,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtCriticalRate",
@@ -15378,7 +16372,9 @@
        "x": 73,
        "y": 45,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtPhysicalAttackSpeed",
@@ -15388,7 +16384,9 @@
        "x": 73,
        "y": 59,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtSoulShotCosume",
@@ -15398,7 +16396,9 @@
        "x": 73,
        "y": 73,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtMagicalAttack",
@@ -15408,7 +16408,9 @@
        "x": 198,
        "y": 3,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtMagicDefense",
@@ -15418,7 +16420,9 @@
        "x": 198,
        "y": 17,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtPhysicalAvoid",
@@ -15428,7 +16432,9 @@
        "x": 198,
        "y": 31,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtMovingSpeed",
@@ -15438,7 +16444,9 @@
        "x": 198,
        "y": 45,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtMagicCastingSpeed",
@@ -15448,7 +16456,9 @@
        "x": 198,
        "y": 59,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtSpiritShotConsume",
@@ -15458,7 +16468,9 @@
        "x": 198,
        "y": 73,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       }
      ]
     },
@@ -15675,7 +16687,9 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "BottomText",
@@ -15685,7 +16699,9 @@
      "x": 11,
      "y": 198,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "BottomCountText",
@@ -15695,7 +16711,9 @@
      "x": null,
      "y": null,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "PriceConstText",
@@ -15705,7 +16723,10 @@
      "x": 100,
      "y": 332,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 135,
+     "align": "right"
     },
     {
      "name": "AdenaConstText",
@@ -15715,7 +16736,10 @@
      "x": 100,
      "y": 351,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 134,
+     "align": "right"
     },
     {
      "name": "PriceText",
@@ -15725,7 +16749,9 @@
      "x": 158,
      "y": 332,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "AdenaText",
@@ -15735,7 +16761,9 @@
      "x": 158,
      "y": 351,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "CheckBulk",
@@ -15859,7 +16887,10 @@
      "x": 11,
      "y": 12,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 324,
+     "align": "left"
     },
     {
      "name": "txtQuestNum",
@@ -15869,7 +16900,9 @@
      "x": 190,
      "y": 12,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "QuestToolTip",
@@ -15931,7 +16964,9 @@
      "x": 0,
      "y": 0,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     }
    ]
   },
@@ -16244,7 +17279,10 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 649,
+     "align": "left"
     },
     {
      "name": "txtCount",
@@ -16254,7 +17292,9 @@
      "x": 146,
      "y": 33,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "RecipeItem",
@@ -16308,7 +17348,10 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 643,
+     "align": "left"
     },
     {
      "name": "txtMP",
@@ -16318,7 +17361,10 @@
      "x": 18,
      "y": 323,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 644,
+     "align": "left"
     },
     {
      "name": "texMPBar",
@@ -16340,7 +17386,9 @@
      "x": 73,
      "y": 342,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "MainTree",
@@ -16396,7 +17444,9 @@
      "x": 58,
      "y": 48,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtMP",
@@ -16406,7 +17456,10 @@
      "x": 58,
      "y": 64,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 320,
+     "align": "left"
     },
     {
      "name": "txtMPMid",
@@ -16416,7 +17469,9 @@
      "x": 101,
      "y": 64,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtMPConsume",
@@ -16426,7 +17481,9 @@
      "x": 113,
      "y": 64,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtSuccess",
@@ -16436,7 +17493,10 @@
      "x": 58,
      "y": 80,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 642,
+     "align": "left"
     },
     {
      "name": "txtSuccessMid",
@@ -16446,7 +17506,9 @@
      "x": 106,
      "y": 80,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtSuccessRate",
@@ -16456,7 +17518,9 @@
      "x": 118,
      "y": 80,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtResult",
@@ -16466,7 +17530,10 @@
      "x": 58,
      "y": 96,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 647,
+     "align": "left"
     },
     {
      "name": "txtResultMid",
@@ -16476,7 +17543,9 @@
      "x": 106,
      "y": 96,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtResultValue",
@@ -16486,7 +17555,9 @@
      "x": 118,
      "y": 96,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtChunk",
@@ -16496,7 +17567,10 @@
      "x": 11,
      "y": 124,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 742,
+     "align": "left"
     },
     {
      "name": "txtMP",
@@ -16506,7 +17580,10 @@
      "x": 18,
      "y": 261,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 644,
+     "align": "left"
     },
     {
      "name": "texMPBar",
@@ -16528,7 +17605,10 @@
      "x": 11,
      "y": 290,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 743,
+     "align": "left"
     },
     {
      "name": "txtCount",
@@ -16538,7 +17618,10 @@
      "x": 14,
      "y": 313,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 648,
+     "align": "left"
     },
     {
      "name": "txtCountMid",
@@ -16548,7 +17631,9 @@
      "x": 62,
      "y": 313,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtCountValue",
@@ -16558,7 +17643,9 @@
      "x": 74,
      "y": 313,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtMsg",
@@ -16568,7 +17655,9 @@
      "x": 14,
      "y": 329,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B2BECF",
+     "align": "left"
     },
     {
      "name": "ItemWnd",
@@ -16683,7 +17772,9 @@
      "x": 58,
      "y": 48,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtMP",
@@ -16693,7 +17784,10 @@
      "x": 58,
      "y": 64,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 320,
+     "align": "left"
     },
     {
      "name": "txtMPMid",
@@ -16703,7 +17797,9 @@
      "x": 101,
      "y": 64,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtMPConsume",
@@ -16713,7 +17809,9 @@
      "x": 113,
      "y": 64,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtSuccess",
@@ -16723,7 +17821,10 @@
      "x": 58,
      "y": 80,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 642,
+     "align": "left"
     },
     {
      "name": "txtSuccessMid",
@@ -16733,7 +17834,9 @@
      "x": 106,
      "y": 80,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtSuccessRate",
@@ -16743,7 +17846,9 @@
      "x": 118,
      "y": 80,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtResult",
@@ -16753,7 +17858,10 @@
      "x": 58,
      "y": 96,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 647,
+     "align": "left"
     },
     {
      "name": "txtResultMid",
@@ -16763,7 +17871,9 @@
      "x": 106,
      "y": 96,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtResultValue",
@@ -16773,7 +17883,9 @@
      "x": 118,
      "y": 96,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtChunk",
@@ -16783,7 +17895,10 @@
      "x": 11,
      "y": 124,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 742,
+     "align": "left"
     },
     {
      "name": "txtMP",
@@ -16793,7 +17908,10 @@
      "x": 18,
      "y": 261,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 644,
+     "align": "left"
     },
     {
      "name": "texMPBar",
@@ -16815,7 +17933,10 @@
      "x": 11,
      "y": 290,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 743,
+     "align": "left"
     },
     {
      "name": "txtCount",
@@ -16825,7 +17946,10 @@
      "x": 14,
      "y": 313,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 648,
+     "align": "left"
     },
     {
      "name": "txtCountMid",
@@ -16835,7 +17959,9 @@
      "x": 62,
      "y": 313,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtCountValue",
@@ -16845,7 +17971,9 @@
      "x": 74,
      "y": 313,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtMsg",
@@ -16855,7 +17983,9 @@
      "x": 14,
      "y": 329,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B2BECF",
+     "align": "left"
     },
     {
      "name": "ItemWnd",
@@ -17061,7 +18191,10 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 643,
+     "align": "left"
     },
     {
      "name": "txtRecipeList",
@@ -17071,7 +18204,10 @@
      "x": 11,
      "y": 198,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 661,
+     "align": "left"
     },
     {
      "name": "txtCount",
@@ -17081,7 +18217,9 @@
      "x": 148,
      "y": 198,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     }
    ]
   },
@@ -17114,7 +18252,9 @@
      "x": 58,
      "y": 48,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtMP",
@@ -17124,7 +18264,10 @@
      "x": 58,
      "y": 64,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 320,
+     "align": "left"
     },
     {
      "name": "txtMPMid",
@@ -17134,7 +18277,9 @@
      "x": 101,
      "y": 64,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtMPConsume",
@@ -17144,7 +18289,9 @@
      "x": 113,
      "y": 64,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtSuccess",
@@ -17154,7 +18301,10 @@
      "x": 58,
      "y": 80,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 642,
+     "align": "left"
     },
     {
      "name": "txtSuccessMid",
@@ -17164,7 +18314,9 @@
      "x": 106,
      "y": 80,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtSuccessRate",
@@ -17174,7 +18326,9 @@
      "x": 118,
      "y": 80,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtLevel",
@@ -17184,7 +18338,9 @@
      "x": 214,
      "y": 77,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtGrade",
@@ -17194,7 +18350,9 @@
      "x": 58,
      "y": 48,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "MainTree",
@@ -17252,7 +18410,9 @@
      "x": 14,
      "y": 132,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "align": "center"
     },
     {
      "name": "txtGemstoneName",
@@ -17262,7 +18422,10 @@
      "x": 38,
      "y": 183,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "textId": 1483,
+     "align": "left"
     },
     {
      "name": "txtGemstoneCount",
@@ -17272,7 +18435,9 @@
      "x": 113,
      "y": 183,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "align": "right"
     },
     {
      "name": "ItemDragBox1Wnd",
@@ -17967,7 +19132,9 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "BottomText",
@@ -17977,7 +19144,9 @@
      "x": 11,
      "y": 198,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "PriceConstText",
@@ -17987,7 +19156,9 @@
      "x": 100,
      "y": 332,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "AdenaConstText",
@@ -17997,7 +19168,10 @@
      "x": 100,
      "y": 351,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 134,
+     "align": "right"
     },
     {
      "name": "PriceText",
@@ -18007,7 +19181,9 @@
      "x": 158,
      "y": 332,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "AdenaText",
@@ -18017,7 +19193,9 @@
      "x": 158,
      "y": 351,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "InvenWeight",
@@ -18181,7 +19359,9 @@
        "x": 0,
        "y": 16,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "center"
       },
       {
        "name": "F1Tex",
@@ -18288,7 +19468,9 @@
        "x": 0,
        "y": 16,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "center"
       },
       {
        "name": "Shortcut1",
@@ -18371,7 +19553,9 @@
        "x": 0,
        "y": 16,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "center"
       },
       {
        "name": "Shortcut1",
@@ -18509,7 +19693,9 @@
        "x": 10,
        "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "center"
       },
       {
        "name": "F1Tex",
@@ -18592,7 +19778,9 @@
        "x": 10,
        "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "center"
       },
       {
        "name": "F1Tex",
@@ -18675,7 +19863,9 @@
        "x": 10,
        "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "center"
       },
       {
        "name": "F1Tex",
@@ -18810,7 +20000,9 @@
        "x": 10,
        "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "center"
       },
       {
        "name": "F1Tex",
@@ -18961,7 +20153,9 @@
        "x": 10,
        "y": 0,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "center"
       },
       {
        "name": "JoypadButtonBackTex",
@@ -19111,7 +20305,9 @@
      "x": 0,
      "y": 41,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "center"
     },
     {
      "name": "txtOwnerNameHead",
@@ -19121,7 +20317,10 @@
      "x": 20,
      "y": 70,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 588,
+     "align": "left"
     },
     {
      "name": "txtOwnerName",
@@ -19131,7 +20330,10 @@
      "x": 80,
      "y": 70,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 595,
+     "align": "left"
     },
     {
      "name": "txtClanNameHead",
@@ -19141,7 +20343,10 @@
      "x": 20,
      "y": 86,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 589,
+     "align": "left"
     },
     {
      "name": "texClan",
@@ -19161,7 +20366,10 @@
      "x": 80,
      "y": 86,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 595,
+     "align": "left"
     },
     {
      "name": "txtAllianceNameHead",
@@ -19171,7 +20379,10 @@
      "x": 20,
      "y": 102,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 590,
+     "align": "left"
     },
     {
      "name": "texAlliance",
@@ -19191,7 +20402,10 @@
      "x": 80,
      "y": 102,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 591,
+     "align": "left"
     },
     {
      "name": "SiegeInfoWnd_Date",
@@ -19222,7 +20436,10 @@
        "x": 10,
        "y": 30,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "textId": 582,
+       "align": "left"
       },
       {
        "name": "txtCurTime",
@@ -19232,7 +20449,9 @@
        "x": 80,
        "y": 30,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "txtSiegeTimeHead",
@@ -19242,7 +20461,10 @@
        "x": 10,
        "y": 50,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "textId": 583,
+       "align": "left"
       },
       {
        "name": "txtSiegeTime",
@@ -19252,7 +20474,9 @@
        "x": 80,
        "y": 50,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       }
      ],
      "autosize": [
@@ -19283,7 +20507,9 @@
        "x": 14,
        "y": 2,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "lstClan",
@@ -19350,7 +20576,9 @@
        "x": 14,
        "y": 2,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "align": "left"
       },
       {
        "name": "lstClan",
@@ -19588,7 +20816,10 @@
        "x": 11,
        "y": 13,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "textId": 833,
+       "align": "left"
       },
       {
        "name": "txtTime",
@@ -19598,7 +20829,9 @@
        "x": 77,
        "y": 13,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "left"
       },
       {
        "name": "txtSta1",
@@ -19608,7 +20841,9 @@
        "x": 14,
        "y": 34,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "align": "left"
       },
       {
        "name": "txtSta2",
@@ -19618,7 +20853,9 @@
        "x": 14,
        "y": 50,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "left"
       },
       {
        "name": "txtMySta",
@@ -19628,7 +20865,10 @@
        "x": 11,
        "y": 73,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "textId": 834,
+       "align": "left"
       },
       {
        "name": "txtMyTeam",
@@ -19638,7 +20878,10 @@
        "x": 14,
        "y": 94,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "textId": 835,
+       "align": "left"
       },
       {
        "name": "txtMyTeamName",
@@ -19648,7 +20891,9 @@
        "x": 100,
        "y": 94,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "left"
       },
       {
        "name": "txtMySeal",
@@ -19658,7 +20903,10 @@
        "x": 14,
        "y": 110,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "textId": 836,
+       "align": "left"
       },
       {
        "name": "txtMySealName",
@@ -19668,7 +20916,9 @@
        "x": 100,
        "y": 110,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "left"
       },
       {
        "name": "txtMySealStone",
@@ -19678,7 +20928,10 @@
        "x": 14,
        "y": 126,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "textId": 931,
+       "align": "left"
       },
       {
        "name": "txtMySealStoneCount",
@@ -19688,7 +20941,9 @@
        "x": 100,
        "y": 126,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "left"
       },
       {
        "name": "txtMySealStoneCountAdena",
@@ -19698,7 +20953,9 @@
        "x": 100,
        "y": 142,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "left"
       },
       {
        "name": "txtAllSta",
@@ -19708,7 +20965,10 @@
        "x": 11,
        "y": 168,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "textId": 824,
+       "align": "left"
       },
       {
        "name": "txtAllStaCur",
@@ -19718,7 +20978,9 @@
        "x": 63,
        "y": 168,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "left"
       },
       {
        "name": "txtAllDawn",
@@ -19728,7 +20990,9 @@
        "x": 14,
        "y": 192,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "left"
       },
       {
        "name": "texDawnBack",
@@ -19762,7 +21026,9 @@
        "x": 14,
        "y": 210,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "left"
       },
       {
        "name": "texDuskBack",
@@ -19796,7 +21062,9 @@
        "x": 82,
        "y": 237,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "align": "left"
       },
       {
        "name": "txtPointDusk",
@@ -19806,7 +21074,9 @@
        "x": 166,
        "y": 237,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "align": "left"
       },
       {
        "name": "txtPointSeal",
@@ -19816,7 +21086,10 @@
        "x": 14,
        "y": 252,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "textId": 839,
+       "align": "left"
       },
       {
        "name": "txtPointEvent",
@@ -19826,7 +21099,10 @@
        "x": 14,
        "y": 272,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "textId": 825,
+       "align": "left"
       },
       {
        "name": "txtPointTotal",
@@ -19836,7 +21112,10 @@
        "x": 14,
        "y": 292,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "textId": 840,
+       "align": "left"
       },
       {
        "name": "texPoint1_1",
@@ -20062,7 +21341,9 @@
        "x": 76,
        "y": 253,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "align": "right"
       },
       {
        "name": "txtPointDawn2",
@@ -20072,7 +21353,9 @@
        "x": 76,
        "y": 273,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "align": "right"
       },
       {
        "name": "txtPointDawn3",
@@ -20082,7 +21365,9 @@
        "x": 76,
        "y": 293,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "align": "right"
       },
       {
        "name": "txtPointDusk1",
@@ -20092,7 +21377,9 @@
        "x": 164,
        "y": 253,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "align": "right"
       },
       {
        "name": "txtPointDusk2",
@@ -20102,7 +21389,9 @@
        "x": 164,
        "y": 273,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "align": "right"
       },
       {
        "name": "txtPointDusk3",
@@ -20112,7 +21401,9 @@
        "x": 164,
        "y": 293,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "align": "right"
       }
      ]
     },
@@ -20135,7 +21426,10 @@
        "x": 11,
        "y": 13,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "textId": 937,
+       "align": "left"
       },
       {
        "name": "pre_txtWinTeam",
@@ -20145,7 +21439,9 @@
        "x": 64,
        "y": 13,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "left"
       },
       {
        "name": "pre_txtWinText",
@@ -20155,7 +21451,9 @@
        "x": 14,
        "y": 32,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#808080",
+       "align": "left"
       },
       {
        "name": "pre_txtSeal",
@@ -20165,7 +21463,10 @@
        "x": 11,
        "y": 88,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#DCDCDC",
+       "textId": 940,
+       "align": "left"
       },
       {
        "name": "pre_MainTree",
@@ -20565,7 +21866,10 @@
      "x": 15,
      "y": 35,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 88,
+     "align": "left"
     },
     {
      "name": "txtLvName",
@@ -20575,7 +21879,9 @@
      "x": 33,
      "y": 35,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "texHP",
@@ -20609,7 +21915,9 @@
      "x": 35,
      "y": 53,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "txtMP",
@@ -20619,7 +21927,9 @@
      "x": 35,
      "y": 67,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "center"
     },
     {
      "name": "SummonedWnd_Status",
@@ -20640,7 +21950,10 @@
        "x": 17,
        "y": 3,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 94,
+       "align": "left"
       },
       {
        "name": "txtHeadPhysicalDefense",
@@ -20650,7 +21963,10 @@
        "x": 17,
        "y": 17,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 95,
+       "align": "left"
       },
       {
        "name": "txtHeadHitRate",
@@ -20660,7 +21976,10 @@
        "x": 17,
        "y": 31,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 96,
+       "align": "left"
       },
       {
        "name": "txtHeadCriticalRate",
@@ -20670,7 +21989,10 @@
        "x": 17,
        "y": 45,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 113,
+       "align": "left"
       },
       {
        "name": "txtHeadPhysicalAttackSpeed",
@@ -20680,7 +22002,10 @@
        "x": 17,
        "y": 59,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 111,
+       "align": "left"
       },
       {
        "name": "txtHeadSoulShotCosume",
@@ -20690,7 +22015,10 @@
        "x": 17,
        "y": 73,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 404,
+       "align": "left"
       },
       {
        "name": "txtHeadMagicalAttack",
@@ -20700,7 +22028,10 @@
        "x": 132,
        "y": 3,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 98,
+       "align": "left"
       },
       {
        "name": "txtHeadMagicDefense",
@@ -20710,7 +22041,10 @@
        "x": 132,
        "y": 17,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 99,
+       "align": "left"
       },
       {
        "name": "txtHeadPhysicalAvoid",
@@ -20720,7 +22054,10 @@
        "x": 132,
        "y": 31,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 97,
+       "align": "left"
       },
       {
        "name": "txtHeadMovingSpeed",
@@ -20730,7 +22067,10 @@
        "x": 132,
        "y": 45,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 432,
+       "align": "left"
       },
       {
        "name": "txtHeadMagicCastingSpeed",
@@ -20740,7 +22080,10 @@
        "x": 132,
        "y": 59,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 112,
+       "align": "left"
       },
       {
        "name": "txtHeadSpiritShotConsume",
@@ -20750,7 +22093,10 @@
        "x": 132,
        "y": 73,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#A3A3A3",
+       "textId": 496,
+       "align": "left"
       },
       {
        "name": "txtPhysicalAttack",
@@ -20760,7 +22106,9 @@
        "x": 73,
        "y": 3,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtPhysicalDefense",
@@ -20770,7 +22118,9 @@
        "x": 73,
        "y": 17,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtHitRate",
@@ -20780,7 +22130,9 @@
        "x": 73,
        "y": 31,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtCriticalRate",
@@ -20790,7 +22142,9 @@
        "x": 73,
        "y": 45,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtPhysicalAttackSpeed",
@@ -20800,7 +22154,9 @@
        "x": 73,
        "y": 59,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtSoulShotCosume",
@@ -20810,7 +22166,9 @@
        "x": 73,
        "y": 73,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtMagicalAttack",
@@ -20820,7 +22178,9 @@
        "x": 198,
        "y": 3,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtMagicDefense",
@@ -20830,7 +22190,9 @@
        "x": 198,
        "y": 17,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtPhysicalAvoid",
@@ -20840,7 +22202,9 @@
        "x": 198,
        "y": 31,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtMovingSpeed",
@@ -20850,7 +22214,9 @@
        "x": 198,
        "y": 45,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtMagicCastingSpeed",
@@ -20860,7 +22226,9 @@
        "x": 198,
        "y": 59,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       },
       {
        "name": "txtSpiritShotConsume",
@@ -20870,7 +22238,9 @@
        "x": 198,
        "y": 73,
        "textures": [],
-       "children": []
+       "children": [],
+       "color": "#B09B79",
+       "align": "center"
       }
      ]
     },
@@ -21031,7 +22401,10 @@
      "x": 51,
      "y": 43,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 387,
+     "align": "left"
     },
     {
      "name": "txtMacro",
@@ -21041,7 +22414,10 @@
      "x": 51,
      "y": 80,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 711,
+     "align": "left"
     },
     {
      "name": "txtHelpHtml",
@@ -21051,7 +22427,10 @@
      "x": 51,
      "y": 117,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 145,
+     "align": "left"
     },
     {
      "name": "txtPetition",
@@ -21061,7 +22440,10 @@
      "x": 51,
      "y": 154,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 470,
+     "align": "left"
     },
     {
      "name": "txtOption",
@@ -21071,7 +22453,10 @@
      "x": 51,
      "y": 191,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 146,
+     "align": "left"
     },
     {
      "name": "txtRestart",
@@ -21081,7 +22466,10 @@
      "x": 51,
      "y": 228,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 147,
+     "align": "left"
     },
     {
      "name": "txtQuit",
@@ -21091,7 +22479,10 @@
      "x": 51,
      "y": 265,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 148,
+     "align": "left"
     }
    ]
   },
@@ -21246,7 +22637,10 @@
      "x": 20,
      "y": 43,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 604,
+     "align": "left"
     },
     {
      "name": "texPledgeCrest",
@@ -21266,7 +22660,9 @@
      "x": 63,
      "y": 43,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtAlliance",
@@ -21276,7 +22672,10 @@
      "x": 20,
      "y": 59,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 605,
+     "align": "left"
     },
     {
      "name": "texPledgeAllianceCrest",
@@ -21296,7 +22695,9 @@
      "x": 63,
      "y": 59,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "NpcInfo",
@@ -22490,7 +23891,10 @@
      "x": 11,
      "y": 184,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 1435,
+     "align": "left"
     },
     {
      "name": "TargetName",
@@ -22500,7 +23904,9 @@
      "x": 11,
      "y": 313,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "MoveButton",
@@ -22625,7 +24031,10 @@
      "textures": [
       "SkillTrainInfoWnd.txtName"
      ],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "textId": 88,
+     "align": "left"
     },
     {
      "name": "txtProbabilityOfSuccessString",
@@ -22637,7 +24046,10 @@
      "textures": [
       "SkillTrainInfoWnd.texIcon"
      ],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 642,
+     "align": "left"
     },
     {
      "name": "txtProbabilityOfSuccess",
@@ -22649,7 +24061,9 @@
      "textures": [
       "SkillTrainInfoWnd.txtProbabilityOfSuccessString"
      ],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtPercent",
@@ -22661,7 +24075,9 @@
      "textures": [
       "SkillTrainInfoWnd.txtProbabilityOfSuccess"
      ],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtDescription",
@@ -22671,7 +24087,9 @@
      "x": 13,
      "y": 112,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B2BECF",
+     "align": "left"
     },
     {
      "name": "txtCondition2",
@@ -22681,7 +24099,10 @@
      "x": 11,
      "y": 174,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 367,
+     "align": "left"
     },
     {
      "name": "txtNeedEXPString",
@@ -22693,7 +24114,10 @@
      "textures": [
       "SkillTrainInfoWnd.txtCondition2"
      ],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 1219,
+     "align": "left"
     },
     {
      "name": "txtColone4",
@@ -22705,7 +24129,9 @@
      "textures": [
       "SkillTrainInfoWnd.txtNeedEXPString"
      ],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "align": "left"
     },
     {
      "name": "txtNeedEXP",
@@ -22717,7 +24143,9 @@
      "textures": [
       "SkillTrainInfoWnd.txtColone4"
      ],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtNeedSPString",
@@ -22729,7 +24157,10 @@
      "textures": [
       "SkillTrainInfoWnd.txtNeedEXPString"
      ],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 365,
+     "align": "left"
     },
     {
      "name": "txtColone3",
@@ -22741,7 +24172,9 @@
      "textures": [
       "SkillTrainInfoWnd.SubWndEnchant.txtNeedSPString"
      ],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "align": "left"
     },
     {
      "name": "txtNeedSP",
@@ -22753,7 +24186,9 @@
      "textures": [
       "SkillTrainInfoWnd.SubWndEnchant.txtColone3"
      ],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "texNeedItemIcon",
@@ -22777,7 +24212,9 @@
      "textures": [
       "SkillTrainInfoWnd.SubWndEnchant.texNeedItemIcon"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtEXP",
@@ -22787,7 +24224,9 @@
      "x": 140,
      "y": 325,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     }
    ]
   },
@@ -22810,7 +24249,10 @@
      "textures": [
       "SkillTrainInfoWnd.txtName"
      ],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 88,
+     "align": "left"
     },
     {
      "name": "txtLevel",
@@ -22822,7 +24264,9 @@
      "textures": [
       "SkillTrainInfoWnd.txtLvString"
      ],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtOperateType",
@@ -22834,7 +24278,9 @@
      "textures": [
       "SkillTrainInfoWnd.txtLevel"
      ],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtMPString",
@@ -22846,7 +24292,10 @@
      "textures": [
       "SkillTrainInfoWnd.texIcon"
      ],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 320,
+     "align": "left"
     },
     {
      "name": "txtColone1",
@@ -22858,7 +24307,9 @@
      "textures": [
       "SkillTrainInfoWnd.txtMPString"
      ],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "align": "left"
     },
     {
      "name": "txtMP",
@@ -22870,7 +24321,9 @@
      "textures": [
       "SkillTrainInfoWnd.txtColone1"
      ],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtCastRangeString",
@@ -22882,7 +24335,10 @@
      "textures": [
       "SkillTrainInfoWnd.txtMPString"
      ],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 321,
+     "align": "left"
     },
     {
      "name": "txtColoneCastRange",
@@ -22894,7 +24350,9 @@
      "textures": [
       "SkillTrainInfoWnd.txtCastRangeString"
      ],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "align": "left"
     },
     {
      "name": "txtCastRange",
@@ -22906,7 +24364,9 @@
      "textures": [
       "SkillTrainInfoWnd.txtColoneCastRange"
      ],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtDescription",
@@ -22916,7 +24376,9 @@
      "x": 13,
      "y": 122,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B2BECF",
+     "align": "left"
     },
     {
      "name": "txtCondition",
@@ -22926,7 +24388,10 @@
      "x": 11,
      "y": 219,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 367,
+     "align": "left"
     },
     {
      "name": "txtNeedSPString",
@@ -22938,7 +24403,10 @@
      "textures": [
       "SkillTrainInfoWnd.txtCondition"
      ],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "textId": 365,
+     "align": "left"
     },
     {
      "name": "txtColone3",
@@ -22950,7 +24418,9 @@
      "textures": [
       "SkillTrainInfoWnd.SubWndNormal.txtNeedSPString"
      ],
-     "children": []
+     "children": [],
+     "color": "#A3A3A3",
+     "align": "left"
     },
     {
      "name": "txtNeedSP",
@@ -22962,7 +24432,9 @@
      "textures": [
       "SkillTrainInfoWnd.SubWndNormal.txtColone3"
      ],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "texNeedItemIcon",
@@ -22984,7 +24456,9 @@
      "textures": [
       "SkillTrainInfoWnd.SubWndNormal.texNeedItemIcon"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtSPString",
@@ -22996,7 +24470,9 @@
      "textures": [
       "SkillTrainInfoWnd.txtSP"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     }
    ]
   },
@@ -23029,7 +24505,10 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 366,
+     "align": "left"
     },
     {
      "name": "texOutlineTopUp",
@@ -23077,7 +24556,9 @@
      "textures": [
       "SkillTrainInfoWnd.texIcon"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtSPString",
@@ -23089,7 +24570,9 @@
      "textures": [
       "SkillTrainInfoWnd.txtSP"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtSP",
@@ -23099,7 +24582,9 @@
      "x": 140,
      "y": 345,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "btnLearn",
@@ -23148,7 +24633,10 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 364,
+     "align": "left"
     },
     {
      "name": "txtSPString",
@@ -23160,7 +24648,9 @@
      "textures": [
       "SkillTrainListWnd.txtSP"
      ],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "txtSP",
@@ -23170,7 +24660,9 @@
      "x": 140,
      "y": 345,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "SkillTrainListTree",
@@ -23260,7 +24752,10 @@
      "x": 15,
      "y": 17,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "textId": 408,
+     "align": "left"
     },
     {
      "name": "txtMasterName",
@@ -23270,7 +24765,9 @@
      "x": 69,
      "y": 17,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "lstPartyMember",
@@ -23327,7 +24824,10 @@
      "x": 14,
      "y": 34,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "textId": 1265,
+     "align": "left"
     },
     {
      "name": "txtOwner",
@@ -23337,7 +24837,9 @@
      "x": 110,
      "y": 34,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtRoutingTypeHead",
@@ -23347,7 +24849,10 @@
      "x": 14,
      "y": 49,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "textId": 1382,
+     "align": "left"
     },
     {
      "name": "txtRoutingType",
@@ -23357,7 +24862,9 @@
      "x": 110,
      "y": 49,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "left"
     },
     {
      "name": "txtCountInfo",
@@ -23367,7 +24874,9 @@
      "x": 15,
      "y": 75,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "align": "left"
     },
     {
      "name": "btnRefresh",
@@ -23442,7 +24951,9 @@
      "x": 14,
      "y": 132,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "align": "center"
     },
     {
      "name": "txtInstruction2",
@@ -23452,7 +24963,10 @@
      "x": 38,
      "y": 183,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "textId": 1482,
+     "align": "left"
     },
     {
      "name": "txtAdenaInstruction",
@@ -23462,7 +24976,9 @@
      "x": 113,
      "y": 183,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#BBBBBB",
+     "align": "right"
     },
     {
      "name": "Itemtounrefine",
@@ -23693,7 +25209,9 @@
      "x": 11,
      "y": 32,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "BottomText",
@@ -23703,7 +25221,9 @@
      "x": 11,
      "y": 198,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "left"
     },
     {
      "name": "TopCountText",
@@ -23713,7 +25233,9 @@
      "x": null,
      "y": null,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "BottomCountText",
@@ -23723,7 +25245,9 @@
      "x": null,
      "y": null,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#B09B79",
+     "align": "right"
     },
     {
      "name": "PriceConstText",
@@ -23733,7 +25257,10 @@
      "x": 100,
      "y": 332,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 135,
+     "align": "right"
     },
     {
      "name": "AdenaConstText",
@@ -23743,7 +25270,10 @@
      "x": 100,
      "y": 351,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "textId": 134,
+     "align": "right"
     },
     {
      "name": "PriceText",
@@ -23753,7 +25283,9 @@
      "x": 158,
      "y": 332,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "AdenaText",
@@ -23763,7 +25295,9 @@
      "x": 158,
      "y": 351,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#DCDCDC",
+     "align": "right"
     },
     {
      "name": "InvenWeight",
@@ -23806,7 +25340,9 @@
      "x": 103,
      "y": 83,
      "textures": [],
-     "children": []
+     "children": [],
+     "color": "#000000",
+     "align": "left"
     },
     {
      "name": "textZoneNameFront",
@@ -23820,7 +25356,9 @@
       "ShortcutWnd.ShortcutWndJoypad",
       "ShortcutWnd.ShortcutWndJoypadExpand"
      ],
-     "children": []
+     "children": [],
+     "color": "#F0F0DC",
+     "align": "left"
     }
    ]
   }

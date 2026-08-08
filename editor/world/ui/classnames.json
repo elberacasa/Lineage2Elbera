@@ -1,0 +1,362 @@
+{
+ "classes": {
+  "0": {
+   "name": "Human Fighter",
+   "sysId": 247
+  },
+  "1": {
+   "name": "Warrior",
+   "sysId": 248
+  },
+  "10": {
+   "name": "Human Mystic",
+   "sysId": 257
+  },
+  "11": {
+   "name": "Human Wizard",
+   "sysId": 258
+  },
+  "12": {
+   "name": "Sorcerer",
+   "sysId": 259
+  },
+  "13": {
+   "name": "Necromancer",
+   "sysId": 260
+  },
+  "14": {
+   "name": "Warlock",
+   "sysId": 261
+  },
+  "15": {
+   "name": "Cleric",
+   "sysId": 262
+  },
+  "16": {
+   "name": "Bishop",
+   "sysId": 263
+  },
+  "17": {
+   "name": "Prophet",
+   "sysId": 264
+  },
+  "18": {
+   "name": "Elven Fighter",
+   "sysId": 265
+  },
+  "19": {
+   "name": "Elven Knight",
+   "sysId": 266
+  },
+  "2": {
+   "name": "Gladiator",
+   "sysId": 249
+  },
+  "20": {
+   "name": "Temple Knight",
+   "sysId": 267
+  },
+  "21": {
+   "name": "Sword Singer",
+   "sysId": 268
+  },
+  "22": {
+   "name": "Elven Scout",
+   "sysId": 269
+  },
+  "23": {
+   "name": "Plains Walker",
+   "sysId": 270
+  },
+  "24": {
+   "name": "Silver Ranger",
+   "sysId": 271
+  },
+  "25": {
+   "name": "Elven Mystic",
+   "sysId": 272
+  },
+  "26": {
+   "name": "Elven Wizard",
+   "sysId": 273
+  },
+  "27": {
+   "name": "Spellsinger",
+   "sysId": 274
+  },
+  "28": {
+   "name": "Elemental Summoner",
+   "sysId": 275
+  },
+  "29": {
+   "name": "Elven Oracle",
+   "sysId": 276
+  },
+  "3": {
+   "name": "Warlord",
+   "sysId": 250
+  },
+  "30": {
+   "name": "Elven Elder",
+   "sysId": 277
+  },
+  "31": {
+   "name": "Dark Fighter",
+   "sysId": 278
+  },
+  "32": {
+   "name": "Palus Knight",
+   "sysId": 279
+  },
+  "33": {
+   "name": "Shillien Knight",
+   "sysId": 280
+  },
+  "34": {
+   "name": "Bladedancer",
+   "sysId": 281
+  },
+  "35": {
+   "name": "Assassin",
+   "sysId": 282
+  },
+  "36": {
+   "name": "Abyss Walker",
+   "sysId": 283
+  },
+  "37": {
+   "name": "Phantom Ranger",
+   "sysId": 284
+  },
+  "38": {
+   "name": "Dark Mystic",
+   "sysId": 285
+  },
+  "39": {
+   "name": "Dark Wizard",
+   "sysId": 286
+  },
+  "4": {
+   "name": "Human Knight",
+   "sysId": 251
+  },
+  "40": {
+   "name": "Spellhowler",
+   "sysId": 287
+  },
+  "41": {
+   "name": "Phantom Summoner",
+   "sysId": 288
+  },
+  "42": {
+   "name": "Shillien Oracle",
+   "sysId": 289
+  },
+  "43": {
+   "name": "Shillien Elder",
+   "sysId": 290
+  },
+  "44": {
+   "name": "Orc Fighter",
+   "sysId": 291
+  },
+  "45": {
+   "name": "Orc Raider",
+   "sysId": 292
+  },
+  "46": {
+   "name": "Destroyer",
+   "sysId": 293
+  },
+  "47": {
+   "name": "Monk",
+   "sysId": 294
+  },
+  "48": {
+   "name": "Tyrant",
+   "sysId": 295
+  },
+  "49": {
+   "name": "Orc Mystic",
+   "sysId": 296
+  },
+  "5": {
+   "name": "Paladin",
+   "sysId": 252
+  },
+  "50": {
+   "name": "Orc Shaman",
+   "sysId": 297
+  },
+  "51": {
+   "name": "Overlord",
+   "sysId": 298
+  },
+  "52": {
+   "name": "Warcryer",
+   "sysId": 299
+  },
+  "53": {
+   "name": "Dwarven Fighter",
+   "sysId": 300
+  },
+  "54": {
+   "name": "Scavenger",
+   "sysId": 301
+  },
+  "55": {
+   "name": "Bounty Hunter",
+   "sysId": 302
+  },
+  "56": {
+   "name": "Artisan",
+   "sysId": 303
+  },
+  "57": {
+   "name": "Warsmith",
+   "sysId": 304
+  },
+  "58": {
+   "name": "Duelist",
+   "sysId": 1159
+  },
+  "59": {
+   "name": "Dreadnought",
+   "sysId": 1160
+  },
+  "6": {
+   "name": "Dark Avenger",
+   "sysId": 253
+  },
+  "60": {
+   "name": "Phoenix Knight",
+   "sysId": 1161
+  },
+  "61": {
+   "name": "Hell Knight",
+   "sysId": 1162
+  },
+  "62": {
+   "name": "Sagittarius",
+   "sysId": 1163
+  },
+  "63": {
+   "name": "Adventurer",
+   "sysId": 1164
+  },
+  "64": {
+   "name": "Archmage",
+   "sysId": 1165
+  },
+  "65": {
+   "name": "Soultaker",
+   "sysId": 1166
+  },
+  "66": {
+   "name": "Arcana Lord",
+   "sysId": 1167
+  },
+  "67": {
+   "name": "Cardinal",
+   "sysId": 1168
+  },
+  "68": {
+   "name": "Hierophant",
+   "sysId": 1169
+  },
+  "69": {
+   "name": "Eva's Templar",
+   "sysId": 1170
+  },
+  "7": {
+   "name": "Rogue",
+   "sysId": 254
+  },
+  "70": {
+   "name": "Sword Muse",
+   "sysId": 1171
+  },
+  "71": {
+   "name": "Wind Rider",
+   "sysId": 1172
+  },
+  "72": {
+   "name": "Moonlight Sentinel",
+   "sysId": 1173
+  },
+  "73": {
+   "name": "Mystic Muse",
+   "sysId": 1174
+  },
+  "74": {
+   "name": "Elemental Master",
+   "sysId": 1175
+  },
+  "75": {
+   "name": "Eva's Saint",
+   "sysId": 1176
+  },
+  "76": {
+   "name": "Shillien Templar",
+   "sysId": 1177
+  },
+  "77": {
+   "name": "Spectral Dancer",
+   "sysId": 1178
+  },
+  "78": {
+   "name": "Ghost Hunter",
+   "sysId": 1179
+  },
+  "79": {
+   "name": "Ghost Sentinel",
+   "sysId": 1180
+  },
+  "8": {
+   "name": "Treasure Hunter",
+   "sysId": 255
+  },
+  "80": {
+   "name": "Storm Screamer",
+   "sysId": 1181
+  },
+  "81": {
+   "name": "Spectral Master",
+   "sysId": 1182
+  },
+  "82": {
+   "name": "Shillien Saint",
+   "sysId": 1183
+  },
+  "83": {
+   "name": "Titan",
+   "sysId": 1184
+  },
+  "84": {
+   "name": "Grand Khavatari",
+   "sysId": 1185
+  },
+  "85": {
+   "name": "Dominator",
+   "sysId": 1186
+  },
+  "86": {
+   "name": "Doom Cryer",
+   "sysId": 1187
+  },
+  "87": {
+   "name": "Fortune Seeker",
+   "sysId": 1188
+  },
+  "88": {
+   "name": "Maestro",
+   "sysId": 1189
+  },
+  "9": {
+   "name": "Hawkeye",
+   "sysId": 256
+  }
+ },
+ "rule": "sysId = 247 + classId for classId < 58, else 1159 + classId - 58",
+ "source": "sysstring-e.dat (client) cross-checked against aCis ClassId.java (server); classId == enum ordinal"
+}

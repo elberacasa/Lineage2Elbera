@@ -56,7 +56,37 @@ OUT = os.path.join(REPO, "assets/gamedata/interface.json")
 LIBRARY = os.path.join(REPO, "assets/library")
 
 # A texture reference looks like  Package.Group.Name  or  Package.Name.
-TEXREF = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*(?:\.[A-Za-z0-9_\-]+){1,3}$")
+#
+# Every dot-separated component must be at least 2 characters. That rule is
+# what separates a real reference like `L2UI_CH3.SmallWnd.CpBar` from the two
+# truncated authoring leftovers in the shipped file, `L2UI_CH3.d` and
+# `l2UI_CH3.f`, which resolve to nothing.
+#
+# CORRECTED 2026-08-08. tools/ui/mine_texrefs.py's docstring says the byte-scan
+# harvest "has since been folded into parse_xdat.py itself" and, in the same
+# paragraph, that TEXREF "is tightened to require every dot-separated component
+# to be at least 2 characters". The first half was true; the second was not —
+# only the scan came across, and this pattern still read
+# `(?:\.[A-Za-z0-9_\-]+){1,3}`. Nobody noticed because the checked-in
+# interface.json had been generated back when the rule did hold, so the file on
+# disk was right and the tool that regenerates it was not: a fresh run added
+# `L2UI_CH3.d` and `l2UI_CH3.f` to TeaserSlideWnd and to the textures map.
+# The two patterns are now the same rule, which is what mine_texrefs --check
+# ("interface.json up to date") has been silently relying on.
+TEXREF = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]+(?:\.[A-Za-z0-9_\-]{2,}){1,3}$")
+
+# Refs that are well-formed by the rule above but malformed in NCSoft's own
+# shipped data — they name no texture in any package, in any client. Listing
+# them explicitly is what lets --check gate on "no NEW unresolved ref" instead
+# of "zero unresolved", which is the same contract tools/audio/build_audio.py
+# uses for the 6 sound refs NCSoft shipped broken.
+#
+# default.black: the file also contains the correct `Default.BlackTexture`
+# (which resolves to assets/library/default/BlackTexture.png). `default.black`
+# is an authoring leftover of the same family as the truncated `L2UI_CH3.d`
+# and `l2UI_CH3.f` — it simply survives the >=2-char component rule because
+# "black" is five characters. There is no black.png in the default package.
+KNOWN_UNRESOLVED = {"default.black"}
 
 
 class Reader:
@@ -188,6 +218,120 @@ def parse_grid(r, body, end):
     return None
 
 
+# docs: the TEXT block every TextBox record carries near the end of its span.
+#
+# The .uc scripts SetText() the dynamic boxes but never touch the static
+# labels — DetailStatusWnd.uc writes txtSTR and txtPhysicalAttack and leaves
+# txtHeadSTR / txtHeadPhysicalAttack alone — because those labels are stored
+# in the record itself, as a SYSTEM-STRING ID resolved through
+# sysstring-e.dat, followed by the box's text colour.
+#
+# Layout, verified byte-for-byte on DetailStatusWnd.txtHeadPhysicalAttack
+# (body+78 onward) and unchanged across the file:
+#
+#     i32 -9999 | i32 textId (-9999 = none) | i32 -9999 | u8 B,G,R,A
+#
+# It is found by SIGNATURE, never at a fixed offset (the preceding fields are
+# variable-length strings), and accepted only when the record's span contains
+# EXACTLY ONE match — a second match would mean the shape is ambiguous there.
+#
+# Why this is not a guess, in four independent checks that all held:
+#   * 650 of 658 TextBox records decode; every one of the 266 ids that come
+#     out resolves in sysstring-e.dat, with zero misses.
+#   * QuestTreeWnd's box is literally NAMED `txt324` and decodes to id 324
+#     ('Accepted Quest') — the record labels itself.
+#   * ClanWnd title0..3 decode to 1321/342/343/88 = 'Clan'/'Leader'/'Base'/
+#     'Lv', which is what those four fields say in the retail window (the
+#     port had been showing hand-translated Korean there).
+#   * the colours that come out are #DCDCDC, #B09B79 and #A3A3A3 — the same
+#     constants already mined independently out of NWindow.dll
+#     (docs/ui-mined-native.md §2), alpha 255 on all 650.
+#
+# Button/CheckBox/ListCtrl tails do NOT match this shape and are left alone;
+# their labels are still mined by hand (see js/ui/clanwnd.js).
+TEXT_SIG = re.compile(rb"\xf1\xd8\xff\xff(.{4})\xf1\xd8\xff\xff(.{4})", re.S)
+
+# The horizontal alignment enum, one int32 immediately after the box's default
+# text. Two things are being claimed here and they are deliberately kept apart.
+#
+# MEASURED. Over the shipped file the field takes 1 on 430 boxes, 3 on 105 and
+# 2 on 87, plus 0 on 24 and 4 on one. Nothing else.
+#
+# IDENTIFIED (inference, with what would falsify it). 2 = centre and 3 = right,
+# from two cases where the layout admits only one answer:
+#
+#   * DetailStatusWnd's six gauge readouts (txtHP/MP/Exp/CP/Weight/SP, 85px
+#     wide, sitting exactly on the 85px bars) all carry 2, and that case is
+#     already settled from a different source: NWindow.dll's NCStatusBarCtrl
+#     render CENTRES its label on the bar (`bar width * 0.5 - textWidth / 2`,
+#     mined in js/ui/statuswnd.js). The same value is on txtCON, whose rect
+#     (x 194, w 70) runs 8px past the window's 256px edge — centred the number
+#     lands inside the window, right-aligned it would not.
+#   * The eleven combat/social value boxes (49/50 wide, their label far to the
+#     left) carry 3, and right is the only alignment that keeps those numbers
+#     inside their column instead of walking into the next label.
+#
+#   Falsified by: a box carrying 2 or 3 whose text demonstrably cannot be
+#   centred/right-aligned in its own rect. The per-control guards in main()
+#   assert the DetailStatusWnd rows specifically.
+#
+# 1 = left is the residual, and only the residual — an earlier draft of this
+# comment asserted that every 1 was a box with NO declared width, which is the
+# kind of tidy story this file exists to distrust. It is false: 304 of the 430
+# have a width. The guard that was written to enforce it failed immediately,
+# which is the only reason the claim is not still sitting here.
+#
+# 0 (24 records) and 4 (1 record) are NOT identified and are not emitted.
+ALIGN = {1: "left", 2: "center", 3: "right"}
+
+
+UNDEFINED = b"\nundefined\x00"           # the serialized string, 11 bytes
+
+
+def parse_text_block(r, body, end):
+    """{'align', 'textId', 'color'} for a TextBox record, or None.
+
+    The record tail ends in this fixed shape:
+
+        i32 align | i32 f | str "undefined"
+        | i32 -9999 | i32 textId | i32 -9999 | u8 B,G,R,A
+
+    Found by SIGNATURE on the `-9999 <int> -9999 <colour>` run, never by a
+    fixed offset, and accepted only on EXACTLY ONE match in the span. A walk
+    forward from the record body was tried first and is what this replaces:
+    it decoded 534 of 658 records because the fields ahead of the tail are
+    variable-length and 124 records take a different route through them —
+    the same phase problem that cost the texture harvest 156 records
+    (tools/ui/mine_texrefs.py). The signature does not care how the record
+    got there.
+
+    `align` is then read BACKWARDS from the match, and only when the 11 bytes
+    immediately before it are the literal serialized string "undefined" —
+    which is what makes the backward read an anchored decode rather than an
+    offset guess.
+    """
+    d = r.d
+    span = d[body:end]
+    hits = list(TEXT_SIG.finditer(span))
+    if len(hits) != 1:
+        return None
+    m = hits[0]
+    tid = struct.unpack("<i", m.group(1))[0]
+    b, g, rr, a = m.group(2)
+    if a != 255:
+        return None
+    out = {"color": f"#{rr:02X}{g:02X}{b:02X}"}
+    if tid != -9999:
+        out["textId"] = tid
+
+    s = m.start()
+    if s >= 19 and span[s - 11:s] == UNDEFINED:
+        align = struct.unpack_from("<i", span, s - 19)[0]
+        if align in ALIGN:
+            out["align"] = ALIGN[align]
+    return out
+
+
 def parse_has0_tail(r, body):
     """Decode the hasSize==0 record tail (docs/xdat-tail-has0.md), or None.
 
@@ -297,6 +441,10 @@ def build_tree(records):
             grid = parse_grid(Reader(data_g), rec["body"], rec["end"])
             if grid:
                 node["grid"] = grid
+        if rec["type"] == "TextBox":
+            txt = parse_text_block(Reader(data_g), rec["body"], rec["end"])
+            if txt:
+                node.update(txt)
         by_name.setdefault(rec["name"], node)
         if not rec["parent"]:
             node["type"] = rec["type"] or "Window"
@@ -366,6 +514,8 @@ def main():
             resolved[ref] = hit
         elif ref.split(".")[0] in record_names:
             control_refs.append(ref)
+        elif ref in KNOWN_UNRESOLVED:
+            resolved[ref] = None
         else:
             missing.append(ref)
             resolved[ref] = None
@@ -441,6 +591,55 @@ def main():
                and inv_item["grid"]["gapY"] == 3)
     print(f"grid decoded    {len(grids)} ItemWindow records (guard: >=30)")
     print(f"InventoryItem   {'4-row cap250 32px gap5,3' if grid_ok else 'BROKEN'} (guard)")
+
+    # TextBox label guards (see parse_text_block): the block must decode for
+    # nearly every TextBox, every id must resolve in sysstring-e.dat, and the
+    # two records that NAME their own string id must decode to it.
+    texts, labelled, aligned = [], [], []
+    def _walk_text(n):
+        if n["type"] == "TextBox" and n.get("color"):
+            texts.append(n)
+            if n.get("textId") is not None:
+                labelled.append(n)
+            if n.get("align"):
+                aligned.append(n)
+        for c in n.get("children", []):
+            _walk_text(c)
+    for w in windows:
+        _walk_text(w)
+    sysstr = os.path.join(REPO, "assets/gamedata/sysstring.json")
+    ids_ok = True
+    if os.path.exists(sysstr):
+        known = {r["id"] for r in json.load(open(sysstr, encoding="utf-8"))}
+        ids_ok = all(n["textId"] in known for n in labelled)
+    # QuestTreeWnd.txt324 names its own id; DetailStatusWnd's stat labels are
+    # the block this decode exists for.
+    self_named = next((n for n in labelled if n["name"] == "txt324"), None)
+    detail = {n["name"]: n.get("textId") for n in labelled}
+    # Alignment guards (see ALIGN): the two DetailStatusWnd rows the
+    # identification rests on. The gauge readouts are the row corroborated by
+    # NCStatusBarCtrl; the combat values are the row where only right-align
+    # fits the column.
+    al = {n["name"]: n["align"] for n in aligned
+          if n in [c for w in windows if w["name"] == "DetailStatusWnd"
+                   for c in w["children"]]}
+    align_ok = (len(aligned) >= 500
+                and all(al.get(n) == "center" for n in
+                        ("txtHP", "txtMP", "txtExp", "txtCP", "txtWeight", "txtSP"))
+                and all(al.get(n) == "right" for n in
+                        ("txtPhysicalAttack", "txtMagicDefense", "txtPVP"))
+                and al.get("txtHeadSTR") == "left")
+    text_ok = (len(texts) >= 640 and len(labelled) >= 260 and ids_ok
+               and self_named is not None and self_named["textId"] == 324
+               and detail.get("txtHeadSTR") == 104
+               and detail.get("txtHeadPhysicalAttack") == 94
+               and align_ok)
+    print(f"TextBox labels  {len(texts)} decoded, {len(labelled)} carry a "
+          f"sysstring id (guard: >=640 / >=260)")
+    print(f"label ids       {'all resolve; txt324==324, STR==104' if ids_ok else 'BROKEN'} (guard)")
+    print(f"text align      {len(aligned)} decoded; "
+          f"{'gauges centre, values right, heads left' if align_ok else 'BROKEN'} (guard)")
+
     ok = (len(tops) >= declared - 3
           and covered >= (len(data) - 4) * 0.95
           and not missing
@@ -449,7 +648,8 @@ def main():
           and has0_decoded >= 170
           and bars_stack
           and panes_tile
-          and grid_ok)
+          and grid_ok
+          and text_ok)
     if args.check:
         print("CHECK", "PASS" if ok else "FAIL")
         return 0 if ok else 1

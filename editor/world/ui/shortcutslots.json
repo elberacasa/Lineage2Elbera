@@ -1,0 +1,67 @@
+{
+ "orientations": {
+  "ShortcutWndHorizontal": {
+   "artHeight": 46,
+   "artOffsetX": 13,
+   "artOffsetY": 0,
+   "artWidth": 492,
+   "iconCell": 32,
+   "iconInset": 2,
+   "longAxis": "x",
+   "slot": 36,
+   "slotOrigins": [
+    32,
+    69,
+    106,
+    143,
+    185,
+    222,
+    259,
+    296,
+    338,
+    375,
+    412,
+    449
+   ],
+   "slotShort": 5,
+   "texture": "L2UI_CH3.ShortcutWnd.shortcut_back",
+   "well": 34,
+   "wellInset": 1,
+   "windowHeight": 46,
+   "windowWidth": 504
+  },
+  "ShortcutWndVertical": {
+   "artHeight": 492,
+   "artOffsetX": 0,
+   "artOffsetY": 13,
+   "artWidth": 46,
+   "iconCell": 32,
+   "iconInset": 2,
+   "longAxis": "y",
+   "slot": 36,
+   "slotOrigins": [
+    32,
+    69,
+    106,
+    143,
+    185,
+    222,
+    259,
+    296,
+    338,
+    375,
+    412,
+    449
+   ],
+   "slotShort": 5,
+   "texture": "L2UI_CH3.ShortcutWnd.shortcut_backv",
+   "well": 34,
+   "wellInset": 1,
+   "windowHeight": 504,
+   "windowWidth": 46
+  }
+ },
+ "source": "L2UI_CH3.ShortcutWnd.shortcut_back / shortcut_backv (tier 3, measured) reconciled against Interface.xdat (tier 1) slot records",
+ "space": "ShortcutWnd sub-window pixels",
+ "window": "ShortcutWnd"
+}

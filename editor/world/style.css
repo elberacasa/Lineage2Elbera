@@ -172,22 +172,24 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 #chat-log .line.ch-trade { color: #e8a0b4; }
 #chat-log .line.ch-hero { color: #7fd8e8; }
 
-/* M5 char sheet + settings */
-#charsheet-panel, #settings-panel {
+/* Settings panel.
+   #charsheet-panel used to share these rules — a 300px rounded translucent
+   card, hand-styled, which is what made Alt+T read as a web panel instead of
+   a retail window. Alt+T is now DetailStatusWnd (js/ui/detailstatuswnd.js),
+   built on L2Window from the mined 256x335 geometry, so the element keeps no
+   styling of its own: js/charsheet.js empties it and keeps it only as the
+   `visible` flag main.js still reads. #settings-panel is AUTHORED and stays
+   authored — it has no retail counterpart in the xdat. */
+#charsheet-panel { display: none !important; }
+#settings-panel {
   position: fixed; right: 12px; top: 60px; z-index: 13; width: 300px;
   display: none; border-radius: 8px; padding: 8px 12px 12px;
   background: rgba(10,12,17,.88); border: 1px solid #3a4254;
   font: 12px -apple-system, sans-serif; color: #cfd4de;
 }
-#charsheet-panel.visible, #settings-panel.visible { display: block; }
-.sheet-cols { display: flex; gap: 14px; }
-.sheet-cols table { flex: 1; border-collapse: collapse; }
-.sheet-cols td { padding: 1px 4px; }
-.sheet-cols td:first-child { color: #8a93a5; }
-.sheet-cols td:last-child { text-align: right; color: #e6eaf2; }
-.sheet-sub { margin-top: 8px; color: #c9a959; }
-.sheet-gear { margin-top: 6px; border-top: 1px solid #2a3140; padding-top: 6px; }
-.gear-line { color: #b9c2d4; }
+#settings-panel.visible { display: block; }
+/* .sheet-cols / .sheet-sub / .sheet-gear are gone with the authored panel:
+   the retail window has no stat tables and no equipped-gear list. */
 .settings-note { color: #8a93a5; margin: 0 0 8px; }
 .settings-note b { color: #e6eaf2; }
 .deviceid-row { display: flex; gap: 6px; align-items: center; }
@@ -215,13 +217,23 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 }
 #dev-hint.fade { opacity: 0; }
 
-/* ShortcutWnd slots (js/ui/shortcutwnd.js) */
+/* ShortcutWnd slots (js/ui/shortcutwnd.js)
+
+   Exactly the same rule as the InventoryWnd cells below, and for the same
+   reason. `L2UI_CH3.ShortcutWnd.shortcut_back` already paints all twelve
+   slot wells — 32px interiors inside a 34px bevel, mined by
+   tools/ui/mine_shortcutslots.py and now drawn at the offset that puts them
+   under the xdat's slot rects. The slot element sits ON that well, so it
+   must not fill or frame itself: the rounded rgba box with its own 1px
+   border was hiding the retail art. It only became visible as a "bar" at
+   all because the plate underneath was missing entirely (see
+   shortcutwnd.js's header), so the boxes were the only thing on screen.
+   Only the transient states draw, as an inset ring that stays inside the
+   32px well rather than growing the element. */
 .shortcut-slot {
-  position: absolute; border-radius: 3px; cursor: pointer; overflow: visible;
-  background: rgba(12,14,18,.55); border: 1px solid #2a3140;
+  position: absolute; cursor: pointer; overflow: visible;
 }
-.shortcut-slot.empty { background: rgba(12,14,18,.3); }
-.shortcut-slot:hover { border-color: #c9a959; }
+.shortcut-slot:hover { box-shadow: inset 0 0 0 1px #c9a959; }
 .shortcut-slot img { width: 100%; height: 100%; display: block; }
 .shortcut-btn.disabled { opacity: .35; cursor: default; pointer-events: none; }
 

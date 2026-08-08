@@ -72,8 +72,11 @@ export function loadExpTable() {
     .catch(() => (_expTable = {}));
 }
 
-/** Fraction of the way from `level` to `level + 1`, or null if unknown. */
-function expFraction(exp, level) {
+/** Fraction of the way from `level` to `level + 1`, or null if unknown.
+ *  Exported because DetailStatusWnd needs the SAME arithmetic: its .uc feeds
+ *  the exp gauge GetPlayerEXPRate() — the identical rate this computes — and
+ *  prints it with a '%'. Two copies of a formula is how they drift apart. */
+export function expFraction(exp, level) {
   if (!_expTable || exp == null || !level) return null;
   const cur = _expTable[String(level)];
   const next = _expTable[String(level + 1)];

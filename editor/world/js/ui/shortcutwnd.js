@@ -14,6 +14,32 @@
 // are recognized but dropping them is rejected — AUTHORED: nothing in the
 // web port produces those types yet, so the slots exist in the type model
 // only.
+//
+// WHAT WAS WRONG (measured 2026-08-08, before/after shots in the report):
+// the bar painted NO background in its default orientation, so the twelve
+// mined slot origins sat on nothing and the port drew a CSS box per slot to
+// compensate — the same "flat coloured stripe" failure the status gauges had.
+// Two separate causes, both in what is painted, not where:
+//
+//   1. `ShortcutWndHorizontal`'s texture list opens with the intra-UI control
+//      reference `ShortcutWnd.ShortcutWndVertical` (a real string in the
+//      file, harvested correctly — it is simply not a texture), so `tex0`
+//      handed Skin.apply a name that resolves to no sprite and Skin.apply
+//      set `background: none`. Every other record in this window is clean,
+//      which is why only the DEFAULT orientation was blank. Fixed by
+//      filtering to refs that resolve, the same guard `_btn` and `fArts`
+//      already used.
+//   2. The art is 492x46 inside a 504x46 window and is NOT anchored at the
+//      window origin. tools/ui/mine_shortcutslots.py measures the twelve
+//      wells the art paints and solves for the placement that puts them
+//      under the twelve xdat slot rects: +13 on the bar's long axis, 0 on
+//      the short axis, identical in both orientations, all twelve agreeing.
+//      Passing the DECLARED 504x46 as the sprite's content rect (what the
+//      old code did) told the skin a 492px art was 504px wide and stretched
+//      it, which moves every well off its slot.
+//
+// So the slots no longer draw a box: the retail plate already paints the
+// well, exactly as InventoryWnd's cells stopped doing (see style.css).
 
 import { Layout } from './layout.js';
 import { Skin } from './skin.js';
@@ -34,12 +60,25 @@ const SLOTS_PER_PAGE = 12;    // ShortcutWnd.uc:4
 //   pos  32  69  106 143 | 185  222  259  296 | 338  375  412  449
 // pitch 37 (36px slot + 1px) with a +5px separator after slots 4 and 8,
 // grouping the bar 4|4|4. Vertical mirrors: (5,32) first slot.
+//
+// These are now FALLBACKS only. The same twelve origins, the same 4|4|4
+// stepping and the 36px slot are re-derived from the background art by
+// tools/ui/mine_shortcutslots.py and read through Layout.shortcutArt() —
+// which is what proves the table: the art's own twelve wells reproduce it
+// independently of the record decode, in both orientations.
 const SLOT_X = [32, 69, 106, 143, 185, 222, 259, 296, 338, 375, 412, 449];
 const SLOT_Y = [32, 69, 106, 143, 185, 222, 259, 296, 338, 375, 412, 449];
 const SLOT = 36;
 const SLOT_Y0 = 5, SLOT_V_X0 = 5;
 
 const ALLOWED_TYPES = new Set(['skill', 'item', 'action']);
+
+// Page-number colour: the client's own, read off PageNumTextBox's record
+// (all eight ShortcutWnd sub-windows store #DCDCDC — the same default grey
+// NWindow.dll pushes for unclassified text, docs/ui-mined-native.md §2).
+// This replaces an authored gold #c9a959. The constant is only the fallback
+// for when the decode is unavailable.
+const PAGE_COLOR_FALLBACK = '#DCDCDC';
 
 // The bar may only hold castable skills — passives are rejected at every
 // entry point (MagicSkillWnd.uc keeps them in a separate pane for exactly
@@ -77,6 +116,12 @@ export class ShortcutWnd {
     this.w = def.w; this.h = def.h;
     const vdef = Layout.size(H, 'ShortcutWndVertical') || { w: 46, h: 504 };
     this.vw = vdef.w; this.vh = vdef.h;
+    // Background placement per orientation, MEASURED from the art
+    // (tools/ui/mine_shortcutslots.py — see the header). Null when the
+    // harvest is missing: the bar then falls back to the constants above and
+    // paints no plate rather than guessing where one would go.
+    this.artH = Layout.shortcutArt('ShortcutWndHorizontal');
+    this.artV = Layout.shortcutArt('ShortcutWndVertical');
     // F-key badge art enumerates f01..f12 (a control ref is interleaved —
     // filter to sprites that actually resolve)
     this.fArts = Layout.tex(H, 'F1Tex').filter(r => Skin.sprite(r));
@@ -208,11 +253,23 @@ export class ShortcutWnd {
       || Layout.pos(this.H, ctrlName);   // flat last-wins as last resort
   }
 
+  /** Same last-wins hazard as _ctrlPos, for the size and texture lookups:
+   *  ExpandButton exists in BOTH orientations with DIFFERENT art
+   *  (shortcut_expand vs shortcut_expandv), and the flat index returns
+   *  whichever record the file happens to hold last. Resolve by path first. */
+  _ctrl(subName, ctrlName, fn) {
+    const hit = subName ? fn(this.H, `${subName}/${ctrlName}`) : null;
+    // Layout.tex returns [] (truthy) for a miss, so emptiness is the test
+    if (hit && !(Array.isArray(hit) && hit.length === 0)) return hit;
+    return fn(this.H, ctrlName);
+  }
+
   _btn(ctrlName, onClick, subName) {
-    const size = Layout.size(this.H, ctrlName);
+    const size = this._ctrl(subName, ctrlName, Layout.size);
     const pos = subName ? this._ctrlPos(subName, ctrlName)
       : Layout.pos(this.H, ctrlName);
-    const tex = Layout.tex(this.H, ctrlName).filter(r => Skin.sprite(r));
+    const tex = this._ctrl(subName, ctrlName, Layout.tex)
+      .filter(r => Skin.sprite(r));
     if (!size || !pos || !tex[0]) return null;
     const el = document.createElement('div');
     el.className = 'shortcut-btn';
@@ -264,25 +321,62 @@ export class ShortcutWnd {
       : '<div class="icon-fallback">?</div>') + el.innerHTML;
   }
 
-  _renderRow(host, page, x0, y0, vertical) {
+  /** The mined art record for an orientation, or null. */
+  _art(vertical) { return vertical ? this.artV : this.artH; }
+
+  _renderRow(host, page, vertical, subName) {
     const slots = this.data[page] || {};
+    const art = this._art(vertical);
+    // MEASURED (mine_shortcutslots.py): the icon fills the well's 32px
+    // interior, inset 2px inside the 36px slot rect. Falls back to filling
+    // the whole rect when the harvest is absent.
+    const inset = art ? art.iconInset : 0;
+    const cell = art ? art.iconCell : SLOT;
+    // the constant short-axis origin (Shortcut1's y horizontal / x vertical)
+    // Shortcut1's constant short-axis origin: y horizontal, x vertical. Same
+    // number (5) in both, which is why one field covers both.
+    const short = art ? art.slotShort : (vertical ? SLOT_V_X0 : SLOT_Y0);
+    const table = art ? art.slotOrigins : (vertical ? SLOT_Y : SLOT_X);
     for (let i = 0; i < SLOTS_PER_PAGE; i++) {
       const el = document.createElement('div');
       el.className = 'shortcut-slot' + (slots[i] ? '' : ' empty');
       if (slots[i]) { el.dataset.stype = slots[i].type; el.dataset.sid = slots[i].id; }
-      const x = vertical ? x0 : SLOT_X[i];
-      const y = vertical ? SLOT_Y[i] : y0;
-      el.style.cssText = `position:absolute;left:${Skin.px(x)}px;`
-        + `top:${Skin.px(y)}px;width:${Skin.px(SLOT)}px;height:${Skin.px(SLOT)}px;`;
-      // F-key badge at the slot's top-left corner; its size is the xdat's
-      // (F1Tex 16x16), not a chosen number
+      const x = vertical ? short : table[i];
+      const y = vertical ? table[i] : short;
+      el.style.cssText = `position:absolute;left:${Skin.px(x + inset)}px;`
+        + `top:${Skin.px(y + inset)}px;`
+        + `width:${Skin.px(cell)}px;height:${Skin.px(cell)}px;`;
+      // F-key badge. Size AND placement are the xdat's, not chosen: F1Tex is
+      // 16x16 at (32,4) horizontal against Shortcut1 (32,5), and (4,32)
+      // vertical against (5,32) — i.e. the badge sits one pixel outside the
+      // slot rect on the bar's SHORT axis and flush with it on the long one.
+      // The badge is a child of the icon box, which is itself inset into the
+      // slot rect, so the delta carries that inset back out.
       const fArt = this.fArts[i];
-      const fSize = Layout.size(this.H, 'F1Tex');
-      if (fArt && fSize) {
+      const fSize = this._ctrl(subName, 'F1Tex', Layout.size);
+      const fPos = this._ctrlPos(subName, 'F1Tex');
+      const sPos = this._ctrlPos(subName, 'Shortcut1');
+      if (fArt && fSize && fPos && sPos) {
         const f = document.createElement('div');
-        f.style.cssText = 'position:absolute;left:0;top:0;width:'
-          + `${Skin.px(fSize.w)}px;height:${Skin.px(fSize.h)}px;pointer-events:none;z-index:1;`;
-        Skin.apply(f, fArt);
+        f.style.cssText = 'position:absolute;pointer-events:none;z-index:1;'
+          + `left:${Skin.px(fPos.x - sPos.x - inset)}px;`
+          + `top:${Skin.px(fPos.y - sPos.y - inset)}px;`
+          + `width:${Skin.px(fSize.w)}px;height:${Skin.px(fSize.h)}px;`;
+        // Draw the badge 1:1, NOT scaled to the control rect.
+        //
+        // Skin.apply defaults to blowing a sprite's measured content up until
+        // it fills the element, which is right when the xdat rect IS the art
+        // (shortcut_nextv: rect 14x14, content 14x14) and wrong here: F1Tex's
+        // rect is 16x16, exactly the PADDED export size, while the digits are
+        // 6x10 (f01) through 15x10 (f10, f12). Scaling each into 16x16 makes
+        // "1" and "12" the same width and 60% taller than authored — it
+        // destroys the per-digit widths the art deliberately carries. Passing
+        // the FILE size as the content rect gives backgroundSize 100%, i.e.
+        // the export drawn at native size with its padding intact, which is
+        // what a rect equal to the padded size asks for.
+        const sp = Skin.sprite(fArt);
+        Skin.apply(f, fArt, (sp && sp.w === fSize.w && sp.h === fSize.h)
+          ? { content: { w: sp.w, h: sp.h } } : {});
         el.appendChild(f);
       }
       el.addEventListener('click', () => this.trigger(page, i));
@@ -308,32 +402,67 @@ export class ShortcutWnd {
     }
   }
 
-  _renderBar({ vertical, page, x = 0, y = 0, backRef, backSize, main }) {
+  /** Paint one bar's background plate.
+   *
+   *  `refs` is the sub-window record's whole texture list, NOT its first
+   *  entry: ShortcutWndHorizontal's list opens with the intra-UI control
+   *  reference `ShortcutWnd.ShortcutWndVertical`, which resolves to no
+   *  sprite, and Skin.apply answers an unknown ref with `background: none`.
+   *  That one line is why the default bar was blank. Filter to refs that
+   *  actually resolve — the same guard _btn and fArts already apply.
+   *
+   *  The plate is then drawn at ITS OWN measured size, displaced by the
+   *  mined art offset (MEASURED, mine_shortcutslots.py: +13 along the bar's
+   *  long axis). Stretching it to the declared window size instead — which
+   *  is what passing the 504x46 window rect as the sprite's content rect
+   *  did — moves all twelve wells off the twelve mined slot rects. */
+  _plate(refs, vertical) {
+    const back = document.createElement('div');
+    back.style.cssText = 'position:absolute;pointer-events:none;';
+    const ref = (refs || []).find(r => Skin.sprite(r));
+    if (!ref) return back;          // no art: paint nothing, invent nothing
+    const art = this._art(vertical);
+    const c = Skin.content(ref);
+    const ox = art ? art.artOffsetX : 0;
+    const oy = art ? art.artOffsetY : 0;
+    back.style.left = `${Skin.px(ox)}px`;
+    back.style.top = `${Skin.px(oy)}px`;
+    back.style.width = `${Skin.px(c ? c.w : 0)}px`;
+    back.style.height = `${Skin.px(c ? c.h : 0)}px`;
+    Skin.apply(back, ref);
+    return back;
+  }
+
+  _renderBar({ vertical, page, x = 0, y = 0, backRefs, main }) {
     const bar = document.createElement('div');
     bar.style.cssText = `position:absolute;left:${Skin.px(x)}px;top:${Skin.px(y)}px;`
       + `width:${Skin.px(vertical ? this.vw : this.w)}px;`
-      + `height:${Skin.px(vertical ? this.vh : this.h)}px;`;
-    const back = document.createElement('div');
-    back.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
-    if (backRef) Skin.apply(back, backRef, { content: backSize, stretch: true });
-    bar.appendChild(back);
+      + `height:${Skin.px(vertical ? this.vh : this.h)}px;overflow:hidden;`;
+    bar.appendChild(this._plate(backRefs, vertical));
 
-    this._renderRow(bar, page,
-      vertical ? SLOT_V_X0 : SLOT_X[0], vertical ? SLOT_Y[0] : SLOT_Y0, vertical);
+    const subName = vertical ? 'ShortcutWndVertical' : 'ShortcutWndHorizontal';
+    this._renderRow(bar, page, vertical, subName);
 
     if (main) {
-      // page number over PageNumTextBox's mined rect (10,0 / 0,16)
-      const ppos = Layout.pos(this.H, 'PageNumTextBox');
-      const pnum = document.createElement('div');
-      const pSize = Layout.size(this.H, 'PageNumTextBox') || { w: 20, h: 10 };
-      pnum.style.cssText = 'position:absolute;pointer-events:none;'
-        + `left:${Skin.px(vertical ? 0 : ppos.x)}px;`
-        + `top:${Skin.px(vertical ? pSize.h + 6 : ppos.y)}px;`
-        + `width:${Skin.px(pSize.w + 8)}px;height:${Skin.px(pSize.h + 2)}px;`;
-      Font.set(pnum, `${this.page + 1}/${MAX_PAGE}`, { color: '#c9a959' });
-      bar.appendChild(pnum);
+      // page number on PageNumTextBox's own rect. The lookup MUST be by path:
+      // five sub-windows declare a PageNumTextBox and the flat index is
+      // last-wins (the joypad record, 10,0), which is not the vertical bar's
+      // (0,16). Both rects are the xdat's; neither is padded by hand.
+      const ppos = this._ctrlPos(subName, 'PageNumTextBox');
+      const pSize = this._ctrl(subName, 'PageNumTextBox', Layout.size)
+        || { w: 20, h: 10 };
+      if (ppos) {
+        const pnum = document.createElement('div');
+        pnum.style.cssText = 'position:absolute;pointer-events:none;'
+          + `left:${Skin.px(ppos.x)}px;top:${Skin.px(ppos.y)}px;`
+          + `width:${Skin.px(pSize.w)}px;height:${Skin.px(pSize.h)}px;`;
+        Font.set(pnum, `${this.page + 1}/${MAX_PAGE}`, {
+          color: Layout.color(this.H, `${subName}/PageNumTextBox`)
+            || PAGE_COLOR_FALLBACK,
+        });
+        bar.appendChild(pnum);
+      }
 
-      const subName = vertical ? 'ShortcutWndVertical' : 'ShortcutWndHorizontal';
       for (const [ctrl, fn] of [
         ['NextBtn', () => this.flipPage(1)],
         ['PrevBtn', () => this.flipPage(-1)],
@@ -355,10 +484,9 @@ export class ShortcutWnd {
   render() {
     this.root.innerHTML = '';
     const vertical = this.vertical;
-    const backRef = Layout.tex0(this.H, vertical ? 'ShortcutWndVertical' : 'ShortcutWndHorizontal');
-    const backSize = Layout.size(this.H, vertical ? 'ShortcutWndVertical' : 'ShortcutWndHorizontal');
+    const sub = vertical ? 'ShortcutWndVertical' : 'ShortcutWndHorizontal';
     const bar = this._renderBar({
-      vertical, page: this.page, backRef, backSize, main: true,
+      vertical, page: this.page, backRefs: Layout.tex(this.H, sub), main: true,
     });
     this.root.appendChild(bar);
 
@@ -368,8 +496,7 @@ export class ShortcutWnd {
         const row = this._renderBar({
           vertical: false, page: Math.min(MAX_PAGE - 1, this.page + r),
           y: -this.h * r,
-          backRef: Layout.tex0(this.H, `ShortcutWndHorizontal_${r}`),
-          backSize: Layout.size(this.H, `ShortcutWndHorizontal_${r}`),
+          backRefs: Layout.tex(this.H, `ShortcutWndHorizontal_${r}`),
           main: false,
         });
         this.root.appendChild(row);
