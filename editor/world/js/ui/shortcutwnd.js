@@ -48,6 +48,22 @@ import { WndMgr } from './wndmgr.js';
 import { skillMeta, skillInfo, itemMeta, itemInfo, actionMeta, actionInfo }
   from '../gamedata.js';
 import { skillType } from './skillwnd.js';
+import { activeInventory } from './inventorywnd.js';
+
+/** An item shortcut stores the inventory OBJECT id, not the item id.
+ *  InventoryWnd's drag payload and its right-click assign both send
+ *  `{type:'item', id: it.objectId}` (inventorywnd.js), aCis stores the same
+ *  thing (`character_shortcuts.id` is the objectId — ShortcutList.addShortcut
+ *  looks it up with getItemByObjectId), and useItem is addressed by objectId
+ *  too. Everything that needs the ITEM id — the icon, the name, the shot
+ *  mark — has to go through the live inventory to get it. Returns null when
+ *  the inventory has no such object (an item consumed to zero, or a bar
+ *  restored before the first itemList lands). */
+function itemIdOf(objectId) {
+  const inv = activeInventory();
+  const it = inv && inv.items && inv.items.get(objectId);
+  return it ? it.itemId : null;
+}
 
 const MAX_PAGE = 10;          // ShortcutWnd.uc:3
 const SLOTS_PER_PAGE = 12;    // ShortcutWnd.uc:4
@@ -153,12 +169,33 @@ export class ShortcutWnd {
           if (s && ALLOWED_TYPES.has(s.type)) this.data[i] = s;
         });
       } else if (parsed && typeof parsed === 'object') {
-        for (const [page, slots] of Object.entries(parsed)) {
-          if ((+page >= 0) && +page < MAX_PAGE) {
-            this.data[page] = {};
-            for (const [i, s] of Object.entries(slots)) {
+        // MEASURED 2026-08-08 (before/after in verify_soulshot.js): this loop
+        // used to read EVERY top-level key as a page, and save() writes page 0
+        // FLAT — `{"0": {type:"item", id:...}}` is slot 0 of page 0, not page
+        // 0. Parsed as a page, its "slots" are the entries of the slot object
+        // ("type" -> "item", "id" -> 268530204), every one of which fails the
+        // ALLOWED_TYPES test, so the whole of page 0 was dropped. Page 0 is
+        // where assignFirstFree() puts everything, so in practice the ENTIRE
+        // bar was wiped on the next load() — which runs at the end of the
+        // enterWorld handler, i.e. on every relog. That is why a soulshot
+        // dragged to the bar was simply gone after relogging.
+        //
+        // The two forms are told apart by the VALUE, not the key: a slot
+        // carries a `type` STRING, a page is a map of slot index -> slot.
+        for (const [key, val] of Object.entries(parsed)) {
+          if (!val || typeof val !== 'object') continue;
+          if (typeof val.type === 'string') {              // flat page-0 slot
+            if (ALLOWED_TYPES.has(val.type) && +key >= 0 && +key < SLOTS_PER_PAGE) {
+              if (!this.data[0]) this.data[0] = {};
+              this.data[0][key] = val;
+            }
+            continue;
+          }
+          if ((+key >= 0) && +key < MAX_PAGE) {            // page -> slots
+            if (!this.data[key]) this.data[key] = {};
+            for (const [i, s] of Object.entries(val)) {
               if (s && ALLOWED_TYPES.has(s.type) && +i >= 0 && +i < SLOTS_PER_PAGE) {
-                this.data[page][i] = s;
+                this.data[key][i] = s;
               }
             }
           }
@@ -169,10 +206,15 @@ export class ShortcutWnd {
   }
 
   save() {
+    // Always the NESTED form, page -> {slot -> slot}. The old writer flattened
+    // page 0 into the top level, which is not just unreadable by load() (see
+    // there) but LOSSY on its own terms: page 1's entry and page 0's slot 1
+    // both want the top-level key "1", and the later `out[page] = slots`
+    // overwrote the flat slot. load() still accepts the flat form so a bar
+    // saved by the old writer migrates instead of vanishing.
     const out = {};
     for (const [page, slots] of Object.entries(this.data)) {
-      if (page === '0') Object.assign(out, slots);       // page 0 stays flat
-      else out[page] = slots;
+      if (slots && Object.keys(slots).length) out[page] = slots;
     }
     try { localStorage.setItem(this._key(), JSON.stringify(out)); } catch {}
   }
@@ -315,7 +357,14 @@ export class ShortcutWnd {
       return;
     }
     const [sm, im] = await Promise.all([skillMeta(), itemMeta()]);
-    const info = s.type === 'skill' ? skillInfo(sm, s.id) : itemInfo(im, s.id);
+    // MEASURED 2026-08-08: this used to call itemInfo(im, s.id) with s.id =
+    // the OBJECT id, so every item shortcut missed the item table outright and
+    // drew the "?" fallback with the tooltip "Item #268530204". Resolve the
+    // object id through the inventory first (itemIdOf); with no inventory yet
+    // there is genuinely no answer, and the "?" fallback stands.
+    const itemId = s.type === 'item' ? itemIdOf(s.id) : null;
+    const info = s.type === 'skill' ? skillInfo(sm, s.id)
+      : (itemId != null ? itemInfo(im, itemId) : { name: `Item #${s.id}`, icon: null });
     el.title = info.name;
     el.innerHTML = (info.icon ? `<img src="${info.icon}" alt="">`
       : '<div class="icon-fallback">?</div>') + el.innerHTML;
@@ -541,17 +590,36 @@ export class ShortcutWnd {
   /** Soulshot/spiritshot automatic use. Same standing-state problem as a
    *  toggle skill, but shots sit in ITEM slots, so the toggle query above
    *  never reaches them. Driven by ExAutoSoulShot, which the server sends
-   *  only when the toggle actually took — never from the click. */
+   *  only when the toggle actually took — never from the click.
+   *
+   *  aCis keys the state by ITEM id (Player._activeSoulShots is a Set<Integer>
+   *  of item ids, and ExAutoSoulShot carries the item id), while main.js hands
+   *  this method the OBJECT ids that currently carry those item ids. Both are
+   *  kept: the object-id set is the literal argument, and the item-id set
+   *  derived from it is what the marks actually match on, so a slot stays
+   *  marked when a stack is consumed and re-created under a new object id —
+   *  an InventoryUpdate that main.js does not re-derive the object ids for.
+   *  With no inventory available (unit tests, pre-boot) the object-id set is
+   *  the only comparison, exactly as before. */
   setActiveShots(ids) {
     this._activeShots = ids || new Set();
+    this._activeShotItems = new Set();
+    for (const oid of this._activeShots) {
+      const itemId = itemIdOf(oid);
+      if (itemId != null) this._activeShotItems.add(itemId);
+    }
     this._applyShotMarks();
     return this;
   }
 
   _applyShotMarks() {
-    const ids = this._activeShots || new Set();
+    const oids = this._activeShots || new Set();
+    const itemIds = this._activeShotItems || new Set();
     for (const el of this.root.querySelectorAll('.shortcut-slot[data-stype="item"]')) {
-      el.classList.toggle('l2-toggle-active', ids.has(+el.dataset.sid));
+      const oid = +el.dataset.sid;
+      const itemId = itemIdOf(oid);
+      el.classList.toggle('l2-toggle-active',
+        oids.has(oid) || (itemId != null && itemIds.has(itemId)));
     }
   }
 

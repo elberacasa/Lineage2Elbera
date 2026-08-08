@@ -271,22 +271,66 @@ export class SkillFx {
     }
   }
 
-  // main.js's skillLaunch handler still calls this with a hash-derived colour
-  // (`hue = skillId * 47 % 360`). That colour is DEAD: any skillLaunch is
-  // already being drawn from the retail tables by _pump(), so a flash() that
-  // lands while a launch is in the log tail draws nothing — and a skill the
-  // retail data does not bind draws nothing either, rather than a stand-in hue.
+  // THE SOULSHOT GLINT IS GONE, and the colour argument is what identifies it.
   //
-  // The other caller (main.js's soulshot glint, `flash(shotPos, 0xfff2a8)`)
-  // passes its own colour with no skillLaunch in flight, and still renders.
-  flash(worldPos, color = 0x80c0ff, size = 0.6) {
+  // Two callers exist in the whole client (grep `.flash(`):
+  //   entities.js:578   fx.flash(_headPos)                  — no colour
+  //   main.js:1341      skillFx.flash(shotPos, 0xfff2a8)    — the shot glint
+  // so "a colour was passed" means "this is the soulshot glint", and that
+  // glint is INVENTED. It is `makeGlowTexture()` — the same additive sprite
+  // this class pops for anything without retail data — tinted with a literal
+  // 0xfff2a8 that appears in no client table, fired off the Attack packet's
+  // HITFLAG_SS. That is exactly the "animation that's used everywhere"
+  // complaint, and there is nothing to replace it with:
+  //
+  //   * The retail trigger for a shot is not the hit at all. aCis
+  //     SoulShots.useItem charges the weapon and broadcasts
+  //     MagicSkillUse(player, player, item.getSkills()[0].getId(), 1, 0, 0)
+  //     in radius 600 — item_skill 2039/2047/2061 and 2150..2164 in the
+  //     datapack's items XML. The gateway already forwards that as skillCast,
+  //     so _pump() below sees it like any other cast.
+  //   * skillgrp.dat gives all 18 of those skills animation "" and hit_time 0
+  //     (assets/gamedata/skillgrp.json), so retail plays NO cast gesture —
+  //     clipForSkill() already returns null for them, correctly.
+  //   * skillsoundgrp.dat gives them SkillSound.soul_shot_cast /
+  //     spirits_shot_cast, already bound in assets/audio/bindings.json and
+  //     already played by main.js's skillCast handler via gameSound.cast().
+  //   * The client's skill -> effect table (animations/Skill.usk, 244
+  //     SkillVisualEffect objects named by skill id) has NO entry for any of
+  //     the 18. The only shot effects in LineageEffect.u are
+  //     it_soul_shot_d_ca and it_spirit_shot_d_ca, and Skill.usk binds them
+  //     ONLY to the BEAST shots (skill 2033 on bones soulshot1+soulshot2,
+  //     skill 2008 on soulshot1) — bones that exist only in
+  //     LineageMonsters*.ukx, never in Fighter.ukx. Binding a pet effect to a
+  //     player would be a guess, so it is not done.
+  //   * DOCUMENTED GAP: engine.dll does carry a per-attack shot parameter —
+  //     Engine.u declares SoulshotGrade (int) and bSpirit (bool) on both
+  //     NAttackActionParam and NPrimeActionParam, and engine.dll exports
+  //     FL2GameData::SoulShotDataLoad — but no .dat in the client's system/
+  //     directory holds that table and no decodable file binds those fields
+  //     to an asset. Whatever the retail client draws on a shot-charged swing
+  //     is selected in native code we cannot read. It stays undrawn rather
+  //     than approximated.
+  //
+  // The uncoloured caller is untouched: a self-target skillLaunch that the
+  // retail tables do not bind still gets the neutral pop, and any launch
+  // already drawn from the retail tables by _pump() suppresses it.
+  flash(worldPos, color = null, size = 0.6) {
+    if (color != null) return;          // the invented shot glint: draw nothing
     const w = typeof window !== 'undefined' && window.__world;
     if (w && lastSkillMsg(w.net.log, { op: 'skillLaunch' })) return;
-    this._pop(worldPos, color, size);
+    this._pop(worldPos, 0x80c0ff, size);
   }
 
+  // Provenance tag, read by verify_soulshot.js and by anything else that has
+  // to tell an AUTHORED sprite from a sourced one. SkillVfx tags its own
+  // objects `skillvfx.json` / `skillmesh.json` (skillvfx.js) — those come out
+  // of the decoded retail tables. Anything this class pops does not, hence
+  // 'authored-pop'. The tag used to read 'soulshot-glint', which was wrong for
+  // the one caller that survives (entities.js's self-target launch) and is now
+  // wrong for the soulshot too, since that glint is gone.
   _tag(obj, kind, skillId) {
-    obj.userData.skillFx = { kind, skillId, source: 'soulshot-glint' };
+    obj.userData.skillFx = { kind, skillId, source: 'authored-pop' };
   }
 
   _pop(worldPos, color, size = 0.6, skillId = null, kind = 'pop') {

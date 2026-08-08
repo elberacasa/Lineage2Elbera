@@ -258,7 +258,14 @@ def check_tile_geodata(tile, out_dir=OUT_ROOT, samples=2048):
         lx = rng.randrange(desc["cells"])
         ly = rng.randrange(desc["cells"])
         typ, pay = blocks[(lx >> 3) * REGION_BLOCKS + (ly >> 3)]
-        ci = (ly & 7) * BLOCK_CELLS + (lx & 7)
+        # Cell index inside a block is X OUTER / Y INNER, the same order as the
+        # blocks: aCis BlockComplex.java:53 and BlockMultilayer.java:113 both
+        # compute (geoX % BLOCK_CELLS_X) * BLOCK_CELLS_Y + (geoY % BLOCK_CELLS_Y).
+        # This line was the transpose, matching the same defect that was in
+        # editor/world/js/geodata.js _layersAt (see the note there for the
+        # live-server measurement that settled it). FLAT blocks are immune (all
+        # 64 cells are one height), which is why open ground never showed it.
+        ci = (lx & 7) * BLOCK_CELLS + (ly & 7)
         if typ == 0:
             heights = [pay]
         elif typ == 1:

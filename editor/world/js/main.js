@@ -1691,11 +1691,36 @@ canvas.addEventListener('pointerup', e => {
     if (best != null) { clickEntity(best); return; }
   }
 
-  // click-to-move: center terrain + the cheap neighbor meshes, so a click
-  // across the border walks there (entity picking above still wins)
+  // click-to-move: center terrain + the cheap neighbor meshes + THE LEVEL BSP,
+  // so a click across the border walks there and a click on a town floor lands
+  // on the floor (entity picking above still wins).
+  //
+  // WHY THE BSP IS IN HERE. A town plaza is a stone slab built on top of the
+  // natural ground (bspfloor.js): at the Giran square the slab tops out at
+  // -3496 and the heightmap under it is -3600.8. With terrain-only targets the
+  // ray goes THROUGH the pavement and hits the dirt beneath, so the pick comes
+  // back both 105 L2u too low AND — because the ray is oblique — displaced
+  // along its own direction. Measured in the live client, character standing at
+  // (82000, 148000), followCam pitch 0.35 / dist 12, seven screen points:
+  // the terrain-only pick landed 187 to 380 L2 units (1.9-3.8 m) PAST the point
+  // the player clicked, always at z=-3601 instead of the slab's -3496. That is
+  // the owner's "when clicking inside giran ... its clicking below ground";
+  // on open ground there is no BSP, the terrain IS the floor, and nothing moves.
+  //
+  // Props are deliberately NOT targets. The ground query (terrain.heightAtWorld
+  // -> _drawnGroundL2) knows about the terrain mesh and the BSP floors and
+  // nothing else, so a pick on a prop would hand walkToServer a destination on
+  // a surface the walker has no height for — a tree canopy, a cart roof. Adding
+  // them needs the drawn-surface raster to cover props first (open gap, see
+  // verify_walksurface.js).
+  //
+  // recursive: the BSP arrives as a group of chunk meshes (bsp.py buckets them
+  // on a 48 m grid); terrain.mesh and the neighbor meshes have no children, so
+  // the flag costs nothing there.
   const walkTargets = terrain.mesh ? [terrain.mesh] : [];
   if (neighbors) walkTargets.push(...neighbors.meshes());
-  const hit = walkTargets.length ? ray.intersectObjects(walkTargets, false)[0] : null;
+  if (terrain.bsp) walkTargets.push(terrain.bsp.group);
+  const hit = walkTargets.length ? ray.intersectObjects(walkTargets, true)[0] : null;
   if (hit && !character.dead) walkToServer(hit.point);
 });
 

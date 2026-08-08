@@ -79,10 +79,22 @@ const TYPE2_QUEST = 3;    // aCis Item.TYPE2_QUEST — InventoryWnd.uc's ITEM_QU
 // so "draining" the gauge means covering its right end with this colour.
 const GAUGE_EMPTY = 'rgb(10,10,10)';
 
+// The live InventoryWnd, registered at construction. Same escape hatch (and
+// same reason) as skills.js `activeSkillFx()`: ShortcutWnd has to turn an
+// item shortcut's objectId into an itemId to draw its icon and to mark it as
+// a charged shot, and main.js — which owns every constructor wiring — is
+// another worker's file. A module-level accessor keeps that dependency inside
+// the two files this worker owns instead of adding a constructor option.
+let _activeInventory = null;
+
+/** The InventoryWnd main.js created, or null before boot / in unit tests. */
+export function activeInventory() { return _activeInventory; }
+
 export class InventoryWnd {
   constructor(parent = document.body, {
     onUse, onDestroy, onCrystallize, onAssign, getItems, getCharSheet,
   } = {}) {
+    _activeInventory = this;
     this.onUse = onUse || (() => {});
     this.onDestroy = onDestroy || (() => {});
     this.onCrystallize = onCrystallize || (() => {});
@@ -468,10 +480,12 @@ export class InventoryWnd {
     const adena = [...this.items.values()].find(it => it.itemId === ADENA_ID);
     Font.set(this.adenaEl, adena ? String(adena.count) : '0', { color: '#e8dcc0' });
 
-    // weight gauge — needs BOTH ends of the load. maxLoad rides UserInfo and
-    // the bridge forwards it; curLoad (UserInfo's currentWeight, parsed at
-    // gameclient.js:1474) is not forwarded yet, so the gauge stays hidden
-    // rather than drawing an invented fill.
+    // weight gauge — needs BOTH ends of the load, and now has both. UserInfo
+    // carries getCurrentWeight() immediately before getWeightLimit()
+    // (gameclient.js:1547-1548) and the bridge forwards the pair onto the
+    // charSheet op as curLoad/maxLoad (bridge.js:794-795). The guard below
+    // stays: if a payload ever arrives without them the gauge hides rather
+    // than drawing an invented fill.
     const cs = this.getCharSheet();
     const hasLoad = cs && cs.maxLoad > 0 && cs.curLoad != null;
     this.weightEl.style.display = hasLoad ? '' : 'none';

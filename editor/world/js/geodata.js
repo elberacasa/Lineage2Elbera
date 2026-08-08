@@ -6,7 +6,8 @@
 //                  blockCells: 8, blocks: 256, layers: [{data, encoding,
 //                  bytes}], stats}
 //   geodata.bin:  u32 magic 0x4C324731 ('L2G1'), u16 tileX, u16 tileY
-//   then 256x256 blocks (X outer, Y inner), each 8x8 cells row-major:
+//   then 256x256 blocks (X outer, Y inner), each 8x8 cells ALSO X outer,
+//   Y inner -- cell index inside a block is (cx % 8) * 8 + (cy % 8):
 //     u8 0 FLAT       -> i16 height (nswe implied 0x0F, open)
 //     u8 1 COMPLEX    -> 64 x i16 packed cell words
 //     u8 2 MULTILAYER -> per cell: u8 layerCount (1..127),
@@ -143,8 +144,33 @@ export class Geodata {
     const cy = Math.max(0, Math.min(this.cells - 1,
       Math.floor((y - this.origin[1]) / this.cellSize + CELL_EPS)));
     const block = this._block(cx >> 3, cy >> 3);
-    // 8x8 cells per block, row-major (y inner)
-    return block.cells[(cy & 7) * this.blockCells + (cx & 7)];
+    // 8x8 cells per block, X OUTER / Y INNER -- the same order as the blocks
+    // themselves, and NOT the transpose this line used to compute.
+    //
+    // SOURCE (the server's own reader, which is what the geodata was authored
+    // for): aCis BlockComplex.getHeightNearest / getNsweNearest and
+    // BlockMultilayer.getIndex* all address a cell as
+    //   index = (geoX % BLOCK_CELLS_X) * BLOCK_CELLS_Y + (geoY % BLOCK_CELLS_Y)
+    // (geoengine/geodata/BlockComplex.java:53,63,72,79,92;
+    //  BlockMultilayer.java:113,151,184) with BLOCK_CELLS_X = BLOCK_CELLS_Y = 8
+    // (GeoStructure.java:32-33). geodata.py re-emits the 64 cell records in
+    // FILE order, so the .bin carries that order untouched and only this index
+    // was wrong -- no asset regeneration is involved in the fix.
+    //
+    // MEASURED against the live aCis (the server is the oracle: teleport to a
+    // point, then ValidatePosition -> ValidateLocation carries the server's own
+    // z). 22_22, the Giran plaza staircase at y=148618, x 82900..83476 step 32:
+    // the server climbs -3464 -3448 -3432 -3416 -3400 in 16-unit steps; this
+    // line as written answered a flat -3464 across the whole ramp and then
+    // -3408, disagreeing at 8 of 19 points by up to 48 units, while the X-outer
+    // index reproduces all 19 exactly. A second scan (x=83074, y 148300..148700
+    // step 16, server flat -3464 throughout) missed on 20 of 26 points with a
+    // 128-unit-period sawtooth -- one block edge, the transposition's
+    // signature -- and 0 of 26 with this index.
+    //
+    // That is the "I walk through the stairs in Giran" defect: the walker was
+    // reading a neighbouring cell's height inside every non-FLAT block.
+    return block.cells[(cx & 7) * this.blockCells + (cy & 7)];
   }
 
   /** Ground height (L2 world units) at (x, y, z): the layer height NEAREST
