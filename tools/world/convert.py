@@ -16,11 +16,17 @@ and writes
     assets/world/<tile>/textures/*.png         (layer diffuses + splat maps)
     assets/world/<tile>/props/*.gltf|bin       (converted static meshes)
     assets/world/<tile>/props/textures/*.png   (prop textures referenced by gltf)
+    assets/world/<tile>/lights.json            (retail sun / zone fog+ambient /
+                                                Light actors; sibling file —
+                                                scene.json stays frozen)
 
 Usage:
     python3 tools/world/convert.py 17_23 [19_22 ...]   # convert tiles
     python3 tools/world/convert.py --check 17_23 ...   # validate scene.json
     python3 tools/world/convert.py --water-only T ...  # repatch water only
+    python3 tools/world/convert.py --lights-only T ... # write lights.json only
+    python3 tools/world/convert.py --materials-only T  # re-apply the retail
+                                                       # prop material state
 
 Everything is stdlib Python + l2lib (tools/l2lib) + tools/bin/umodel.
 Format lore: docs/map-format.md. See tools/world/README.md for what is exact
@@ -29,6 +35,7 @@ vs simplified.
 
 import array
 import json
+import math
 import os
 import shutil
 import struct
@@ -41,9 +48,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
-from l2lib import (L2Error, Reader, load_package, parse_texture,  # noqa: E402
-                   extract_texture_rgba, read_properties, resolve_material,
-                   write_png)
+from l2lib import (L2Error, Reader, TEXF_DXT1, load_package,  # noqa: E402
+                   parse_texture, extract_texture_rgba, read_properties,
+                   resolve_material, write_png)
 import geodata  # noqa: E402  (tools/world sibling module)
 
 CLIENT = os.path.join(ROOT, "assets", "interlude")
@@ -727,6 +734,160 @@ def ship_water_texture(out_dir, water):
         w["texture"] = WATER_TEXTURE_DEST
 
 
+# ---------------------------------------------------------------------------
+# lights: the retail sun, the zone ambient/fog, and the placed Light actors
+# ---------------------------------------------------------------------------
+# docs/foundation-audit.md F4: the client's sky gradient, Fog(60, 420),
+# AmbientLight, HemisphereLight, DirectionalLight and SUN_DIR are all
+# invented, while the map carries the real thing. 22_22 census:
+#   Light 91 · ZoneInfo 17 · NMovableSunLight 1 · NSun 1 · NMoon 1 ·
+#   SkyZoneInfo 1
+# Everything below is copied out of the .unr in RETAIL UNITS and never
+# reinterpreted, with two exceptions that are pure arithmetic and are
+# labelled as derived in the output:
+#   * `directionToSun` — the unit vector from the world toward the sun, in
+#     the client's three.js basis.  An FRotator's forward axis is
+#     R*(1,0,0) = (cos P cos Y, cos P sin Y, sin P)  (UEViewer
+#     Unreal/UnrealMesh/UnMathTools.h:6 RotatorToAxis + Core/Math3D.cpp:252
+#     Euler2Vecs, which reproduce UE2's FRotationMatrix term for term); that
+#     is the direction the light SHINES, so the direction toward the sun is
+#     its negation, mapped with the same M = (x, y, z)_L2 -> (x, z, -y) the
+#     props use.  For 22_22 (pitch -8846, yaw 25324) this is
+#     (0.500, 0.750, 0.433) — elevation 48.6 deg.
+#   * `*_m` distances — the same value times L2_TO_M (0.01).
+# NOT converted, because no sourced calibration exists: LightBrightness /
+# Radius are UE2 light units and there is no decoded mapping onto a
+# three.js/ACES intensity.  They are shipped raw so the calibration can be
+# done later against data rather than re-guessed.
+#
+# scene.json is a FROZEN contract, so this lands in a sibling file
+# assets/world/<tile>/lights.json.
+
+L2_TO_M = 0.01
+UE_ROT_TO_RAD = math.pi / 32768.0
+
+
+def _actor_value(p):
+    """Decode one packed property of a map actor to a Python value."""
+    t, raw = p["type"], p["raw"]
+    if t == 3:
+        return bool(p["boolval"])
+    if t == 1:
+        return raw[0] if raw else None
+    if t == 2:
+        return struct.unpack("<i", raw)[0] if len(raw) == 4 else None
+    if t == 4:
+        return prop_float(raw)
+    if t == 10 and len(raw) == 12:
+        return prop_rotator(raw) if p["struct"] == "Rotator" \
+            else prop_vector(raw)
+    if t == 10 and p["struct"] == "Color" and len(raw) == 4:
+        # UE1/UE2 FColor serializes R, G, B, A (UEViewer UnCore.h:2483-2488;
+        # the BGRA layout only starts at UE3)
+        return [raw[0], raw[1], raw[2], raw[3]]
+    return None
+
+
+def _actor_props(pkg, exp, names):
+    """-> {name: value} for the packed properties of one map actor."""
+    out = {}
+    for p in find_prop_start(pkg, exp) or ():
+        if p["name"] in names and p["name"] not in out:
+            v = _actor_value(p)
+            if v is not None:
+                out[p["name"]] = v
+    return out
+
+
+def rotator_forward_three(rot):
+    """UE FRotator -> its forward axis expressed in the client's three basis.
+
+    forward_UE = (cos P cos Y, cos P sin Y, sin P)  (RotatorToAxis, see above)
+    M(x, y, z) = (x, z, -y)
+    """
+    pitch, yaw = rot[0] * UE_ROT_TO_RAD, rot[1] * UE_ROT_TO_RAD
+    cp, sp = math.cos(pitch), math.sin(pitch)
+    cy, sy = math.cos(yaw), math.sin(yaw)
+    return [cp * cy, sp, -cp * sy]
+
+
+_LIGHT_KEYS = ("Location", "Rotation", "LightBrightness", "LightRadius",
+               "LightHue", "LightSaturation", "LightType", "LightEffect",
+               "LightCone", "bDirectional", "bCorona", "LightOnTime",
+               "LightOffTime")
+_ZONE_KEYS = ("Location", "bTerrainZone", "bDistanceFog", "DistanceFogStart",
+              "DistanceFogEnd", "DistanceFogColor", "AmbientVector",
+              "AmbientBrightness", "AmbientHue", "AmbientSaturation",
+              "bLonelyZone")
+
+
+def read_lights(pkg, tile):
+    """-> the lights.json body for one map package (see block comment)."""
+    out = {"tile": tile, "units": "retail: L2 cm, UE rotator (65536/rev), "
+                                  "LightHue/Saturation 0..255",
+           "sun": None, "nsun": None, "terrainZone": None,
+           "zones": [], "lights": []}
+    for e in pkg.exports:
+        cls = pkg.class_name_of(e)
+        if cls == "NMovableSunLight" and out["sun"] is None:
+            p = _actor_props(pkg, e, ("Location", "Rotation",
+                                      "LightBrightness", "DrawScale"))
+            rot = p.get("Rotation", [0, 0, 0])
+            fwd = rotator_forward_three(rot)
+            out["sun"] = {
+                "location": p.get("Location"),
+                "rotation": rot,
+                "brightness": p.get("LightBrightness"),
+                "drawScale": p.get("DrawScale"),
+                "derived": {
+                    "pitchDeg": rot[0] * 360.0 / 65536.0,
+                    "yawDeg": rot[1] * 360.0 / 65536.0,
+                    # direction the light shines, three basis
+                    "shineDirThree": [round(v, 6) for v in fwd],
+                    # direction from the world toward the sun, three basis
+                    "directionToSun": [round(-v, 6) for v in fwd],
+                },
+            }
+        elif cls == "NSun" and out["nsun"] is None:
+            p = _actor_props(pkg, e, ("Location", "Rotation", "Radius",
+                                      "LimitMaxRadius", "bDirectional"))
+            out["nsun"] = {"location": p.get("Location"),
+                           "rotation": p.get("Rotation"),
+                           "radius": p.get("Radius"),
+                           "limitMaxRadius": p.get("LimitMaxRadius"),
+                           "directional": bool(p.get("bDirectional"))}
+        elif cls == "ZoneInfo":
+            p = _actor_props(pkg, e, _ZONE_KEYS)
+            if not p:
+                continue
+            z = {"name": pkg.export_name(e)}
+            z.update(p)
+            for k in ("DistanceFogStart", "DistanceFogEnd"):
+                if k in z:
+                    z[k + "_m"] = round(z[k] * L2_TO_M, 3)
+            out["zones"].append(z)
+            if p.get("bTerrainZone"):
+                out["terrainZone"] = z["name"]
+        elif cls == "Light":
+            p = _actor_props(pkg, e, _LIGHT_KEYS)
+            if "Location" not in p:
+                continue
+            lt = {"name": pkg.export_name(e)}
+            lt.update(p)
+            out["lights"].append(lt)
+    return out
+
+
+def write_tile_lights(tile, out_dir, pkg=None):
+    """Write assets/world/<tile>/lights.json. -> the dict written."""
+    if pkg is None:
+        pkg, _ = load_package(os.path.join(CLIENT, "maps", tile + ".unr"))
+    data = read_lights(pkg, tile)
+    with open(os.path.join(out_dir, "lights.json"), "w") as f:
+        json.dump(data, f, indent=1)
+    return data
+
+
 def find_usx(package):
     if not package:
         return None
@@ -759,11 +920,144 @@ def index_export_tree(out_dir):
     return idx
 
 
+# ---------------------------------------------------------------------------
+# prop glTF: umodel's determinant -1 basis -> the client's determinant +1 one
+# ---------------------------------------------------------------------------
+# umodel's glTF exporter converts UE space with a SWAP, which is a reflection:
+#
+#   tools/src/UEViewer/Exporters/ExportGLTF.cpp:59
+#       inline void TransformPosition(CVec3& pos)
+#       {
+#           Exchange(pos[1], pos[2]);   // (x,y,z)_UE -> (x, z, y)   det = -1
+#           pos.Scale(0.01f);
+#       }
+#
+# The client places those meshes with `l2ToThree` (editor/world/js/coords.js:17),
+# which is the PROPER map (x, y, z)_L2 -> (x, z, -y), det = +1.  The two
+# differ by diag(1,1,-1), so every prop was drawn as its own mirror image
+# about its pivot.  Proved byte-for-byte against umodel's own psk exporter by
+# tools/src/char_pipeline/audit_prop_basis.py (psk is UE space with one
+# documented Y mirror, ExportPsk.cpp:21 #define MIRROR_MESH 1):
+# Giran_V_Plaza_Wall04 matched (x, z, -y_psk) 54/54 and (x, z, +y_psk) 0/54.
+#
+# tools/src/char_pipeline/assemble.py:363-382 already documents and applies
+# exactly this correction on the character path; this is the world-side
+# equivalent, applied as a post-process because umodel writes the glTF.
+#
+# What has to change, and why:
+#   POSITION.z, NORMAL.z          negated  (the axis itself flips)
+#   TANGENT.z                     negated  (same)
+#   TANGENT.w                     negated  bitangent handedness: with
+#       S = diag(1,1,-1) and S orthogonal symmetric,
+#       cross(S n, S t) = det(S) * S cross(n, t) = -S cross(n, t),
+#       so B' = S B = cross(n', t') * (-w).
+#   triangle index order reversed  the correction is det +1, and umodel
+#       relied on the reflection to land on glTF's CCW front face
+#       (glTF 2.0 3.7.2.1); winding_check.py measured 0/28 inverted faces on
+#       the shipped Giran_V_Plaza_Wall04, i.e. the reflected data was CCW.
+#   POSITION accessor min.z/max.z  swapped and negated.
+
+_GLTF_BASIS_TAG = "l2ToThree(x,z,-y) det+1"
+
+
+def _accessor_bytes(g, ai):
+    """-> (absolute byte offset, stride, count) for a non-sparse accessor."""
+    a = g["accessors"][ai]
+    if "sparse" in a:
+        raise L2Error("sparse accessor %d not supported" % ai)
+    bv = g["bufferViews"][a["bufferView"]]
+    comp = {5120: 1, 5121: 1, 5122: 2, 5123: 2, 5125: 4, 5126: 4}[
+        a["componentType"]]
+    ncomp = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}[a["type"]]
+    stride = bv.get("byteStride") or comp * ncomp
+    off = bv.get("byteOffset", 0) + a.get("byteOffset", 0)
+    return off, stride, a["count"], comp, ncomp
+
+
+def gltf_to_proper_basis(gltf_path):
+    """Rewrite one umodel prop glTF (+ its external .bin) from the reflected
+    (x, z, y) basis into the proper (x, z, -y) one.  Idempotent: tagged in
+    asset.extras and skipped on a second run.  -> True if it changed."""
+    with open(gltf_path) as f:
+        g = json.load(f)
+    extras = g.setdefault("asset", {}).setdefault("extras", {})
+    if extras.get("basis") == _GLTF_BASIS_TAG:
+        return False
+    # umodel writes one node per mesh with no local TRS; anything else would
+    # also have to be conjugated, so refuse rather than silently mis-handle it
+    for n in g.get("nodes", []):
+        if set(n) & {"matrix", "rotation", "translation", "scale"}:
+            raise L2Error("%s: node '%s' has a local transform; the basis "
+                          "fix only handles umodel's transform-free nodes"
+                          % (gltf_path, n.get("name")))
+    bin_path = os.path.join(os.path.dirname(gltf_path),
+                            g["buffers"][0]["uri"])
+    with open(bin_path, "rb") as f:
+        buf = bytearray(f.read())
+
+    def flip(ai, comps):
+        off, stride, count, comp, _n = _accessor_bytes(g, ai)
+        for k in range(count):
+            for c in comps:
+                p = off + k * stride + c * comp
+                (v,) = struct.unpack_from("<f", buf, p)
+                struct.pack_into("<f", buf, p, -v)
+
+    done_attr = set()
+    done_idx = set()
+    for mesh in g.get("meshes", []):
+        for prim in mesh.get("primitives", []):
+            if prim.get("mode", 4) != 4:
+                raise L2Error("%s: primitive mode %d is not TRIANGLES"
+                              % (gltf_path, prim.get("mode")))
+            attrs = prim.get("attributes", {})
+            for key, comps in (("POSITION", (2,)), ("NORMAL", (2,)),
+                               ("TANGENT", (2, 3))):
+                ai = attrs.get(key)
+                if ai is None or ai in done_attr:
+                    continue
+                done_attr.add(ai)
+                flip(ai, comps)
+                if key == "POSITION":
+                    a = g["accessors"][ai]
+                    if "min" in a and "max" in a:
+                        lo, hi = a["min"][2], a["max"][2]
+                        a["min"][2], a["max"][2] = -hi, -lo
+            ii = prim.get("indices")
+            if ii is None or ii in done_idx:
+                continue
+            done_idx.add(ii)
+            off, stride, count, comp, _n = _accessor_bytes(g, ii)
+            if count % 3:
+                raise L2Error("%s: index count %d is not a multiple of 3"
+                              % (gltf_path, count))
+            fmt = {1: "<B", 2: "<H", 4: "<I"}[comp]
+            for t in range(0, count, 3):
+                p1 = off + (t + 1) * stride
+                p2 = off + (t + 2) * stride
+                (v1,) = struct.unpack_from(fmt, buf, p1)
+                (v2,) = struct.unpack_from(fmt, buf, p2)
+                struct.pack_into(fmt, buf, p1, v2)
+                struct.pack_into(fmt, buf, p2, v1)
+
+    extras["basis"] = _GLTF_BASIS_TAG
+    with open(bin_path, "wb") as f:
+        f.write(buf)
+    with open(gltf_path, "w") as f:
+        json.dump(g, f)
+    return True
+
+
 def png_has_significant_alpha(path, threshold=128, min_pct=1):
     """True if the PNG carries real transparency (RGBA with >= min_pct of
-    pixels below threshold, or a tRNS chunk). Used to mark glTF materials
-    alphaMode MASK (foliage, fences) — without it three.js renders the
-    transparent background as opaque white."""
+    pixels below threshold, or a tRNS chunk).
+
+    NOTE: this is a GUESS about alpha semantics and is no longer used on the
+    prop path — see the RetailMaterialIndex block below for why (it cut 209
+    prop surfaces away entirely). It survives only as `bsp.py`'s fallback for
+    BSP surfaces whose PolyFlags do not carry PF_MASKED; the BSP's primary
+    signal is that retail flag, and its walls are deliberately doubleSided.
+    """
     try:
         with open(path, "rb") as f:
             data = f.read()
@@ -821,6 +1115,235 @@ def png_has_significant_alpha(path, threshold=128, min_pct=1):
             return True
         prev = line
     return False
+
+
+# ---------------------------------------------------------------------------
+# prop material render state, read from the retail UE2 material
+# ---------------------------------------------------------------------------
+# This USED to be guessed: png_has_significant_alpha() marked a material
+# `alphaMode MASK, alphaCutoff 0.5, doubleSided true` whenever >=1% of its
+# texture's texels had alpha < 128.  In L2 the alpha channel is only a
+# coverage mask for alpha-TESTED materials; elsewhere it is a specular or a
+# self-illumination mask, so the guess cut 209 surfaces (1,131 placements)
+# away completely -- e.g. Giran_wall08_light, an opaque wall with an additive
+# window glow whose diffuse alpha peaks at 119/255, below the invented 0.5.
+# See docs/foundation-audit.md F3 and tools/src/char_pipeline/audit_prop_materials.py.
+#
+# The retail data states the render mode exactly.  Every prop material is a
+# UE2 `Shader` or a bare `Texture` in a client textures/systextures .utx, and
+# the translation below is taken from the reference oracle's own renderer
+# (tools/src/UEViewer):
+#
+#   UShader::SetupGL      Unreal/UnRenderer.cpp:1425-1540
+#       TwoSided                -> cull off
+#       AlphaTest               -> glAlphaFunc(GL_GREATER, AlphaRef/255)
+#       OutputBlending != OB_Normal, or OB_Normal with an Opacity map
+#                               -> blending enabled  (line 1510)
+#   enum EOutputBlending  Unreal/UnrealMaterial/UnMaterial2.h:570
+#       OB_Normal 0, OB_Masked 1, OB_Modulate 2, OB_Translucent 3,
+#       OB_Invisible 4, OB_Brighten 5, OB_Darken 6
+#   UTexture::SetupGL     Unreal/UnRenderer.cpp:1233-1265
+#       bTwoSided                          -> cull off
+#       bMasked || (bAlphaTexture && DXT1) -> alpha test GREATER 0.8 + blend
+#       bAlphaTexture                      -> alpha test GREATER 0.1 + blend
+#       neither                            -> alpha test AND blend disabled
+#
+# glTF has no "blend and alpha-test" mode, so a blended pass becomes BLEND
+# and a pure alpha-tested pass becomes MASK.  The cutoff conversion is exact,
+# not a rounding: GL keeps `alpha > ref/255` (i.e. alpha8 >= ref+1) while
+# glTF keeps `alpha >= cutoff`, hence cutoff = (AlphaRef + 1) / 255.  With
+# AlphaRef absent (UE default 0) that discards exactly the fully-transparent
+# texels.  Retail AlphaRef for Interlude foliage is 10 or 30, never 128.
+#
+# What is deliberately NOT done here (documented gap, not a guess):
+#   * SelfIllumination / SelfIlluminationMask shaders are emitted OPAQUE with
+#     the correct diffuse.  Their additive emissive pass needs a baked
+#     one-channel-to-RGB emissive PNG; until that exists the wall is lit but
+#     its window does not glow.
+#   * OB_Modulate / OB_Brighten / OB_Darken are all emitted as plain BLEND;
+#     glTF 2.0 core has no additive or modulate blend mode.
+
+_UTX_DIRS = ("textures", "systextures")
+_UTX_CACHE = os.path.join(OUT_ROOT, ".utx_material_index.json")
+
+
+def _utx_files():
+    out = []
+    for d in _UTX_DIRS:
+        full = os.path.join(CLIENT, d)
+        if not os.path.isdir(full):
+            continue
+        for f in sorted(os.listdir(full)):
+            if f.lower().endswith(".utx"):
+                p = os.path.join(full, f)
+                out.append((os.path.relpath(p, CLIENT), os.path.getsize(p)))
+    return out
+
+
+class RetailMaterialIndex(object):
+    """lowercase export name -> the UE2 material export that defines it.
+
+    Indexing all ~430 client texture packages costs ~80 s, so the name ->
+    (package file, export index) map is cached next to the converted world
+    (assets/world/.utx_material_index.json) and invalidated by the package
+    file list + sizes.  Only the packages actually queried are then loaded.
+    """
+
+    def __init__(self):
+        self._names = None
+        self._pkgs = {}
+        self._state = {}
+
+    def _load_index(self):
+        if self._names is not None:
+            return self._names
+        files = _utx_files()
+        try:
+            with open(_UTX_CACHE) as f:
+                cached = json.load(f)
+            if cached.get("packages") == [list(x) for x in files]:
+                self._names = cached["names"]
+                return self._names
+        except (OSError, ValueError, KeyError):
+            pass
+        names = {}
+        material = set()
+        for rel, _size in files:
+            try:
+                pkg, _ = load_package(os.path.join(CLIENT, rel))
+            except (L2Error, OSError):
+                continue
+            for i, e in enumerate(pkg.exports):
+                key = pkg.export_name(e).lower()
+                is_mat = pkg.class_name_of(e) in MATERIAL_CLASSES
+                # a MATERIAL always wins a name collision with a non-material
+                # export: `frame01` is a StaticMesh in deco01.utx and the
+                # Shader the props actually reference in interior_s_t.utx,
+                # and plain alphabetical first-wins picked the mesh
+                if key not in names or (is_mat and key not in material):
+                    names[key] = [rel, i]
+                if is_mat:
+                    material.add(key)
+        try:
+            os.makedirs(os.path.dirname(_UTX_CACHE), exist_ok=True)
+            with open(_UTX_CACHE, "w") as f:
+                json.dump({"packages": files, "names": names}, f)
+        except OSError:
+            pass
+        self._names = names
+        return names
+
+    def _package(self, rel):
+        if rel not in self._pkgs:
+            self._pkgs[rel] = load_package(os.path.join(CLIENT, rel))[0]
+        return self._pkgs[rel]
+
+    def state(self, name):
+        """-> (alpha_mode, cutoff_or_None, double_sided) for a material name,
+        or None when the name is not a retail material (umodel emits
+        `dummy_material_N` for mesh sections with no material bound; those
+        never get a texture wired either)."""
+        key = (name or "").lower()
+        if key in self._state:
+            return self._state[key]
+        ent = self._load_index().get(key)
+        res = None
+        if ent is not None:
+            try:
+                res = self._decode(self._package(ent[0]), ent[1])
+            except (L2Error, OSError, IndexError, KeyError, struct.error):
+                res = None
+        self._state[key] = res
+        return res
+
+    def _decode(self, pkg, export_index, _depth=0):
+        exp = pkg.exports[export_index]
+        cls = pkg.class_name_of(exp)
+        if cls not in MATERIAL_CLASSES:
+            # a name collision with a non-material export (a StaticMesh or a
+            # Package export that happens to share the material's name) —
+            # refuse rather than read a foreign body as a material
+            return None
+        props = read_properties(pkg, pkg.body_reader(exp))
+
+        def flag(*keys):
+            return any(bool(props.get(k)) for k in keys)
+
+        if cls == "Texture":
+            two = flag("bTwoSided")
+            fmt = props.get("Format")
+            is_dxt1 = isinstance(fmt, (bytes, bytearray)) and fmt \
+                and fmt[0] == TEXF_DXT1
+            if flag("bMasked") or (flag("bAlphaTexture") and is_dxt1):
+                return ("MASK", 0.8, two)          # UnRenderer.cpp:1246
+            if flag("bAlphaTexture"):
+                return ("BLEND", None, two)        # UnRenderer.cpp:1251,1256
+            return ("OPAQUE", None, two)           # UnRenderer.cpp:1261
+
+        two = flag("TwoSided", "TreatAsTwoSided")
+        if cls in ("Shader", "FinalBlend"):
+            # both classes carry AlphaTest + AlphaRef with the same GL
+            # semantics (UnRenderer.cpp:1440 UFinalBlend, and the L2 Shader
+            # block); glAlphaFunc(GL_GREATER, ref/255) keeps alpha > ref,
+            # glTF MASK keeps alpha >= cutoff, hence (ref + 1) / 255
+            if flag("AlphaTest"):
+                ref = props.get("AlphaRef")
+                ref = ref[0] if isinstance(ref, (bytes, bytearray)) and ref \
+                    else 0
+                return ("MASK", (ref + 1) / 255.0, two)
+            if cls == "FinalBlend":
+                # UFinalBlend.FrameBufferBlending, EFrameBufferBlending
+                # (UnMaterial2.h:752, :775); FB_Overwrite (0) is the only
+                # value that leaves blending off (UnRenderer.cpp:1450)
+                fb = props.get("FrameBufferBlending")
+                fb = fb[0] if isinstance(fb, (bytes, bytearray)) and fb else 0
+                return ("BLEND" if fb != FB_OVERWRITE else "OPAQUE", None, two)
+            ob = props.get("OutputBlending")
+            ob = ob[0] if isinstance(ob, (bytes, bytearray)) and ob else 0
+            if ob != OB_NORMAL or "Opacity" in props:  # UnRenderer.cpp:1510
+                return ("BLEND", None, two)
+            return ("OPAQUE", None, two)
+
+        # UModifier / UTexModifier (TexPanner, TexOscillator, TexRotator,
+        # TexScaler, ColorModifier) and UCombiner only change how the wrapped
+        # material is SAMPLED, not how it is blended (UnMaterial2.h:719, :944,
+        # :856) — so the render state is the wrapped material's.
+        if _depth < 8:
+            for key in ("Material", "Material1", "Diffuse"):
+                ref = props.get(key)
+                if ref is None:
+                    continue
+                nxt = pkg.resolve_ref(Reader(ref).compact())
+                if nxt is None or not hasattr(nxt, "serial_offset"):
+                    return None      # import: lives in another package
+                try:
+                    i = pkg.exports.index(nxt)
+                except ValueError:
+                    return None
+                sub = self._decode(pkg, i, _depth + 1)
+                if sub is None:
+                    return None
+                # the modifier's own TwoSided (L2 adds it) still wins if set
+                return (sub[0], sub[1], sub[2] or two)
+        return None
+
+
+# UnMaterial2.h:570 enum EOutputBlending / :752 enum EFrameBufferBlending
+# (TEXF_DXT1 comes from l2lib, which carries the same UnMaterial2.h:281
+# ETextureFormat table)
+OB_NORMAL = 0
+FB_OVERWRITE = 0
+# UE2 UMaterial subclasses that can legitimately name a mesh section.
+# Anything else sharing the name is a collision (a StaticMesh or Package
+# export) and must not be read as a material.
+MATERIAL_CLASSES = frozenset((
+    "Texture", "Shader", "FinalBlend", "Combiner", "Modifier", "TexModifier",
+    "TexPanner", "TexOscillator", "TexRotator", "TexScaler", "TexEnvMap",
+    "ColorModifier", "FadeColor", "OpacityModifier", "TexCoordSource",
+    "FacingShader", "ParticleMaterial", "Cubemap",
+))
+
+RETAIL_MATERIALS = RetailMaterialIndex()
 
 
 class PropTextureResolver(object):
@@ -900,8 +1423,10 @@ class PropTextureResolver(object):
 
 def patch_gltf_textures(gltf_path, tex_out_dir, rel_prefix, resolver,
                         copied, stats):
-    """umodel's UE2 glTF carries material names but no images. Wire each
-    material to a PNG found by the PropTextureResolver."""
+    """umodel's UE2 glTF carries material names but no images and no render
+    state. Wire each material to a PNG found by the PropTextureResolver, and
+    set alphaMode / alphaCutoff / doubleSided from the retail UE2 material
+    (RetailMaterialIndex — see the block comment above it)."""
     with open(gltf_path) as f:
         g = json.load(f)
     mats = g.get("materials")
@@ -912,7 +1437,6 @@ def patch_gltf_textures(gltf_path, tex_out_dir, rel_prefix, resolver,
     samplers = g.setdefault("samplers", [{}])
     n_wired = 0
     tex_slot = {}
-    alpha_cache = {}
     for m in mats:
         name = m.get("name")
         if not name:
@@ -929,22 +1453,28 @@ def patch_gltf_textures(gltf_path, tex_out_dir, rel_prefix, resolver,
             if dst_name.lower() not in copied:
                 shutil.copyfile(src, dst)
                 copied.add(dst_name.lower())
-            if dst_name.lower() not in alpha_cache:
-                alpha_cache[dst_name.lower()] = png_has_significant_alpha(dst)
             images.append({"uri": rel_prefix + dst_name})
             textures.append({"source": len(images) - 1, "sampler": 0})
-            tex_slot[key] = (len(textures) - 1, alpha_cache[dst_name.lower()])
+            tex_slot[key] = len(textures) - 1
         slot = tex_slot[key]
         if slot is None:
             continue
-        slot, has_alpha = slot
         pbr = m.setdefault("pbrMetallicRoughness", {})
         pbr["baseColorTexture"] = {"index": slot}
         pbr.pop("baseColorFactor", None)
-        if has_alpha:
-            m["alphaMode"] = "MASK"
-            m["alphaCutoff"] = 0.5
-            m["doubleSided"] = True
+        state = RETAIL_MATERIALS.state(name)
+        if state is None:
+            # not a retail material name (umodel dummy_material_N) — but it
+            # did resolve to a PNG, so record it instead of guessing a mode
+            stats.setdefault("unsourced_state", set()).add(name)
+        else:
+            mode, cutoff, two_sided = state
+            m["alphaMode"] = mode
+            if cutoff is None:
+                m.pop("alphaCutoff", None)
+            else:
+                m["alphaCutoff"] = round(cutoff, 6)
+            m["doubleSided"] = two_sided
         n_wired += 1
     if n_wired:
         with open(gltf_path, "w") as f:
@@ -1006,11 +1536,28 @@ def convert_props(tile, actors, out_dir):
                 if binsrc:
                     shutil.copyfile(binsrc,
                                     os.path.join(props_dir, base + ".bin"))
+                # umodel writes the reflected (det -1) basis; the client
+                # places props with l2ToThree, which is det +1 (see
+                # gltf_to_proper_basis)
+                gltf_to_proper_basis(dst)
                 patch_gltf_textures(dst, tex_dir, "textures/",
                                     resolver, copied_tex, tex_stats)
                 converted[(package, mesh)] = "props/" + base + ".gltf"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+    # drop meshes left behind by an earlier conversion of this tile: they are
+    # unreachable from scene.json (validate_scene proves every referenced
+    # gltf exists), but they still get walked by the audit gates and would
+    # report the state of a build that is no longer shipped.
+    # (case-insensitively: umodel's own file casing does not always match the
+    # StaticMesh name in the map, e.g. R_tombstone01.bin vs R_Tombstone01)
+    keep = set(v.lower() for v in converted.values() if v)
+    if os.path.isdir(props_dir):
+        for fn in sorted(os.listdir(props_dir)):
+            if not (fn.endswith(".gltf") or fn.endswith(".bin")):
+                continue
+            if ("props/" + fn.rsplit(".", 1)[0] + ".gltf").lower() not in keep:
+                os.remove(os.path.join(props_dir, fn))
     props = []
     n_ok = 0
     for a in actors:
@@ -1033,7 +1580,8 @@ def convert_props(tile, actors, out_dir):
              "converted": n_ok,
              "packages_found": sum(1 for p in needed if find_usx(p)),
              "packages_total": len(needed),
-             "missing_textures": sorted(tex_stats.get("missing", ()))}
+             "missing_textures": sorted(tex_stats.get("missing", ())),
+             "unsourced_state": sorted(tex_stats.get("unsourced_state", ()))}
     return props, stats
 
 
@@ -1223,7 +1771,7 @@ def convert_tile(tile, with_props=True):
     props = []
     pstats = {"actors": 0, "converted": 0, "packages_found": 0,
               "packages_total": 0, "unique_meshes": 0,
-              "missing_textures": []}
+              "missing_textures": [], "unsourced_state": []}
     if with_props:
         actors = read_static_mesh_actors(mpkg)
         props, pstats = convert_props(tile, actors, out_dir)
@@ -1231,6 +1779,10 @@ def convert_tile(tile, with_props=True):
     # water volumes (WaterVolume brush tops; null when the tile has none)
     water = read_water_volumes(mpkg)
     ship_water_texture(out_dir, water)
+
+    # retail light rig / zone ambient / distance fog -> sibling lights.json
+    # (scene.json is a frozen contract and is not touched)
+    lights = write_tile_lights(tile, out_dir, mpkg)
 
     scene = {
         "tile": tile,
@@ -1270,6 +1822,9 @@ def convert_tile(tile, with_props=True):
         "layer_details": [(l["name"], bool(l["diffuse"]), bool(l["splat"]))
                           for l in layers],
         "coverage": coverage, "props": pstats,
+        "lights": {"sun": lights["sun"] is not None,
+                   "zones": len(lights["zones"]),
+                   "actors": len(lights["lights"])},
         "out": out_dir,
     }
 
@@ -1281,6 +1836,55 @@ def check_tile(tile):
     validate_scene(scene, out_dir)
     print("%s: scene.json OK (%d layers, %d props)" %
           (tile, len(scene["layers"]), len(scene["props"])))
+
+
+def update_tile_materials(tile):
+    """Re-apply the retail render state to every already-converted prop glTF
+    of a tile, without the slow umodel pass.
+
+    Same operation patch_gltf_textures performs at conversion time, split out
+    so a change to the material decode can be rolled over the converted world
+    in seconds per tile instead of ~30 s. Touches only alphaMode /
+    alphaCutoff / doubleSided; geometry, textures and scene.json are not
+    read or written. -> (materials updated, materials with no retail state).
+    """
+    props_dir = os.path.join(OUT_ROOT, tile, "props")
+    n_set = 0
+    unsourced = set()
+    if not os.path.isdir(props_dir):
+        return 0, unsourced
+    for fn in sorted(os.listdir(props_dir)):
+        if not fn.endswith(".gltf"):
+            continue
+        path = os.path.join(props_dir, fn)
+        with open(path) as f:
+            g = json.load(f)
+        dirty = False
+        for m in g.get("materials", []):
+            if m.get("pbrMetallicRoughness", {}).get("baseColorTexture") \
+                    is None:
+                continue
+            state = RETAIL_MATERIALS.state(m.get("name") or "")
+            if state is None:
+                unsourced.add(m.get("name"))
+                continue
+            mode, cutoff, two = state
+            cut = None if cutoff is None else round(cutoff, 6)
+            if (m.get("alphaMode", "OPAQUE"), m.get("alphaCutoff"),
+                    bool(m.get("doubleSided"))) == (mode, cut, two):
+                continue
+            m["alphaMode"] = mode
+            if cut is None:
+                m.pop("alphaCutoff", None)
+            else:
+                m["alphaCutoff"] = cut
+            m["doubleSided"] = two
+            n_set += 1
+            dirty = True
+        if dirty:
+            with open(path, "w") as f:
+                json.dump(g, f)
+    return n_set, unsourced
 
 
 def update_tile_water(tile):
@@ -1309,6 +1913,32 @@ def main(argv):
         for tile in args[1:]:
             check_tile(tile)
         return 0
+    if args[0] == "--materials-only":
+        # re-apply the retail material render state to already-converted
+        # prop glTFs (see update_tile_materials)
+        total = 0
+        miss = set()
+        for tile in args[1:]:
+            n, un = update_tile_materials(tile)
+            miss |= un
+            total += n
+            print("%s: %d material(s) updated" % (tile, n))
+        print("total %d updated, %d name(s) with no retail material state"
+              % (total, len(miss)))
+        if miss:
+            print("  " + ", ".join(sorted(miss)[:20]))
+        return 0
+    if args[0] == "--lights-only":
+        # write the sibling lights.json for already-converted tiles (skips
+        # the slow umodel prop pass); the retail light rig was extracted
+        # after the initial 100-tile conversion
+        for tile in args[1:]:
+            out_dir = os.path.join(OUT_ROOT, tile)
+            d = write_tile_lights(tile, out_dir)
+            print("%s: sun=%s zones=%d lights=%d"
+                  % (tile, d["sun"] is not None, len(d["zones"]),
+                     len(d["lights"])))
+        return 0
     if args[0] == "--water-only":
         # patch just the water key of already-converted tiles (skips the
         # slow umodel prop pass); used when the water extraction was added
@@ -1328,9 +1958,13 @@ def main(argv):
         print("   basecolor coverage %.1f%%" % res["coverage"])
         ps = res["props"]
         print("   props: %d actors, %d/%d packages found, %d placed gltf, "
-              "%d unwired materials"
+              "%d unwired materials, %d unsourced material states"
               % (ps["actors"], ps["packages_found"], ps["packages_total"],
-                 ps["converted"], len(ps.get("missing_textures", []))))
+                 ps["converted"], len(ps.get("missing_textures", [])),
+                 len(ps.get("unsourced_state", []))))
+        print("   lights: sun=%s, %d zones, %d Light actors"
+              % (res["lights"]["sun"], res["lights"]["zones"],
+                 res["lights"]["actors"]))
         print("   -> %s" % res["out"])
     return 0
 

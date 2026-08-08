@@ -513,8 +513,25 @@ regenerate with `tools/ui/mine_classicons.py`, guard `--check`).
 
 ### Rendering / models
 
-- glTF materials are **doubleSided** on purpose (hair/foliage use alphaMode
-  MASK, cutoff 0.5) — single-sided culling produces invisible faces.
+- **CHARACTER/monster/weapon** glTF materials are **doubleSided** on purpose
+  (hair/foliage use alphaMode MASK, cutoff 0.5) — single-sided culling
+  produces invisible faces. This does **not** apply to world props any more:
+  since 2026-08-08 `tools/world/convert.py` sets each prop material's
+  `alphaMode`/`alphaCutoff`/`doubleSided` from the **retail UE2 material**
+  (Shader `AlphaTest`/`AlphaRef`/`OutputBlending`/`TwoSided`, or Texture
+  `bMasked`/`bAlphaTexture`/`bTwoSided`) and `Terrain._prepMaterials` no
+  longer overrides it. Guessing MASK 0.5 there cut 209 surfaces / 1,131
+  placements away completely. See `docs/foundation-audit.md` F3.
+- **World prop glTFs are in the proper (x, z, -y) det +1 basis**, not
+  umodel's raw det -1 export: `convert.py gltf_to_proper_basis()` negates
+  z/tangent-w and reverses the winding, and `Terrain.ueQuaternion` uses
+  `yaw +, pitch +, roll -` to match. Re-exporting a prop package with plain
+  umodel and dropping it in will render mirrored. Gate:
+  `tools/src/char_pipeline/audit_prop_basis.py --check`. Derivation:
+  `docs/world-prop-basis.md`.
+- **`scene.json` `scale` is in L2 axis order**; the client must apply it as
+  three `(sx, sz, sy)` (`Terrain.propScale`). 308 retail `(1,-1,1)` mirrors
+  were being flipped upside down instead of sideways.
 - The charcreate app light rig renders every model **dark navy** (physical
   light units) — it is an app lighting matter, verified independent of the
   model files; do not "fix" the textures.

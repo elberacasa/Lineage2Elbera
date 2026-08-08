@@ -1,5 +1,11 @@
 # Foundation audit — visual fidelity vs the source data
 
+> **STATUS 2026-08-08 — F1, F2, F3 APPLIED; F4 EXTRACTED BUT NOT WIRED.**
+> See the "Applied" section at the end of this document for what changed,
+> the gate results, the measured improvements, and the one place where this
+> document's fix specification turned out to be **wrong** (F1's roll sign).
+> The full derivation lives in `docs/world-prop-basis.md`.
+
 Adversarial audit run 2026-08-07. The question asked of every claim was not
 "does a suite pass" but **"does the rendered result equal the decoded source
 value"**. Everything below is either PROVED (a decoded number, a byte-level
@@ -472,3 +478,220 @@ Recording these so the same ground is not re-audited.
 - The `--shaders` cross-check indexes every client `.utx` on each run
   (~2 min). It is fine as a nightly gate, too slow for a pre-commit hook;
   cache the index if it needs to run often.
+
+---
+
+# Applied — 2026-08-08
+
+F1, F2 and F3 are **fixed and shipped**. F4 is **extracted** (the retail
+values now ship per tile) but **not wired into the renderer**, because the
+light rig lives in `editor/world/js/main.js`, which was outside this
+change's ownership. F5 is untouched, as intended.
+
+Full derivation of the coordinate work: **`docs/world-prop-basis.md`**.
+Contract updates: `tools/world/README.md` (prop basis, prop material state,
+new `lights.json` sibling), `docs/HANDOFF.md` §5.
+
+## One place where this document was WRONG
+
+F1's fix specification says `roll` becomes `+roll about (1,0,0)`. It does
+not — it stays `-roll`. Only the **yaw** sign changes.
+
+The audit derived the roll sign from "UE roll is right-handed about
+`+X_L2`". The vendored oracle disagrees: composing
+`Unreal/UnrealMesh/UnMathTools.h:6 RotatorToAxis` with
+`Core/Math3D.cpp:252 Euler2Vecs` (which together reproduce UE2's
+`FRotationMatrix` term for term) and setting pitch = yaw = 0 gives local
+`Y = (0, cos R, -sin R)` — `Y` tilting toward `-Z`, i.e. a right-handed
+rotation about **`-X_L2`**. An exhaustive search over all 8 sign
+combinations × 6 composition orders, matched against `M R_ue Mᵀ` on 40
+random rotators, finds exactly one solution — `yaw +, pitch +, roll -`,
+order `qYaw·qPitch·qRoll`, max element error 6.7e-16 — and **no** match for
+the specified combination. 10,101 of 157,171 placements carry a non-zero
+roll, so it matters.
+
+Everything else in F1 held: the reflection is in the mesh data, the yaw sign
+flips, the winding must be reversed, `TANGENT.w` must be negated.
+
+## F1 — prop glTF basis
+
+`tools/world/convert.py`:
+
+* new `gltf_to_proper_basis(gltf_path)`, run on every prop export between
+  the umodel pass and `patch_gltf_textures`. Negates `POSITION.z`,
+  `NORMAL.z`, `TANGENT.z` and `TANGENT.w`, reverses every triangle's index
+  order, swaps+negates the POSITION accessors' `min.z`/`max.z`. Tags
+  `asset.extras.basis = "l2ToThree(x,z,-y) det+1"` and is idempotent; it
+  raises rather than run on a glTF whose nodes carry a local transform.
+* `scene.json` is **unchanged** — the frozen contract does not move. Only
+  the sibling `props/*.gltf` + `.bin` payloads change.
+
+`editor/world/js/terrain.js`: `Terrain.ueQuaternion` yaw sign flipped (see
+above), with the derivation in the comment.
+
+**Gate — `audit_prop_basis.py --check`, all 100 tiles:**
+
+```
+mirrored (glTF z == +UE y, determinant -1): 0
+proper   (glTF z == -UE y, determinant +1): 151
+unknown                                   : 22
+```
+
+(was `mirrored 17 / proper 0` on 22_22 alone. The `unknown` packages are
+Y-symmetric meshes that carry no information either way — the audit
+already recorded 2 of them on 22_22.)
+
+## F2 — prop scale axes
+
+`Terrain._propMatrix` and `Terrain._loadPropsRaw` now go through a new
+`Terrain.propScale()`, which maps the L2-ordered `scale` to three as
+`(sx, sz, sy)`. Reproduced the audit's census exactly on the current data:
+3,025 placements where the swap changes the result, 308 at `(1,-1,1)`,
+1,431 at `(-1,1,1)`, 1,849 negative-determinant.
+
+**Follow-on that the audit listed as out of scope and that this change
+DID have to close:** those 1,849 negative-determinant instances draw with
+reversed winding, and three.js only compensates on an object's own
+`matrixWorld`, never per InstancedMesh instance. The blanket
+`side = DoubleSide` used to hide it; removing that (F3) would have culled
+them inside-out. `_loadPropsInstanced` now splits each cluster's instances
+by the sign of the instance-matrix determinant and gives the mirrored group
+a material clone with the front face flipped (`Terrain._flipSide`). Normals
+need no correction: these are axis mirrors, diagonal ±1, for which the
+instance matrix is its own inverse-transpose.
+
+## F3 — prop material render state
+
+`tools/world/convert.py`: `png_has_significant_alpha` is no longer used on
+the prop path (it survives only as `bsp.py`'s fallback — see the open item
+below). `patch_gltf_textures` now takes `alphaMode` / `alphaCutoff` /
+`doubleSided` from the new `RetailMaterialIndex`, which resolves the glTF
+material name to its export in the client `textures`/`systextures` `.utx`
+and reads the UE2 render state. The translation is taken from the reference
+oracle's own renderer, not from a reading of the audit's table:
+
+| retail | glTF | oracle |
+| --- | --- | --- |
+| Shader `AlphaTest` | `MASK`, `alphaCutoff = (AlphaRef + 1)/255` | `UnRenderer.cpp:1443` `glAlphaFunc(GL_GREATER, AlphaRef/255)` — GL keeps `alpha > ref`, glTF keeps `alpha >= cutoff`, so `+1` is the *exact* conversion, not a nudge |
+| Shader `OutputBlending != OB_Normal`, or `OB_Normal` with an `Opacity` map | `BLEND` | `UnRenderer.cpp:1510`; enum values `UnMaterial2.h:570` |
+| Shader, anything else (incl. `SelfIllumination`, `Specular`+`SpecularityMask`) | `OPAQUE` | ditto |
+| Texture `bMasked`, or `bAlphaTexture` on DXT1 | `MASK` @ 0.8 | `UnRenderer.cpp:1246` |
+| Texture `bAlphaTexture` | `BLEND` | `UnRenderer.cpp:1251,1256` |
+| Texture, neither | `OPAQUE` | `UnRenderer.cpp:1261` (alpha test AND blend explicitly disabled) |
+| `TwoSided` / `TreatAsTwoSided` / `bTwoSided` | `doubleSided` | `UnRenderer.cpp:1430,1235` |
+
+Every real prop material name resolves: the only unresolved names across all
+100 tiles are umodel's 82 `dummy_material_N` placeholders, which never get a
+texture wired either. The name→export index costs ~80 s to build and is
+cached in `assets/world/.utx_material_index.json`, keyed on the `.utx` file
+list + sizes; per-tile conversion went from ~112 s to ~30 s after the first
+build.
+
+`editor/world/js/terrain.js`: the blanket
+`if (m.map) { m.alphaTest = 0.5; m.side = THREE.DoubleSide; }` in
+`_prepMaterials` is gone, so `GLTFLoader` applies the glTF's own state. The
+`FLAME_MAT_RE` additive branch is untouched.
+
+**Gate — `audit_prop_materials.py --check`, all 100 tiles:**
+
+```
+materials with a baseColor texture : 71322
+  marked alphaMode MASK            : 1121
+  of those, 100% invisible         : 0 material(s) in 0 prop glTF(s), 0 placement(s)
+PASS: no prop surface is fully cut away
+```
+
+(was 9,440 MASK, 209 of them fully invisible, 1,131 placements.)
+
+**`--shaders` cross-check on 22_22: 409 → 35 disagreements.** All 35
+residuals are the *gate's* blind spot, not the converter's: its
+`retail_state()` short-circuits every `Texture`-class export to
+`kind='texture', two_sided=False` without reading `bMasked` /
+`bAlphaTexture` / `bTwoSided`. Verified case by case, e.g.
+`orcguild_skin10_a` is `Texture{bMasked: True, bTwoSided: True}` and
+`KnightStatue_T01_u` is `Texture{bTwoSided: True}`. The gate was left
+untouched; extending its Texture branch would close the last 35.
+
+Distribution over 22_22's 2,113 textured prop materials after the fix:
+1,774 OPAQUE single-sided · 302 BLEND · 12 MASK @ 0.8 (retail `bMasked`) ·
+10 MASK @ 0.043 (`AlphaRef` 10) · 3 MASK @ 0.008 (`AlphaRef` 1) · 12 OPAQUE
+double-sided. `Giran_wall08_light` is OPAQUE, `StLight03_light` is OPAQUE
+and single-sided, `girantreeleaf1_1` cuts at 0.043 instead of 0.5 — exactly
+the three cases the audit named.
+
+**Deliberately still undone (documented gaps, not guesses):**
+`SelfIllumination`/`SelfIlluminationMask` shaders render OPAQUE with the
+correct diffuse but no additive emissive pass — that needs a baked
+one-channel-to-RGB emissive PNG. `OB_Modulate`/`OB_Brighten`/`OB_Darken`
+collapse to plain `BLEND`; glTF 2.0 core has no additive or modulate mode.
+
+## F4 — retail light rig extracted
+
+`tools/world/convert.py` gained `read_lights()` / `write_tile_lights()`,
+writing a new **sibling** `assets/world/<tile>/lights.json` (scene.json
+stays frozen). Regenerable alone with
+`python3 tools/world/convert.py --lights-only <tile>`. Contract and key
+table in `tools/world/README.md`.
+
+Everything is in retail units. The only derived values are labelled as such:
+`pitchDeg`/`yawDeg`, and `directionToSun`, computed as the rotator's forward
+axis `(cP cY, cP sY, sP)` (same oracle as F1) mapped through the props' own
+`M` and negated. 22_22 decodes to `directionToSun = (0.500, 0.750, 0.433)`,
+elevation 48.6° — reproducing the audit's number exactly. Also carried:
+sun `LightBrightness` 70.0, `NSun` radius 350, the terrain `ZoneInfo`
+(`bTerrainZone`) with `AmbientVector` (0.360, 0.360, 0.360) and
+`DistanceFogEnd` 15000 (= 150 m, against the client's invented 420 m), all
+17 zones, and all 91 `Light` actors with location/rotation/brightness/
+radius/hue/saturation/type.
+
+**NOT done:** nothing consumes the file. `main.js` owns the sky, fog,
+ambient, hemisphere and directional lights and was out of ownership for this
+change. `LightBrightness`/`LightRadius` are also shipped **raw** — mapping
+UE2 light units onto the ACES-tonemapped PBR rig has no sourced conversion,
+and inventing one is exactly what F4 objects to.
+
+## The `correctHeightsWithGeodata` threshold — MEASURED, and NOT changed
+
+The audit suggests applying `MESH_GEO_MAX_DEV` to the *anchored* deviation
+instead of the raw one. Measured on 22_22 (all 65,536 cells, raw heightmap
+re-fetched so the in-place correction does not contaminate it):
+
+```
+median(geodata - heightmap) = +30.85 L2u    p05 +16.7  p25 +25.9  p75 +36.6
+cells with dev >  +100 : 3340      cells with dev < -100 : 0
+```
+
+The bias is real and the distribution is entirely one-sided, so the ±100
+test *is* asymmetric. But two things say not to change it:
+
+1. **Substituting `anchoredHeightAt` is literally a no-op.** `GEO_ANCHOR_MAX`
+   is 64 and `MESH_GEO_MAX_DEV` is 100. Within 64 the anchored deviation is
+   exactly 0 (already below the threshold); beyond 64 `anchoredHeightAt`
+   returns the raw height unchanged. Same cells selected, same values
+   written.
+2. **Removing the measured offset before thresholding makes the result
+   worse against an independent oracle.** Doing it drops the correction from
+   3,340 candidate cells / 3,105 rewritten to 2,326 / 1,844, changing 2,293
+   cells by a mean of 0.75 m. Judged by retail prop `Location.Z` (props are
+   placed on the ground the retail client draws — the same oracle
+   `geodata.js` cites for the anchoring work), over the 487 props standing
+   on cells that differ: median `|prop.z - terrain|` is **89.3 L2u as
+   shipped vs 137.8** with the offset removed, and props landing within
+   100 L2u drop from 271 to 184. 17_25 disagrees weakly the other way (21
+   props, 112 vs 74) but has 4% of the sample.
+
+So the code is unchanged and this is recorded instead. Closing it properly
+needs a ground-truth terrain oracle for the stale-rectangle zones
+themselves, not a re-weighting of the same two surfaces.
+
+## New defect found while applying F3 (not fixed)
+
+The same alpha guess still runs on the **BSP** path: `bsp.py:402`
+`alpha = masked or png_has_significant_alpha(png)`. Scanning all 100
+`bsp.gltf` files: 1,130 materials with a baseColor texture, 39 marked MASK,
+of which **2 are 100% invisible** — `18_19 test` (max alpha 68) and
+`22_25 eva_wall_03_sh` (max alpha 85). Both are retail **OPAQUE**
+(`RetailMaterialIndex` on the client `.utx`). Left alone deliberately: the
+BSP path landed hours before this change and the instruction was not to
+regress it; the fix is to give `bsp.py` the same `RetailMaterialIndex`
+lookup as the prop path, keeping `PF_MASKED` as the primary signal.

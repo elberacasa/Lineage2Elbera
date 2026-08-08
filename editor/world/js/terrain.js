@@ -718,20 +718,51 @@ export class Terrain {
   // -- props ------------------------------------------------------------------
 
   // UE rotator (1/65536 rev per unit, L2 axes) -> three.js quaternion.
-  // Basis map M: (x,y,z)_L2 -> (x,z,-y)_three is a reflection, so under
-  // conjugation each rotation flips sign about the mapped axis:
-  //   yaw   (about Z_L2) -> about (0,1,0) by -yaw
-  //   pitch (about Y_L2) -> about (0,0,1) by +pitch
-  //   roll  (about X_L2) -> about (1,0,0) by -roll
-  // UE applies R = Yaw * Pitch * Roll.
+  //
+  // The basis map M: (x,y,z)_L2 -> (x,z,-y)_three has determinant +1 (it is
+  // a ROTATION, not a reflection — the old comment here claimed otherwise).
+  // So the placement quaternion is simply M R_ue M^T, which preserves every
+  // rotation angle and only relabels the axes.
+  //
+  // R_ue is UE2's FRotationMatrix, reproduced term for term by the vendored
+  // reference oracle: tools/src/UEViewer/Unreal/UnrealMesh/UnMathTools.h:6
+  // RotatorToAxis + Core/Math3D.cpp:252 Euler2Vecs, whose rows (= the actor's
+  // local axes in world space) are
+  //     X: ( cP cY,            cP sY,            sP    )
+  //     Y: ( sR sP cY - cR sY,  sR sP sY + cR cY, -sR cP)
+  //     Z: (-(cR sP cY + sR sY), cY sR - cR sP sY, cR cP)
+  // Conjugating that by M and matching against axis-angle quaternions gives
+  // exactly ONE combination (verified numerically over 40 random rotators,
+  // max element error 6.7e-16):
+  //     yaw   -> about (0,1,0) by +yaw
+  //     pitch -> about (0,0,1) by +pitch
+  //     roll  -> about (1,0,0) by -roll
+  //     composed qYaw * qPitch * qRoll
+  // Only the YAW sign changes relative to the pre-F1 code; pitch and roll
+  // were already right. (docs/foundation-audit.md F1 specified roll -> +roll;
+  // that part of the spec is wrong — see docs/world-prop-basis.md.)
+  //
+  // This is only valid together with the determinant +1 prop meshes produced
+  // by convert.py gltf_to_proper_basis(); umodel's raw output is mirrored.
   static ueQuaternion(pitch, yaw, roll) {
     const qYaw = new THREE.Quaternion()
-      .setFromAxisAngle(new THREE.Vector3(0, 1, 0), -yaw * UE_ROT_TO_RAD);
+      .setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw * UE_ROT_TO_RAD);
     const qPitch = new THREE.Quaternion()
       .setFromAxisAngle(new THREE.Vector3(0, 0, 1), pitch * UE_ROT_TO_RAD);
     const qRoll = new THREE.Quaternion()
       .setFromAxisAngle(new THREE.Vector3(1, 0, 0), -roll * UE_ROT_TO_RAD);
     return qYaw.multiply(qPitch).multiply(qRoll);
+  }
+
+  // scene.json stores `scale` in L2 axis order (DrawScale * DrawScale3D,
+  // convert.py convert_props). The same conjugation as above maps a diagonal
+  // L2 scale to three as diag(sx, sz, sy) — L2 y is three -z and L2 z is
+  // three y. Getting this wrong flipped 308 retail (1,-1,1) mirrors upside
+  // down instead of sideways and mis-stretched 3,025 placements.
+  // docs/foundation-audit.md F2.
+  static propScale(scale, out = new THREE.Vector3()) {
+    const [sx, sy, sz] = scale || [1, 1, 1];
+    return out.set(sx, sz, sy);
   }
 
   // M3 perf: repeated prop glTFs render as InstancedMesh, grouped into
@@ -760,11 +791,31 @@ export class Terrain {
         m.side = THREE.DoubleSide;
         continue;
       }
-      // L2 foliage etc. use alpha-cutout cards: honor the alpha channel
-      // (no-op for fully opaque textures) and light both sides
-      if (m.map) { m.alphaTest = 0.5; m.side = THREE.DoubleSide; }
+      // Everything else keeps the render state GLTFLoader read from the
+      // glTF, which convert.py now sets from the RETAIL UE2 material
+      // (AlphaTest/AlphaRef, OutputBlending, TwoSided/TreatAsTwoSided) — see
+      // convert.py RetailMaterialIndex and docs/foundation-audit.md F3.
+      // The blanket `m.alphaTest = 0.5; m.side = DoubleSide` that used to
+      // live here overrode all of it and cut 209 surfaces (1,131 placements)
+      // away entirely, because in L2 the alpha channel is a specular or
+      // self-illumination mask on every material that is not alpha-tested.
     }
     return material;
+  }
+
+  // Front/back swap for mirrored (negative-determinant) instances; cached
+  // per source material so one clone is shared by every mirrored placement.
+  static _flipSide(material) {
+    if (Array.isArray(material)) return material.map(m => Terrain._flipSide(m));
+    if (material.side === THREE.DoubleSide) return material;
+    if (!Terrain._flipCache) Terrain._flipCache = new WeakMap();
+    let m = Terrain._flipCache.get(material);
+    if (!m) {
+      m = material.clone();
+      m.side = material.side === THREE.BackSide ? THREE.FrontSide : THREE.BackSide;
+      Terrain._flipCache.set(material, m);
+    }
+    return m;
   }
 
   static _propMatrix(p, out = new THREE.Matrix4()) {
@@ -772,8 +823,7 @@ export class Terrain {
     const pos = l2ToThree(px, py, pz);
     const [pitch, yaw, roll] = p.rotation || [0, 0, 0];
     const quat = Terrain.ueQuaternion(pitch, yaw, roll);
-    const [sx, sy, sz] = p.scale || [1, 1, 1];
-    return out.compose(pos, quat, new THREE.Vector3(sx, sy, sz));
+    return out.compose(pos, quat, Terrain.propScale(p.scale));
   }
 
   async _loadPropsInstanced(placements) {
@@ -825,17 +875,36 @@ export class Terrain {
         center.divideScalar(matrices.length);
         const cluster = { center: center.clone(), meshes: [], visible: true };
         for (const mesh of meshes) {
-          const im = new THREE.InstancedMesh(mesh.geometry, mesh.material, matrices.length);
-          for (let i = 0; i < matrices.length; i++) {
-            im.setMatrixAt(i, instM.copy(matrices[i]).multiply(mesh.matrix));
+          // 1,849 retail placements carry a NEGATIVE-determinant scale
+          // (DrawScale3D mirrors, e.g. (1,-1,1)). Such an instance draws its
+          // triangles with reversed winding, and three.js only compensates
+          // for that on an object's own matrixWorld (WebGLRenderer's
+          // frontFaceCW test) — never per InstancedMesh instance. While
+          // every prop material was force-DoubleSided that stayed hidden;
+          // now that the retail two-sidedness is honored (F3) they would be
+          // culled inside-out. So mirrored instances go into their own
+          // InstancedMesh with the material's front face flipped.
+          // (Normals are fine: these are axis mirrors, diagonal +-1, for
+          // which the instance matrix IS its own inverse-transpose.)
+          for (const flip of [false, true]) {
+            const sel = [];
+            for (const m of matrices) {
+              instM.copy(m).multiply(mesh.matrix);
+              if ((instM.determinant() < 0) === flip) sel.push(instM.clone());
+            }
+            if (!sel.length) continue;
+            const material = flip ? Terrain._flipSide(mesh.material)
+              : mesh.material;
+            const im = new THREE.InstancedMesh(mesh.geometry, material, sel.length);
+            for (let i = 0; i < sel.length; i++) im.setMatrixAt(i, sel[i]);
+            im.instanceMatrix.needsUpdate = true;
+            im.castShadow = true;
+            im.receiveShadow = true;
+            im.computeBoundingSphere();   // per-cluster frustum culling
+            this.group.add(im);
+            this.props.push(im);
+            cluster.meshes.push(im);
           }
-          im.instanceMatrix.needsUpdate = true;
-          im.castShadow = true;
-          im.receiveShadow = true;
-          im.computeBoundingSphere();   // per-cluster frustum culling
-          this.group.add(im);
-          this.props.push(im);
-          cluster.meshes.push(im);
         }
         this.propClusters.push(cluster);
       }
@@ -874,8 +943,7 @@ export class Terrain {
       l2ToThree(px, py, pz, obj.position);
       const [pitch, yaw, roll] = p.rotation || [0, 0, 0];
       obj.quaternion.copy(Terrain.ueQuaternion(pitch, yaw, roll));
-      const [sx, sy, sz] = p.scale || [1, 1, 1];
-      obj.scale.set(sx, sy, sz);
+      Terrain.propScale(p.scale, obj.scale);
       obj.traverse(o => {
         if (o.isMesh) {
           o.castShadow = true;

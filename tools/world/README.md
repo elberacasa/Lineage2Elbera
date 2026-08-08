@@ -66,9 +66,38 @@ world Z = z0 + (h - 32768) * heightScale        (heightScale = 76/256 = 0.296875
   this client install (nothing else is missing — see per-tile notes below).
 - glTF files are glTF 2.0 (umodel export), with `images[]`/`textures[]`
   patched in by the converter so materials reference
-  `props/textures/<file>.png` (relative URIs). UE2 units = glTF units (no
-  unit scaling applied); coordinate handedness conversion is the client's
-  job, same as for the character models.
+  `props/textures/<file>.png` (relative URIs). umodel scales to metres
+  (`pos.Scale(0.01f)`), so glTF units = metres, matching the client.
+- **Prop glTF coordinate basis (changed 2026-08-08, see
+  `docs/world-prop-basis.md`).** umodel's exporter converts UE space with a
+  swap, `(x,y,z)_UE -> (x,z,y)`, determinant **-1** — a reflection. The
+  client places props with `l2ToThree`, `(x,y,z)_L2 -> (x,z,-y)`,
+  determinant **+1**, so every prop used to be drawn as its own mirror
+  image. `convert.py gltf_to_proper_basis()` now post-processes each export
+  into the **proper (x, z, -y) basis**: `POSITION.z`, `NORMAL.z`,
+  `TANGENT.z` and `TANGENT.w` negated, every triangle's index order
+  reversed, POSITION accessor `min.z`/`max.z` swapped and negated. The file
+  is tagged `asset.extras.basis = "l2ToThree(x,z,-y) det+1"` and the pass is
+  idempotent. Gate: `tools/src/char_pipeline/audit_prop_basis.py --check`.
+- **Prop material render state (changed 2026-08-08).** `alphaMode`,
+  `alphaCutoff` and `doubleSided` are read from the **retail UE2 material**
+  in the client `.utx` (Shader `AlphaTest`/`AlphaRef`/`OutputBlending`/
+  `TwoSided`/`TreatAsTwoSided`, or Texture `bMasked`/`bAlphaTexture`/
+  `bTwoSided`), never from a PNG alpha histogram. See the
+  `RetailMaterialIndex` block comment in convert.py for the mapping and its
+  UEViewer source lines. Modifier chains (`TexPanner`, `TexOscillator`,
+  `Combiner`, …) resolve through to the wrapped material; a name that
+  resolves to a non-material export (a `StaticMesh` or `Package` sharing the
+  name) is reported as unsourced and left alone rather than guessed. The
+  name→export index is cached in `assets/world/.utx_material_index.json`
+  (rebuilt when the .utx set changes). Gate:
+  `tools/src/char_pipeline/audit_prop_materials.py --check`. A change to the
+  decode can be rolled over the converted world without the umodel pass:
+  `python3 tools/world/convert.py --materials-only <tile> ...` (touches only
+  `alphaMode`/`alphaCutoff`/`doubleSided`; idempotent).
+- Prop `.gltf`/`.bin` files in `props/` that are not referenced by
+  `scene.json` are deleted at conversion time (leftovers from an earlier
+  build of the same tile).
 - `layers[].splat` is `null` for the UE2 **base layer** (weight 255 over the
   whole tile). `layers[].diffuse` is `null` never happened in practice;
   placeholder layers (`Texture.Base` with no real texture) are dropped.
@@ -124,6 +153,41 @@ world Z = z0 + (h - 32768) * heightScale        (heightScale = 76/256 = 0.296875
   → Shader/FinalBlend resolved to diffuse via l2lib and decoded). Rendered
   headless (three.js + puppeteer, `preview.html`/`shot.js`) and eyeballed:
   buildings, fences, boards come out textured and correctly shaped.
+
+## lights.json contract (sibling file — the retail light rig)
+
+`scene.json` is frozen, so the decoded lighting ships beside it. Written by
+`convert.py` (`read_lights` / `write_tile_lights`); regenerable on its own
+with `python3 tools/world/convert.py --lights-only <tile> ...`.
+
+```
+assets/world/<tile>/lights.json
+```
+
+Everything is copied out of the `.unr` in **retail units** (L2 cm, UE
+rotator 65536/rev, `LightHue`/`LightSaturation` 0..255) and never
+reinterpreted. Keys:
+
+| key | source |
+| --- | --- |
+| `sun` | the single `NMovableSunLight`: `location`, `rotation`, `brightness` (`LightBrightness`), `drawScale` |
+| `sun.derived` | pure arithmetic on the above: `pitchDeg`/`yawDeg`, and `shineDirThree`/`directionToSun` — the rotator's forward axis `(cP cY, cP sY, sP)` mapped with the props' own `M = (x,y,z) -> (x,z,-y)`. 22_22: `directionToSun = (0.500, 0.750, 0.433)`, elevation 48.6° |
+| `nsun` | the `NSun` billboard: `location`, `rotation`, `radius`, `directional` |
+| `zones` | every `ZoneInfo` carrying lighting/fog state: `AmbientVector`, `AmbientBrightness`, `bDistanceFog`, `DistanceFogStart`/`End` (+ `_m` = ×0.01), `DistanceFogColor` (UE1/UE2 `FColor` is R,G,B,A — UEViewer `UnCore.h:2483`) |
+| `terrainZone` | the name of the `ZoneInfo` with `bTerrainZone` — the tile's outdoor zone |
+| `lights` | every `Light` actor: `Location`, `Rotation`, `LightBrightness`, `LightRadius`, `LightHue`, `LightSaturation`, `LightType`, `LightEffect`, `bDirectional`, `bCorona`, on/off times |
+
+22_22 (Giran) decodes to: sun brightness 70.0 at rotation
+(-8846, 25324, 0); terrain zone `ZoneInfo3` with `AmbientVector`
+(0.360, 0.360, 0.360) and `DistanceFogEnd` 15000 (= **150 m**); 17 zones;
+91 `Light` actors.
+
+**NOT converted, deliberately**: `LightBrightness` / `LightRadius` are UE2
+light units and there is no sourced mapping onto a three.js (ACES-tonemapped
+PBR) intensity. They ship raw so the calibration can be done against data
+rather than guessed. **NOT consumed yet**: the client's light rig lives in
+`editor/world/js/main.js`, which was outside this change's ownership — see
+`docs/foundation-audit.md` F4.
 
 ## bsp.gltf contract (sibling file — the BSP buildings)
 
