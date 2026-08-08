@@ -16,15 +16,15 @@ and writes
     assets/world/<tile>/textures/*.png         (layer diffuses + splat maps)
     assets/world/<tile>/props/*.gltf|bin       (converted static meshes)
     assets/world/<tile>/props/textures/*.png   (prop textures referenced by gltf)
-    assets/world/<tile>/lights.json            (retail sun / zone fog+ambient /
-                                                Light actors; sibling file —
-                                                scene.json stays frozen)
+    assets/world/<tile>/light.json             (retail sun / zone ambient /
+                                                distance fog, via
+                                                light_extract.py; sibling file
+                                                — scene.json stays frozen)
 
 Usage:
     python3 tools/world/convert.py 17_23 [19_22 ...]   # convert tiles
     python3 tools/world/convert.py --check 17_23 ...   # validate scene.json
     python3 tools/world/convert.py --water-only T ...  # repatch water only
-    python3 tools/world/convert.py --lights-only T ... # write lights.json only
     python3 tools/world/convert.py --materials-only T  # re-apply the retail
                                                        # prop material state
 
@@ -52,6 +52,7 @@ from l2lib import (L2Error, Reader, TEXF_DXT1, load_package,  # noqa: E402
                    parse_texture, extract_texture_rgba, read_properties,
                    resolve_material, write_png)
 import geodata  # noqa: E402  (tools/world sibling module)
+import light_extract  # noqa: E402  (tools/world sibling module)
 
 CLIENT = os.path.join(ROOT, "assets", "interlude")
 LIBRARY = os.path.join(ROOT, "assets", "library")
@@ -735,157 +736,22 @@ def ship_water_texture(out_dir, water):
 
 
 # ---------------------------------------------------------------------------
-# lights: the retail sun, the zone ambient/fog, and the placed Light actors
+# lights: the retail sun, the zone ambient and the distance fog
 # ---------------------------------------------------------------------------
-# docs/foundation-audit.md F4: the client's sky gradient, Fog(60, 420),
-# AmbientLight, HemisphereLight, DirectionalLight and SUN_DIR are all
-# invented, while the map carries the real thing. 22_22 census:
-#   Light 91 · ZoneInfo 17 · NMovableSunLight 1 · NSun 1 · NMoon 1 ·
-#   SkyZoneInfo 1
-# Everything below is copied out of the .unr in RETAIL UNITS and never
-# reinterpreted, with two exceptions that are pure arithmetic and are
-# labelled as derived in the output:
-#   * `directionToSun` — the unit vector from the world toward the sun, in
-#     the client's three.js basis.  An FRotator's forward axis is
-#     R*(1,0,0) = (cos P cos Y, cos P sin Y, sin P)  (UEViewer
-#     Unreal/UnrealMesh/UnMathTools.h:6 RotatorToAxis + Core/Math3D.cpp:252
-#     Euler2Vecs, which reproduce UE2's FRotationMatrix term for term); that
-#     is the direction the light SHINES, so the direction toward the sun is
-#     its negation, mapped with the same M = (x, y, z)_L2 -> (x, z, -y) the
-#     props use.  For 22_22 (pitch -8846, yaw 25324) this is
-#     (0.500, 0.750, 0.433) — elevation 48.6 deg.
-#   * `*_m` distances — the same value times L2_TO_M (0.01).
-# NOT converted, because no sourced calibration exists: LightBrightness /
-# Radius are UE2 light units and there is no decoded mapping onto a
-# three.js/ACES intensity.  They are shipped raw so the calibration can be
-# done later against data rather than re-guessed.
+# docs/foundation-audit.md F4. The decode lives in `light_extract.py`, whose
+# sibling `assets/world/<tile>/light.json` is what `editor/world/js/
+# worldlight.js` reads; convert_tile calls it so a re-converted tile can
+# never ship a stale light.json. scene.json is a frozen contract and is not
+# touched.
 #
-# scene.json is a FROZEN contract, so this lands in a sibling file
-# assets/world/<tile>/lights.json.
+# NOT decoded by either path, and therefore still an open item: the 91
+# `Light` point-light actors per map (1,704 on 23_23), the `NSun` billboard,
+# and the per-zone `AmbientVector` list — light_extract.py takes the terrain
+# zone only. The client still invents torch lights from a material-name
+# regex (FLAME_MAT_RE in terrain.js).
 
 L2_TO_M = 0.01
 UE_ROT_TO_RAD = math.pi / 32768.0
-
-
-def _actor_value(p):
-    """Decode one packed property of a map actor to a Python value."""
-    t, raw = p["type"], p["raw"]
-    if t == 3:
-        return bool(p["boolval"])
-    if t == 1:
-        return raw[0] if raw else None
-    if t == 2:
-        return struct.unpack("<i", raw)[0] if len(raw) == 4 else None
-    if t == 4:
-        return prop_float(raw)
-    if t == 10 and len(raw) == 12:
-        return prop_rotator(raw) if p["struct"] == "Rotator" \
-            else prop_vector(raw)
-    if t == 10 and p["struct"] == "Color" and len(raw) == 4:
-        # UE1/UE2 FColor serializes R, G, B, A (UEViewer UnCore.h:2483-2488;
-        # the BGRA layout only starts at UE3)
-        return [raw[0], raw[1], raw[2], raw[3]]
-    return None
-
-
-def _actor_props(pkg, exp, names):
-    """-> {name: value} for the packed properties of one map actor."""
-    out = {}
-    for p in find_prop_start(pkg, exp) or ():
-        if p["name"] in names and p["name"] not in out:
-            v = _actor_value(p)
-            if v is not None:
-                out[p["name"]] = v
-    return out
-
-
-def rotator_forward_three(rot):
-    """UE FRotator -> its forward axis expressed in the client's three basis.
-
-    forward_UE = (cos P cos Y, cos P sin Y, sin P)  (RotatorToAxis, see above)
-    M(x, y, z) = (x, z, -y)
-    """
-    pitch, yaw = rot[0] * UE_ROT_TO_RAD, rot[1] * UE_ROT_TO_RAD
-    cp, sp = math.cos(pitch), math.sin(pitch)
-    cy, sy = math.cos(yaw), math.sin(yaw)
-    return [cp * cy, sp, -cp * sy]
-
-
-_LIGHT_KEYS = ("Location", "Rotation", "LightBrightness", "LightRadius",
-               "LightHue", "LightSaturation", "LightType", "LightEffect",
-               "LightCone", "bDirectional", "bCorona", "LightOnTime",
-               "LightOffTime")
-_ZONE_KEYS = ("Location", "bTerrainZone", "bDistanceFog", "DistanceFogStart",
-              "DistanceFogEnd", "DistanceFogColor", "AmbientVector",
-              "AmbientBrightness", "AmbientHue", "AmbientSaturation",
-              "bLonelyZone")
-
-
-def read_lights(pkg, tile):
-    """-> the lights.json body for one map package (see block comment)."""
-    out = {"tile": tile, "units": "retail: L2 cm, UE rotator (65536/rev), "
-                                  "LightHue/Saturation 0..255",
-           "sun": None, "nsun": None, "terrainZone": None,
-           "zones": [], "lights": []}
-    for e in pkg.exports:
-        cls = pkg.class_name_of(e)
-        if cls == "NMovableSunLight" and out["sun"] is None:
-            p = _actor_props(pkg, e, ("Location", "Rotation",
-                                      "LightBrightness", "DrawScale"))
-            rot = p.get("Rotation", [0, 0, 0])
-            fwd = rotator_forward_three(rot)
-            out["sun"] = {
-                "location": p.get("Location"),
-                "rotation": rot,
-                "brightness": p.get("LightBrightness"),
-                "drawScale": p.get("DrawScale"),
-                "derived": {
-                    "pitchDeg": rot[0] * 360.0 / 65536.0,
-                    "yawDeg": rot[1] * 360.0 / 65536.0,
-                    # direction the light shines, three basis
-                    "shineDirThree": [round(v, 6) for v in fwd],
-                    # direction from the world toward the sun, three basis
-                    "directionToSun": [round(-v, 6) for v in fwd],
-                },
-            }
-        elif cls == "NSun" and out["nsun"] is None:
-            p = _actor_props(pkg, e, ("Location", "Rotation", "Radius",
-                                      "LimitMaxRadius", "bDirectional"))
-            out["nsun"] = {"location": p.get("Location"),
-                           "rotation": p.get("Rotation"),
-                           "radius": p.get("Radius"),
-                           "limitMaxRadius": p.get("LimitMaxRadius"),
-                           "directional": bool(p.get("bDirectional"))}
-        elif cls == "ZoneInfo":
-            p = _actor_props(pkg, e, _ZONE_KEYS)
-            if not p:
-                continue
-            z = {"name": pkg.export_name(e)}
-            z.update(p)
-            for k in ("DistanceFogStart", "DistanceFogEnd"):
-                if k in z:
-                    z[k + "_m"] = round(z[k] * L2_TO_M, 3)
-            out["zones"].append(z)
-            if p.get("bTerrainZone"):
-                out["terrainZone"] = z["name"]
-        elif cls == "Light":
-            p = _actor_props(pkg, e, _LIGHT_KEYS)
-            if "Location" not in p:
-                continue
-            lt = {"name": pkg.export_name(e)}
-            lt.update(p)
-            out["lights"].append(lt)
-    return out
-
-
-def write_tile_lights(tile, out_dir, pkg=None):
-    """Write assets/world/<tile>/lights.json. -> the dict written."""
-    if pkg is None:
-        pkg, _ = load_package(os.path.join(CLIENT, "maps", tile + ".unr"))
-    data = read_lights(pkg, tile)
-    with open(os.path.join(out_dir, "lights.json"), "w") as f:
-        json.dump(data, f, indent=1)
-    return data
 
 
 def find_usx(package):
@@ -1800,9 +1666,8 @@ def convert_tile(tile, with_props=True):
     water = read_water_volumes(mpkg)
     ship_water_texture(out_dir, water)
 
-    # retail light rig / zone ambient / distance fog -> sibling lights.json
-    # (scene.json is a frozen contract and is not touched)
-    lights = write_tile_lights(tile, out_dir, mpkg)
+    # retail sun / zone ambient / distance fog -> sibling light.json
+    lights = light_extract.write(tile, verbose=False)
 
     scene = {
         "tile": tile,
@@ -1842,9 +1707,7 @@ def convert_tile(tile, with_props=True):
         "layer_details": [(l["name"], bool(l["diffuse"]), bool(l["splat"]))
                           for l in layers],
         "coverage": coverage, "props": pstats,
-        "lights": {"sun": lights["sun"] is not None,
-                   "zones": len(lights["zones"]),
-                   "actors": len(lights["lights"])},
+        "lights": lights,
         "out": out_dir,
     }
 
@@ -1948,17 +1811,6 @@ def main(argv):
         if miss:
             print("  " + ", ".join(sorted(miss)[:20]))
         return 0
-    if args[0] == "--lights-only":
-        # write the sibling lights.json for already-converted tiles (skips
-        # the slow umodel prop pass); the retail light rig was extracted
-        # after the initial 100-tile conversion
-        for tile in args[1:]:
-            out_dir = os.path.join(OUT_ROOT, tile)
-            d = write_tile_lights(tile, out_dir)
-            print("%s: sun=%s zones=%d lights=%d"
-                  % (tile, d["sun"] is not None, len(d["zones"]),
-                     len(d["lights"])))
-        return 0
     if args[0] == "--water-only":
         # patch just the water key of already-converted tiles (skips the
         # slow umodel prop pass); used when the water extraction was added
@@ -1982,9 +1834,10 @@ def main(argv):
               % (ps["actors"], ps["packages_found"], ps["packages_total"],
                  ps["converted"], len(ps.get("missing_textures", [])),
                  len(ps.get("unsourced_state", []))))
-        print("   lights: sun=%s, %d zones, %d Light actors"
-              % (res["lights"]["sun"], res["lights"]["zones"],
-                 res["lights"]["actors"]))
+        lg = res["lights"] or {}
+        print("   lights: sun=%s ambient=%s fog=%s"
+              % (bool(lg.get("sun")), bool(lg.get("ambient")),
+                 (lg.get("fog") or {}).get("end")))
         print("   -> %s" % res["out"])
     return 0
 

@@ -157,40 +157,31 @@ world Z = z0 + (h - 32768) * heightScale        (heightScale = 76/256 = 0.296875
   headless (three.js + puppeteer, `preview.html`/`shot.js`) and eyeballed:
   buildings, fences, boards come out textured and correctly shaped.
 
-## lights.json contract (sibling file — the retail light rig)
+## light.json (sibling file — the retail sun, ambient and fog)
 
-`scene.json` is frozen, so the decoded lighting ships beside it. Written by
-`convert.py` (`read_lights` / `write_tile_lights`); regenerable on its own
-with `python3 tools/world/convert.py --lights-only <tile> ...`.
+`scene.json` is frozen, so the decoded lighting ships beside it as
+`assets/world/<tile>/light.json`. Decoded by `tools/world/light_extract.py`
+(`--all`, `--check`) and read by `editor/world/js/worldlight.js`.
+`convert.py` calls `light_extract.write()` from `convert_tile`, so a
+re-converted tile can never ship a stale `light.json`.
 
-```
-assets/world/<tile>/lights.json
-```
+Sources: `NMovableSunLight` (`LightBrightness`, `Rotation`), the terrain
+`ZoneInfo` (`AmbientVector`, `AmbientBrightness`, `bDistanceFog`,
+`DistanceFogStart`/`End`, `DistanceFogColor`). 22_22 (Giran) decodes to sun
+brightness 70.0 at rotation (-8846, 25324, 0) — elevation 48.6°, yaw
+139.1° — ambient (0.360, 0.360, 0.360) and `DistanceFogEnd` 15000 = **150 m**
+against the client's previously invented 420 m. `--check` over the converted
+set: 100 tiles, 100 with a sun, 94 with fog, 0 stale.
 
-Everything is copied out of the `.unr` in **retail units** (L2 cm, UE
-rotator 65536/rev, `LightHue`/`LightSaturation` 0..255) and never
-reinterpreted. Keys:
-
-| key | source |
-| --- | --- |
-| `sun` | the single `NMovableSunLight`: `location`, `rotation`, `brightness` (`LightBrightness`), `drawScale` |
-| `sun.derived` | pure arithmetic on the above: `pitchDeg`/`yawDeg`, and `shineDirThree`/`directionToSun` — the rotator's forward axis `(cP cY, cP sY, sP)` mapped with the props' own `M = (x,y,z) -> (x,z,-y)`. 22_22: `directionToSun = (0.500, 0.750, 0.433)`, elevation 48.6° |
-| `nsun` | the `NSun` billboard: `location`, `rotation`, `radius`, `directional` |
-| `zones` | every `ZoneInfo` carrying lighting/fog state: `AmbientVector`, `AmbientBrightness`, `bDistanceFog`, `DistanceFogStart`/`End` (+ `_m` = ×0.01), `DistanceFogColor` (UE1/UE2 `FColor` is R,G,B,A — UEViewer `UnCore.h:2483`) |
-| `terrainZone` | the name of the `ZoneInfo` with `bTerrainZone` — the tile's outdoor zone |
-| `lights` | every `Light` actor: `Location`, `Rotation`, `LightBrightness`, `LightRadius`, `LightHue`, `LightSaturation`, `LightType`, `LightEffect`, `bDirectional`, `bCorona`, on/off times |
-
-22_22 (Giran) decodes to: sun brightness 70.0 at rotation
-(-8846, 25324, 0); terrain zone `ZoneInfo3` with `AmbientVector`
-(0.360, 0.360, 0.360) and `DistanceFogEnd` 15000 (= **150 m**); 17 zones;
-91 `Light` actors.
-
-**NOT converted, deliberately**: `LightBrightness` / `LightRadius` are UE2
-light units and there is no sourced mapping onto a three.js (ACES-tonemapped
-PBR) intensity. They ship raw so the calibration can be done against data
-rather than guessed. **NOT consumed yet**: the client's light rig lives in
-`editor/world/js/main.js`, which was outside this change's ownership — see
-`docs/foundation-audit.md` F4.
+**Not decoded into any shipped file yet** (open item, see
+`docs/foundation-audit.md` F4): the per-map `Light` point-light actors (91 on
+22_22, 1,704 on 23_23 — `Location`, `LightBrightness`, `LightRadius`,
+`LightHue`, `LightSaturation`, `LightType`), the `NSun`/`NMoon` billboards,
+and the per-zone ambient list (17 `ZoneInfo` on 22_22; only the
+`bTerrainZone` one is taken). The client still invents torch lights from a
+material-name regex (`FLAME_MAT_RE` in `terrain.js`). `LightBrightness` is
+also deliberately NOT converted to a three.js intensity — UE2 light units
+have no sourced mapping onto the ACES-tonemapped PBR rig.
 
 ## bsp.gltf contract (sibling file — the BSP buildings)
 

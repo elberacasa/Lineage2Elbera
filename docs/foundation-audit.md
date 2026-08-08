@@ -1,6 +1,8 @@
 # Foundation audit — visual fidelity vs the source data
 
-> **STATUS 2026-08-08 — F1, F2, F3 APPLIED; F4 EXTRACTED BUT NOT WIRED.**
+> **STATUS 2026-08-08 — F1, F2, F3, F4 APPLIED** (F4's client wiring by a
+> parallel agent, commit `4e93960`; see the F4 section for what was
+> consolidated and what is still open).
 > See the "Applied" section at the end of this document for what changed,
 > the gate results, the measured improvements, and the one place where this
 > document's fix specification turned out to be **wrong** (F1's roll sign).
@@ -490,7 +492,7 @@ change's ownership. F5 is untouched, as intended.
 
 Full derivation of the coordinate work: **`docs/world-prop-basis.md`**.
 Contract updates: `tools/world/README.md` (prop basis, prop material state,
-new `lights.json` sibling), `docs/HANDOFF.md` §5.
+the `light.json` sibling), `docs/HANDOFF.md` §5.
 
 ## One place where this document was WRONG
 
@@ -642,30 +644,46 @@ correct diffuse but no additive emissive pass — that needs a baked
 one-channel-to-RGB emissive PNG. `OB_Modulate`/`OB_Brighten`/`OB_Darken`
 collapse to plain `BLEND`; glTF 2.0 core has no additive or modulate mode.
 
-## F4 — retail light rig extracted
+## F4 — retail light rig: extracted here, wired by a parallel agent
 
-`tools/world/convert.py` gained `read_lights()` / `write_tile_lights()`,
-writing a new **sibling** `assets/world/<tile>/lights.json` (scene.json
-stays frozen). Regenerable alone with
-`python3 tools/world/convert.py --lights-only <tile>`. Contract and key
-table in `tools/world/README.md`.
+I first landed F4 exactly as this document specifies: a `read_lights()` /
+`write_tile_lights()` pass in `convert.py` writing a sibling
+`assets/world/<tile>/lights.json`, carrying the `NMovableSunLight`, the
+`NSun`, all 17 `ZoneInfo` and all 91 `Light` actors in retail units, with
+`directionToSun` derived through the same `M` as F1 and reproducing this
+document's `(0.500, 0.750, 0.433)` / 48.6° exactly.
 
-Everything is in retail units. The only derived values are labelled as such:
-`pitchDeg`/`yawDeg`, and `directionToSun`, computed as the rotator's forward
-axis `(cP cY, cP sY, sP)` (same oracle as F1) mapped through the props' own
-`M` and negated. 22_22 decodes to `directionToSun = (0.500, 0.750, 0.433)`,
-elevation 48.6° — reproducing the audit's number exactly. Also carried:
-sun `LightBrightness` 70.0, `NSun` radius 350, the terrain `ZoneInfo`
-(`bTerrainZone`) with `AmbientVector` (0.360, 0.360, 0.360) and
-`DistanceFogEnd` 15000 (= 150 m, against the client's invented 420 m), all
-17 zones, and all 91 `Light` actors with location/rotation/brightness/
-radius/hue/saturation/type.
+**In parallel, another agent implemented and WIRED F4** (commit
+`4e93960`): `tools/world/light_extract.py` → sibling
+`assets/world/<tile>/light.json` → `editor/world/js/worldlight.js`, called
+from `main.js` — the file I was not allowed to touch, which is why my
+version stopped at the data. Their `light.json` is therefore the live
+contract.
 
-**NOT done:** nothing consumes the file. `main.js` owns the sky, fog,
-ambient, hemisphere and directional lights and was out of ownership for this
-change. `LightBrightness`/`LightRadius` are also shipped **raw** — mapping
-UE2 light units onto the ACES-tonemapped PBR rig has no sourced conversion,
-and inventing one is exactly what F4 objects to.
+Two extractors of the same actor is duplication, so **mine was removed**:
+`convert.py` now calls `light_extract.write()` from `convert_tile` (so a
+re-converted tile can never ship a stale `light.json`) and the
+`--lights-only` mode and the `lights.json` files are gone. Nothing decoded
+by both paths was lost.
+
+**What that consolidation DID drop, and is now an open item.** `light.json`
+carries the sun, the terrain zone's ambient and the distance fog. It does
+not carry, and nothing else does either:
+
+* the per-map `Light` point-light actors — **91 on 22_22, 1,704 on 23_23** —
+  with `Location`, `LightBrightness`, `LightRadius`, `LightHue`,
+  `LightSaturation`, `LightType`, `LightEffect`, `bCorona`, on/off times.
+  All of it decodes cleanly with `find_prop_start` + the packed property
+  reader; the client still invents torch lights from `FLAME_MAT_RE`.
+* the `NSun` / `NMoon` billboards (22_22: `NSun` radius 350, rotation
+  (-5944, -39696, 0), `bDirectional`).
+* the other 16 `ZoneInfo` per tile — only the `bTerrainZone` one is taken,
+  so per-zone ambient (22_22 has zones at 0.356, 0.360 and 0.457) is flat.
+
+**Still NOT converted, deliberately, on either path:** `LightBrightness` /
+`LightRadius` are UE2 light units with no sourced mapping onto a
+three.js/ACES intensity. Inventing a scale factor is exactly what F4
+objects to.
 
 ## The `correctHeightsWithGeodata` threshold — MEASURED, and NOT changed
 
@@ -726,6 +744,7 @@ import and was re-converted successfully).
 | `python3 tools/src/char_pipeline/audit_prop_materials.py --check` (all tiles) | exit 0 — **0 fully-invisible surfaces** of 73,876 textured materials |
 | `python3 tools/src/char_pipeline/audit_prop_materials.py --tiles 22_22 --shaders` | 409 → **35** disagreements, all in the gate's un-read `Texture` branch |
 | `python3 tools/world/bsp.py --check` | **100/100 tiles OK** (unchanged — the BSP path was not touched) |
+| `python3 tools/world/light_extract.py --check` | 100 tiles, 100 with a sun, 94 with fog, **0 stale** (after wiring it into `convert_tile`) |
 | `editor/world/verify_terrain.js` | PASS |
 | `editor/world/verify_geodata.js` | PASS |
 | `editor/world/verify_interior.js` | PASS |
@@ -740,8 +759,10 @@ switch when both run in one browser session. Reduced to a minimal script
 `--use-angle=swiftshader`, switch tile) and A/B'd against `git show
 HEAD:editor/world/js/terrain.js`: **both the old and the new terrain.js time
 out identically** at that switch, with the old tile's geometries/textures
-still resident (2,110 / 1,997) and the new tile never built. It is a
-software-GL/host-resource flake in the harness, not a rendering regression.
+still resident (2,110 / 1,997) and the new tile never built. Raising
+`LOAD_TIMEOUT_MS` to 900,000 does not help, so it is a genuine hang in the
+harness/host (headless software GL), not slowness — and not a rendering
+regression from this change.
 The first three suite runs also failed spuriously because the three
 `mock_gateway.js` processes had been reaped — that produces exactly the
 misleading navigation timeout the handoff warns about.
