@@ -53,8 +53,8 @@ harnesses (headless Chrome driving the real UI).
 | **2,083** | system messages decoded — the client shows the game's own text, not ids |
 | **16** | retail UI windows rebuilt at client-exact, mined geometry — zero unjustified pixels (an audit gates the build) |
 | **100 / 100** | tiles with the server's own geodata extracted — bridges, indoor floors and real walkable heights |
-| **42** | suites in the one-command verification battery (`tools/battery.sh`) — 24 client + 18 live-gateway |
-| **1,268 / 21,589** | world textures at 4x HD — pilot tiles complete and verified; the full pass is staged |
+| **53** | suites in the one-command verification battery (`tools/battery.sh`) — 29 client + 24 live-gateway |
+| **21,589 / 21,589** | world textures at 4x HD — the full pass is complete (`tools/upscale/batch_world.sh` re-runs it idempotently) |
 | **157 / 653** | retail `.unr` maps / UE2 packages readable by the toolchain |
 | **65** | database tables in the running game server |
 | **24 / 24** | format-library tests passing, byte-exact against the reference native tools |
@@ -82,7 +82,10 @@ documentation desyncs mid-packet. And both servers carry a hardcoded
 anti-flood filter that silently bans any IP opening more than 3 connections
 per second, refreshing a 300-second ban on every retry — so the gateway
 paces all outbound connections through a 400 ms governor. Result: browsers
-log in, walk, chat and fight on the unmodified game server.
+log in, walk, chat and fight on a real game server that has no idea they are
+browsers. (The server carries this project's own mods — offline shops, `.menu`,
+and protocol tweaks the gateway depends on; they are exported as a patch in
+`deploy/server-mods/`. "Unmodified" would be untrue.)
 
 **2. Format archaeology.**
 The client's files are encrypted Unreal Engine 2 packages — some v117, some
@@ -353,8 +356,8 @@ gates the UI port.
 - **ElberaUpscaler — the HD pipeline.** Vendored Real-ESRGAN
   (`realesrgan-x4plus`): all 92 character textures at 4x, alpha preserved
   and halo-checked, plus the world-texture pilot (tiles 17_25 + 22_22,
-  1,268 textures side-by-side in `assets/world-hd/`, LQ untouched as the
-  fallback). The full 21,589-texture world pass is staged via
+  all 21,589 textures side-by-side in `assets/world-hd/`, LQ untouched as the
+  fallback). The full 21,589-texture world pass is driven by
   `world_manifest.py`.
   *Verify:* `sips -g pixelWidth <out.png>` — exactly 4x the source;
   `WORLD_BASE='http://127.0.0.1:8083/?hd=1' node verify_terrain.js hd`.
@@ -395,7 +398,7 @@ ours.
   collision heights) — all live-verified (`verify-create`,
   `verify-respawn`, `verify-tutorial`, `verify_charcreate`,
   `verify_charsel`, `verify_pathfinding`, combat suites).
-- **Real protocol gateway.** Live sessions on the unmodified server: NPCs,
+- **Real protocol gateway.** Live sessions on the real server: NPCs,
   players, movement, chat, combat, skills, inventory, quests, party, buffs,
   shops, trade, private stores, clans — `gateway/test/verify-*.js` all PASS.
 - **The full core loop in the browser.** Talk to an NPC through the retail
@@ -428,7 +431,7 @@ ours.
   interiors with prop-based fire lights (`verify_terrain`, `verify_geodata`,
   `verify_interior`).
 - **HD mode.** `?hd=1` swaps the two pilot towns to 4x-upscaled textures
-  (1,268 textures; splat maps byte-identical in both modes). The full
+  (21,589 textures; splat maps byte-identical in both modes). The full
   21,589-texture pass is staged (`tools/upscale/world_manifest.py`).
 - **Towns that look like towns.** 55 civilian NPCs (Roien, Newbie Helper,
   merchants, priests, guards…) rendered as their real retail models at true
@@ -452,8 +455,8 @@ ours.
 
 - **The browser is a renderer, not the game.** All logic lives in aCis; the
   client implements the protocol subset in the gateway contract. Not
-  bridged yet: multisell (merchant exchange lists), warehouse, craft/
-  recipes. The **clan window is deliberately shelved** — the pledge
+  bridged yet: craft/recipes. (Multisell and warehouse ARE bridged and
+  live-verified — `verify-multisell`, `verify-warehouse`.) The **clan window is deliberately shelved** — the pledge
   protocol itself is done and live-verified (creation through the real
   VillageMaster dialog chain, invite/accept, leave, oust, crest) but the
   client UI was cut by product decision. Private *buy*-store ops are
@@ -481,7 +484,7 @@ ours.
   Giran — measured and documented, not papered over (same README section).
 - **HD is expensive.** 4x textures weigh ~24x the LQ set (pilot tiles went
   76 MB → 1.86 GB) and HD is off by default for that reason; the full
-  21,589-texture pass is staged but not finished (1,268 done).
+  21,589-texture pass is complete.
 - **Headless verification renders on SwiftShader** (software GL), which is
   slow on NPC-dense scenes — the suites wait on conditions, not clocks.
   Real GPUs run the client fine.
@@ -497,9 +500,9 @@ done — walkable world, multiplayer, combat, skills, items, chat, the retail
 UI, quests, shops, trade, private stores, party and buffs all run live
 against the real server.
 
-- **Next.** Finish the full-library HD pass (21,589 world textures; the
-  manifest is staged, 1,268 done), multisell bridging, warehouse, craft/
-  recipes.
+- **Next.** Craft/recipes — the last unbridged core system. (The HD pass,
+  multisell and warehouse are done; BSP building geometry and the retail
+  light rig landed 2026-08-08.)
 - **Shelved, ready to resume.** Clan window — protocol done and
   live-verified; only the client UI is missing.
 - **After that.** Seven Signs catacomb tiles (16_12/18_10/19_10/20_10),
