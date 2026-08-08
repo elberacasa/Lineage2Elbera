@@ -68,6 +68,60 @@ OUT_BIND = os.path.join(ROOT, "assets", "gamedata", "skillvisualeffect.json")
 
 EMITTER_CLASSES = ("SpriteEmitter", "MeshEmitter", "BeamEmitter",
                    "VertMeshEmitter", "RibbonEmitter")
+
+# Emitter properties kept for the renderer, grouped by decoded shape. Packed
+# UE2 property streams OMIT any value equal to the class default, so a boolean
+# that only ever appears with one value tells you the default is the other one
+# (see docs/skillfx-data.md §4a):
+#   UseColorScale        appears 1563x, ALWAYS true  -> default false, so the
+#                        2141 emitters that carry a ColorScale without this
+#                        flag have their ramp IGNORED by the engine
+#   FadeOut / FadeIn     appear only as true         -> default false
+#   RespawnDeadParticles appears only as false       -> default true
+# The class defaults themselves live in Engine.u's script defaults and are not
+# re-derived here; the counts above are the evidence for each reading.
+SCALAR_FIELDS = {
+    "Opacity": "opacity",
+    "MaxParticles": "maxParticles",
+    "ForcedMaxParticles": "forcedMaxParticles",
+    "InitialParticlesPerSecond": "particlesPerSecond",
+    "AutomaticInitialSpawning": "autoSpawning",
+    "RespawnDeadParticles": "respawn",
+    "DrawStyle": "drawStyle",
+    "SpinParticles": "spin",
+    "UniformSize": "uniformSize",
+    "UseColorScale": "useColorScale",
+    "ColorScaleRepeats": "colorScaleRepeats",
+    "FadeIn": "fadeIn",
+    "FadeOut": "fadeOut",
+    "FadeInEndTime": "fadeInEnd",
+    "FadeOutStartTime": "fadeOutStart",
+    "TextureUSubdivisions": "texU",
+    "TextureVSubdivisions": "texV",
+    "UseRandomSubdivision": "randomSubdivision",
+    "RenderTwoSided": "twoSided",
+    "CoordinateSystem": "coordSystem",
+    "StartLocationShape": "startShape",
+    "UseSizeScale": "useSizeScale",
+    "UseRegularSizeScale": "regularSizeScale",
+    "StartLocationOffset": "startOffset",   # Vector, decodes to [x,y,z]
+    "Acceleration": "acceleration",         # Vector
+}
+# {Min, Max} -> [min, max]
+RANGE_FIELDS = {
+    "LifetimeRange": "lifetime",
+    "StartSizeRange": "startSize",          # RangeVector on most emitters
+    "SphereRadiusRange": "sphereRadius",
+    "InitialDelayRange": "initialDelay",
+    "SpinsPerSecondRange": "spinsPerSecond",
+    "StartSpinRange": "startSpin",
+}
+# {X,Y,Z: {Min,Max}} -> {X: [min,max], ...}
+VEC_RANGE_FIELDS = {
+    "StartLocationRange": "startLocation",
+    "ColorMultiplierRange": "colorMultiplier",
+    "VelocityLossRange": "velocityLoss",
+}
 PHASES = (("CastingActions", "casting"), ("ChannelingActions", "channeling"),
           ("PreshotActions", "preshot"), ("ShotActions", "shot"),
           ("ExplosionActions", "explosion"))
@@ -192,28 +246,23 @@ def parse_effect_classes(pkg):
                     em[{"Texture": "texture", "StaticMesh": "mesh",
                         "VertexMesh": "mesh"}[key]] = v
                 elif key == "ColorScale":
+                    # ColorScale elements are {RelativeTime, Color}. This read
+                    # said c.get("Time") until 2026-08 and therefore dropped
+                    # EVERY ramp time (all 10032 stops came out t=null), which
+                    # silently reduced each ramp to an unordered colour set.
                     if isinstance(v, list):
-                        em["colors"] = [{"t": c.get("Time"), "c": c.get("Color")}
+                        em["colors"] = [{"t": c.get("RelativeTime"), "c": c.get("Color")}
                                         for c in v]
-                elif key == "Opacity":
-                    em["opacity"] = v
-                elif key == "MaxParticles":
-                    em["maxParticles"] = v
-                elif key == "LifetimeRange":
-                    em["lifetime"] = rng(v)
-                elif key == "StartSizeRange":
-                    em["startSize"] = rng(v)
-                elif key == "InitialParticlesPerSecond":
-                    em["particlesPerSecond"] = v
-                elif key == "AutomaticInitialSpawning":
-                    em["autoSpawning"] = v
-                elif key == "DrawStyle":
-                    em["drawStyle"] = v
                 elif key == "StartVelocityRange":
                     em["velocity"] = {k: rng(x) for k, x in v.items()} \
                         if isinstance(v, dict) else v
-                elif key == "SpinParticles":
-                    em["spin"] = v
+                elif key in RANGE_FIELDS:
+                    em[RANGE_FIELDS[key]] = rng(v)
+                elif key in VEC_RANGE_FIELDS:
+                    em[VEC_RANGE_FIELDS[key]] = {k: rng(x) for k, x in v.items()} \
+                        if isinstance(v, dict) else v
+                elif key in SCALAR_FIELDS:
+                    em[SCALAR_FIELDS[key]] = v
             emitters.append(em)
         entry = {"super": sup[1] if sup else None, "emitters": emitters}
         classes[cname] = entry

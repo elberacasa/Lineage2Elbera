@@ -89,31 +89,19 @@ export function classifySkill(entry) {
   return 'glow';
 }
 
-// AUTHORED color table. Neither skillgrp nor skillsoundgrp names effect
-// textures or colors (verified: skillsoundgrp holds only SkillSound.* /
-// chrsound.* refs), so the per-skill hue is derived from the SOUND FAMILY
-// name — these colors are authored, not retail data.
-const FAMILY_COLORS = [
-  [/heal|cure|recovery|regen|greater_heal/i, 0x86f0b0],   // restorative green
-  [/wind|twister|storm|cyclone|air/i, 0x6fd8ff],          // airy cyan
-  [/fire|flame|blaz|inferno|burn|explotion|explosion/i, 0xff9040], // fire
-  [/ice|frost|aqua|blizzard|freeze|water/i, 0x9fd0ff],    // ice blue
-  [/holy|divine|sacred|light|bless/i, 0xfff2c0],          // holy warm white
-  [/dark|death|curse|vampir|poison|bleed|decey|decay|fear/i, 0xb070ff], // violet
-  [/lightning|shock|thunder/i, 0xd0e8ff],                 // electric
-];
-
-export function effectColor(entry) {
-  const names = entry && entry.snd
-    ? [entry.snd.cast, entry.snd.shot, entry.snd.exp].filter(Boolean)
-    : [];
-  for (const [re, color] of FAMILY_COLORS) {
-    if (names.some(n => re.test(n))) return color;
-  }
-  // defaults: arcane blue for magic (the pre-existing flash hue), amber for
-  // physical strikes — AUTHORED, same caveat as the family table
-  return entry && entry.magic ? 0x80c0ff : 0xffc060;
-}
+// The AUTHORED per-skill colour table that used to live here is GONE.
+// It derived a hue from the skill's SOUND-family name (heal -> green, wind ->
+// cyan, ...) with an arcane-blue/amber default — plausible, but invented, and
+// the same class of placeholder as main.js's `hue = skillId * 47 % 360`.
+//
+// Skill colour now comes from the retail effect tables: LineageEffect.u's
+// per-emitter ColorScale ramps and ColorMultiplierRange, gated on UseColorScale,
+// modulating the actual retail particle textures. See js/skillvfx.js and
+// tools/dat/build_skillvfx.py. Skills the retail data does not bind get NO
+// colour and NO effect, by design.
+//
+// classifySkill() below is retained: it is used for nothing visual any more,
+// but the range/sound-derived family is still a useful data-only classifier.
 
 // Tail-scan the net message ring for the skill op currently being handled.
 // NetClient logs 'in' messages BEFORE emitting (net.js), so during a

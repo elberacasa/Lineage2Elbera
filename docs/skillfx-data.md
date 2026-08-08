@@ -14,6 +14,7 @@ stops, the entry says `missing`, never a substitute.
 | `tools/dat/parse_skillfx.py` | `assets/gamedata/lineageeffect.json`, `assets/gamedata/skillvisualeffect.json` | `system/LineageEffect.u`, `animations/Skill.usk` (both Lineage2Ver111, decoded by `tools/l2lib`) |
 | `tools/dat/build_skillfx.py` | `assets/gamedata/skillfx.json` (+ static-mesh export into `assets/library/`) | all of the above + `skillgrp.json`, `skillname.json`, `assets/library/manifest.json` |
 | `tools/dat/build_skillanim.py` (pre-existing) | `assets/gamedata/skillanim.json` | skillgrp + skillsoundgrp join for the cast-time lookup |
+| `tools/dat/build_skillvfx.py` | `assets/gamedata/skillvfx.json` (the browser index, §8) | lineageeffect + skillvisualeffect + skillfx |
 
 ## 1. skillsoundgrp.dat — sounds (1398 records)
 
@@ -91,6 +92,77 @@ effect). This is the ONLY explicit per-skill effect table in the
 client — `MobSkillAnimgrp.dat` (5463 records: npc id, skill id, anim
 name like `spatk02`, mob name) covers mob cast animations, not effects;
 `variationeffectgrp-e.dat` is augmentation (weapon variation) FX.
+
+### 3a. Field semantics — how each one was CONFIRMED (2026-08-07)
+
+The earlier pass recorded these fields but left their meaning open
+("EAttachMethod enum not recovered", offsets kept raw). All of the
+following is now pinned to evidence, not inference from names.
+
+**The default-omission rule.** UE1/2 packed property streams omit any
+value equal to the class default. So a boolean that appears with only
+ONE value tells you the default is the other one. This single rule
+settles every flag below, and it is falsifiable — if a flag ever shows
+both values the reading is wrong. Counts over all 3709 emitters / 524
+actions:
+
+| Property | Serialised as | ⇒ default | Consequence |
+|---|---|---|---|
+| `UseColorScale` | true ×1563, never false | **false** | the 2141 emitters holding a `ColorScale` but no flag have their ramp **ignored by the engine** |
+| `AutomaticInitialSpawning` | false ×3586, never true | **true** | `false` = no instant pool fill; particles still trickle in at `InitialParticlesPerSecond` |
+| `RespawnDeadParticles` | false ×3026, never true | **true** | `false` = emit `MaxParticles` total, then stop |
+| `FadeIn` / `FadeOut` | true only | **false** | fade envelope applies only where stated |
+| `UniformSize` | true ×2149, never false | **false** | 1560 emitters size X and Y independently |
+| `bRelativeToCylinder` | false ×31, never true | **true** | offsets are FRACTIONS of the collision half-height |
+
+**`AttachOn` is EAttachMethod** — read out of `Engine.u`'s `Enum`
+export (not guessed from the name table, whose order is arbitrary):
+`[EAM_None, EAM_RH, EAM_LH, EAM_BoneSpecified, EAM_AliasSpecified,
+EAM_Trail, EAM_RF, EAM_LF]` = ordinals 0–7. **Confirmed against the
+data**: values 3 and 4 carry an `AttachBoneName` in 21 of 21 cases,
+value 5 in 1 of 401 — exactly what `BoneSpecified`/`AliasSpecified`
+vs. a non-bone method predicts. `EParticleDrawStyle` came from the same
+export: `[Regular, AlphaBlend, Modulated, Translucent,
+AlphaModulate_MightNotFogCorrectly, Darken, Brighten]` = 0–6.
+
+**`offset` units.** Two regimes, and they separate perfectly:
+every action explicitly flagged `bRelativeToCylinder=false` (30 of them)
+carries a large offset (−20.5, −70, −81, ±280 uu), and **no** small
+offset is ever so flagged. With the default being *true*, a plain
+offset is a fraction of the collision half-height — which is why the
+single commonest value in the whole table, `(0, 0, −1)` on 201 cast
+auras, means "one half-height below centre" = **at the caster's feet**,
+where retail cast auras appear. (UE measures from the cylinder CENTRE;
+the client's entity groups sit at the feet, so the renderer lifts by a
+half-height before applying the offset.)
+
+**Phase comes from the ARRAY, never the name suffix.** `wh_heal_ta`
+sits in `ShotActions` while `el_wind_strike_ta` sits in
+`ExplosionActions`, so the `_ta` suffix predicts nothing on its own.
+`PreshotActions` is empty across all 244 objects; the live arrays are
+casting 241, shot 159, explosion 17, channeling 3.
+
+**Anchor skills, confirmed end to end** (each matches its well-known
+retail appearance):
+
+| Skill | Casting | Shot | Explosion | Reading |
+|---|---|---|---|---|
+| 1177 Wind Strike | `el_wind_strike_ca` at the feet + `el_wind_strike_pr` (`bUseCharacterRotation`) | `el_wind_strike_fl`, `FlyingTime` 0.4 s | `el_wind_strike_ta` `bSpawnOnTarget` | cast aura, charge held in front, bolt flies 0.4 s, burst on the target |
+| 1011 Heal | `wh_heal_ca` at the feet | `wh_heal_ta` `bSpawnOnTarget`+`bOnMultiTarget` | — | aura under the caster, burst on the healed target, no projectile |
+| 1040 Shield (self-buff) | `wh_heal_ca` — the SHARED white-magic cast aura | `wh_shield_ta` on target | — | same cast aura as Heal, different target effect: the tables really do reuse `_ca` classes across a family |
+| 1085 Acumen | `su_empower_ca` | `su_acumen_ta` | — | support-family aura + target effect |
+
+The Shield/Heal pair is the useful confirmation: two different skills
+sharing one `_ca` class but differing in `_ta` is exactly the retail
+behaviour (every white-magic buff opens with the same aura), and it
+rules out any "one effect per skill" misreading.
+
+**Two decoder bugs found and fixed while confirming the above:**
+- `ColorScale` elements are `{RelativeTime, Color}`; the parser read
+  `c.get("Time")` and so dropped **every** ramp time — all 10032 stops
+  came out `t: null`, reducing each ramp to an unordered colour set.
+- `skillfx.json`'s `colors` union ignored `UseColorScale`, so it listed
+  colours from 2141 emitters the engine never tints with.
 
 ## 4. LineageEffect.u — the effect classes (864 classes, 3709 emitters)
 
@@ -193,7 +265,87 @@ tooling.
 | 1177 Wind Strike | `E`, CastMid (hit 4.0s) | `wind_strike_cast`/`_shot`/`_explotion` ✓ | **explicit** (Skill.usk): ca+pr casting, fl shot (fly 0.4s), ta explosion | 4 textures, 4 meshes ✓ |
 | 1040 Shield | `D`, magic | `shield_cast`(l1) etc. | **explicit**: casting `wh_heal_ca` (shared cast aura), shot `wh_shield_ta` | textures+meshes ✓ |
 
-## 8. What's portable to the web vs. what needs research
+## 8. skillvfx.json — the browser index, and the renderer
+
+`tools/dat/build_skillvfx.py` (`--check`) joins §3+§4 into
+`assets/gamedata/skillvfx.json`, **199 KB** — small enough to ship,
+against 14 MB of source tables. Strings are interned exactly as
+`tools/audio/build_audio.py` does for its sound bindings: one `tex`
+table of texture paths, one `fxn` table of effect-class names, and every
+record holds indices.
+
+```jsonc
+{"tex": ["LineageEffectsTextures/fx_m_t0000.png", ...],   // 127
+ "fxn": ["el_wind_strike_ca", ...],                       // 237 classes
+ "fx":  [{"e": [ /* packed sprite emitters */ ],
+          "skip": {"MeshEmitter": 2}}],                   // what was dropped
+ "skill": {"1177": {"b": 1,                // 1 = explicit, 2 = name-convention
+                    "f": 0.4,              // FlyingTime
+                    "c": [{"f": 61, "g": 4, "o": [0,0,-1]}],   // casting
+                    "s": [...], "x": [...], "h": [...]}}}      // shot/expl/chan
+```
+Action `g` is a bitmask: 1 `bSpawnOnTarget`, 2 `bOnMultiTarget`,
+4 `bSizeScale`, 8 `bUseCharacterRotation`, 16 `bAbsolute`, 32 offset is
+in world uu (i.e. `bRelativeToCylinder` explicitly false). Emitter keys
+are short because they repeat: `t` texture, `n` MaxParticles, `l`
+lifetime, `z`/`zy` StartSize X/Y, `o` Opacity, `r` ColorScale ramp
+(**only when `UseColorScale` is set**), `m` ColorMultiplier, `v`
+velocity, `a` acceleration, `d` DrawStyle, `fi`/`fo` fade times, `u`
+texture subdivisions, `sh`/`sl`/`sr`/`so` start-location shape/box/
+sphere/offset. A **missing key means the engine default**, which the
+client applies — nothing is defaulted into the file.
+
+`editor/world/js/skillvfx.js` plays them: a UE2 SpriteEmitter subset on
+camera-facing **instanced quads** (not `gl_POINTS` — 1560 emitters size
+X and Y independently, e.g. `el_wind_strike_fl`'s 8×80 uu streaks, which
+a square point cannot express). It reads the ring of inbound net
+messages once per frame rather than registering a handler, because
+`NetClient` keeps one handler per op and `window.__world.net` is a
+read-only facade — so no edit to `main.js` is needed.
+
+**Blending is sourced, not chosen.** umodel exports every
+`LineageEffectsTextures` PNG as **RGB with no alpha channel**, and the
+art is glow sprites on black — `fx_m_t0000` is a 4×4 grid, exactly the
+`TextureUSubdivisions/VSubdivisions` the data states for it. So
+luminance is the coverage and the additive path is what that art is
+drawn for; only `PTDS_Modulated`/`PTDS_Darken` differ.
+
+### Coverage (honest numbers)
+
+| Bucket | Count |
+|---|---|
+| Skills known to `skillfx.json` | 2695 |
+| Bound to a retail effect | **290** (244 explicit Skill.usk + 46 name-convention) |
+| …of those, actually DRAW ≥1 sprite emitter | **284** |
+| …bound but nothing drawable (mesh/beam-only classes) | 6 (1111, 2003, 2166, 323, 3632, 4380) |
+| **Render NOTHING — no binding in any retail table** | **2405** |
+| Of the 798 *active* (castable) skills: drawing | 129 |
+| Of the 798 *active* skills: no sourced effect | 665 |
+
+Emitters on the 237 bound classes: **714 SpriteEmitters rendered**,
+**447 dropped** — 413 MeshEmitter, 13 VertMeshEmitter, 11 BeamEmitter,
+10 sprites whose texture was never staged.
+
+### What is NOT reproduced, and why
+
+- **MeshEmitter (413)** — needs the `LineageEffectsStaticmeshes`
+  geometry; the client has no `.pskx` loader. This is the biggest gap
+  and it is visible: Wind Strike's bulk (`windknifewave00`,
+  `windknifeball00`) is mesh, so what renders is its sprite trail, not
+  the full retail bolt.
+- **VertMeshEmitter (13)** — UE2 VertMesh, which umodel cannot export
+  at all (§6).
+- **BeamEmitter (11) / RibbonEmitter** — procedural beam geometry whose
+  segment parameters are not decoded.
+- **Bone/hand attachment** — `EAM_RH/LH/BoneSpecified` is decoded, but
+  attaching to a character bone needs a skeleton lookup in
+  `character.js`, which this worker does not own. Everything anchors to
+  the actor root + offset instead.
+- Emitter behaviour beyond the listed fields (`VelocityLossRange`,
+  `SizeScale` curves, `RevolutionsPerSecond`, subdivision animation) is
+  decoded into `lineageeffect.json` but not yet played.
+
+## 9. What's portable to the web vs. what needs research
 
 Portable today (decoded, verified): cast-anim selection rules + clip
 names; full per-skill effect binding (244 explicit + 47 convention);

@@ -115,59 +115,66 @@ export class SkillFx {
     this.scene = scene;
     this.fx = [];
     this.tex = makeGlowTexture();
-    this.arcTex = makeArcTexture();
+    this.vfx = new SkillVfx(scene);      // the retail effect player
+    this._seen = new WeakSet();          // skill messages already turned into FX
     _activeFx = this;
   }
 
-  // main.js's skillLaunch handler calls this with the target head position.
-  // When the net log tail is a skillLaunch (it always is here — NetClient
-  // logs before emitting) and skillanim.json resolves the skill, the
-  // per-skill signature from the DATA replaces the generic hue flash;
-  // anything unresolvable keeps the old behavior.
+  /** Drive the retail effects off the net message ring, once per frame.
+   *
+   *  The obvious hook — registering our own net.on('skillCast') — is not
+   *  available: NetClient keeps ONE handler per op (net.js `handlers[op] = fn`,
+   *  so we would displace main.js's), and window.__world.net is a read-only
+   *  facade that never exposes the handler map anyway. What it does expose is
+   *  `log`, the ring of every inbound message (capped at 200, entries pushed as
+   *  fresh objects). So we poll it: each frame, walk the tail and spawn effects
+   *  for any skillCast/skillLaunch not seen before. Identity via WeakSet means
+   *  ring rotation cannot cause a replay, and the worst-case latency is one
+   *  frame. This keeps every skill visual inside files this worker owns —
+   *  main.js needs no edit.
+   */
+  _pump() {
+    const w = typeof window !== 'undefined' && window.__world;
+    if (!w || !w.net || !w.net.log) return;
+    const log = w.net.log;
+    for (let i = Math.max(0, log.length - 24); i < log.length; i++) {
+      const m = log[i];
+      if (!m || m.dir !== 'in') continue;
+      if (m.op !== 'skillCast' && m.op !== 'skillLaunch') continue;
+      if (this._seen.has(m)) continue;
+      this._seen.add(m);
+      // half = the actor's collision half-height, which is where UE measures
+      // effect offsets from (see skillvfx.js Instance._place)
+      const anchors = {
+        caster: { pos: () => entityPos(m.casterId), half: entityHalf(m.casterId) },
+        // a self-target skill names the caster; entityPos resolves the local
+        // player too, so this covers both without special-casing
+        target: { pos: () => entityPos(m.targetId) || entityPos(m.casterId),
+                  half: entityHalf(m.targetId) || entityHalf(m.casterId) },
+      };
+      try {
+        if (m.op === 'skillCast') this.vfx.cast(m.skillId, anchors);
+        else this.vfx.launch(m.skillId, anchors);
+      } catch (e) { /* a broken visual must never stall the frame loop */ }
+    }
+  }
+
+  // main.js's skillLaunch handler still calls this with a hash-derived colour
+  // (`hue = skillId * 47 % 360`). That colour is DEAD: any skillLaunch is
+  // already being drawn from the retail tables by _pump(), so a flash() that
+  // lands while a launch is in the log tail draws nothing — and a skill the
+  // retail data does not bind draws nothing either, rather than a stand-in hue.
+  //
+  // The other caller (main.js's soulshot glint, `flash(shotPos, 0xfff2a8)`)
+  // passes its own colour with no skillLaunch in flight, and still renders.
   flash(worldPos, color = 0x80c0ff, size = 0.6) {
     const w = typeof window !== 'undefined' && window.__world;
-    const msg = w ? lastSkillMsg(w.net.log, { op: 'skillLaunch' }) : null;
-    if (msg) {
-      skillAnimMeta().then(meta => {
-        const entry = skillAnimInfo(meta, msg.skillId, msg.level || 1);
-        if (entry) this.skillEffect(msg, entry, worldPos);
-        else this._pop(worldPos, color, size);
-      });
-      return;
-    }
+    if (w && lastSkillMsg(w.net.log, { op: 'skillLaunch' })) return;
     this._pop(worldPos, color, size);
   }
 
-  // Per-skill visual signature (see js/skillfx_anim.js for the data rules):
-  // projectile skills travel caster -> target and pop a hit flash; self/
-  // aura skills ring at the target; melee skills slash-arc; ranged magic
-  // without a hit sound gets the colored glow. Colors are AUTHORED per
-  // sound family (effectColor) — the dats name no effect textures.
-  skillEffect(msg, entry, targetPos) {
-    const family = classifySkill(entry);
-    const color = effectColor(entry);
-    const caster = entityPos(msg.casterId);
-    const feet = entityPos(msg.targetId) || targetPos;   // ground anchor
-    switch (family) {
-      case 'projectile':
-        this._projectile(caster || targetPos, targetPos, color, msg.skillId);
-        break;
-      case 'aura':
-        this._ring(feet, color, msg.skillId);
-        break;
-      case 'melee':
-        this._slash(targetPos, color, msg.skillId);
-        break;
-      case 'glow':
-        this._pop(targetPos, color, 0.8, msg.skillId);
-        break;
-      default:
-        this._pop(targetPos, color, 0.6, msg.skillId);
-    }
-  }
-
   _tag(obj, kind, skillId) {
-    obj.userData.skillFx = { kind, skillId, source: 'skillanim.json' };
+    obj.userData.skillFx = { kind, skillId, source: 'soulshot-glint' };
   }
 
   _pop(worldPos, color, size = 0.6, skillId = null, kind = 'pop') {
@@ -183,86 +190,12 @@ export class SkillFx {
     this.fx.push({ s, t0: performance.now(), size, mode: 'pop' });
   }
 
-  // AUTHORED projectile: glowing bolt sprite lerped caster -> target over
-  // ~350 ms, then a hit flash at the target. (Retail bolts are engine
-  // particle effects in LineageEffect.u — not data; this is simple geometry.)
-  _projectile(from, to, color, skillId) {
-    const mat = new THREE.SpriteMaterial({
-      map: this.tex, color, transparent: true, opacity: 0.95,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    });
-    const s = new THREE.Sprite(mat);
-    const a = from.clone(); a.y += 1.0;        // caster chest height
-    const b = to.clone();
-    s.position.copy(a);
-    s.scale.setScalar(0.5);
-    this._tag(s, 'projectile', skillId);
-    this.scene.add(s);
-    this.fx.push({ s, t0: performance.now(), mode: 'projectile', a, b, color, skillId });
-  }
-
-  // AUTHORED aura: flat expanding ring at the target's feet + a soft pop.
-  _ring(pos, color, skillId) {
-    const mat = new THREE.MeshBasicMaterial({
-      color, transparent: true, opacity: 0.85, side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    });
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.44, 40), mat);
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.set(pos.x, pos.y + 0.05, pos.z);
-    this._tag(ring, 'aura', skillId);
-    this.scene.add(ring);
-    this.fx.push({ s: ring, t0: performance.now(), mode: 'ring' });
-    const head = pos.clone(); head.y += 1.2;
-    this._pop(head, color, 0.7, skillId, 'aura-glow');
-  }
-
-  // AUTHORED melee slash: crescent sprite that sweeps and fades at the
-  // target (crescent = canvas-drawn, no retail texture is shipped/served).
-  _slash(pos, color, skillId) {
-    const mat = new THREE.SpriteMaterial({
-      map: this.arcTex, color, transparent: true, opacity: 0.95,
-      blending: THREE.AdditiveBlending, depthWrite: false, rotation: -0.6,
-    });
-    const s = new THREE.Sprite(mat);
-    s.position.copy(pos);
-    s.scale.setScalar(0.3);
-    this._tag(s, 'slash', skillId);
-    this.scene.add(s);
-    this.fx.push({ s, t0: performance.now(), mode: 'slash', size: 1.6 });
-    this._pop(pos, color, 0.5, skillId, 'slash-hit');
-  }
-
   update() {
+    this._pump();             // net-log -> retail effects
+    this.vfx.update();        // retail effect player
     const now = performance.now();
     for (const f of [...this.fx]) {
-      if (f.mode === 'projectile') {
-        const t = (now - f.t0) / 350;
-        if (t >= 1) {
-          this._remove(f);
-          this._pop(f.b, f.color, 0.8, f.skillId, 'hit');   // hit flash
-          continue;
-        }
-        f.s.position.lerpVectors(f.a, f.b, t);
-        f.s.scale.setScalar(0.5 + 0.15 * Math.sin(t * Math.PI));
-        continue;
-      }
-      if (f.mode === 'ring') {
-        const t = (now - f.t0) / 900;
-        if (t >= 1) { this._remove(f); continue; }
-        f.s.scale.setScalar(0.4 + 2.8 * t);
-        f.s.material.opacity = 0.85 * (1 - t);
-        continue;
-      }
-      if (f.mode === 'slash') {
-        const t = (now - f.t0) / 400;
-        if (t >= 1) { this._remove(f); continue; }
-        f.s.scale.setScalar(f.size * (0.3 + 1.1 * t));
-        f.s.material.rotation = -0.6 + 1.4 * t;
-        f.s.material.opacity = 0.95 * (1 - t * t);
-        continue;
-      }
-      // 'pop'
+      // only the 'pop' glint survives here (main.js's soulshot flash)
       const t = (now - f.t0) / 450;
       if (t >= 1) { this._remove(f); continue; }
       f.s.scale.setScalar(f.size * (0.4 + 1.8 * t));
@@ -279,12 +212,13 @@ export class SkillFx {
 
   clear() {
     for (const f of [...this.fx]) this._remove(f);
+    this.vfx.clear();
   }
 }
 
 import * as THREE from 'three';
-import { skillAnimMeta, skillAnimInfo } from './gamedata.js';
-import { classifySkill, effectColor, lastSkillMsg } from './skillfx_anim.js';
+import { SkillVfx } from './skillvfx.js';
+import { lastSkillMsg } from './skillfx_anim.js';
 
 // world position of any entity, including the local player (self is not in
 // the EntityManager — main.js keeps it as a separate Character)
@@ -294,6 +228,16 @@ function entityPos(id) {
   if (w.net.selfId === id && w.character) return w.character.group.position;
   const e = w.entities && w.entities.getEntity(id);
   return e ? e.group.position : null;
+}
+
+// Half of the actor's rendered height — UE measures effect offsets from the
+// centre of the collision cylinder, the client's groups sit at the feet.
+function entityHalf(id) {
+  const w = typeof window !== 'undefined' && window.__world;
+  if (!w) return null;
+  if (w.net.selfId === id && w.character) return (w.character.heightM || 1.7) / 2;
+  const e = w.entities && w.entities.getEntity(id);
+  return e ? (e.heightM || 1.7) / 2 : null;
 }
 
 function makeGlowTexture() {
@@ -308,20 +252,4 @@ function makeGlowTexture() {
   ctx.fillRect(0, 0, 64, 64);
   const tex = new THREE.CanvasTexture(c);
   return tex;
-}
-
-// AUTHORED crescent for the melee slash (no retail slash texture is served)
-function makeArcTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const ctx = c.getContext('2d');
-  ctx.strokeStyle = 'rgba(255,255,255,1)';
-  ctx.lineCap = 'round';
-  ctx.lineWidth = 7;
-  ctx.shadowColor = 'rgba(255,255,255,.9)';
-  ctx.shadowBlur = 6;
-  ctx.beginPath();
-  ctx.arc(32, 32, 22, -Math.PI * 0.75, Math.PI * 0.25);
-  ctx.stroke();
-  return new THREE.CanvasTexture(c);
 }

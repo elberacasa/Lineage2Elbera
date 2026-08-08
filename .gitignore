@@ -76,3 +76,11 @@ gateway/.governor-state
 
 # Runtime pidfiles
 *.pid
+
+# Audit/inspection screenshots — regenerable evidence, not source
+editor/world/audit_shots/
+editor/world/ui_shots/
+editor/world/ui_geom_shots/
+editor/world/ui_geom_shots_before/
+editor/world/ui_geom_shots_after/
+editor/world/verify_shots/

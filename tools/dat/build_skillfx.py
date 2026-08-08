@@ -329,6 +329,14 @@ def build(check_only):
                                     meshes.append(path)
                             else:
                                 missing.append(f"mesh:{em['mesh']}")
+                        # UE2 ignores an emitter's ColorScale unless
+                        # UseColorScale is set. That flag is serialised only as
+                        # true (1563x), so its default is false and the 2141
+                        # emitters carrying a ramp WITHOUT it contribute no
+                        # colour at all -- listing their stops here claimed
+                        # colours the engine never shows.
+                        if not em.get("useColorScale"):
+                            continue
                         for c in em.get("colors", []):
                             if c.get("c") and c["c"] not in colors:
                                 colors.append(c["c"])

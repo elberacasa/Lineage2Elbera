@@ -82,8 +82,7 @@
     "#ffffffff",
     "#ffffffbf",
     "#808080ff",
-    "#5d5d5dff",
-    "#000000ff"
+    "#5d5d5dff"
    ]
   }
  },
@@ -129,8 +128,6 @@
     "#ffe6a2ff",
     "#ff9f00ff",
     "#e30000ff",
-    "#ffffff00",
-    "#d8d8d8ff",
     "#808080ff"
    ]
   }
@@ -249,9 +246,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/wispray00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#808080ff",
+    "#ffffffff",
     "#b3b3b3ff"
    ]
   }
@@ -429,10 +426,10 @@
     "#ffffffbf",
     "#808080ff",
     "#5d5d5dff",
-    "#000000ff",
     "#3799c8ff",
     "#313199ff",
-    "#2b2b68ff"
+    "#2b2b68ff",
+    "#000000ff"
    ]
   }
  },
@@ -662,10 +659,8 @@
     "LineageEffectsStaticmeshes/StaticMesh/skill_power01.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#ffffff00",
-    "#d8d8d8ff",
-    "#f36007ff"
+    "#f36007ff",
+    "#ffffffff"
    ]
   }
  },
@@ -1182,7 +1177,6 @@
    ],
    "colors": [
     "#ffffffff",
-    "#f74a11ff",
     "#ffe6a2ff",
     "#ff9f00ff",
     "#e30000ff",
@@ -1376,11 +1370,7 @@
     "LineageEffectsStaticmeshes/StaticMesh/etcpotion01.pskx",
     "LineageEffectsStaticmeshes/StaticMesh/skill_charge00.pskx"
    ],
-   "colors": [
-    "#ffffffff",
-    "#ffffff00",
-    "#d8d8d8ff"
-   ]
+   "colors": []
   }
  },
  "80": {
@@ -1445,21 +1435,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
-    "#6d2e2eff",
-    "#602829ff",
-    "#390001ff",
-    "#c6c7e3ff",
-    "#ffc133ff",
-    "#ce3400ff",
-    "#8a0000ff",
-    "#281515ff",
-    "#ffcecfff",
-    "#82151eff",
-    "#020202ff"
+    "#6d2e2eff"
    ]
   }
  },
@@ -1502,19 +1482,14 @@
     "LineageEffectsStaticmeshes/StaticMesh/windknifewave00.pskx"
    ],
    "colors": [
-    "#d2b886ff",
-    "#808080ff",
-    "#b88b50ff",
     "#219bd6ff",
     "#ffe6a2ff",
     "#ff9f00ff",
     "#e30000ff",
     "#61d83f00",
     "#ffffff00",
-    "#000000ff",
     "#ffffffff",
-    "#89819cff",
-    "#360132ff"
+    "#89819cff"
    ]
   }
  },
@@ -1605,11 +1580,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#ffe6a2ff",
-    "#ff9f00ff",
-    "#e30000ff",
-    "#001aceff",
-    "#0006f0ff"
+    "#001aceff"
    ]
   }
  },
@@ -1891,14 +1862,11 @@
    ],
    "colors": [
     "#ffffffff",
-    "#be7107ff",
     "#aad9fbff",
     "#25da57ff",
     "#f1ad5aff",
     "#9e9e9eff",
-    "#c6c6c6ff",
-    "#daae2cff",
-    "#de7b21ff"
+    "#c6c6c6ff"
    ]
   }
  },
@@ -2024,8 +1992,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/white_radiation00.pskx"
    ],
    "colors": [
-    "#64647800",
-    "#b9b9d200",
     "#ffffffff",
     "#e0e0e0ff",
     "#ffffffc0",
@@ -2126,9 +2092,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/watericebolt01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff"
    ]
@@ -2247,13 +2213,8 @@
     "LineageEffectsStaticmeshes/StaticMesh/windknifewave00.pskx"
    ],
    "colors": [
-    "#000000ff",
     "#ffffffff",
     "#808080ff",
-    "#b9b9b9ff",
-    "#8e8e8eff",
-    "#5a5a5aff",
-    "#ffffff00",
     "#b2b2b2ff",
     "#ffe6a2ff",
     "#ff9f00ff",
@@ -2371,9 +2332,8 @@
    ],
    "meshes": [],
    "colors": [
-    "#ffffffff",
-    "#808080ff",
     "#000000ff",
+    "#ffffffff",
     "#f7954dff",
     "#451c03ff"
    ]
@@ -2445,13 +2405,11 @@
    ],
    "colors": [
     "#ffffffff",
-    "#f74a11ff",
     "#ffe6a2ff",
     "#ff9f00ff",
     "#e30000ff",
     "#e0b069ff",
     "#0f33ffff",
-    "#000000ff",
     "#dc8316ff",
     "#360e43ff",
     "#2540a9ff"
@@ -2787,9 +2745,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#ffffffbf",
@@ -3138,7 +3096,6 @@
     "#ffffffff",
     "#5f5f5fff",
     "#808080ff",
-    "#ffffffbf",
     "#282828ff"
    ]
   }
@@ -3228,9 +3185,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#808080ff",
@@ -3388,10 +3345,10 @@
     "LineageEffectsStaticmeshes/StaticMesh/sword_mesh00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ff9724ff",
     "#b380f0ff",
     "#6016e9ff",
+    "#ffffffff",
     "#c2c2c2ff",
     "#808080ff",
     "#df7b20ff",
@@ -3432,8 +3389,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/sword_mesh00.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#b0b0b0ff",
     "#0659f4ff",
     "#986bf5ff",
     "#c6aefbff",
@@ -3441,6 +3396,7 @@
     "#80ffffff",
     "#eb76bfff",
     "#69f5baff",
+    "#ffffffff",
     "#c2c2c2ff",
     "#808080ff",
     "#df7b20ff",
@@ -3542,11 +3498,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/sword_mesh00.pskx"
    ],
    "colors": [
-    "#cd99fdff",
-    "#e36b1cff",
-    "#f58223ff",
-    "#f9b87dff",
-    "#f8430eff",
     "#eda223ff",
     "#f867d3ff",
     "#ffffffff",
@@ -3588,7 +3539,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/sword_mesh00.pskx"
    ],
    "colors": [
-    "#f9d9a4ff",
     "#ffffffff",
     "#c2c2c2ff",
     "#808080ff",
@@ -3631,8 +3581,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/sword_mesh00.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#b0b0b0ff",
     "#88d6ffff",
     "#97bffbff",
     "#ff8080ff",
@@ -3640,6 +3588,7 @@
     "#8403f8ff",
     "#836af7ff",
     "#ff51a8ff",
+    "#ffffffff",
     "#c2c2c2ff",
     "#808080ff",
     "#df7b20ff",
@@ -3686,8 +3635,6 @@
     "#a5a5a5ff",
     "#d4d4d496",
     "#808080ff",
-    "#df7b20ff",
-    "#660000ff",
     "#a7a7a7ff"
    ]
   }
@@ -3729,10 +3676,7 @@
     "#ffffffff",
     "#c2c2c2ff",
     "#d4d4d496",
-    "#808080ff",
-    "#df7b20ff",
-    "#660000ff",
-    "#000000ff"
+    "#808080ff"
    ]
   }
  },
@@ -3773,10 +3717,7 @@
     "#ffffffff",
     "#c2c2c2ff",
     "#d4d4d496",
-    "#a5a5a5ff",
-    "#808080ff",
-    "#df7b20ff",
-    "#660000ff"
+    "#808080ff"
    ]
   }
  },
@@ -3819,8 +3760,6 @@
     "#c2c2c2ff",
     "#d4d4d496",
     "#808080ff",
-    "#df7b20ff",
-    "#660000ff",
     "#000000ff",
     "#c0c0c0ff"
    ]
@@ -3864,11 +3803,7 @@
     "#c2c2c2ff",
     "#d4d4d496",
     "#808080ff",
-    "#df7b20ff",
-    "#660000ff",
-    "#1b25e4ff",
-    "#ffffff00",
-    "#d8d8d8ff"
+    "#1b25e4ff"
    ]
   }
  },
@@ -3909,11 +3844,7 @@
     "#ffffffff",
     "#c2c2c2ff",
     "#d4d4d496",
-    "#a5a5a5ff",
-    "#ffffff00",
-    "#808080ff",
-    "#df7b20ff",
-    "#660000ff"
+    "#808080ff"
    ]
   }
  },
@@ -3956,12 +3887,7 @@
     "#c2c2c2ff",
     "#d4d4d496",
     "#808080ff",
-    "#df7b20ff",
-    "#660000ff",
-    "#828282ff",
-    "#ffffff00",
-    "#d8d8d8ff",
-    "#000000ff"
+    "#828282ff"
    ]
   }
  },
@@ -4025,9 +3951,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#919191ff",
@@ -4802,9 +4728,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff"
    ]
@@ -4981,13 +4907,13 @@
     "LineageEffectsStaticmeshes/StaticMesh/shockwave00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#c5c5c500",
     "#ef9e07ff",
     "#ff0000ff",
     "#a5490cff",
     "#a0a0a0ff",
+    "#ffffffff",
     "#b9b9b9ff",
     "#8e8e8eff",
     "#5a5a5aff",
@@ -5070,9 +4996,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#ffffffbf",
@@ -5137,9 +5063,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#ef9e07ff",
@@ -5147,7 +5073,6 @@
     "#51382bff",
     "#5a3cc4ff",
     "#2e15d7ff",
-    "#9b9b9bff",
     "#2b2b2bff",
     "#4d4d4dff",
     "#808080ff",
@@ -5159,8 +5084,7 @@
     "#d58effff",
     "#ff7900ff",
     "#d73928ff",
-    "#372fd0ff",
-    "#c9c9c9ff"
+    "#372fd0ff"
    ]
   }
  },
@@ -5224,10 +5148,6 @@
     "#ffffffff",
     "#6e6e6eff",
     "#5f5f5fff",
-    "#ffffffbf",
-    "#808080ff",
-    "#7c7c7cff",
-    "#000000ff",
     "#dc8316ff",
     "#360e43ff",
     "#2540a9ff"
@@ -5303,9 +5223,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#ffffffbf",
@@ -5704,8 +5624,6 @@
     "#c45c46ff",
     "#ff9f00ff",
     "#e30000ff",
-    "#ffffff00",
-    "#d8d8d8ff",
     "#ef9e07ff",
     "#ff0000ff",
     "#a5490cff",
@@ -5788,7 +5706,6 @@
     "#8a8a8aff",
     "#808080ff",
     "#c2c2c2ff",
-    "#bebebeff",
     "#b2b2b2ff"
    ]
   }
@@ -5891,8 +5808,6 @@
    "colors": [
     "#ffffffff",
     "#c3c3c3ff",
-    "#df7b20ff",
-    "#660000ff",
     "#c2c2c2ff",
     "#808080ff",
     "#b3b3b3ff",
@@ -6129,10 +6044,10 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
+    "#ffffffff",
     "#757575ff",
     "#e6e6e6ff",
     "#747474ff",
@@ -6187,14 +6102,7 @@
     "#ffe6a2ff",
     "#ff9f00ff",
     "#e30000ff",
-    "#ffffff00",
-    "#d8d8d8ff",
-    "#808080ff",
-    "#000000ff",
-    "#a7a7a700",
-    "#ffffffdc",
-    "#ee1116ff",
-    "#285995ff"
+    "#ffffffdc"
    ]
   }
  },
@@ -6838,11 +6746,9 @@
    "colors": [
     "#ff8000ff",
     "#ff8040ff",
-    "#f9d9a4ff",
     "#ffffffff",
-    "#80400000",
-    "#808080ff",
     "#bfbfbfff",
+    "#808080ff",
     "#b6b6b6ff"
    ]
   }
@@ -6893,9 +6799,7 @@
    "colors": [
     "#ff8000ff",
     "#ff8040ff",
-    "#f9d9a4ff",
     "#ffffffff",
-    "#80400000",
     "#666666ff",
     "#bfbfbfff",
     "#808080ff",
@@ -7101,17 +7005,15 @@
     "LineageEffectsStaticmeshes/StaticMesh/shockwave00.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#a2a2a2ff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#b0b0b0ff",
     "#ff953eff",
     "#8ccbffff",
-    "#ffb9b9ff",
-    "#b3b3b3ff"
+    "#ffb9b9ff"
    ]
   },
   "missing": [
@@ -7163,17 +7065,12 @@
     "LineageEffectsStaticmeshes/StaticMesh/windknifewave00.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#a2a2a2ff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#808080ff",
-    "#b9b9b9ff",
-    "#8e8e8eff",
-    "#5a5a5aff",
-    "#ffffff00",
     "#b2b2b2ff",
     "#ffe6a2ff",
     "#ff9f00ff",
@@ -7447,11 +7344,8 @@
    "colors": [
     "#ffffffff",
     "#b2b2b2ff",
-    "#f9d9a4ff",
     "#a8a8a8ff",
     "#9e9e9eff",
-    "#808080ff",
-    "#000000ff",
     "#a7a7a7ff"
    ]
   },
@@ -7888,7 +7782,6 @@
     "#ffffffff",
     "#808080ff",
     "#797979ff",
-    "#bcbcbcff",
     "#000000ff",
     "#ffb877ff",
     "#6d2e2eff"
@@ -8453,8 +8346,6 @@
     "#d0d0d0ff",
     "#c8c8c8ff",
     "#808080ff",
-    "#ffbc79ff",
-    "#7979ffff",
     "#b0b0b0ff",
     "#aaaaaaff"
    ]
@@ -8756,10 +8647,7 @@
     "#d05911ff",
     "#f99d59ff",
     "#7b0000ff",
-    "#f5680aff",
-    "#f70000ff",
     "#ffffffff",
-    "#000000ff",
     "#b3b3b3ff"
    ]
   }
@@ -8839,8 +8727,7 @@
     "#7aa2d1ff",
     "#ffffffff",
     "#8fbce4ff",
-    "#acacacff",
-    "#000000ff"
+    "#acacacff"
    ]
   }
  },
@@ -8888,16 +8775,14 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
     "#6a7bf0ff",
     "#bebebeff",
     "#7586fbff",
-    "#360132ff",
+    "#ffffffff",
     "#cacacaff",
-    "#808080ff",
     "#b4b4b4ff"
    ]
   }
@@ -8964,11 +8849,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
-    "#808080ff"
+    "#808080ff",
+    "#ffffffff"
    ]
   }
  },
@@ -9013,10 +8898,10 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
+    "#ffffffff",
     "#757575ff",
     "#e6e6e6ff",
     "#747474ff",
@@ -9067,15 +8952,10 @@
     "LineageEffectsStaticmeshes/StaticMesh/magiccircleblack02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#c5c5c500",
-    "#808080ff",
-    "#000000ff",
-    "#a7a7a700",
-    "#ffffffdc",
-    "#ee1116ff",
-    "#285995ff"
+    "#ffffffff",
+    "#ffffffdc"
    ]
   }
  },
@@ -9142,12 +9022,12 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
     "#dbdbdb00",
     "#a4a4a400",
+    "#ffffffff",
     "#c5c5c5ff",
     "#bcbcbcff",
     "#808080ff",
@@ -9195,12 +9075,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
-    "#ffffff00",
-    "#808080ff",
-    "#c6c6c6ff"
+    "#ffffff00"
    ]
   }
  },
@@ -9364,12 +9241,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant03.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
-    "#b4b4b4ff",
-    "#808080ff"
+    "#ffffffff",
+    "#b4b4b4ff"
    ]
   }
  },
@@ -9413,12 +9289,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/wispray00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
+    "#ffffffff",
     "#808080ff",
-    "#000000ff",
     "#b0b0b0ff",
     "#aaaaaaff"
    ]
@@ -9489,13 +9364,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
-    "#360132ff",
+    "#ffffffff",
     "#cacacaff",
-    "#808080ff",
     "#b4b4b4ff",
     "#2d2d2dff"
    ]
@@ -9542,19 +9415,16 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
-    "#000000ff",
-    "#48b79bff",
-    "#bcbdbbff",
+    "#ffffffff",
     "#8b8b8bff",
     "#659cc9ff",
     "#2ea0d1ff",
     "#0d06ffff",
-    "#363ec9ff",
-    "#360132ff"
+    "#000000ff",
+    "#363ec9ff"
    ]
   }
  },
@@ -9599,8 +9469,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_wind00.pskx"
    ],
    "colors": [
-    "#64647800",
-    "#b9b9d200",
     "#ffffffff",
     "#e0e0e0ff",
     "#a7b0a4ff",
@@ -10378,9 +10246,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/magiccircleblack02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#c5c5c500",
+    "#ffffffff",
     "#bfbfbfff",
     "#e7e7e7ff"
    ]
@@ -10434,20 +10302,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/magiccircleblack02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#c5c5c500",
-    "#602829ff",
-    "#390001ff",
-    "#c6c7e3ff",
-    "#ffc133ff",
-    "#ce3400ff",
-    "#8a0000ff",
-    "#281515ff",
-    "#000000ff",
-    "#ffcecfff",
-    "#82151eff",
-    "#020202ff",
+    "#ffffffff",
     "#eaeaeaff"
    ]
   }
@@ -10568,13 +10425,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#c5c5c500",
     "#756a82ff",
     "#363339ff",
     "#000000ff",
-    "#808080ff",
     "#934a8aff",
     "#7d547eff",
     "#27253664",
@@ -10628,7 +10483,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/magiccircleblack02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#c5c5c500",
     "#934a8aff",
@@ -10732,21 +10586,13 @@
     "LineageEffectsStaticmeshes/StaticMesh/firebomb02.pskx"
    ],
    "colors": [
-    "#ffb0d0ff",
-    "#874398ff",
-    "#ffffffff",
     "#150f0fff",
+    "#ffffffff",
     "#ffcecfff",
     "#82151eff",
     "#020202ff",
     "#602829ff",
-    "#390001ff",
-    "#c6c7e3ff",
-    "#ffc133ff",
-    "#ce3400ff",
-    "#8a0000ff",
-    "#281515ff",
-    "#000000ff"
+    "#390001ff"
    ]
   }
  },
@@ -10790,9 +10636,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/shockwave00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#d8d8d8ff",
+    "#ffffffff",
     "#b6b6b6ff"
    ]
   }
@@ -10875,10 +10721,8 @@
    ],
    "colors": [
     "#ffffffff",
-    "#afafafff",
     "#fdfdfdff",
-    "#000000ff",
-    "#808080ff"
+    "#000000ff"
    ]
   }
  },
@@ -11022,11 +10866,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#838383ff",
-    "#808080ff",
-    "#000000ff",
-    "#5e91fb00",
-    "#00000000"
+    "#838383ff"
    ]
   }
  },
@@ -11079,22 +10919,14 @@
     "LineageEffectsStaticmeshes/StaticMesh/firebomb02.pskx"
    ],
    "colors": [
-    "#ffb0d0ff",
-    "#874398ff",
-    "#ffffffff",
     "#150f0fff",
+    "#ffffffff",
     "#ffcecfff",
     "#82151eff",
     "#020202ff",
     "#eaeaeaff",
     "#602829ff",
-    "#390001ff",
-    "#c6c7e3ff",
-    "#ffc133ff",
-    "#ce3400ff",
-    "#8a0000ff",
-    "#281515ff",
-    "#000000ff"
+    "#390001ff"
    ]
   }
  },
@@ -11184,9 +11016,7 @@
     "LineageEffectsStaticmeshes/StaticMesh/watericebolt00.pskx",
     "LineageEffectsStaticmeshes/StaticMesh/watericebolt01.pskx"
    ],
-   "colors": [
-    "#ffffffff"
-   ]
+   "colors": []
   }
  },
  "1189": {
@@ -11277,8 +11107,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_wind00.pskx"
    ],
    "colors": [
-    "#64647800",
-    "#b9b9d200",
     "#ffffffff",
     "#e0e0e0ff",
     "#eaeaeaff",
@@ -11324,7 +11152,6 @@
    "colors": [
     "#ffffffff",
     "#c3c3c3ff",
-    "#808080d5",
     "#ffffffc8",
     "#dfdfdfff"
    ]
@@ -11370,8 +11197,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_wind01.pskx"
    ],
    "colors": [
-    "#64647800",
-    "#b9b9d200",
     "#ffffffff",
     "#e0e0e0ff",
     "#c3c3c3ff",
@@ -11684,22 +11509,12 @@
     "LineageEffectsStaticmeshes/StaticMesh/firebomb02.pskx"
    ],
    "colors": [
-    "#ffb0d0ff",
-    "#874398ff",
-    "#ffffffff",
     "#150f0fff",
+    "#ffffffff",
     "#ffcecfff",
     "#82151eff",
     "#020202ff",
-    "#eaeaeaff",
-    "#602829ff",
-    "#390001ff",
-    "#c6c7e3ff",
-    "#ffc133ff",
-    "#ce3400ff",
-    "#8a0000ff",
-    "#281515ff",
-    "#000000ff"
+    "#eaeaeaff"
    ]
   }
  },
@@ -11934,13 +11749,12 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_fire00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ef9e07ff",
     "#ff0000ff",
     "#51382bff",
     "#5a3cc4ff",
     "#2e15d7ff",
-    "#9b9b9bff",
+    "#ffffffff",
     "#2b2b2bff",
     "#4d4d4dff",
     "#808080ff",
@@ -11994,9 +11808,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/auracharge01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#d8d8d8ff",
+    "#ffffffff",
     "#a5a5a5ff"
    ]
   }
@@ -12065,12 +11879,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_earth00.pskx"
    ],
    "colors": [
-    "#64647800",
-    "#b9b9d200",
     "#ffffffff",
     "#e0e0e0ff",
     "#ffffffc0",
-    "#eaeaeaff",
     "#a4a4a4ff",
     "#b3b3b3ff",
     "#7d7d7dae"
@@ -12309,11 +12120,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#838383ff",
-    "#808080ff",
-    "#000000ff",
-    "#5e91fb00",
-    "#00000000"
+    "#838383ff"
    ]
   }
  },
@@ -12358,12 +12165,12 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
-    "#808080ff",
-    "#aaaaaaff"
+    "#ffffffff",
+    "#aaaaaaff",
+    "#808080ff"
    ]
   }
  },
@@ -12407,12 +12214,12 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
     "#5abae2ff",
     "#df8520ff",
+    "#ffffffff",
     "#848484ff"
    ]
   }
@@ -12965,9 +12772,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/skill_charge02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#d8d8d8ff",
+    "#ffffffff",
     "#919191ff",
     "#86b7ffff",
     "#1a00ffff",
@@ -13538,9 +13345,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/auracharge01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#d8d8d8ff",
+    "#ffffffff",
     "#a5a5a5ff"
    ]
   }
@@ -13784,14 +13591,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/firebomb02.pskx"
    ],
    "colors": [
-    "#ffb0d0ff",
-    "#874398ff",
-    "#ffffffff",
     "#150f0fff",
+    "#ffffffff",
     "#ffcecfff",
     "#82151eff",
-    "#020202ff",
-    "#000000ff"
+    "#020202ff"
    ]
   }
  },
@@ -14993,12 +14797,8 @@
     "LineageEffectsStaticmeshes/StaticMesh/swirl_ring_00.pskx"
    ],
    "colors": [
-    "#ffffff00",
-    "#949cad00",
     "#ffffffff",
     "#e0e0e0ff",
-    "#ff0b0bff",
-    "#c6000000",
     "#bebebeff",
     "#bbbbbbff",
     "#494792ff"
@@ -15690,7 +15490,6 @@
     "#808080ff",
     "#000000ff",
     "#797979ff",
-    "#bcbcbcff",
     "#ffb877ff",
     "#6d2e2eff"
    ]
@@ -16400,7 +16199,6 @@
    "colors": [
     "#ffffffff",
     "#b2b2b2ff",
-    "#f9d9a4ff",
     "#a7a7a7ff",
     "#868686ff",
     "#959595ff"
@@ -16580,7 +16378,6 @@
    "colors": [
     "#ffffffff",
     "#b2b2b2ff",
-    "#f9d9a4ff",
     "#a7a7a7ff",
     "#242424ff",
     "#1e1e1eff",
@@ -16589,9 +16386,6 @@
     "#d05911ff",
     "#f99d59ff",
     "#7b0000ff",
-    "#f5680aff",
-    "#f70000ff",
-    "#000000ff",
     "#b3b3b3ff"
    ]
   },
@@ -16818,7 +16612,6 @@
     "#00000000",
     "#505050ff",
     "#000000ff",
-    "#696969ff",
     "#808080ff",
     "#b2b2b2ff",
     "#d1d1d1ff"
@@ -16867,8 +16660,8 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
+    "#ffffffff",
     "#00000000"
    ]
   }
@@ -17052,8 +16845,8 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
+    "#ffffffff",
     "#00000000"
    ]
   }
@@ -17082,8 +16875,8 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
+    "#ffffffff",
     "#00000000"
    ]
   }
@@ -17122,7 +16915,6 @@
     "#00000000",
     "#505050ff",
     "#000000ff",
-    "#696969ff",
     "#808080ff"
    ]
   }
@@ -17264,8 +17056,7 @@
    "colors": [
     "#ffffffff",
     "#3e3e3eff",
-    "#808080ff",
-    "#ffffffbf"
+    "#808080ff"
    ]
   }
  },
@@ -18541,9 +18332,7 @@
     "LineageEffectsTextures/fx_m_t0132.png"
    ],
    "meshes": [],
-   "colors": [
-    "#ffffffff"
-   ]
+   "colors": []
   }
  },
  "2166": {
@@ -18567,9 +18356,7 @@
     "LineageEffectsStaticmeshes/StaticMesh/etcpotion01.pskx",
     "LineageEffectsStaticmeshes/StaticMesh/skill_charge00.pskx"
    ],
-   "colors": [
-    "#ffffffff"
-   ]
+   "colors": []
   }
  },
  "2167": {
@@ -18597,16 +18384,13 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant01.pskx"
    ],
    "colors": [
-    "#000000ff",
     "#ffffffff",
-    "#48b79bff",
-    "#bcbdbbff",
     "#8b8b8bff",
     "#659cc9ff",
     "#2ea0d1ff",
     "#0d06ffff",
-    "#363ec9ff",
-    "#360132ff"
+    "#000000ff",
+    "#363ec9ff"
    ]
   }
  },
@@ -18648,12 +18432,12 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
     "#dbdbdb00",
     "#a4a4a400",
+    "#ffffffff",
     "#c5c5c5ff",
     "#bcbcbcff",
     "#808080ff",
@@ -23507,8 +23291,7 @@
     "#c8c8c8ff",
     "#ffffffff",
     "#a7a7a7ff",
-    "#666666ff",
-    "#f9d9a4ff"
+    "#666666ff"
    ]
   }
  },
@@ -23601,8 +23384,6 @@
     "#c45c46ff",
     "#ff9f00ff",
     "#e30000ff",
-    "#ffffff00",
-    "#d8d8d8ff",
     "#ef9e07ff",
     "#ff0000ff",
     "#a5490cff",
@@ -24027,9 +23808,7 @@
     "LineageEffectsStaticmeshes/StaticMesh/skill_charge00.pskx",
     "LineageEffectsStaticmeshes/StaticMesh/sparkredcone00.pskx"
    ],
-   "colors": [
-    "#ffffffff"
-   ]
+   "colors": []
   }
  },
  "4033": {
@@ -24268,12 +24047,7 @@
    "meshes": [
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant00.pskx"
    ],
-   "colors": [
-    "#ffffffff",
-    "#ffffff00",
-    "#808080ff",
-    "#c6c6c6ff"
-   ]
+   "colors": []
   }
  },
  "4047": {
@@ -24911,9 +24685,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff"
    ]
@@ -25482,16 +25256,7 @@
    "colors": [
     "#ffffffff",
     "#602829ff",
-    "#390001ff",
-    "#c6c7e3ff",
-    "#ffc133ff",
-    "#ce3400ff",
-    "#8a0000ff",
-    "#281515ff",
-    "#000000ff",
-    "#ffcecfff",
-    "#82151eff",
-    "#020202ff"
+    "#390001ff"
    ]
   }
  },
@@ -25814,9 +25579,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff"
    ]
@@ -25905,17 +25670,15 @@
     "LineageEffectsStaticmeshes/StaticMesh/shockwave00.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#a2a2a2ff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#b0b0b0ff",
     "#ff953eff",
     "#8ccbffff",
-    "#ffb9b9ff",
-    "#b3b3b3ff"
+    "#ffb9b9ff"
    ]
   },
   "missing": [
@@ -26131,12 +25894,7 @@
    "meshes": [
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant00.pskx"
    ],
-   "colors": [
-    "#ffffffff",
-    "#ffffff00",
-    "#808080ff",
-    "#c6c6c6ff"
-   ]
+   "colors": []
   }
  },
  "4186": {
@@ -26389,12 +26147,7 @@
    "meshes": [
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant00.pskx"
    ],
-   "colors": [
-    "#ffffffff",
-    "#ffffff00",
-    "#808080ff",
-    "#c6c6c6ff"
-   ]
+   "colors": []
   }
  },
  "4202": {
@@ -26927,11 +26680,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#838383ff",
-    "#808080ff",
-    "#000000ff",
-    "#5e91fb00",
-    "#00000000"
+    "#838383ff"
    ]
   }
  },
@@ -27382,13 +27131,6 @@
     "#602829ff",
     "#390001ff",
     "#c3c3c3ff",
-    "#eaeaea78",
-    "#ffffff00",
-    "#ffcecfff",
-    "#82151eff",
-    "#020202ff",
-    "#9e9e9eff",
-    "#fdfdfdff",
     "#858bc7ff",
     "#4b3fc0ff",
     "#0a0060ff",
@@ -27561,9 +27303,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#808080ff",
     "#b0b0b0ff",
-    "#bebebeff",
     "#000000ff",
     "#bbbbbbff",
     "#c9c9c9ff"
@@ -27607,8 +27347,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/shockwave00.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#000000ff",
     "#dc8316ff",
     "#360e43ff",
     "#2540a9ff"
@@ -27684,7 +27422,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/etcpotion01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#934a8aff",
     "#7d547eff",
     "#27253664",
@@ -27725,7 +27462,6 @@
    "colors": [
     "#ffffffff",
     "#c3c3c3ff",
-    "#808080d5",
     "#ffffffc8",
     "#dfdfdfff"
    ]
@@ -27794,10 +27530,7 @@
     "#d05911ff",
     "#f99d59ff",
     "#7b0000ff",
-    "#f5680aff",
-    "#f70000ff",
     "#ffffffff",
-    "#000000ff",
     "#b3b3b3ff"
    ]
   }
@@ -27827,9 +27560,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#b4b4b4ff",
-    "#ffffff00",
-    "#808080ff"
+    "#b4b4b4ff"
    ]
   }
  },
@@ -27892,16 +27623,13 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant01.pskx"
    ],
    "colors": [
-    "#000000ff",
     "#ffffffff",
-    "#48b79bff",
-    "#bcbdbbff",
     "#8b8b8bff",
     "#659cc9ff",
     "#2ea0d1ff",
     "#0d06ffff",
-    "#363ec9ff",
-    "#360132ff"
+    "#000000ff",
+    "#363ec9ff"
    ]
   }
  },
@@ -27937,8 +27665,7 @@
     "#7aa2d1ff",
     "#ffffffff",
     "#8fbce4ff",
-    "#acacacff",
-    "#000000ff"
+    "#acacacff"
    ]
   }
  },
@@ -27970,10 +27697,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#360132ff",
     "#cacacaff",
-    "#ffffff00",
-    "#808080ff",
     "#b4b4b4ff",
     "#2d2d2dff"
    ]
@@ -28006,7 +27730,6 @@
    "colors": [
     "#ffffffff",
     "#808080ff",
-    "#000000ff",
     "#b0b0b0ff",
     "#aaaaaaff"
    ]
@@ -28079,12 +27802,7 @@
    "meshes": [
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant00.pskx"
    ],
-   "colors": [
-    "#ffffffff",
-    "#ffffff00",
-    "#808080ff",
-    "#c6c6c6ff"
-   ]
+   "colors": []
   }
  },
  "4335": {
@@ -28192,7 +27910,6 @@
    "colors": [
     "#ffffffff",
     "#c3c3c3ff",
-    "#808080d5",
     "#ffffffc8",
     "#dfdfdfff"
    ]
@@ -28329,8 +28046,6 @@
     "#d0d0d0ff",
     "#c8c8c8ff",
     "#808080ff",
-    "#ffbc79ff",
-    "#7979ffff",
     "#b0b0b0ff",
     "#aaaaaaff"
    ]
@@ -28433,7 +28148,6 @@
    "colors": [
     "#ffffffff",
     "#808080ff",
-    "#000000ff",
     "#b0b0b0ff",
     "#aaaaaaff"
    ]
@@ -28466,13 +28180,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#808080ff",
-    "#000000ff",
-    "#ffffff00",
-    "#a7a7a700",
-    "#ffffffdc",
-    "#ee1116ff",
-    "#285995ff"
+    "#ffffffdc"
    ]
   }
  },
@@ -28548,10 +28256,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#360132ff",
     "#cacacaff",
-    "#ffffff00",
-    "#808080ff",
     "#b4b4b4ff",
     "#2d2d2dff"
    ]
@@ -28588,10 +28293,10 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
+    "#ffffffff",
     "#757575ff",
     "#e6e6e6ff",
     "#747474ff",
@@ -28625,16 +28330,13 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant01.pskx"
    ],
    "colors": [
-    "#000000ff",
     "#ffffffff",
-    "#48b79bff",
-    "#bcbdbbff",
     "#8b8b8bff",
     "#659cc9ff",
     "#2ea0d1ff",
     "#0d06ffff",
-    "#363ec9ff",
-    "#360132ff"
+    "#000000ff",
+    "#363ec9ff"
    ]
   }
  },
@@ -28663,10 +28365,9 @@
    ],
    "meshes": [],
    "colors": [
-    "#ffffff00",
-    "#808080ff",
     "#ffffffff",
-    "#aaaaaaff"
+    "#aaaaaaff",
+    "#808080ff"
    ]
   }
  },
@@ -28695,9 +28396,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#b4b4b4ff",
-    "#ffffff00",
-    "#808080ff"
+    "#b4b4b4ff"
    ]
   }
  },
@@ -28726,9 +28425,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/skill_power01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#5abae2ff",
     "#df8520ff",
+    "#ffffffff",
     "#848484ff"
    ]
   }
@@ -28835,8 +28534,8 @@
     "LineageEffectsStaticmeshes/StaticMesh/skill_power01.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#f36007ff"
+    "#f36007ff",
+    "#ffffffff"
    ]
   }
  },
@@ -29043,7 +28742,6 @@
    "colors": [
     "#ffffffff",
     "#c3c3c3ff",
-    "#808080d5",
     "#ffffffc8",
     "#dfdfdfff"
    ]
@@ -29214,15 +28912,10 @@
     "LineageEffectsStaticmeshes/StaticMesh/magiccircleblack02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#c5c5c500",
-    "#808080ff",
-    "#000000ff",
-    "#a7a7a700",
-    "#ffffffdc",
-    "#ee1116ff",
-    "#285995ff"
+    "#ffffffff",
+    "#ffffffdc"
    ]
   }
  },
@@ -29298,10 +28991,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#360132ff",
     "#cacacaff",
-    "#ffffff00",
-    "#808080ff",
     "#b4b4b4ff",
     "#2d2d2dff"
    ]
@@ -29338,10 +29028,10 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
+    "#ffffffff",
     "#757575ff",
     "#e6e6e6ff",
     "#747474ff",
@@ -29375,16 +29065,13 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant01.pskx"
    ],
    "colors": [
-    "#000000ff",
     "#ffffffff",
-    "#48b79bff",
-    "#bcbdbbff",
     "#8b8b8bff",
     "#659cc9ff",
     "#2ea0d1ff",
     "#0d06ffff",
-    "#363ec9ff",
-    "#360132ff"
+    "#000000ff",
+    "#363ec9ff"
    ]
   }
  },
@@ -29413,10 +29100,9 @@
    ],
    "meshes": [],
    "colors": [
-    "#ffffff00",
-    "#808080ff",
     "#ffffffff",
-    "#aaaaaaff"
+    "#aaaaaaff",
+    "#808080ff"
    ]
   }
  },
@@ -29445,9 +29131,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#b4b4b4ff",
-    "#ffffff00",
-    "#808080ff"
+    "#b4b4b4ff"
    ]
   }
  },
@@ -29476,9 +29160,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/skill_power01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#5abae2ff",
     "#df8520ff",
+    "#ffffffff",
     "#848484ff"
    ]
   }
@@ -29989,17 +29673,16 @@
     "LineageEffectsStaticmeshes/StaticMesh/skill_power04.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#485caeff",
     "#0461fbff",
     "#77bafdff",
     "#a0a0a0ff",
+    "#ffffffff",
     "#b9b9b9ff",
     "#8e8e8eff",
     "#5a5a5aff",
     "#b2b2b2ff",
     "#303e43ff",
-    "#ddddddff",
     "#f8b945ff",
     "#5c56deff",
     "#ff1515ff"
@@ -30099,7 +29782,6 @@
     "#5a5a5aff",
     "#b2b2b2ff",
     "#303e43ff",
-    "#ddddddff",
     "#f8b945ff",
     "#5c56deff",
     "#ff1515ff"
@@ -30413,7 +30095,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/etcpotion01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#934a8aff",
     "#7d547eff",
     "#27253664",
@@ -30486,9 +30167,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#b4b4b4ff",
-    "#ffffff00",
-    "#808080ff"
+    "#b4b4b4ff"
    ]
   }
  },
@@ -30613,7 +30292,6 @@
    "colors": [
     "#ffffffff",
     "#c3c3c3ff",
-    "#808080d5",
     "#ffffffc8",
     "#dfdfdfff"
    ]
@@ -30909,13 +30587,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#c5c5c500",
     "#756a82ff",
     "#363339ff",
-    "#000000ff",
-    "#808080ff"
+    "#000000ff"
    ]
   }
  },
@@ -31044,14 +30720,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/firebomb02.pskx"
    ],
    "colors": [
-    "#ffb0d0ff",
-    "#874398ff",
-    "#ffffffff",
     "#150f0fff",
+    "#ffffffff",
     "#ffcecfff",
     "#82151eff",
-    "#020202ff",
-    "#000000ff"
+    "#020202ff"
    ]
   }
  },
@@ -31166,14 +30839,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/firebomb02.pskx"
    ],
    "colors": [
-    "#ffb0d0ff",
-    "#874398ff",
-    "#ffffffff",
     "#150f0fff",
+    "#ffffffff",
     "#ffcecfff",
     "#82151eff",
     "#020202ff",
-    "#000000ff",
     "#602829ff",
     "#390001ff"
    ]
@@ -31288,12 +30958,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
-    "#9b9b9bff",
     "#2b2b2bff",
     "#4d4d4dff",
     "#808080ff",
@@ -31368,9 +31037,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#c73a12ff",
@@ -31622,13 +31291,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#c5c5c500",
     "#756a82ff",
     "#363339ff",
     "#000000ff",
-    "#808080ff",
     "#934a8aff",
     "#7d547eff",
     "#27253664",
@@ -31682,22 +31349,12 @@
     "LineageEffectsStaticmeshes/StaticMesh/firebomb02.pskx"
    ],
    "colors": [
-    "#ffb0d0ff",
-    "#874398ff",
-    "#ffffffff",
     "#150f0fff",
+    "#ffffffff",
     "#ffcecfff",
     "#82151eff",
     "#020202ff",
-    "#eaeaeaff",
-    "#602829ff",
-    "#390001ff",
-    "#c6c7e3ff",
-    "#ffc133ff",
-    "#ce3400ff",
-    "#8a0000ff",
-    "#281515ff",
-    "#000000ff"
+    "#eaeaeaff"
    ]
   }
  },
@@ -31912,7 +31569,6 @@
    ],
    "colors": [
     "#ffffffff",
-    "#d2d2d2ff",
     "#494949ff",
     "#454545ff",
     "#e7e7e7ff",
@@ -32076,12 +31732,7 @@
    "meshes": [
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant00.pskx"
    ],
-   "colors": [
-    "#ffffffff",
-    "#ffffff00",
-    "#808080ff",
-    "#c6c6c6ff"
-   ]
+   "colors": []
   }
  },
  "4641": {
@@ -32127,9 +31778,6 @@
     "#c45c46ff",
     "#ff9f00ff",
     "#e30000ff",
-    "#ffffff00",
-    "#d8d8d8ff",
-    "#9b9b9bff",
     "#2b2b2bff",
     "#4d4d4dff",
     "#808080ff",
@@ -32206,8 +31854,6 @@
     "#756a82ff",
     "#363339ff",
     "#000000ff",
-    "#ffffffff",
-    "#808080ff",
     "#934a8aff",
     "#7d547eff",
     "#27253664",
@@ -32374,12 +32020,7 @@
    "meshes": [
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant00.pskx"
    ],
-   "colors": [
-    "#ffffffff",
-    "#ffffff00",
-    "#808080ff",
-    "#c6c6c6ff"
-   ]
+   "colors": []
   }
  },
  "4661": {
@@ -32410,12 +32051,7 @@
    "meshes": [
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant00.pskx"
    ],
-   "colors": [
-    "#ffffffff",
-    "#ffffff00",
-    "#808080ff",
-    "#c6c6c6ff"
-   ]
+   "colors": []
   }
  },
  "4662": {
@@ -32436,12 +32072,7 @@
    "meshes": [
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant00.pskx"
    ],
-   "colors": [
-    "#ffffffff",
-    "#ffffff00",
-    "#808080ff",
-    "#c6c6c6ff"
-   ]
+   "colors": []
   }
  },
  "4663": {
@@ -32666,7 +32297,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/spark00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#1550b014",
     "#1c46b7e6",
     "#f9b139ff",
@@ -32677,12 +32307,9 @@
     "#ee5f2fff",
     "#ca701eff",
     "#64000096",
+    "#ffffffff",
     "#808080ff",
     "#000000ff",
-    "#ffffff96",
-    "#144da9ff",
-    "#1c46b7ff",
-    "#393ed0ff",
     "#e27a25ff",
     "#f5972eff",
     "#ca4004ff",
@@ -32692,8 +32319,7 @@
     "#fd8957ff",
     "#310000ff",
     "#f28331ff",
-    "#571a04ff",
-    "#5076c7ff"
+    "#571a04ff"
    ]
   }
  },
@@ -32723,7 +32349,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/spark00.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#1550b014",
     "#1c46b7e6",
     "#f9b139ff",
@@ -32733,14 +32358,7 @@
     "#3623e4ff",
     "#ee5f2fff",
     "#ca701eff",
-    "#64000096",
-    "#144da9ff",
-    "#1c46b7ff",
-    "#393ed0ff",
-    "#ffffff96",
-    "#808080ff",
-    "#000000ff",
-    "#5076c7ff"
+    "#64000096"
    ]
   }
  },
@@ -32778,14 +32396,10 @@
    ],
    "colors": [
     "#ffffffff",
-    "#b0b0b0ff",
-    "#fdcf97ff",
-    "#d5d5d5ff",
-    "#ff6600ff",
-    "#000000ff",
     "#d9d9d9ff",
     "#ebebebff",
-    "#ba7038ff"
+    "#ba7038ff",
+    "#000000ff"
    ]
   }
  },
@@ -32818,11 +32432,7 @@
    "colors": [
     "#ad9e96ff",
     "#808080ff",
-    "#adadadff",
-    "#fc7d4eff",
-    "#fcc73aff",
-    "#ee6464ff",
-    "#ffffffff"
+    "#adadadff"
    ]
   }
  },
@@ -32907,8 +32517,8 @@
     "LineageEffectsStaticmeshes/StaticMesh/skill_power01.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#f36007ff"
+    "#f36007ff",
+    "#ffffffff"
    ]
   }
  },
@@ -33084,7 +32694,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/skill_power01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#c5c5c500",
     "#934a8aff",
@@ -33097,7 +32706,8 @@
     "#f8b5ffff",
     "#000000ff",
     "#00000000",
-    "#f36007ff"
+    "#f36007ff",
+    "#ffffffff"
    ]
   }
  },
@@ -33189,8 +32799,6 @@
     "#c45c46ff",
     "#ff9f00ff",
     "#e30000ff",
-    "#ffffff00",
-    "#d8d8d8ff",
     "#303e43ff",
     "#b9b9b9ff",
     "#8e8e8eff",
@@ -33638,9 +33246,7 @@
     "#ff0606ff",
     "#c45c46ff",
     "#ff9f00ff",
-    "#e30000ff",
-    "#ffffff00",
-    "#d8d8d8ff"
+    "#e30000ff"
    ]
   }
  },
@@ -35218,14 +34824,13 @@
     "LineageEffectsStaticmeshes/StaticMesh/magiccirclewhite01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#fff4ddff",
     "#ffffff64",
     "#ffd16664",
     "#cfeffeff",
     "#cae6ff64",
-    "#a5a5a5ff",
+    "#ffffffff",
     "#808080ff",
     "#a0a0a0ff",
     "#fafafaff",
@@ -35288,11 +34893,7 @@
    "meshes": [
     "LineageEffectsStaticmeshes/StaticMesh/windblowin03.pskx"
    ],
-   "colors": [
-    "#5e91fb00",
-    "#00000000",
-    "#ffffffff"
-   ]
+   "colors": []
   }
  },
  "5008": {
@@ -35317,7 +34918,6 @@
     "#f9e702ff",
     "#ff871aff",
     "#000000ff",
-    "#ffffffff",
     "#ff0f02ff",
     "#ffc411ff"
    ]
@@ -35364,10 +34964,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant01.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#a2a2a2ff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#ffffffbf",
@@ -35419,18 +35018,14 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_gun00.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#a2a2a2ff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
-    "#a4a4a4ff",
-    "#ffd2a6ff",
     "#9e9e9eff",
     "#752697ff",
     "#d85427ff",
-    "#d2d2d2ff",
     "#d01cccff",
     "#fb921eff",
     "#c3c3c3ff",
@@ -35472,28 +35067,15 @@
    ],
    "colors": [
     "#ffffffff",
-    "#808080ff",
-    "#e6e6e6ff",
     "#7c7c7cff",
     "#2d2d2dff",
-    "#2f33c4ff",
     "#9135ffff",
     "#e7f532ff",
     "#724003ff",
     "#f8b945ff",
     "#f9e702ff",
     "#ff871aff",
-    "#000000ff",
-    "#602829ff",
-    "#390001ff",
-    "#c6c7e3ff",
-    "#ffc133ff",
-    "#ce3400ff",
-    "#8a0000ff",
-    "#281515ff",
-    "#ffcecfff",
-    "#82151eff",
-    "#020202ff"
+    "#000000ff"
    ]
   },
   "missing": [
@@ -35656,8 +35238,6 @@
     "#ffdac8ff",
     "#ff0000ff",
     "#dfdfdfff",
-    "#ff0080ff",
-    "#efdfffff",
     "#000000ff"
    ]
   }
@@ -35753,8 +35333,6 @@
    ],
    "meshes": [],
    "colors": [
-    "#ffffffff",
-    "#808080ff",
     "#f7954dff",
     "#451c03ff"
    ]
@@ -36175,10 +35753,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/summon02.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#a2a2a2ff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff"
    ]
@@ -36229,17 +35806,15 @@
     "LineageEffectsStaticmeshes/StaticMesh/summon02.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#a2a2a2ff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#b0b0b0ff",
     "#ff953eff",
     "#8ccbffff",
-    "#ffb9b9ff",
-    "#b3b3b3ff"
+    "#ffb9b9ff"
    ]
   },
   "missing": [
@@ -36285,10 +35860,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/summon02.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#a2a2a2ff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#303e43ff",
@@ -36387,13 +35961,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant01.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#c5c5c500",
     "#756a82ff",
     "#363339ff",
     "#000000ff",
-    "#808080ff",
     "#934a8aff",
     "#7d547eff",
     "#27253664",
@@ -36572,28 +36144,14 @@
     "#c45c46ff",
     "#ff9f00ff",
     "#e30000ff",
-    "#ffffff00",
-    "#d8d8d8ff",
     "#2d2d2dff",
-    "#2f33c4ff",
     "#9135ffff",
     "#e7f532ff",
-    "#e6e6e6ff",
     "#724003ff",
     "#f8b945ff",
     "#f9e702ff",
     "#ff871aff",
-    "#000000ff",
-    "#602829ff",
-    "#390001ff",
-    "#c6c7e3ff",
-    "#ffc133ff",
-    "#ce3400ff",
-    "#8a0000ff",
-    "#281515ff",
-    "#ffcecfff",
-    "#82151eff",
-    "#020202ff"
+    "#000000ff"
    ]
   }
  },
@@ -36632,10 +36190,7 @@
     "LineageEffectsStaticmeshes/StaticMesh/sparkredcone00.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#808080ff",
-    "#ffff80ff",
-    "#a7a7a7ff"
+    "#ffff80ff"
    ]
   }
  },
@@ -36679,10 +36234,9 @@
     "LineageEffectsStaticmeshes/StaticMesh/wispray00.pskx"
    ],
    "colors": [
-    "#ffffffff",
-    "#a2a2a2ff",
     "#000000ff",
     "#ffb877ff",
+    "#ffffffff",
     "#742323ff",
     "#6d2e2eff",
     "#a0a0a0ff",
@@ -36756,28 +36310,14 @@
     "#c45c46ff",
     "#ff9f00ff",
     "#e30000ff",
-    "#ffffff00",
-    "#d8d8d8ff",
     "#2d2d2dff",
-    "#2f33c4ff",
     "#9135ffff",
     "#e7f532ff",
-    "#e6e6e6ff",
     "#724003ff",
     "#f8b945ff",
     "#f9e702ff",
     "#ff871aff",
-    "#000000ff",
-    "#602829ff",
-    "#390001ff",
-    "#c6c7e3ff",
-    "#ffc133ff",
-    "#ce3400ff",
-    "#8a0000ff",
-    "#281515ff",
-    "#ffcecfff",
-    "#82151eff",
-    "#020202ff"
+    "#000000ff"
    ]
   }
  },
@@ -36889,7 +36429,6 @@
    ],
    "colors": [
     "#ffffffff",
-    "#b7b7b7ff",
     "#5d5d5dff",
     "#e0e0e0ff",
     "#cacacaff",
@@ -37111,15 +36650,7 @@
    "meshes": [
     "LineageEffectsStaticmeshes/StaticMesh/twist_m06.pskx"
    ],
-   "colors": [
-    "#9b8564ff",
-    "#ffffffff",
-    "#9f7860ff",
-    "#000000ff",
-    "#800000ff",
-    "#390000ff",
-    "#000080ff"
-   ]
+   "colors": []
   }
  },
  "5118": {
@@ -37180,13 +36711,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/wispray00.pskx"
    ],
    "colors": [
-    "#246cb5ff",
-    "#570f11ff",
-    "#de2c30ff",
     "#ffffffff",
     "#a7a7a7ff",
     "#f89ea0ff",
-    "#919191ff",
+    "#570f11ff",
+    "#de2c30ff",
     "#776b64ff",
     "#525252ff",
     "#6d6d6dff",
@@ -37194,10 +36723,6 @@
     "#c2c2c2ff",
     "#5a5a5aff",
     "#000000ff",
-    "#9b8564ff",
-    "#9f7860ff",
-    "#800000ff",
-    "#390000ff",
     "#934a8aff",
     "#7d547eff",
     "#27253664",
@@ -37285,12 +36810,7 @@
     "LineageEffectsStaticmeshes/StaticMesh/twist_m06.pskx"
    ],
    "colors": [
-    "#9b8564ff",
     "#ffffffff",
-    "#9f7860ff",
-    "#000000ff",
-    "#800000ff",
-    "#390000ff",
     "#303e43ff",
     "#b9b9b9ff",
     "#8e8e8eff",
@@ -37443,20 +36963,7 @@
    "meshes": [
     "LineageEffectsStaticmeshes/StaticMesh/firebomb00.pskx"
    ],
-   "colors": [
-    "#ffffffff",
-    "#602829ff",
-    "#390001ff",
-    "#c6c7e3ff",
-    "#ffc133ff",
-    "#ce3400ff",
-    "#8a0000ff",
-    "#281515ff",
-    "#000000ff",
-    "#ffcecfff",
-    "#82151eff",
-    "#020202ff"
-   ]
+   "colors": []
   }
  },
  "5131": {
@@ -37493,8 +37000,7 @@
     "#b0b0b0ff",
     "#ff953eff",
     "#8ccbffff",
-    "#ffb9b9ff",
-    "#b3b3b3ff"
+    "#ffb9b9ff"
    ]
   }
  },
@@ -37676,29 +37182,17 @@
     "LineageEffectsStaticmeshes/StaticMesh/skill_power04.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#ffffff00",
     "#c5c5c500",
+    "#ffffffff",
     "#2d2d2dff",
-    "#2f33c4ff",
     "#9135ffff",
     "#e7f532ff",
-    "#e6e6e6ff",
     "#724003ff",
     "#f8b945ff",
     "#f9e702ff",
     "#ff871aff",
-    "#000000ff",
-    "#602829ff",
-    "#390001ff",
-    "#c6c7e3ff",
-    "#ffc133ff",
-    "#ce3400ff",
-    "#8a0000ff",
-    "#281515ff",
-    "#ffcecfff",
-    "#82151eff",
-    "#020202ff"
+    "#000000ff"
    ]
   }
  },
@@ -37742,17 +37236,11 @@
     "LineageEffectsStaticmeshes/StaticMesh/twist_m06.pskx"
    ],
    "colors": [
-    "#9b8564ff",
     "#ffffffff",
-    "#9f7860ff",
-    "#000000ff",
-    "#800000ff",
-    "#390000ff",
     "#b0b0b0ff",
     "#ff953eff",
     "#8ccbffff",
-    "#ffb9b9ff",
-    "#b3b3b3ff"
+    "#ffb9b9ff"
    ]
   }
  },
@@ -37902,10 +37390,10 @@
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant02.pskx"
    ],
    "colors": [
-    "#ffffffff",
     "#00000000",
     "#fdfdfdff",
     "#ffffff00",
+    "#ffffffff",
     "#757575ff",
     "#e6e6e6ff",
     "#747474ff",
@@ -38011,8 +37499,6 @@
     "LineageEffectsStaticmeshes/StaticMesh/spirit_wind00.pskx"
    ],
    "colors": [
-    "#64647800",
-    "#b9b9d200",
     "#ffffffff",
     "#e0e0e0ff",
     "#a7b0a4ff",
@@ -38039,10 +37525,9 @@
    ],
    "meshes": [],
    "colors": [
-    "#ffffff00",
-    "#808080ff",
     "#ffffffff",
-    "#aaaaaaff"
+    "#aaaaaaff",
+    "#808080ff"
    ]
   }
  },
@@ -38065,9 +37550,7 @@
    ],
    "colors": [
     "#ffffffff",
-    "#b4b4b4ff",
-    "#ffffff00",
-    "#808080ff"
+    "#b4b4b4ff"
    ]
   }
  },
@@ -38113,12 +37596,7 @@
    "meshes": [
     "LineageEffectsStaticmeshes/StaticMesh/supportenchant00.pskx"
    ],
-   "colors": [
-    "#ffffffff",
-    "#ffffff00",
-    "#808080ff",
-    "#c6c6c6ff"
-   ]
+   "colors": []
   }
  },
  "5171": {
@@ -38640,10 +38118,7 @@
     "LineageEffectsStaticmeshes/StaticMesh/Plane.pskx",
     "LineageEffectsStaticmeshes/StaticMesh/wispray00.pskx"
    ],
-   "colors": [
-    "#fbc993ff",
-    "#ffffffff"
-   ]
+   "colors": []
   }
  },
  "5205": {
@@ -38846,8 +38321,6 @@
     "#c45c46ff",
     "#ff9f00ff",
     "#e30000ff",
-    "#ffffff00",
-    "#d8d8d8ff",
     "#303e43ff",
     "#b9b9b9ff",
     "#8e8e8eff",
