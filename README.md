@@ -151,31 +151,48 @@ client and emits web-native assets. The **play plane** is what players
 touch: a browser, a protocol gateway, and the real game server.
 
 ```
- BUILD PLANE (offline, our toolchain)                 PLAY PLANE (runtime)
-─────────────────────────────────────────   ──────────────────────────────────────────
-                                           ┌────────────────────────────────────────┐
- assets/interlude (your legal              │                 BROWSER                │
-  Interlude client: 157 maps,              │  ElberaClient :8083  walkable 3D world │
-  653 packages, 40 encrypted .dat)         │  ElberaCreate :8082  character creator │
-         │                                 │  (three.js + glTF, plain-DOM UI)      │
-         ▼                                 └──────┬─────────────────────┬───────────┘
- ┌───────────────────────────────┐                │ HTTP: scene.json,   │ WebSocket
- │ THE ELBERA TOOLCHAIN          │                │ glTF, PNG, JSON     │ JSON :8090
- │ ElberaLib     format library  │                ▼                     ▼
- │ ElberaWorld   .unr → scenes   │──► assets/world (100 tiles)   ElberaGate (Node.js)
- │ ElberaModeler .ukx → glTF     │──► editor/characters (97      L2 protocol codec —
- │ ElberaDat     .dat → JSON     │──►  glTF models + manifests)  zero game logic
- │ ElberaForge   .utx writer     │                                     │ TCP :2106 / :7777
- │ ElberaUpscaler 4x HD textures │                                     │ RSA · Blowfish · XOR
- │ ElberaView    ground-truth    │                                     ▼
- │               renderer        │                            aCis rev 409 (Java 21)
- └───────────────────────────────┘                            the actual game server
-         ▲ verifies everything                              MariaDB :3306 · 65 tables
-         │                                                     ▲
- ElberaView + official NCSoft captures                         │ docker compose
-                                                   ElberaDeploy — one-command stack
+ BUILD PLANE — offline, runs once against your own client
+ ──────────────────────────────────────────────────────────────────────────────
+  assets/interlude — 157 maps · 653 packages · 40 encrypted .dat
+         │
+         ▼
+ ┌─────────────────────────────────────┐
+ │ THE ELBERA TOOLCHAIN                │
+ ├─────────────────────────────────────┤
+ │ ElberaLib      format library       │
+ │ ElberaWorld    .unr → scenes        │──► assets/world/<tile>/scene.json
+ │ ElberaBsp      BSP → buildings      │──►   + bsp.gltf     the architecture
+ │ ElberaLight    sun · fog · ambient  │──►   + light.json   the tile's own sun
+ │ ElberaSound    .uax → Opus          │──► assets/audio     250 music, 5,128 sfx
+ │ ElberaModeler  .ukx → glTF          │──► editor/characters    772 glTF total
+ │ ElberaArms     weapons · shields    │──►   + weapons/     180 arms and shields
+ │ ElberaFx       skill particles      │──► assets/gamedata  skillvfx + skillmesh
+ │ ElberaDat      .dat → JSON          │──►   + decoded tables, names, icons
+ │ ElberaSkin     xdat → retail UI     │──►   + interface.json   mined geometry
+ │ ElberaUpscaler 4x HD textures       │──► assets/world-hd  21,589 textures at 4x
+ │ ElberaForge    .utx writer          │──► writes textures BACK into the game
+ │ ElberaView     ground truth         │──► renders retail data to compare against
+ └─────────────────────────────────────┘
+         ▲ ElberaView + official NCSoft captures verify every conversion
 
- ADMIN PLANE: ElberaPanel :8080 (server config UI) · ElberaAssets :8081 (texture browser)
+ PLAY PLANE — what a player touches
+ ──────────────────────────────────────────────────────────────────────────────
+ ┌──────────────────────────────────────────────┐
+ │  BROWSER — no plugin, no download, no login  │
+ │  ElberaClient :8083   the game               │
+ │  ElberaCreate :8082   character creator      │
+ │  three.js + glTF, plain-DOM retail UI        │
+ └────────────────────┬─────────────────────────┘
+                      │  HTTP: scenes, glTF, Opus, PNG, tables
+                      │  WebSocket JSON :8090
+                      ▼
+             ElberaGate (Node.js) — the L2 protocol codec. Zero game logic.
+                      │ TCP :2106 / :7777 · RSA · Blowfish · XOR stream
+                      ▼
+             aCis rev 409 (Java 21) — the real game server
+             MariaDB :3306 · 65 tables · ElberaDeploy brings it up in one command
+
+ ADMIN PLANE: ElberaPanel :8080 (server config) · ElberaAssets :8081 (texture browser)
 ```
 
 The strategic decision that shapes the project: **the game is not
