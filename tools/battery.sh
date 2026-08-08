@@ -50,6 +50,10 @@ if [ "$MODE" != "--client-only" ]; then
   # client section's mocks are dead by now, and --gateway-only never starts
   # them). run() does node "$script" — no space for CLI args.
   run verify-respawn gateway "test/verify-respawn.js"
+  # Browser-driven but LIVE: it drives a real equip through the real server and
+  # watches the model, so it belongs here rather than in the mock section.
+  # Depends on verify-paperdoll above having seeded its fixture's weapons.
+  run verify_equipswap editor/world "verify_equipswap.js"
 fi
 
 echo "---"

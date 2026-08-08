@@ -115,22 +115,29 @@ export async function equipWeapon(root, itemId, state, side = 'R') {
   if (!root || !state) return null;
   await loadEquipment();
 
+  // Every call takes a ticket. aCis emits several UserInfo packets around an
+  // equip, so this runs concurrently for the same character, and each call
+  // awaits a glTF load in the middle. Without a ticket, two in-flight calls
+  // both pass their post-await guard and both attach — the socket ends up with
+  // a stack of weapons, `state.object` tracks only the last, and every later
+  // lookup finds a stale one. Comparing meshId is not enough: concurrent calls
+  // for the SAME weapon have the same meshId.
+  const gen = (state.gen = (state.gen || 0) + 1);
+
   const info = weaponInfo(itemId);
   const wantMesh = info ? info.mesh.toLowerCase() : null;
   if (state.meshId === wantMesh && state.object && state.object.parent) {
     return state.object;                     // already wearing exactly this
   }
 
-  detachWeapon(state);
+  const socket = findSocket(root, side);
+  detachWeapon(state, socket);
   state.meshId = wantMesh;
   if (!wantMesh) return null;
 
   const template = await loadWeapon(wantMesh);
-  // A swap can land while we were loading; the meshId check keeps the stale
-  // one from being attached over the newer one.
-  if (!template || state.meshId !== wantMesh) return null;
+  if (!template || state.gen !== gen) return null;   // a newer call superseded us
 
-  const socket = findSocket(root, side);
   if (!socket) {
     console.warn('[equipment] no weapon socket on this model');
     return null;
@@ -140,6 +147,7 @@ export async function equipWeapon(root, itemId, state, side = 'R') {
   // Object3D, and the template stays clean for the next clone.
   const obj = template.clone(true);
   obj.name = `weapon_${wantMesh}`;
+  clearSocket(socket);                        // belt and braces against strays
   socket.add(obj);                            // identity transform, on purpose
   state.object = obj;
   state.handness = info.handness;
@@ -147,12 +155,25 @@ export async function equipWeapon(root, itemId, state, side = 'R') {
   return obj;
 }
 
-export function detachWeapon(state) {
-  if (!state || !state.object) return;
+// Remove every weapon hanging on a socket, not just the one we think is there.
+// The tracked reference can go stale (a superseded load, a model swap), and a
+// leftover clone is invisible to `state` but very visible on screen.
+function clearSocket(socket) {
+  if (!socket) return;
+  for (const child of [...socket.children]) {
+    if (child.name && child.name.startsWith('weapon_')) socket.remove(child);
+  }
+}
+
+export function detachWeapon(state, socket = null) {
+  if (!state) return;
   // Detach only. The clone shares its geometry and materials with the cached
   // template, so disposing them here would blank the weapon for every other
   // character holding the same sword.
-  if (state.object.parent) state.object.parent.remove(state.object);
+  if (state.object && state.object.parent) state.object.parent.remove(state.object);
+  // Sweep the socket too when we have it: a superseded load or an interrupted
+  // model swap can leave a clone attached that `state` no longer points at.
+  clearSocket(socket);
   state.object = null;
   state.meshId = null;
 }
