@@ -696,6 +696,27 @@ class GameSession extends EventEmitter {
         this.emit('skillLaunch', { casterId, skillId, level, targetIds });
         break;
       }
+      case 0x49: { // MagicSkillCanceled: D objectId.
+        // The ONLY packet that says an in-flight cast died. aCis broadcasts it
+        // from CreatureCast.stop() — the target was lost/out of range, the
+        // caster was interrupted by damage, died, was silenced... Everything
+        // else the client sees around an abort (bare ActionFailed) is also sent
+        // for perfectly ordinary refusals, so nothing else can stand in for it.
+        // Captured live in gateway/test/capture-skills.js (interrupt probe).
+        this.emit('skillCancel', { casterId: r.readD() });
+        break;
+      }
+      case 0x6d: { // SetupGauge: D color (GaugeColor ordinal), D time, D maxTime.
+        // The cast/attack/breath/feed bar. For a cast aCis sends it ONLY when
+        // hitTime > 410 (CreatureCast.doCast) — below that retail shows no bar
+        // at all, which is why toggles and instant skills (hitTime 0) must not
+        // draw one. Times are milliseconds.
+        const color = r.readD();
+        const time = r.readD();
+        const maxTime = r.readD();
+        this.emit('gauge', { color, time, maxTime });
+        break;
+      }
       case 0x1b: { // ItemList: H showWindow, H count, per item see parseItem*
         r.readH(); // showWindow
         const count = r.readH();

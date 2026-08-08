@@ -45,18 +45,32 @@
 //   magic (is_magic 1/2)  -> 'castShort'/'castMid'/'castLong' by hitTime
 // Callers fall back gracefully while pre-rebuild models are in place.
 
-let _spAtkAlt = 0;   // alternates the two shipped physical-skill clips
-
 // skillgrp.animation -> glTF clip for PLAYER characters. hitTime is the
 // MagicSkillUse cast duration in ms (the gateway skillCast op carries it).
+// null = play NOTHING, which is a real answer: an empty skillgrp animation
+// code means the skill has no cast gesture. Every TOGGLE in the shipped data
+// is coded '' (226 Relax, 312 Vicious Stance, ... checked over
+// assets/gamedata/skillanim.json against the aCis operateType TOGGLE list),
+// and aCis backs that up on the wire — a toggle's MagicSkillUse carries
+// hitTime 0 and no SetupGauge follows (gateway/test/capture-skills.json).
+//
+// UNSOURCED, and deliberately left that way (see the report):
+//   * WHICH SpAtk the animation code selects. skillgrp ships 30-odd distinct
+//     codes (S t V U Y M Mix01-09 ...) and each model ships spatk01..spatk22
+//     per stance, but nothing in this repo maps one to the other. The code
+//     used to alternate spAtk01/spAtk02 on a module-global counter, so the
+//     SAME skill played a different gesture every other cast — invented, and
+//     wrong in an obvious way. One deterministic clip is the honest floor
+//     until the native table is decoded.
+//   * the castShort/castMid/castLong duration thresholds below. They are
+//     cited to an "Engine/Pawn.uc recovered source" that is not in this
+//     repository, and the code's own cut-offs (<1 s, <5 s) do not even match
+//     the comment they were justified with ("<1s / 2-5s / 5s+").
 export function clipForSkill(entry, hitTime = null) {
-  if (!entry || !entry.anim) return null;              // passive: no cast anim
+  if (!entry || !entry.anim) return null;              // passive/toggle: no anim
   if (entry.anim === 'N' || entry.magic === 3) return 'dance';  // exact
-  if (entry.magic === 0) {                             // physical SpAtk*
-    _spAtkAlt = 1 - _spAtkAlt;
-    return _spAtkAlt ? 'spAtk01' : 'spAtk02';
-  }
-  // magic cast: retail picks by cast duration (<1s / 2-5s / 5s+)
+  if (entry.magic === 0) return 'spAtk01';             // physical, deterministic
+  // magic cast: picked by cast duration (thresholds unsourced, see above)
   const s = hitTime != null ? hitTime / 1000 : 2;      // unknown: mid
   if (s < 1) return 'castShort';
   if (s < 5) return 'castMid';

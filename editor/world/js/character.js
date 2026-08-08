@@ -197,12 +197,23 @@ export class Character {
   // Falls back to the unstanced clip whenever a stance lacks one — retail
   // genuinely does not ship every combination (no Atk02 for Bow, no Dual
   // SpAtk for elves), so a miss here is data, not an error.
+  // The pipeline emits the stanced clips LOWERCASE (`spatk01_1hs`,
+  // `atk01_2hs`) while the unstanced legacy pair kept retail's camel case
+  // (`spAtk01`, `spAtk02`) — both spellings are in editor/characters/
+  // manifest.json for every model. Looking up only the verbatim token meant
+  // `spAtk01` -> `spAtk01_1hs`, which does not exist, so every physical skill
+  // cast silently fell back to the unstanced clip: 30-odd stanced spatk
+  // sequences per model shipped and none of them was ever played. Try the
+  // lowercase form too.
   _clip(name) {
     const stance = this.stance;
     if (!stance || stance === 'hand') return name;
     const token = name === 'attack' ? 'atk01' : name;
-    const stanced = `${token}_${stance}`;
-    return this.actions[stanced] ? stanced : name;
+    for (const t of (token === token.toLowerCase() ? [token] : [token, token.toLowerCase()])) {
+      const stanced = `${t}_${stance}`;
+      if (this.actions[stanced]) return stanced;
+    }
+    return name;
   }
 
   play(name, fade = 0.25) {

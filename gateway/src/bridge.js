@@ -92,6 +92,8 @@ const AUTOCREATE = process.env.GATEWAY_AUTOCREATE !== '0';
 // ignores the client-sent race.
 const BASE_CLASS_RACE = { 0: 0, 10: 0, 18: 1, 25: 1, 31: 2, 38: 2, 44: 3, 49: 3, 53: 4 };
 const CHAR_NAME_RE = /^[A-Za-z0-9]{1,16}$/; // aCis StringUtil.isValidString
+// SetupGauge(0x6d) colors, in GaugeColor enum order (enums/GaugeColor.java).
+const GAUGE_COLORS = ['blue', 'red', 'cyan', 'green'];
 // CharCreateFail(0x1a) reason codes (serverpackets/CharCreateFail.java).
 const CREATE_FAIL_REASONS = {
   0: 'creation_failed',
@@ -618,6 +620,18 @@ class Bridge {
     game.on('debug', (m) => this.log(`game: ${m}`));
     game.on('parseError', ({ op, error }) => this.log(`parse error op=0x${op.toString(16)}: ${error.message}`));
 
+    // Opcode trace for packet-capture harnesses (GW_TRACE=1 only; the
+    // production gateway runs without it and is byte-for-byte unchanged).
+    // GameSession emits 'packet' for every opcode its switch does NOT decode,
+    // so this is the ONLY way to see what aCis sends that never reaches the
+    // browser. Used by gateway/test/capture-skills.js.
+    if (process.env.GW_TRACE) {
+      game.on('packet', (op) => this.send({
+        op: 'traceUndecoded',
+        packet: typeof op === 'number' ? '0x' + op.toString(16) : String(op),
+      }));
+    }
+
     game.on('charList', (chars) => {
       if (chars.length === 0 && !this.pendingCreate && AUTOCREATE && !noAutoCreate) {
         // Legacy first-login path: auto-create a default Human Fighter.
@@ -977,6 +991,22 @@ class Bridge {
         this.send({ op: 'skillLaunch', casterId: s.casterId, targetId, skillId: s.skillId, level: s.level });
       }
     });
+
+    // MagicSkillCanceled(0x49): the in-flight cast died. Until this landed the
+    // browser had NO abort signal at all and was cancelling its casting bar on
+    // any ActionFailed — which aCis also sends for a move click during a cast
+    // (PlayableAI.onIntentionMoveTo), for a reuse denial, for a bad target...
+    game.on('skillCancel', (c) => this.send({ op: 'skillCancel', casterId: c.casterId }));
+
+    // SetupGauge(0x6d): the retail bar, with its own color and duration.
+    // GaugeColor ordinals (enums/GaugeColor.java): 0 BLUE cast, 1 RED attack,
+    // 2 CYAN breath, 3 GREEN pet feed.
+    game.on('gauge', (g) => this.send({
+      op: 'gauge',
+      color: GAUGE_COLORS[g.color] || String(g.color),
+      time: g.time,
+      maxTime: g.maxTime,
+    }));
 
     game.on('itemList', (items) => {
       for (const it of items) this.inventory.set(it.objectId, it.itemId);

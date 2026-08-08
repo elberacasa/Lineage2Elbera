@@ -590,17 +590,22 @@ export class EntityManager {
   // skillLaunch re-enters this path at hitTime-400 (CreatureCast.onMagicLaunch);
   // the second gesture is deliberately NOT restarted mid-swing.
   _playerCastGesture(ch, msg) {
-    if (!msg) {
-      ch.oneShot('attack');
-      return;
-    }
+    // No skill context at all: play nothing. This used to swing 'attack',
+    // which is a weapon strike animation and never a cast.
+    if (!msg) { this.lastCastClip = null; return; }
     if (msg.op === 'skillLaunch' && ch.emoteUntil > performance.now()) return;
     skillAnimMeta().then(meta => {
       const entry = skillAnimInfo(meta, msg.skillId, msg.level || 1);
-      const clip = clipForSkill(entry, msg.hitTime) || 'attack';
+      const clip = clipForSkill(entry, msg.hitTime);
+      // null = the skill genuinely has NO cast gesture (empty skillgrp
+      // animation code — every TOGGLE in the data, checked: 32/32). The old
+      // `|| 'attack'` turned each of those into a full weapon swing, so
+      // toggling Vicious Stance on made the character attack the air.
       this.lastCastClip = clip;   // verification hook (name logic picked)
-      ch.oneShot(ch.actions && ch.actions[clip] ? clip : 'attack', 0.1,
-        { durationMs: msg.hitTime });
+      if (!clip || !(ch.actions && ch.actions[clip])) return;
+      // hitTime 0 (toggles, instant skills) means "no cast time": let the clip
+      // run at its own length rather than dividing by zero's worth of stretch.
+      ch.oneShot(clip, 0.1, msg.hitTime > 0 ? { durationMs: msg.hitTime } : {});
     });
   }
 

@@ -1,8 +1,19 @@
 // M4/M5: casting bar + per-skill cooldown state + skill visual effects.
 // The retail shortcut UI lives in js/ui/shortcutwnd.js; the invented
 // 10-slot palette that used to render here is deleted. What remains is
-// what other UI needs: castSkill() (cooldown gate), finishCast(), and the
-// casting bar that fills over hitTime.
+// what other UI needs: castSkill() (the click), finishCast(), the reuse
+// sweep data, and the casting bar.
+//
+// Everything here is now anchored to a packet timeline recorded from the
+// running aCis (gateway/test/capture-skills.js, JSON alongside it):
+//   MagicSkillUse  hitTime + reuseDelay in ms; hitTime 0 / reuse 0 for
+//                  toggles and instant skills
+//   SetupGauge     the cast bar, sent ONLY when hitTime > 410
+//   MagicSkillLaunched  at hitTime-400 — NOT the end of the cast
+//   effects        at hitTime
+//   ActionFailed   NOT an abort (a move click during a cast produces one
+//                  while the cast runs on to completion)
+//   MagicSkillCanceled  IS the abort (gateway op `skillCancel`)
 
 export class SkillBar {
   constructor(rootEl, castBarEl, castFillEl, castNameEl, { onCast } = {}) {
@@ -14,6 +25,7 @@ export class SkillBar {
     this.skills = new Map();   // skillId -> {level, cooling, timer}
     this.cast = null;          // {skillId, t0, hitTime, raf}
     this.reuse = new Map();    // skillId -> {t0, total} ms (sweep overlays)
+    this._seenCancels = new WeakSet();  // skillCancel messages already accounted for
   }
 
   /** Server-authoritative reuse (skillCoolTime op — total/left in ms
@@ -38,38 +50,73 @@ export class SkillBar {
     for (const s of skills) this.skills.set(s.id, { level: s.level, cooling: false, timer: null });
   }
 
+  /** The click gate. There is no cooldown gate here, on purpose.
+   *
+   *  What used to be here was a `cooling` flag set on the click and cleared
+   *  either by skillLaunch or by a 3000 ms fallback timer. Both numbers were
+   *  invented, and the first one is actively wrong: skillLaunch arrives at
+   *  hitTime-400 (captured live — Wind Strike, 6253 ms hitTime, launch at
+   *  +5851 ms), which is 3.5 s before its 9380 ms reuse is up, so the slot
+   *  re-enabled itself long before the skill was really ready.
+   *
+   *  Refusing the click on the SERVER's reuse instead would also be wrong.
+   *  aCis has a system message for exactly this case — 48 S1_PREPARED_FOR_REUSE,
+   *  sent from CreatureCast.canAttemptCast when isSkillDisabled — and captured
+   *  live: a second Heal inside its 15633 ms reuse answered sysMsg 48 +
+   *  ActionFailed. A message the server only ever needs if the client sends
+   *  the request is evidence that the retail client sends it. So the click
+   *  goes out and the server decides; `reuse` stays what it is, the data
+   *  behind the sweep overlays. */
   castSkill(skillId) {
-    const s = this.skills.get(skillId);
-    if (s && s.cooling) return false;
-    if (this.onCast(skillId) === false) return false;
-    if (s) {
-      s.cooling = true;
-      // safety: never leave a skill stuck if skillLaunch never comes
-      clearTimeout(s.timer);
-      s.timer = setTimeout(() => this.finishCast(skillId), 3000);
-    }
-    return true;
+    return this.onCast(skillId) !== false;
   }
 
+  /** Called from the skillLaunch handler. Nothing to unlock any more — the
+   *  reuse sweep is server-sourced and expires on its own — so this only
+   *  drops an entry the server has reported as having no reuse at all. */
   finishCast(skillId) {
-    const s = this.skills.get(skillId);
-    if (!s) return;
-    s.cooling = false;
+    const r = this.reuse.get(skillId);
+    if (r && r.total <= 0) this.reuse.delete(skillId);
   }
+
+  /** aCis sends SetupGauge(BLUE, hitTime) — and schedules the cast at all —
+   *  only when hitTime > 410; at or below that CreatureCast.doCast sets
+   *  _hitTime = 0 and the launch fires immediately, so retail draws NO bar.
+   *  Toggles and instant/triggered skills come through with hitTime 0 exactly
+   *  (captured live: Vicious Stance, Relax, and the level-up skills 2278/2282
+   *  all arrive as MagicSkillUse hitTime=0 reuse=0). */
+  static get MIN_GAUGE_MS() { return 410; }
 
   // casting bar for the local player's in-flight cast
   startCastBar(skillId, level, hitTime, name) {
     this.stopCastBar();
-    this.cast = { skillId, t0: performance.now(), hitTime: Math.max(100, hitTime || 1000) };
-    // the cast lock also sweeps — but only when no longer server reuse is
-    // already tracked (MagicSkillUse carries the real reuseDelay in ms;
-    // aCis sends no SkillCoolTime on cast, so that op wins when present)
-    const existing = this.reuseLeft(skillId);
-    if (!existing || existing.left < this.cast.hitTime) {
-      this.setReuse(skillId, this.cast.hitTime);
-    }
+    // No invented duration. `hitTime || 1000` used to turn every toggle press
+    // and every server-side instant skill into a phantom 1-second cast bar for
+    // a skill the player never pressed.
+    if (!(hitTime > SkillBar.MIN_GAUGE_MS)) return;
+    this._absorbCancels();
+    this.cast = { skillId, t0: performance.now(), hitTime };
+    // NOTE: the cast no longer seeds `reuse`. It used to call
+    // setReuse(skillId, hitTime) as a stand-in, which put a 1-second cooldown
+    // sweep on toggles (reuse is genuinely 0 there) and a hitTime-long one on
+    // anything the server had not yet described. Reuse comes from the server:
+    // skillCast.reuse (MagicSkillUse) and skillCoolTime (SkillCoolTime).
     this.castName.textContent = name || `Skill #${skillId}`;
     this.castBar.classList.add('visible');
+    // Server-authoritative abort, read straight off the inbound ring: the
+    // gateway now forwards MagicSkillCanceled as `skillCancel`. Polled rather
+    // than wired with net.on() because NetClient keeps ONE handler per op and
+    // main.js owns the wiring (same constraint as SkillFx._pump below).
+    //
+    // On a TIMER, not on the animation frame. requestAnimationFrame stops in a
+    // background tab and starves under load — one headless run here went 11 s
+    // without a frame — and a cast bar whose end depends on frames outlives
+    // the cast. The fill is a visual and stays on rAF; the LIFECYCLE does not.
+    this.cast.poll = setInterval(() => {
+      if (!this.cast) return;
+      if (this._cancelledByServer()
+          || performance.now() - this.cast.t0 >= this.cast.hitTime) this.stopCastBar();
+    }, 50);
     const tick = () => {
       if (!this.cast) return;
       const f = Math.min(1, (performance.now() - this.cast.t0) / this.cast.hitTime);
@@ -82,17 +129,77 @@ export class SkillBar {
 
   stopCastBar() {
     if (this.cast && this.cast.raf) cancelAnimationFrame(this.cast.raf);
+    if (this.cast && this.cast.poll) clearInterval(this.cast.poll);
     this.cast = null;
     this.castBar.classList.remove('visible');
   }
 
-  /** Server aborted the in-flight cast (ActionFailed from PlayerCast.stop
-   *  after CreatureCast.interrupt, sysMsg 27/748): the bar cancels and the
-   *  skill unlocks — no skillLaunch will follow. */
+  /** The server aborted the in-flight cast. The authoritative signals are
+   *  MagicSkillCanceled (gateway op `skillCancel`) and sysMsg 27
+   *  CASTING_INTERRUPTED / 748 DIST_TOO_FAR_CASTING_STOPPED.
+   *
+   *  A bare ActionFailed is NOT one of them, and main.js calls this from its
+   *  actionFailed handler — hence the guard. Captured live
+   *  (capture-skills.js, MOVE-WHILE-CASTING probe): a movement click 1.5 s
+   *  into a 7816 ms Heal produced two bare ActionFailed packets while the
+   *  server cast on to completion (skillLaunch at +7446 ms, effects at
+   *  +7839 ms). aCis sends that ActionFailed from
+   *  PlayableAI.onIntentionMoveTo whenever getCast().isCastingNow(); the same
+   *  packet also answers a reuse denial and an invalid target. Cancelling on
+   *  it desynced the client from every cast the player walked during. */
   cancelCast() {
+    if (!this._serverAbortEvidence()) return;
+    this._forceCancel();
+  }
+
+  /** Cancel with no evidence check — for callers that already know (tests,
+   *  world exit, the skillCancel op itself). */
+  _forceCancel() {
     const id = this.cast && this.cast.skillId;
     this.stopCastBar();
     if (id != null) this.finishCast(id);
+  }
+
+  /** Tail of the inbound message ring, or null when there is no net client
+   *  (offline/solo and unit tests). */
+  _inboundTail(scan = 8) {
+    const w = typeof window !== 'undefined' && window.__world;
+    const log = w && w.net && w.net.log;
+    if (!log || !log.length) return null;
+    return log.slice(Math.max(0, log.length - scan)).filter(m => m.dir === 'in');
+  }
+
+  /** True when an authoritative abort is in the recent inbound tail. With no
+   *  ring available at all the caller is trusted (keeps offline callers and
+   *  the existing suites working). */
+  _serverAbortEvidence() {
+    const tail = this._inboundTail();
+    if (tail === null) return true;
+    return tail.some(m => m.op === 'skillCancel'
+      || (m.op === 'sysMsg' && (m.id === 27 || m.id === 748)));
+  }
+
+  /** A skillCancel naming our own caster id that arrived AFTER this bar
+   *  started. Ring entries are fresh objects (net.js pushes {dir, ...msg}), so
+   *  identity in a WeakSet is a safe "already accounted for" marker and ring
+   *  rotation cannot replay one — the same trick SkillFx._pump uses. */
+  _cancelledByServer() {
+    if (!this.cast) return false;
+    const tail = this._inboundTail(24);
+    if (!tail) return false;
+    const w = typeof window !== 'undefined' && window.__world;
+    const selfId = w && w.net && w.net.selfId;
+    return tail.some(m => m.op === 'skillCancel'
+      && (selfId == null || m.casterId === selfId)
+      && !this._seenCancels.has(m));
+  }
+
+  /** Everything already in the ring predates this cast: absorb it so only a
+   *  NEW MagicSkillCanceled kills the bar. */
+  _absorbCancels() {
+    for (const m of this._inboundTail(24) || []) {
+      if (m.op === 'skillCancel') this._seenCancels.add(m);
+    }
   }
 
   clear() {
