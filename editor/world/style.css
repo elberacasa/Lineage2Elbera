@@ -371,11 +371,28 @@ span.l2h-w.npc-link[data-sp]::after {
 .npc-html-scroll::-webkit-scrollbar { width: 0; height: 0; }
 .npc-sb-btn { background-repeat: no-repeat; }
 .npc-sb-thumb { cursor: pointer; }
-/* <edit>/<multiedit>/<combobox> are real client controls with their own art
-   (L2UI_CH3.Etc.inputbox1..3, l2ui_ch3.multiedit.M_inputbox0N — named in
-   NWindow.dll at 0x1009567d..0x10095b98). Those sprites are NOT staged yet,
-   so the control is AUTHORED as a plain box rather than drawn wrong. */
+/* <edit> and <multiedit> now draw the client's OWN art, painted from JS
+   (npcdialog.js _element / _paintMultiEdit) out of textures this repo stages
+   from the client's packages:
+     <edit>       L2UI.EtcWnd.Edit_Back          NCHtmlEdit's ctor, 0x10095346
+     <multiedit>  l2ui_ch3.multiedit.M_inputbox01..09
+                                                 NCHtmlMultiEdit vt slot 0x98
+   This block used to read `background:#000; border:1px solid #555` under a
+   comment saying the sprites were "NOT staged yet" and naming
+   L2UI_CH3.Etc.inputbox1..3 as the art. Those textures exist but belong to a
+   different control (ctor 0x10095670). Neither the background nor the border
+   is set here any more — the art carries both.
+
+   What is STILL authored, and cannot not be: the typeface. An <edit> is
+   editable, so its glyphs cannot come off the retail bitmap sheet the rest of
+   this window draws with; it needs a real caret and a real text run. The
+   COLOUR is set from JS out of npchtml.json colors.text, so it is not here.
+
+   <combobox> keeps a plain box: NCHtmlComboBox's ctor (0x10089815) installs no
+   texture of its own — it delegates to its base class, and that class's art
+   was not decoded. A documented gap, not a guess. */
 .npc-edit {
-  font: 11px monospace; background: #000; color: #DCDCDC;
-  border: 1px solid #555; vertical-align: top;
+  font: 11px monospace; background-color: transparent;
+  border: 0; vertical-align: top;
 }
+select.npc-edit { background: #000; color: #DCDCDC; border: 1px solid #555; }

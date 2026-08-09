@@ -45,6 +45,18 @@
 //   L7      a multi-word link's underline is one unbroken rule
 //   L8      provenance: the page came off the socket and carries the live
 //           object id of the NPC that was talked to
+//   L9..L12 the four gaps closed 2026-08-09, each on the datapack page that
+//           exposes it (see the note on transport below)
+//
+// WHAT L9..L12 DO AND DO NOT EXERCISE — said plainly, because the difference
+// matters. L1..L8 use the page aCis SENDS: real socket, real object id. L9,
+// L10, L11 and L12 need pages this character cannot reach without walking to
+// four different NPCs in three map tiles, so instead they hand the datapack's
+// own bytes to the SAME `window.__world.npcDialog` the server's page just
+// rendered into. Everything downstream of the transport is therefore live and
+// real — the client's stylesheet, the staged retail art, the glyph sheet, the
+// z-order over the 3D canvas — and the transport alone is not re-proved for
+// those four. L8 still proves the transport on every run.
 //
 // COST: one login, no walking. ~60 s.
 const fs = require('fs');
@@ -69,6 +81,22 @@ const DEVICE_ID = 'verify-npcdialog-agent';
 // Gatekeeper Clarissa, from the datapack's own spawn table
 // (server/aCis_datapack/data/xml/spawnlist/22_22.xml: id 30080).
 const CLARISSA = { npcId: 30080, x: 83396, y: 147904, z: -3404 };
+
+// The datapack pages L9..L12 need, verbatim. Each is here because it is the
+// SHIPPED page that carries the feature under test, not a fixture written for
+// the suite:
+//   spacer   default/30995.htm      NPC 30995's own menu: two SquareWhite
+//                                   rules with SquareBlank spacers between
+//   fixwidth default/30995-3.htm    four <td fixwidth=> in one row
+//   edit     seven_signs/blkmrkt_2.htm   the one <edit> an NPC dialog serves
+//   sysstr   gatekeeper/30716-1.htm      opens with &$556;
+const DATAPACK = path.join(REPO, 'server/aCis_datapack/data/html');
+const DATAPACK_PAGES = {
+  spacer: 'default/30995.htm',
+  fixwidth: 'default/30995-3.htm',
+  edit: 'seven_signs/blkmrkt_2.htm',
+  sysstr: 'gatekeeper/30716-1.htm',
+};
 
 // The pre-fix module for --prove: the tree as it stood before this wave.
 const PREFIX_REV = 'HEAD';
@@ -300,6 +328,27 @@ async function run() {
       };
     }, shotB64, artUrl(spec.window.background));
 
+    // -- 2b. `<a msg=>`, on the page aCis just sent -------------------------
+    // Clarissa's own page carries msg="811;Monster Arena" on its Monster Race
+    // Track link, so this needs no fixture: click that word with confirm()
+    // stubbed to DECLINE, and the command must not reach the socket.
+    p.msg = await page.evaluate(() => {
+      const d = window.__world.npcDialog;
+      const el = d.root.querySelector('.npc-dialog-content [data-msg]');
+      if (!el) return { found: false };
+      const real = window.confirm;
+      let asked = null;
+      window.confirm = (t) => { asked = t; return false; };
+      const before = window.__world.net.log.length;
+      el.click();
+      window.confirm = real;
+      return {
+        found: true, attr: el.dataset.msg, asked,
+        bypass: el.dataset.bypass || null,
+        opsAfter: window.__world.net.log.length - before,
+      };
+    });
+
     // -- 3. the title negative, driven live: `.menu` declares a <title> -----
     await page.keyboard.press('Enter');
     await sleep(200);
@@ -313,6 +362,72 @@ async function run() {
       bar: window.__world.npcDialog.root.dataset.npcBar,
       pageTitle: window.__world.npcDialog.root.dataset.npcTitle,
     }));
+
+    // -- 3b. the four gaps closed 2026-08-09, on the datapack's own bytes ----
+    p.pages = {};
+    for (const [key, rel] of Object.entries(DATAPACK_PAGES)) {
+      const src = fs.readFileSync(path.join(DATAPACK, rel), 'utf8');
+      await page.evaluate((html) => {
+        window.__world.npcDialog.showHtml(html);
+      }, src);
+      await sleep(400);
+      const b64 = await (await page.$('#l2-npcdialog'))
+        .screenshot({ encoding: 'base64' });
+      fs.writeFileSync(path.join(OUT, `npcdialog_live_${key}.png`),
+        Buffer.from(b64, 'base64'));
+      p.pages[key] = await page.evaluate(async (shotB64x, k) => {
+        const d = window.__world.npcDialog;
+        const root = d.root;
+        const rr = root.getBoundingClientRect();
+        const shot = await window.__nd.decode(shotB64x);
+        // The element screenshot is the window at device pixels; map a client
+        // point inside it without assuming a scale factor.
+        const sx = shot.w / rr.width, sy = shot.h / rr.height;
+        const at = (cx, cy) => {
+          const x = Math.round((cx - rr.left) * sx);
+          const y = Math.round((cy - rr.top) * sy);
+          const i = ((y * shot.w) + x) * 4;
+          return [shot.d[i], shot.d[i + 1], shot.d[i + 2], shot.d[i + 3]];
+        };
+        const body = root.querySelector('.npc-dialog-content');
+        const out = { key: k };
+        // A reference sample of the EMPTY panel interior, inside the html
+        // frame, below where these short pages' flow ends. Three points, so
+        // the gate can refuse to run if any of them landed on a glyph.
+        const fr = root.querySelector('.npc-html-frame').getBoundingClientRect();
+        out.flowRef = [];
+        for (const fy of [0.82, 0.9]) {
+          for (const fx of [0.2, 0.4, 0.6, 0.8]) {
+            out.flowRef.push(at(fr.left + fr.width * fx, fr.top + fr.height * fy));
+          }
+        }
+        // every <img> box, with the ref it resolved to and the pixel at its
+        // centre plus one just outside its left edge (same row)
+        out.imgs = [...body.querySelectorAll('.npc-html-img')].map((e) => {
+          const r = e.getBoundingClientRect();
+          const cy = r.top + r.height / 2;
+          return {
+            w: Math.round(r.width), h: Math.round(r.height),
+            bg: getComputedStyle(e).backgroundImage,
+            inside: at(r.left + r.width / 2, cy),
+            outsideLeft: at(Math.max(rr.left + 2, r.left - 6), cy),
+          };
+        });
+        out.tds = [...body.querySelectorAll('td')].map(e => ({
+          w: Math.round(e.getBoundingClientRect().width),
+          fix: e.style.minWidth || null,
+        }));
+        const ed = body.querySelector('input.npc-edit, textarea.npc-edit');
+        out.edit = ed ? {
+          tag: ed.tagName,
+          bg: getComputedStyle(ed).backgroundImage,
+          borderWidth: getComputedStyle(ed).borderTopWidth,
+          color: getComputedStyle(ed).color,
+        } : null;
+        out.words = [...body.querySelectorAll('.l2h-w')].map(e => e.dataset.t);
+        return out;
+      }, b64, key);
+    }
 
     // -- 4. --prove: the same live page, the pre-fix module ------------------
     if (PROVE) {
@@ -366,6 +481,10 @@ function gates(p) {
   const W = spec.window;
   const F = W.frame;
   const g = {};
+  // Skin.px's scale, MEASURED off the live window rather than assumed to be 1:
+  // L1 already requires the window to be the mined size, so this ratio is the
+  // factor every retail-pixel number in the page went through.
+  p.uiScale = p.win.w / W.width;
 
   g['L1 live window is the mined rect'] =
     p.win.w === W.width && p.win.h === W.height;
@@ -437,7 +556,142 @@ function gates(p) {
   g['L8b its bypasses carry the live object id'] =
     p.links.some(l => l.bypass && l.bypass.includes(String(p.objectId)));
 
+  // -- L9: L2UI.SquareBlank is a SPACER, not a black bar --------------------
+  //
+  // The client's texture is DXT3 with the alpha block 00 00 00 00 00 00 00 00
+  // — every texel alpha 0. umodel's export dropped the channel and the staged
+  // PNG was opaque black, so 64 shipped `<img src=...SquareBlank...>` painted
+  // black bars across NPC pages. Asserted twice and independently:
+  //   a) the staged FILE is transparent (read off disk, below)
+  //   b) the client DREW nothing there — the pixel at the middle of the
+  //      spacer box equals the panel beside it, which is only true if the
+  //      sprite contributed no colour.
+  const sp = p.pages && p.pages.spacer;
+  const blanks = sp ? sp.imgs.filter(i => /squareblank/i.test(i.bg)) : [];
+  g['L9a the page really has SquareBlank spacers (not vacuous)'] =
+    blanks.length >= 2;
+  g['L9b the staged SquareBlank texture is fully transparent'] =
+    blankFileAlpha() !== null && blankFileAlpha()[1] === 0;
+  // The reference is the EMPTY panel interior lower down the same frame — not
+  // a point beside the spacer, because a 270px spacer spans the whole flow and
+  // anything to its left is the window's own brighter edge. Eight samples, and
+  // the gate characterises the panel as a RANGE rather than a value: Npc1_back
+  // is alpha 221, so the 3D scene shows through it and the interior is not one
+  // number (measured 14..19 on this machine). What the gate then needs is only
+  // that the spacer pixel falls inside that range — an opaque black bar reads
+  // 0, which is nowhere near it.
+  const ref = sp ? sp.flowRef : null;
+  const chan = (k) => ref.map(r => r[k]);
+  const lo = ref ? [0, 1, 2].map(k => Math.min(...chan(k))) : null;
+  const hi = ref ? [0, 1, 2].map(k => Math.max(...chan(k))) : null;
+  // The reference disqualifies itself if any sample landed on a glyph (a wide
+  // spread) or if the panel were black (nothing to discriminate against).
+  const refOk = !!ref && ref.length >= 6
+    && [0, 1, 2].every(k => hi[k] - lo[k] <= 12)
+    && lo[0] + lo[1] + lo[2] > 24;
+  g['L9d the empty-panel reference is usable (the gate can run)'] = refOk;
+  g['L9c the client draws nothing where a spacer sits'] = blanks.length >= 2
+    && refOk && blanks.every(i => i.inside.slice(0, 3)
+      .every((v, k) => v >= lo[k] - 3 && v <= hi[k] + 3));
+
+  // -- L10: <td fixwidth=> ---------------------------------------------------
+  // FIXWIDTH is the eighth name in TD's own attribute array (NWindow.dll
+  // 0x1034e9a8, the wide string at 0x1024d044) and this renderer read none of
+  // the 202 the datapack writes. default/30995-3.htm's header row asks for
+  // 60/140/40/30 and those four cells must measure exactly that.
+  const fx = p.pages && p.pages.fixwidth;
+  const wantFix = [60, 140, 40, 30];
+  g['L10a the page really uses fixwidth (not vacuous)'] =
+    !!fx && fx.tds.filter(t => t.fix).length >= 4;
+  g['L10b fixwidth cells measure exactly what the page asks'] = !!fx
+    && wantFix.every((w, i) => fx.tds[i] && fx.tds[i].w === Math.round(w * p.uiScale));
+
+  // -- L11: the <edit> draws the client's own chrome -------------------------
+  // NCHtmlEdit's ctor (vtable 0x10251464 at 0x1009532c) pushes
+  // L"L2UI.EtcWnd.Edit_Back" at 0x10095346 and installs nothing else.
+  const ed = p.pages && p.pages.edit && p.pages.edit.edit;
+  g['L11a the page really has an <edit> (not vacuous)'] =
+    !!ed && ed.tag === 'INPUT';
+  g['L11b it paints the staged Edit_Back texture'] =
+    !!ed && /Edit_Back/i.test(ed.bg);
+  g['L11c it draws no authored CSS border'] =
+    !!ed && ed.borderWidth === '0px';
+
+  // -- L12: `&$NNN;` resolves through sysstring-e.dat ------------------------
+  const ss = p.pages && p.pages.sysstr;
+  const want556 = sysText(556);
+  g['L12a the page really carries a &$NNN; reference (not vacuous)'] =
+    fs.readFileSync(path.join(DATAPACK, DATAPACK_PAGES.sysstr), 'utf8')
+      .includes('&$556;');
+  g['L12b no &$NNN; marker survives into the drawn words'] =
+    !!ss && ss.words.length > 0 && !ss.words.some(w => /&\$\d+;/.test(w || ''));
+  g['L12c the drawn words spell SysString 556'] = !!ss && !!want556
+    && want556.split(/\s+/).every(w => ss.words.includes(w));
+
+  // -- L13: `<a msg=>` asks before it fires ---------------------------------
+  // MSG is the fifth name in <a>'s own attribute array (NWindow.dll
+  // 0x1034e9a8) and the shipped datapack writes it on 112 anchors. This runs
+  // on the page aCis SENT, not on a fixture: Clarissa's Monster Race Track
+  // link carries msg="811;Monster Arena", and SystemMessage 811 is "You will
+  // be moved to ($s1). Do you wish to continue?".
+  const m = p.msg || {};
+  g['L13a the live page really carries a msg= link (not vacuous)'] =
+    !!m.found && /^811;/.test(String(m.attr || ''));
+  g['L13b the question is the retail SystemMessage, with its argument'] =
+    !!m.asked && m.asked === sysMsgText(811, ['Monster Arena']);
+  g['L13c declining sends nothing'] = m.found === true && m.opsAfter === 0;
+
   return g;
+}
+
+/** SystemMessage text for an id, rendered the way the runtime renders it. */
+function sysMsgText(id, args) {
+  const meta = JSON.parse(fs.readFileSync(
+    path.join(REPO, 'assets/gamedata/systemmsg.json'), 'utf8'));
+  const entry = meta[String(id)];
+  if (!entry || !entry.text) return null;
+  let si = 0;
+  return entry.text.replace(/\$([sc])(\d+)/g, (all, kind) => {
+    if (kind !== 's') return all;
+    const v = args[si++];
+    return v == null ? all : String(v);
+  });
+}
+
+/** [min, max] alpha of the staged SquareBlank PNG, straight off disk. */
+function blankFileAlpha() {
+  const rec = artIndex.get('l2ui|squareblank');
+  if (!rec) return null;
+  const buf = fs.readFileSync(path.join(__dirname, 'ui/htmlart', rec.file));
+  // IHDR colour type is byte 25; 6 is RGBA, anything else has no alpha at all
+  // and therefore reads as fully opaque — which is exactly the pre-fix state.
+  if (buf[25] !== 6) return [255, 255];
+  const zlib = require('zlib');
+  const chunks = [];
+  let off = 8;
+  let w = 0;
+  while (off < buf.length) {
+    const len = buf.readUInt32BE(off);
+    const type = buf.toString('latin1', off + 4, off + 8);
+    if (type === 'IHDR') w = buf.readUInt32BE(off + 8);
+    if (type === 'IDAT') chunks.push(buf.slice(off + 8, off + 8 + len));
+    off += len + 12;
+  }
+  const raw = zlib.inflateSync(Buffer.concat(chunks));
+  const stride = w * 4 + 1;
+  let lo = 255;
+  let hi = 0;
+  for (let y = 0; y * stride < raw.length; y++) {
+    // filter type 0 (none) is what l2lib's writer emits; anything else and
+    // this reader must not pretend to know the answer.
+    if (raw[y * stride] !== 0) return null;
+    for (let x = 0; x < w; x++) {
+      const a = raw[y * stride + 1 + x * 4 + 3];
+      if (a < lo) lo = a;
+      if (a > hi) hi = a;
+    }
+  }
+  return [lo, hi];
 }
 
 function proveGates(p) {

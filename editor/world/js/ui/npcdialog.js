@@ -66,7 +66,7 @@ import { Font } from './font.js';
 import { WndMgr } from './wndmgr.js';
 import { Layout } from './layout.js';
 import { NpcHtml } from './npchtml.js';
-import { sysStringMeta } from '../gamedata.js';
+import { sysStringMeta, sysMsgMeta, renderSysMsg } from '../gamedata.js';
 
 // Reached only if /gamedata/npchtml.json failed to load. Zero, not a
 // plausible number: a window we could not measure has no honest size, and a
@@ -191,10 +191,16 @@ export class NpcDialog {
 
     this._buildScrollbar();
 
+    // The confirmation table, kicked once. `<a msg=>` needs it synchronously
+    // at click time; see _confirmMsg.
+    this.sysMsg = null;
+    sysMsgMeta().then((m) => { this.sysMsg = m; }).catch(() => {});
+
     view.addEventListener('click', (e) => {
       const link = e.target.closest('[data-bypass]');
       if (link && !link.hasAttribute('data-disabled')) {
         e.preventDefault();
+        if (!this._confirmMsg(link.dataset.msg)) return;
         this.onBypass(this._substituteVars(link.dataset.bypass));
       }
     });
@@ -430,6 +436,10 @@ export class NpcDialog {
           if (link) {
             w.classList.add('npc-link');
             if (owner && owner.link.bypass) w.dataset.bypass = owner.link.bypass;
+            // MSG rides with the bypass: the client reads it on the same <a>
+            // (NWindow.dll 0x1034e9a8) and it gates the command. See
+            // _confirmMsg.
+            if (owner && owner.link.msg) w.dataset.msg = owner.link.msg;
           }
           append(w);
         }
@@ -462,7 +472,8 @@ export class NpcDialog {
         name,
         colorSet: name === 'FONT' && attrs.COLOR != null,
         color: name === 'FONT' ? NpcHtml.cssColor(attrs.COLOR) : null,
-        link: name === 'A' ? { bypass: this._bypass(attrs) } : null,
+        link: name === 'A'
+          ? { bypass: this._bypass(attrs), msg: attrs.MSG || null } : null,
         silent: (top().silent || NpcHtml.isSilent(name)) ? 1 : 0,
       };
       if (made) append(made);
@@ -537,7 +548,11 @@ export class NpcDialog {
         }
         const cmd = this._bypass(attrs);
         if (cmd) el.dataset.bypass = cmd; else el.setAttribute('data-disabled', '');
-        const label = attrs.VALUE || '';
+        // The label goes through the same decoder the flow text does: the
+        // shipped data writes `value="&$140;"` (SysString 140, "OK") and
+        // `value="&$141;"` ("Cancel") on the board's two buttons, so a button
+        // label that skipped it read `&$140;`.
+        const label = NpcHtml.entities(attrs.VALUE || '');
         // The label is glyph pixels, so it has no textContent. Mirror it as a
         // data attribute: without it nothing outside this module can read what
         // the button says.
@@ -574,6 +589,28 @@ export class NpcDialog {
       case 'TD': {
         const el = document.createElement('td');
         this._boxAttrs(el, attrs);
+        // FIXWIDTH — the eighth name in TD's own attribute array (NWindow.dll
+        // 0x1034e9a8's TD record; the wide string L"FIXWIDTH" lives at
+        // 0x1024d044). MEASURED: the shipped datapack writes it on 202 cells
+        // and this renderer read none of them, so every one of those cells was
+        // laid out at whatever width its content happened to want.
+        //
+        // AUTHORED, and separated from the measurement above: what the client
+        // DOES with it. The client reads both WIDTH and FIXWIDTH on the same
+        // element, so they cannot mean the same thing, and the only difference
+        // the names admit is that one is a request and the other is not. So
+        // FIXWIDTH is pinned with min-width == max-width and border-box, while
+        // WIDTH stays the ordinary suggestion `_boxAttrs` already sets. The
+        // client's own sizing pass was not decoded; if it turns out FIXWIDTH is
+        // something else, this is the line to delete.
+        const fw = px(attrs.FIXWIDTH);
+        if (fw != null) {
+          const v = `${Skin.px(fw)}px`;
+          el.style.boxSizing = 'border-box';
+          el.style.width = v;
+          el.style.minWidth = v;
+          el.style.maxWidth = v;
+        }
         const a = String(attrs.ALIGN || '').toUpperCase();
         const va = String(attrs.VALIGN || '').toUpperCase();
         const H = (NpcHtml.spec && NpcHtml.spec.align && NpcHtml.spec.align.h) || [];
@@ -604,10 +641,31 @@ export class NpcDialog {
         return el;
       }
 
+      // <edit> and <multiedit> are separate native classes and they do NOT
+      // share their chrome. Both were decoded 2026-08-09 out of NWindow.dll,
+      // by way of the image's own MSVC RTTI (see tools/ui/mine_htmlart.py):
+      //
+      //   NCHtmlEdit      ctor writes vtable 0x10251464 at 0x1009532c, then
+      //                   pushes L"L2UI.EtcWnd.Edit_Back" at 0x10095346 into
+      //                   SetTexture and stores the handle at this+0x350. ONE
+      //                   texture, no slices — l2ui.utx `Edit_Back` is DXT3
+      //                   32x32 with every texel at alpha 153, a flat plate.
+      //   NCHtmlMultiEdit vtable 0x10251214 slot 0x98 -> 0x10095b50, a nine
+      //                   iteration loop (count 9 at 0x10095b7b, index from 1
+      //                   at 0x10095b70) over L"l2ui_ch3.multiedit.
+      //                   M_inputbox0%d" — a 3x3 nine-slice of 4x4 tiles.
+      //
+      // What this REPLACES is a CSS box with an authored `1px solid #555`
+      // border, sitting under a comment that named L2UI_CH3.Etc.inputbox1..3
+      // as the missing art. Those six textures are real and they ARE installed
+      // by a constructor — the one at 0x10095670, which also installs
+      // L2UI_CH3.ListCtrl.TextSelect and is not either html control. The name
+      // was decoded; the class it belonged to was assumed.
       case 'EDIT': case 'MULTIEDIT': {
-        const el = document.createElement(name === 'EDIT' ? 'input' : 'textarea');
+        const multi = name === 'MULTIEDIT';
+        const el = document.createElement(multi ? 'textarea' : 'input');
         el.className = 'npc-edit';
-        if (name === 'EDIT') {
+        if (!multi) {
           el.type = String(attrs.TYPE || '').toLowerCase() === 'password'
             ? 'password' : 'text';
           const len = px(attrs.LENGTH);
@@ -616,6 +674,23 @@ export class NpcDialog {
         const w = px(attrs.WIDTH), h = px(attrs.HEIGHT);
         if (w != null) el.style.width = `${Skin.px(w)}px`;
         if (h != null) el.style.height = `${Skin.px(h)}px`;
+        // The glyphs cannot come off the retail sheet here — the field is
+        // editable, so it needs a real text renderer and a real caret. Only
+        // the COLOUR is the client's: npchtml.json colors.text, the same
+        // 0xffdcdcdc the html flow draws with (NWindow.dll 0x100856fa).
+        // AUTHORED and unavoidable: the typeface and its size.
+        const tc = (NpcHtml.spec && NpcHtml.spec.colors
+          && NpcHtml.spec.colors.text) || null;
+        if (tc) el.style.color = tc;
+        if (multi) {
+          // Nine-slice: border-image lays a 3x3 grid out of one image, which
+          // is what the client's loop does with nine separate 4x4 tiles. The
+          // tiles are staged individually, so they are composited into one
+          // 12x12 sheet at load and cached on the class.
+          this._paintMultiEdit(el);
+        } else if (!NpcHtml.paint(el, 'L2UI.EtcWnd.Edit_Back')) {
+          console.warn('[NpcDialog] L2UI.EtcWnd.Edit_Back did not resolve');
+        }
         if (attrs.VAR) this.edits.set(attrs.VAR, el);
         return el;
       }
@@ -647,6 +722,50 @@ export class NpcDialog {
     }
   }
 
+  /** The <multiedit> nine-slice, laid out as nine background layers.
+   *
+   *  WHICH TILE GOES WHERE IS MEASURED, not assumed. The client's loop
+   *  (NWindow.dll 0x10095b50) only proves there are nine of them, numbered 1
+   *  to 9; it does not say where each one sits. The TILE PIXELS do. Each is
+   *  4x4, and the light edge colour 0x393839 marks the outside of the frame:
+   *
+   *    1 top row + left col     2 top row        3 top row + right col
+   *    4 left col               5 uniform        6 right col
+   *    7 left col + bottom row  8 bottom row     9 right col + bottom row
+   *
+   *  which is row-major, and tile 5 is a flat 0x202020 at alpha 238 — the
+   *  interior. Any other assignment would put a light rule through the middle
+   *  of the field, so this is falsifiable by looking at the picture.
+   */
+  _paintMultiEdit(el) {
+    const T = ['01', '02', '03', '04', '05', '06', '07', '08', '09']
+      .map(n => NpcHtml.artUrl(`l2ui_ch3.multiedit.M_inputbox${n}`));
+    if (T.some(u => !u)) {
+      console.warn('[NpcDialog] the multiedit nine-slice did not resolve');
+      return;
+    }
+    const s = Skin.px(4);         // every tile is 4x4 in the client's package
+    // Painted back to front: the centre first, then the four edges, then the
+    // four corners on top — the order a nine-slice composites in.
+    const layers = [
+      [T[0], 'left top', 'no-repeat'],
+      [T[2], 'right top', 'no-repeat'],
+      [T[6], 'left bottom', 'no-repeat'],
+      [T[8], 'right bottom', 'no-repeat'],
+      [T[1], 'left top', 'repeat-x'],
+      [T[7], 'left bottom', 'repeat-x'],
+      [T[3], 'left top', 'repeat-y'],
+      [T[5], 'right top', 'repeat-y'],
+      [T[4], 'left top', 'repeat'],
+    ];
+    el.style.backgroundImage = layers.map(l => l[0]).join(', ');
+    el.style.backgroundPosition = layers.map(l => l[1]).join(', ');
+    el.style.backgroundRepeat = layers.map(l => l[2]).join(', ');
+    el.style.backgroundSize = layers.map(() => `${s}px ${s}px`).join(', ');
+    el.style.imageRendering = 'pixelated';
+    el.style.padding = `${s}px`;
+  }
+
   _boxAttrs(el, attrs) {
     // Same AUTHORED sanity ceiling as _element's `px`, for the same reason.
     const n = (v) => {
@@ -667,6 +786,51 @@ export class NpcDialog {
   // same raw string form aCis RequestBypassToServer takes. ACTION is one of
   // the five attributes the client reads on <a> (NWindow.dll 0x1034e9a8:
   // ACTION, CMD, HREF, LINK, MSG); an action that is not a bypass is dropped.
+  /** `msg="811;Monster Arena"` -> ask before firing the bypass.
+   *
+   *  MEASURED: MSG is the fifth name in the client's own attribute array for
+   *  <a> (NWindow.dll 0x1034e9a8 — ACTION, CMD, HREF, LINK, MSG), and the
+   *  shipped datapack writes it on 112 anchors, every one of them in a page an
+   *  NPC serves. This renderer read none of them, so a gatekeeper teleport
+   *  link fired the moment it was clicked.
+   *
+   *  MEASURED, which table: the id is a SystemMessage, not a SysString. 811 in
+   *  systemmsg-e.dat is "You will be moved to ($s1). Do you wish to continue?"
+   *  and the attribute's own second field is the $s1 — `msg="811;Monster
+   *  Arena"`. The other ids used are 1039, 1040, 1271, 1272, 1298 and 1484,
+   *  and each is a yes/no question about exactly what its link does. Against
+   *  sysstring-e.dat the same ids read as unrelated nouns, so the table is not
+   *  ambiguous.
+   *
+   *  AUTHORED: the WINDOW. Retail draws this through the client's own modal;
+   *  this port has no such window yet, and js/ui/inventorywnd.js already
+   *  answers the same problem with `window.confirm` carrying the retail TEXT
+   *  (see its _confirmText). This follows that precedent rather than inventing
+   *  a second convention. DEVIATION, and it is a deviation in chrome only —
+   *  the words, the id and the yes/no semantics are the client's.
+   *
+   *  A missing table or an unknown id must NOT silently swallow the click:
+   *  returning true keeps the link working, which is what the pre-msg
+   *  behaviour was.
+   */
+  _confirmMsg(raw) {
+    if (!raw) return true;
+    const semi = String(raw).indexOf(';');
+    // SPEC: parseInt radix -- base 10, the notation the attribute is written in
+    const id = parseInt(semi < 0 ? raw : raw.slice(0, semi), 10);
+    if (!Number.isFinite(id)) return true;
+    const args = semi < 0 ? [] : String(raw).slice(semi + 1).split(';')
+      .filter(s => s !== '');
+    if (!this.sysMsg) return true;
+    const text = renderSysMsg(this.sysMsg, id, args);
+    // renderSysMsg's own miss shape: it echoes "sysmsg <id>" when the entry is
+    // absent. Asking the player to confirm that string would be worse than not
+    // asking, so an unresolved id passes through.
+    if (!text || /^sysmsg \d+/.test(text)) return true;
+    this.lastConfirm = text;              // readable by verification
+    return window.confirm(text);
+  }
+
   _bypass(attrs) {
     const action = attrs && attrs.ACTION;
     if (!action) return null;

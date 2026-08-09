@@ -31,6 +31,7 @@
 
 import { Skin } from './skin.js';
 import { Font } from './font.js';
+import { sysStringMeta } from '../gamedata.js';
 
 const SPEC_URL = '/gamedata/npchtml.json';
 const ART_URL = '/ui/htmlart.json';
@@ -39,6 +40,7 @@ const ART_DIR = '/ui/htmlart/';
 let _spec = null;
 let _art = null;
 let _artIndex = null;     // 'package|leaf' (lower) -> sprite record
+let _sys = null;          // SysString id -> string, for the `&$nnn;` reference
 
 // Elements that never have a closing form, so the parser must not stack them.
 //
@@ -78,6 +80,19 @@ export const NpcHtml = {
     _art = await fetch(ART_URL).then(r => (r.ok ? r.json() : null)).catch(() => null);
     if (!_spec) _spec = null;
     indexArt();
+    // The SysString table, indexed once — see sysString() below for why the
+    // renderer needs it synchronously.
+    const doc = await sysStringMeta().catch(() => null);
+    if (doc) {
+      _sys = new Map();
+      if (Array.isArray(doc)) {
+        for (const e of doc) if (e && e.id != null) _sys.set(e.id, e.string);
+      } else {
+        for (const [k, v] of Object.entries(doc)) {
+          _sys.set(Number(k), (v && v.string) != null ? v.string : v);
+        }
+      }
+    }
     return NpcHtml;
   },
 
@@ -182,8 +197,51 @@ export const NpcHtml = {
 
   // ---- tokenizer -----------------------------------------------------------
 
+  /** `&$NNN;` -> the SysString with that id.
+   *
+   *  WHY THIS EXISTS, and what is measured versus inferred.
+   *
+   *  MEASURED, in the shipped data: 136 `&$NNN;` references across 30 pages,
+   *  and NINE of them are NPC dialogs rather than community-board pages — five
+   *  gatekeeper menus (30162-1, 30716-1, 30719-1, 30722-1, 30727-1) and four
+   *  Monster Race pages (default/30995-2..-6). This renderer printed them
+   *  literally, so `gatekeeper/30716-1.htm` opened with the characters
+   *  `&$556;` where retail opens with a sentence.
+   *
+   *  MEASURED, that the SERVER does not resolve them: aCis emits the markers
+   *  verbatim, and `DerbyTrackManagerNpc.java:177` INSERTS one at runtime
+   *  (`html.replace("Odd" + n, ... : "&$804;")`) rather than a string — a
+   *  server that expected to substitute would not be generating the marker.
+   *
+   *  MEASURED, that the table is sysstring-e.dat: every id in the NPC pages
+   *  resolves to exactly the word its context needs — 556 "Region where
+   *  teleporting is possible" heading a list of teleport destinations,
+   *  745/746/747 "Good"/"Average"/"Bad" in a rating column, 140/141
+   *  "OK"/"Cancel" on two buttons. Twelve ids, twelve fits; a wrong table
+   *  would not do that.
+   *
+   *  NOT DECODED, and stated separately: the client code that performs the
+   *  substitution. NWindow.dll's tag scan could not be shown to do it — the
+   *  entity table at 0x1034ec10 has no dword reference in the image, so it is
+   *  reached by a computed address, and a linear sweep of .text desynchronises
+   *  (the same trap tools/ui/mine_npchtml.py already documents for field
+   *  sites). So WHERE in the pipeline it happens is ours: it is applied here,
+   *  in the same pass as the named entities, which means it happens to the
+   *  TEXT and not to attribute values that are commands. An id that is not in
+   *  the table is left exactly as written rather than blanked, so a miss is
+   *  visible instead of silent.
+   */
+  sysString(text) {
+    if (!_sys) return text;
+    return String(text).replace(/&\$(\d+);/g, (all, id) => {
+      const s = _sys.get(Number(id));
+      return s == null ? all : s;
+    });
+  },
+
   /** Decode the 67 named entities the client knows, and only those. */
   entities(text) {
+    text = NpcHtml.sysString(text);
     const names = (_spec && _spec.entities) || [];
     if (!names.length) return text;
     return String(text).replace(/&([A-Za-z]+);/g, (all, name) => {

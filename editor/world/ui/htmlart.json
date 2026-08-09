@@ -77,11 +77,30 @@
    "h": 32,
    "w": 128
   },
-  "L2UI.SquareBlank": {
-   "ch": 8,
-   "cw": 8,
+  "L2UI.EtcWnd.Edit_Back": {
+   "ch": 32,
+   "cw": 32,
    "cx": 0,
    "cy": 0,
+   "file": "L2UI__Edit_Back.png",
+   "h": 32,
+   "w": 32
+  },
+  "L2UI.SquareBlank": {
+   "alphaRepaired": {
+    "clientAlpha": [
+     0,
+     0
+    ],
+    "size": [
+     8,
+     8
+    ],
+    "stagedAlpha": [
+     255,
+     255
+    ]
+   },
    "file": "L2UI__SquareBlank.png",
    "h": 8,
    "w": 8
@@ -564,10 +583,20 @@
    "w": 16
   },
   "L2UI.squareblank": {
-   "ch": 8,
-   "cw": 8,
-   "cx": 0,
-   "cy": 0,
+   "alphaRepaired": {
+    "clientAlpha": [
+     0,
+     0
+    ],
+    "size": [
+     8,
+     8
+    ],
+    "stagedAlpha": [
+     255,
+     255
+    ]
+   },
    "file": "L2UI__squareblank.png",
    "h": 8,
    "w": 8
@@ -1327,6 +1356,168 @@
    "file": "l2ui_ch3__herotower_deco.png",
    "h": 32,
    "w": 256
+  },
+  "l2ui_ch3.multiedit.M_inputbox01": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox01.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox01_disable": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox01_disable.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox02": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox02.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox02_disable": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox02_disable.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox03": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox03.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox03_disable": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox03_disable.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox04": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox04.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox04_disable": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox04_disable.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox05": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox05.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox05_disable": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox05_disable.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox06": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox06.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox06_disable": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox06_disable.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox07": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox07.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox07_disable": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox07_disable.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox08": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox08.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox08_disable": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox08_disable.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox09": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox09.png",
+   "h": 4,
+   "w": 4
+  },
+  "l2ui_ch3.multiedit.M_inputbox09_disable": {
+   "ch": 4,
+   "cw": 4,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__M_inputbox09_disable.png",
+   "h": 4,
+   "w": 4
   },
   "l2ui_ch3.smallbutton2": {
    "ch": 21,

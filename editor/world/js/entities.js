@@ -9,6 +9,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Character, MOVE_TICK_S } from './character.js';
 import { l2ToThree, l2HeadingToThreeYaw, L2_TO_M } from './coords.js';
 import { makeLabel } from './labels.js';
+// NAME_COLOR is the client's only declared name colour, decoded from
+// NWindow.dll. nameplates.js carries the evidence and the instruction sites.
+import { NAME_COLOR } from './nameplates.js';
 import { skillAnimMeta, skillAnimInfo } from './gamedata.js';
 import { clipForSkill, lastSkillMsg } from './skillfx_anim.js';
 import { pawnAnim, castPlan } from './castanim.js';
@@ -25,8 +28,12 @@ function skillMsgFor(casterId) {
 
 const FALLBACK_MODEL = 'human_fighter_m';
 const NPC_SPEED = 1.6;          // m/s, matches Character.WALK_SPEED
-const PLAYER_LABEL = '#c9a959'; // HUD gold
-const NPC_LABEL = '#9ce8a9';    // npcname nickcolor green
+
+// Every entity's name draws in NAME_COLOR (imported at the top of this file).
+// It replaces two literals that were both wrong, in the same way:
+//   PLAYER_LABEL '#c9a959' — a gold retail never uses anywhere.
+//   NPC_LABEL    '#9ce8a9' — a REAL client colour, but it is npcname.dat's
+//                            TITLE colour, not a name colour. See titleFor().
 const MONSTER_HEIGHT = 1.2;     // m — npcgrp carries no scale; plausible default
 
 // label text scale relative to a 1.85 m human, clamped for readability
@@ -53,6 +60,57 @@ function npcMeshes() {
       .catch(() => ({}));
   }
   return _npcMeshes;
+}
+
+// npcId -> [name, nickcolorRRGGBBAA, nick] — server.py npc_names() trims a row
+// to a bare name string when it carries the default colour AND no title, so a
+// row is only an array when there is something to say.
+let _npcTitles = null;
+function npcTitles() {
+  if (!_npcTitles) {
+    // Same URL main.js already fetches for name enrichment; the browser cache
+    // makes this the same request, and asking here keeps the TITLE decode
+    // inside the nameplate lane instead of requiring a main.js edit.
+    _npcTitles = fetch('/gamedata/npcname.json')
+      .then(r => r.json())
+      .catch(() => ({}));
+  }
+  return _npcTitles;
+}
+
+/** The TITLE line for an npcId, or null.
+ *
+ *  WHY THIS IS A TITLE AND NOT A NAME — the decode this wave corrects.
+ *  npcname.dat's `nickcolor` takes exactly three values across all 6,519
+ *  records, and each one tracks the `nick` STRING, not the creature:
+ *
+ *    #9CE8A9  5715 rows  nick '' (4233) or a town/vocation title —
+ *                        'Trader' 86, 'Guard' 86, 'Master' 61, 'Magister' 52,
+ *                        'Aden' 41, 'Clan Hall Gatekeeper' 40 ...
+ *    #3F8BFE   537 rows  nick 'Raid Fighter' 308, 'Raid Boss' 197, and 18
+ *                        boss-flavoured one-offs ("Invaders' Leader",
+ *                        'Ruler of Sepulcher', 'Family of Valakas').
+ *    #0080FF   267 rows  nick 'Quest Monster' on every one of the 254 that
+ *                        have a nick at all.
+ *
+ *  A colour that partitions the TITLE STRINGS that cleanly, and that is
+ *  constant across wildly different creatures sharing a title, is the colour
+ *  OF the title. docs/dat-format-notes.md §11 says the same ("`nickcolor` =
+ *  title color"). The previous wave measured the 537 correctly and then
+ *  inferred it was a NAME colour, which is what made a raid boss's NAME blue
+ *  and every other NPC's NAME green.
+ *
+ *  Rows with an empty nick get no title line at all — which is most NPCs, and
+ *  is why the colour of those rows never actually reaches the screen.
+ */
+function titleFor(row) {
+  if (!Array.isArray(row)) return null;         // bare name: no title
+  const nick = row[2];
+  if (!nick) return null;                       // colour but no title text
+  const rgba = row[1];
+  const color = rgba && rgba.length >= 6
+    ? `#${String(rgba).slice(0, 6).toLowerCase()}` : null;
+  return { text: nick, color };
 }
 
 // map animation clip names to combat states by keyword (names vary per
@@ -130,7 +188,11 @@ function playDeathClip(ch) {
   return true;
 }
 
-const DROP_LABEL = '#d9c68f';   // item parchment (authored)
+// Ground-drop names. UNSOURCED as a distinct colour: nothing in this client
+// declares one, and DrawTargetName's caller is unreadable. It therefore takes
+// the same declared default as every other name rather than an authored
+// parchment tint (#d9c68f, which this line used to carry and which no client
+// file contains).
 
 // Ground drop (bridge addDrop = aCis SpawnItem/DropItem): a nameplate plus
 // a small grounded marker. Neither npcgrp nor etcitemgrp carries a
@@ -158,7 +220,8 @@ class DropEntity {
     gem.castShadow = true;
     this.group.add(gem);
     this._gem = gem;
-    const label = makeLabel(this.name, DROP_LABEL, 0.55);
+    const label = makeLabel(this.name, NAME_COLOR, 0.55);
+    label.userData.nameplate.kind = 'drop';
     label.position.y = 0.42;
     this.group.add(label);
   }
@@ -220,18 +283,41 @@ class NpcEntity {
     this.capsuleMeshes.push(ring);
   }
 
-  // `color` is retail's own nickcolor for this NPC (RRGGBBAA). It is not
-  // decoration: the 537 NPCs carrying 3F8BFEFF are the Raid Bosses and their
-  // escorts, so painting every nameplate the same green made a raid boss look
-  // like a gremlin. NPC_LABEL remains the fallback and is the same green the
-  // table's own default spells.
+  // The NAME always draws NAME_COLOR. The nickcolor that used to be passed in
+  // as `color` is the TITLE colour (see titleFor); it is kept on the entity so
+  // the second line can use it, and it never touches the name again.
+  //
+  // `color` stays in the signature because main.js:1371 still passes the
+  // nickcolor positionally and main.js is not this lane's to edit. It is
+  // recorded, not applied to the name.
   setLabel(text, color = null) {
     if (this.label) this.group.remove(this.label);
     this.name = text;
-    if (color) this.labelColor = color;
-    this.label = makeLabel(text, this.labelColor || NPC_LABEL, labelScale(this.heightM));
+    if (color) this.titleColor = color;
+    this.label = makeLabel(text, NAME_COLOR, labelScale(this.heightM));
+    this.label.userData.nameplate.kind = 'npc';
+    this.applyTitle();
     this.label.position.y = this.heightM * 1.25;
     this.group.add(this.label);
+  }
+
+  /** Attach the TITLE line, once npcname.json has landed. */
+  applyTitle() {
+    const spec = this.label && this.label.userData.nameplate;
+    if (!spec) return;
+    if (this.title) {
+      spec.title = this.title;
+      spec.titleColor = this.titleColor || null;
+      return;
+    }
+    npcTitles().then(map => {
+      const t = titleFor(map[String(this.npcId)]);
+      if (!t) return;
+      this.title = t.text;
+      this.titleColor = t.color || this.titleColor || null;
+      const s = this.label && this.label.userData.nameplate;
+      if (s) { s.title = this.title; s.titleColor = this.titleColor; }
+    });
   }
 
   // swap the capsule placeholder for a real monster model
@@ -504,7 +590,14 @@ export class EntityManager {
         ch.group.position.x, ch.group.position.z, ch.serverZ, terrain);
       ch.group.rotation.y = l2HeadingToThreeYaw(msg.heading);
       ch.group.userData.entityId = id;
-      const label = makeLabel(ch.name, PLAYER_LABEL, labelScale(ch.heightM));
+      // Remote PCs take the same NAME_COLOR. Retail does tint a PC's name by
+      // relation (PK / flagged / clan / party / GM), but that selection lives
+      // in UCanvas::DrawTargetName inside the Themida-packed engine.dll and is
+      // NOT recoverable from this client — see nameplates.js "UNSOURCED".
+      // Drawing the client's declared default is the honest floor; inventing a
+      // red for a PK would not be.
+      const label = makeLabel(ch.name, NAME_COLOR, labelScale(ch.heightM));
+      label.userData.nameplate.kind = 'player';
       label.position.y = (ch.heightM || 1.75) * 1.2;
       ch.group.add(label);
       ch.heightM = ch.heightM || 1.75;

@@ -232,11 +232,21 @@ function gate(name, ok, detail) {
       + `(font "${sAlt.font}"), ${sAlt.plates.length} plates total`);
 
     // ------------------------------------------------------------- gate G
-    // The conColor ladder must actually FIRE, not merely be imported. Two
-    // NPCs at the same range, one far above the viewer's level and one far
-    // below, must take two DIFFERENT rungs of
-    // native_colors.json ladders.conColor. npcId 999999 has no npcgrp row, so
-    // neither carries a nickcolor and the ladder is what decides.
+    // INVERTED 2026-08-09. This gate used to require the OPPOSITE: that two
+    // NPCs at the same range but 40 levels apart take two DIFFERENT rungs of
+    // native_colors.json ladders.conColor. It passed, and it was asserting a
+    // defect — the owner's "names on top of npcs in retail arent red".
+    //
+    // The ladder is decoded correctly but belongs to the TARGET WINDOW, not to
+    // a floating plate. ?execGetTargetNameColor@UUIDATA_TARGET@@ has exactly
+    // ONE call site in all 229 decompiled uscript files —
+    // Interface/TargetStatusWnd.uc:193, consumed at :266 by
+    // SetNameWithColor("TargetStatusWnd.UserName", ...). See
+    // verify_nameplate_color.js gate A, which re-runs that search, and the
+    // header of js/nameplates.js.
+    //
+    // So the assertion is now: level difference must NOT change a nameplate's
+    // colour. Same staging, opposite expectation.
     const con = await page.evaluate(() => {
       const w = window.__world;
       const m = w.camera.matrixWorld.elements;
@@ -268,15 +278,20 @@ function gate(name, ok, detail) {
       const r = await fetch('/gamedata/native_colors.json').then(x => x.json());
       return r.ladders.conColor.rungs.map(x => x.color.toLowerCase());
     });
-    gate('G conColor ladder is applied to NPC names',
-      con.mine != null && above && below && above !== below
-      && rungs.includes(String(above).toLowerCase())
-      && rungs.includes(String(below).toLowerCase()),
+    // #DCDCDC is BOTH the decoded name colour and the ladder's centre rung, so
+    // "is it in the ladder" cannot separate the two rules. What separates them
+    // is whether the level difference MOVES the colour.
+    const nameColor = await page.evaluate(
+      () => (window.__nameplates && window.__nameplates.nameColor) || null);
+    const same = above && below && String(above).toLowerCase() === String(below).toLowerCase();
+    const isDefault = nameColor
+      && String(above).toLowerCase() === String(nameColor).toLowerCase();
+    gate('G conColor ladder is NOT applied to NPC names',
+      con.mine != null && same && isDefault,
       `viewer level ${con.mine}; +20 -> ${above}, -20 -> ${below}; `
-      + `both in the mined ladder: `
-      + `${rungs.includes(String(above).toLowerCase())}/`
-      + `${rungs.includes(String(below).toLowerCase())}`);
-    summary.conColor = { viewer: con.mine, above, below, rungs };
+      + `equal: ${!!same}; both at the decoded name colour ${nameColor}: ${!!isDefault}`);
+    summary.conColor = { viewer: con.mine, above, below, rungs, nameColor,
+      rule: 'ladder is TargetStatusWnd-only; nameplates take the decoded default' };
 
     summary.stage = stage;
     summary.altUp = s;

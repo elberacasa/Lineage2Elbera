@@ -27,10 +27,17 @@ import './drops.js';
 /** An overhead-name anchor.
  *
  *  @param text        what the plate says.
- *  @param color       the caller's colour. nameplates.js overrides it only
- *                     when the client itself has a better source for that
- *                     entity (an npcgrp nickcolor, or the conColor ladder) —
- *                     never with a typed substitute.
+ *  @param color       the NAME colour. Pass Nameplates.NAME_COLOR unless a
+ *                     DECODED per-entity colour exists — as of 2026-08 none
+ *                     does for any class (see the UNSOURCED block in
+ *                     nameplates.js). nameplates.js no longer overrides it:
+ *                     it used to substitute the conColor ladder here, which
+ *                     is the target window's rule and made npc names red.
+ *
+ *                     The TITLE line is NOT set through this parameter. It
+ *                     rides `anchor.userData.nameplate.title` /
+ *                     `.titleColor`, which entities.js fills from
+ *                     npcname.dat's `nick` / `nickcolor`.
  *  @param worldScale  ACCEPTED AND IGNORED. It used to convert canvas pixels
  *                     to metres, which is the whole defect: a retail name has
  *                     no world size. Kept in the signature so entities.js —
