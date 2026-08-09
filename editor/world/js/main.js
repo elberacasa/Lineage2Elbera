@@ -74,10 +74,115 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 
-// sky: gradient dome (zenith -> horizon), fog matched to the horizon band
-const SKY_ZENITH = new THREE.Color(0x33415e);
-const SKY_HORIZON = new THREE.Color(0x93a5bd);
-scene.fog = new THREE.Fog(SKY_HORIZON.getHex(), 60, 420);
+// ---------------------------------------------------------------- the sky
+//
+// DECODED, NOT CHOSEN. What used to be here was
+//     SKY_ZENITH  0x33415e / SKY_HORIZON 0x93a5bd
+// a two-stop dome with no source for either colour or for the gradient
+// itself. Reproduce the decode with `python3 tools/audit/probe_skydome.py`;
+// verify_sky.js --check re-runs it and asserts every number below.
+//
+// WHAT RETAIL DRAWS. assets/interlude/maps/skylevel.unr is the skybox: a
+// complete little level whose built BSP (Model29, 55 nodes) is PF_UNLIT on
+// EVERY node, so no lightmap, shading or vertex colour stands between the
+// material and the pixel. Those nodes are, measured from
+// SkyZoneInfo0.Location = (324.20, 264435.16, 24535.02) -- the point UE2
+// renders a fake-backdrop zone from:
+//
+//   * an upper box, 4 walls + ceiling, z 24534..24932 (the eye and UP),
+//     material `SkybackgroundColor`;
+//   * a lower box, 4 walls + floor, z 24338..24534 (the eye and DOWN),
+//     material `HazeRing_Final`;
+//   * a 16-sided cylinder AROUND the eye, z 24535..24547, radius 21.9..29.7,
+//     also `HazeRing_Final` -- a band standing on the horizon;
+//   * a Cloud_Final sheet at z 24548 and two StarField_Final sheets at
+//     24560/24561, which this does not yet reproduce (below).
+//
+// WHAT THE MATERIALS ARE, out of assets/interlude/textures/l2_skies.utx:
+//
+//   SkybackgroundColor  ColorModifier, Color (B,G,R,A) = CE 96 00 FF
+//                       -> #0096CE, over the texture WhiteChip, which is
+//                       32x32 with exactly ONE distinct RGB, (255,255,255).
+//                       White x colour = the colour: no residual unknown.
+//   HazeRing_Final      ColorModifier #FFE495 over Shader `HazeRing`, whose
+//                       Diffuse AND Opacity are both `WhiteRing`: 512x128,
+//                       ONE distinct RGB (255,251,255), and an ALPHA that is
+//                       a monotone vertical ramp, 0 at the top row to 255 at
+//                       the bottom (row spread <= 3, i.e. no horizontal
+//                       variation). Rendered colour = #FFE495 x (255,251,255)
+//                       = #FFE095; rendered opacity = that ramp.
+//
+// SO: THE BACKGROUND IS FLAT AND THE SKY IS NOT. The question this pass had
+// to settle was whether a zenith/horizon gradient is itself the invention.
+// Half of it is: there is no second background colour anywhere in the level,
+// so the flat #0096CE fills the whole dome. But retail does produce a
+// gradient, by a mechanism the old two-stop ramp had backwards -- a warm
+// band, opaque on the horizon, fading UPWARD to nothing, drawn on a separate
+// cylinder in front of the background. That is what is reproduced here.
+//
+// TURNING THE BAND INTO AN ANGLE. The cylinder's texture v runs 0.75745 at
+// its bottom edge (which sits on the eye plane, dz -0.21, elevation -0.5 deg)
+// to 0.01575 at its top edge (dz +11.65). A ray leaving the eye at elevation
+// t hits a cylinder wall of radius R at height R*tan(t), so v is linear in
+// tan(elevation) -- not in elevation, and not in sin(elevation), which is
+// what a dome shader would naively use.
+//
+// The ONE reduction here that is not exact: R. The retail cylinder is not
+// centred on the eye and its radius runs 21.9..29.7, so the band's top edge
+// genuinely sits between 21.4 and 28.0 degrees depending on which way you
+// look. The mean, 25.95, is used; a reader who wants the azimuth-dependent
+// version needs the 16-gon itself, not a single number. Falsifiable by
+// rendering skylevel.unr directly.
+//
+// NOT REPRODUCED, and deliberately not guessed at: the Cloud_Final sheet
+// (#FFC097 over a panning Cloud shader, TexU/VPanSpeed 0.2), both StarField
+// sheets, NSun0/NMoon0..4 and the nine-element LensFlare array. Those tint
+// non-flat textures, so their rendered result is texture x colour and is NOT
+// settled by a single value the way these two are.
+const SKY_BACKGROUND = [0x00 / 255, 0x96 / 255, 0xce / 255];   // #0096CE
+const SKY_HAZE = [0xff / 255, 0xe0 / 255, 0x95 / 255];         // #FFE095
+const HAZE_V_BOTTOM = 0.75745;   // texture v on the horizon
+const HAZE_V_TOP = 0.01575;      // texture v at the top of the band
+const HAZE_HEIGHT = 11.867;      // band height, L2 units, from the BSP
+const HAZE_RADIUS = 25.95;       // mean wall radius from the eye (see above)
+// WhiteRing's alpha channel, row 0 (top) to row 127 (bottom), read out of
+// l2_skies.utx by probe_skydome.py. It is NOT a linear ramp -- it is flat 0
+// for 16 rows, S-curves through the middle and saturates at 255 for the last
+// 35 -- so it is carried verbatim rather than approximated with a smoothstep.
+const HAZE_ALPHA = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  1, 3, 5, 7, 9, 11, 14, 16, 19, 21, 24, 27, 31, 33, 36, 40,
+  44, 47, 50, 54, 58, 61, 64, 69, 73, 77, 80, 84, 88, 92, 96, 100,
+  104, 109, 113, 117, 121, 124, 129, 133, 137, 142, 146, 150, 154, 158, 162, 166,
+  170, 174, 177, 182, 185, 189, 192, 197, 200, 203, 206, 210, 214, 217, 220, 223,
+  226, 229, 232, 234, 237, 240, 242, 244, 247, 249, 251, 253, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+]);
+
+// The ramp goes to the GPU as a 1x128 texture so the shader samples it the
+// same way the engine sampled WhiteRing: linear between rows, v=0 at row 0.
+// (DataTexture does not flip, and this is a 1-D lookup, so there is no
+// orientation question to get wrong.)
+const hazeRamp = new THREE.DataTexture(
+  (() => { const a = new Uint8Array(128 * 4);
+    for (let i = 0; i < 128; i++) { a[i * 4] = a[i * 4 + 1] = a[i * 4 + 2] = HAZE_ALPHA[i]; a[i * 4 + 3] = 255; }
+    return a; })(), 1, 128, THREE.RGBAFormat);
+hazeRamp.minFilter = hazeRamp.magFilter = THREE.LinearFilter;
+hazeRamp.wrapS = hazeRamp.wrapT = THREE.ClampToEdgeWrapping;
+hazeRamp.needsUpdate = true;
+
+// The fog is a SEPARATE question from the sky and is answered elsewhere:
+// worldlight.js replaces colour and range per tile from the map's own
+// ZoneInfo (DistanceFogColor / Start / End), and fills absent fields with
+// Engine.ZoneInfo's decoded class defaults. This initial Fog is only what
+// stands before the first tile's light.json lands, and -- per worldlight.js's
+// own comment -- what its 3-tile "bDistanceFog absent" path falls back to.
+// The two numbers are the client's own, NOT retail's; they are kept verbatim
+// rather than swapped for the ZoneInfo defaults because changing them changes
+// a decision documented in worldlight.js, which this pass does not own.
+const CLIENT_FOG_FALLBACK = 0x93a5bd;   // client's own; not sourced
+scene.fog = new THREE.Fog(CLIENT_FOG_FALLBACK, 60, 420);
 
 const sky = new THREE.Mesh(
   new THREE.SphereGeometry(1500, 24, 12),
@@ -86,21 +191,41 @@ const sky = new THREE.Mesh(
     depthWrite: false,
     fog: false,
     uniforms: {
-      uZenith: { value: SKY_ZENITH },
-      uHorizon: { value: SKY_HORIZON },
+      // Passed as plain vec3, NOT THREE.Color: three's ColorManagement
+      // converts a hex Color into the LINEAR working space, and a raw
+      // ShaderMaterial gets no <colorspace_fragment>, so the old shader wrote
+      // linear values straight into an sRGB framebuffer. Measured on the
+      // pre-fix tree: SKY_ZENITH 0x33415e read back off the canvas as
+      // #080D1D, which is exactly linear(0x33415e) -- the sky was rendering
+      // darker than even its own invented constant. These write sRGB.
+      uBackground: { value: new THREE.Vector3(...SKY_BACKGROUND) },
+      uHaze: { value: new THREE.Vector3(...SKY_HAZE) },
+      uRamp: { value: hazeRamp },
+      uV: { value: new THREE.Vector2(HAZE_V_BOTTOM, HAZE_V_TOP) },
+      uTanTop: { value: HAZE_HEIGHT / HAZE_RADIUS },
     },
     vertexShader: `
       varying vec3 vDir;
       void main() {
-        vDir = normalize(position);
+        vDir = position;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: `
-      uniform vec3 uZenith; uniform vec3 uHorizon;
+      uniform vec3 uBackground; uniform vec3 uHaze;
+      uniform sampler2D uRamp; uniform vec2 uV; uniform float uTanTop;
       varying vec3 vDir;
       void main() {
-        float t = smoothstep(-0.05, 0.45, vDir.y);
-        gl_FragColor = vec4(mix(uHorizon, uZenith, t), 1.0);
+        vec3 d = normalize(vDir);
+        // height reached on the band's wall, as a fraction of its height:
+        //   h/H = R*tan(elev)/H = tan(elev)/(H/R)
+        float tanElev = d.y / max(length(d.xz), 1e-6);
+        float t = clamp(tanElev / uTanTop, 0.0, 1.0);
+        float v = mix(uV.x, uV.y, t);
+        // below the horizon t clamps to 0, i.e. v stays on the opaque end --
+        // which is also what retail draws down there, the lower box carrying
+        // the same HazeRing_Final material.
+        float a = texture2D(uRamp, vec2(0.5, v)).r;
+        gl_FragColor = vec4(mix(uBackground, uHaze, a), 1.0);
       }`,
   }),
 );
@@ -814,10 +939,6 @@ net.on('skillLaunch', (msg) => {
   const pos = entityHeadPos(msg.targetId);
   if (pos) gameSound.launch(msg.skillId, pos);
 });
-// Social action broadcast (gateway op socialAction{id, actionId}, decoded
-// from gameclient 0x2d). Other entities flash their 'special' clip; when
-// it's us, dance on the local character model ('dance' exists on all 14
-// models; play() falls back to idle if a clip is ever absent).
 // ExAutoSoulShot — the server confirming a shot toggle. It answers only on
 // success (RequestAutoSoulShot returns silently when the item is missing or
 // the player is dead/trading), so this, not the click, is the truth.
@@ -830,9 +951,17 @@ net.on('autoShotState', (msg) => {
       + (msg.enabled ? 'automatic use enabled' : 'automatic use disabled'));
   });
 });
+// Social action broadcast (gateway op socialAction{id, actionId}, decoded
+// from gameclient 0x2d — bridge.js:1398 has been forwarding actionId all
+// along). actionId IS the emote: actionname.dat defines twelve (type 2..13)
+// and each has its own retail clip. This handler used to drop the field on
+// the floor — socialFlash(msg.id) and emote('dance') — so eleven of the
+// twelve danced. Both calls now take the id and resolve it through the
+// model's own PcSocialAnimName table (character.js socialClip).
 net.on('socialAction', (msg) => {
-  entities.socialFlash(msg.id);
-  if (msg.id === selfId && character) character.emote('dance');
+  entities.socialFlash(msg.id, msg.actionId);
+  // the local player is not in the EntityManager (see entities.skillFlash)
+  if (msg.id === selfId && character) character.socialEmote(msg.actionId);
 });
 // ChangeWaitType broadcast (gateway op changeWait{id, waitType}): sit/stand
 // toggle state — waitType 0 = sitting, 1 = standing (aCis ChangeWaitType).

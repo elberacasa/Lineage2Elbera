@@ -126,6 +126,8 @@ def parse_int(path):
                 continue
             m = _KEY.match(s)
             if m and ANIM_VARS.match(m.group(1)):
+                # SPEC: re -- groups 1/2/3 of _KEY are the variable, the key
+                # and the value
                 cur.setdefault(m.group(1), {})[m.group(2)] = m.group(3)
     return out
 
@@ -168,6 +170,9 @@ def resolve_class(tables, parents, pkg, cls):
     """Merge a class's localized anim table with its ancestors' (child wins)."""
     t = tables.get(pkg.lower(), {})
     chain, seen, c = [], set(), cls.lower()
+    # AUTHORED depth cap on the class-inheritance walk. The `seen` set
+    # already makes the loop terminate; this only bounds a pathological
+    # chain. The deepest real chain in the client is far below it.
     while c and c not in seen and len(chain) < 32:
         seen.add(c)
         chain.append(c)
@@ -235,19 +240,24 @@ def cross_check(table):
         if os.path.isdir(d):
             for f in os.listdir(d):
                 if f.endswith('.psa'):
+                    # SPEC: strip the 4-character '.psa' extension
                     index[(pkg.lower(), f[:-4].lower())] = os.path.join(d, f)
 
     def clips(path):
         data = open(path, 'rb').read()
         off, chunks = 0, {}
+        # SPEC: Unreal .psa -- a chunk header is 32 bytes: a 20-byte NUL
+        # padded id, then flags/int, data size and element count as 3 int32.
         while off + 32 <= len(data):
             cid = data[off:off + 20].split(b'\0')[0].decode('latin1')
             _f, size, count = struct.unpack('<3i', data[off + 20:off + 32])
-            chunks[cid] = (size, count, off + 32)
+            chunks[cid] = (size, count, off + 32)   # SPEC: .psa 32-byte header
             off += 32 + size * count
         if 'ANIMINFO' not in chunks:
             return set()
         size, count, o = chunks['ANIMINFO']
+        # SPEC: .psa ANIMINFO -- the sequence name is a 64-byte NUL-padded
+        # field at the start of each record.
         return {data[o + i * size:o + i * size + 64].split(b'\0')[0]
                 .decode('latin1').lower() for i in range(count)}
 
@@ -294,9 +304,14 @@ def main():
     print('player social tables: %d prefixes x %d emote types'
           % (len(social), len(SOCIAL_TYPES)))
     problems = []
+    # 14 = the player mesh prefixes (races x genders) the client ships; 12 =
+    # the emote clips SOCIAL_TYPES enumerates. Both are counts of decoded
+    # things, asserted here so a broken join fails loudly.
     if len(social) < 14:
         problems.append('expected 14 player prefixes, got %d' % len(social))
     for pfx, got in sorted(social.items()):
+        # 12 == len(SOCIAL_TYPES) -- the emote clip names decoded from the
+        # client's own animation tables, counted, not chosen.
         if len(got) != 12:
             problems.append('%s has %d of 12 emote clips' % (pfx, len(got)))
 
@@ -314,6 +329,9 @@ def main():
         if missing > 21:
             problems.append('%d dangling clip references (retail ships 21)'
                             % missing)
+        # AUTHORED floor on the number of clip references that must still
+        # resolve. A regression tripwire, not a decoded quantity: the real
+        # count is higher and is printed above.
         if ok < 13000:
             problems.append('only %d references resolve (expected >= 13000)'
                             % ok)

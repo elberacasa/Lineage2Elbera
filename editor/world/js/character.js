@@ -8,6 +8,33 @@ import { equipWeapon, stanceFor } from './equipment.js';
 
 const CHAR_HEIGHT = 1.75;      // meters — fallback normalization (~1.7 charcreate)
 
+// SOCIAL EMOTES: the actionId -> clip table is retail's, not a name match.
+//
+// The SocialAction packet carries an `actionId`; `actionname.dat` defines
+// exactly twelve of them (its `type` field, 2..13) and the client resolves
+// each through `Engine.Pawn`'s `PcSocialAnimName[]` array, per race/gender.
+// tools/anim/social_actions.json holds that decode for all 14 sets, and
+// tools/build_characters wrote it into editor/characters/manifest.json as
+// each model's `socialActions` map -- 12 entries on all 14 models, every one
+// naming a clip the glTF actually carries (verified by
+// verify_emotes.js --check, which also asserts the twelve are twelve
+// DIFFERENT animations rather than twelve names for Social_dance).
+//
+// The table is fetched once and shared: Character.load() awaits it so that a
+// SocialAction arriving in the same tick as the spawn still resolves. Every
+// model id is a key, so a miss means the manifest and the glTF disagree --
+// which is a defect, not a case to paper over with a default clip.
+let _charManifest = null;
+function charManifest() {
+  if (!_charManifest) {
+    _charManifest = fetch('/characters/manifest.json')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => (j && j.models) || null)
+      .catch(() => null);
+  }
+  return _charManifest;
+}
+
 // Locomotion speed is the server's, not ours. aCis sends runSpeed/walkSpeed in
 // L2 units per second on every UserInfo (gateway forwards them on `charSheet`),
 // which is also how every speed buff, weapon weight penalty and class
@@ -207,6 +234,10 @@ export class Character {
     // models[].gltf is "models/<id>.gltf" for all 14), so it is read here
     // rather than added to the addPlayer contract.
     this.modelId = String(url).split('/').pop().replace(/\.gltf$/i, '') || null;
+    // the model's own PcSocialAnimName table (see charManifest above)
+    const models = await charManifest();
+    const mEntry = models && models.find(m => m.id === this.modelId);
+    this.socialActions = (mEntry && mEntry.socialActions) || null;
     const gltf = await new GLTFLoader().loadAsync(url);
     const root = gltf.scene;
 
@@ -283,11 +314,35 @@ export class Character {
     this.current = next;
   }
 
-  // One-shot emote (socialAction broadcast): play the clip and hold it
-  // against the per-frame idle fallback for its own duration; real
-  // movement still cancels it, as it should.
+  // One-shot emote BY CLIP NAME: play the clip and hold it against the
+  // per-frame idle fallback for its own duration; real movement still
+  // cancels it, as it should. Callers that hold a SocialAction actionId
+  // want socialEmote() below, not this.
   emote(name) {
     this.oneShot(name, 0.15);
+  }
+
+  // SocialAction actionId -> this model's clip. Null when the model has no
+  // table (never happens for the 14 shipped models) or the id is not one of
+  // actionname.dat's twelve.
+  socialClip(actionId) {
+    const t = this.socialActions;
+    if (!t || actionId == null) return null;
+    return t[String(actionId)] || null;
+  }
+
+  // One-shot emote from a SocialAction broadcast. Returns the clip it chose
+  // so the caller (and verify_emotes.js) can see the resolution, or null when
+  // the id resolves to nothing -- in which case NOTHING plays. It used to
+  // play 'dance' for all twelve ids, which is why eleven emotes looked
+  // identical; substituting a default clip here would restore exactly that
+  // bug in a quieter form.
+  socialEmote(actionId) {
+    const clip = this.socialClip(actionId);
+    this.lastSocial = { actionId, clip };   // verification hook
+    if (!clip) return null;
+    this.oneShot(clip, 0.15);
+    return clip;
   }
 
   // Play a clip once (skill cast gestures, emotes, swings). The update()

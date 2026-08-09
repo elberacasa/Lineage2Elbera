@@ -294,6 +294,14 @@ class NpcEntity {
       const raw = {};
       for (const clip of gltf.animations) raw[clip.name] = this.mixer.clipAction(clip);
       this.actions = mapAnimations(raw);
+      // The social clip is bound OUTSIDE mapAnimations on purpose: that
+      // function's six keyword lists are replayed byte-for-byte by
+      // tools/anim/audit_bindings.py and asserted as source text by
+      // verify_anim.js, so extending it would invalidate the audit rather
+      // than the audit catching a real change. There is no keyword search to
+      // do here anyway — the pipeline emits the clip under the exact name
+      // 'social' when clips.social exists, and nothing when it does not.
+      this.actions.social = raw.social || null;
       this._play(this.dead ? 'die' : 'idle', 0);
       if (this.dead) this._finishDeath();      // died while loading
     } catch (e) {
@@ -339,6 +347,21 @@ class NpcEntity {
   skillFlash() {
     if (!this.actions || this.dead) return;
     this._playTimed('special', this.atkSpdMul);
+  }
+
+  // SocialAction on a monster. The clip is the mesh's own NpcSocialAnimName
+  // (editor/characters/monsters/manifest.json clips.social — retail-sourced
+  // for 381 of the 495, a name candidate for 20, absent for 94), carried in
+  // the glTF as the clip literally named 'social' and bound in
+  // upgradeToMonster().
+  // Where the mesh ships no social clip at all there is nothing retail would
+  // have played either, so this plays nothing rather than borrowing another
+  // slot; returns the state it played for verification.
+  socialFlash() {
+    if (!this.actions || this.dead) return null;
+    if (!this.actions.social) return null;
+    this._playTimed('social', 1);
+    return 'social';
   }
 
   _playTimed(state, rate) {
@@ -617,14 +640,24 @@ export class EntityManager {
     });
   }
 
-  // Social emote broadcast (SocialAction packet): players dance — every
-  // character-manifest model carries a 'dance' clip; monsters play their
-  // 'special', same as a skill cast.
-  socialFlash(id) {
+  // Social emote broadcast (SocialAction packet).
+  //
+  // The packet's `actionId` is the whole message: actionname.dat defines
+  // twelve (type 2..13) and each has its own retail clip, resolved through
+  // the model's PcSocialAnimName table (character.js: socialClip). This used
+  // to take only `id` and hard-code emote('dance'), so eleven of the twelve
+  // played the dance — the clips were extracted and sitting in the manifest
+  // the whole time.
+  //
+  // Monsters are a different table: they have no per-action set, only the one
+  // NpcSocialAnimName the client gives the mesh (Social01 / SpWait01 / ...),
+  // so every actionId plays that single clip. Playing the CAST clip here, as
+  // this did, made a monster answer a wave with a spell.
+  socialFlash(id, actionId) {
     const e = this.entities.get(id);
-    if (!e || e.dead) return;
-    if (e.kind === 'npc') e.skillFlash();
-    else e.emote('dance');
+    if (!e || e.dead) return null;
+    if (e.kind === 'npc') return e.socialFlash();
+    return e.socialEmote(actionId);
   }
 
   // ChangeWaitType broadcast: waitType 0 = sitting, 1 = standing (aCis
