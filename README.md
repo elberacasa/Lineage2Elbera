@@ -16,6 +16,15 @@ Everything claimed in this README is verified by a script, a byte-level
 cross-check, or a rendered screenshot in this repository. That is the
 project's house rule.
 
+![Lineage 2 Interlude in a browser: a level 40 character in Giran wearing decoded armor with a shield strapped to the arm, surrounded by the retail UI](docs/img/hero-armor-shield-giran.jpg)
+
+*One frame, no compositing: equipped armor rendered as per-slot body-mesh swaps,
+a shield on `Shield_L_Bone` at the transform decoded from the client, the retail
+UI rebuilt from `Interface.xdat` at mined geometry, Giran's BSP architecture
+with its baked lightmaps — and the game's own text in the chat log
+("You have equipped your Wooden Breastplate"). Served by an unmodified Lineage 2
+server that has no idea it is talking to a browser.*
+
 ---
 
 ## Showcase
