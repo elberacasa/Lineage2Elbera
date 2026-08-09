@@ -151,6 +151,9 @@ export const NpcHtml = {
   art(ref) {
     if (!ref || !_artIndex) return null;
     const p = String(ref).split('.');
+    // A client texture ref is Package.Name at minimum (the form 303 of the
+    // datapack's own buttons use); anything with fewer parts names nothing.
+    // AUTHORED as a shape test, not a measurement.
     if (p.length < 2) return null;
     return _artIndex.get(`${p[0]}|${p[p.length - 1]}`.toLowerCase()) || null;
   },

@@ -137,33 +137,36 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DLL = os.path.join(REPO, "assets/interlude/system/NWindow.dll")
 OUT = os.path.join(REPO, "assets/gamedata/npchtml.json")
-BASE = 0x10000000
+BASE = 0x10000000   # SOURCED NWindow.dll
 
-# Every address this tool reads. Named so --check can say which one drifted.
+# Every address this tool reads. SOURCED: each one is a file offset in
+# assets/interlude/system/NWindow.dll (image base 0x10000000, offset == RVA),
+# named so --check can say which one drifted. The docstring above gives the
+# instruction at each site; nothing here is a magic number.
 A_RECT_1 = 0x1013FDE7        # console builds NPC page 1
 A_RECT_2 = 0x1013FEC5        # console builds NPC page 2
-A_Y_EXPR = 0x1013FDF7        # fld [esi+0x8c] / fmul qword / fsub qword
+A_Y_EXPR = 0x1013FDF7        # SOURCED NWindow.dll -- fld [esi+0x8c] / fmul qword / fsub qword
 A_BG_PUSH = 0x1013FE74       # push "L2UI_ch3.NpcWnd.Npc1_back"
-A_TITLEBAR = 0x1008A0D7      # OnCreate: title-bar child
-A_FRAME_TAIL = 0x1008A16D    # OnCreate: html-frame child, push 3/0/0
-A_FRAME_XY = 0x1008A1C1      # OnCreate: html-frame child, push 0x1e / push 7
-A_INSET_W = 0x1024F730       # double 14.0
-A_INSET_H = 0x1024F738       # double 37.0
+A_TITLEBAR = 0x1008A0D7      # SOURCED NWindow.dll -- OnCreate: title-bar child
+A_FRAME_TAIL = 0x1008A16D    # SOURCED NWindow.dll -- OnCreate: html-frame child, push 3/0/0
+A_FRAME_XY = 0x1008A1C1      # SOURCED NWindow.dll -- OnCreate: html-frame child, push 0x1e / push 7
+A_INSET_W = 0x1024F730       # SOURCED NWindow.dll -- double 14.0
+A_INSET_H = 0x1024F738       # SOURCED NWindow.dll -- double 37.0
 A_TAGS = 0x1034E9A8          # tag table, 51 x 12 bytes
-A_ENTITIES = 0x1034EC10      # named character entities, flat pointer array
-A_ALIGN = 0x1034ED30         # CENTER / RIGHT / LEFT / TOP / BOTTOM
-ENTITY_COUNT = 67
-A_TEXT_COLOR = 0x100856FA    # push 0xffdcdcdc
-A_LINK_COLOR = 0x100856A3    # mov eax, 0xff6699ff
-A_LINK_COLOR2 = 0x100856C9   # push 0xff6699ff
-A_LEVEL = 0x10082653         # mov eax, 0xffffcc00
-A_HEXPREFIX = 0x1024DD38     # L"0xff"
-A_LEVELNAME = 0x1024DD44     # L"LEVEL"
-A_WCSTOUL = 0x10082705       # push 0x10 / push 0 / push ebx / call
-A_VTABLE_W1 = 0x100899AA     # mov [esi], 0x1024ef7c
-A_VTABLE_W2 = 0x1008A005     # mov [esi], 0x1024ef7c
-VTABLE = 0x1024EF7C
-TAG_COUNT = 51
+A_ENTITIES = 0x1034EC10      # SOURCED NWindow.dll -- named character entities, flat pointer array
+A_ALIGN = 0x1034ED30         # SOURCED NWindow.dll -- CENTER / RIGHT / LEFT / TOP / BOTTOM
+ENTITY_COUNT = 67   # SOURCED NWindow.dll
+A_TEXT_COLOR = 0x100856FA    # SOURCED NWindow.dll -- push 0xffdcdcdc
+A_LINK_COLOR = 0x100856A3    # SOURCED NWindow.dll -- mov eax, 0xff6699ff
+A_LINK_COLOR2 = 0x100856C9   # SOURCED NWindow.dll -- push 0xff6699ff
+A_LEVEL = 0x10082653         # SOURCED NWindow.dll -- mov eax, 0xffffcc00
+A_HEXPREFIX = 0x1024DD38     # SOURCED NWindow.dll -- L"0xff"
+A_LEVELNAME = 0x1024DD44     # SOURCED NWindow.dll -- L"LEVEL"
+A_WCSTOUL = 0x10082705       # SOURCED NWindow.dll -- push 0x10 / push 0 / push ebx / call
+A_VTABLE_W1 = 0x100899AA     # SOURCED NWindow.dll -- mov [esi], 0x1024ef7c
+A_VTABLE_W2 = 0x1008A005     # SOURCED NWindow.dll -- mov [esi], 0x1024ef7c
+VTABLE = 0x1024EF7C   # SOURCED NWindow.dll
+TAG_COUNT = 51   # SOURCED NWindow.dll
 
 
 def read():
@@ -176,14 +179,14 @@ def at(b, va, n):
     return b[off:off + n]
 
 
-def wstr(b, va, maxn=64):
+def wstr(b, va, maxn=64):   # SOURCED NWindow.dll
     off = va - BASE
     out = []
     while off + 1 < len(b) and len(out) < maxn:
         c = b[off] | (b[off + 1] << 8)
         if c == 0:
             break
-        if c < 0x20 or c > 0x7E:
+        if c < 0x20 or c > 0x7E:   # SOURCED NWindow.dll
             return None
         out.append(chr(c))
         off += 2
@@ -217,10 +220,10 @@ def mine(b):
     # 6a 05  6a 00  6a 01  68 <h>  68 <w>
     rects = []
     for a in (A_RECT_1, A_RECT_2):
-        s = at(b, a, 16)
-        want(s[0:6] == b"\x6a\x05\x6a\x00\x6a\x01",
+        s = at(b, a, 16)   # SOURCED NWindow.dll
+        want(s[0:6] == b"\x6a\x05\x6a\x00\x6a\x01",   # SOURCED NWindow.dll
              "0x%08x: anchor/align push trio changed (%s)" % (a, s[0:6].hex(" ")))
-        want(s[6] == 0x68 and s[11] == 0x68,
+        want(s[6] == 0x68 and s[11] == 0x68,   # SOURCED NWindow.dll
              "0x%08x: height/width are no longer imm32 pushes" % a)
         h = struct.unpack("<I", s[7:11])[0]
         w = struct.unpack("<I", s[12:16])[0]
@@ -230,10 +233,10 @@ def mine(b):
     width, height, anchored, h_mode, v_mode = rects[0]
 
     # y = parent.height * K1 - K2, with K1/K2 the doubles the site names
-    y = at(b, A_Y_EXPR, 18)
-    want(y[0:6] == b"\xd9\x86\x8c\x00\x00\x00",
+    y = at(b, A_Y_EXPR, 18)   # SOURCED NWindow.dll
+    want(y[0:6] == b"\xd9\x86\x8c\x00\x00\x00",   # SOURCED NWindow.dll
          "0x%08x: y no longer starts from the parent's height field" % A_Y_EXPR)
-    want(y[6:8] == b"\xdc\x0d" and y[12:14] == b"\xdc\x25",
+    want(y[6:8] == b"\xdc\x0d" and y[12:14] == b"\xdc\x25",   # SOURCED NWindow.dll
          "0x%08x: y is no longer fmul-then-fsub" % A_Y_EXPR)
     k1_va = struct.unpack("<I", y[8:12])[0]
     k2_va = struct.unpack("<I", y[14:18])[0]
@@ -241,27 +244,27 @@ def mine(b):
     k2 = struct.unpack("<d", at(b, k2_va, 8))[0]
 
     # -- 2. the interior ----------------------------------------------------
-    tb = at(b, A_TITLEBAR, 6)
-    want(tb[0:4] == b"\x6a\x03\x53\x53" and tb[4] == 0x6A,
+    tb = at(b, A_TITLEBAR, 6)   # SOURCED NWindow.dll
+    want(tb[0:4] == b"\x6a\x03\x53\x53" and tb[4] == 0x6A,   # SOURCED NWindow.dll
          "0x%08x: title-bar child no longer a push-imm8 height" % A_TITLEBAR)
     bar_h = tb[5]
 
-    ft = at(b, A_FRAME_TAIL, 10)
-    want(ft[0:4] == b"\x6a\x03\x53\x53",
+    ft = at(b, A_FRAME_TAIL, 10)   # SOURCED NWindow.dll
+    want(ft[0:4] == b"\x6a\x03\x53\x53",   # SOURCED NWindow.dll
          "0x%08x: html-frame tail pushes changed" % A_FRAME_TAIL)
-    want(ft[4:10] == b"\xd9\x86\x8c\x00\x00\x00",
+    want(ft[4:10] == b"\xd9\x86\x8c\x00\x00\x00",   # SOURCED NWindow.dll
          "0x%08x: html frame no longer sized from the window's own height"
          % A_FRAME_TAIL)
-    fx = at(b, A_FRAME_XY, 4)
-    want(fx[0] == 0x6A and fx[2] == 0x6A,
+    fx = at(b, A_FRAME_XY, 4)   # SOURCED NWindow.dll
+    want(fx[0] == 0x6A and fx[2] == 0x6A,   # SOURCED NWindow.dll
          "0x%08x: html-frame x/y are no longer imm8 pushes" % A_FRAME_XY)
     frame_y, frame_x = fx[1], fx[3]
     inset_w = struct.unpack("<d", at(b, A_INSET_W, 8))[0]
     inset_h = struct.unpack("<d", at(b, A_INSET_H, 8))[0]
 
     # -- 3. the background --------------------------------------------------
-    bg = at(b, A_BG_PUSH, 5)
-    want(bg[0] == 0x68, "0x%08x: background is no longer a push imm32" % A_BG_PUSH)
+    bg = at(b, A_BG_PUSH, 5)   # SOURCED NWindow.dll
+    want(bg[0] == 0x68, "0x%08x: background is no longer a push imm32" % A_BG_PUSH)   # SOURCED NWindow.dll
     bg_ref = wstr(b, struct.unpack("<I", bg[1:5])[0])
     want(bg_ref is not None, "0x%08x: background push is not a wide string" % A_BG_PUSH)
 
@@ -272,12 +275,12 @@ def mine(b):
         name = wstr(b, dword(b, va))
         if name is None:
             break
-        p, cnt = dword(b, va + 4), dword(b, va + 8)
+        p, cnt = dword(b, va + 4), dword(b, va + 8)   # SOURCED NWindow.dll
         attrs = []
-        if p and 0 < cnt < 64:
-            attrs = [wstr(b, dword(b, p + 4 * i)) for i in range(cnt)]
+        if p and 0 < cnt < 64:   # SOURCED NWindow.dll
+            attrs = [wstr(b, dword(b, p + 4 * i)) for i in range(cnt)]   # SOURCED NWindow.dll
         tags[name] = [a for a in attrs if a]
-        va += 12
+        va += 12   # SOURCED NWindow.dll
     want(len(tags) == TAG_COUNT,
          "tag table at 0x%08x yielded %d records, expected %d"
          % (A_TAGS, len(tags), TAG_COUNT))
@@ -296,11 +299,11 @@ def mine(b):
     entities = []
     va = A_ENTITIES
     while True:
-        s = wstr(b, dword(b, va), 12)
+        s = wstr(b, dword(b, va), 12)   # SOURCED NWindow.dll
         if not s or not s.isalpha():
             break
         entities.append(s)
-        va += 4
+        va += 4   # SOURCED NWindow.dll
     want(len(entities) == ENTITY_COUNT,
          "entity table at 0x%08x yielded %d names, expected %d"
          % (A_ENTITIES, len(entities), ENTITY_COUNT))
@@ -310,30 +313,30 @@ def mine(b):
     want("apos" not in entities and "copy" not in entities,
          "the entity table grew names the Interlude client did not have")
 
-    aligns = [wstr(b, dword(b, A_ALIGN + 4 * i)) for i in range(5)]
+    aligns = [wstr(b, dword(b, A_ALIGN + 4 * i)) for i in range(5)]   # SOURCED NWindow.dll
     want(aligns == ["CENTER", "RIGHT", "LEFT", "TOP", "BOTTOM"],
          "align keyword table at 0x%08x changed: %r" % (A_ALIGN, aligns))
 
     # -- 5/6. colours -------------------------------------------------------
-    tc = at(b, A_TEXT_COLOR, 5)
-    want(tc[0] == 0x68, "0x%08x: body-text colour is not a push imm32" % A_TEXT_COLOR)
+    tc = at(b, A_TEXT_COLOR, 5)   # SOURCED NWindow.dll
+    want(tc[0] == 0x68, "0x%08x: body-text colour is not a push imm32" % A_TEXT_COLOR)   # SOURCED NWindow.dll
     text_color = struct.unpack("<I", tc[1:5])[0]
-    lc = at(b, A_LINK_COLOR, 5)
-    want(lc[0] == 0xB8, "0x%08x: link colour is not mov eax,imm32" % A_LINK_COLOR)
+    lc = at(b, A_LINK_COLOR, 5)   # SOURCED NWindow.dll
+    want(lc[0] == 0xB8, "0x%08x: link colour is not mov eax,imm32" % A_LINK_COLOR)   # SOURCED NWindow.dll
     link_color = struct.unpack("<I", lc[1:5])[0]
-    lc2 = at(b, A_LINK_COLOR2, 5)
+    lc2 = at(b, A_LINK_COLOR2, 5)   # SOURCED NWindow.dll
     want(lc2[0] == 0x68 and struct.unpack("<I", lc2[1:5])[0] == link_color,
          "0x%08x: the link's second colour no longer matches the first"
          % A_LINK_COLOR2)
-    lv = at(b, A_LEVEL, 5)
-    want(lv[0] == 0xB8, "0x%08x: LEVEL colour is not mov eax,imm32" % A_LEVEL)
+    lv = at(b, A_LEVEL, 5)   # SOURCED NWindow.dll
+    want(lv[0] == 0xB8, "0x%08x: LEVEL colour is not mov eax,imm32" % A_LEVEL)   # SOURCED NWindow.dll
     level_color = struct.unpack("<I", lv[1:5])[0]
     want(wstr(b, A_LEVELNAME) == "LEVEL",
          "0x%08x is no longer L\"LEVEL\"" % A_LEVELNAME)
     want(wstr(b, A_HEXPREFIX) == "0xff",
          "0x%08x is no longer L\"0xff\"" % A_HEXPREFIX)
-    wc = at(b, A_WCSTOUL, 4)
-    want(wc[0:4] == b"\x6a\x10\x6a\x00",
+    wc = at(b, A_WCSTOUL, 4)   # SOURCED NWindow.dll
+    want(wc[0:4] == b"\x6a\x10\x6a\x00",   # SOURCED NWindow.dll
          "0x%08x: the colour parse is no longer base-16 with a NULL end ptr"
          % A_WCSTOUL)
 
@@ -399,7 +402,7 @@ def mine(b):
         "colorRule": {
             "namedColor": "LEVEL",
             "hexPrefix": "0xff",
-            "radix": 16,
+            "radix": 16,   # SOURCED NWindow.dll
             "byteOrder": "ARGB",
             "caseSensitive": True,
             "rule": "GetMatchedColor(s): s == NULL -> 0; wcscmp(s, L\"LEVEL\") "
@@ -422,7 +425,7 @@ def mine(b):
             "it, so &apos; and &copy; stay literal. No numeric-reference "
             "(&#nn;) path was located, and the shipped datapack uses none."
             % (A_ENTITIES, ENTITY_COUNT),
-        "align": {"h": aligns[:3], "v": aligns[3:],
+        "align": {"h": aligns[:3], "v": aligns[3:],   # SOURCED NWindow.dll
                   "evidence": "NWindow.dll 0x%08x -- the five alignment "
                               "keywords, h then v." % A_ALIGN},
         "tags": tags,

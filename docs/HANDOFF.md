@@ -657,6 +657,63 @@ regenerate with `tools/ui/mine_classicons.py`, guard `--check`).
     2026-08-08. Whether the client should be fetching all of it per tile is
     an open question, not a settled one — see the load profile.
 
+### UI (details: docs/ui-mined-values.md, docs/ui-mined-native.md)
+
+- **"Interface.xdat has no record for it" does NOT mean "no mined geometry
+  exists".** The NPC dialog window is the case that proved it. `parse_xdat.py`
+  recovers 137 windows and none of them is the NpcHtmlMessage window, so
+  `js/ui/npcdialog.js` concluded there was nothing to decode and authored a
+  360x420 box with a web font, a `#c9a959` title and a `#7fb3ff` link. The
+  correct measurement (the xdat really is silent) was welded to an unexamined
+  inference (therefore nothing is decodable).
+
+  The window is a NATIVE class, `NCNPCHtmlViewer`, and every value is an inline
+  immediate in `NWindow.dll`:
+
+  | value | where |
+  |---|---|
+  | **310 x 401**, anchored, opening at x=0, y = viewportH/2 − 252 | 0x1013fde7 and 0x1013fec5 — the console builds TWO instances (retail can show two NPC pages at once); slot 0xc0 is `SetWindowRect(x,y,w,h,anchored,hMode,vMode)`, body 0x1005e8f0 |
+  | title bar **20**, html frame **(7, 30) 296 x 364** = (W−14, H−37) | `NCNPCHtmlViewer::OnCreate` 0x1008a030, doubles at 0x1024f730 / 0x1024f738 |
+  | background `L2UI_ch3.NpcWnd.Npc1_back` (art 310x381 = 401 − the bar) | built at 0x1013fe74 and stored OVER OnCreate's own `L2UI.etcwnd.NPCHtml_BACK` at 0x1013fe86 |
+  | the parser's **complete 51-name element table** with per-tag attributes | 0x1034e9a8, 12-byte records, binary-searched. `DIV`, `SPAN`, `STRONG`, `EM`, `TH`, `TBODY`, `THEAD` are **not in it**; `BR1`, `BAR`, `SPIN`, `VOLUMN`, `EXTEND`, `TEXTCODE`, `MULTIEDIT`, `COMBOBOX` are |
+  | the **67 named entities** it decodes | 0x1034ec10. `&apos;` and `&copy;` are absent, so they stay literal |
+  | body text **#DCDCDC**, link **#6699FF** | `NCHtmlTagInfo::Draw` 0x10085873 picks the branch from the run's link kind and `DrawTextCode` 0x10085550 supplies the two defaults (0x100856fa / 0x100856a3) |
+
+  Mined by `tools/ui/mine_npchtml.py` into `assets/gamedata/npchtml.json`;
+  `--check` re-reads the DLL. Corroboration that the rect is right: the xdat's
+  `EventMatchGMCommandWnd` is 310x401 and reuses `Npc1_back`, and the art's own
+  measured content rect is 310x381.
+
+- **`<font color=NAME>` is not a name table with one entry — it is a PARSE.**
+  `NCHtmlObject::GetMatchedColor` (0x100825d0) compares against exactly one
+  wide string, `L"LEVEL"`, and hands **everything else** to
+  `wcstoul(L"0xff" + value, NULL, 16)` (0x10082705). The consequences are not
+  cosmetic: the compare is case-SENSITIVE, and the parse stops at the first
+  non-hex character, so `color="white"` yields `0x000000FF` — **alpha 0, i.e.
+  invisible** — and `color="00FFFF"` yields `0xFF00FFFF`. Word order is ARGB,
+  which the one named colour settles on its own (`0xffffcc00` is retail's gold
+  level tint and only reads as gold in ARGB). A renderer that falls back to the
+  default text colour when a `<font color>` fails to parse paints text retail
+  leaves invisible.
+
+- **A `<button>` in NPC HTML has no fallback art.** `NCHtmlButton`'s
+  constructor (0x10094ec0) forwards its `back=` / `fore=` names straight to
+  `NCButton::SetTexture` and supplies nothing when they are empty — so the
+  textures the SERVER names are the only art there is. Those refs live in the
+  datapack, not in the xdat, so `build_uiskin.py` can never see them: of the
+  141 distinct refs the shipped datapack uses, the skin manifest carried 15.
+  `tools/ui/mine_htmlart.py` stages the rest out of `assets/library`, and
+  records the 8 it cannot resolve (all `L2UI_CT1`, a Kamael-era package the
+  Interlude client does not ship) rather than substituting art.
+
+- **Only ELEVEN element names ever appear in closing form** across the 15,322
+  pages the datapack sends (`a` 16488, `html` 15320, `body` 15316, `font` 9684,
+  `td` 3736, `tr` 1444, `table` 573, `center` 543, `title` 55, `p` 5, `head`
+  1). Everything else — `<edit>`, `<button>`, `<img>`, `<br1>`, `<combobox>` —
+  is opening-only. Stacking one of them is not cosmetic: an unclosed `<edit>`
+  parsed as a container swallowed the `<button>` that follows it on
+  `seven_signs/blkmrkt_2.htm`, because an `<input>` cannot have children.
+
 ### Rendering / models
 
 - **CHARACTER/monster/weapon** glTF materials are **doubleSided** on purpose

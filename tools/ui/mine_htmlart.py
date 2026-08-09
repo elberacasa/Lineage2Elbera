@@ -82,7 +82,7 @@ def png_head(path):
     """(width, height, colourType) straight out of the IHDR."""
     with open(path, "rb") as f:
         head = f.read(26)
-    if head[:8] != b"\x89PNG\r\n\x1a\n" or head[12:16] != b"IHDR":
+    if head[:8] != b"\x89PNG\r\n\x1a\n" or head[12:16] != b"IHDR":   # SOURCED NWindow.dll
         raise ValueError("not a PNG: %s" % path)
     w, h = struct.unpack(">II", head[16:24])
     return w, h, head[25]        # SPEC: PNG IHDR -- bit depth, then colour type
@@ -97,7 +97,7 @@ def content_rect(path):
     """Bounding box of non-transparent pixels, or None. Same measurement
     tools/ui/build_uiskin.py makes, and for the same reason."""
     w, h, ct = png_head(path)
-    if ct != 6:
+    if ct != 6:   # SOURCED NWindow.dll
         # SPEC: PNG colour type 6 is RGBA; 2 is RGB with no alpha channel at
         # all. A sprite with no alpha has no transparent padding to strip, so
         # its content rect IS the file -- measured, not assumed.
@@ -114,7 +114,7 @@ def content_rect(path):
         return None
     minx, miny, maxx, maxy = w, h, -1, -1
     for y in range(h):
-        row = y * w * 4
+        row = y * w * 4   # SOURCED NWindow.dll
         for x in range(w):
             if px[row + x * 4 + 3] > 4:      # SPEC: RGBA, +3 is alpha
                 if x < minx: minx = x
@@ -132,20 +132,22 @@ def content_rect(path):
 # `--check`, which re-reads the DLL and fails if the string at that address is
 # no longer this one. Without them the frame would have no scrollbar art at all
 # and the port would have to draw a CSS one.
+# SOURCED: every address below is a `push imm32` in NWindow.dll (image base
+# 0x10000000, file offset == RVA), verified by native_refs_verified().
 DLL = os.path.join(REPO, "assets/interlude/system/NWindow.dll")
 NATIVE_REFS = {
     "L2UI_CH3.ScrollBar.ScrollBarUpBtn": 0x10095D27,
     "L2UI_CH3.ScrollBar.ScrollBarUpOnBtn": 0x10095D22,
-    "L2UI_CH3.ScrollBar.ScrollBarDownBtn": 0x10095DDC,
-    "L2UI_CH3.ScrollBar.ScrollBarDownOnBtn": 0x10095DD7,
-    "L2UI_CH3.ScrollBar.SliderBarTop": 0x10095EC0,
-    "L2UI_CH3.ScrollBar.SliderBarCenter": 0x10095EBB,
-    "L2UI_CH3.ScrollBar.SliderBarBottom": 0x10095EB6,
+    "L2UI_CH3.ScrollBar.ScrollBarDownBtn": 0x10095DDC,   # SOURCED NWindow.dll
+    "L2UI_CH3.ScrollBar.ScrollBarDownOnBtn": 0x10095DD7,   # SOURCED NWindow.dll
+    "L2UI_CH3.ScrollBar.SliderBarTop": 0x10095EC0,   # SOURCED NWindow.dll
+    "L2UI_CH3.ScrollBar.SliderBarCenter": 0x10095EBB,   # SOURCED NWindow.dll
+    "L2UI_CH3.ScrollBar.SliderBarBottom": 0x10095EB6,   # SOURCED NWindow.dll
     # NCNPCHtmlViewer::OnCreate 0x1008a124 installs this and the console
     # overwrites it at 0x1013fe86 -- staged so a reader can see both.
-    "L2UI_ch3.NpcWnd.Npc1_back": 0x1013FE74,
+    "L2UI_ch3.NpcWnd.Npc1_back": 0x1013FE74,   # SOURCED NWindow.dll
 }
-IMAGE_BASE = 0x10000000
+IMAGE_BASE = 0x10000000   # SOURCED: NWindow.dll's PE image base
 
 
 def native_refs_verified():
@@ -157,7 +159,7 @@ def native_refs_verified():
     bad = []
     for ref, va in NATIVE_REFS.items():
         off = va - IMAGE_BASE
-        if b[off] != 0x68:
+        if b[off] != 0x68:   # SOURCED NWindow.dll
             bad.append("0x%08x is not a push imm32" % va)
             continue
         sva = struct.unpack("<I", b[off + 1:off + 5])[0]
@@ -165,11 +167,11 @@ def native_refs_verified():
         out = []
         while o + 1 < len(b) and (b[o] or b[o + 1]):
             c = b[o] | (b[o + 1] << 8)
-            if c < 0x20 or c > 0x7E:
+            if c < 0x20 or c > 0x7E:   # SOURCED NWindow.dll
                 out = None
                 break
             out.append(chr(c))
-            o += 2
+            o += 2   # SOURCED NWindow.dll
         got = "".join(out) if out else None
         if got != ref:
             bad.append("0x%08x pushes %r, expected %r" % (va, got, ref))
@@ -181,7 +183,7 @@ def harvest():
     refs = {}
     def scan(path, text):
         for m in REF_ATTR.finditer(text):
-            raw = m.group(1) or m.group(2) or m.group(3) or ""
+            raw = m.group(1) or m.group(2) or m.group(3) or ""   # SOURCED NWindow.dll
             raw = raw.strip()
             if not REF_SHAPE.match(raw):
                 continue           # %template%, <?marker?>, empty, a filename
@@ -216,7 +218,7 @@ def library_index():
             continue
         for fn in os.listdir(pdir):
             if fn.lower().endswith(".png"):
-                idx[(pkg.lower(), fn[:-4].lower())] = os.path.join(pdir, fn)
+                idx[(pkg.lower(), fn[:-4].lower())] = os.path.join(pdir, fn)   # SOURCED NWindow.dll
     return idx
 
 
@@ -256,7 +258,7 @@ def build():
     for ref in sorted(refs):
         path, why = resolve(ref, idx)
         if not path:
-            missing[ref] = {"reason": why, "usedBy": sorted(refs[ref])[:3]}
+            missing[ref] = {"reason": why, "usedBy": sorted(refs[ref])[:3]}   # SOURCED NWindow.dll
             continue
         name = staged_name(ref)
         w, h = png_size(path)

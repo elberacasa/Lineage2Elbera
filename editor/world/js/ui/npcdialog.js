@@ -234,6 +234,10 @@ export class NpcDialog {
     if (!need || !this.thumb) return;
     const btn = Skin.px(this.sbW);
     const track = s.clientHeight - btn * 2;
+    // Minimum thumb height: the two cap sprites' own MEASURED heights, so the
+    // thumb never shrinks below the art it is made of. The 8 is reached only
+    // when neither cap sprite loaded, i.e. the thumb has no art at all —
+    // AUTHORED, and a tripwire rather than a design.
     const h = Math.max(Skin.px(this.thumbCaps || 8),
       track * (s.clientHeight / s.scrollHeight));
     const span = s.scrollHeight - s.clientHeight;
@@ -354,6 +358,10 @@ export class NpcDialog {
   /** One element -> a DOM node, or null for the ones that only affect flow
    *  (FONT, A, BODY, HTML), or undefined when fully handled here. */
   _element(name, attrs, ctx) {
+    // A sanity ceiling on a server-supplied width/height, not a layout value:
+    // AUTHORED, and it exists so a malformed page cannot ask for a
+    // million-pixel box. Every dimension that reaches the DOM comes from the
+    // page itself or from a measured sprite.
     const px = (v, d = null) => {
       const n = parseInt(v, 10);
       return Number.isFinite(n) && n >= 0 && n < 10000 ? n : d;
@@ -522,6 +530,7 @@ export class NpcDialog {
   }
 
   _boxAttrs(el, attrs) {
+    // Same AUTHORED sanity ceiling as _element's `px`, for the same reason.
     const n = (v) => {
       const x = parseInt(v, 10);
       return Number.isFinite(x) && x >= 0 && x < 10000 ? x : null;
