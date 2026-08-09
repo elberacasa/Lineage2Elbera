@@ -1394,6 +1394,64 @@ class Bridge {
     // ActionFailed (0x25) — talk/action rejected.
     game.on('actionFailed', () => this.send({ op: 'actionFailed' }));
 
+    // ------------------------------------------------------- approach/stance
+    //
+    // GHOST NPCs. Measured live with GW_TRACE=1
+    // (gateway/test/repro-ghost-pair.js): an AttackRequest against a mob that
+    // is outside physical attack range is answered by aCis with exactly ONE
+    // packet — MoveToPawn(0x60) — and nothing else. PlayerAI.thinkAttack:
+    //
+    //   if (_actor.getMove().maybeMoveToPawn(target, physicalAttackRange, shift))
+    //       { if (shift) { doIdleIntention(); clientActionFailed(); } return; }
+    //
+    // With shift = 0 (which is what gameclient.attackRequest sends, correctly)
+    // there is no ActionFailed and no SystemMessage on that branch. The
+    // gateway used to drop 0x60, so the browser saw NOTHING AT ALL: no swing,
+    // no refusal, no character walking to the mob. That is the whole "the mob
+    // answers target_ok and then swallows every attack" report — the mob is
+    // real and healthy, it is simply out of reach, and the server's "your
+    // character is running to it" order was being thrown away.
+    //
+    // Paired measurement, same objectIds, one session: out of range 5/5 swings
+    // answered by MoveToPawn and 0 Attack packets; walked into melee range,
+    // 0 MoveToPawn and every swing answered. See the repro for the numbers.
+    game.on('moveToPawn', (m) => {
+      // For ourselves this is also the server's own statement of where we are
+      // at the moment the approach starts — the same reason the move/validate
+      // handlers call _notePos. Without it our outgoing packets keep claiming
+      // the pre-approach origin.
+      if (m.id === this.selfId) this._notePos(m.x, m.y, m.z);
+      this.send({
+        op: 'moveToPawn',
+        id: m.id,
+        targetId: m.targetId,
+        // MoveToPawn carries the MOVER's position, not a destination: the
+        // retail client walks toward the pawn and stops `distance` short.
+        distance: m.distance,
+        x: m.x, y: m.y, z: m.z,
+      });
+    });
+
+    // TargetUnselected (0x2a): the server dropped this creature's target.
+    // Also silent until now — the browser kept drawing a target the server no
+    // longer holds, and the next AttackRequest against it then only RE-TARGETS
+    // (Creature.onAction takes the `player.getTarget() != this` branch), which
+    // is a second, independent way to swallow a swing.
+    game.on('targetUnselected', (t) => {
+      if (t.id === this.selfId) this.currentTarget = 0;
+      this.send({ op: 'target_lost', id: t.id, x: t.x, y: t.y, z: t.z });
+    });
+
+    // AutoAttackStart(0x2b) / AutoAttackStop(0x2c): the in-combat stance
+    // broadcast. `id` is the creature entering/leaving auto-attack.
+    game.on('autoAttack', (a) => this.send({ op: 'autoAttack', id: a.id, on: a.on }));
+
+    // StopMove (0x47): authoritative stop position + heading.
+    game.on('stopMove', (s) => {
+      if (s.id === this.selfId) this._notePos(s.x, s.y, s.z, s.heading);
+      this.send({ op: 'stopMove', id: s.id, x: s.x, y: s.y, z: s.z, heading: s.heading });
+    });
+
     // Action broadcasts (additive): social emotes, sit/stand, walk/run.
     game.on('socialAction', (s) => this.send({ op: 'socialAction', id: s.id, actionId: s.actionId }));
     game.on('changeWait', (c) => this.send({ op: 'changeWait', id: c.id, waitType: c.waitType }));

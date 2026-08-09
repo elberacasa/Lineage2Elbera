@@ -1285,6 +1285,49 @@ class GameSession extends EventEmitter {
         this.emit('delete', r.readD());
         break;
       }
+      // ---------------------------------------------------------------
+      // The five combat packets that used to fall through to packetLog.
+      // MoveToPawn is the ONE that produced the "ghost NPC": PlayerAI's
+      // thinkAttack answers an out-of-range AttackRequest with
+      //   maybeMoveToPawn(target, physicalAttackRange, shift) -> MoveToPawn
+      //   -> return;
+      // and NOTHING else — no Attack, no ActionFailed, no SystemMessage.
+      // Measured live (gateway/test/repro-ghost-pair.js, GW_TRACE=1): every
+      // out-of-range swing is answered by exactly one 0x60 and nothing more,
+      // and the same objectId answers normally once the character is walked
+      // into melee range. Dropping 0x60 is therefore what turned "this mob is
+      // too far away, your character is running to it" into total silence.
+      case 0x60: { // MoveToPawn: D objectId, D targetId, D distance, D x, D y, D z
+        const id = r.readD();
+        const targetId = r.readD();
+        const distance = r.readD();
+        const x = r.readD(); const y = r.readD(); const z = r.readD();
+        this.emit('moveToPawn', { id, targetId, distance, x, y, z });
+        break;
+      }
+      case 0x2a: { // TargetUnselected: D objectId (the CREATURE whose target
+        // was cleared — TargetUnselected(Creature character) writes
+        // character.getObjectId()), D x, D y, D z.
+        const id = r.readD();
+        const x = r.readD(); const y = r.readD(); const z = r.readD();
+        this.emit('targetUnselected', { id, x, y, z });
+        break;
+      }
+      case 0x2b: { // AutoAttackStart: D objectId
+        this.emit('autoAttack', { id: r.readD(), on: true });
+        break;
+      }
+      case 0x2c: { // AutoAttackStop: D objectId
+        this.emit('autoAttack', { id: r.readD(), on: false });
+        break;
+      }
+      case 0x47: { // StopMove: D objectId, D x, D y, D z, D heading
+        const id = r.readD();
+        const x = r.readD(); const y = r.readD(); const z = r.readD();
+        const heading = r.readD();
+        this.emit('stopMove', { id, x, y, z, heading });
+        break;
+      }
       case 0x4a: { // CreatureSay
         const objectId = r.readD();
         const channel = r.readD();

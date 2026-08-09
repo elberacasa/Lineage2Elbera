@@ -181,6 +181,173 @@ export class CombatUI {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Approach / stance ops — the GHOST NPC fix, client half.
+// ---------------------------------------------------------------------------
+//
+// MEASURED (gateway/test/repro-ghost-pair.js, against the live aCis with
+// GW_TRACE=1): an attack on a mob that is outside physical attack range is
+// answered by the server with exactly ONE packet, MoveToPawn(0x60), and
+// nothing else — no Attack, no ActionFailed, no SystemMessage. aCis
+// PlayerAI.thinkAttack:
+//
+//     if (_actor.getMove().maybeMoveToPawn(target, physicalAttackRange, shift))
+//     { if (shift) { doIdleIntention(); clientActionFailed(); } return; }
+//
+// and gameclient.attackRequest correctly sends shift = 0, so that branch is
+// silent by construction. The gateway used to drop 0x60, which is what made a
+// perfectly healthy mob look like a ghost: target_ok came back, every swing
+// went out, and the browser was told nothing whatsoever. The same objectIds
+// answer every swing once the character is standing next to them.
+//
+// MoveToPawn is not a refusal. It is the server saying "your character is
+// running to that thing" — so the honest fix is to RUN, exactly as retail
+// does, not to print an invented apology. There is no retail system message
+// on this branch and none is fabricated here.
+//
+// Two more packets rode the same hole and are handled here:
+//   TargetUnselected(0x2a) — the server dropped our target. Leaving it on
+//     screen is a second silent swallow: aCis Creature.onAction takes the
+//     `player.getTarget() != this` branch and merely RE-targets, so the next
+//     swing is consumed as a targeting click.
+//   AutoAttackStart/Stop(0x2b/0x2c) — the in-combat stance broadcast.
+//
+// install() takes the pieces it needs rather than importing main.js, so the
+// wiring is one call and no module cycle.
+// ctx: { combat, entities, character: () => Character|null, selfId: () => id }
+// character and selfId are read through functions because main.js assigns both
+// long after the handlers are registered.
+export function installCombatFeedback(net, ctx) {
+  const { combat, entities, character, selfId } = ctx;
+  const state = { approachingId: null, approachDistance: 0, inCombat: new Set() };
+
+  // MoveToPawn.distance is the stop radius in L2 units; the client walks to a
+  // point that far short of the pawn. 100 L2 units = 1 m (js/coords.js).
+  const L2_TO_M = 0.01;
+
+  net.on('moveToPawn', (msg) => {
+    const me = selfId();
+    // face the mover at its pawn either way — MoveToPawn is also how aCis
+    // rotates a creature toward what it is about to hit
+    const mover = msg.id === me ? null : entities.getEntity(msg.id);
+    const pawn = entities.getEntity(msg.targetId);
+    if (!pawn) return;
+    const to = pawn.group.position;
+    if (mover) {
+      mover.group.rotation.y = Math.atan2(
+        to.x - mover.group.position.x, to.z - mover.group.position.z);
+      return;
+    }
+    const ch = character();
+    if (msg.id !== me || !ch) return;
+    // Our character: the server has already started walking us server-side.
+    // Walk the local model to the same place WITHOUT sending a move order —
+    // a moveTo here would be a second, competing order the server never asked
+    // for (retail sends nothing back on MoveToPawn either).
+    state.approachingId = msg.targetId;
+    state.approachDistance = msg.distance;
+    const from = ch.group.position;
+    const dx = to.x - from.x, dz = to.z - from.z;
+    const d = Math.hypot(dx, dz);
+    const stop = Math.max(0, (msg.distance || 0) * L2_TO_M);
+    const goal = to.clone();
+    if (d > stop && d > 1e-4) {
+      goal.x = from.x + dx / d * (d - stop);
+      goal.z = from.z + dz / d * (d - stop);
+    }
+    ch.setTarget(goal);
+  });
+
+  net.on('target_lost', (msg) => {
+    if (msg.id !== selfId()) return;
+    // the server no longer holds this target; keeping the frame up is what
+    // makes the NEXT swing disappear into a re-target
+    state.approachingId = null;
+    combat.clearTarget();
+  });
+
+  net.on('autoAttack', (msg) => {
+    if (msg.on) state.inCombat.add(msg.id);
+    else state.inCombat.delete(msg.id);
+    if (msg.id === selfId()) {
+      state.selfInCombat = !!msg.on;
+      if (!msg.on) state.approachingId = null;
+    }
+  });
+
+  net.on('stopMove', (msg) => {
+    const ch = character();
+    if (msg.id === selfId() && ch) {
+      state.approachingId = null;
+      ch.clearTarget();
+    }
+  });
+
+  // -- silence tripwire ----------------------------------------------------
+  //
+  // The defect this whole block exists for was invisible because nothing was
+  // counting. Every outgoing attack op is now paired with whatever came back
+  // for it, and a swing that gets NOTHING within SILENCE_MS is recorded as a
+  // "silent swing". A silent swing is a bug by definition: aCis answers an
+  // attack with a swing (Attack), an approach (MoveToPawn), or a refusal
+  // (ActionFailed and/or SystemMessage) — there is no fourth outcome. The
+  // counter is asserted at zero by editor/world/verify_ghostnpc.js.
+  //
+  // It observes net._emit instead of registering handlers, because
+  // NetClient.on keeps ONE handler per op and `attack`/`sysMsg`/`actionFailed`
+  // already belong to main.js. Nothing is printed to chat: no retail system
+  // message exists for the approach branch, so inventing one would be a
+  // fidelity regression. The player-visible cure is the character actually
+  // running to the mob, which is what retail does with MoveToPawn.
+  const SILENCE_MS = 4000;
+  // Only ops that ARE an answer to an attack. `status` and `die` are
+  // deliberately absent: they stream constantly from every creature in range,
+  // so counting them would let ambient traffic mark a silent swing "answered"
+  // and hide exactly the defect this counter exists to catch.
+  const FEEDBACK_OPS = new Set([
+    'attack', 'actionFailed', 'sysMsg', 'moveToPawn', 'target_lost', 'autoAttack',
+  ]);
+  state.swingsOut = 0;
+  state.swingsAnswered = 0;
+  state.silentSwings = 0;
+  let pending = [];              // {t, id} attacks still waiting for an answer
+
+  const origSend = net.send.bind(net);
+  net.send = (op, fields = {}) => {
+    const ok = origSend(op, fields);
+    if (op === 'attack' && ok) {
+      state.swingsOut++;
+      pending.push({ t: performance.now(), id: fields.id });
+    }
+    return ok;
+  };
+
+  const origEmit = net._emit.bind(net);
+  net._emit = (op, msg) => {
+    if (pending.length && FEEDBACK_OPS.has(op)) {
+      state.swingsAnswered += pending.length;
+      pending = [];
+    }
+    return origEmit(op, msg);
+  };
+
+  state.sweepSilence = () => {
+    const now = performance.now();
+    const stale = pending.filter((p) => now - p.t > SILENCE_MS);
+    if (stale.length) {
+      state.silentSwings += stale.length;
+      pending = pending.filter((p) => now - p.t <= SILENCE_MS);
+      console.warn('[combat] attack with NO server answer at all:',
+        stale.map((s) => s.id), '- this is the ghost-NPC defect');
+    }
+    return state.silentSwings;
+  };
+  state._sweepTimer = setInterval(state.sweepSilence, 1000);
+
+  // verification handle (editor/world/verify_ghostnpc.js reads this)
+  return state;
+}
+
 let _cam = null, _canvas = null;
 export function bindProjection(camera, canvas) { _cam = camera; _canvas = canvas; }
 

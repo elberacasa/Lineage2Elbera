@@ -10,7 +10,7 @@ import { NavGrid } from './geodata.js';
 import { NetClient, gatewayUrl, deviceId } from './net.js';
 import { EntityManager, pickModelId } from './entities.js';
 import { ChatBox } from './chat.js';
-import { CombatUI, bindProjection } from './combat.js';
+import { CombatUI, bindProjection, installCombatFeedback } from './combat.js';
 import { SkillBar, SkillFx } from './skills.js';
 import { InventoryWnd } from './ui/inventorywnd.js';
 import { ShortcutWnd } from './ui/shortcutwnd.js';
@@ -498,6 +498,13 @@ function makeChat() {
 
 const combat = new CombatUI();
 bindProjection(camera, canvas);
+// GHOST NPC fix, client half — the four combat ops the gateway used to drop
+// (moveToPawn / target_lost / autoAttack / stopMove). All the logic lives in
+// js/combat.js; this is only the wire. See installCombatFeedback's comment for
+// the measurement that motivated it.
+const combatFeedback = installCombatFeedback(net, {
+  combat, entities, character: () => character, selfId: () => selfId,
+});
 
 // head position (for HP bars / damage floats) of an entity, or null
 const _headPos = new THREE.Vector3();
@@ -1540,6 +1547,7 @@ window.__world = {
   entities,
   get chat() { return chat; },
   combat,
+  combatFeedback,   // ghost-NPC verification: swing/answer/silence counters
   skillBar,
   get weaponGate() { return weaponGate; },
   get inventory() { return inventory; },

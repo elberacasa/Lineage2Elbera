@@ -154,6 +154,14 @@ const PORT = Number(process.argv[2]) || 8085;
 // terrain (the mock has no geodata; the real gateway sends true z).
 const SPAWN = { x: -81984, y: 212928, z: -100000 };
 
+// Ghost-NPC fixture (see the NPCS entry below). GHOST_PHYS_RANGE is aCis's
+// unarmed physical attack range: PlayerStatus.getPhysicalAttackRange() =
+// calcStat(POWER_ATTACK_RANGE, getAttackType().getRange()), and
+// enums/items/WeaponType.java declares NONE(40, null) — so 40 with bare fists.
+// It is the value MoveToPawn tells the client to stop short by.
+const GHOST_MOB_ID = 70020;
+const GHOST_PHYS_RANGE = 40;
+
 const NPCS = [
   { id: 70001, npcId: 20001, name: 'Gremlin', level: 1, x: SPAWN.x + 800, y: SPAWN.y + 400, z: SPAWN.z, heading: 32768 },
   { id: 70002, npcId: 20003, name: 'Goblin', level: 1, x: SPAWN.x - 600, y: SPAWN.y + 900, z: SPAWN.z, heading: 16384 },
@@ -168,6 +176,16 @@ const NPCS = [
   // server heights 18.7 vs 50.0 -> visibly different sizes
   { id: 70006, npcId: 20360, name: 'Ratman Spy', x: SPAWN.x - 500, y: SPAWN.y - 300, z: SPAWN.z, heading: 0 },
   { id: 70007, npcId: 25438, name: 'Thief Kelbar', x: SPAWN.x - 900, y: SPAWN.y - 300, z: SPAWN.z, heading: 0 },
+  // GHOST-NPC fixture. A perfectly real, targetable Gremlin placed far out of
+  // physical attack range. Attacking it answers exactly what aCis answers on
+  // that branch and nothing else: MoveToPawn(0x60) -> the moveToPawn op. It
+  // exists because the live defect (see gateway/test/repro-ghost-pair.js) was
+  // invisible in the mock — the mock always started combat regardless of
+  // distance, so no client-side suite could ever see the silent case.
+  // Deliberately a SEPARATE mob id: 70001 keeps its unconditional-combat
+  // behaviour so the existing combat suites are untouched.
+  { id: GHOST_MOB_ID, npcId: 20001, name: 'Gremlin', level: 1,
+    x: SPAWN.x + 4000, y: SPAWN.y + 3000, z: SPAWN.z, heading: 32768 },
   // M16: warehouse keeper (real npcId 30005, TI town) — his html offers the
   // retail DepositP/WithdrawP bypasses that open whDeposit/whWithdraw
   { id: 70008, npcId: 30005, name: 'Wilford', x: SPAWN.x + 500, y: SPAWN.y + 500, z: SPAWN.z, heading: 0 },
@@ -191,6 +209,9 @@ const AMBIENT = [
 // M3: combat state for the targetable gremlin
 const MOBS = {
   70001: { hp: 500, maxHp: 500, dead: false },
+  // ghost-NPC fixture: fights normally ONCE the player is inside
+  // GHOST_PHYS_RANGE of it (see the attack branch)
+  [GHOST_MOB_ID]: { hp: 500, maxHp: 500, dead: false },
 };
 
 // M13: Borg (80002) is the sitting fixture (changeWait at enterChar) and
@@ -243,6 +264,9 @@ wss.on('connection', (ws) => {
   const timers = [];
   const self = { id: nextPlayerId++, name: `WebTester${Math.floor(Math.random() * 900 + 100)}` };
   const selfStats = { ...SELF_BASE };
+  // last position this connection claimed (moveTo origin/destination). Only
+  // the ghost-NPC range check reads it.
+  const selfPos = { ...SPAWN };
   const items = [];
   const quests = [];
   let party = [];
@@ -704,6 +728,9 @@ wss.on('connection', (ws) => {
         id: self.id, tx: msg.x, ty: msg.y, tz: msg.z,
         x: msg.ox, y: msg.oy, z: msg.oz,
       });
+      // the destination is where the client will be; the ghost-NPC range
+      // check needs a position that actually tracks the walk
+      selfPos.x = msg.x | 0; selfPos.y = msg.y | 0; selfPos.z = msg.z | 0;
     } else if (msg.op === 'say') {
       // whisper (channel 2) carries a target; echo + fake reply
       if (msg.channel === 2 && msg.target) {
@@ -796,6 +823,26 @@ wss.on('connection', (ws) => {
       const mob = MOBS[msg.id];
       send('status', { id: msg.id, hp: mob ? mob.hp : 300, maxHp: mob ? mob.maxHp : 300 });
     } else if (msg.op === 'attack') {
+      // GHOST-NPC branch, faithful to aCis PlayerAI.thinkAttack: a target
+      // outside physical attack range is answered with MoveToPawn and NOTHING
+      // else — no attack, no actionFailed, no sysMsg. Only the dedicated
+      // fixture mob takes this branch, so every existing combat suite keeps
+      // the old unconditional behaviour.
+      if (msg.id === GHOST_MOB_ID) {
+        const npc = NPCS.find((n) => n.id === GHOST_MOB_ID);
+        const from = selfPos;
+        const d = Math.hypot(npc.x - from.x, npc.y - from.y);
+        if (d > GHOST_PHYS_RANGE) {
+          // MoveToPawn(0x60): D objectId, D targetId, D distance, D x, D y, D z
+          send('moveToPawn', {
+            id: self.id, targetId: GHOST_MOB_ID, distance: GHOST_PHYS_RANGE,
+            x: from.x, y: from.y, z: from.z,
+          });
+          return;
+        }
+      }
+      // AutoAttackStart(0x2b) precedes the swings, as aCis broadcasts it
+      send('autoAttack', { id: self.id, on: true });
       startCombat(msg.id);
     } else if (msg.op === 'useSkill') {
       // no explicit targetId: aCis routes by the skill's own target type —
