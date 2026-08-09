@@ -239,7 +239,17 @@ export const NpcHtml = {
 
   // ---- text --------------------------------------------------------------
 
-  /** One word, drawn from the retail glyph sheet. */
+  /** One word, drawn from the retail glyph sheet.
+   *
+   *  AUTHORED, and re-checked 2026-08-09 rather than assumed: WHICH sheet.
+   *  `<body>` carries DEFFONT / DEFFIXEDFONT in the client's own tag table, so
+   *  the frame plainly has a default — but no font NAME is an immediate at any
+   *  site in NWindow.dll, and a scan of every wide string in the image
+   *  containing "font" turns up the tag names, the XML accessors and four
+   *  L2Font TEXTURES, and no `SmallFont` / `LargeFont` at all. So the sheet is
+   *  ours. It is the small one because that is what the body text of a retail
+   *  NPC page measures at; the value that would settle it was not found.
+   */
   word(text, color) {
     const span = document.createElement('span');
     span.className = 'l2h-w';

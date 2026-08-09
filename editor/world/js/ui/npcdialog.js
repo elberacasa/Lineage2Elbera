@@ -30,6 +30,35 @@
 //                          `<font color=>` parser knows
 // #c9a959 — the gold this window used for its title — appears nowhere in the
 // client and is gone.
+//
+// WHAT CHANGED AND WHY (2026-08-09, second pass)
+// ----------------------------------------------
+// Two things this file used to author are now decoded, and one hypothesis it
+// was carrying is now dead:
+//
+//   * THE TITLE. It said `title: 'Dialog'` with a comment reading "AUTHORED
+//     default: what retail writes in the bar when a page carries no <title>
+//     was not decoded". It is decoded. The console gives BOTH NPC viewers
+//     `push 0x1bc` — SysString 444, "Chat" — through vtable slot 0x164,
+//     NCWnd::SetWindowTitle(int) (NWindow.dll 0x1013fe65 / 0x1013ff43). The
+//     title is an ID, not a string, and the id is a constant.
+//
+//     The other half is a NEGATIVE and it changes behaviour: there is no
+//     slot-0x164 call site anywhere in the html viewer's own code, so a page's
+//     `<title>` NEVER reaches the bar. This file used to put it there. It no
+//     longer does — the bar is always SysString 444 — and the page's declared
+//     title stays readable as `data-npc-title` for anything that needs to know
+//     the page changed.
+//
+//   * THE 22-FRAME WIPE. `npc1_back_alpha01..22` was recorded as "a wipe whose
+//     stepping code was not found", which left open that a flat-looking panel
+//     was a missing animation. It is not: NCHtmlViewer's ctor loads frame 01
+//     into this+0x250 and NOTHING in the image ever reads that field, and the
+//     name occurs in no other client file. There is no wipe to reproduce.
+//     Both facts are asserted by tools/ui/mine_npchtml.py --check.
+//
+//   * THE WRAPPED-LINE INDENT, which is the visible defect the owner reported.
+//     See _pushSpace below.
 
 import { L2Window } from './window.js';
 import { Skin } from './skin.js';
@@ -37,6 +66,7 @@ import { Font } from './font.js';
 import { WndMgr } from './wndmgr.js';
 import { Layout } from './layout.js';
 import { NpcHtml } from './npchtml.js';
+import { sysStringMeta } from '../gamedata.js';
 
 // Reached only if /gamedata/npchtml.json failed to load. Zero, not a
 // plausible number: a window we could not measure has no honest size, and a
@@ -44,9 +74,29 @@ import { NpcHtml } from './npchtml.js';
 // geometry (the discipline Layout._degrade sets).
 const NO_SPEC = {
   width: 0, height: 0, titleBarHeight: 0, background: null,
+  title: null, openAnim: null,
   frame: { x: 0, y: 0, width: 0, height: 0 },
   dock: { x: 0, yScale: 0, yOffset: 0 },
 };
+
+// The bar text, resolved once for every dialog in the page. The ID is the
+// client's (npchtml.json window.title.sysStringId, NWindow.dll 0x1013fe65);
+// the STRING is the client's too, out of sysstring-e.dat. Neither is typed
+// here — a lookup that misses leaves the bar empty rather than inventing a
+// word, which is the same discipline the geometry follows.
+let _titlePromise = null;
+function titleText(id) {
+  if (id == null) return Promise.resolve('');
+  if (!_titlePromise) _titlePromise = sysStringMeta().catch(() => null);
+  return _titlePromise.then((doc) => {
+    if (!doc) return '';
+    // sysstring.json is a LIST of {id, string}; index it once.
+    const rec = Array.isArray(doc)
+      ? doc.find(e => e && e.id === id)
+      : (doc[String(id)] || null);
+    return (rec && rec.string) || '';
+  });
+}
 
 export class NpcDialog {
   constructor(parent = document.body, { onBypass, onClose } = {}) {
@@ -68,7 +118,8 @@ export class NpcDialog {
     // Npc1_back's measured content rect is 310x381.
     const bodyH = Math.max(0, spec.height - spec.titleBarHeight);
     const win = new L2Window({
-      title: 'Dialog', width: spec.width, height: bodyH, closable: true,
+      // Empty until the SysString resolves; see titleText above.
+      title: '', width: spec.width, height: bodyH, closable: true,
       winName: null,
       // 'none': L2Window's fallback would 9-slice Npc1_back with a 2px inset.
       // Slicing a WINDOW-SIZED art stretches its middle and shifts every
@@ -81,6 +132,18 @@ export class NpcDialog {
     this.win = win;
     this.root = win.root;
     win.onClose = () => this.close();
+
+    // The bar carries SysString 444 and nothing else, for every page.
+    this.barTitleId = (spec.title && spec.title.sysStringId != null)
+      ? spec.title.sysStringId : null;
+    this.barTitle = '';
+    titleText(this.barTitleId).then((text) => {
+      this.barTitle = text;
+      win.setTitle(text);
+      // Glyph pixels have no textContent; mirror the bar for verification.
+      this.root.dataset.npcBar = text;
+      this.root.dataset.npcBarId = String(this.barTitleId);
+    });
 
     // -- the background: Npc1_back at its measured size, 1:1 ----------------
     this.backOk = spec.background
@@ -116,6 +179,14 @@ export class NpcDialog {
     this.body = document.createElement('div');
     this.body.className = 'npc-dialog-body';
     this.body.style.lineHeight = `${Skin.px(NpcHtml.lineHeight)}px`;
+    // The flow runs at font-size 0 (style.css), so a space CHARACTER measures
+    // nothing and this supplies its whole advance — the retail glyph sheet's
+    // own space advance, the same number the old inline-block spacer used.
+    // See _pushSpace for why the separator is a character and not a box.
+    this.body.style.wordSpacing = `${Skin.px(NpcHtml.spaceWidth)}px`;
+    // …and the same number reaches style.css's underline bridge.
+    this.body.style.setProperty('--l2h-space',
+      `${Skin.px(NpcHtml.spaceWidth)}px`);
     scroller.appendChild(this.body);
 
     this._buildScrollbar();
@@ -248,6 +319,64 @@ export class NpcDialog {
 
   // -- rendering -------------------------------------------------------------
 
+  /** One inter-word space, as REAL whitespace rather than as a box.
+   *
+   *  THE DEFECT THIS REPLACES, measured on the live client against the real
+   *  page aCis sends for Gatekeeper Clarissa (30080): the space used to be its
+   *  own `<span class="l2h-sp">` inline-BLOCK, and an inline-block is an
+   *  atomic box, so it wraps like a word. When a line filled to within one
+   *  space width the SPACE moved to the next line and that line opened with
+   *  it. Two of the four text lines in the owner's screenshot are indented by
+   *  exactly one space, and the headless capture reproduces both. The preview
+   *  harness reproduces it too — but only when it is given that page; its own
+   *  gatekeeper fixture (Roxxy, 30006) happens never to fill a line that
+   *  closely, which is why the existing suite never saw it.
+   *
+   *  The fix is to stop simulating whitespace. The separator is a real space
+   *  CHARACTER in a text node, and the browser's own inline layout then does
+   *  what every text renderer does and what retail visibly does: it breaks at
+   *  the space, hangs the trailing space past the end of the line so it never
+   *  costs the last word its place, and drops it at the start of the next.
+   *
+   *  The WIDTH of that space is still the retail glyph sheet's own advance,
+   *  not a font metric: the flow runs at `font-size: 0` (style.css), so a
+   *  space character measures zero and `word-spacing` — set from
+   *  NpcHtml.spaceWidth in _render — supplies the whole advance.
+   *
+   *  The run's underline is ONE draw for the whole anchor, spaces included
+   *  (NWindow.dll 0x100856af pushes 1 where the plain-text branch at
+   *  0x100856de pushes 0), so it must not break at every space. It does not:
+   *  a link word that is followed by a space inside the same anchor is marked
+   *  `data-sp`, and style.css paints the missing segment as a pseudo-element
+   *  ABOVE the flow. Nothing about that segment participates in layout, so
+   *  the underline is continuous and the space is still a space. Wrapping the
+   *  character in a real element instead would either make it an atomic box
+   *  again (the bug) or leave its border at the strut's baseline, which with
+   *  `font-size: 0` sits six pixels above the glyph boxes — measured.
+   *
+   *  AUTHORED, unchanged from before and still not decoded: what the client
+   *  does with a run of MORE than one space. Collapsing is the browser's rule,
+   *  not a measured one, so the surplus is kept as an explicit box — which
+   *  preserves the widths this port already rendered.
+   */
+  _pushSpace(parent, count, link) {
+    const prev = parent.lastElementChild;
+    if (link && prev && prev.classList.contains('l2h-w')
+        && prev.classList.contains('npc-link')) {
+      prev.dataset.sp = '';        // style.css bridges the underline over it
+    }
+    parent.appendChild(document.createTextNode(' '));
+    if (count <= 1) return;
+    const extra = document.createElement('span');
+    extra.className = 'l2h-sp l2h-sp-extra';
+    extra.style.width = `${Skin.px(NpcHtml.spaceWidth * (count - 1))}px`;
+    // Same box height as a glyph canvas, so a link's underline is one
+    // unbroken rule across the run instead of a dash at the line top.
+    extra.style.height = `${Skin.px(NpcHtml.lineHeight)}px`;
+    if (link) extra.classList.add('npc-link');
+    parent.appendChild(extra);
+  }
+
   /** Render one server page into `this.body`, the way NCHtmlFrame does. */
   _render(src) {
     const colors = (NpcHtml.spec && NpcHtml.spec.colors) || {};
@@ -294,18 +423,7 @@ export class NpcDialog {
       for (const part of parts) {
         if (!part) continue;
         if (part[0] === ' ') {
-          const sp = document.createElement('span');
-          sp.className = 'l2h-sp';
-          sp.style.width = `${Skin.px(NpcHtml.spaceWidth * part.length)}px`;
-          // Same box height as a glyph canvas, so a link's underline is one
-          // unbroken rule across the run instead of a dash at the line top.
-          sp.style.height = `${Skin.px(NpcHtml.lineHeight)}px`;
-          // The underline runs under the WHOLE anchor, spaces included —
-          // it is one draw argument for the run (NWindow.dll 0x100856af
-          // pushes 1 where the plain-text branch pushes 0), not per word.
-          if (link) sp.classList.add('npc-link');
-          append(sp);
-          append(document.createElement('wbr'));
+          this._pushSpace(top().el, part.length, link);
         } else {
           const w = NpcHtml.word(part, color);
           w.dataset.t = part;
@@ -578,15 +696,15 @@ export class NpcDialog {
   /** A fresh npcHtml replaces the current page (retail behavior). */
   showHtml(html) {
     this._render(html);
-    // <title> is metadata: the client puts it in the frame, not in the flow.
+    // <title> is metadata and it is SILENT — its content does not reach the
+    // flow. It does not reach the BAR either: the window is titled by the
+    // console with SysString 444 and the html viewer owns no path to
+    // NCWnd::SetWindowTitle (npchtml.json window.title.fromPageTitle = false,
+    // NWindow.dll 0x10080000..0x1008b000 carries no slot-0x164 site). So the
+    // page's own title is recorded and NOT displayed; `data-npc-bar` is what
+    // the bar actually says.
     const t = /<title>([\s\S]*?)<\/title>/i.exec(String(html || ''));
-    // AUTHORED default: what retail writes in the bar when a page carries no
-    // <title> was not decoded. The bar itself is mined (20px, NWindow.dll
-    // 0x1008a0d7); only the fallback word is ours.
-    this.pageTitle = t ? NpcHtml.entities(t[1]).trim() : 'Dialog';
-    this.win.setTitle(this.pageTitle);
-    // Same reason as the button label: the bar draws glyph pixels, so the
-    // title has no textContent for a suite or a screen reader to find.
+    this.pageTitle = t ? NpcHtml.entities(t[1]).trim() : '';
     this.root.dataset.npcTitle = this.pageTitle;
     if (!this.open) {
       this.open = true;

@@ -80,6 +80,35 @@ EVIDENCE CHAIN
    whose exported content rect is 310x381 -- the 401-tall window minus its
    20px title bar, exactly.
 
+3b. THE TITLE, 0x1013fe65 and 0x1013ff43.  Immediately after each viewer is
+   given its rect, the console calls vtable slot 0x164 on it with `push 0x1bc`
+   -- 444.  Slot 0x164 is `NCWnd::SetWindowTitle(int)` (body 0x10059b30; its
+   own __LINE__ assert names it, at the wide string 0x102443b0), and all that
+   body does is forward the int to `NCFrameCtrl::InsertTitle(int)` (0x1001af50)
+   on the frame control at this+0xc0 -- the (0,0,W,20) title bar from item 2.
+   InsertTitle assigns L"" to this+0x2d8 and the int to this+0x2e4, so the
+   title is a SysString ID and NOT a string.
+
+   The id space is the game's SysString table, cross-checked on the eleven
+   OTHER slot-0x164 sites in the image: 149 'Log In', 598 'Lineage II User
+   Agreement', 472 'Petition - GM', 999 'Lineage 2 Messenger (Alt+Y)', 449
+   'Choose Server', 857 'Server Selection Information'.  Every one of those
+   names its own window.  444 resolves to 'Chat'.
+
+   NEGATIVE, and it is the point: NO call site in the html viewer's own code
+   (0x10080000..0x1008b000) reaches slot 0x164 at all, so a page's `<title>`
+   cannot retitle the window.  Both NPC pages are titled 444, always.
+
+3c. THE OPENING WIPE THAT IS NOT ONE, 0x10089ae8.  NCHtmlViewer's constructor
+   loads `L2UI_CH3.npcwnd.npc1_back_alpha01` through NCObject::LoadTexture
+   (0x1003f630 -- it returns a UTexture*, it does not build a control) and
+   stores the pointer at this+0x250.  A whole-image scan for any instruction
+   with the displacement 0x250 finds that single write and NO read, in this
+   DLL or any other client file: `npc1_back_alpha` appears in NWindow.dll and
+   nowhere in NWindow.u, Interface.u, Interface.xdat, UWindow.u, Window.dll or
+   Engine.u.  The 22 frames exist as art; the Interlude client never draws
+   them.  Asserted below, both halves.
+
 4. THE TAG TABLE, 0x1034e9a8.  A sorted array of 51 twelve-byte records
    {const wchar_t* name, const wchar_t** attrs, int attrCount}, walked by
    binary search.  This is the complete set of element names the client's
@@ -119,12 +148,19 @@ WHAT THIS TOOL DOES NOT DECODE
     DEFFIXEDFONT attributes, so the frame clearly has a default, but the
     default's NAME is not an immediate at any site read here.
   * the scrollbar's width and the frame's inner padding.
-  * what `npc1_back_alpha01..22` are for.  They are 22 masks over the same
-    310x381 art whose opaque band starts lower on each frame (measured: y=10
-    on 01, 82 on 06, 172 on 11, 280 on 17), i.e. a wipe, and the base
-    NCHtmlViewer ctor stores alpha01 at this+0x250 (0x10089ae8) -- but the
-    code that steps through them was not located, so no timing is claimed.
+  * WHERE a wrapped line begins.  NCHtmlFrame's own word-wrap was not read, so
+    what it does with the space that separated the two words it broke between
+    is not decoded.
+  * whether the content of `<title>` is drawn anywhere.  Item 3b proves only
+    that it does not reach the title BAR.
 Consumers must mark anything they need from those AUTHORED at the site.
+
+Superseded here (2026-08-09): "what `npc1_back_alpha01..22` are for" used to
+be on that list.  The frames are still a wipe -- the measurement of their
+opaque bands stands -- but item 3c settles the consumer question: the client
+loads frame 01 and reads the field back nowhere, so there is no wipe to
+reproduce.  The old entry's inference ("the stepping code was not located,
+so no timing is claimed") invited the reader to assume the stepping exists.
 """
 
 import argparse
@@ -147,6 +183,42 @@ A_RECT_1 = 0x1013FDE7        # console builds NPC page 1
 A_RECT_2 = 0x1013FEC5        # console builds NPC page 2
 A_Y_EXPR = 0x1013FDF7        # SOURCED NWindow.dll -- fld [esi+0x8c] / fmul qword / fsub qword
 A_BG_PUSH = 0x1013FE74       # push "L2UI_ch3.NpcWnd.Npc1_back"
+# x86 encoding facts, so the byte scans below are not magic numbers.
+PUSH_IMM32_LEN = 5           # SOURCED Intel SDM Vol.2 -- 0x68 + imm32
+# Every one-byte opcode that takes a modrm and can therefore carry a disp32 in
+# the forms these scans care about: mov r/m<->r (0x88/0x89/0x8a/0x8b), lea
+# (0x8d), mov imm (0xc7), cmp (0x39/0x3b/0x80/0x83), test (0x85), add
+# (0x01/0x03), xor (0x33) and the 0xff group.
+MODRM_OPS = (0x8B, 0x89, 0x8D, 0x39, 0x3B, 0x83, 0xC7, 0x80,   # SOURCED Intel SDM Vol.2
+             0x88, 0x8A, 0xFF, 0x01, 0x03, 0x33, 0x85)   # SOURCED Intel SDM Vol.2
+OP_MOV_RM_R = 0x89           # SOURCED Intel SDM Vol.2 -- the only store form
+OP_MOV_R_RM = 0x8B           # SOURCED Intel SDM Vol.2 -- the only load form
+# Table 2-2: mod=10 (disp32 follows) is modrm 0x80..0xBF, and r/m=100 means a
+# SIB byte comes first -- this scan does not decode SIB, so it skips those.
+MODRM_DISP32_LO = 0x80       # SOURCED Intel SDM Vol.2
+MODRM_DISP32_HI = 0xBF       # SOURCED Intel SDM Vol.2
+MODRM_SIB_RM = 4             # SOURCED Intel SDM Vol.2
+OPCODE_TO_DISP = 2           # SOURCED Intel SDM Vol.2 -- opcode, modrm, disp32
+CALL_REL32 = 0xE8            # SOURCED Intel SDM Vol.2
+CALL_REL32_LEN = 5           # SOURCED Intel SDM Vol.2 -- 0xe8 + rel32
+REL32_LEN = 4                # SOURCED Intel SDM Vol.2
+A_TITLE_1 = 0x1013FE65       # SOURCED NWindow.dll -- push <id> / call slot 0x164, page 1
+A_TITLE_2 = 0x1013FF43       # SOURCED NWindow.dll -- the same, page 2
+SLOT_SETTITLE = 0x164        # SOURCED NWindow.dll -- NCWnd::SetWindowTitle(int)
+A_SETTITLE = 0x10059B30      # SOURCED NWindow.dll -- its body
+A_SETTITLE_NAME = 0x102443B0  # SOURCED NWindow.dll -- L"NCWnd::SetWindowTitle"
+A_INSERTTITLE = 0x1001AF50   # SOURCED NWindow.dll -- NCFrameCtrl::InsertTitle(int)
+A_INSERTTITLE_NAME = 0x102354C0  # SOURCED NWindow.dll -- L"NCFrameCtrl::InsertTitle"
+A_ALPHA_PUSH = 0x10089AE8    # SOURCED NWindow.dll -- push "…npc1_back_alpha01"
+A_ALPHA_STORE = 0x10089AF4   # SOURCED NWindow.dll -- mov [esi+0x250], eax
+F_ALPHA = 0x250              # SOURCED NWindow.dll -- the field it lands in
+# The address range of the html viewer's own code, used only for a NEGATIVE:
+# no SetWindowTitle call site lies inside it. Bounds are the class's first and
+# last function in the image (NCHtmlObject::GetMatchedColor 0x100825d0 ..
+# NCNPCHtmlViewer::OnCreate's tail 0x1008a250), widened to the section pages
+# they sit on so the claim cannot turn on a one-byte boundary.
+HTMLCODE_LO = 0x10080000     # SOURCED NWindow.dll
+HTMLCODE_HI = 0x1008B000     # SOURCED NWindow.dll
 A_TITLEBAR = 0x1008A0D7      # SOURCED NWindow.dll -- OnCreate: title-bar child
 A_FRAME_TAIL = 0x1008A16D    # SOURCED NWindow.dll -- OnCreate: html-frame child, push 3/0/0
 A_FRAME_XY = 0x1008A1C1      # SOURCED NWindow.dll -- OnCreate: html-frame child, push 0x1e / push 7
@@ -199,6 +271,30 @@ def dword(b, va):
 
 def argb(v):
     return "#%06X" % (v & 0xFFFFFF)
+
+
+def field_sites(b, disp):
+    """Every instruction in the image whose modrm carries `disp` as a disp32.
+
+    A byte scan rather than a linear disassembly on purpose: a linear sweep of
+    a PE .text desynchronises on the first jump table and then reports whatever
+    the misalignment happens to spell -- it silently returned ZERO sites for a
+    displacement that is provably written once. This looks for the four-byte
+    little-endian displacement preceded by a modrm in the mod=10 range with a
+    non-SIB r/m, and by an opcode from the set that can carry one.
+    -> [(va, opcode, modrm)], where va is the opcode's address.
+    """
+    want = struct.pack("<I", disp)
+    out = []
+    i = b.find(want)
+    while i >= 0:
+        if i >= OPCODE_TO_DISP:
+            op, modrm = b[i - OPCODE_TO_DISP], b[i - 1]
+            if (MODRM_DISP32_LO <= modrm <= MODRM_DISP32_HI
+                    and (modrm & 7) != MODRM_SIB_RM and op in MODRM_OPS):
+                out.append((BASE + i - OPCODE_TO_DISP, op, modrm))
+        i = b.find(want, i + 1)
+    return out
 
 
 def mine(b):
@@ -267,6 +363,82 @@ def mine(b):
     want(bg[0] == 0x68, "0x%08x: background is no longer a push imm32" % A_BG_PUSH)   # SOURCED NWindow.dll
     bg_ref = wstr(b, struct.unpack("<I", bg[1:5])[0])
     want(bg_ref is not None, "0x%08x: background push is not a wide string" % A_BG_PUSH)
+
+    # -- 3b. the title: a SysString ID handed to slot 0x164 ------------------
+    title_ids = []
+    for a in (A_TITLE_1, A_TITLE_2):
+        s = at(b, a, 13)   # SOURCED NWindow.dll
+        want(s[0] == 0x68, "0x%08x: the title argument is not a push imm32" % a)   # SOURCED NWindow.dll
+        # 8b 82 64 01 00 00 = mov eax,[edx+0x164]; ff d0 = call eax
+        want(s[5:11] == b"\x8b\x82\x64\x01\x00\x00" and s[11:13] == b"\xff\xd0",   # SOURCED NWindow.dll
+             "0x%08x: the push is no longer followed by the slot 0x%x call (%s)"
+             % (a, SLOT_SETTITLE, s[5:13].hex(" ")))
+        title_ids.append(struct.unpack("<I", s[1:5])[0])
+    want(title_ids[0] == title_ids[1],
+         "the two NPC pages no longer share a title id: %r" % (title_ids,))
+    want(dword(b, VTABLE + SLOT_SETTITLE) == A_SETTITLE,
+         "vtable slot 0x%x is 0x%08x, not NCWnd::SetWindowTitle 0x%08x"
+         % (SLOT_SETTITLE, dword(b, VTABLE + SLOT_SETTITLE), A_SETTITLE))
+    want(wstr(b, A_SETTITLE_NAME) == "NCWnd::SetWindowTitle",
+         "0x%08x no longer names NCWnd::SetWindowTitle" % A_SETTITLE_NAME)
+    want(wstr(b, A_INSERTTITLE_NAME) == "NCFrameCtrl::InsertTitle",
+         "0x%08x no longer names NCFrameCtrl::InsertTitle" % A_INSERTTITLE_NAME)
+    # SetWindowTitle's whole body: load the frame control at this+0xc0, and if
+    # it exists forward the caller's int to InsertTitle. Nothing else.
+    st = at(b, A_SETTITLE + 0x32, 0x28)   # SOURCED NWindow.dll -- past the SEH prologue
+    want(st[0:6] == b"\x8b\x89\xc0\x00\x00\x00",   # SOURCED NWindow.dll
+         "0x%08x: SetWindowTitle no longer starts from the frame control at "
+         "this+0xc0 (%s)" % (A_SETTITLE + 0x32, st[0:6].hex(" ")))
+    call_at = A_SETTITLE + 0x40   # SOURCED NWindow.dll -- the e8 in that body
+    # SOURCED Intel SDM Vol.2: e8 is call rel32, and the target is the address
+    # of the NEXT instruction (5 bytes on) plus the signed displacement.
+    want(b[call_at - BASE] == CALL_REL32
+         and call_at + CALL_REL32_LEN + struct.unpack(
+             "<i", at(b, call_at + 1, REL32_LEN))[0] == A_INSERTTITLE,
+         "0x%08x: SetWindowTitle no longer calls InsertTitle" % call_at)
+
+    # The NEGATIVE that makes the title a constant: not one slot-0x164 call
+    # site lies inside the html viewer's own code, so `<title>` never reaches
+    # the bar. Scanned as bytes for the same reason field_sites() is.
+    slot_sites = []
+    pat = struct.pack("<I", SLOT_SETTITLE)   # SOURCED NWindow.dll -- disp32 0x164
+    i = b.find(pat)
+    while i >= 0:
+        # `mov reg, [reg+0x164]` only: 0x8b with a mod=10 modrm.
+        if (i >= OPCODE_TO_DISP and b[i - OPCODE_TO_DISP] == OP_MOV_R_RM
+                and MODRM_DISP32_LO <= b[i - 1] <= MODRM_DISP32_HI):
+            slot_sites.append(BASE + i - OPCODE_TO_DISP)
+        i = b.find(pat, i + 1)
+    # The push that feeds each call is 5 bytes wide (68 + imm32), so the mov
+    # sits at the push's address + 5.
+    want(A_TITLE_1 + PUSH_IMM32_LEN in slot_sites
+         and A_TITLE_2 + PUSH_IMM32_LEN in slot_sites,
+         "the slot-0x%x scan missed the two sites it must contain" % SLOT_SETTITLE)
+    inside = [a for a in slot_sites if HTMLCODE_LO <= a < HTMLCODE_HI]
+    want(not inside,
+         "a slot-0x%x call appeared inside the html viewer's code (%s) -- "
+         "<title> may now retitle the window"
+         % (SLOT_SETTITLE, ", ".join("0x%08x" % a for a in inside)))
+
+    # -- 3c. the 22-frame wipe: loaded once, read never ----------------------
+    ap = at(b, A_ALPHA_PUSH, 5)   # SOURCED NWindow.dll
+    want(ap[0] == 0x68, "0x%08x: the alpha texture is not a push imm32" % A_ALPHA_PUSH)   # SOURCED NWindow.dll
+    alpha_ref = wstr(b, struct.unpack("<I", ap[1:5])[0])
+    want(alpha_ref is not None and "alpha01" in alpha_ref,
+         "0x%08x no longer pushes an npc1_back_alpha frame: %r"
+         % (A_ALPHA_PUSH, alpha_ref))
+    alpha_sites = field_sites(b, F_ALPHA)
+    stores = [a for (a, op, _m) in alpha_sites if op == OP_MOV_RM_R]
+    want(A_ALPHA_STORE in stores,
+         "0x%08x is no longer the store into +0x%x (found %s)"
+         % (A_ALPHA_STORE, F_ALPHA,
+            ", ".join("0x%08x" % a for a in stores) or "none"))
+    # Other classes reuse the offset; the claim is about THIS one, so the
+    # window is the html viewer's own code.
+    own = [a for (a, _o, _m) in alpha_sites if HTMLCODE_LO <= a < HTMLCODE_HI]
+    want(own == [A_ALPHA_STORE],
+         "+0x%x is touched inside the html viewer at %s -- the wipe may now "
+         "be drawn" % (F_ALPHA, ", ".join("0x%08x" % a for a in own)))
 
     # -- 4. the tag table ---------------------------------------------------
     tags = {}
@@ -361,6 +533,46 @@ def mine(b):
                 "x": frame_x, "y": frame_y,
                 "width": frame_w, "height": frame_h,
                 "insetWidth": int(inset_w), "insetHeight": int(inset_h),
+            },
+            "title": {
+                "sysStringId": title_ids[0],
+                "fromPageTitle": False,
+                "evidence":
+                    "NWindow.dll 0x%08x and 0x%08x -- both NCNPCHtmlViewer "
+                    "instances get `push %d` into vtable slot 0x%x, which is "
+                    "NCWnd::SetWindowTitle(int) at 0x%08x (its own assert "
+                    "string sits at 0x%08x): the body reads the frame control "
+                    "at this+0xc0 -- the (0,0,W,%d) title bar -- and forwards "
+                    "the int to NCFrameCtrl::InsertTitle(int) 0x%08x, which "
+                    "assigns L\"\" to this+0x2d8 and the int to this+0x2e4. "
+                    "So the title is a SysString ID. `fromPageTitle` is false "
+                    "because NO slot-0x%x call site exists anywhere in "
+                    "0x%08x..0x%08x, the html viewer's own code -- a page's "
+                    "<title> cannot reach the bar. The id space is confirmed "
+                    "on the other slot-0x%x sites in the same image: 149 "
+                    "'Log In', 598 'Lineage II User Agreement', 472 "
+                    "'Petition - GM', 999 'Lineage 2 Messenger (Alt+Y)', 449 "
+                    "'Choose Server', 857 'Server Selection Information'."
+                    % (A_TITLE_1, A_TITLE_2, title_ids[0], SLOT_SETTITLE,
+                       A_SETTITLE, A_SETTITLE_NAME, bar_h, A_INSERTTITLE,
+                       SLOT_SETTITLE, HTMLCODE_LO, HTMLCODE_HI, SLOT_SETTITLE),
+            },
+            "openAnim": {
+                "texture": alpha_ref,
+                "drawn": False,
+                "evidence":
+                    "NWindow.dll 0x%08x -- NCHtmlViewer's constructor loads "
+                    "%s through NCObject::LoadTexture (0x1003f630, which "
+                    "returns a UTexture* and builds no control) and stores it "
+                    "at this+0x%x (0x%08x). A byte scan of the whole image for "
+                    "that displacement finds the store and nothing else inside "
+                    "0x%08x..0x%08x, and `npc1_back_alpha` occurs in "
+                    "NWindow.dll only -- not in NWindow.u, Interface.u, "
+                    "Interface.xdat, UWindow.u, Window.dll or Engine.u. The 22 "
+                    "frames are a wipe as art; this client never draws them, "
+                    "so a port that animates them would be inventing one."
+                    % (A_ALPHA_PUSH, alpha_ref, F_ALPHA, A_ALPHA_STORE,
+                       HTMLCODE_LO, HTMLCODE_HI),
             },
             "dock": {
                 "x": 0,
@@ -459,6 +671,10 @@ def main():
           % (f["x"], f["y"], f["width"], f["height"],
              f["insetWidth"], f["insetHeight"]))
     print("dock          x=%d, %s" % (w["dock"]["x"], w["dock"]["rule"]))
+    print("title         SysString %d (from <title>: %s)"
+          % (w["title"]["sysStringId"], w["title"]["fromPageTitle"]))
+    print("open anim     %s, drawn %s" % (w["openAnim"]["texture"],
+                                          w["openAnim"]["drawn"]))
     c = doc["colors"]
     print("colours       text %s, link %s, LEVEL %s"
           % (c["text"], c["link"], c["level"]))

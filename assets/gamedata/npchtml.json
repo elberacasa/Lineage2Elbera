@@ -311,6 +311,16 @@
    "y": 30
   },
   "height": 401,
+  "openAnim": {
+   "drawn": false,
+   "evidence": "NWindow.dll 0x10089ae8 -- NCHtmlViewer's constructor loads L2UI_CH3.npcwnd.npc1_back_alpha01 through NCObject::LoadTexture (0x1003f630, which returns a UTexture* and builds no control) and stores it at this+0x250 (0x10089af4). A byte scan of the whole image for that displacement finds the store and nothing else inside 0x10080000..0x1008b000, and `npc1_back_alpha` occurs in NWindow.dll only -- not in NWindow.u, Interface.u, Interface.xdat, UWindow.u, Window.dll or Engine.u. The 22 frames are a wipe as art; this client never draws them, so a port that animates them would be inventing one.",
+   "texture": "L2UI_CH3.npcwnd.npc1_back_alpha01"
+  },
+  "title": {
+   "evidence": "NWindow.dll 0x1013fe65 and 0x1013ff43 -- both NCNPCHtmlViewer instances get `push 444` into vtable slot 0x164, which is NCWnd::SetWindowTitle(int) at 0x10059b30 (its own assert string sits at 0x102443b0): the body reads the frame control at this+0xc0 -- the (0,0,W,20) title bar -- and forwards the int to NCFrameCtrl::InsertTitle(int) 0x1001af50, which assigns L\"\" to this+0x2d8 and the int to this+0x2e4. So the title is a SysString ID. `fromPageTitle` is false because NO slot-0x164 call site exists anywhere in 0x10080000..0x1008b000, the html viewer's own code -- a page's <title> cannot reach the bar. The id space is confirmed on the other slot-0x164 sites in the same image: 149 'Log In', 598 'Lineage II User Agreement', 472 'Petition - GM', 999 'Lineage 2 Messenger (Alt+Y)', 449 'Choose Server', 857 'Server Selection Information'.",
+   "fromPageTitle": false,
+   "sysStringId": 444
+  },
   "titleBarHeight": 20,
   "width": 310
  }

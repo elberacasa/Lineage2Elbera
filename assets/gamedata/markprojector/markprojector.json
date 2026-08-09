@@ -1,0 +1,82 @@
+{
+  "activation": {
+    "battachmark_true_writes": 0,
+    "battachmark_writes": [
+      {
+        "commented": false,
+        "package": "Engine.u",
+        "value": "false"
+      }
+    ],
+    "class_decl": {
+      "extends": "Projector",
+      "package": "Engine.u"
+    },
+    "declarations": [
+      {
+        "package": "Engine.u",
+        "var": "Mark"
+      }
+    ],
+    "packages_scanned": 21,
+    "spawn_sites": [
+      {
+        "commented": true,
+        "package": "LineageWarrior.u",
+        "text": "//Mark = Spawn(class'MarkProjector',Self,'',Location);"
+      }
+    ],
+    "spawn_sites_active": 0
+  },
+  "class_defaults": {
+    "MarkProjector": {
+      "FrameBufferBlendingOp": 2,
+      "MaterialBlendingOp": 2,
+      "ProjTexture": "Gui021",
+      "bClipBSP": true,
+      "bGradient": true,
+      "bProjectActor": false,
+      "bProjectBSP": false,
+      "bProjectOnAlpha": true,
+      "bProjectOnParallelBSP": true,
+      "bProjectParticles": false,
+      "bProjectStaticMesh": false,
+      "bStatic": false
+    },
+    "Projector": {
+      "FrameBufferBlendingOp": 1,
+      "GradientTexture": "GRADIENT_Fade",
+      "MaxTraceDistance": 1000,
+      "ProjectorRadius": -1.0,
+      "RemoteRole": 0,
+      "Texture": "Proj_Icon",
+      "bCheckChangableLevel": true,
+      "bDirectional": true,
+      "bHidden": true,
+      "bProjectActor": true,
+      "bProjectBSP": true,
+      "bProjectParticles": true,
+      "bProjectStaticMesh": true,
+      "bProjectTerrain": true,
+      "bStatic": true
+    }
+  },
+  "footprint_world_units": null,
+  "instantiated_by_client": false,
+  "source_constants": {
+    "DrawScale": 0.1,
+    "FOV": 1.0,
+    "on_timer": "DetachProjector",
+    "reads_mouse": false,
+    "timer_loop": false,
+    "timer_s": 10.0
+  },
+  "texture": {
+    "format": "RGBA8",
+    "height": 256,
+    "name": "Gui021",
+    "package": "Engine.u",
+    "png": "assets/gamedata/markprojector/gui021.png",
+    "width": 256
+  }
+}

@@ -146,6 +146,7 @@ SUITES=(
 "solo|verify_terrain|editor/world|420|verify_terrain.js"
 "solo|verify_torches|editor/world|360|verify_torches.js"
 "solo|verify_uigeom_wnd|editor/world|300|verify_uigeom_wnd.js"
+"solo|verify_teleport|editor/world|1200|verify_teleport.js|--check"
 "solo|verify_walkfall|editor/world|900|verify_walkfall.js"
 "solo|verify_walksurface|editor/world|900|verify_walksurface.js|--check"
 "solo|verify_water|editor/world|360|verify_water.js"
@@ -221,12 +222,19 @@ SUITES=(
 "live|verify_invchatwnd_live|editor/world|600|verify_invchatwnd_live.js|--check"
 "live|verify_minimap_live|editor/world|600|verify_minimap_live.js"
 "live|verify_multisellwnd_live|editor/world|900|verify_multisellwnd_live.js"
+# The NPC dialog against the REAL page aCis sends for Gatekeeper Clarissa.
+# verify_npcdialog (solo) covers the same module in a bare harness and passed
+# 24/24 through a defect the owner could see in the client, so this one exists
+# to cover the environment and the server's own content. Seeds a stable
+# deviceId and an offline position UPDATE; no walking, ~60 s.
+"live|verify_npcdialog_live|editor/world|300|verify_npcdialog_live.js|--check"
 "live|verify_partywnd_live|editor/world|900|verify_partywnd_live.js"
 "live|verify_questwnd_live|editor/world|600|verify_questwnd_live.js"
 "live|verify_selfmodel_live|editor/world|900|verify_selfmodel_live.js"
 "live|verify_shopwnd_live|editor/world|900|verify_shopwnd_live.js"
 "live|verify_skilldepth_live|editor/world|900|verify_skilldepth_live.js"
 "live|verify_storewnd_live|editor/world|900|verify_storewnd_live.js"
+"live|verify_teleport_live|editor/world|1200|verify_teleport.js|--check|--live"
 "live|verify_tradewnd_live|editor/world|900|verify_tradewnd_live.js"
 "live|verify_warehousewnd_live|editor/world|900|verify_warehousewnd_live.js"
 )

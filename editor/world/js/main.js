@@ -7,6 +7,7 @@ import { Character } from './character.js';
 import { FollowCamera, verticalFovDeg, FOV_H_DEG } from './camera.js';
 import { l2ToThree, threeToL2, l2HeadingToThreeYaw } from './coords.js';
 import { NavGrid } from './geodata.js';
+import { ClickMark } from './markprojector.js';
 import { NetClient, gatewayUrl, deviceId } from './net.js';
 import { EntityManager, pickModelId } from './entities.js';
 import { ChatBox } from './chat.js';
@@ -302,7 +303,12 @@ let selfModelId = null;      // manifest id of the currently loaded self model
 let availableScenes = [];
 let currentTile = null;
 let neighbors = null;   // NeighborTiles, created once availableScenes is known
-let pendingSceneSwitch = null;   // deferred boundary crossing (see main loop)
+// Deferred scene switch, consumed at the top of the next frame.
+// { tile, hintY } — hintY is a three.js Y (metres) the SERVER stated for the
+// character at the destination, or null when the crossing is a walk (there
+// the character's own y is already resolved on ground that abuts the new
+// tile, so it is its own best hint). See placeSelfAtServerPos.
+let pendingSceneSwitch = null;
 let sceneLoading = false;        // loadScene in flight: suppresses detection
 const keys = new Set();
 const clock = new THREE.Clock();
@@ -1378,6 +1384,67 @@ net.on('addDrop', (msg) => {
     gameSound.drop(msg.itemId, l2ToThree(msg.x, msg.y, msg.z, _dropSndPos));
   }
 });
+// Put OUR character at a position the SERVER stated (L2 units). Shared by the
+// three ops that do that — teleport, the ValidateLocation correction, and the
+// >5 m snap on a move order — because they all hit the same defect, which is
+// about ORDER, not about movement:
+//
+//   A Terrain/Geodata query for a point that is NOT on the queried tile does
+//   not fail. Terrain._sampleBilinear clamps fx/fy into [0, gridSize-1] and
+//   Geodata._layersAt clamps cx/cy into [0, cells-1], so both answer
+//   confidently with the tile's EDGE cell.
+//
+//   MEASURED 2026-08-09 in the live client: standing on 17_25 and asking
+//   heightRouter for the Giran plaza point (three.js 820, -1480 = L2 82000,
+//   148000) returns -46.843 m — the same value with the server's own z
+//   (-34.64) passed as the hint and with no hint at all. The right answer, on
+//   22_22, is -34.96 m.
+//
+//   That it really is the EDGE and not some constant was checked separately,
+//   because three different source tiles happened to answer the same -46.843:
+//   on 17_24, points 200 000 units off each side answer west -46.653,
+//   east -46.273, north -46.653, south/north-east -46.843, and the tile's own
+//   raw heightmap corners are nw -4665.35, ne -4684.35, se -4684.35. Each
+//   direction returns the corner it clamps to, to three decimals.
+//
+//   And that wrong height is PERMANENT. Feed -46.843 back into the router on
+//   22_22 and it returns -46.843, 30 iterations running: the walking rule
+//   (MAX_STEP_UP = 48 L2 units, geodata.js) sees every layer as a wall from
+//   1188 units below, heightAt returns z itself, and anchoredHeightAt maps
+//   that back to exactly z. So a single height resolved against the wrong
+//   tile survives the scene switch, survives walking, and only a page reload
+//   clears it — because a reload re-resolves against the SERVER's z on the
+//   CORRECT tile (the enterWorld handler above). That is the owner's report:
+//   "when teleporting it teleports below map to broken textures, i refresh
+//   and its fine in place."
+//
+// So: never ask a tile about a point it does not cover. When nothing loaded
+// covers the point, the server's own z IS the ground statement — it comes
+// from aCis GeoEngine and enterWorld already trusts it — and the scene switch
+// is queued WITH that z, so the re-resolution after the load starts from the
+// server's value instead of from a foreign tile's edge.
+function placeSelfAtServerPos(l2x, l2y, l2z) {
+  const p = l2ToThree(l2x || 0, l2y || 0, l2z || 0);
+  const pos = character.group.position;
+  pos.x = p.x;
+  pos.z = p.z;
+  const tName = tileNameFor(l2x || 0, l2y || 0);
+  // The router can answer for the center tile and for any loaded neighbour
+  // (heightRouter routes through NeighborTiles.entryAt); anything else is a
+  // clamped edge lie.
+  if (tName === currentTile || (neighbors && neighbors.entryAt(p.x, p.z))) {
+    pos.y = heightRouter.heightAtWorld(p.x, p.z, p.y);
+    return;
+  }
+  pos.y = p.y;                       // the server's z, unmodified
+  if (availableScenes.includes(tName)) {
+    // Queue it through the SAME deferred slot the boundary watcher uses, so
+    // there is exactly one place a scene switch starts and no second
+    // loadScene can race one already in flight.
+    pendingSceneSwitch = { tile: tName, hintY: p.y };
+  }
+}
+
 // MoveToLocation — a walk ORDER: a destination (tx,ty,tz) AND the mover's
 // current server position (x,y,z). The two used to arrive as one field pair
 // (destination only), shared with teleports and position corrections; they are
@@ -1396,10 +1463,10 @@ net.on('move', (msg) => {
       ? l2ToThree(msg.x, msg.y, msg.z) : null;
     const d = (here || p).distanceTo(character.group.position);
     if (here && d > 5) {
-      character.group.position.x = here.x;
-      character.group.position.z = here.z;
-      character.group.position.y = heightRouter.heightAtWorld(
-        here.x, here.z, character.group.position.y);
+      // The snap used the character's OWN y as the layer hint while moving it
+      // to the server's point — the server's z is the better statement of
+      // both, and a >5 m snap can cross a tile. See placeSelfAtServerPos.
+      placeSelfAtServerPos(msg.x, msg.y, msg.z);
     }
     if (character.target) character.setTarget(p);
     else if (!here && d > 5) {
@@ -1416,18 +1483,17 @@ net.on('move', (msg) => {
 // character is at the point on the next position sample, 2121 units from where
 // it had been walking.
 net.on('teleport', (msg) => {
-  const p = l2ToThree(msg.x || 0, msg.y || 0, msg.z || 0);
   if (msg.id === selfId && character) {
     moveQueue.length = 0;         // legs in flight are for the old location
     pendingGoal = null;
     wasdLeg = null;
     character.clearTarget();
-    character.group.position.x = p.x;
-    character.group.position.z = p.z;
-    character.group.position.y = heightRouter.heightAtWorld(p.x, p.z, p.y);
-    // The click marker is deliberately left alone: MarkProjector's own Timer()
-    // is what detaches it (10 s), and whether retail clears it on a teleport is
-    // not something this repo can source.
+    // A teleport is the one op that routinely lands on a tile that is not
+    // loaded, so the placement goes through the shared server-position rule.
+    placeSelfAtServerPos(msg.x, msg.y, msg.z);
+    // Nothing to clear here: retail draws no destination marker at all (see
+    // js/markprojector.js), and the ?markprojector=authored reconstruction
+    // retires itself on its own timer.
     return;
   }
   entities.place(msg, heightRouter);
@@ -1439,9 +1505,7 @@ net.on('validate', (msg) => {
   const p = l2ToThree(msg.x || 0, msg.y || 0, msg.z || 0);
   if (msg.id === selfId && character) {
     if (p.distanceTo(character.group.position) > 5) {
-      character.group.position.x = p.x;
-      character.group.position.z = p.z;
-      character.group.position.y = heightRouter.heightAtWorld(p.x, p.z, p.y);
+      placeSelfAtServerPos(msg.x, msg.y, msg.z);
       // The walk target is deliberately KEPT: ValidateLocation states a
       // position and says nothing about movement, and aCis does not stop the
       // character when it sends one. Clearing it would leave the drawn body
@@ -1621,12 +1685,10 @@ window.__world = {
   // the geodata A* (findPath over the loaded tiles; NavGrid for synthetic
   // unit tests, pendingGoal = the click a re-path is still chasing)
   get moveQueue() { return moveQueue; },
-  // retail click marker (Engine.MarkProjector / Engine.Gui021) — verification
-  get clickMark() {
-    return clickMark && clickMark.visible
-      ? { pos: clickMark.position.toArray(), msLeft: Math.max(0, clickMarkUntil - performance.now()) }
-      : null;
-  },
+  // move-destination marker — verification. null on a retail build, because
+  // retail draws none; non-null only under ?markprojector=authored. See
+  // js/markprojector.js.
+  get clickMark() { return clickMark.debug; },
   nav: {
     findPath: (sx, sy, sz, gx, gy, gz) => nav.findPath(sx, sy, sz, gx, gy, gz),
     NavGrid,
@@ -1643,7 +1705,14 @@ function setLoading(msg) { loadingText.textContent = msg; }
 // keepCharPos: boundary crossings re-center the 3x3 window WITHOUT moving
 // the character (the default scene-picker/enterWorld path still spawns at
 // the tile center / dungeon spawn cluster).
-async function loadScene(tile, { keepCharPos = false } = {}) {
+//
+// groundHintY (three.js Y, metres): the z the SERVER stated for the character
+// at this position, used INSTEAD of the character's current y to select the
+// geodata layer once the tile is here. It exists because of the teleport
+// path: there the current y was never resolved against this tile (nothing
+// covering the point was loaded when the op arrived), and re-resolving from
+// it is a fixed point, not a correction — see placeSelfAtServerPos.
+async function loadScene(tile, { keepCharPos = false, groundHintY = null } = {}) {
   setLoading(`loading scene ${tile}…`);
   loadingEl.classList.remove('hidden');
   sceneLoading = true;
@@ -1676,16 +1745,32 @@ async function loadScene(tile, { keepCharPos = false } = {}) {
     worldAudio.load(tile);
     worldLight.load(tile);   // the tile's own sun angle, ambient and fog
 
-    // the 3x3 window of cheap neighbor tiles shifts with the new center
-    // (dungeons have no surface neighborhood — interiors skip it entirely)
-    if (!neighbors) neighbors = new NeighborTiles(scene, availableScenes);
-    if (NEIGHBORS_ENABLED && !t.interior) await neighbors.setCenter(tile, t);
-    else await neighbors.disposeAll();
-
+    // GROUND THE CHARACTER BEFORE THE NEIGHBOUR WINDOW, not after.
+    //
+    // This block used to sit below the `await neighbors.setCenter(...)`, and
+    // that await loads eight more tiles. `currentTile` is already the new tile
+    // by then, so for the whole of it the character stands on a height that
+    // was never resolved against this tile — MEASURED 2026-08-09 on a real
+    // aCis teleport into Giran: the character sat at exactly the server z
+    // (-34.640 m) instead of the anchored drawn surface (-34.960 m), 0.32 m —
+    // one geodata-over-BSP-floor band — high, for as long as the eight Giran
+    // neighbours took to load.
+    //
+    // The character is on the CENTER tile — that is the condition that fires
+    // the crossing (tileNameFor(character) !== currentTile) and, for a
+    // teleport, it is where the server put it. So the height comes from `t`
+    // DIRECTLY, exactly as the spawn branch below already does, and not from
+    // heightRouter: the router consults NeighborTiles first, and up here the
+    // 3x3 window is still centred on the tile we are leaving, so the tile we
+    // just loaded is still IN it. The router would answer a walk-in crossing
+    // from the decimated neighbour mesh instead of the full-quality Terrain
+    // that is now bound. (Running this after setCenter avoided that but cost
+    // the character its footing for the whole neighbour load — see above.
+    // Asking `t` costs neither.)
     if (character) {
       if (keepCharPos) {
         const p = character.group.position;
-        p.y = heightRouter.heightAtWorld(p.x, p.z, p.y);
+        p.y = t.heightAtWorld(p.x, p.z, groundHintY == null ? p.y : groundHintY);
       } else {
         let c;
         if (t.interior && t.spawnL2) {
@@ -1710,6 +1795,14 @@ async function loadScene(tile, { keepCharPos = false } = {}) {
       // the route on the new tile's geodata
       if (!keepCharPos) pendingGoal = null;
     }
+
+    // the 3x3 window of cheap neighbor tiles shifts with the new center
+    // (dungeons have no surface neighborhood — interiors skip it entirely).
+    // Deliberately AFTER the character is grounded — see the note above.
+    if (!neighbors) neighbors = new NeighborTiles(scene, availableScenes);
+    if (NEIGHBORS_ENABLED && !t.interior) await neighbors.setCenter(tile, t);
+    else await neighbors.disposeAll();
+
     sun.position.copy(worldLight.direction).multiplyScalar(-150).add(character ? character.group.position : t.center());
     setStatus(`scene: ${tile} (${def.gridSize}x${def.gridSize})`);
     loadingEl.classList.add('hidden');
@@ -2002,68 +2095,16 @@ function wasdDir() {
 const MOVE_LEG_M = 20;          // 2000 L2 units per leg
 const moveQueue = [];           // pending legs (THREE.Vector3)
 
-// --- the retail click marker (Engine.MarkProjector) --------------------------
+// --- the move-destination marker (there isn't one) ---------------------------
 //
-// SOURCED, not authored. The decal retail drops where you clicked is not in
-// skillvfx / lineageeffect / skillfx — it is `Engine.MarkProjector`, a native
-// Projector subclass in assets/interlude/system/Engine.u. Its class source and
-// its class defaults are transcribed in tools/dat/export_markprojector.py,
-// which is also what writes assets/gamedata/markprojector/gui021.png. The
-// parts that decide what we draw:
-//
-//   ProjTexture            Engine.Gui021 (#exec Texture Import gui021.tga,
-//                          256x256 RGBA8, MASKED, CLAMP both axes)
-//   MaterialBlendingOp     2 = PB_AlphaBlend
-//   FrameBufferBlendingOp  2 = PB_AlphaBlend      -> ordinary alpha, NOT additive
-//   bProjectTerrain        True   (inherited)
-//   bProjectBSP/StaticMesh/Particles/Actor  False -> terrain only
-//   UpdateMarkProjector()  SetLocation(DesireLocation)  -> the clicked point
-//                          SetDrawScale(0.10); FOV = 1
-//                          SetTimer(10, false)
-//   Timer()                DetachProjector(true)        -> it lives 10 s
-//
-// AUTHORED, and only this: the on-ground DIAMETER. UE2 builds the projector
-// frustum from FOV / MaxTraceDistance (1000) / DrawScale (0.10) inside
-// UnProjector.cpp, which is native and not in this repository, so the footprint
-// those three produce cannot be computed here. 0.80 m is a placeholder chosen
-// to read at the retail camera distance; replace it the moment the frustum
-// formula is recovered. Everything else above is the client's own data.
-const MARK_LIFETIME_S = 10;     // SetTimer(10, false)
-const MARK_DIAMETER_M = 0.55;   // AUTHORED — see above (~one character height)
-const MARK_LIFT_M = 0.02;       // AUTHORED — z-fight guard; a real projector needs none
-let clickMark = null;
-let clickMarkUntil = 0;
-
-function showClickMark(p) {
-  if (!clickMark) {
-    const tex = new THREE.TextureLoader().load('/gamedata/markprojector/gui021.png');
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;   // UCLAMPMODE/VCLAMPMODE
-    clickMark = new THREE.Mesh(
-      new THREE.PlaneGeometry(MARK_DIAMETER_M, MARK_DIAMETER_M),
-      new THREE.MeshBasicMaterial({
-        map: tex,
-        transparent: true,          // PB_AlphaBlend, both ops
-        depthWrite: false,
-        depthTest: true,
-        side: THREE.DoubleSide,
-        toneMapped: false,
-      }));
-    clickMark.rotation.x = -Math.PI / 2;   // flat on the ground
-    clickMark.renderOrder = 2;
-    clickMark.frustumCulled = false;
-    scene.add(clickMark);
-  }
-  clickMark.position.set(p.x, heightRouter.heightAtWorld(p.x, p.z, p.y) + MARK_LIFT_M, p.z);
-  clickMark.visible = true;
-  clickMarkUntil = performance.now() + MARK_LIFETIME_S * 1000;
-}
-
-function updateClickMark() {
-  if (clickMark && clickMark.visible && performance.now() >= clickMarkUntil) {
-    clickMark.visible = false;    // Timer() -> DetachProjector(true)
-  }
-}
+// This used to build a Gui021 decal at every click out of Engine.MarkProjector's
+// class defaults. The values were decoded correctly; the premise in front of
+// them — that MarkProjector is what retail spawns where you clicked — was never
+// checked, and is false. The client never instantiates the class: its one
+// Spawn() is commented out, bAttachMark is never set true, and no map places
+// one. The evidence, and the escape hatch that still draws the old decal under
+// ?markprojector=authored, live in js/markprojector.js.
+const clickMark = new ClickMark(scene);
 
 const nav = new NavGrid((x, y) => {   // world L2 coords -> loaded Geodata
   const t = tileNameFor(x, y);
@@ -2080,10 +2121,11 @@ const REPATH_MAX_STALLS = 3;  // give up after this many re-paths without progre
 const REPATH_MIN_MS = 400;
 
 function walkToServer(dest, { pathfinding = true } = {}) {
-  // MarkProjector marks the point the PLAYER asked for (DesireLocation), so
-  // it belongs on the click, not on each of the legs the click is cut into.
-  // Streamed WASD legs (pathfinding:false) are not clicks and get no mark.
-  if (pathfinding) showClickMark(dest);
+  // A no-op on a retail build. Kept as a call so the point the PLAYER asked
+  // for still reaches the marker under ?markprojector=authored — on the click,
+  // not on each of the legs the click is cut into. Streamed WASD legs
+  // (pathfinding:false) are not clicks and get no mark.
+  if (pathfinding) clickMark.show(dest, (x, z, y) => heightRouter.heightAtWorld(x, z, y));
   moveQueue.length = 0;         // a new order supersedes legs in flight
   pendingGoal = pathfinding ? dest.clone() : null;
   repathDist = Infinity;
@@ -2242,10 +2284,10 @@ renderer.setAnimationLoop(() => {
   // deferred boundary crossing (set at the bottom of the previous frame —
   // loadScene nulls `terrain` synchronously, so it must not run mid-block)
   if (pendingSceneSwitch && !sceneLoading) {
-    const t = pendingSceneSwitch;
+    const { tile: t, hintY } = pendingSceneSwitch;
     pendingSceneSwitch = null;
     scenePicker.value = t;
-    loadScene(t, { keepCharPos: true });
+    loadScene(t, { keepCharPos: true, groundHintY: hintY });
   }
   if (character && terrain) {
     // WASD: online it streams real moveTo legs (server-authoritative);
@@ -2274,13 +2316,26 @@ renderer.setAnimationLoop(() => {
       const l2 = threeToL2(p);
       const tName = tileNameFor(l2.x, l2.y);
       if (tName !== currentTile && availableScenes.includes(tName)) {
-        pendingSceneSwitch = tName;
+        // A WALK across the border: the character's own y was resolved on
+        // ground that abuts the new tile, so it is its own best layer hint
+        // and there is no server statement to prefer. hintY stays null.
+        //
+        // But do NOT clobber a hint that a server-position op already queued
+        // for this same tile. placeSelfAtServerPos runs between frames, so a
+        // teleport can queue {tile, serverZ} and this line then runs in the
+        // same frame; its hint is the server's own z and is strictly better
+        // than "whatever y we happen to hold". (Today the two agree, because
+        // that op also parks pos.y on the server z — this keeps them equal by
+        // construction instead of by coincidence.)
+        if (!pendingSceneSwitch || pendingSceneSwitch.tile !== tName) {
+          pendingSceneSwitch = { tile: tName, hintY: null };
+        }
       } else if (neighbors) {
         neighbors.preloadNear(p.x, p.z);   // lazy geodata on approach
       }
     }
     combat.update(entityHeadPos);
-    updateClickMark();
+    clickMark.update();
     skillFx.update();
     // zone music + ambient emitters follow the character's body, not the
     // camera: standing inside a town's MusicVolume is what starts its theme

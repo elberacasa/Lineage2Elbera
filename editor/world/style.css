@@ -320,12 +320,33 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 /* One word off the retail glyph sheet, and the sheet's own space advance. */
 .l2h-w { display: inline-block; vertical-align: top; }
 .l2h-w canvas { display: block; }
+/* An inter-word space is a real space CHARACTER (js/ui/npcdialog.js
+   _pushSpace) so the browser breaks at it, hangs it at the end of a line and
+   drops it at the start of the next — an inline-block spacer is an atomic box
+   and wraps like a word, which was the one-space indent on every wrapped line.
+   `.l2h-sp` survives only for the SURPLUS of a 2+ space run: the browser
+   collapses those and no client rule for them has been decoded, so the width
+   this port already drew is kept as an explicit box. */
 .l2h-sp { display: inline-block; vertical-align: top; }
 .npc-link { cursor: pointer; }
 /* Retail links are drawn with an underline argument in the same call as the
    text (NWindow.dll 0x100856af pushes 1 where the plain-text branch pushes 0
-   at 0x100856de). The rule is on the WORD so it tracks the glyph box. */
-.npc-link canvas, span.l2h-sp.npc-link { border-bottom: 1px solid currentColor; }
+   at 0x100856de). The rule is on the WORD SPAN rather than on the canvas
+   inside it, so that the bridge below has a box to anchor to; the span's only
+   content is that canvas, so it lands on the same pixel row it did before. */
+span.l2h-w.npc-link, span.l2h-sp.npc-link { border-bottom: 1px solid currentColor; }
+/* …and it does not stop at the spaces. The separator between two words of one
+   anchor is a space CHARACTER with no box of its own, so the segment of rule
+   that belongs to it is painted here, out of the flow: `data-sp` is set by
+   _pushSpace on the word to the left of such a space, `left:100%` puts the
+   segment in the gap, and `top:100%` is the bottom of the content box — the
+   same row the border-bottom above occupies. It takes part in no layout, so
+   the space stays a space. */
+span.l2h-w.npc-link { position: relative; }
+span.l2h-w.npc-link[data-sp]::after {
+  content: ''; position: absolute; left: 100%; top: 100%;
+  width: var(--l2h-space, 0px); height: 1px; background: currentColor;
+}
 /* The underline's colour is NOT the run's text colour. The link branch pushes
    the same 0xff6699ff twice — once as the per-run text colour (used only when
    the anchor carries none of its own) and once unconditionally as the draw's
