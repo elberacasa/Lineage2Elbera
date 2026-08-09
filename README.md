@@ -59,7 +59,9 @@ harnesses (headless Chrome driving the real UI).
 | **2,083** | system messages decoded — the client shows the game's own text, not ids |
 | **16** | retail UI windows rebuilt at client-exact, mined geometry — zero unjustified pixels (an audit gates the build) |
 | **100 / 100** | tiles with the server's own geodata extracted — bridges, indoor floors and real walkable heights |
-| **107** | verification suites in the repo — 80 client + 27 live-gateway. `tools/battery.sh` runs them one command at a time; wiring the full set into it is open work, so the battery is a subset, not the total |
+| **112 / 115** | verification suites passing in the one-command battery (`tools/battery.sh`) — mock 39/39, solo 26/29, gateway 29/29, live 18/18. Every suite is timeout-bounded, so a hang reports as a failure instead of stalling the run. The three open failures each carry a written verdict, not a shrug |
+| **41,057 / 60,125** | BSP surfaces carrying their retail **baked lightmaps** (68.3%), decoded to the byte on 99 of 100 tiles — 45,006 records, 907 atlas pages. The rest are `PF_UNLIT`, which retail draws fullbright |
+| **148,671,974** | geodata cells that were answering the *wrong* height before the cell-index transpose was fixed — 35.4% of the world, 74% of all non-flat cells |
 | **21,589 / 21,589** | world textures at 4x HD — the full pass is complete (`tools/upscale/batch_world.sh` re-runs it idempotently) |
 | **157 / 653** | retail `.unr` maps / UE2 packages readable by the toolchain |
 | **65** | database tables in the running game server |
@@ -165,6 +167,7 @@ touch: a browser, a protocol gateway, and the real game server.
  │ ElberaLib      format library       │
  │ ElberaWorld    .unr → scenes        │──► assets/world/<tile>/scene.json
  │ ElberaBsp      BSP → buildings      │──►   + bsp.gltf     the architecture
+ │ ElberaLightmap baked BSP lighting   │──►   + lightmaps    99 tiles, 907 pages
  │ ElberaLight    sun · fog · ambient  │──►   + light.json   the tile's own sun
  │ ElberaSound    .uax → Opus          │──► assets/audio     250 music, 5,128 sfx
  │ ElberaSteps    footstep banks       │──►   + steps.json   12,015 actors, 4 surfaces
@@ -311,6 +314,7 @@ its own verification. Pitch first, details after.
 | **ElberaFx** | Skill particles + effect meshes from the retail tables | `tools/dat/build_skillvfx.py`, `build_skillmesh.py` |
 | **ElberaSteps** | Retail footstep banks, per surface and per prop | `tools/audio/build_steps.py` |
 | **ElberaAudit** | Every literal in the codebase, sourced or flagged | `tools/audit/unsourced.py` |
+| **ElberaLightmap** | Retail's baked BSP lighting, decoded | `tools/world/bsplight.py` |
 | **ElberaAnim** | Mesh→animation bindings, checked against the retail sets | `tools/anim/audit_bindings.py` |
 
 Support gear: `tools/battery.sh` — the one-command verification battery
@@ -623,7 +627,8 @@ ours.
   `heart_of_warding` (2 spawned instances) is textured with a `TexEnvMap` over
   a cubemap with no diffuse bitmap; 165 instances have an empty `mesh_name` in
   `npcgrp`. Painting them with anything else would invent their appearance.
-- **2,225 literals in the codebase are still unsourced.** A repo-wide audit
+- **1,866 literals in the codebase are still unsourced** (down from 2,228; the
+  UI and audio lanes are at zero). A repo-wide audit
   (`tools/audit/unsourced.py --check`) classifies all 8,192 numeric and colour
   literals as sourced / authored / unsourced / benign, with a baseline that
   fails on regression. 751 of the unsourced are in the client, and the ranked
