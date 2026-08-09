@@ -132,6 +132,13 @@ SUITES=(
 "solo|verify_walkfall|editor/world|900|verify_walkfall.js"
 "solo|verify_walksurface|editor/world|900|verify_walksurface.js|--check"
 "solo|verify_water|editor/world|360|verify_water.js"
+# Landed 2026-08-09 by a concurrent agent, mid-battery, so it was NOT in the
+# sweep this table's results came from. Browser suite, dev server only (no
+# mock, no gateway) -> solo. It exits nonzero on its own; no --check needed.
+# TIMEOUT IS PROVISIONAL: not measured by the author of this row. It renders
+# 3 tiles twice each (?lm=off vs on); verify_bsp does one pass in 129 s, so
+# 900 is a ceiling to be tightened once a real runtime is recorded.
+"solo|verify_bsplight|editor/world|900|verify_bsplight.js"
 # Landed 2026-08-08 by a concurrent agent; --check is REQUIRED (see above).
 "solo|verify_sky|editor/world|300|verify_sky.js|--check"
 
@@ -291,6 +298,69 @@ wait_port() { # port timeout_s
   return 1
 }
 
+spawn_mock() { # port(optional) logfile
+  local port="$1" log="$2"
+  bash -c "cd '$ROOT/editor/world' && exec node mock_gateway.js $port > '$log' 2>&1" &
+  disown 2>/dev/null
+}
+
+# THE MOCKS CAN DIE UNDER A RUNNING BATTERY, and until 2026-08-08 nothing
+# noticed. Check before every mock-section suite, restart what is genuinely
+# gone, and say so LOUDLY so the row below the message is read as suspect
+# rather than as evidence.
+#
+# BUT A SINGLE FAILED `nc -z` IS NOT PROOF A MOCK DIED. Measured 2026-08-09,
+# mid-battery: this function announced "the mock on :8085 DIED mid-run" and
+# respawned it — and the respawn exited 98 with "port 8085 is already in use",
+# which PROVES the original was listening the whole time. `ps` confirmed it:
+# all three mock PIDs still carried the battery's own start time and had never
+# been restarted, and the suite that ran under the warning (verify_shortcutwnd)
+# passed. So the probe was at fault, not the mock.
+#
+# That matters twice over: a false "the mock died" banner tells the operator to
+# distrust a row that was fine — the same damage as a wrong result — and the
+# 2026-08-08 note above it (that "something outside this script" killed the
+# 8086/8087 mocks) was most likely this same misfire, since no process was ever
+# shown to have exited.
+#
+# So: retry the probe before believing it, and check for the PROCESS before
+# restarting anything. A live process with a slow accept gets a quiet,
+# non-alarming note instead of the banner.
+mock_proc_alive() { # port — matches the exact command spawn_mock used
+  if [ "$1" = 8085 ]; then pgrep -f 'mock_gateway\.js$' >/dev/null 2>&1
+  else                     pgrep -f "mock_gateway\.js $1\$" >/dev/null 2>&1; fi
+}
+mock_port_answers() { # port — 3 tries; one refused connect is not death
+  local port="$1" i
+  for i in 1 2 3; do
+    nc -z 127.0.0.1 "$port" 2>/dev/null && return 0
+    sleep 0.3
+  done
+  return 1
+}
+check_mocks() {
+  local port restarted=0
+  for port in 8085 8086 8087; do
+    mock_port_answers "$port" && continue
+    if mock_proc_alive "$port"; then
+      echo "battery: note — the mock on :$port did not answer 3 probes but its" >&2
+      echo "battery: process is alive; NOT restarting (a restart would only" >&2
+      echo "battery: collide and exit 98). Read this as a slow accept, not a" >&2
+      echo "battery: dead mock, and not as a reason to doubt the row below." >&2
+      continue
+    fi
+    echo "battery: !! the mock on :$port is GONE — no listener AND no process." >&2
+    echo "battery: !! Restarting it. The suite that ran immediately before this" >&2
+    echo "battery: !! line may have failed for that reason and not for its own." >&2
+    if [ "$port" = 8085 ]; then spawn_mock ""     "$LOGDIR/mock_8085.restart.log"
+    else                        spawn_mock "$port" "$LOGDIR/mock_$port.restart.log"; fi
+    restarted=1
+  done
+  disown -a 2>/dev/null
+  [ "$restarted" -eq 1 ] && { wait_port 8085 || true; wait_port 8086 || true; wait_port 8087 || true; }
+  return 0
+}
+
 # ---------------------------------------------------------------------------
 # --list / --selftest
 # ---------------------------------------------------------------------------
@@ -386,6 +456,34 @@ EOF
     && { echo "  FAIL: the collided mock still announced itself as listening"; bad=1; } \
     || echo "  ok: no false 'listening' banner"
 
+  echo "selftest 4: a LIVE mock must never be reported as dead"
+  # Guards the 2026-08-09 false alarm: check_mocks announced "the mock on
+  # :8085 DIED", respawned it, and the respawn exited 98 because the original
+  # was listening all along. FAILS on the pre-fix tree only if the probe
+  # misfires, which is racy to force -- so this asserts the invariant that
+  # makes the misfire harmless: a mock whose PROCESS is alive is never
+  # restarted, and mock_proc_alive must actually see it.
+  pkill -9 -f mock_gateway.js 2>/dev/null; sleep 0.5
+  spawn_mock ""   "$LOGDIR/_st4_8085.log"
+  spawn_mock 8086 "$LOGDIR/_st4_8086.log"
+  spawn_mock 8087 "$LOGDIR/_st4_8087.log"
+  disown -a 2>/dev/null
+  wait_port 8085 10 && wait_port 8086 10 && wait_port 8087 10 || {
+    echo "  FAIL: could not bring the three mocks up"; bad=1; }
+  for port in 8085 8086 8087; do
+    mock_proc_alive "$port" \
+      && echo "  ok: mock_proc_alive sees the :$port process" \
+      || { echo "  FAIL: mock_proc_alive missed the live :$port process — a" \
+                "slow probe would now trigger a bogus restart"; bad=1; }
+  done
+  st4=$(check_mocks 2>&1)
+  if printf '%s' "$st4" | grep -q 'GONE\|DIED'; then
+    echo "  FAIL: check_mocks called a live mock dead:"; printf '    %s\n' "$st4"; bad=1
+  else
+    echo "  ok: check_mocks left three healthy mocks alone (no restart, no banner)"
+  fi
+  pkill -9 -f mock_gateway.js 2>/dev/null
+
   echo "selftest 3: the suite table covers everything on disk"
   "$0" --list >"$LOGDIR/_list.log" 2>&1 \
     && echo "  ok: no unclassified suites" \
@@ -418,11 +516,6 @@ selected() { # name
   case " $ONLY " in *" $1 "*) return 0 ;; *) return 1 ;; esac
 }
 
-spawn_mock() { # port(optional) logfile
-  local port="$1" log="$2"
-  bash -c "cd '$ROOT/editor/world' && exec node mock_gateway.js $port > '$log' 2>&1" &
-  disown 2>/dev/null
-}
 
 MOCKS_UP=0
 start_mocks() {
@@ -456,29 +549,6 @@ stop_mocks() {
   MOCKS_UP=0
 }
 
-# THE MOCKS CAN DIE UNDER A RUNNING BATTERY, and until 2026-08-08 nothing
-# noticed. Measured that day: the 8086 and 8087 mocks were killed by something
-# outside this script partway through the mock section, and the three suites
-# that need them — verify_charcreate, verify_charsel, verify_selfmodel — went
-# from PASS to FAIL with a 20 s wait timeout that looked exactly like a product
-# regression. All three passed standalone minutes later. Check before every
-# mock-section suite, restart what is missing, and say so LOUDLY so the row
-# below the message is read as suspect rather than as evidence.
-check_mocks() {
-  local port restarted=0
-  for port in 8085 8086 8087; do
-    nc -z 127.0.0.1 "$port" 2>/dev/null && continue
-    echo "battery: !! the mock on :$port DIED mid-run — restarting it. The suite" >&2
-    echo "battery: !! that ran immediately before this line may have failed for" >&2
-    echo "battery: !! that reason and not for its own." >&2
-    if [ "$port" = 8085 ]; then spawn_mock ""     "$LOGDIR/mock_8085.restart.log"
-    else                        spawn_mock "$port" "$LOGDIR/mock_$port.restart.log"; fi
-    restarted=1
-  done
-  disown -a 2>/dev/null
-  [ "$restarted" -eq 1 ] && { wait_port 8085 || true; wait_port 8086 || true; wait_port 8087 || true; }
-  return 0
-}
 
 # Preflight: name what is missing instead of letting 29 gateway suites all fail
 # with the same unreadable ECONNREFUSED.
