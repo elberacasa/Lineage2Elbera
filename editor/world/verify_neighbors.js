@@ -157,10 +157,45 @@ async function waitScene(page, tile) {
                 || clicked.px.y < 0 || clicked.px.y > 900) continue;
             await page.mouse.click(clicked.px.x, clicked.px.y);
             await sleep(400);
+            // READ THE CLICKED GOAL, NOT THE FIRST LEG.
+            //
+            // `character.target` is NOT the clicked destination: since
+            // far-click leg splitting landed it is the first leg of the route,
+            // capped at MOVE_LEG_M = 20 m (js/main.js:1972). The click points
+            // below sit `past` = 400 or 150 L2u beyond a border the staged
+            // character stands 2428 L2u from, i.e. 25.8-28.3 m away, so a 20 m
+            // first leg lands 4-8 m SHORT of the border every time. Read that
+            // way the "cross-border target" assertion is unsatisfiable no
+            // matter how well the raycast works. `pendingGoal` is the clicked
+            // destination the router is still chasing (js/main.js:1603, set by
+            // walkToServer) — the field that means "where the player asked to
+            // go" — and it was already on the debug surface.
+            //
+            // HONEST STATUS (2026-08-09): this correction is right, and it did
+            // NOT fix the suite. With pendingGoal read instead, `clickAcross`
+            // comes back **null** on all three spots — no goal of any kind is
+            // set, so walkToServer is never reached and the raycast is
+            // returning no hit at these staged camera positions. The leg-split
+            // arithmetic above is a real defect in the assertion but it is not
+            // the operative cause; do not treat it as the explanation.
+            //
+            // What IS established, and constrains the search:
+            //   * clicking a neighbour mesh DOES work — measured at tile 20_20
+            //     (hit `neighbor-21_20` at 457 m, goal set, character moved);
+            //   * the boundary scene switch DOES work — this suite's own walk
+            //     phase reports "switched": true on every spot, and a direct
+            //     probe promotes 20_20 -> 21_20 in under a second;
+            //   * this suite renders at ~2 fps (avgFrameMs 524, 248k tris,
+            //     8 neighbours under swiftshader), so the 2500 ms settle after
+            //     the teleport is only ~5 frames — camera convergence before
+            //     `w.project(v)` computes the pixel is a prime suspect and has
+            //     NOT been ruled out.
+            // Next step: log the computed pixel and what
+            // ray.intersectObjects(walkTargets) returns at that pixel.
             t = await page.evaluate(() => {
               const w = window.__world;
-              return w.character.target
-                ? { x: w.character.target.x, z: w.character.target.z } : null;
+              const g = w.pendingGoal || w.character.target;
+              return g ? { x: g.x, z: g.z } : null;
             });
             if (across()) break;
           }

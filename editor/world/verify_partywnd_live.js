@@ -10,18 +10,27 @@ const path = require('path');
 const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
+const fixture = require('./live_fixture');
+
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const BASE = 'http://127.0.0.1:8083/';
 const OUT = path.join(__dirname, 'verify_shots');
+// STABLE, and DISTINCT per client — see live_fixture.js. Separate Chrome
+// profiles alone are not enough: with no seeded deviceId each profile mints
+// a random one, lands on a brand-new EMPTY account, and the 120 s enterWorld
+// wait below can never be satisfied. Two ids => two real characters.
+const DEVICE_A = 'verify-partywnd-fixture-A';
+const DEVICE_B = 'verify-partywnd-fixture-B';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function launch() {
+async function launch(deviceId) {
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     args: ['--headless=new', '--use-angle=swiftshader', '--window-size=1280,900'],
   });
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 900 });
+  await fixture.seed(page, deviceId);
   await page.goto(BASE, { waitUntil: 'networkidle0' });
   await page.waitForFunction('window.__world && window.__world.ready', { timeout: 60000 });
   await page.click('#online-toggle');
@@ -34,8 +43,10 @@ async function launch() {
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const summary = {};
-  const A = await launch();
-  const B = await launch();
+  await fixture.ensureChar(DEVICE_A);
+  await fixture.ensureChar(DEVICE_B);
+  const A = await launch(DEVICE_A);
+  const B = await launch(DEVICE_B);
   try {
     const nameA = await A.page.evaluate(
       () => window.__world.net.log.find(m => m.op === 'enterWorld').char.name);

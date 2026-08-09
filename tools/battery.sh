@@ -100,6 +100,14 @@ SUITES=(
 "mock|verify_emotes|editor/world|300|verify_emotes.js|--check"
 
 # --- client, no gateway ----------------------------------------------------
+# Static gate, no browser and no server: audits every `live` row in THIS file
+# for a stable login identity. Nine live suites had none on 2026-08-09 — each
+# headless run minted a random deviceId, landed on a brand-new EMPTY account
+# (auth_ok{chars:[]}), opened character creation and then blew a 120 s wait
+# for an enterWorld that could never arrive. Twelve red rows, nine of them
+# this one harness defect. Keep this row FIRST in `solo`: it is 0.1 s and it
+# tells you the live section is worth running at all.
+"solo|verify_livefixture|editor/world|60|live_fixture.js|--check"
 # Pure-node data audits: no browser, no server. --check is REQUIRED on these
 # three — without it they print a report and exit 0 no matter what they found.
 "solo|verify_text|editor/world|120|verify_text.js|--check"

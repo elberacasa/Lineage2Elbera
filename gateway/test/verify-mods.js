@@ -7,6 +7,7 @@
 
 const WebSocket = require('ws');
 const fs = require('fs');
+const { execFileSync } = require('child_process');
 const { login } = require('../src/loginclient.js');
 const { GameSession } = require('../src/gameclient.js');
 const { deriveCredentials } = require('../src/bridge.js');
@@ -25,14 +26,50 @@ const waitFor = (fn, timeout, label) => new Promise((resolve, reject) => {
   }, 250);
 });
 
+// ---------------------------------------------------------------- gateway log
+//
+// `fs.statSync('gateway.log')` was a standing landmine (found 2026-08-09).
+// That file only exists if whoever started the gateway redirected stdout to
+// it; the gateway running when this was found had its stdout pointed at a
+// scratchpad file, so ./gateway.log was FOUR HOURS STALE. Two consequences,
+// and the second is worse than the first:
+//   1. the .menu check read `false` and called a WORKING feature broken
+//      (the real log showed the 1457-char "Menu del jugador" window arriving
+//      during the very run that reported the failure);
+//   2. the governor check read an EMPTY slice, found zero "login attempt N
+//      failed" lines in it, and reported VERIFIED. A vacuous pass — it would
+//      have said VERIFIED just as loudly with the gateway on fire.
+//
+// .menu no longer needs the log at all (it asserts on the `npcHtml` op).
+// The governor check genuinely does, so resolve the log the running gateway
+// is ACTUALLY writing to by asking the OS, and if that cannot be determined,
+// say SKIPPED instead of manufacturing a pass.
+function resolveGatewayLog() {
+  if (process.env.GATEWAY_LOG) return process.env.GATEWAY_LOG;
+  try {
+    const port = (process.env.GATEWAY_URL || 'ws://127.0.0.1:8090').split(':').pop();
+    const pid = execFileSync('lsof', ['-t', '-nP', `-iTCP:${port}`, '-sTCP:LISTEN'],
+      { encoding: 'utf8' }).trim().split('\n')[0];
+    if (!pid) return null;
+    // fd 1 is stdout; `lsof -p <pid>` prints its target path for a regular file
+    const line = execFileSync('lsof', ['-p', pid], { encoding: 'utf8' })
+      .split('\n').find((l) => /\s1w\s+REG\s/.test(l));
+    if (!line) return null;
+    const m = line.match(/(\/\S.*)$/);
+    return m ? m[1] : null;
+  } catch (_) { return null; }
+}
+
 // ---------------------------------------------------------------- Part A
 
 async function partA() {
   console.log('===== PART A: .menu / .autoloot / .expon / .expoff (WS bridge) =====');
-  const logSizeBefore = fs.statSync('gateway.log').size;
+  const GW_LOG = resolveGatewayLog();
+  const logSizeBefore = (GW_LOG && fs.existsSync(GW_LOG)) ? fs.statSync(GW_LOG).size : null;
+  console.log(`   (gateway stdout log: ${GW_LOG || 'NOT RESOLVED'})`);
   const R = {
     me: null, exp: 0, npcs: [], drops: [], invAdds: [], diedIds: new Set(),
-    sysTexts: [], moves: new Map(), removedIds: new Set(), attacks: [],
+    sysTexts: [], moves: new Map(), removedIds: new Set(), attacks: [], htmls: [],
   };
   const ws = new WebSocket(url);
   ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
@@ -51,6 +88,8 @@ async function partA() {
       case 'remove': R.removedIds.add(m.id); break;
       case 'move': if (m.id) R.moves.set(m.id, { x: m.tx, y: m.ty, z: m.tz }); break;
       case 'sysMsg': if (typeof m.params[0] === 'string') R.sysTexts.push(m.params[0]); break;
+      // NpcHtmlMessage forwarded by bridge.js:1366 — the .menu evidence.
+      case 'npcHtml': R.htmls.push(m); break;
     }
   });
   const send = (o) => ws.send(JSON.stringify(o));
@@ -114,15 +153,21 @@ async function partA() {
   };
 
   // --- 1. .menu ---
+  // Asserted on the CONTRACT (bridge.js:1366 sends `npcHtml` before it logs),
+  // not on a log file whose path depends on how the operator started the
+  // gateway. Same evidence, one fewer way to be wrong.
   console.log('1. .menu');
+  const htmlsBefore = R.htmls.length;
   send({ op: 'say', channel: 0, text: '.menu' });
   await sleep(2500);
-  const newLog = fs.readFileSync('gateway.log').subarray(logSizeBefore).toString();
-  const menuHtml = newLog.includes('html window');
+  const menuWindows = R.htmls.slice(htmlsBefore);
+  const menuHtml = menuWindows.length > 0;
+  const menuBody = menuWindows.map((h) => h.html).join('\n');
   const menuListsCmds = ['.menu', '.autoloot', '.expon', '.expoff', '.offline']
-    .filter((c) => newLog.includes(c));
+    .filter((c) => menuBody.includes(c));
   VERDICT.menu = menuHtml && menuListsCmds.length >= 4;
-  console.log(`   html window arrived: ${menuHtml}; commands listed: ${menuListsCmds.join(' ')}`);
+  console.log(`   html window arrived: ${menuHtml} (${menuBody.length} chars);`
+    + ` commands listed: ${menuListsCmds.join(' ')}`);
 
   // --- 2. .autoloot (default ON -> toggle OFF -> toggle ON) ---
   console.log('2. .autoloot');
@@ -179,9 +224,18 @@ async function partA() {
   VERDICT.exp = expBlockedOk && expAllowedOk;
 
   // --- governor honored? ---
-  const fails = (newLog.match(/login attempt \d+ failed/g) || []).length;
-  VERDICT.governor = fails === 0;
-  console.log(`5. governor: login retry-failures during run = ${fails}`);
+  // This one really does need the gateway's stdout. If it could not be
+  // resolved, say so — do NOT score an empty string as zero failures.
+  if (logSizeBefore === null) {
+    VERDICT.governor = 'SKIPPED';
+    console.log('5. governor: SKIPPED — could not resolve the running gateway\'s'
+      + ' stdout log (set GATEWAY_LOG=<path> to enable this check)');
+  } else {
+    const newLog = fs.readFileSync(GW_LOG).subarray(logSizeBefore).toString();
+    const fails = (newLog.match(/login attempt \d+ failed/g) || []).length;
+    VERDICT.governor = fails === 0;
+    console.log(`5. governor: login retry-failures during run = ${fails}`);
+  }
 
   ws.close();
   console.log('PART A verdicts:', JSON.stringify(VERDICT));
@@ -369,9 +423,17 @@ async function partB() {
   console.log('  .offline store + disconnect:        ', VERDICT.offlineStore ? 'VERIFIED' : 'FAIL');
   console.log('  offline trader visible to observer: ', VERDICT.offlineVisible ? 'VERIFIED' : 'FAIL');
   console.log('  offline restore on re-login:        ', VERDICT.offlineRestore ? 'VERIFIED' : 'FAIL');
-  console.log('  governor honored (no ban):          ', VERDICT.governor ? 'VERIFIED' : 'FAIL');
+  // SKIPPED is not FAIL and is not VERIFIED: the log the check needs could
+  // not be located, so it produced no evidence either way. Printing it as
+  // VERIFIED (what an empty-string scrape used to do) is the one option that
+  // is actually dishonest.
+  console.log('  governor honored (no ban):          ',
+    VERDICT.governor === 'SKIPPED' ? 'SKIPPED (no gateway log)'
+      : VERDICT.governor ? 'VERIFIED' : 'FAIL');
+  const governorOk = VERDICT.governor === 'SKIPPED' || VERDICT.governor === true;
   const pass = VERDICT.menu && VERDICT.autoloot && VERDICT.exp &&
-    VERDICT.offlineNoStore && VERDICT.offlineStore && VERDICT.offlineVisible && VERDICT.offlineRestore && VERDICT.governor;
+    VERDICT.offlineNoStore && VERDICT.offlineStore && VERDICT.offlineVisible
+    && VERDICT.offlineRestore && governorOk;
   console.log(pass ? 'VERIFY-MODS: PASS' : 'VERIFY-MODS: FAIL');
   process.exit(pass ? 0 : 1);
 })();

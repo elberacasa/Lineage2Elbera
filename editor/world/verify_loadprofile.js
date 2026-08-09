@@ -126,6 +126,7 @@ const JSON_ONLY = has('--json');
 const ATTRIBUTE = has('--attribute');
 const AB = has('--ab');
 const SWIFT = has('--swiftshader');
+const SELFTEST = has('--selftest');
 
 // A regression must clear BOTH bars to fail: relative and absolute. A 40%
 // jump on a 20 ms phase is noise; on a 2 s phase it is the owner's complaint.
@@ -157,7 +158,7 @@ function tileDir(tile) { return path.join(REPO, 'assets', 'world', tile); }
 
 // URL -> {body: Buffer, mime} to serve instead, or null to let it through.
 function variantBody(variant, url) {
-  const m = /\/scenes(?:-hd)?\/([^/]+)\/(bspfloor\.bin|scene\.json)$/.exec(url);
+  const m = /\/scenes(?:-hd)?\/([^/]+)\/(bspfloor\.bin|scene\.json|bsp\.gltf)$/.exec(url);
   if (!m) return null;
   const [, tile, file] = m;
   if (variant === 'walktrunc' && file === 'bspfloor.bin') {
@@ -168,6 +169,79 @@ function variantBody(variant, url) {
     if (off == null) return null;                      // already section-1 only
     return { body: buf.subarray(0, off), mime: 'application/octet-stream',
       note: `bspfloor.bin ${buf.length} -> ${off} B (section 2 removed)` };
+  }
+  // The pre-lightmap-wave BSP, reconstructed from the shipped one rather than
+  // guessed: commit 053d0db/421d0f5 added exactly two things to bsp.gltf —
+  // `materials[i].extras.lightmapSheet` (which is the ONLY thing that makes
+  // Bsp._loadLightmaps fetch an atlas, and the only thing _prepMaterial keys
+  // the lightMap path off) and a TEXCOORD_1 attribute per primitive (which is
+  // the ONLY thing GLTFLoader turns into the `uv1` buffer the lightMap
+  // sampler reads). Removing both yields a client that behaves exactly as it
+  // did before the wave, off the SAME bytes on disk. Note what this does NOT
+  // change, so the row is not over-read: bsp.bin is still transferred whole
+  // (glTF buffers are fetched entire), so this prices lightmap FETCH, DECODE,
+  // material rebuild and uv1 GPU upload — not the 72,208 B of TEXCOORD_1 in
+  // bsp.bin, which is priced separately by arithmetic on the accessors.
+  if (variant === 'lm-nosheet' && file === 'bsp.gltf') {
+    const p = path.join(tileDir(tile), 'bsp.gltf');
+    if (!fs.existsSync(p)) return null;
+    const g = JSON.parse(fs.readFileSync(p, 'utf8'));
+    let sheets = 0, uv1 = 0;
+    for (const mat of g.materials || []) {
+      if (mat.extras && 'lightmapSheet' in mat.extras) { delete mat.extras.lightmapSheet; sheets++; }
+    }
+    for (const mesh of g.meshes || []) {
+      for (const prim of mesh.primitives || []) {
+        if (prim.attributes && 'TEXCOORD_1' in prim.attributes) {
+          delete prim.attributes.TEXCOORD_1; uv1++;
+        }
+      }
+    }
+    if (!sheets && !uv1) return null;          // already a pre-lightmap tile
+    return { body: Buffer.from(JSON.stringify(g)), mime: 'model/gltf+json',
+      note: `${tile}/bsp.gltf: ${sheets} lightmapSheet extras and ${uv1} TEXCOORD_1 removed` };
+  }
+  // Neighbour tiles only (never the profiled tile): drop the `splat` key from
+  // every terrain layer. neighbors.js::_material calls _bakeSplatTexture only
+  // when `layers.some((l,i) => i>0 && l.splat)`, so this is the client's own
+  // no-bake path — it falls back to basecolor.png — and nothing else about the
+  // neighbour changes: same mesh, same resolution, same request count for
+  // scene.json and heightmap. Differencing it against `full` prices the
+  // 1024x1024 JS splat bake alone, separately from everything else the
+  // neighbour ring does. The CENTER tile is untouched, so the center terrain
+  // material (a shader, not a bake) is identical in both arms.
+  if (variant === 'nb-nosplat' && file === 'scene.json' && tile !== TILE) {
+    const p = path.join(tileDir(tile), 'scene.json');
+    if (!fs.existsSync(p)) return null;
+    const def = JSON.parse(fs.readFileSync(p, 'utf8'));
+    let n = 0;
+    for (const l of def.layers || []) if (l.splat) { delete l.splat; n++; }
+    if (!n) return null;
+    return { body: Buffer.from(JSON.stringify(def)), mime: 'application/json',
+      note: `neighbour ${tile}/scene.json: ${n} splat layer(s) removed (no JS bake)` };
+  }
+  // THE NULL INTERCEPT — the control for the controls.
+  //
+  // Every rewriting variant pays a cost the shipped client does not: each
+  // intercepted request is paused, round-tripped to Node over CDP, and
+  // fulfilled from there instead of being served by the socket. That is a
+  // constant added to EVERY intercepting row, in the SLOW direction, and it is
+  // invisible in the report — which is how `props1891` (removing 55 of 1,946
+  // placements) came out 282 ms SLOWER than `props1237` (removing 709) came out
+  // faster. Removing more work cannot cost more time, so the ordering was
+  // measuring the harness.
+  //
+  // This variant intercepts exactly what the props* variants intercept — the
+  // same 9 scene.json requests — and fulfils each with the file's OWN
+  // unmodified bytes. Its delta against `full` is the interception tax, with
+  // nothing else changed. Subtract it from any intercepting row before reading
+  // that row as a property of the client.
+  if (variant === 'null-intercept' && file === 'scene.json') {
+    const p = path.join(tileDir(tile), 'scene.json');
+    if (!fs.existsSync(p)) return null;
+    const buf = fs.readFileSync(p);
+    return { body: buf, mime: 'application/json',
+      note: `${tile}/scene.json served BYTE-IDENTICAL through CDP (${buf.length} B)` };
   }
   const pm = /^props(\d+)$/.exec(variant);
   if (pm && file === 'scene.json') {
@@ -185,11 +259,19 @@ function variantBody(variant, url) {
 function variantQuery(variant) {
   if (variant === 'bspfloor-off') return '&bspfloor=off';
   if (variant === 'walkraster-off') return '&walkraster=off';
+  // the client's OWN switch (bsp.js lightmapVariant): no atlas is fetched and
+  // no lightMap is attached, but TEXCOORD_1 is still parsed and uploaded.
+  if (variant === 'lm-off') return '&lm=off';
+  // main.js NEIGHBORS_ENABLED — the 3x3 ring is skipped entirely. setCenter is
+  // AWAITED inside loadScene (main.js:1652), so the ring is on the critical
+  // path to worldReady and this difference is a wall-clock difference.
+  if (variant === 'neighbors-off') return '&neighbors=0';
   return '';
 }
 
 function variantNeedsIntercept(v) {
-  return v === 'walktrunc' || /^props\d+$/.test(v);
+  return v === 'walktrunc' || v === 'lm-nosheet' || v === 'nb-nosplat'
+    || v === 'null-intercept' || /^props\d+$/.test(v);
 }
 
 // ---------------------------------------------------------------------------
@@ -381,6 +463,10 @@ function bootstrap(tile) {
         [terrain.Terrain.prototype, '_loadPropsInstanced', 'propsInstanced'],
         [terrain.Terrain.prototype, '_loadBsp', 'bspLoad'],
         [bsp.Bsp, 'load', 'bsp.fetch+parse'],
+        // Bsp.load awaits _loadLightmaps, so this is a leaf INSIDE
+        // bsp.fetch+parse: atlas fetch + PNG decode + Texture construction.
+        // The GPU upload is NOT here — that happens on first draw.
+        [bsp.Bsp, '_loadLightmaps', 'bsp.lightmaps'],
         [geodata.Geodata, 'load', 'geodata'],
         [bspfloor.BspFloor, 'load', 'bspFloor'],
         [neighbors.NeighborTiles.prototype, 'setCenter', 'neighbors'],
@@ -441,6 +527,11 @@ function classify(url) {
   if (/geodata\.(json|bin)$/i.test(url)) return 'geodata';
   if (/bspfloor\.bin$/i.test(url)) return 'bspfloor (walk raster)';
   if (/steps\.json$/i.test(url)) return 'steps.json';
+  // BEFORE the generic /\.png$/ texture rule, and before /\/bsp\./: the
+  // lightmap atlases live at <tile>/lightmap/g<sheet>p<variant>.png and would
+  // otherwise be invisible inside the 200-odd-request 'texture' bucket, which
+  // is exactly how the previous profile came to have no lightmap row at all.
+  if (/\/lightmap\/g\d+p\d+\.png$/i.test(url)) return 'bsp lightmap atlas';
   if (/\/bsp\.(gltf|bin)$/i.test(url)) return 'bsp gltf';
   if (/\/props\//i.test(url)) return 'prop gltf+bin';
   if (/\/ui\//i.test(url)) return 'ui skin/font';
@@ -584,6 +675,7 @@ async function profileRun({ cold, variant = VARIANT, port = PORT, reload = true 
       await cdp.send('Fetch.enable', { patterns: [
         { urlPattern: '*bspfloor.bin', requestStage: 'Request' },
         { urlPattern: '*scene.json', requestStage: 'Request' },
+        { urlPattern: '*bsp.gltf', requestStage: 'Request' },
       ] });
       cdp.on('Fetch.requestPaused', async (ev) => {
         try {
@@ -767,6 +859,25 @@ function report(res) {
         + `, failed=${run.wrappers.failed}). Do not read the numbers below.`);
     }
     for (const ln of phaseBlock(run.bootPhases, run.bootCalls, '    ', true)) p(ln);
+    // A WRAPPER THAT WAS INSTALLED BUT NEVER FIRED IS A HOLE, NOT A ZERO.
+    // Observed: on the COLD run `ui.skin` / `ui.font` / `ui.layout` are absent
+    // from the phase list while the WARM run reports 27 / 27 / 34 ms for them.
+    // The UI obviously still loaded on the cold run — 83 requests and 605 KB
+    // of ui/ assets are in the network table below. What differs is the race:
+    // the wrappers arrive via a dynamic import that must wait for the import
+    // map, and on a cold cache that import is itself a network fetch, so
+    // Skin.load has already been entered by the time the wrapper lands. Left
+    // unsaid, the missing rows read as "the UI skin costs nothing to load",
+    // which is the opposite of what was measured — it was not measured at all.
+    const missed = (run.wrappers.installed || [])
+      .filter(l => run.bootPhases[l] == null);
+    if (missed.length) {
+      p(`    NOT CAPTURED (wrapper installed at ${Math.round(run.wrappers.installedAt)} ms, `
+        + 'but these were already running by then — a HOLE, not a zero):');
+      p(`      ${missed.join(', ')}`);
+      p('      Their cost is inside the milestones and the network table, but is not');
+      p('      attributed to a phase here. Do not read their absence as 0 ms.');
+    }
     p('');
     p('  network by asset class (requests / wall ms / transferred KB / decoded KB / '
       + 'cache hits / connect ms)');
@@ -830,9 +941,45 @@ async function attribute() {
     ['walkraster-off', 'section 2 fetched AND parsed, then discarded',
       { variant: 'walkraster-off' }],
     ['bspfloor-off', 'no floor raster at all', { variant: 'bspfloor-off' }],
-    ['props1891', 'scene.json truncated to the pre-398286c count', { variant: 'props1891' }],
+    // TWO prop waves reached Giran, and pricing only the later one understates
+    // the growth by an order of magnitude. Both counts come from commit text,
+    // not from a file this suite can read (scene.json is gitignored, so there
+    // is nothing to diff) — provenance stated so the rows are not over-trusted:
+    //   1237 -> 1891  8a5c205 (2026-08-03), the actor-parser fix, +654 (+53%)
+    //   1891 -> 1946  398286c (2026-08-08), the extraction fix,   +55  (+2.9%)
+    ['props1891', 'pre-398286c count (per that commit text) — prices the +55 wave',
+      { variant: 'props1891' }],
+    ['props1237', 'pre-8a5c205 count (per HANDOFF §"actor-parser fix") — prices the +654 wave',
+      { variant: 'props1237' }],
     ['props0', 'no prop placements at all', { variant: 'props0' }],
+    ['lm-off', '?lm=off — atlas never fetched, uv1 still parsed+uploaded',
+      { variant: 'lm-off' }],
+    ['lm-nosheet', 'bsp.gltf with lightmapSheet + TEXCOORD_1 stripped = pre-053d0db',
+      { variant: 'lm-nosheet' }],
+    ['null-intercept', 'CONTROL: same interception, byte-identical bytes = the harness tax',
+      { variant: 'null-intercept' }],
+    ['neighbors-off', '?neighbors=0 — the whole 3x3 background ring skipped',
+      { variant: 'neighbors-off' }],
+    ['nb-nosplat', 'neighbour scene.json with no splat = the 1024x1024 JS bake skipped',
+      { variant: 'nb-nosplat' }],
   ];
+  // `--only a,b,c` runs a subset of the plan. `full` is ALWAYS included: every
+  // delta in the report is against it, and a `full` measured in a different
+  // matrix, minutes earlier, on a differently-loaded machine is not the same
+  // control. Subsetting is what makes a single suspect re-measurable in two
+  // minutes instead of twenty.
+  const only = arg('--only', null);
+  if (only) {
+    const want = new Set(only.split(',').map(s => s.trim()).filter(Boolean));
+    want.add('full');
+    const unknown = [...want].filter(k => !plan.some(([key]) => key === k));
+    if (unknown.length) {
+      console.error(`VERIFY LOADPROFILE FAILED: --only names no such variant: ${unknown.join(', ')}`);
+      console.error(`  known: ${plan.map(([k]) => k).join(', ')}`);
+      process.exit(2);
+    }
+    for (let i = plan.length - 1; i >= 0; i--) if (!want.has(plan[i][0])) plan.splice(i, 1);
+  }
   const passes = Number(arg('--passes', '2'));
   const acc = new Map(plan.map(([k, why]) => [k, { why, runs: [] }]));
   for (let pass = 0; pass < passes; pass++) {
@@ -925,9 +1072,19 @@ function attributeReport(groups) {
   p('ATTRIBUTION MATRIX — every row is a measured cold Giran load on its own');
   p(`fresh server; ${groups[0].runs.length} pass(es), median reported, spread shown.`);
   p('');
+  // THE NOISE FLOOR IS PART OF THE RESULT. A run-to-run spread of 1.1 s on the
+  // control makes a 351 ms delta unreportable, and printing it in a tidy
+  // column invites exactly the reading it cannot support. So every delta is
+  // compared against the larger of its own spread and the control's, and any
+  // delta that does not clear it is struck out as UNRESOLVED rather than
+  // quoted. Raising --passes is the only thing that shrinks this.
+  const baseSpread = (() => {
+    const a = base.runs.map(r => r.milestones.worldReady);
+    return Math.max(...a) - Math.min(...a);
+  })();
   p(`  ${'variant'.padEnd(16)} ${'worldReady'.padStart(11)} ${'Δ vs full'.padStart(10)}`
     + ` ${'spread'.padStart(8)} ${'reqs'.padStart(6)} ${'MB'.padStart(7)}`
-    + ` ${'bspfloor KB'.padStart(12)} ${'errs'.padStart(5)}  raster`);
+    + ` ${'bspfloor KB'.padStart(12)} ${'errs'.padStart(5)}  verdict / raster`);
   for (const g of groups) {
     const ready = pick(g, r => r.milestones.worldReady);
     const all = g.runs.map(r => r.milestones.worldReady);
@@ -941,14 +1098,56 @@ function attributeReport(groups) {
       + `${String(Math.round(ready - baseReady)).padStart(9)} ${String(spread).padStart(8)}`
       + ` ${String(Math.round(reqs)).padStart(6)} ${(tot / 1048576).toFixed(1).padStart(7)}`
       + ` ${String(Math.round(bf / 1024)).padStart(12)} ${String(errs).padStart(5)}`
+      + `  ${g.key === 'full' ? 'control'
+        : (Math.abs(ready - baseReady) <= Math.max(spread, baseSpread)
+          ? `UNRESOLVED (< noise ${Math.max(spread, baseSpread)} ms)`
+          // EVERY variant REMOVES work from the load — fewer props, no walk
+          // raster, no lightmaps, no neighbour ring. None of them can make the
+          // client slower. A delta that clears the noise floor in the POSITIVE
+          // direction is therefore not a finding about the client; it is proof
+          // that something uncontrolled is in the row, and the harness's own
+          // CDP interception tax is the first candidate (see `null-intercept`).
+          // Reported as SUSPECT rather than RESOLVED, because `props1891` once
+          // printed a clean +282 ms that no reading of the client can explain.
+          : (ready > baseReady ? 'SUSPECT (+ve: removing work cannot cost time)'
+            : 'RESOLVED'))}`
       + `  ${r0.walkRasterLoaded}`);
   }
   p('');
   for (const g of groups) p(`    ${g.key.padEnd(16)} ${g.why}`);
   p('');
+  // AN INERT VARIANT IS THE WORST OUTCOME THIS REPORT CAN HAVE, because it
+  // does not look like an error — it looks like a finding. It reads
+  // "Δ vs full ≈ 0", i.e. "this change costs nothing", which is the exact
+  // conclusion someone wants to draw. This suite has already produced one:
+  // `lm-nosheet` was added before '*bsp.gltf' was in the Fetch.enable pattern
+  // list, so the substitution never ran, the row measured plain `full`, and
+  // the matrix reported a 351 ms delta that was pure noise. Every variant that
+  // is supposed to rewrite a response must PROVE it rewrote one.
+  const inert = groups.filter(g => variantNeedsIntercept(g.key)
+    && g.runs.every(r => !(r.interceptNotes || []).length));
+  if (inert.length) {
+    p('  *** INERT VARIANT(S) — THESE ROWS ARE NOT MEASURING WHAT THEY CLAIM ***');
+    for (const g of inert) {
+      p(`    ${g.key.padEnd(16)} substituted NOTHING: no request was rewritten in any pass.`);
+      p(`    ${''.padEnd(16)} Its row is a second copy of "full". Do not read its delta.`);
+    }
+    p('');
+  }
+  const acted = groups.filter(g => variantNeedsIntercept(g.key)
+    && g.runs.some(r => (r.interceptNotes || []).length));
+  if (acted.length) {
+    p('  substitutions actually served (proof each intercepting row is live):');
+    for (const g of acted) {
+      const notes = [...new Set(g.runs.flatMap(r => r.interceptNotes || []))];
+      p(`    ${g.key.padEnd(16)} ${notes.length} distinct: ${notes[0]}`);
+      if (notes.length > 1) p(`    ${''.padEnd(16)} ...and ${notes.length - 1} more (one per tile)`);
+    }
+    p('');
+  }
   p('  per-variant boot phases, median ms');
   const keys = ['ui.skin', 'ui.font', 'ui.layout', 'geodata', 'bspFloor', 'heightfix',
-    'terrainMesh', 'props', 'bspLoad', 'terrain.total', 'neighbors'];
+    'terrainMesh', 'props', 'bsp.lightmaps', 'bspLoad', 'terrain.total', 'neighbors'];
   p(`  ${'variant'.padEnd(16)}` + keys.map(k => k.slice(0, 11).padStart(12)).join(''));
   for (const g of groups) {
     p(`  ${g.key.padEnd(16)}`
@@ -967,6 +1166,227 @@ function attributeReport(groups) {
     p('');
   }
   return L.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// --selftest: prove the INSTRUMENT, in about a second, with no browser.
+//
+// Why this exists. Every defect this suite has actually shipped was a place
+// where the harness reported a clean number for something it had not measured:
+//   * the lightmap atlas was invisible because classify() had no rule for it,
+//     so 42 KB of atlas sat inside a 204-request 'texture' bucket and the
+//     profile that was used to clear the lightmap wave never showed a row;
+//   * `lm-nosheet` substituted nothing for a whole matrix run, because
+//     '*bsp.gltf' was missing from Fetch.enable's pattern list, and its row
+//     read as a 351 ms finding instead of as a broken variant;
+//   * the cold run's ui.skin/ui.font/ui.layout phases vanished into a wrapper
+//     race and simply were not printed, which reads as "free".
+// None of those would fail a timing check. They are all failures of the
+// harness to know what it is looking at, so they need assertions on the
+// harness, not on the numbers. Every case below FAILS on the tree before this
+// revision: the rules, variants and guards it asserts did not exist.
+function selftest() {
+  const results = [];
+  const ok = (name, cond, detail) => {
+    results.push({ name, pass: !!cond, detail });
+    return !!cond;
+  };
+  const tile = TILE;
+  const dir = tileDir(tile);
+
+  // 1. The lightmap atlas gets its OWN network class. Before this revision
+  //    the generic .png rule swallowed it into 'texture'.
+  const lmUrl = `http://127.0.0.1:8083/scenes/${tile}/lightmap/g0p0.png`;
+  ok('classify: lightmap atlas is its own class, not "texture"',
+    classify(lmUrl) === 'bsp lightmap atlas', `got "${classify(lmUrl)}"`);
+  // ...and it must not steal the tile's other PNGs.
+  ok('classify: bsp/*.png is still a texture, not a lightmap',
+    classify(`http://x/scenes/${tile}/bsp/Giran_wall03.png`) === 'texture',
+    `got "${classify(`http://x/scenes/${tile}/bsp/Giran_wall03.png`)}"`);
+  ok('classify: bspfloor.bin is still the walk raster',
+    classify(`http://x/scenes/${tile}/bspfloor.bin`) === 'bspfloor (walk raster)');
+
+  // 2. The lm-nosheet substitution really strips both things the lightmap
+  //    wave added, on the REAL file on disk.
+  const gPath = path.join(dir, 'bsp.gltf');
+  if (!fs.existsSync(gPath)) {
+    ok(`lm-nosheet: ${tile}/bsp.gltf exists`, false, 'no bsp.gltf on disk');
+  } else {
+    const raw = JSON.parse(fs.readFileSync(gPath, 'utf8'));
+    const rawSheets = (raw.materials || []).filter(m => m.extras && 'lightmapSheet' in m.extras).length;
+    const rawUv1 = (raw.meshes || []).flatMap(m => m.primitives || [])
+      .filter(pr => pr.attributes && 'TEXCOORD_1' in pr.attributes).length;
+    ok('lm-nosheet: the shipped bsp.gltf actually HAS lightmaps to remove',
+      rawSheets > 0 && rawUv1 > 0, `${rawSheets} sheets, ${rawUv1} TEXCOORD_1`);
+    const sub = variantBody('lm-nosheet', `http://x/scenes/${tile}/bsp.gltf`);
+    if (!ok('lm-nosheet: substitution produced a body', !!sub)) { /* reported */ }
+    else {
+      const g = JSON.parse(sub.body.toString('utf8'));
+      const sheets = (g.materials || []).filter(m => m.extras && 'lightmapSheet' in m.extras).length;
+      const uv1 = (g.meshes || []).flatMap(m => m.primitives || [])
+        .filter(pr => pr.attributes && 'TEXCOORD_1' in pr.attributes).length;
+      ok('lm-nosheet: every lightmapSheet extra removed', sheets === 0, `${sheets} left`);
+      ok('lm-nosheet: every TEXCOORD_1 attribute removed', uv1 === 0, `${uv1} left`);
+      ok('lm-nosheet: TEXCOORD_0 is NOT touched (the base map must still work)',
+        (g.meshes || []).flatMap(m => m.primitives || [])
+          .every(pr => 'TEXCOORD_0' in pr.attributes));
+      ok('lm-nosheet: mesh/material counts unchanged (only attributes removed)',
+        (g.materials || []).length === (raw.materials || []).length
+        && (g.meshes || []).length === (raw.meshes || []).length);
+    }
+  }
+
+  // 3. Fetch.enable must actually pause every URL a variant wants to rewrite.
+  //    This is the exact bug that made lm-nosheet inert for a whole matrix.
+  const PATTERNS = ['*bspfloor.bin', '*scene.json', '*bsp.gltf'];
+  const matches = (pat, url) => new RegExp('^' + pat.split('*').map(s =>
+    s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$').test(url);
+  for (const [v, url] of [
+    ['walktrunc', `http://x/scenes/${tile}/bspfloor.bin`],
+    ['props0', `http://x/scenes/${tile}/scene.json`],
+    ['nb-nosplat', 'http://x/scenes/21_21/scene.json'],
+    ['lm-nosheet', `http://x/scenes/${tile}/bsp.gltf`],
+  ]) {
+    ok(`Fetch.enable pattern covers ${v}'s URL (${url.split('/').pop()})`,
+      variantNeedsIntercept(v) && PATTERNS.some(p => matches(p, url)));
+  }
+
+  // 4. nb-nosplat must hit NEIGHBOURS and must never touch the profiled tile —
+  //    rewriting the centre tile would change the terrain material under test
+  //    and quietly turn a neighbour experiment into a centre-tile one.
+  const nbTile = ['21_21', '21_22', '22_21', '23_23']
+    .find(t => fs.existsSync(path.join(tileDir(t), 'scene.json')));
+  if (!nbTile) ok('nb-nosplat: a neighbour scene.json exists to test with', false);
+  else {
+    const sub = variantBody('nb-nosplat', `http://x/scenes/${nbTile}/scene.json`);
+    if (!ok(`nb-nosplat: rewrote neighbour ${nbTile}`, !!sub)) { /* reported */ }
+    else {
+      const d = JSON.parse(sub.body.toString('utf8'));
+      const raw = JSON.parse(fs.readFileSync(path.join(tileDir(nbTile), 'scene.json'), 'utf8'));
+      ok('nb-nosplat: no layer keeps a splat', (d.layers || []).every(l => !l.splat));
+      ok('nb-nosplat: the layer COUNT is unchanged (only splat keys dropped)',
+        (d.layers || []).length === (raw.layers || []).length);
+      ok('nb-nosplat: props/heightmap untouched',
+        JSON.stringify(d.props || []) === JSON.stringify(raw.props || [])
+        && d.heightmap === raw.heightmap);
+    }
+  }
+  ok('nb-nosplat: the PROFILED tile is never rewritten',
+    variantBody('nb-nosplat', `http://x/scenes/${tile}/scene.json`) === null);
+
+  // 4b. The null-intercept control must serve the file BYTE-IDENTICALLY. If it
+  //     differed by even a byte it would stop being a measurement of the
+  //     harness tax and become another variant.
+  const scPath = path.join(dir, 'scene.json');
+  if (fs.existsSync(scPath)) {
+    const sub = variantBody('null-intercept', `http://x/scenes/${tile}/scene.json`);
+    ok('null-intercept: serves scene.json byte-for-byte',
+      !!sub && sub.body.equals(fs.readFileSync(scPath)),
+      sub ? `${sub.body.length} B` : 'no body');
+    ok('null-intercept: intercepts the same file the props* variants do',
+      variantNeedsIntercept('null-intercept'));
+  }
+
+  // 4c. The impossible-sign guard. Every variant removes work, so a positive
+  //     delta past the noise floor is a harness problem, not a client finding.
+  const dose = (ms) => ({ milestones: { worldReady: ms }, network: {},
+    consoleErrors: [], bootPhases: {}, interceptNotes: ['x'] });
+  const signTxt = attributeReport([
+    { key: 'full', why: 'c', runs: [dose(4000), dose(4000), dose(4000)] },
+    { key: 'props1891', why: 'x', runs: [dose(5000), dose(5000), dose(5000)] },
+    { key: 'props0', why: 'x', runs: [dose(2000), dose(2000), dose(2000)] },
+  ]);
+  ok('sign guard: a variant that got SLOWER is SUSPECT, not RESOLVED',
+    /props1891.*SUSPECT/.test(signTxt));
+  ok('sign guard: a variant that got faster is still RESOLVED',
+    /props0\s.*RESOLVED/.test(signTxt));
+
+  // 5. The inert-variant detector. A variant that rewrote nothing must be
+  //    called out, not silently reported as "delta ~ 0".
+  const fakeRun = (notes) => ({ milestones: { worldReady: 1000 }, network: {},
+    consoleErrors: [], bootPhases: {}, interceptNotes: notes });
+  const inertGroups = [
+    { key: 'full', why: 'control', runs: [fakeRun([])] },
+    { key: 'lm-nosheet', why: 'x', runs: [fakeRun([])] },
+  ];
+  const liveGroups = [
+    { key: 'full', why: 'control', runs: [fakeRun([])] },
+    { key: 'lm-nosheet', why: 'x', runs: [fakeRun(['rewrote something'])] },
+  ];
+  const inertTxt = attributeReport(inertGroups);
+  const liveTxt = attributeReport(liveGroups);
+  ok('inert detector: fires when a variant rewrote nothing',
+    /INERT VARIANT/.test(inertTxt));
+  ok('inert detector: silent when the variant did rewrite',
+    !/INERT VARIANT/.test(liveTxt) && /substitutions actually served/.test(liveTxt));
+  ok('inert detector: does NOT accuse `full`, which intercepts nothing by design',
+    !/^\s+full\s+substituted NOTHING/m.test(inertTxt));
+
+  // 6. Baseline refusal. Each of these shapes has actually been on disk in
+  //    this repo and each would have made --check meaningless.
+  const goodProv = { head: 'abc', treeChangedDuringRun: false,
+    machineBefore: { loadavg: [1, 1, 1], cpus: 10 }, machineAfter: { loadavg: [1, 1, 1] },
+    bootPhasesCaptured: 15, swiftshader: SWIFT, variant: VARIANT, tile: TILE,
+    // must mirror how THIS invocation would be run, or the private-vs-supplied
+    // server rule fires and the "clean baseline" fixture is not clean
+    privateServer: !argv.includes('--port') };
+  const withProv = (over) => ({ format: BASELINE_FORMAT, tile: TILE, at: 'now',
+    metrics: {}, provenance: Object.assign({}, goodProv, over) });
+  ok('baseline: a clean format-3 baseline is ACCEPTED',
+    baselineComplaint(withProv({})) === null,
+    String(baselineComplaint(withProv({}))));
+  ok('baseline: format 2 refused',
+    /format 2/.test(baselineComplaint({ format: 2, provenance: goodProv }) || ''));
+  ok('baseline: captured on a busy machine refused',
+    /BUSY/.test(baselineComplaint(withProv({ machineBefore: { loadavg: [9, 9, 9], cpus: 10 } })) || ''));
+  ok('baseline: captured over a changing tree refused',
+    /CHANGING/.test(baselineComplaint(withProv({ treeChangedDuringRun: true })) || ''));
+  ok('baseline: captured with no boot phases refused',
+    /no BOOT phase/.test(baselineComplaint(withProv({ bootPhasesCaptured: 0 })) || ''));
+  ok('baseline: renderer/swiftshader mismatch refused',
+    /swiftshader/.test(baselineComplaint(withProv({ swiftshader: !SWIFT })) || ''));
+
+  // 7. The baseline ON DISK must carry the lightmap phase. A baseline from
+  //    before the lightmap wave cannot catch a lightmap regression, and
+  //    nothing in a timing comparison would say so.
+  if (fs.existsSync(BASELINE)) {
+    const b = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
+    const keys = Object.keys(b.metrics || {});
+    ok('baseline on disk: carries cold.boot.bsp.lightmaps',
+      keys.includes('cold.boot.bsp.lightmaps'),
+      `baseline ${b.at} head ${(b.provenance || {}).head} has ${keys.length} metrics`);
+    ok('baseline on disk: carries warm.boot.bsp.lightmaps',
+      keys.includes('warm.boot.bsp.lightmaps'));
+  } else {
+    ok('baseline on disk: exists', false, `${BASELINE} missing`);
+  }
+
+  // 8. walkSectionOffset still finds the real section 2 (walktrunc is a lie
+  //    without it, and would silently degrade to "serve the file unchanged").
+  const bfPath = path.join(dir, 'bspfloor.bin');
+  if (fs.existsSync(bfPath)) {
+    const buf = fs.readFileSync(bfPath);
+    const off = walkSectionOffset(buf);
+    ok('walktrunc: section 2 located in the real bspfloor.bin',
+      off != null && off > 0 && off < buf.length,
+      `offset ${off} of ${buf.length} B`);
+    if (off != null) {
+      ok('walktrunc: truncating actually shrinks the file',
+        variantBody('walktrunc', `http://x/scenes/${tile}/bspfloor.bin`).body.length === off);
+    }
+  }
+
+  const failed = results.filter(r => !r.pass);
+  for (const r of results) {
+    console.log(`  ${r.pass ? 'ok  ' : 'FAIL'}  ${r.name}${r.detail ? `  [${r.detail}]` : ''}`);
+  }
+  console.log('');
+  if (failed.length) {
+    console.error(`VERIFY LOADPROFILE SELFTEST FAILED: ${failed.length}/${results.length}`);
+    return false;
+  }
+  console.log(`SELFTEST PASS  ${results.length}/${results.length}`);
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -1100,6 +1520,8 @@ function baselineComplaint(base) {
     consoleErrors: r.consoleErrors, wrappers: r.wrappers,
     interceptNotes: r.interceptNotes, timeWaitBefore: r.timeWaitBefore,
     longtasks: r.longtasks, cpuMs: r.cpuMs, bootWallMs: r.bootWallMs });
+
+  if (SELFTEST) { process.exit(selftest() ? 0 : 1); }
 
   if (ATTRIBUTE) {
     const groups = await attribute();

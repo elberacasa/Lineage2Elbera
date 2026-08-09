@@ -9,13 +9,20 @@ const path = require('path');
 const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
+const fixture = require('./live_fixture');
+
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const BASE = 'http://127.0.0.1:8083/';
 const OUT = path.join(__dirname, 'verify_shots');
+// STABLE — see live_fixture.js. A per-run id mints a new account, whose
+// auth_ok is {chars: []}, and the 120 s enterWorld wait below can never be
+// satisfied. That was this suite's ONLY failure mode on 2026-08-09.
+const DEVICE_ID = 'verify-minimap-fixture-1';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
+  await fixture.ensureChar(DEVICE_ID);
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     args: ['--headless=new', '--use-angle=swiftshader', '--window-size=1280,900'],
@@ -26,6 +33,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await page.setViewport({ width: 1280, height: 900 });
     page.on('pageerror', e => console.error('PAGEERROR:', e.message));
 
+    await fixture.seed(page, DEVICE_ID);
     await page.goto(BASE, { waitUntil: 'networkidle0' });
     await page.waitForFunction('window.__world && window.__world.ready', { timeout: 60000 });
     await page.click('#online-toggle');

@@ -171,5 +171,20 @@ async function settleCam(page) {
   } finally {
     await browser.close();
   }
-  console.log(JSON.stringify(summary, null, 2));
+  // EXIT EXPLICITLY — the same leak verify_app had, found the same way.
+  // MEASURED 2026-08-09 in a full battery: this suite completed every check,
+  // printed the ENTIRE summary (menu buttons, sanitize counters, all of it),
+  // and then sat at 0.0% CPU until the watchdog killed it at 300 s. The log
+  // ends with the complete JSON followed by "battery: KILLED after 300s", so
+  // nothing was pending — `browser.close()` had already returned and a handle
+  // outlived it with nothing calling process.exit.
+  //
+  // It reads as a hang and scores as a TIMEOUT (which the battery never
+  // retries), so a suite that had actually PASSED all of its assertions was
+  // reported as a red row. Identical fix to verify_app.js: write the summary
+  // and exit from the write callback — process.exit() on its own can truncate
+  // a pending stdout write when stdout is a pipe, which is how the battery
+  // runs it. A throw never reaches this line, so the failure path is intact.
+  process.stdout.write(JSON.stringify(summary, null, 2) + '\n',
+    () => process.exit(0));
 })().catch(e => { console.error('VERIFY DIALOG FAILED:', e.stack || e.message); process.exit(1); });

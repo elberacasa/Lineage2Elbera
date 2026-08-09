@@ -15,6 +15,17 @@ const puppeteer = require(
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const BASE = 'http://127.0.0.1:8083/';   // default ws -> ws://127.0.0.1:8090
 const OUT = path.join(__dirname, 'verify_shots');
+// LIVE-FIXTURE-EXEMPT: this suite's SUBJECT is the empty-account path —
+// auth_ok{chars:[]} -> charCreate.open -> createChar a dark elf -> the self
+// model must reload from human_fighter_m to darkelf_f. It therefore requires
+// a fresh account by construction; a stable one would hit
+// name_already_exists (or eventually too_many_characters) on the second run.
+// The nine suites live_fixture.js exists to fix were the ones that got a
+// fresh account by ACCIDENT and then waited for an enterWorld that could
+// never come. This one asks for it and handles it.
+// COST, measured 2026-08-09: one account + one character per run, never
+// reclaimed (1,214 accounts / 1,168 characters in l2jdb at the time). Not a
+// correctness problem; noted so it is not mistaken for one later.
 const DEVICE_ID = 'verify-selfmodel-' + Date.now().toString(36);
 const CHAR_NAME = 'Sm' + Date.now().toString(36).slice(-8);   // unique, [a-z0-9]i
 const sleep = ms => new Promise(r => setTimeout(r, ms));

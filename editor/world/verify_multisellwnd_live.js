@@ -147,7 +147,37 @@ const invCount = (itemId) => page.evaluate((iid) => (
     `UPDATE items SET count=${SEED_ADENA} WHERE owner_id=${summary.char.id} AND item_id=57;`]);
   const adenaRow = db(`SELECT count FROM items WHERE owner_id=${summary.char.id} AND item_id=57;`);
   if (adenaRow !== String(SEED_ADENA)) throw new Error('adena seed failed (row: ' + adenaRow + ')');
-  console.log(`   seeded: level 6 (exp ${exp6}), adena ${adenaRow}`);
+
+  // CLEAR THE ITEMS THIS SUITE'S OWN PREVIOUS RUNS LEFT BEHIND.
+  //
+  // The fixture character is stable (it has to be — a fresh account has no
+  // character and hangs at creation), so every run's purchases accumulate.
+  // Measured 2026-08-09 after a handful of runs: 10 x 116 and 11 x 118 in the
+  // inventory, plus the 875 this suite exchanges for. That breaks the run in
+  // two separate places, both of which read as product bugs and are not:
+  //
+  //   * list 003 at Silvia is an INVENTORY-ONLY multisell (aCis
+  //     PreparedListContainer:45-65 builds it from what the player owns), so
+  //     holding an 875 makes the server offer the 875 -> 876 upgrade as an
+  //     extra entry — the list stops being the documented 2 entries;
+  //   * with 10 x 116 in hand the exchange is no longer a 1-of-1, so OK opens
+  //     the AMOUNT prompt instead of sending multisellChoose straight away,
+  //     and the suite's "amount 1 -> NO prompt" step times out waiting for an
+  //     op that is correctly not being sent yet.
+  //
+  // Deleting these five item ids while the character is OFFLINE restores
+  // exactly the preconditions the header documents: no ingredients, no
+  // products, so step 4 buys one of each and step 6 is a genuine 1-of-1.
+  // Adena and everything else are untouched.
+  const RESET_IDS = [RING, NECKLACE, 875, 876, 906];
+  execFileSync('mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-e',
+    `DELETE FROM items WHERE owner_id=${summary.char.id} `
+    + `AND item_id IN (${RESET_IDS.join(',')});`]);
+  const leftovers = db(`SELECT COALESCE(SUM(count),0) FROM items `
+    + `WHERE owner_id=${summary.char.id} AND item_id IN (${RESET_IDS.join(',')});`);
+  if (leftovers !== '0') throw new Error('fixture reset failed (left: ' + leftovers + ')');
+  console.log(`   seeded: level 6 (exp ${exp6}), adena ${adenaRow}, `
+    + `cleared ${RESET_IDS.join('/')}`);
 
   // -- 2. re-login, road to Silvia -----------------------------------------
   console.log('2. re-login + walk to Silvia...');
@@ -286,9 +316,33 @@ const invCount = (itemId) => page.evaluate((iid) => (
   await page.evaluate((cmd) => {
     window.__world.net.sendOp('bypass', { command: cmd });
   }, msLink[1]);
+  // WAIT FOR THE TWO ENTRIES THIS SUITE IS ABOUT, NOT FOR A TOTAL COUNT.
+  //
+  // `items.length === 2` was a self-poisoning assertion: it could only hold
+  // for a character that had never finished this suite before. List 003 at
+  // Silvia is an INVENTORY-ONLY multisell (aCis PreparedListContainer:45-65
+  // builds it from the player's own unique unequipped Armor/Weapon items), so
+  // the entries offered depend on what the character OWNS. This suite buys
+  // 116 and exchanges it for 875 — and owning 875 makes aCis offer the
+  // 875 -> 876 upgrade as a THIRD entry.
+  //
+  // Measured at protocol level 2026-08-09 against the fixture character,
+  // straight off the gateway's multisellList op (listId 47667):
+  //   entryId 1: 875 <- [116 x1, 57 x557]
+  //   entryId 2: 906 <- [118 x1, 57 x1115]
+  //   entryId 3: 876 <- [875 x1, 57 x1980]     <-- created by our own success
+  // The server is right, the window is right, and the count was only ever
+  // 2 by accident of the fixture being brand new. The cross-checks below
+  // already look their entries up BY INGREDIENT rather than by position, so
+  // they are unaffected; this wait just has to agree with them.
   await page.waitForFunction(
-    'window.__world.multiSellWnd.visible && window.__world.multiSellWnd.items.length === 2',
-    { timeout: 15000 });
+    (ring, neck) => {
+      const w = window.__world.multiSellWnd;
+      return w.visible
+        && w.items.some(e => e.ingredients.some(i => i.itemId === ring))
+        && w.items.some(e => e.ingredients.some(i => i.itemId === neck));
+    },
+    { timeout: 15000 }, RING, NECKLACE);
   await sleep(1000);
   summary.list = await page.evaluate(() => ({
     listId: window.__world.multiSellWnd.listId,

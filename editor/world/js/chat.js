@@ -445,6 +445,16 @@ export class ChatBox {
     if (s) return this.onSend({ channel: SAY.shout, text: s[2] });
     const t = text.match(/^\/(trade)\s+([\s\S]+)$/i);
     if (t) return this.onSend({ channel: SAY.trade, text: t[2] });
+    // BARE '/trade' IS A DIFFERENT COMMAND from '/trade <msg>' above: with no
+    // message body it is the trade INVITE against the current target, which
+    // main.js's onSend handles (it maps to the name-based aCis TradeRequest).
+    // It must be forwarded explicitly. The regex on the line above requires
+    // `\s+` plus at least one character, so bare '/trade' fell through to the
+    // generic unknown-command guard at the bottom of this method, which
+    // printed "Unknown command: /trade" and RETURNED — making main.js's
+    // `if (text === '/trade')` branch unreachable dead code, and taking
+    // verify_tradewnd / verify_tradewnd_live down with it (2026-08-09).
+    if (/^\/trade$/i.test(text)) return this.onSend({ channel: 0, text: '/trade' });
     // DEV BACKDOOR: the mock gateway's fixture commands (mock_gateway.js
     // say-handler) are recognized ops of this port — the verify suites
     // drive scenario fixtures by typing them. Not "unknown": they go out.

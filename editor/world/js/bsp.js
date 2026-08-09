@@ -53,12 +53,26 @@
 // is 48..63 of 255, which at 1x would render the plaza at a quarter
 // brightness.
 //
-// One thing is still deliberately NOT chosen:
-//   * which of the (up to 8) colour variants of a sheet retail shows.
-//     Variant 0 is used because it is the first in the retail array;
-//     `?lm=<0..7>` picks another and `?lm=off` drops the lightmaps
-//     entirely (that is how the before/after shots are taken from one
-//     build). See tools/world/bsplight.py, KNOWN GAPS 1.
+// WHICH of the (up to 8) colour variants of a sheet this draws, and why.
+// Variant 0 — and that is now a measurement, not the arbitrary pick this
+// comment used to describe ("it is the first in the retail array").
+// Each atlas page carries an i32 Header[3]. Over all 96 tiles that hold
+// lightmap records, the Header[0] of page 0 of each sheet forms ONE strict
+// arithmetic run of step 512 in sheet order (96/96), and all 777 of the
+// other pages fall OUTSIDE the range that run spans (777 outside, 0
+// inside). So the .unr holds one primary lightmap texture per sheet,
+// contiguous and in sheet order, plus a separate block of seven alternates
+// per 8-page sheet. Variant 0 is the sheet's entry in that primary array;
+// 1..7 are not in it at all.
+// What is STILL unsourced is what would SELECT an alternate at runtime.
+// tools/world/bsplight.py KNOWN GAPS 1 lists what was checked and came up
+// empty (the tile's NMovableSunLight / NSun / NMoon / SkyZoneInfo /
+// LevelInfo properties, every readable client binary and script package,
+// and the "1-variant sheets are the sunless ones" idea, which the shared
+// materials refute). `bsplight.py --check` fails if the primary-array
+// property above ever stops holding, i.e. if this default loses its
+// evidence. `?lm=<0..7>` picks another and `?lm=off` drops the lightmaps
+// entirely (that is how the before/after shots are taken from one build).
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';

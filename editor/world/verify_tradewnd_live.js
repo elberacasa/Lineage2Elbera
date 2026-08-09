@@ -14,18 +14,32 @@ const path = require('path');
 const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
+const fixture = require('./live_fixture');
+
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const BASE = 'http://127.0.0.1:8083/';
 const OUT = path.join(__dirname, 'verify_shots');
+const GUIDE_ID = 5588;   // Tutorial Guide — the only tradable starter item
+// STABLE, and DISTINCT per client — see live_fixture.js. Separate Chrome
+// profiles alone are not enough: with no seeded deviceId each profile mints
+// a random one, lands on a brand-new EMPTY account, and the 120 s enterWorld
+// wait below can never be satisfied.
+//
+// WHICH id plays A (the giver) is decided at runtime by asking the database
+// who currently holds the guide, because this suite MOVES it: run 1 sends it
+// one way, run 2 sends it back. A hardcoded A would run out of guides after
+// one pass. See live_fixture.orderByItem.
+const DEVICE_IDS = ['verify-tradewnd-fixture-1', 'verify-tradewnd-fixture-2'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function launch() {
+async function launch(deviceId) {
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     args: ['--headless=new', '--use-angle=swiftshader', '--window-size=1280,900'],
   });
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 900 });
+  await fixture.seed(page, deviceId);
   await page.goto(BASE, { waitUntil: 'networkidle0' });
   await page.waitForFunction('window.__world && window.__world.ready', { timeout: 60000 });
   await page.click('#online-toggle');
@@ -38,8 +52,12 @@ async function launch() {
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const summary = {};
-  const A = await launch();
-  const B = await launch();
+  for (const id of DEVICE_IDS) await fixture.ensureChar(id);
+  // A must be the one holding the guide it is about to offer.
+  const [idA, idB] = await fixture.orderByItem(DEVICE_IDS, GUIDE_ID);
+  summary.fixture = { A: idA, B: idB };
+  const A = await launch(idA);
+  const B = await launch(idB);
   try {
     const nameA = await A.page.evaluate(
       () => window.__world.net.log.find(m => m.op === 'enterWorld').char.name);

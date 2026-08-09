@@ -7,32 +7,12 @@
     "swingsAnswered": 16,
     "silentSwings": 0,
     "moveToPawn": 16,
-    "realAttacks": 5,
+    "realAttacks": 3,
     "targetOkAll": true,
     "mobs": [
       {
-        "id": 268505785,
-        "dist": 638,
-        "targetOk": true,
-        "swings": 4,
-        "answered": 4,
-        "silent": 0,
-        "moveToPawn": 4,
-        "realAttacks": 0
-      },
-      {
         "id": 268503834,
-        "dist": 637,
-        "targetOk": true,
-        "swings": 4,
-        "answered": 4,
-        "silent": 0,
-        "moveToPawn": 4,
-        "realAttacks": 0
-      },
-      {
-        "id": 268505784,
-        "dist": 637,
+        "dist": 602,
         "targetOk": true,
         "swings": 4,
         "answered": 4,
@@ -42,7 +22,27 @@
       },
       {
         "id": 268503679,
-        "dist": 636,
+        "dist": 598,
+        "targetOk": true,
+        "swings": 4,
+        "answered": 4,
+        "silent": 0,
+        "moveToPawn": 4,
+        "realAttacks": 0
+      },
+      {
+        "id": 268503914,
+        "dist": 596,
+        "targetOk": true,
+        "swings": 4,
+        "answered": 4,
+        "silent": 0,
+        "moveToPawn": 4,
+        "realAttacks": 0
+      },
+      {
+        "id": 268503912,
+        "dist": 591,
         "targetOk": true,
         "swings": 4,
         "answered": 4,
@@ -51,7 +51,7 @@
         "realAttacks": 0
       }
     ],
-    "inRangeAttacks": 5,
+    "inRangeAttacks": 3,
     "ghostRate": 0
   },
   "mock": {
@@ -60,9 +60,9 @@
     "ghostDrawn": true,
     "moveToPawn": 1,
     "approach": {
-      "dot": 2292.1862798399166,
+      "dot": 2295.870089907424,
       "movedTowardMob": true,
-      "distToMob": 48.07719999999908,
+      "distToMob": 48.11565599996957,
       "distTargetToMob": 0.39999999999990904
     },
     "characterTargetBefore": false,

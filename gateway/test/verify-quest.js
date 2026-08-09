@@ -1,4 +1,35 @@
-// Quest protocol verification (live, ~8 min):
+// Quest protocol verification (live).
+//
+// WHY THIS SUITE WAS FLAKY, and what changed (2026-08-09). It passed only on
+// the battery's retry, 916 s for the pair. Three compounding causes, all in
+// the harness:
+//
+//  a) A FRESH ACCOUNT EVERY RUN (`'verify-quest-' + Date.now()`). That forces
+//     step 2 — grind level 1 -> 3 on Gremlins — to run in full on every
+//     single execution. It is by far the longest and least predictable part
+//     of the suite: an unbounded `while (R.level < level)` whose per-gremlin
+//     budget is 150 s, competing for the same spawns with every other suite
+//     and agent on the box. It also minted an account and a character per
+//     run forever.
+//     Now a STABLE deviceId: the fixture character keeps its level, so after
+//     the first run step 2 returns immediately. The suite already cleans up
+//     after itself (step 5 aborts Q006), so reuse is idempotent by design.
+//
+//  b) A SELF-IMPOSED DEADLINE TIGHTER THAN ITS OWN DOCUMENTED RUNTIME. The
+//     header said "~8 min" (480 s) and the global timeout fired at 540 s —
+//     12.5% headroom — while the battery allowed 900 s. Under any load the
+//     suite killed ITSELF well inside the budget it had been given, which is
+//     precisely a manufactured failure. The internal deadline now sits just
+//     UNDER the battery ceiling, so it still fails fast with a readable
+//     message instead of being SIGKILLed, but it no longer pre-empts a run
+//     that would have finished.
+//
+//  c) A crashed run could leave Q006 accepted, and step 1 asserted the quest
+//     list was EMPTY. With a reused character that turns one bad run into a
+//     permanently red suite. Step 1 now self-heals: abort a leftover Q006
+//     first, then assert no REAL quest is listed.
+//
+// Flow:
 //  1. questList after enterWorld (EMPTY for a fresh char — the Tutorial chain
 //     is quest id -1, a "feature", filtered by isRealQuest(); documented).
 //  2. Level to >=3 killing Gremlins (Q006 requirement).
@@ -11,7 +42,8 @@
 const WebSocket = require('ws');
 
 const url = process.env.GATEWAY_URL || 'ws://127.0.0.1:8090';
-const deviceId = process.argv[2] || 'verify-quest-' + Date.now();
+// STABLE (see (a) above). Overridable for a deliberately-fresh run.
+const deviceId = process.argv[2] || process.env.QUEST_DEVICE_ID || 'verify-quest-fixture-1';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const ROXXY = { npcId: 30006, x: -84108, y: 244604, z: -3729 };
@@ -174,7 +206,17 @@ async function walkTo(target, label, waypoints = WAYPOINTS) {
   await waitFor(() => R.me, 60000, 'enterWorld');
   await sleep(3500);
   console.log('in world as', R.me.name);
-  const initialQuests = R.questLists[0];
+  // Step 1. Self-heal first: a run that died between "accept Q006" and
+  // "abort Q006" leaves the fixture holding the quest, which is a state this
+  // suite CREATED and must therefore be willing to clear.
+  if ((R.questLists[0] || []).some((e) => e.id === 6)) {
+    console.log('1. leftover Q006 from an earlier run — aborting it first');
+    const healMark = R.questLists.length;
+    send({ op: 'questAbort', id: 6 });
+    await waitFor(() => R.questLists.slice(healMark).find((q) => !q.some((e) => e.id === 6)),
+      20000, 'questAbort of the leftover Q006');
+  }
+  const initialQuests = R.questLists[R.questLists.length - 1];
   console.log('1. initial questList:', JSON.stringify(initialQuests));
 
   console.log('2. leveling to 3...');
@@ -242,6 +284,10 @@ async function walkTo(target, label, waypoints = WAYPOINTS) {
   console.log('   questList after abort:', JSON.stringify(afterAbort));
 
   console.log('---');
+  // The point of check 1 is that the Tutorial chain (quest id -1, a
+  // "feature") is filtered out by isRealQuest — i.e. NO real quest is listed
+  // for a character that has accepted none. Asserting `length === 0` said the
+  // same thing only while the character was guaranteed brand new.
   const pass = Array.isArray(initialQuests) && initialQuests.length === 0 &&
     q6 && q6.name === 'Step into the Future' && (q6.progress & 0x80000000) !== 0 &&
     q6b && (q6b.progress & 0x7fffffff) !== (q6.progress & 0x7fffffff) &&
@@ -250,4 +296,8 @@ async function walkTo(target, label, waypoints = WAYPOINTS) {
   process.exit(pass ? 0 : 1);
 })().catch((e) => { console.error('VERIFY-QUEST: FAIL', e.stack || e.message); process.exit(1); });
 
-setTimeout(() => { console.error('VERIFY-QUEST: global timeout'); process.exit(1); }, 540000);
+// Sits just UNDER the battery's 900 s ceiling for this suite (tools/battery.sh)
+// so a genuine hang still ends with this readable line rather than a SIGKILL,
+// while a merely SLOW run is no longer cut short by a deadline stricter than
+// the one the caller set. See (b) in the header.
+setTimeout(() => { console.error('VERIFY-QUEST: global timeout'); process.exit(1); }, 870000);

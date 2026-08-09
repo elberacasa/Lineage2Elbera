@@ -11,14 +11,23 @@ const { execFileSync } = require('child_process');
 const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
+const fixture = require('./live_fixture');
+
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const BASE = 'http://127.0.0.1:8083/';
 const OUT = path.join(__dirname, 'verify_shots');
 const SEED = path.join(__dirname, '..', '..', 'tools', 'dev', 'seed_test_char.py');
-const DEVICE_ID = 'verify-skilldepth-' + Date.now().toString(36);
+// STABLE across RUNS, not merely across this run's two passes. The old
+// `'verify-skilldepth-' + Date.now()` pinned the id between pass 1 and
+// pass 2 — a correct fix scoped one level too small. Every RUN still minted
+// a new deviceId, so every run got a brand-new account whose auth_ok is
+// {chars: []}; the client opened character creation and the enterWorld wait
+// in launch() below expired at 120 s. See live_fixture.js.
+const DEVICE_ID = 'verify-skilldepth-fixture-1';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function launch() {
+  await fixture.ensureChar(DEVICE_ID);
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     args: ['--headless=new', '--use-angle=swiftshader', '--window-size=1280,900'],

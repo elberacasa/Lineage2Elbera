@@ -50,6 +50,22 @@ const SEED = [
   { id: 4412, count: 4, name: 'Echo Crystal - Theme of Battle' },
   { id: 5588, count: 1, name: 'Tutorial Guide' },
   { id: 1892, count: 7, name: "Blacksmith's Frame" },
+  // A REAL quest item, for the quest-tab check further down. Without one that
+  // check can only ever read 0 cells.
+  //
+  // The seed used to end at Blacksmith's Frame and the quest tab was asserted
+  // to be non-empty. 1892 is `etcitem_type = MATERIAL`
+  // (aCis_datapack/data/xml/items/1800-1899.xml), and EtcItem.java:33-37 gives
+  // TYPE2_QUEST *only* to `isQuestItem()`; everything else defaults to
+  // TYPE2_OTHER. So the server was correctly reporting type2=5 for every item
+  // in the fixture, the client correctly filed all of them under Inventory
+  // (js/ui/inventorywnd.js:405 `it.type2 === TYPE2_QUEST`), and the check
+  // failed for want of a quest item rather than for want of a feature. The
+  // failure detail even said so — "0 cells; type2 present on server items:
+  // true" — the plumbing was fine and the fixture was not.
+  // 5012 Leikan's Letter is `etcitem_type = QUEST`
+  // (aCis_datapack/data/xml/items/5000-5099.xml), so aCis sends type2 = 3.
+  { id: 5012, count: 1, name: "Leikan's Letter (QUEST — fills the quest tab)" },
 ];
 
 const derive = (d) => {
@@ -416,11 +432,25 @@ const ctrl = (wn, cn) => {
     m.inv.gridScroll.sh <= m.inv.gridScroll.ch,
     `content ${m.inv.gridScroll.sh} vs pane ${m.inv.gridScroll.ch}`);
 
-  // InventoryWnd.uc HandleAddItem: equipped items go to the paperdoll ONLY
+  // InventoryWnd.uc HandleAddItem routes an item to exactly ONE of three
+  // places: equipped -> the paperdoll, quest (type2 === 3) -> the Quest pane,
+  // everything else -> the inventory grid. The grid count must therefore
+  // exclude BOTH, and this check used to subtract only the equipped ones —
+  // correct only for as long as the fixture happened to contain no quest item.
+  // The moment a real quest item was seeded (5012, added above so the quest
+  // tab could be checked at all) the arithmetic was off by exactly the number
+  // of quest items, and the suite reported "12 cells, 20 items, 7 equipped"
+  // as a failure when 12 is the RIGHT answer: 20 - 7 equipped - 1 quest.
+  // Same routing rule, same source line, as the quest-tab check below:
+  // js/ui/inventorywnd.js:405.
+  const TYPE2_QUEST = 3;
   const equipped = summary.liveItems.filter(i => i.equipped).length;
-  check('equipped items are NOT listed in the grid (uc HandleAddItem)',
-    m.inv.cellCount === summary.liveItems.length - equipped,
-    `${m.inv.cellCount} cells, ${summary.liveItems.length} items, ${equipped} equipped`);
+  const questItems = summary.liveItems.filter(
+    i => !i.equipped && i.type2 === TYPE2_QUEST).length;
+  check('equipped and quest items are NOT in the grid (uc HandleAddItem)',
+    m.inv.cellCount === summary.liveItems.length - equipped - questItems,
+    `${m.inv.cellCount} cells, ${summary.liveItems.length} items, `
+    + `${equipped} equipped, ${questItems} quest`);
 
   check('paperdoll filled from equipped items',
     m.inv.dollFilled.length >= 5, JSON.stringify(m.inv.dollFilled.map(d => d.slot)));

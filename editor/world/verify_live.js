@@ -1,6 +1,14 @@
 // LIVE end-to-end verification: world client (8083) against the REAL stack
-// (aCis :2106/:7777 + gateway :8090). Two independent headless Chrome
-// instances (separate profiles -> separate deviceIds -> separate accounts):
+// (aCis :2106/:7777 + gateway :8090). Three independent headless Chrome
+// instances, each pinned to its OWN STABLE deviceId -> its own account:
+//
+// (The header used to say "separate profiles -> separate deviceIds ->
+// separate accounts". The first arrow is true and the second is the bug:
+// a separate profile has NO stored deviceId, so the client mints a random
+// one, the account is brand new and EMPTY, auth_ok comes back {chars: []},
+// and the enterWorld wait in launch() below could never be satisfied. The
+// separation was never the problem — the *freshness* was. See
+// live_fixture.js.)
 //
 //   1. both go online via the real toggle -> enterWorld at TI village
 //      (tile 17_25); NPC stream arrives with server-resolved names
@@ -21,12 +29,23 @@ const path = require('path');
 const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
+const fixture = require('./live_fixture');
+
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const BASE = 'http://127.0.0.1:8083/';
 const OUT = path.join(__dirname, 'verify_shots');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// One STABLE deviceId per tag. Distinct ids => distinct characters, which
+// is what phases 2-6 need (each must see the other as another player).
+const DEVICE_IDS = {
+  A: 'verify-live-fixture-A',
+  B: 'verify-live-fixture-B',
+  C: 'verify-live-fixture-C',
+};
+
 async function launch(tag) {
+  await fixture.ensureChar(DEVICE_IDS[tag]);
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     args: ['--headless=new', '--use-angle=swiftshader', '--window-size=1280,900'],
@@ -35,6 +54,7 @@ async function launch(tag) {
   await page.setViewport({ width: 1280, height: 900 });
   const errors = [];
   page.on('pageerror', e => errors.push(tag + ': ' + e.message));
+  await fixture.seed(page, DEVICE_IDS[tag]);
   await page.goto(BASE, { waitUntil: 'networkidle0' });
   await page.waitForFunction('window.__world && window.__world.ready', { timeout: 60000 });
   await page.click('#online-toggle');

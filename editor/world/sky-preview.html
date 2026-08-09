@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<!--
+  sky-preview.html — renders editor/world/js/sky.js on its own.
+
+  WHY THIS EXISTS. tools/world/sky.py decodes the skylevel.unr layers the
+  client does not draw (cloud, two starfields, sun, moons, lens flare), and
+  js/sky.js turns that decode into geometry. Wiring them into the running
+  client means editing main.js, which this pass does not own — so this page
+  is where the decode can actually be LOOKED at, and where the before/after
+  screenshots come from.
+
+  It draws the two layers main.js already owns (the flat #0096CE background
+  and nothing else) as a plain clear colour, then adds sky.js's group on
+  top. `?layers=off` renders the background alone, which is the "before".
+
+  Not part of the app. Nothing imports it.
+-->
+<meta charset="utf-8">
+<title>Elbera — skylevel.unr layers</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js",
+    "three/addons/": "./vendor/addons/"
+  }
+}
+</script>
+<style>
+  html, body { margin: 0; height: 100%; background: #0096ce; }
+  canvas { display: block; }
+  #notes {
+    position: fixed; left: 8px; bottom: 8px; max-width: 46em;
+    font: 12px/1.45 ui-monospace, Menlo, monospace; color: #fff;
+    text-shadow: 0 1px 2px #000; white-space: pre-wrap;
+  }
+</style>
+<div id="notes"></div>
+<script type="module">
+import * as THREE from 'three';
+import { SkyLayers } from './js/sky.js';
+
+const q = new URLSearchParams(location.search);
+const withLayers = q.get('layers') !== 'off';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(1);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+// The one layer main.js already owns, reproduced here so the comparison is
+// against the real "before" and not against black: SkybackgroundColor's
+// #0096CE, flat (tools/audit/probe_skydome.py).
+scene.background = new THREE.Color(0x0096ce);
+
+const camera = new THREE.PerspectiveCamera(
+  Number(q.get('fov') || 60), window.innerWidth / window.innerHeight, 0.01, 5000);
+// Sit at the sky eye and look up at the sheets, which hang 13..26 L2 units
+// above it. Elevation is the query so the shots can frame the cloud or the
+// starfields.
+camera.position.set(0, 0, 0);
+const az = THREE.MathUtils.degToRad(Number(q.get('az') || 0));
+const el = THREE.MathUtils.degToRad(Number(q.get('el') || 35));
+camera.lookAt(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+
+const notes = [];
+let sky = null;
+try {
+  if (withLayers) {
+    sky = await SkyLayers.load();
+    scene.add(sky.group);
+    notes.push(`sheets: ${Object.keys(sky.data.sheets).join(', ')}`);
+    notes.push(`cloud rendered rgb: ${sky.data.cloudRenderedRgb.join(',')}`);
+    notes.push(`bodies drawn: ${sky.sprites.children.map((s) => s.name).join(', ')}`);
+    notes.push(`flare elements: ${sky.flare.children.length}`);
+    notes.push(...sky.notes);
+  } else {
+    notes.push('?layers=off — background only (the "before")');
+  }
+} catch (e) {
+  notes.push('FAILED: ' + e.message);
+}
+document.getElementById('notes').textContent = notes.join('\n');
+
+function frame() {
+  if (sky) sky.update(camera);
+  renderer.render(scene, camera);
+  window.__skyReady = true;
+}
+frame();
+window.addEventListener('resize', () => {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  frame();
+});
+</script>

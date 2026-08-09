@@ -10,6 +10,8 @@
 // Output: verify_shots/shop_live_*.png + JSON summary.
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 const puppeteer = require(
   '/Users/alejandroberacasa/l2vzla/tools/src/char_pipeline/node_modules/puppeteer-core');
 
@@ -30,9 +32,52 @@ const HOPS = JSON.parse(fs.readFileSync(
 const ARC = [[-83900, 241000], [-83900, 240850], [-83830, 240805],
   [SILVIA.x, SILVIA.y]];
 
+// FUND THE PURCHASE OFF THE CLOCK, rather than depending on where the
+// character happens to be standing.
+//
+// The suite used to farm gremlins for the 37 adena it needs. That works
+// exactly once: gremlins live at the VILLAGE spawn, and this suite's whole
+// job is to walk to Trader Silvia in TI TOWN and buy something — so it ends
+// every run parked in town, ~19,000 L2 units from the nearest gremlin.
+// The next run then finds `adena < 37 && owned116 === 0`, enters the farm
+// loop, finds nothing within range and throws "no gremlin in range".
+// Measured 2026-08-09: the fixture character sat at (-83841, 240812, -3720)
+// — TI town — with 22 adena and no 116s. The guard above the farm loop was
+// already written for the "poor char in town" case but only covers the
+// half of it where the char still owns a 116 to sell.
+//
+// Adena is the ONE thing safe to seed here. The header's warning is about
+// seeded ITEMS (weight limit, sysMsg 422, World-object checks); this is an
+// UPDATE of the character's existing adena row while it is OFFLINE, which
+// is exactly what verify_warehousewnd_live.js:144 does. It does not change
+// what this suite verifies — the buy/sell deltas below are all relative.
+const DB = ['-u', 'l2j', '-pl2jpass', 'l2jdb'];
+const db = (q) => execFileSync('mariadb', [...DB, '-N', '-B', '-e', q],
+  { encoding: 'utf8' }).trim();
+const MIN_ADENA = 500;
+
+function fundOffline() {
+  const h1 = crypto.createHash('sha256')
+    .update('l2vzla-account:' + DEVICE_ID).digest('hex');
+  const charName = 'W' + h1.slice(12, 23);
+  const charId = db(`SELECT obj_Id FROM characters WHERE char_name='${charName}'`);
+  if (!charId) return { charName, seeded: false, why: 'character does not exist yet' };
+  const online = db(`SELECT online FROM characters WHERE obj_Id=${charId}`);
+  if (online !== '0') return { charName, seeded: false, why: `online=${online}` };
+  const have = Number(db(
+    `SELECT COALESCE(SUM(count),0) FROM items WHERE owner_id=${charId} AND item_id=57`) || 0);
+  if (have >= MIN_ADENA) return { charName, seeded: false, adena: have, why: 'already funded' };
+  const row = db(`SELECT object_id FROM items WHERE owner_id=${charId} AND item_id=57 LIMIT 1`);
+  if (!row) return { charName, seeded: false, adena: have, why: 'no adena row to update' };
+  db(`UPDATE items SET count=${MIN_ADENA} WHERE object_id=${row}`);
+  return { charName, seeded: true, from: have, to: MIN_ADENA };
+}
+
 const summary = {};
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
+  summary.funding = fundOffline();
+  console.log('funding:', JSON.stringify(summary.funding));
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     args: ['--headless=new', '--use-angle=swiftshader', '--window-size=1280,900'],
