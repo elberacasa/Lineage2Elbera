@@ -43,6 +43,23 @@ Still dropped, not approximated:
 Per-class counts of what was dropped ride along in the output ("skip"), so the
 client and the docs can state coverage instead of pretending to full fidelity.
 
+The two "nothing to draw" buckets, re-checked 2026-08-09:
+  NoTexture (10)  These do NOT "name a texture that was never staged", which
+                  is what this file and js/skillvfx.js used to say. Their
+                  Texture property is ABSENT from the packed stream, so it
+                  equals ParticleEmitter's class default -- and that default
+                  is `"S_Emitter"` (tools/dat/dump_emitter_classes.py
+                  --defaults), the UnrealEd editor billboard, not a particle
+                  texture. Retail authors left them untextured; drawing
+                  nothing is the faithful outcome, not a coverage hole.
+  NoMesh    (5)   StaticMesh left at its None default: s_u806_ca,
+                  mp_super_strike_a_ta, mp_super_strike_b_ta,
+                  mp_super_strike_a_co, mo_rapid_shot_ta. Same story.
+The 13 VertMeshEmitters DO name their asset (parse_skillfx.py stores
+VertexMesh under the same `mesh` key as StaticMesh): LineageEffectMeshes'
+magic2, Water01, water00, swirl, selfblaster, linetail60frm and
+linetail60frm_red. The blocker is only the missing Unreal `.3d` decoder.
+
 COLOUR -- THE POINT OF THE EXERCISE
 -----------------------------------
 The retail colour of a particle is NOT simply "the ColorScale array". UE2 packed
@@ -100,11 +117,50 @@ FLAG_ABSOLUTE = 16        # bAbsolute
 FLAG_WORLD_OFFSET = 32    # bRelativeToCylinder explicitly false -> offset is
                           # in world UU, not collision-cylinder fractions
 
-# EAttachMethod, read out of Engine.u's Enum export (ordinals 0..7):
-# None, RH, LH, BoneSpecified, AliasSpecified, Trail, RF, LF. Confirmed against
-# the data: attachOn 3 and 4 carry an AttachBoneName in 21 of 21 cases, and
-# attachOn 5 carries one in 1 of 401 -- exactly what BoneSpecified /
-# AliasSpecified vs. a non-bone method predicts.
+# EAttachMethod, re-read 2026-08-09 straight out of Engine.u's Enum export
+# (ordinals 0..7) and NOT from a name table whose order is arbitrary:
+#     [EAM_None, EAM_RH, EAM_LH, EAM_BoneSpecified,
+#      EAM_AliasSpecified, EAM_Trail, EAM_RF, EAM_LF]
+# The Enum export is export 3369 and its OUTER is the Class export of
+# SkillAction_LocateEffect itself (export 9996) -- i.e. the enum is declared
+# on the very class whose AttachOn ByteProperty (export 10581) uses it, so
+# the type association is not an inference from the property's name.
+#
+# The class-default stream of SkillAction_LocateEffect (found by the
+# clean-parse search in tools/dat/dump_emitter_classes.py, ending exactly on
+# the last byte of the export body) holds ONE authored default:
+# bRelativeToCylinder = True. Everything else is the zero value -- so the 79
+# actions that omit AttachOn are EAM_None (0), not "unknown".
+#
+# The ordinals are corroborated by what the data attaches where, which is the
+# part a wrong enum order could not survive:
+#   EAM_RH  (1, 18 actions)  at_sting_ca, at_mortal_blow_ca, at_fatal_strike_cs,
+#                            dw_spoil_ca -- sword/dagger skills, weapon hand
+#   EAM_LH  (2,  5 actions)  at_shield_slam_ca, at_shield_stun_ca -- SHIELD
+#                            skills, and the shield is the left hand
+#   3 / 4   (21 actions)     carry an AttachBoneName in 21 of 21 cases
+#   EAM_Trail (5, 401)       carries one in 1 of 401
+#   EAM_None (0, 79)         el_wind_strike_fl, el_flame_strike_fl,
+#                            el_aqua_swirl_fl, el_twister_fl, el_prominence_fl
+#                            -- 16 of the 19 `_fl` (flying) actions. Exactly
+#                            the effects that must NOT be glued to a moving
+#                            actor.
+# TWO THINGS THAT LOOK OBVIOUS AND ARE NOT, both measured over the 519 explicit
+# actions rather than assumed:
+#   * NOT every `_fl` class is unattached. Valakas' breath (4683/4684,
+#     mb_valakas_breath_low_fl / _high_fl) hangs off bone `Dummy05` -- a breath
+#     weapon has to stream from the head -- and 4204's el_ice_dagger_fl is
+#     EAM_Trail.
+#   * NOT every impact burst stays where it landed. Of the 19 ExplosionActions
+#     13 are EAM_Trail (el_wind_strike_ta rides a running target, which is what
+#     retail does) and only 6 are EAM_None (el_aqua_swirl_ta, el_ice_dagger_ta,
+#     el_flame_strike_ra, mu_wyvern_breath_ta). The split is per ACTION; there
+#     is no rule that can be read off the phase or the name.
+# Per-phase attach distribution, explicit bindings only:
+#   casting  EAM_Trail 247, RH 15, None 11, Bone 9, Alias 6, LH 3
+#   shot     EAM_Trail 133, None 62, Alias 5, RH 3, LH 2, Bone 1
+#   explosion EAM_Trail 13, None 6      channeling EAM_Trail 6
+ATTACH_NONE, ATTACH_RH, ATTACH_LH, ATTACH_TRAIL = 0, 1, 2, 5
 ATTACH_BONE = (3, 4)
 
 
@@ -403,7 +459,15 @@ def build(verbose=True):
             rec["o"] = [r3(x) for x in a["offset"]]
         if a.get("spawnDelay"):
             rec["d"] = r3(a["spawnDelay"])
-        if a.get("attachOn") in ATTACH_BONE and a.get("bone"):
+        # AttachOn (EAttachMethod). Carried for the first time 2026-08-09:
+        # before this the renderer glued EVERY effect to the actor's collision
+        # centre and made every one of them track the actor for life, which is
+        # wrong twice over -- 44 actions name a hand or a bone, and 79 are
+        # EAM_None, i.e. they must stay where they were spawned.
+        # Omitted when 0 (the class default, EAM_None) to keep the file small.
+        if a.get("attachOn"):
+            rec["at"] = a["attachOn"]
+        if a.get("bone"):
             rec["b"] = a["bone"]
         return rec
 
@@ -494,6 +558,47 @@ def check():
     if fresh["skill"]["1177"].get("f") != 0.4:
         print("CHECK FAIL: Wind Strike flyingTime != 0.4")
         return 1
+
+    # --- AttachOn survives the join (added 2026-08-09) ---------------------
+    # These four assert the whole attach story end to end and FAIL on any tree
+    # where `at` is not carried: a shield skill's cast glint on the LEFT hand,
+    # a dagger skill's on the RIGHT, a named bone reaching the client, and the
+    # projectile classes staying EAM_None so they do not follow their caster.
+    def action(sid, phase, cls):
+        for a in fresh["skill"].get(sid, {}).get(phase, []):
+            if fresh["fxn"][a["f"]] == cls:
+                return a
+        return None
+    for sid, phase, cls, want in (("92", "c", "at_shield_stun_ca", ATTACH_LH),
+                                  ("353", "c", "at_shield_slam_ca", ATTACH_LH),
+                                  ("223", "c", "at_sting_ca", ATTACH_RH),
+                                  ("263", "c", "at_mortal_blow_ca", ATTACH_RH),
+                                  ("1011", "c", "wh_heal_ca", ATTACH_TRAIL)):
+        a = action(sid, phase, cls)
+        if a is None or a.get("at", ATTACH_NONE) != want:
+            print("CHECK FAIL: skill %s %s AttachOn = %s, expected %d"
+                  % (sid, cls, a and a.get("at", 0), want))
+            return 1
+    a = action("1177", "s", "el_wind_strike_fl")
+    if a is None or "at" in a:
+        print("CHECK FAIL: el_wind_strike_fl must stay EAM_None (no `at`)")
+        return 1
+    a = action("4683", "c", "mb_valakas_breath_low_fl")
+    if a is None or a.get("at") != 3 or not a.get("b"):
+        print("CHECK FAIL: Valakas breath lost its BoneSpecified attach")
+        return 1
+    n_at = sum(1 for s in fresh["skill"].values() for k in "cshx"
+               for a in s.get(k, []) if a.get("at"))
+    n_hand = sum(1 for s in fresh["skill"].values() for k in "cshx"
+                 for a in s.get(k, []) if a.get("at") in (ATTACH_RH, ATTACH_LH))
+    n_bone = sum(1 for s in fresh["skill"].values() for k in "cshx"
+                 for a in s.get(k, []) if a.get("b"))
+    if not (n_at and n_hand and n_bone):
+        print("CHECK FAIL: attach counts are empty (at %d, hand %d, bone %d) "
+              "-- a gate that asserts nothing" % (n_at, n_hand, n_bone))
+        return 1
+    print("attach: %d actions carry AttachOn (%d hand, %d named bone)"
+          % (n_at, n_hand, n_bone))
 
     # Wind Strike's shot is the anchor for the mesh path: the bolt is
     # windknifeball00 + windknifewave00 and BOTH have to survive as k:1 records.

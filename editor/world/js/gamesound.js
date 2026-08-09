@@ -38,6 +38,9 @@
 //     handover below. That file has another owner; the value is on disk.
 
 import { audio } from './audio.js';
+// FlyingTime per skill, out of Skill.usk via skillvfx.json. The explosion
+// sound lands with the projectile, not with the shot leaving.
+import { flyingTime } from './skillvfx.js';
 
 const BINDINGS_URL = '/audio/bindings.json';
 
@@ -176,23 +179,51 @@ export class GameSound {
 
   // ---- skills -----------------------------------------------------------
 
-  cast(skillId, pos) {
-    if (!this.ready || !pos) return;
+  // ---- skills: THREE PHASES, NOT A BANK ---------------------------------
+  //
+  // CORRECTED 2026-08-09. `rec.c` used to be the whole of skillsoundgrp's
+  // `spell_sounds` array and this method played `playOneOf` over it — a
+  // RANDOM PICK among what are in fact the cast, shot and explosion sounds
+  // of three different moments. Power Strike therefore had a 50/50 chance
+  // of playing `power_strike_shot` as the gesture began, and the 1092
+  // skills whose slot 1 is populated could never play it at the right time.
+  // The slots are phases (tools/dat/parse_skillsoundgrp.py; 990 of the 1092
+  // populated slot-1 names end in `_shot`, 113 of the 145 slot-2 names in
+  // `_explotion`/`_explosion`), and each now carries its own volume and
+  // radius out of the same record.
+  _play(phase, skillId, pos) {
+    if (!this.ready || !pos) return false;
     const rec = this.skill[String(skillId)];
-    if (!rec) return;
-    const opts = { volume: rec.v, radius: rec.r };   // skillsoundgrp's own
-    audio.playOneOf(this._refs(rec.c), pos, opts);
+    const p = rec && rec[phase];
+    if (!p) return false;
+    // [nameIndex, volume, radius] — every number is skillsoundgrp's own.
+    audio.playAt(this.names[p[0]], pos, { volume: p[1], radius: p[2] });
+    return true;
   }
 
-  launch(skillId, pos) {
+  /** MagicSkillUse: the caster begins the gesture. spell_sounds[0]. */
+  cast(skillId, pos) { return this._play('c', skillId, pos); }
+
+  /** MagicSkillLaunched: the shot leaves (spell_sounds[1]) and, after the
+   *  skill's FlyingTime, the explosion lands on the target
+   *  (spell_sounds[2]). The two are separate sounds at separate moments in
+   *  the retail table and 145 skills carry both.
+   *
+   *  `pos` is the TARGET's position — that is all main.js:954 passes, and
+   *  main.js is another worker's file. HANDOVER: retail spawns the shot at
+   *  the caster (Skill.usk puts the un-flagged ShotActions on the caster),
+   *  so the accurate call is
+   *      gameSound.launch(msg.skillId, pos, entityHeadPos(msg.casterId));
+   *  the optional third argument below is already wired for it. Until then
+   *  the shot plays at the target, which at the table's own radius of 40
+   *  (= 20 m under js/audio.js's falloff) is inaudible only for the 16
+   *  skills that actually have a FlyingTime. */
+  launch(skillId, pos, casterPos = null) {
     if (!this.ready || !pos) return;
-    const rec = this.skill[String(skillId)];
-    if (!rec) return;
-    const opts = { volume: rec.v, radius: rec.r };   // skillsoundgrp's own
-    // The explosion is the impact; fall back to the shot when a skill has no
-    // explosion bank (most buffs are cast-only and correctly stay quiet here).
-    const impact = this._refs(rec.x) || this._refs(rec.s);
-    audio.playOneOf(impact, pos, opts);
+    this._play('s', skillId, casterPos || pos);
+    const fly = flyingTime(skillId);          // seconds, Skill.usk FlyingTime
+    if (fly > 0) setTimeout(() => this._play('x', skillId, pos), fly * 1000);
+    else this._play('x', skillId, pos);
   }
 
   // ---- items ------------------------------------------------------------

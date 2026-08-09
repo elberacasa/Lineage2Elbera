@@ -72,6 +72,7 @@ SUITES=(
 "mock|verify_skillanim|editor/world|360|verify_skillanim.js"
 "mock|verify_skilldepth|editor/world|360|verify_skilldepth.js"
 "mock|verify_skillvfx|editor/world|300|verify_skillvfx.js"
+"mock|verify_skillphase|editor/world|360|verify_skillphase.js|--check --browser"
 "mock|verify_clanwnd|editor/world|300|verify_clanwnd.js"
 "mock|verify_shopwnd|editor/world|300|verify_shopwnd.js"
 "mock|verify_storewnd|editor/world|300|verify_storewnd.js"
@@ -119,6 +120,7 @@ SUITES=(
 # table out of lineagewarrior.int, the .ukx phase keyframes, and the live-aCis
 # cast-timing capture.
 "solo|verify_castanim|editor/world|120|verify_castanim.js|--check"
+"solo|verify_skillclass|editor/world|120|verify_skillclass.js|--check"
 "solo|verify_steps|editor/world|300|verify_steps.js|--check"
 # Browser suites against the dev server only.
 "solo|verify_app|editor/world|300|verify_app.js"

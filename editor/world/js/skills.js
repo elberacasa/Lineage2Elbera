@@ -208,6 +208,13 @@ export class SkillBar {
   }
 }
 
+// The skill CLASSIFICATION (kind / target / retail tooltip numbers) lives in
+// js/skillclass.js so it can be imported without three.js -- verify_skillclass
+// runs it in plain node. Re-exported here because main.js and the UI already
+// import from this module.
+export { SkillClass, loadSkillClass, skillClassLoaded, setSkillClassData }
+  from './skillclass.js';
+
 // skill launch flash: small additive sprite that pops and fades
 let _activeFx = null;   // the live SkillFx (registered at construction)
 

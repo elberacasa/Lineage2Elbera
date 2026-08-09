@@ -11,7 +11,7 @@ import { NetClient, gatewayUrl, deviceId } from './net.js';
 import { EntityManager, pickModelId } from './entities.js';
 import { ChatBox } from './chat.js';
 import { CombatUI, bindProjection, installCombatFeedback } from './combat.js';
-import { SkillBar, SkillFx } from './skills.js';
+import { SkillBar, SkillFx, SkillClass, loadSkillClass } from './skills.js';
 import { InventoryWnd } from './ui/inventorywnd.js';
 import { ShortcutWnd } from './ui/shortcutwnd.js';
 import { skillMeta, skillInfo, itemMeta, itemInfo, sysMsgMeta, renderSysMsg, sysMsgColor, skillAnimMeta, skillAnimInfo, skillAnimLoaded, shotMeta, isShot } from './gamedata.js';
@@ -622,19 +622,37 @@ const skillBar = new SkillBar(
       // aCis target routing (skillweapons.json targets): SELF skills cast on
       // the caster even while a mob is targeted — no targetId is sent, so
       // the bridge never re-targets for them
-      const selfTarget = weaponGate.loaded && weaponGate.targetType(skillId) === 'SELF';
+      // Target routing. skillclass.json (tools/dat/export_skillclass.py) is
+      // the decoded source; weaponGate's `targets` map is the same aCis
+      // column and stays as the fallback while skillclass is still loading.
+      const cls = SkillClass.get(skillId);
+      const tgtType = (cls && cls.t)
+        || (weaponGate.loaded ? weaponGate.targetType(skillId) : null);
+      const selfTarget = tgtType === 'SELF';
       let targetId = !selfTarget && combat.targetId != null ? combat.targetId : null;
       // Retail auto-targets SELF when a beneficial ONE-target skill is cast
       // with nothing targeted — without it aCis answers a bare actionFailed
-      // (no sysMsg), which reads as "skills don't cast". Beneficial comes
-      // from the DATA: skillweapons target routing + the skillgrp anim
-      // code (skillfx_anim.isBeneficialAnim) — no per-skill list.
-      if (targetId == null && selfId != null && weaponGate.loaded
-          && weaponGate.targetType(skillId) === 'ONE') {
-        const meta = skillAnimLoaded();
-        const entry = meta && skillAnimInfo(meta, skillId,
-          (skillBar.skills.get(skillId) || {}).level || 1);
-        if (entry && isBeneficialAnim(entry.anim)) targetId = selfId;
+      // (no sysMsg), which reads as "skills don't cast".
+      //
+      // "Beneficial" is now the SERVER'S OWN FLAG — L2Skill.isOffensive(),
+      // which is the exact boolean TargetOne.meetCastConditions branches on
+      // to decide whether a target is legal. It replaces
+      // skillfx_anim.isBeneficialAnim(anim === 'D' || 'A'), a proxy read off
+      // the skillgrp animation letter. The proxy's correlation was real but
+      // it was a proxy: of the 230 ONE-target skills aCis marks
+      // non-offensive it recognised only 50, missing 180 — including
+      // Battle Heal (1015, anim 'j') and Recharge (1013, anim 'G'), the two
+      // most-cast single-target support skills in the game. It produced no
+      // false positives (0 offensive ONE-target skills carry D or A), so the
+      // decoded flag is a strict superset.
+      if (targetId == null && selfId != null && tgtType === 'ONE') {
+        const beneficial = cls ? !cls.off : (() => {
+          const meta = skillAnimLoaded();
+          const entry = meta && skillAnimInfo(meta, skillId,
+            (skillBar.skills.get(skillId) || {}).level || 1);
+          return !!(entry && isBeneficialAnim(entry.anim));
+        })();
+        if (beneficial) targetId = selfId;
       }
       notePlayerAction('cast');
       net.send('useSkill', {
@@ -2332,6 +2350,7 @@ window.addEventListener('unhandledrejection', (e) => {
     // client then runs silent instead of failing to boot
     await Promise.all([Skin.load(), Font.load(), Layout.load(), NpcHtml.load(),
                        loadExpTable(), loadSkillTypes(), weaponGate.load(),
+                       loadSkillClass(),
                        skillAnimMeta(), shotMeta(), loadEquipment(),
                        audio.init(), gameSound.load()]);
     makeChat();

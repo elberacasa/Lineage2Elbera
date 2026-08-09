@@ -176,7 +176,7 @@ def build_bindings(verbose=True):
 
       {"names": ["itemsound.sword_small_1", ...],
        "npc":    {"20001": {"a":[..], "d":[..], "m":[..], "v":50, "r":250}},
-       "skill":  {"1": {"c":[..], "s":[..], "x":[..], "v":250, "r":50}},
+       "skill":  {"1": {"c":[idx,vol,rad], "s":[idx,vol,rad], "x":[..], "u":[..]}},
        "weapon": {"1": {"h":[..], "e":idx, "d":idx}}}
 
     Keys are terse because they repeat thousands of times: a/d/m = attack /
@@ -184,6 +184,39 @@ def build_bindings(verbose=True):
     drop, v/r = volume / radius. Skills are keyed by id alone: levels of one
     skill share their sounds in every record checked, and keying by id+level
     would multiply the table ~10x for nothing.
+
+    SKILL SOUNDS ARE PHASES, NOT A BANK OF ALTERNATIVES (fixed 2026-08-09).
+    Until this date the three `spell_sounds` strings were interned into ONE
+    list and `gamesound.cast()` picked among them with `playOneOf`, i.e. at
+    random. They are not alternatives: skillsoundgrp.dat's slots are
+    cast / shot / explosion (tools/dat/parse_skillsoundgrp.py, validated by
+    two independent third-party .ddf/.xml definitions AND by the retail
+    names -- 990 of the 1092 populated slot-1 strings end in `_shot` and 113
+    of the 145 populated slot-2 strings end in `_explotion`/`_explosion`).
+    So Power Strike used to have a 50/50 chance of playing its IMPACT sound
+    at the moment the gesture began, and 1092 skills could never play their
+    shot sound at the right time at all.
+
+    Each phase now carries its OWN volume and radius, which the same fix
+    recovered: the six floats per group are three (volume, radius) pairs,
+    not vols[3] + rads[3]. Under the old blocked reading 951 shot sounds had
+    a radius of 0 (= silent under js/audio.js's linear falloff) and 6 rows
+    claimed a volume of 800, which is impossible for a ByteProperty.
+
+    The record-level `v`/`r` are GONE for skills: skillsoundgrp's trailing
+    sound_vol/sound_rad are 250.0/50.0 in all 1398 records and carry no
+    per-skill information, and using them meant every skill sound played at
+    a radius of 50 when the table states 40 (cast/shot) and 80 (explosion).
+
+    `u` is the `shot_sounds` and `exp_sounds` GROUPS -- 111 and 4 records --
+    whose semantics are NOT recovered. In most rows they duplicate a string
+    already in `spell_sounds` at the SAME slot index (skill 30: spell[1] and
+    shot[1] are both `SkillSound4.fatal_strike_shot`), but some bring a name
+    of their own (skill 260 shot[0] is `SkillSound3.fatal_strike_cast` while
+    spell[0] is `SkillSound3.shieldstun_cast`). Nothing in the client tells
+    us WHEN they play, so they are carried and left unplayed rather than
+    guessed onto a phase. Falsifier: a decoded client path that reads either
+    group.
     """
     names, index = [], {}
 
@@ -219,22 +252,35 @@ def build_bindings(verbose=True):
         rec["r"] = round(r.get("sound_radius") or 0)
         npc[str(r["npc_id"])] = rec
 
+    # spell_sounds slot -> phase key. The slot index IS the phase; see the
+    # docstring and tools/dat/parse_skillsoundgrp.py.
+    PHASE = ("c", "s", "x")               # cast / shot / explosion
+
     skill = {}
     for r in load("skillsoundgrp.json"):
         sid = str(r["skill_id"])
         if sid in skill:
             continue                      # first level wins; see docstring
-        c = intern_list(r.get("spell_sounds"))
-        s = intern_list(r.get("shot_sounds"))
-        x = intern_list(r.get("exp_sounds"))
-        if not (c or s or x):
-            continue
         rec = {}
-        if c: rec["c"] = c
-        if s: rec["s"] = s
-        if x: rec["x"] = x
-        rec["v"] = round(r.get("sound_vol") or 0)
-        rec["r"] = round(r.get("sound_rad") or 0)
+        for i, key in enumerate(PHASE):
+            idx = intern(r["spell_sounds"][i])
+            if idx is None:
+                continue
+            # the slot's OWN gain pair. 22 retail rows carry a sound with no
+            # pair or a pair with no sound (named in parse_skillsoundgrp.py);
+            # where the pair is missing the phase falls back to the record's
+            # trailing sound_vol/sound_rad, which is what the driver has left.
+            vol = r["spell_vols"][i] or r.get("sound_vol") or 0
+            rad = r["spell_rads"][i] or r.get("sound_rad") or 0
+            rec[key] = [idx, round(vol), round(rad)]
+        # the shot_/exp_ GROUPS: carried, never played -- semantics unrecovered
+        extra = [i for i in (intern_list(r.get("shot_sounds"))
+                             + intern_list(r.get("exp_sounds")))
+                 if i not in {rec[k][0] for k in rec}]
+        if extra:
+            rec["u"] = sorted(set(extra))
+        if not rec:
+            continue
         skill[sid] = rec
 
     weapon = {}

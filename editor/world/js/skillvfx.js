@@ -20,13 +20,31 @@
 //   caster, and most of what a skill actually looks like.
 //
 // WHAT IS NOT, AND WHY (these render nothing rather than a substitute):
-//   VertMeshEmitter 13  UE2 VertMesh in LineageEffectMeshes.ukx. umodel DOES
-//                       export them (Unreal .3d vertex-animation pairs), but no
-//                       tool in this repo decodes .3d yet.
+//   VertMeshEmitter 13  UE2 VertMesh in LineageEffectMeshes.ukx. The asset
+//                       names ARE decoded (magic2, Water01, water00, swirl,
+//                       selfblaster, linetail60frm, linetail60frm_red); umodel
+//                       exports them as Unreal .3d vertex-animation pairs, but
+//                       no tool in this repo decodes .3d yet.
 //   BeamEmitter     11  procedural beam geometry: the parameters are declared in
 //                       Engine.u but the noise/branching tessellation is native.
-//   (10 more sprites name a texture that was never staged; 5 mesh emitters left
-//    StaticMesh at its None default and have nothing to draw.)
+//   (10 sprites + 5 mesh emitters have NOTHING TO DRAW IN RETAIL EITHER, and
+//    the older claim here -- "10 sprites name a texture that was never staged"
+//    -- was wrong. Their Texture / StaticMesh property is absent from the
+//    packed stream, i.e. it equals the class default, and ParticleEmitter's
+//    default Texture is "S_Emitter", the UnrealEd editor billboard. Verified
+//    with tools/dat/dump_emitter_classes.py --defaults, 2026-08-09.)
+//
+// WHERE AN EFFECT ATTACHES (added 2026-08-09; every effect used to hang off
+// the actor's collision centre and track it for life). Skill.usk's AttachOn is
+// EAttachMethod and 443 of the 524 actions carry one:
+//   EAM_Trail (401)  attached to the actor and follows it -- the cast auras
+//   EAM_None   (79)  NOT attached: spawned once and left where it was. Every
+//                    `_fl` flying class and the impact bursts are in here.
+//   EAM_RH/LH  (23)  the weapon hand / the shield hand. `at_shield_slam_ca`
+//                    and `at_shield_stun_ca` are the two LH cases and both
+//                    are shield skills; the RH set is swords and daggers.
+//   3 / 4      (22)  a named AttachBoneName / alias (e_bone, soulshot1,
+//                    Bip01 R Finger1, Bone09, ...).
 //
 // BLENDING comes from the data and the textures, not from taste. EParticleDrawStyle
 // ordinals are read from Engine.u's Enum export and its CLASS DEFAULT is
@@ -65,9 +83,59 @@ const AX_X = new THREE.Vector3(1, 0, 0);
 const AX_Y = new THREE.Vector3(0, 1, 0);
 const AX_Z = new THREE.Vector3(0, 0, 1);
 
+// EAttachMethod, ordinals straight out of Engine.u's Enum export -- and that
+// Enum's OUTER is the Class export of SkillAction_LocateEffect itself, the
+// very class whose AttachOn ByteProperty uses it, so the association is read,
+// not inferred from a property name. 0 is the class default (the class's
+// default-property stream authors only bRelativeToCylinder=true).
+const EAM_NONE = 0, EAM_RH = 1, EAM_LH = 2;
+const EAM_BONE = 3, EAM_ALIAS = 4, EAM_TRAIL = 5;
+
+// EAM_RH / EAM_LH -> the pawn's RightHandBone / LeftHandBone. The names are
+// NOT invented here: they are the sockets js/equipment.js already hangs a
+// weapon on, decoded from engine.dll's APawn::GetRHandBoneName /
+// GetLHandBoneName and present on all 14 shipped character glTFs.
+// EAM_RF / EAM_LF (6, 7) are deliberately absent: no action in the whole
+// 524-action table uses them, so there is nothing to check a foot-bone name
+// against and a guess would be worse than the fallback.
+const HAND_SOCKET = { [EAM_RH]: 'Weapon_R_Bone', [EAM_LH]: 'Weapon_L_Bone' };
+
 let _index = null;                     // the parsed skillvfx.json
 let _indexPromise = null;
 const _texCache = new Map();
+
+/** Skill.usk FlyingTime in seconds, 0 when the skill has none. Exported for
+ *  js/gamesound.js, whose explosion sound lands with the projectile. */
+export function flyingTime(skillId) {
+  const e = _index && _index.skill[String(skillId)];
+  return (e && e.f) || 0;
+}
+
+/** The Object3D an anchor's position belongs to, so a bone can be found under
+ *  it. `anchor.node(name)` is the supported path; when a caller does not
+ *  supply one we fall back to an IDENTITY search: js/skills.js's entityPos()
+ *  returns `group.position` itself, the same Vector3 instance the entity
+ *  holds, so `g.position === pos` identifies the actor exactly (no distance
+ *  test, no ambiguity). Returns null when the actor cannot be found, and the
+ *  caller then keeps the un-attached placement rather than inventing one. */
+function anchorNode(anchor, name) {
+  if (!name) return null;
+  if (typeof anchor.node === 'function') return anchor.node(name) || null;
+  const w = typeof window !== 'undefined' && window.__world;
+  if (!w) return null;
+  const p = anchor.pos();
+  if (!p) return null;
+  const roots = [];
+  if (w.character && w.character.group) roots.push(w.character.group);
+  const em = w.entities && w.entities.entities;
+  if (em && typeof em.values === 'function') {
+    for (const e of em.values()) if (e && e.group) roots.push(e.group);
+  }
+  for (const g of roots) {
+    if (g.position === p) return g.getObjectByName(name) || null;
+  }
+  return null;
+}
 
 export function vfxIndex() {
   if (!_indexPromise) {
@@ -588,15 +656,66 @@ class Instance {
     this.emitters = fx.e.map(def => makeEmitter(def, index)).filter(Boolean);
     for (const e of this.emitters) for (const o of e.objects) this.group.add(o);
     this.done = false;
+    // AttachOn (EAttachMethod). Absent = 0 = EAM_None, the class default.
+    this.attach = this.action.at || EAM_NONE;
+    // The bone/alias node for EAM_RH/LH/BoneSpecified/AliasSpecified, resolved
+    // once. null when the actor or the bone is not found -- in that case the
+    // effect keeps the cylinder-centre placement, which is what every effect
+    // used to get unconditionally.
+    const boneName = this.attach === EAM_RH || this.attach === EAM_LH
+      ? HAND_SOCKET[this.attach]
+      : (this.attach === EAM_BONE || this.attach === EAM_ALIAS
+         ? this.action.b : null);
+    this.bone = boneName ? anchorNode(anchor, boneName) : null;
+    this.boneName = boneName || null;
     scene.add(this.group);
     this.scene = scene;
     this._place();
+  }
+
+  /** Does this effect keep tracking its actor after it is spawned?
+   *
+   *  EAM_None means NOT attached, and the table proves the distinction is
+   *  load-bearing: every `_fl` (flying) class in Skill.usk -- el_wind_strike_fl,
+   *  el_flame_strike_fl, el_aqua_swirl_fl, el_twister_fl, el_prominence_fl --
+   *  and the impact bursts are the actions that omit AttachOn, while the 401
+   *  cast auras and target effects that clearly do follow their actor are
+   *  EAM_Trail. Before this the renderer re-placed EVERYTHING every frame, so
+   *  a fireball's burst slid along with a running target.
+   *
+   *  The one EAM_None effect that still moves is the travelling projectile,
+   *  and it moves because `launch()` gives it a synthetic moving anchor of its
+   *  own -- the engine drives that point, the actor does not. */
+  get follows() {
+    return this.attach !== EAM_NONE || !!this.travel;
   }
 
   _place() {
     const p = this.anchor.pos();
     if (!p) return;
     const a = this.action;
+    // Attached to a bone: the bone's WORLD position replaces the whole
+    // cylinder-centre construction below -- UE parents the effect to the bone,
+    // so there is no half-height to add and no feet-vs-centre correction.
+    if (this.bone) {
+      this.bone.getWorldPosition(this.group.position);
+      const rotB = this.travelYaw !== undefined ? this.travelYaw
+        : (((a.g || 0) & 8) && this.anchor.yaw && this.anchor.yaw() != null
+           ? this.anchor.yaw() - Math.PI / 2 : null);
+      if (rotB !== null) this.group.rotation.y = rotB;
+      if (a.o) {
+        // bRelativeToCylinder is still the actor's cylinder even when the
+        // effect hangs off a bone -- it is a property of the ACTION, and the
+        // half-height is the actor's, so the same rule applies.
+        const half = (this.anchor.half || 0.85);
+        const tmp = new THREE.Vector3();
+        if ((a.g || 0) & 32) ueToThree(a.o, tmp);
+        else tmp.set(a.o[0] * half, a.o[2] * half, -a.o[1] * half);
+        if (rotB !== null) tmp.applyAxisAngle(AX_Y, rotB);
+        this.group.position.add(tmp);
+      }
+      return;
+    }
     // An UE Actor's Location is the CENTRE of its collision cylinder, but the
     // client's entity/character groups sit at the FEET. Every offset below is
     // measured from that centre, so lift to it first.
@@ -631,7 +750,7 @@ class Instance {
   }
 
   update(dt) {
-    this._place();
+    if (this.follows) this._place();
     let alive = false;
     for (const e of this.emitters) if (e.update(dt)) alive = true;
     if (!alive) this.done = true;

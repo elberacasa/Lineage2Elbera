@@ -31,6 +31,63 @@ the `.uax` packages in `assets/interlude/sounds/` (object-level check in
 `SkillSound2.antaras_creak`, `SkillSound4.doublewind_explotion`,
 `SkillSound.fiend_wind_explotion`).
 
+### 1a. Two corrections, 2026-08-09 — the sounds were decoded and then
+### wired to the wrong field
+
+Both of these were live in the browser until this date, and neither is
+visible from outside: the client made sound, it just made the wrong one.
+
+**(i) The six floats per group are three `(volume, radius)` PAIRS, not
+`vols[3]` then `rads[3]`.** The blocked reading is what the third-party
+field NAMES suggest and it is wrong. Three measurements, any one of which
+falsifies it:
+
+| | blocked `vols[3]+rads[3]` | paired `(v,r)(v,r)(v,r)` |
+|---|---|---|
+| populated slot ⇔ nonzero gain, over 4194 slots | 2940 agree / **1254 disagree** | 4173 / **21** |
+| the same on the `shot` and `exp` groups | 110 disagree | **0** |
+| volume-column domain | includes **600, 800** | {0, 150, 220, 250, 254} |
+| radius-column domain | {0,40,60,80,100,150,200,250,600,800} | {0,20,30,40,60,80,100,200,600,800} |
+
+`SoundVolume` is a **ByteProperty** and `SoundRadius` a **FloatProperty** —
+read out of `Engine.u`'s exports for `AmbientSound` (5563 / 5536) and
+`AmbientSoundObject` (10508 / 10507), the same declarations quoted in
+`tools/world/audio_extract.py`. A volume of 800 is therefore impossible,
+and only the paired reading puts a byte in the volume column. Wind Strike
+(1177) reads `250,40 | 250,40 | 250,80` — and 80 is `GAudioDefaultRadius`
+from `Core.dll`. Under the old reading **951 shot sounds had radius 0**
+(silent under `js/audio.js`'s linear falloff) and the shot volume was 40.
+
+**(ii) The three `spell_sounds` slots are PHASES and were being played as
+a random bank.** `tools/audio/build_audio.py` interned all three into one
+list and `js/gamesound.js` called `playOneOf` on it, so Power Strike had a
+50/50 chance of playing `power_strike_shot` at the instant the gesture
+began. The slot→phase reading is the parser's own field comment, two
+independent third-party `.ddf`/`.xml` definitions, and the retail names
+measured over the whole table: **1002 of the 1105 populated slot-1
+strings end in `_shot`**, **114 of the 147 slot-2 strings in
+`_explotion`/`_explosion`**. `bindings.json` now carries
+`{"c":[idx,vol,rad], "s":[…], "x":[…]}` and the explosion is delayed by
+the skill's `FlyingTime`.
+
+Coverage after the fix, over the 1379 distinct skill ids in the table:
+1316 have a cast sound, **1092 a shot sound that could never play before**,
+145 an explosion.
+
+**Still unwired, and it is the largest remaining sound gap:** the
+`voice_cast` / `voice_throw` blocks. 359 skills carry a per-race/gender
+cast voice and 401 a throw voice, over 14 slots (`mfighter`, `ffighter`,
+`mdarkelf`, … — chargrp record order). They resolve to **100 distinct
+`chrsound.*` refs and all 100 are already staged** in
+`assets/audio/sfx` (`assets/audio/manifest.json`). Nothing but the
+binding is missing. The recipe: emit them from `build_audio.py` as
+`vc`/`vt` maps keyed by the `VOICE_SLOTS` names in
+`parse_skillsoundgrp.py`, resolve the caster's slot from its race+sex,
+and play alongside `cast()` / `launch()`. Note that adding them grows
+`bindings.json`'s name table, so `verify_audio_coverage.js`'s
+`EXPECT.boundNames` has to move with it — that suite already lists this
+as its one open gap.
+
 ## 2. skillgrp.dat — the cast-animation selector (29812 records)
 
 skillgrp's `animation` UNICODE field is the retail cast-anim selector:
@@ -126,6 +183,71 @@ value 5 in 1 of 401 — exactly what `BoneSpecified`/`AliasSpecified`
 vs. a non-bone method predicts. `EParticleDrawStyle` came from the same
 export: `[Regular, AlphaBlend, Modulated, Translucent,
 AlphaModulate_MightNotFogCorrectly, Darken, Brighten]` = 0–6.
+
+**`AttachOn`, re-verified and finally WIRED (2026-08-09).** Two things
+strengthen the entry above and one thing it never said turned out to be
+the whole point.
+
+*Strengthened.* The `EAttachMethod` `Enum` export is number **3369** and
+its **outer is the `Class` export of `SkillAction_LocateEffect` itself**
+(9996) — the enum is declared on the very class whose `AttachOn`
+`ByteProperty` (10581) uses it, so the type association is read, not
+inferred from a property name. And `SkillAction_LocateEffect`'s
+class-default stream (found by `dump_emitter_classes.py`'s clean-parse
+search, ending exactly on the last byte of the 102-byte export body)
+authors exactly **one** value: `bRelativeToCylinder = true`. So the 79
+actions that omit `AttachOn` are `EAM_None` **by retail byte**, not by
+inference from a value count.
+
+*Corroborated semantically*, which a wrong ordinal order could not
+survive: the two `EAM_LH` casting actions are `at_shield_stun_ca` and
+`at_shield_slam_ca` — **shield** skills, and the shield is the left hand
+— while `EAM_RH` carries `at_sting_ca`, `at_mortal_blow_ca`,
+`at_fatal_strike_cs`, `dw_spoil_ca`: swords and daggers.
+
+*What it never said.* The renderer **dropped `AttachOn` entirely**.
+`build_skillvfx.py` kept only the bone NAME, and only for methods 3/4,
+and `skillvfx.js` never read even that. Every effect in the game hung off
+the actor's collision-cylinder centre and was re-placed **every frame**,
+for life. That is wrong in two directions at once:
+
+- 44 actions name a hand or a bone and were drawing at the body centre;
+- 79 actions are `EAM_None`, i.e. **not attached** — spawned once and
+  left where they were — and were instead glued to a moving actor.
+
+Both are fixed: the index now carries `at` (and `b` for any named bone),
+and `skillvfx.js` resolves `EAM_RH`/`EAM_LH` to the pawn's
+`Weapon_R_Bone`/`Weapon_L_Bone` sockets (the same ones `js/equipment.js`
+hangs a weapon on) and stops re-placing an `EAM_None` instance after it
+spawns. Measured in the live client by `verify_skillphase.js`: skill 92's
+cast effect sits **0.000 m** from `Weapon_L_Bone` and 0.13 m from the
+actor centre; Aqua Swirl's impact moves **0 m** when its target is
+teleported 25 m, while Heal's `EAM_Trail` aura moves the full 25 m.
+
+**Two generalisations that are FALSE and were nearly written down as
+true**, both measured over the 519 explicit actions:
+
+- *"every `_fl` (flying) class is `EAM_None`"* — 3 of the 19 are not.
+  Valakas' breath (4683/4684) hangs off bone `Dummy05`, because a breath
+  weapon has to stream from the head; 4204's `el_ice_dagger_fl` is
+  `EAM_Trail`.
+- *"an impact burst stays where it landed"* — of the 19
+  `ExplosionActions`, **13 are `EAM_Trail`** (`el_wind_strike_ta` really
+  does ride a running target) and only **6 are `EAM_None`**. The split is
+  per ACTION and cannot be read off the phase or the name suffix.
+
+Per-phase attach distribution, explicit bindings only:
+
+| phase | Trail | None | RH | LH | Bone | Alias |
+|---|---|---|---|---|---|---|
+| casting | 247 | 11 | 15 | 3 | 9 | 6 |
+| shot | 133 | 62 | 3 | 2 | 1 | 5 |
+| explosion | 13 | 6 | – | – | – | – |
+| channeling | 6 | – | – | – | – | – |
+
+`EAM_RF` / `EAM_LF` (6, 7) are used by **no action in the table**, so no
+foot-bone name is asserted anywhere — there would be nothing to check it
+against.
 
 **`offset` units.** Two regimes, and they separate perfectly:
 every action explicitly flagged `bRelativeToCylinder=false` (30 of them)
@@ -505,10 +627,23 @@ dropped**:
 
 | Emitter class | On bound classes | Rendered | Dropped |
 |---|---|---|---|
-| SpriteEmitter | 724 | **714** | 10 (texture never staged) |
+| SpriteEmitter | 724 | **714** | 10 (**no `Texture` authored** — see below) |
 | MeshEmitter | 413 | **408** | 5 (`StaticMesh` left at its None default) |
 | VertMeshEmitter | 13 | 0 | 13 |
 | BeamEmitter | 11 | 0 | 11 |
+
+**"10 sprites name a texture that was never staged" is FALSE** (checked
+2026-08-09; the claim sat in this table, in `build_skillvfx.py` and in
+`js/skillvfx.js`). Those 10 emitters carry **no `Texture` property at
+all** — it is absent from the packed stream, so it equals the class
+default, and `ParticleEmitter`'s default `Texture` is **`"S_Emitter"`**,
+the UnrealEd editor billboard (`dump_emitter_classes.py --defaults`).
+They are untextured in retail too. Drawing nothing is the faithful
+outcome, not a staging hole; there is nothing to go and export. The same
+reading applies to the 5 `NoMesh` cases (`s_u806_ca`,
+`mp_super_strike_a_ta`, `mp_super_strike_b_ta`, `mp_super_strike_a_co`,
+`mo_rapid_shot_ta`). So of the 39 dropped emitters, **15 are drops
+retail also makes** and only 24 (11 Beam + 13 VertMesh) are decoder gaps.
 
 (The previous pass rendered 714 and dropped 447. The six skills listed
 then as "bound but nothing drawable" — 1111, 2003, 2166, 323, 3632,

@@ -29,7 +29,58 @@ import { Skin } from './skin.js';
 import { Font } from './font.js';
 import { Layout } from './layout.js';
 import { L2Window } from './window.js';
-import { skillMeta, skillInfo } from '../gamedata.js';
+import { skillMeta, skillInfo, sysStringMeta } from '../gamedata.js';
+import { SkillClass } from '../skills.js';
+
+// Tooltip.uc:868 ReturnTooltip_NTT_SKILL is the retail skill tooltip, and it
+// is SHORT: name, enchant name, "Lv N", the operate-type line, HP cost, MP
+// cost, Range, description. No cast time, no reuse, no power -- retail does
+// not print them, so neither do we.
+//
+// The four labels are SysString ids read straight out of the .uc, resolved
+// against the decoded sysstring-e.dat rather than typed in as English:
+//   88 'Lv'   1195 'HP Cost'   320 'MP Cost'   321 'Range'
+// The value line itself is GetOperateType(), whose native implementation was
+// disassembled out of NWindow.dll (see tools/dat/export_skillclass.py) --
+// SysString 311 'Active Skill' / 312 'Passive Skill' / 313 'Magic' /
+// 1500 'Song/Dance'.
+const TIP_LV = 88, TIP_HP = 1195, TIP_MP = 320, TIP_RANGE = 321;
+let _sys = null;
+export function loadSkillTooltipStrings() {
+  return sysStringMeta().then((s) => { _sys = s; return s; });
+}
+function S(id) {
+  if (!_sys) return '';
+  const r = Array.isArray(_sys) ? _sys.find(x => x.id === id) : _sys[String(id)];
+  if (!r) return '';
+  return typeof r === 'string' ? r : (r.string || r.text || '');
+}
+
+/** The retail tooltip's own lines for one skill, in Tooltip.uc:868 order.
+ *  Returns [] when neither metadata source has loaded. */
+export function skillTooltipLines(id, level, meta) {
+  const info = skillInfo(meta, id);
+  const m = meta && meta[String(id)];
+  const out = [];
+  if (!info) return out;
+  out.push(info.name);
+  // uc:939 " Lv N" — the label is SysString 88, not the word "Level"
+  out.push(`${S(TIP_LV)} ${level}`);
+  const disp = SkillClass.displayType(id);
+  if (disp) out.push(disp);
+  // uc:956/963/970: HP and MP print only when > 0, Range prints when >= 0.
+  const hp = SkillClass.num(id, 'hp', level);
+  if (hp > 0) out.push(`${S(TIP_HP)} : ${hp}`);
+  const mp = SkillClass.num(id, 'mp', level);
+  if (mp > 0) out.push(`${S(TIP_MP)} : ${mp}`);
+  const range = SkillClass.num(id, 'range', level);
+  if (range != null && range >= 0) out.push(`${S(TIP_RANGE)} : ${range}`);
+  // KNOWN GAP: retail calls GetDescription(classID, level) and gets the
+  // PER-LEVEL text out of skillname-e.dat. skillmeta.json keeps one string
+  // per id, so the level-1 wording is shown at every level.
+  if (m && m.desc) out.push(m.desc);
+  return out;
+}
 
 const WND = 'MagicSkillWnd';
 // Icon cell geometry: DATA-DRIVEN from the xdat grid block
@@ -43,10 +94,14 @@ let _types = null;
 
 export function loadSkillTypes() {
   if (_types) return Promise.resolve(_types);
-  return fetch('/gamedata/skilltypes.json')
-    .then(r => (r.ok ? r.json() : null))
-    .then(d => (_types = (d && d.types) || {}))
-    .catch(() => (_types = {}));
+  return Promise.all([
+    fetch('/gamedata/skilltypes.json')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => (_types = (d && d.types) || {}))
+      .catch(() => (_types = {})),
+    // the four SysString labels the retail skill tooltip prints
+    loadSkillTooltipStrings().catch(() => null),
+  ]).then(() => _types);
 }
 
 /** 'ACTIVE' | 'TOGGLE' | 'PASSIVE'. Falls back to the packet's passive flag. */
@@ -222,9 +277,29 @@ export class SkillWnd {
         + 'display:flex;align-items:center;justify-content:center;';
       if (this.cellArt) Skin.apply(inner, CELL_REF, { content: { w: this.cell, h: this.cell } });
       cell.appendChild(inner);
-      cell.title = `${info.name} (Lv ${s.level}) — ${type}`
-        + (s.disabled ? ' — unavailable' : '')
-        + (weaponBlocked ? ' — wrong weapon' : '');
+      // The decoded classification rides on the cell so the runtime, the
+      // shortcut bar and the suites can read what a skill IS without going
+      // back to the network: kind (attack/heal/buff/debuff/resurrect/summon/
+      // dispel/toggle/passive/utility), aCis SkillTargetType, and the
+      // server's own isOffensive() flag. Source: skillclass.json.
+      const cls = SkillClass.get(s.id);
+      if (cls) {
+        if (cls.k) cell.dataset.skillKind = cls.k;
+        if (cls.t) cell.dataset.skillTarget = cls.t;
+        cell.dataset.skillOffensive = cls.off ? '1' : '0';
+        const ti = SkillClass.targetInfo(s.id);
+        if (ti) {
+          cell.dataset.skillScope = ti.scope;
+          cell.dataset.skillNeedsTarget = ti.needsTarget ? '1' : '0';
+          if (!ti.handled) cell.dataset.skillUncastable = '1';
+        }
+      }
+      // Tooltip.uc:868's own field list (see skillTooltipLines). Retail shows
+      // no kind and no target type here, so neither do we -- the decode lives
+      // in the dataset above, not in the visible text.
+      cell.title = skillTooltipLines(s.id, s.level, meta).join('\n')
+        + (s.disabled ? '\n— unavailable' : '')
+        + (weaponBlocked ? '\n— wrong weapon' : '');
 
       if (info.icon) {
         const img = document.createElement('img');
