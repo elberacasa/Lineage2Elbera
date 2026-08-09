@@ -48,6 +48,8 @@ harnesses (headless Chrome driving the real UI).
 | **163,953** | static prop placements extracted from those tiles (buildings, fences, trees…) — every one resolves to a drawable primitive, gated by `prop_census.py --check` |
 | **30,177** | textures exported from the client into the PNG library (386 packages) |
 | **772** | glTF models built by the pipeline: 14 creation characters + 495 monsters/NPCs + 180 weapons and shields + 83 others |
+| **1,014 / 1,355** | armor entries decoded from `armorgrp` and the distinct meshes they resolve to — rendered as **per-slot body-mesh swaps** (chest, legs, gloves, boots), which is how retail does armor. Only 29 meshes and 2 materials are genuinely absent from the client; everything else was already extracted |
+| **1,935 / 1,935** | armor materials resolved through the shader/FinalBlend chain to a real diffuse bitmap. A naive check claims 1,937 are "missing" — armorgrp's texture field is a *material* name, and 56% are not textures at all |
 | **99.7%** | of spawned NPC instances render a real model (54,734 of 54,901) — capsule placeholders down to 2 |
 | **332,717** | triangles of BSP building geometry decoded from the maps: shells, interiors, doorways, 100/100 tiles |
 | **5,128 + 250** | sound effects unpacked from the 25 encrypted `.uax` banks + music tracks, wired to 9,174 table bindings |
@@ -579,6 +581,16 @@ ours.
 
 ## Honest limitations
 
+- **Helmets are not cosmetic in Interlude — this is retail behaviour, not a
+  gap.** All 96 helmet items (`Cloth Cap` … `Wooden Helmet`) reference **zero
+  meshes** across all 28 race slots: the client ships no helmet geometry, and
+  helmets exist for stats and set bonuses only. `verify_armor.js` asserts this
+  *negative* so a future pass cannot quietly invent geometry that retail never
+  had.
+- **686 additive accessory meshes (cloaks, hair) are extracted but not
+  rendered.** Their rigs change the canonical bone order, so they cannot be
+  bound to the character skeleton by the mechanism used for armor. Built,
+  refused, and recorded with the reason — not faked.
 - **The browser is a renderer, not the game.** All logic lives in aCis; the
   client implements the protocol subset in the gateway contract. Not
   bridged yet: craft/recipes. (Multisell and warehouse ARE bridged and
