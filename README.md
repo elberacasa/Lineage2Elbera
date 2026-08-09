@@ -79,6 +79,10 @@ harnesses (headless Chrome driving the real UI).
 | **24 / 24** | format-library tests passing, byte-exact against the reference native tools |
 | **12,015 / 12,015** | static-mesh actors carrying a retail footstep bank, each joined to its prop by (mesh, location) — zero unmatched, 98 distinct step sounds |
 | **352 / 495** | creatures with a fully bound animation set (idle/walk/run/attack/die), audited clip-by-clip against the retail `.psa` — the rest are documented gaps, not silent fallbacks |
+| **2,701** | skills classified by **kind and legal target** — attack 446, buff 502, debuff 341, heal 114, dispel 65, summon 50, toggle 32, resurrect 9, passive 802. The client's own four categories (Active / Passive / Magic / Song-Dance) are disassembled out of `NWindow.dll`; kind and target come from the server's enums, and *the rule that fired ships with each skill* |
+| **9,238** | items with a full hover tooltip built from **the client's own `Tooltip.uc`** — its field order, its labels, its number formatting. Not a designed layout: a straight-line read of the function retail uses |
+| **84 / 84** | (pawn, weapon-stance) pairs whose skill cast animation resolves from the client's own per-stance table. Magic casts are byte-identical across all six stances; physical specials are not, and the old string-concatenation rule was wrong for 10 of them |
+| **51 + 67** | html tags and named entities in the NPC dialog parser, decoded from `NWindow.dll` — the window is a **native class**, which is why `Interface.xdat` has no record of it |
 | **8,192** | numeric and colour literals classified by the unsourced-value audit — every one bucketed sourced / authored / unsourced / benign, with a regression gate |
 | **3e-8** | max position error of the model converter vs. the reference exporter |
 
@@ -184,6 +188,10 @@ touch: a browser, a protocol gateway, and the real game server.
  │ ElberaSteps    footstep banks       │──►   + steps.json   12,015 actors, 4 surfaces
  │ ElberaModeler  .ukx → glTF          │──► editor/characters    772 glTF total
  │ ElberaAnim     mesh → animation     │──►   + binding audit vs the retail .psa sets
+ │ ElberaCast     skill → cast clip    │──►   + pawnanim.json  84 pawn/stance pairs
+ │ ElberaClass    skill → kind+target  │──►   + skillclass.json 2,701 skills
+ │ ElberaTip      Tooltip.uc → fields  │──►   + itemtip.json    9,238 items
+ │ ElberaDialog   NPC html window      │──►   + npchtml.json    native class, 51 tags
  │ ElberaArms     weapons · shields    │──►   + weapons/     180 arms and shields
  │ ElberaFx       skill particles      │──► assets/gamedata  skillvfx + skillmesh
  │ ElberaDat      .dat → JSON          │──►   + decoded tables, names, icons
@@ -201,6 +209,7 @@ touch: a browser, a protocol gateway, and the real game server.
   the output ties back to the client's own data:
 
    prop_census.py     163,953 placements → every one a drawable primitive
+   export_skillclass  re-reads the server's Java and fails if a rule drifts
    mine_invslots.py   won't write unless it reproduces every xdat anchor
    audit_guesses.py   gates the UI port: no unjustified pixel ships
    unsourced.py       classifies all 8,192 literals; baseline fails on drift
@@ -298,7 +307,7 @@ play, and `deploy/play.sh --stop` closes the tunnel and edge proxy.
 
 ## The Elbera toolchain
 
-Twenty-three tools, one rule: each does one job, is re-runnable, and carries
+Twenty-nine tools, one rule: each does one job, is re-runnable, and carries
 its own verification. Pitch first, details after.
 
 | Tool | Pitch | Location |
@@ -326,6 +335,11 @@ its own verification. Pitch first, details after.
 | **ElberaSteps** | Retail footstep banks, per surface and per prop | `tools/audio/build_steps.py` |
 | **ElberaAudit** | Every literal in the codebase, sourced or flagged | `tools/audit/unsourced.py` |
 | **ElberaLightmap** | Retail's baked BSP lighting, decoded | `tools/world/bsplight.py` |
+| **ElberaTip** | Item tooltips, from the client's own `Tooltip.uc` | `tools/ui/mine_itemtooltip.py`, `tools/dat/build_itemtip.py` |
+| **ElberaDialog** | The NPC html window — a *native* class, mined from the DLL | `tools/ui/mine_npchtml.py`, `mine_htmlart.py` |
+| **ElberaCast** | Per-skill, per-stance cast animation and its phase timing | `tools/anim/build_pawnanim.py`, `audit_castanim.py` |
+| **ElberaClass** | What every skill *is*: kind, target, refusal | `tools/dat/export_skillclass.py` |
+| **ElberaSocket** | Where a weapon or shield actually hangs | `tools/src/char_pipeline/decode_attach.py` |
 | **ElberaAnim** | Mesh→animation bindings, checked against the retail sets | `tools/anim/audit_bindings.py` |
 
 Support gear: `tools/battery.sh` — the one-command verification battery
