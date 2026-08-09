@@ -45,6 +45,9 @@ import { Skin } from './skin.js';
 import { Font } from './font.js';
 import { L2Window } from './window.js';
 import { WndMgr } from './wndmgr.js';
+import {
+  loadTooltipData, attachItemTooltip, setItemNameSource, itemTypeOf,
+} from './tooltip.js';
 import { itemMeta, itemInfo, sysMsgMeta, renderSysMsg } from '../gamedata.js';
 
 const WND = 'InventoryWnd';
@@ -297,6 +300,11 @@ export class InventoryWnd {
     el.title = key;
     el.style.cssText = 'position:absolute;';
     place(el, r.x, r.y, r.w, r.h);
+    // The well is created once and its occupant changes with every render,
+    // so the tooltip reads the CURRENT dataset.oid rather than closing over
+    // an item — equip/unequip under the cursor repaints instead of lying.
+    attachItemTooltip(el, () => (el.dataset.oid
+      ? this._tipModel(Number(el.dataset.oid)) : null));
     el.addEventListener('dragover', (e) => e.preventDefault());
     el.addEventListener('drop', (e) => {
       e.preventDefault();
@@ -354,9 +362,28 @@ export class InventoryWnd {
     return out;
   }
 
+  /** The hover tooltip's view of one inventory row. Everything per-instance
+   *  (count, enchant, category, slot) is the SERVER's; the stat lines are
+   *  looked up from the client's own grp tables inside tooltip.js. */
+  _tipModel(objectId) {
+    const it = this.items.get(objectId);
+    if (!it || !this.meta) return null;
+    return {
+      itemId: it.itemId,
+      name: itemInfo(this.meta, it.itemId).name,
+      count: it.count | 0,
+      enchant: it.enchant | 0,
+      itemType: itemTypeOf(it),
+      slotBit: it.slot | 0,
+    };
+  }
+
   async setItems(items) {
     if (!this.meta) this.meta = await itemMeta();
     if (!this.sysMsg) this.sysMsg = await sysMsgMeta();
+    // Tooltip tables: fetched once, never blocking the item list.
+    setItemNameSource((id) => itemInfo(this.meta, id).name);
+    loadTooltipData();
     this.items.clear();
     for (const it of items) {
       this.items.set(it.objectId, it);
@@ -445,6 +472,8 @@ export class InventoryWnd {
           JSON.stringify({ type: 'item', id: it.objectId }));
       });
       el.addEventListener('dblclick', () => this.onUse(it.objectId));
+      // Tooltip.uc's "Inventory" tooltip type — the retail hover panel.
+      attachItemTooltip(el, () => this._tipModel(it.objectId));
       el.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         this.onAssign({ type: 'item', id: it.objectId });

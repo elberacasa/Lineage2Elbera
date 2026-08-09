@@ -5416,6 +5416,110 @@
    "cy": 0,
    "cw": 11,
    "ch": 11
+  },
+  "L2UI_CH3.Tooltip.Tooltip1": {
+   "file": "L2UI_CH3__Tooltip1.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1
+  },
+  "L2UI_CH3.Tooltip.Tooltip2": {
+   "file": "L2UI_CH3__Tooltip2.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1
+  },
+  "L2UI_CH3.Tooltip.Tooltip3": {
+   "file": "L2UI_CH3__Tooltip3.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1
+  },
+  "L2UI_CH3.Tooltip.Tooltip4": {
+   "file": "L2UI_CH3__Tooltip4.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1
+  },
+  "L2UI_CH3.Tooltip.Tooltip5": {
+   "file": "L2UI_CH3__Tooltip5.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1
+  },
+  "L2UI_CH3.Tooltip.Tooltip6": {
+   "file": "L2UI_CH3__Tooltip6.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1
+  },
+  "L2UI_CH3.Tooltip.Tooltip7": {
+   "file": "L2UI_CH3__Tooltip7.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1
+  },
+  "L2UI_CH3.Tooltip.Tooltip8": {
+   "file": "L2UI_CH3__Tooltip8.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1
+  },
+  "L2UI_CH3.Tooltip.Tooltip9": {
+   "file": "L2UI_CH3__Tooltip9.png",
+   "w": 8,
+   "h": 8,
+   "scale": 1
+  },
+  "symbol.Icon.grade_d": {
+   "file": "symbol__grade_d.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 12
+  },
+  "symbol.Icon.grade_c": {
+   "file": "symbol__grade_c.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 12
+  },
+  "symbol.Icon.grade_b": {
+   "file": "symbol__grade_b.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 12
+  },
+  "symbol.Icon.grade_a": {
+   "file": "symbol__grade_a.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 12
+  },
+  "symbol.Icon.grade_s": {
+   "file": "symbol__grade_s.png",
+   "w": 16,
+   "h": 16,
+   "scale": 1,
+   "cx": 0,
+   "cy": 0,
+   "cw": 11,
+   "ch": 12
   }
  }
 }

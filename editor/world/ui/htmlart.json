@@ -1,0 +1,1377 @@
+{
+ "_note": "Textures named by NPC-dialog HTML (back=/fore=/src=), staged from the client's own packages. `missing` is honest: the retail Interlude client draws nothing for those either.",
+ "_source": "assets/library (umodel export) + server HTML",
+ "_tool": "tools/ui/mine_htmlart.py",
+ "missing": {
+  "L2UI_CT1.Button_DF": {
+   "reason": "package L2UI_CT1 is not in the client's texture set",
+   "usedBy": [
+    "server/aCis_datapack/data/html/CommunityBoard/clan/clanpost-show.htm",
+    "server/aCis_datapack/data/html/CommunityBoard/memo-show.htm",
+    "server/aCis_datapack/data/html/CommunityBoard/memo-write.htm"
+   ]
+  },
+  "L2UI_CT1.Button_DF_Down": {
+   "reason": "package L2UI_CT1 is not in the client's texture set",
+   "usedBy": [
+    "server/aCis_datapack/data/html/CommunityBoard/clan/clanpost-show.htm",
+    "server/aCis_datapack/data/html/CommunityBoard/memo-show.htm",
+    "server/aCis_datapack/data/html/CommunityBoard/memo-write.htm"
+   ]
+  },
+  "L2UI_CT1.Button_DF_Left": {
+   "reason": "package L2UI_CT1 is not in the client's texture set",
+   "usedBy": [
+    "server/aCis_datapack/data/html/CommunityBoard/clan/clanpost.htm"
+   ]
+  },
+  "L2UI_CT1.Button_DF_Left_Down": {
+   "reason": "package L2UI_CT1 is not in the client's texture set",
+   "usedBy": [
+    "server/aCis_datapack/data/html/CommunityBoard/clan/clanpost.htm"
+   ]
+  },
+  "L2UI_CT1.Button_DF_Right": {
+   "reason": "package L2UI_CT1 is not in the client's texture set",
+   "usedBy": [
+    "server/aCis_datapack/data/html/CommunityBoard/clan/clanpost.htm"
+   ]
+  },
+  "L2UI_CT1.Button_DF_Right_Down": {
+   "reason": "package L2UI_CT1 is not in the client's texture set",
+   "usedBy": [
+    "server/aCis_datapack/data/html/CommunityBoard/clan/clanpost.htm"
+   ]
+  },
+  "l2ui_ct1.button.button_df_small": {
+   "reason": "package l2ui_ct1 is not in the client's texture set",
+   "usedBy": [
+    "server/aCis_datapack/data/html/CommunityBoard/clan/clanpost-write.htm",
+    "server/aCis_datapack/data/html/CommunityBoard/clan/clanpost.htm"
+   ]
+  },
+  "l2ui_ct1.button.button_df_small_down": {
+   "reason": "package l2ui_ct1 is not in the client's texture set",
+   "usedBy": [
+    "server/aCis_datapack/data/html/CommunityBoard/clan/clanpost-write.htm",
+    "server/aCis_datapack/data/html/CommunityBoard/clan/clanpost.htm"
+   ]
+  }
+ },
+ "sprites": {
+  "L2UI.DefaultButton": {
+   "ch": 19,
+   "cw": 67,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__DefaultButton.png",
+   "h": 32,
+   "w": 128
+  },
+  "L2UI.DefaultButton_click": {
+   "ch": 19,
+   "cw": 67,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__DefaultButton_click.png",
+   "h": 32,
+   "w": 128
+  },
+  "L2UI.SquareBlank": {
+   "ch": 8,
+   "cw": 8,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__SquareBlank.png",
+   "h": 8,
+   "w": 8
+  },
+  "L2UI.SquareGray": {
+   "ch": 8,
+   "cw": 8,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__SquareGray.png",
+   "h": 8,
+   "w": 8
+  },
+  "L2UI.SquareWhite": {
+   "ch": 8,
+   "cw": 8,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__SquareWhite.png",
+   "h": 8,
+   "w": 8
+  },
+  "L2UI.Squaregray": {
+   "ch": 8,
+   "cw": 8,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__Squaregray.png",
+   "h": 8,
+   "w": 8
+  },
+  "L2UI.lottoNum01": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum01.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum01a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum01a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum02": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum02.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum02a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum02a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum03": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum03.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum03a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum03a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum04": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum04.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum04a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum04a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum05": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum05.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum05a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum05a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum06": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum06.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum06a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum06a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum07": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum07.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum07a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum07a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum08": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum08.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum08a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum08a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum09": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum09.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum09a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum09a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum10": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum10.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum10a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum10a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum11": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum11.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum11a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum11a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum12": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum12.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum12a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum12a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum13": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum13.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum13a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum13a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum14": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum14.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum14a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum14a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum15": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum15.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum15a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum15a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum16": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum16.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum16a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum16a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum17": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum17.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum17a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum17a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum18": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum18.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum18a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum18a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum19": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum19.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum19a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum19a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum20": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum20.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottoNum20a_check": {
+   "ch": 20,
+   "cw": 40,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottoNum20a_check.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI.lottobc": {
+   "ch": 18,
+   "cw": 200,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottobc.png",
+   "h": 32,
+   "w": 256
+  },
+  "L2UI.lottobl": {
+   "ch": 17,
+   "cw": 12,
+   "cx": 8,
+   "cy": 0,
+   "file": "L2UI__lottobl.png",
+   "h": 32,
+   "w": 32
+  },
+  "L2UI.lottobr": {
+   "ch": 17,
+   "cw": 18,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottobr.png",
+   "h": 32,
+   "w": 32
+  },
+  "L2UI.lottoml": {
+   "ch": 80,
+   "cw": 12,
+   "cx": 8,
+   "cy": 0,
+   "file": "L2UI__lottoml.png",
+   "h": 128,
+   "w": 32
+  },
+  "L2UI.lottomr": {
+   "ch": 80,
+   "cw": 18,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__lottomr.png",
+   "h": 128,
+   "w": 32
+  },
+  "L2UI.lottotc": {
+   "ch": 11,
+   "cw": 200,
+   "cx": 0,
+   "cy": 9,
+   "file": "L2UI__lottotc.png",
+   "h": 32,
+   "w": 256
+  },
+  "L2UI.lottotl": {
+   "ch": 11,
+   "cw": 12,
+   "cx": 8,
+   "cy": 9,
+   "file": "L2UI__lottotl.png",
+   "h": 32,
+   "w": 32
+  },
+  "L2UI.lottotr": {
+   "ch": 10,
+   "cw": 17,
+   "cx": 0,
+   "cy": 10,
+   "file": "L2UI__lottotr.png",
+   "h": 32,
+   "w": 32
+  },
+  "L2UI.rightBtn1": {
+   "ch": 13,
+   "cw": 13,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__rightBtn1.png",
+   "h": 16,
+   "w": 16
+  },
+  "L2UI.rightBtn2": {
+   "ch": 13,
+   "cw": 13,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__rightBtn2.png",
+   "h": 16,
+   "w": 16
+  },
+  "L2UI.squareblank": {
+   "ch": 8,
+   "cw": 8,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__squareblank.png",
+   "h": 8,
+   "w": 8
+  },
+  "L2UI.squaregray": {
+   "ch": 8,
+   "cw": 8,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI__squaregray.png",
+   "h": 8,
+   "w": 8
+  },
+  "L2UI_CH3.Btn1_normal": {
+   "ch": 23,
+   "cw": 76,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__Btn1_normal.png",
+   "h": 32,
+   "w": 128
+  },
+  "L2UI_CH3.Btn1_normalOn": {
+   "ch": 21,
+   "cw": 74,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__Btn1_normalOn.png",
+   "h": 32,
+   "w": 128
+  },
+  "L2UI_CH3.ScrollBar.ScrollBarDownBtn": {
+   "ch": 15,
+   "cw": 15,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__ScrollBarDownBtn.png",
+   "h": 16,
+   "w": 16
+  },
+  "L2UI_CH3.ScrollBar.ScrollBarDownOnBtn": {
+   "ch": 14,
+   "cw": 14,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__ScrollBarDownOnBtn.png",
+   "h": 16,
+   "w": 16
+  },
+  "L2UI_CH3.ScrollBar.ScrollBarUpBtn": {
+   "ch": 15,
+   "cw": 15,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__ScrollBarUpBtn.png",
+   "h": 16,
+   "w": 16
+  },
+  "L2UI_CH3.ScrollBar.ScrollBarUpOnBtn": {
+   "ch": 14,
+   "cw": 14,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__ScrollBarUpOnBtn.png",
+   "h": 16,
+   "w": 16
+  },
+  "L2UI_CH3.ScrollBar.SliderBarBottom": {
+   "ch": 8,
+   "cw": 15,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__SliderBarBottom.png",
+   "h": 8,
+   "w": 16
+  },
+  "L2UI_CH3.ScrollBar.SliderBarCenter": {
+   "ch": 8,
+   "cw": 15,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__SliderBarCenter.png",
+   "h": 8,
+   "w": 16
+  },
+  "L2UI_CH3.ScrollBar.SliderBarTop": {
+   "ch": 8,
+   "cw": 15,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__SliderBarTop.png",
+   "h": 8,
+   "w": 16
+  },
+  "L2UI_CH3.herotower_deco": {
+   "ch": 25,
+   "cw": 196,
+   "cx": 30,
+   "cy": 3,
+   "file": "L2UI_CH3__herotower_deco.png",
+   "h": 32,
+   "w": 256
+  },
+  "L2UI_CH3.mapbutton_zoomin1": {
+   "ch": 24,
+   "cw": 24,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__mapbutton_zoomin1.png",
+   "h": 32,
+   "w": 32
+  },
+  "L2UI_CH3.mapbutton_zoomin2": {
+   "ch": 20,
+   "cw": 20,
+   "cx": 2,
+   "cy": 2,
+   "file": "L2UI_CH3__mapbutton_zoomin2.png",
+   "h": 32,
+   "w": 32
+  },
+  "L2UI_CH3.mapicon_mark": {
+   "ch": 27,
+   "cw": 23,
+   "cx": 1,
+   "cy": 0,
+   "file": "L2UI_CH3__mapicon_mark.png",
+   "h": 32,
+   "w": 32
+  },
+  "L2UI_CH3.mapicon_mark_light": {
+   "ch": 27,
+   "cw": 23,
+   "cx": 1,
+   "cy": 0,
+   "file": "L2UI_CH3__mapicon_mark_light.png",
+   "h": 32,
+   "w": 32
+  },
+  "L2UI_CH3.next1": {
+   "ch": 15,
+   "cw": 15,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__next1.png",
+   "h": 16,
+   "w": 16
+  },
+  "L2UI_CH3.next1_down": {
+   "ch": 14,
+   "cw": 14,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__next1_down.png",
+   "h": 16,
+   "w": 16
+  },
+  "L2UI_CH3.prev1": {
+   "ch": 15,
+   "cw": 15,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__prev1.png",
+   "h": 16,
+   "w": 16
+  },
+  "L2UI_CH3.prev1_down": {
+   "ch": 14,
+   "cw": 14,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__prev1_down.png",
+   "h": 16,
+   "w": 16
+  },
+  "L2UI_CH3.tutorial_img01": {
+   "ch": 64,
+   "cw": 64,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img01.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img021": {
+   "ch": 49,
+   "cw": 52,
+   "cx": 2,
+   "cy": 6,
+   "file": "L2UI_CH3__tutorial_img021.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img04": {
+   "ch": 52,
+   "cw": 37,
+   "cx": 44,
+   "cy": 4,
+   "file": "L2UI_CH3__tutorial_img04.png",
+   "h": 64,
+   "w": 128
+  },
+  "L2UI_CH3.tutorial_img051": {
+   "ch": 52,
+   "cw": 37,
+   "cx": 12,
+   "cy": 4,
+   "file": "L2UI_CH3__tutorial_img051.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img06": {
+   "ch": 64,
+   "cw": 64,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img06.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img07": {
+   "ch": 64,
+   "cw": 174,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img07.png",
+   "h": 64,
+   "w": 256
+  },
+  "L2UI_CH3.tutorial_img08": {
+   "ch": 64,
+   "cw": 174,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img08.png",
+   "h": 64,
+   "w": 256
+  },
+  "L2UI_CH3.tutorial_img09": {
+   "ch": 64,
+   "cw": 174,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img09.png",
+   "h": 64,
+   "w": 256
+  },
+  "L2UI_CH3.tutorial_img11": {
+   "ch": 36,
+   "cw": 36,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img11.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img12": {
+   "ch": 64,
+   "cw": 64,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img12.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img131": {
+   "ch": 40,
+   "cw": 40,
+   "cx": 11,
+   "cy": 12,
+   "file": "L2UI_CH3__tutorial_img131.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img133": {
+   "ch": 40,
+   "cw": 40,
+   "cx": 11,
+   "cy": 12,
+   "file": "L2UI_CH3__tutorial_img133.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img14": {
+   "ch": 64,
+   "cw": 64,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img14.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img151": {
+   "ch": 40,
+   "cw": 40,
+   "cx": 11,
+   "cy": 12,
+   "file": "L2UI_CH3__tutorial_img151.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img16": {
+   "ch": 36,
+   "cw": 36,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img16.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img17": {
+   "ch": 36,
+   "cw": 36,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img17.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img18": {
+   "ch": 36,
+   "cw": 36,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img18.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img19": {
+   "ch": 36,
+   "cw": 36,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img19.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_img20": {
+   "ch": 36,
+   "cw": 36,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_CH3__tutorial_img20.png",
+   "h": 64,
+   "w": 64
+  },
+  "L2UI_CH3.tutorial_pointer": {
+   "ch": 10,
+   "cw": 23,
+   "cx": 2,
+   "cy": 3,
+   "file": "L2UI_CH3__tutorial_pointer.png",
+   "h": 16,
+   "w": 32
+  },
+  "L2UI_ch3.Btn1_normal": {
+   "ch": 23,
+   "cw": 76,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__Btn1_normal.png",
+   "h": 32,
+   "w": 128
+  },
+  "L2UI_ch3.Btn1_normalOn": {
+   "ch": 21,
+   "cw": 74,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__Btn1_normalOn.png",
+   "h": 32,
+   "w": 128
+  },
+  "L2UI_ch3.NpcWnd.Npc1_back": {
+   "ch": 381,
+   "cw": 310,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__Npc1_back.png",
+   "h": 512,
+   "w": 512
+  },
+  "L2UI_ch3.calculate2_1": {
+   "ch": 24,
+   "cw": 35,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__calculate2_1.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI_ch3.calculate2_1_over": {
+   "ch": 24,
+   "cw": 35,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__calculate2_1_over.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI_ch3.calculate2_2": {
+   "ch": 24,
+   "cw": 35,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__calculate2_2.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI_ch3.calculate2_2_over": {
+   "ch": 24,
+   "cw": 35,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__calculate2_2_over.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI_ch3.calculate2_3": {
+   "ch": 24,
+   "cw": 35,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__calculate2_3.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI_ch3.calculate2_3_over": {
+   "ch": 24,
+   "cw": 35,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__calculate2_3_over.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI_ch3.calculate2_4": {
+   "ch": 24,
+   "cw": 35,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__calculate2_4.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI_ch3.calculate2_4_over": {
+   "ch": 24,
+   "cw": 35,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__calculate2_4_over.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI_ch3.calculate2_c": {
+   "ch": 24,
+   "cw": 35,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__calculate2_c.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI_ch3.calculate2_c_over": {
+   "ch": 24,
+   "cw": 35,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__calculate2_c_over.png",
+   "h": 32,
+   "w": 64
+  },
+  "L2UI_ch3.smallbutton1": {
+   "ch": 23,
+   "cw": 49,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__smallbutton1.png",
+   "h": 32,
+   "w": 128
+  },
+  "L2UI_ch3.smallbutton1_over": {
+   "ch": 23,
+   "cw": 49,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__smallbutton1_over.png",
+   "h": 32,
+   "w": 128
+  },
+  "L2UI_ch3.smallbutton2": {
+   "ch": 21,
+   "cw": 66,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__smallbutton2.png",
+   "h": 32,
+   "w": 128
+  },
+  "L2UI_ch3.smallbutton2_over": {
+   "ch": 21,
+   "cw": 66,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2UI_ch3__smallbutton2_over.png",
+   "h": 32,
+   "w": 128
+  },
+  "L2font-e.MAP_AGIT_ADEN": {
+   "ch": 512,
+   "cw": 512,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2font-e__MAP_AGIT_ADEN.png",
+   "h": 512,
+   "w": 512
+  },
+  "L2font-e.MAP_AGIT_DION": {
+   "ch": 512,
+   "cw": 512,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2font-e__MAP_AGIT_DION.png",
+   "h": 512,
+   "w": 512
+  },
+  "L2font-e.MAP_AGIT_GIRAN": {
+   "ch": 512,
+   "cw": 512,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2font-e__MAP_AGIT_GIRAN.png",
+   "h": 512,
+   "w": 512
+  },
+  "L2font-e.MAP_AGIT_GLUDIN": {
+   "ch": 512,
+   "cw": 512,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2font-e__MAP_AGIT_GLUDIN.png",
+   "h": 512,
+   "w": 512
+  },
+  "L2font-e.MAP_AGIT_GLUDIO": {
+   "ch": 512,
+   "cw": 512,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2font-e__MAP_AGIT_GLUDIO.png",
+   "h": 512,
+   "w": 512
+  },
+  "L2font-e.MAP_AGIT_GODARD": {
+   "ch": 512,
+   "cw": 512,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2font-e__MAP_AGIT_GODARD.png",
+   "h": 512,
+   "w": 512
+  },
+  "L2font-e.MAP_AGIT_RUNE": {
+   "ch": 512,
+   "cw": 512,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2font-e__MAP_AGIT_RUNE.png",
+   "h": 512,
+   "w": 512
+  },
+  "L2font-e.MAP_AGIT_SCHUTTGART": {
+   "ch": 512,
+   "cw": 512,
+   "cx": 0,
+   "cy": 0,
+   "file": "L2font-e__MAP_AGIT_SCHUTTGART.png",
+   "h": 512,
+   "w": 512
+  },
+  "icon.Quest_TarotCard_Knowledge_t00": {
+   "ch": 128,
+   "cw": 64,
+   "cx": 0,
+   "cy": 0,
+   "file": "icon__Quest_TarotCard_Knowledge_t00.png",
+   "h": 128,
+   "w": 64
+  },
+  "icon.Quest_TarotCard_Love_t00": {
+   "ch": 128,
+   "cw": 64,
+   "cx": 0,
+   "cy": 0,
+   "file": "icon__Quest_TarotCard_Love_t00.png",
+   "h": 128,
+   "w": 64
+  },
+  "icon.Quest_TarotCard_Power_t00": {
+   "ch": 128,
+   "cw": 64,
+   "cx": 0,
+   "cy": 0,
+   "file": "icon__Quest_TarotCard_Power_t00.png",
+   "h": 128,
+   "w": 64
+  },
+  "icon.Quest_TarotCard_Wealth_t00": {
+   "ch": 128,
+   "cw": 64,
+   "cx": 0,
+   "cy": 0,
+   "file": "icon__Quest_TarotCard_Wealth_t00.png",
+   "h": 128,
+   "w": 64
+  },
+  "icon.Quest_map_001_t00": {
+   "ch": 256,
+   "cw": 256,
+   "cx": 0,
+   "cy": 0,
+   "file": "icon__Quest_map_001_t00.png",
+   "h": 256,
+   "w": 256
+  },
+  "icon.action001": {
+   "ch": 32,
+   "cw": 32,
+   "cx": 0,
+   "cy": 0,
+   "file": "icon__action001.png",
+   "h": 32,
+   "w": 32
+  },
+  "icon.action018": {
+   "ch": 32,
+   "cw": 32,
+   "cx": 0,
+   "cy": 0,
+   "file": "icon__action018.png",
+   "h": 32,
+   "w": 32
+  },
+  "icon.noimage": {
+   "ch": 32,
+   "cw": 32,
+   "cx": 0,
+   "cy": 0,
+   "file": "icon__noimage.png",
+   "h": 32,
+   "w": 32
+  },
+  "icon.quest_deadperson_forest_t00": {
+   "ch": 256,
+   "cw": 256,
+   "cx": 0,
+   "cy": 0,
+   "file": "icon__quest_deadperson_forest_t00.png",
+   "h": 256,
+   "w": 256
+  },
+  "l2ui.SquareGray": {
+   "ch": 8,
+   "cw": 8,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui__SquareGray.png",
+   "h": 8,
+   "w": 8
+  },
+  "l2ui.SquareWhite": {
+   "ch": 8,
+   "cw": 8,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui__SquareWhite.png",
+   "h": 8,
+   "w": 8
+  },
+  "l2ui.bbs_board": {
+   "ch": 23,
+   "cw": 18,
+   "cx": 2,
+   "cy": 0,
+   "file": "l2ui__bbs_board.png",
+   "h": 32,
+   "w": 32
+  },
+  "l2ui.bbs_delete": {
+   "ch": 12,
+   "cw": 12,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui__bbs_delete.png",
+   "h": 16,
+   "w": 16
+  },
+  "l2ui.bbs_delete_down": {
+   "ch": 12,
+   "cw": 12,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui__bbs_delete_down.png",
+   "h": 16,
+   "w": 16
+  },
+  "l2ui.bbs_folder": {
+   "ch": 24,
+   "cw": 24,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui__bbs_folder.png",
+   "h": 32,
+   "w": 32
+  },
+  "l2ui.bbs_lineage2": {
+   "ch": 12,
+   "cw": 78,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui__bbs_lineage2.png",
+   "h": 16,
+   "w": 128
+  },
+  "l2ui.mini_logo": {
+   "ch": 55,
+   "cw": 222,
+   "cx": 9,
+   "cy": 7,
+   "file": "l2ui__mini_logo.png",
+   "h": 256,
+   "w": 256
+  },
+  "l2ui.squaregray": {
+   "ch": 8,
+   "cw": 8,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui__squaregray.png",
+   "h": 8,
+   "w": 8
+  },
+  "l2ui_ch3.boardinput": {
+   "ch": 317,
+   "cw": 550,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__boardinput.png",
+   "h": 512,
+   "w": 1024
+  },
+  "l2ui_ch3.herotower_deco": {
+   "ch": 25,
+   "cw": 196,
+   "cx": 30,
+   "cy": 3,
+   "file": "l2ui_ch3__herotower_deco.png",
+   "h": 32,
+   "w": 256
+  },
+  "l2ui_ch3.smallbutton2": {
+   "ch": 21,
+   "cw": 66,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__smallbutton2.png",
+   "h": 32,
+   "w": 128
+  },
+  "l2ui_ch3.smallbutton2_down": {
+   "ch": 19,
+   "cw": 64,
+   "cx": 0,
+   "cy": 0,
+   "file": "l2ui_ch3__smallbutton2_down.png",
+   "h": 32,
+   "w": 128
+  },
+  "sek.cbui355": {
+   "ch": 1,
+   "cw": 610,
+   "cx": 0,
+   "cy": 0,
+   "file": "sek__cbui355.png",
+   "h": 8,
+   "w": 1024
+  },
+  "sek.cbui92": {
+   "ch": 18,
+   "cw": 102,
+   "cx": 0,
+   "cy": 0,
+   "file": "sek__cbui92.png",
+   "h": 32,
+   "w": 128
+  },
+  "sek.cbui94": {
+   "ch": 18,
+   "cw": 102,
+   "cx": 0,
+   "cy": 0,
+   "file": "sek__cbui94.png",
+   "h": 32,
+   "w": 128
+  }
+ }
+}

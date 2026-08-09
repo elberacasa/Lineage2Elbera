@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Elbera — NPC dialog (NpcHtmlMessage) harness</title>
+<link rel="stylesheet" href="./style.css">
+<style>
+  html,body { margin:0; min-height:100%; background:#20252c; font-family:monospace; }
+  /* A mid-grey field, not black: the retail art is drawn over the 3D scene,
+     so its own edges must be visible against something neutral. */
+  #stage { position:relative; }
+  .fx { position:relative; display:inline-block; margin:16px; vertical-align:top; }
+  .fx > .cap { font:10px monospace; color:#8fa0b4; margin-bottom:4px; }
+  /* A fixed cell so the contact sheet is a grid in BOTH modes: the
+     pre-fix window sized itself to its content, the mined one is a
+     fixed 401 tall, and a shrink-to-fit cell would stack them. */
+  .fx .holder { position:relative; min-width:370px; min-height:430px; }
+  #err { color:#e07070; font:12px monospace; padding:12px; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="err"></div></div>
+<script type="module">
+// Harness for editor/world/js/ui/npcdialog.js. It exists so the NPC dialog can
+// be verified and photographed WITHOUT the 3D world, a gateway or a login:
+// the pages below are the real ones the shipped datapack sends, byte for byte.
+//
+// ?mode=prefix loads a pre-fix module instead of the current one, so
+// verify_npcdialog.js --prove can run the same gates against the tree this
+// wave replaced and show them going red. The suite writes that module out of
+// git before it navigates here; nothing in the repo ships it.
+import { Skin } from './js/ui/skin.js';
+import { Font } from './js/ui/font.js';
+import { Layout } from './js/ui/layout.js';
+import { NpcHtml } from './js/ui/npchtml.js';
+
+const params = new URLSearchParams(location.search);
+const MODE = params.get('mode') || 'live';
+const ONLY = params.get('only');
+
+// --- fixtures: verbatim pages from server/aCis_datapack/data/html ----------
+// (the %objectId% / %autoloot% markers are the server's own; aCis substitutes
+//  them before sending, and leaving them in proves the renderer does not care)
+const FIXTURES = {
+  gatekeeper: {
+    file: 'gatekeeper/30006.htm',
+    html: `<html><body>Gatekeeper Roxxy:<br>
+Greetings. I am the Gatekeeper Roxxy, dispatched from the Ivory Tower. I am very happy to be working here in my homeland. Have you, by chance, been to Einhovant's School of Wizardry? Grand Magister Gallint used to be my beloved teacher. So then, what can I do for you?<br>
+<a action="bypass -h npc_1234_Chat 4">Ask about the Ivory Tower</a><br>
+<a action="bypass -h npc_1234_teleport_request">Teleport</a><br>
+<a action="bypass -h npc_1234_multisell 002">Exchange with the Dimensional Diamond</a><br>
+<a action="bypass -h npc_1234_Quest NoblesseTeleporter">[Noblesse Only] teleport</a><br>
+<a action="bypass -h npc_1234_Quest">Quest</a>
+</body></html>`,
+  },
+  menu: {
+    file: 'mods/menu.htm (the .menu voiced command)',
+    html: `<html><body>
+<title>L2Vzla - Menu del jugador</title>
+<center>
+<font color="LEVEL">L2Vzla - Menu del jugador</font><br1>
+<img src="L2UI.SquareWhite" width=270 height=1><br>
+</center>
+<br>
+<font color="B09878">Automatizacion para todos:</font><br1>
+<img src="L2UI.SquareWhite" width=270 height=1><br1>
+AutoLoot: activado <a action="bypass voiced_menu autoloot"><font color="98BFBF">[cambiar]</font></a><br1>
+Experiencia: activada <a action="bypass voiced_menu exp"><font color="98BFBF">[cambiar]</font></a><br1>
+<img src="L2UI.SquareWhite" width=270 height=1><br>
+<font color="B09878">Tienda offline (desactivada):</font><br1>
+<img src="L2UI.SquareWhite" width=270 height=1><br1>
+Deja tu tienda privada activa al desconectarte.<br1>
+Abre tu tienda (compra, venta o fabricacion) y luego:<br1>
+<a action="bypass voiced_menu offline"><font color="98BFBF">[desconectar con tienda offline]</font></a><br>
+<img src="L2UI.SquareWhite" width=270 height=1><br>
+<font color="B09878">Informacion:</font><br1>
+<img src="L2UI.SquareWhite" width=270 height=1><br1>
+<a action="bypass voiced_menu info"><font color="98BFBF">[mensaje del dia / info del servidor]</font></a><br>
+</body></html>`,
+  },
+  buffer: {
+    file: 'mods/buffer/50002.htm',
+    html: `<html><body>
+Hello stranger!<br>
+I'm Tryskell. Yup, you're right, I created an avatar of myself and decided to share some of my powerful buffs in order to improve your pew-pew-bum-zap abilities.<br>
+What can I do for you ? Do you want to hear&nbsp;<font color="LEVEL"><a action="bypass npc_5678_Chat 3">my story</a></font>&nbsp;?<br>
+<a action="bypass npc_5678_support">Magic support</a><br>
+<a action="bypass npc_5678_heal">Heal me and my pet</a><br1>
+<a action="bypass npc_5678_cleanup">Cleanup all effects on me and my pet</a>
+</body></html>`,
+  },
+  blkmrkt: {
+    file: 'seven_signs/blkmrkt_2.htm',
+    html: `<html><body>Black Marketeer of Mammon:<br>
+<font color="LEVEL">[ Exchange Ancient Adena for Adena ]</font><br>
+Enter the amount of Ancient Adena you wish to exchange.<br>
+<edit var="amount" width=100><br1>
+<button value="Exchange" action="bypass -h npc_9012_SevenSigns 7 $amount" back="L2UI.DefaultButton_click" fore="L2UI.DefaultButton" width=67 height=19>
+</body></html>`,
+  },
+  table: {
+    file: 'clan_penalty.htm (table + bgcolor + rule image)',
+    html: `<html><body>
+<center>
+<table width=270 bgcolor=111111>
+<tr><td width=170>Penalty</td><td width=100 align=center>Expiration Date</td></tr>
+</table>
+<table width=270>
+<tr><td width=170>Dismissed from clan</td><td width=100 align=center><font color="LEVEL">2026-08-31</font></td></tr>
+<tr><td width=170>Clan war declared</td><td width=100 align=center><font color="LEVEL">2026-09-04</font></td></tr>
+</table>
+<img src="L2UI.SquareWhite" width=270 height=1>
+</center>
+</body></html>`,
+  },
+  // Not a datapack page: the cases where a browser and the client disagree.
+  edges: {
+    file: 'parser edges (unknown tags, entities, colour rule, injection)',
+    html: `<html><body><title>Edges</title>
+<font color="LEVEL">LEVEL is the one name</font><br>
+<font color="00FFFF">00FFFF parses as 0xff00ffff</font><br>
+<font color="white">white parses to alpha 0 and draws nothing</font><br>
+<div>DIV is not in the tag table</div><span>nor SPAN</span><strong>nor STRONG</strong><br>
+&nbsp;&amp;&lt;&gt;&quot; decode; &apos; and &copy; do not<br>
+<script>window.__pwned = 1;<\/script>
+<a href="javascript:window.__pwned=1">javascript: is not an action</a><br>
+<img src="http://example.com/x.png" width=40 height=40>
+<a action="bypass -h npc_1_Chat 0">a real bypass</a>
+</body></html>`,
+  },
+};
+
+const err = document.getElementById('err');
+const stage = document.getElementById('stage');
+const state = { ready: false, mode: MODE, dialogs: {} };
+window.__npcHarness = state;
+
+(async function () {
+  try {
+    await Promise.all([Skin.load(), Font.load(), Layout.load(), NpcHtml.load()]);
+    const src = MODE === 'prefix'
+      ? './js/ui/npcdialog.prefix.js' : './js/ui/npcdialog.js';
+    const { NpcDialog } = await import(src);
+
+    const names = ONLY ? [ONLY] : Object.keys(FIXTURES);
+    for (const name of names) {
+      const fx = FIXTURES[name];
+      if (!fx) continue;
+      const cell = document.createElement('div');
+      cell.className = 'fx';
+      cell.dataset.fx = name;
+      const cap = document.createElement('div');
+      cap.className = 'cap';
+      cap.textContent = `${name} — ${fx.file}`;
+      const holder = document.createElement('div');
+      holder.className = 'holder';
+      cell.append(cap, holder);
+      stage.appendChild(cell);
+
+      const bypass = [];
+      const d = new NpcDialog(holder, { onBypass: (c) => bypass.push(c) });
+      // The dialog positions itself against the viewport; inside the harness
+      // each one sits in its own cell instead.
+      d.root.style.position = 'absolute';
+      d.root.style.left = '0px';
+      d.root.style.top = '0px';
+      d.showHtml(fx.html);
+      state.dialogs[name] = { dialog: d, bypass, holder };
+    }
+    // Size each cell to its dialog AFTER layout has settled. Measuring inline
+    // reads 0 for a content-sized window (which is what the pre-fix module
+    // built), and a 0-height cell makes the before/after contact sheet a pile
+    // of overlapping windows instead of a comparison.
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    for (const entry of Object.values(state.dialogs)) {
+      const r = entry.dialog.root.getBoundingClientRect();
+      entry.holder.style.width = `${Math.ceil(r.width)}px`;
+      entry.holder.style.height = `${Math.ceil(r.height)}px`;
+    }
+    state.ready = true;
+  } catch (e) {
+    err.textContent = 'HARNESS FAILED: ' + (e && (e.stack || e.message));
+    state.error = String(e && (e.stack || e.message));
+    state.ready = true;
+  }
+})();
+</script>
+</body>
+</html>

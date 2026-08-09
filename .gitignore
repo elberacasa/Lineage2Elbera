@@ -70,6 +70,9 @@ tools/src/open-l2encdec/
 editor/world/ui/skin/
 editor/world/ui/font/
 editor/world/ui/atlas/
+# (regenerate: tools/ui/mine_htmlart.py --emit) the textures NPC-dialog HTML
+# names by runtime string, which no xdat-driven staging can see
+editor/world/ui/htmlart/
 
 # ElberaScript output — UnrealScript sources recovered from your own client's
 # Interface.u / NWindow.u. NCSoft's code: reference only, never committed.

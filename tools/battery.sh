@@ -111,6 +111,7 @@ SUITES=(
 # Pure-node data audits: no browser, no server. --check is REQUIRED on these
 # three — without it they print a report and exit 0 no matter what they found.
 "solo|verify_text|editor/world|120|verify_text.js|--check"
+"solo|verify_npcdialog|editor/world|180|verify_npcdialog.js|--check"
 "solo|verify_audio_coverage|editor/world|120|verify_audio_coverage.js|--check"
 "solo|verify_creature_anims|editor/world|180|verify_creature_anims.js|--check"
 "solo|verify_anim|editor/world|420|verify_anim.js|--check"
@@ -151,6 +152,16 @@ SUITES=(
 "solo|verify_bsplight|editor/world|900|verify_bsplight.js"
 # Landed 2026-08-08 by a concurrent agent; --check is REQUIRED (see above).
 "solo|verify_sky|editor/world|300|verify_sky.js|--check"
+# Item tooltips. SOLO, not mock: it leases an ephemeral port from the OS and
+# spawns its own mock_gateway, so it never touches 8085-8087 and is runnable
+# while a battery holds them (the fix verify_targetwnd got, applied from the
+# start). --selftest, not --check: it does everything --check does AND then
+# injects a reordered draw list and a missing grade symbol and REQUIRES the
+# gates to go red, so a green row here means the gates can still fail.
+# --check rides along because gate (d) below requires it whenever a
+# suite's failure exit mentions it; both flags set the same exit path.
+# Measured 2026-08-09: 17 s wall.
+"solo|verify_tooltip|editor/world|300|verify_tooltip.js|--check --selftest"
 
 # --- gateway/test, real aCis ----------------------------------------------
 "gw|verify-one|gateway|300|test/verify-one.js"

@@ -3,6 +3,16 @@
 // navigation via bypass, .menu showcase, sanitize test (script tag +
 // javascript: href + external img must be stripped).
 // Output: verify_shots/dlg_*.png + JSON summary.
+//
+// This suite covers the FLOW — targeting, the talk op, bypass navigation, the
+// voiced-command page. The window's own geometry, colours, glyphs, tag table
+// and button art are the subject of verify_npcdialog.js, which runs the same
+// module against the real datapack pages with no world attached.
+//
+// Updated 2026-08-09 for the rendered DOM the retail renderer produces: the
+// page's <title> goes to the frame's title bar (a glyph canvas) rather than to
+// a `.npc-dialog-title` div, and a button's label is glyph pixels too, so both
+// are read from the data attributes NpcDialog mirrors them into.
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require(
@@ -87,12 +97,15 @@ async function settleCam(page) {
     await sleep(700);
     summary.dialog = await page.evaluate(() => ({
       open: window.__world.npcDialog.open,
-      title: document.querySelector('.npc-dialog-title')?.textContent,
+      title: document.querySelector('#l2-npcdialog')?.dataset.npcTitle,
       links: [...document.querySelectorAll('.npc-link')].map(e => e.dataset.bypass),
       buttons: [...document.querySelectorAll('.npc-btn')].map(e => e.dataset.bypass),
       table: !!document.querySelector('.npc-table'),
-      fonts: [...document.querySelectorAll('.npc-dialog-content span')]
-        .filter(e => e.style.color).map(e => e.style.color),
+      // Text is composited from the retail glyph sheet now, not styled DOM
+      // text, so the colours live in the canvases. What a suite can still read
+      // is WHICH words were drawn as links.
+      linkWords: [...document.querySelectorAll('.npc-dialog-content .npc-link')]
+        .map(e => e.dataset.t).filter(Boolean),
       scripts: document.querySelectorAll('.npc-dialog-content script').length,
     }));
     await page.screenshot({ path: path.join(OUT, 'dlg_01_villager.png') });
@@ -123,11 +136,11 @@ async function settleCam(page) {
     await page.waitForFunction(
       `window.__world.net.log.some(m => m.dir === 'out' && m.op === 'bypass'
         && m.command === 'npc_services')
-       && document.querySelector('.npc-dialog-title')
-       && document.querySelector('.npc-dialog-title').textContent === 'Services'`,
+       && document.querySelector('#l2-npcdialog')
+       && document.querySelector('#l2-npcdialog').dataset.npcTitle === 'Services'`,
       { timeout: 10000 });
     summary.nav1 = await page.evaluate(() => ({
-      title: document.querySelector('.npc-dialog-title')?.textContent,
+      title: document.querySelector('#l2-npcdialog')?.dataset.npcTitle,
     }));
     await page.screenshot({ path: path.join(OUT, 'dlg_02_services.png') });
 
@@ -137,13 +150,13 @@ async function settleCam(page) {
     await page.type('#chat-input', '.menu');
     await page.keyboard.press('Enter');
     await page.waitForFunction(
-      `document.querySelector('.npc-dialog-title')
-       && document.querySelector('.npc-dialog-title').textContent.includes('menu')`,
+      `document.querySelector('#l2-npcdialog')
+       && document.querySelector('#l2-npcdialog').dataset.npcTitle.includes('menu')`,
       { timeout: 10000 });
     await sleep(500);
     summary.menu = await page.evaluate(() => ({
-      title: document.querySelector('.npc-dialog-title')?.textContent,
-      buttons: [...document.querySelectorAll('.npc-btn')].map(e => e.textContent || e.dataset.bypass),
+      title: document.querySelector('#l2-npcdialog')?.dataset.npcTitle,
+      buttons: [...document.querySelectorAll('.npc-btn')].map(e => e.dataset.label || e.dataset.bypass),
     }));
     await page.screenshot({ path: path.join(OUT, 'dlg_03_menu.png') });
 
@@ -154,8 +167,8 @@ async function settleCam(page) {
         .dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await page.waitForFunction(
-      `document.querySelector('.npc-dialog-title')
-       && document.querySelector('.npc-dialog-title').textContent === 'Evil'`,
+      `document.querySelector('#l2-npcdialog')
+       && document.querySelector('#l2-npcdialog').dataset.npcTitle === 'Evil'`,
       { timeout: 10000 });
     await sleep(500);
     summary.sanitize = await page.evaluate(() => ({

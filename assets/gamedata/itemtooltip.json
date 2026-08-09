@@ -1,0 +1,1819 @@
+{
+ "_note": "The retail item tooltip: which fields, in which order, with which labels, formulas and colours. Every entry cites the Tooltip.uc line or the NWindow.dll instruction it came from. Regenerate/verify with tools/ui/mine_itemtooltip.py --check.",
+ "_sources": {
+  "labels": "assets/gamedata/sysstring.json (SysString-e.dat)",
+  "natives": "assets/interlude/system/NWindow.dll",
+  "script": "assets/uscript/Interface/Tooltip.uc (ReturnTooltip_NTT_ITEM, uc:213-820)"
+ },
+ "_tool": "tools/ui/mine_itemtooltip.py",
+ "adenaClassId": 57,
+ "colors": [
+  {
+   "hex": "#B2BECF",
+   "rgb": [
+    178,
+    190,
+    207
+   ],
+   "ucLines": [
+    174,
+    719,
+    850,
+    983,
+    1119,
+    1163,
+    1241,
+    1433,
+    1547,
+    1615
+   ]
+  },
+  {
+   "hex": "#FFFFFF",
+   "rgb": [
+    255,
+    255,
+    255
+   ],
+   "ucLines": [
+    419,
+    459,
+    665
+   ]
+  },
+  {
+   "hex": "#A3A3A3",
+   "rgb": [
+    163,
+    163,
+    163
+   ],
+   "ucLines": [
+    673,
+    924,
+    1055,
+    1081,
+    1092,
+    1339,
+    1712,
+    1729,
+    1765,
+    1782
+   ]
+  },
+  {
+   "hex": "#FF0000",
+   "rgb": [
+    255,
+    0,
+    0
+   ],
+   "ucLines": [
+    686
+   ]
+  },
+  {
+   "hex": "#B09B79",
+   "rgb": [
+    176,
+    155,
+    121
+   ],
+   "ucLines": [
+    692,
+    935,
+    948,
+    1066,
+    1103,
+    1350,
+    1744,
+    1797,
+    1837
+   ]
+  },
+  {
+   "hex": "#70737B",
+   "rgb": [
+    112,
+    115,
+    123
+   ],
+   "ucLines": [
+    749
+   ]
+  },
+  {
+   "hex": "#807F67",
+   "rgb": [
+    128,
+    127,
+    103
+   ],
+   "ucLines": [
+    773
+   ]
+  },
+  {
+   "hex": "#4A5C68",
+   "rgb": [
+    74,
+    92,
+    104
+   ],
+   "ucLines": [
+    797
+   ]
+  },
+  {
+   "hex": "#FFD969",
+   "rgb": [
+    255,
+    217,
+    105
+   ],
+   "ucLines": [
+    904,
+    1035,
+    1319,
+    1861
+   ]
+  }
+ ],
+ "fieldOrder": [
+  {
+   "args": [
+    "Item"
+   ],
+   "case": "header",
+   "fn": "AddTooltipItemEnchant",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType != \"InventoryPrice1HideEnchant\""
+   ],
+   "line": 259
+  },
+  {
+   "args": [
+    "ItemName",
+    "Item"
+   ],
+   "case": "header",
+   "fn": "AddTooltipItemName",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)"
+   ],
+   "line": 262
+  },
+  {
+   "args": [
+    "Item"
+   ],
+   "case": "header",
+   "fn": "AddTooltipItemGrade",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)"
+   ],
+   "line": 265
+  },
+  {
+   "args": [
+    "Item"
+   ],
+   "case": "header",
+   "fn": "AddTooltipItemCount",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType != \"InventoryPrice1HideEnchantStackable\")"
+   ],
+   "line": 269
+  },
+  {
+   "case": "header",
+   "fields": {
+    "bLineBreak": "true",
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_bDrawOneLine": "true",
+    "t_strText": "\"(\" $ ConvertNumToText(String(Item.ItemNum)) $ \")\""
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (Item.ClassID==57)"
+   ],
+   "line": 277
+  },
+  {
+   "args": [
+    "322",
+    "strAdenaComma $ \" \"",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "header",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice1\""
+   ],
+   "label": "Price",
+   "labelSysstring": 322,
+   "line": 296
+  },
+  {
+   "args": [
+    "AdenaColor.R",
+    "AdenaColor.G",
+    "AdenaColor.B",
+    "0"
+   ],
+   "case": "header",
+   "fn": "SetTooltipItemColor",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice1\""
+   ],
+   "line": 297
+  },
+  {
+   "case": "header",
+   "fields": {
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_ID": "469",
+    "t_bDrawOneLine": "true",
+    "t_color": "AdenaColor"
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice1\""
+   ],
+   "line": 300
+  },
+  {
+   "args": [
+    "0",
+    "\"(\" $ ConvertNumToText(strAdena) $ \")\"",
+    "false",
+    "true",
+    "false"
+   ],
+   "case": "header",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice1\"",
+    "if (Item.Price>0)"
+   ],
+   "label": "",
+   "labelSysstring": 0,
+   "line": 315
+  },
+  {
+   "args": [
+    "AdenaColor.R",
+    "AdenaColor.G",
+    "AdenaColor.B",
+    "0"
+   ],
+   "case": "header",
+   "fn": "SetTooltipItemColor",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice1\"",
+    "if (Item.Price>0)"
+   ],
+   "line": 316
+  },
+  {
+   "args": [
+    "322",
+    "468",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "header",
+   "fn": "AddTooltipItemOption2",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice2\""
+   ],
+   "label": "Price",
+   "labelSysstring": 322,
+   "line": 329,
+   "value": "For Each",
+   "valueSysstring": 468
+  },
+  {
+   "args": [
+    "AdenaColor.R",
+    "AdenaColor.G",
+    "AdenaColor.B",
+    "0"
+   ],
+   "case": "header",
+   "fn": "SetTooltipItemColor",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice2\""
+   ],
+   "line": 330
+  },
+  {
+   "case": "header",
+   "fields": {
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_bDrawOneLine": "true",
+    "t_color": "AdenaColor",
+    "t_strText": "\" \" $ strAdenaComma $ \" \""
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice2\""
+   ],
+   "line": 333
+  },
+  {
+   "case": "header",
+   "fields": {
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_ID": "469",
+    "t_bDrawOneLine": "true",
+    "t_color": "AdenaColor"
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice2\""
+   ],
+   "line": 342
+  },
+  {
+   "case": "header",
+   "fields": {
+    "bLineBreak": "true",
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_bDrawOneLine": "true",
+    "t_color": "AdenaColor",
+    "t_strText": "\"(\""
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice2\"",
+    "if (Item.Price>0)"
+   ],
+   "line": 359
+  },
+  {
+   "case": "header",
+   "fields": {
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_ID": "468",
+    "t_bDrawOneLine": "true",
+    "t_color": "AdenaColor"
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice2\"",
+    "if (Item.Price>0)"
+   ],
+   "line": 369
+  },
+  {
+   "case": "header",
+   "fields": {
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_bDrawOneLine": "true",
+    "t_color": "AdenaColor",
+    "t_strText": "\" \" $ ConvertNumToText(strAdena) $ \")\""
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice2\"",
+    "if (Item.Price>0)"
+   ],
+   "line": 377
+  },
+  {
+   "args": [
+    "808",
+    "String(Item.Reserved)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "header",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (eSourceType == NTST_ITEM)",
+    "if (TooltipType == \"InventoryPrice2PrivateShop\")",
+    "if (IsStackableItem(Item.ConsumeType) && Item.Reserved > 0)"
+   ],
+   "label": "Quantity",
+   "labelSysstring": 808,
+   "line": 392
+  },
+  {
+   "args": [
+    "0",
+    "strTmp $ \" / \" $ SlotString",
+    "false",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Len(strTmp)>0)"
+   ],
+   "label": "",
+   "labelSysstring": 0,
+   "line": 411
+  },
+  {
+   "args": [
+    "12"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemBlank",
+   "guards": [],
+   "line": 415
+  },
+  {
+   "args": [
+    "1489",
+    "\"\"",
+    "true",
+    "false",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [],
+   "label": "<Weapon Specifications>",
+   "labelSysstring": 1489,
+   "line": 418
+  },
+  {
+   "args": [
+    "255",
+    "255",
+    "255",
+    "0"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "SetTooltipItemColor",
+   "guards": [],
+   "line": 419
+  },
+  {
+   "args": [
+    "94",
+    "String(GetPhysicalDamage(Item.WeaponType, Item.SlotBitType, Item.CrystalType, Item.Enchanted, Item.PhysicalDamage))",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [],
+   "label": "P. Atk.",
+   "labelSysstring": 94,
+   "line": 422
+  },
+  {
+   "args": [
+    "98",
+    "String(GetMagicalDamage(Item.WeaponType, Item.SlotBitType, Item.CrystalType, Item.Enchanted, Item.MagicalDamage))",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [],
+   "label": "M. Atk.",
+   "labelSysstring": 98,
+   "line": 425
+  },
+  {
+   "args": [
+    "111",
+    "GetAttackSpeedString(Item.AttackSpeed)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [],
+   "label": "Atk. Spd.",
+   "labelSysstring": 111,
+   "line": 428
+  },
+  {
+   "args": [
+    "404",
+    "\"X \" $ Item.SoulshotCount",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.SoulshotCount>0)"
+   ],
+   "label": "Soulshot Used",
+   "labelSysstring": 404,
+   "line": 433
+  },
+  {
+   "args": [
+    "496",
+    "\"X \" $ Item.SpiritshotCount",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.SpiritShotCount>0)"
+   ],
+   "label": "Spiritshot Used",
+   "labelSysstring": 496,
+   "line": 439
+  },
+  {
+   "args": [
+    "52",
+    "String(Item.Weight)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [],
+   "label": "Weight",
+   "labelSysstring": 52,
+   "line": 443
+  },
+  {
+   "args": [
+    "320",
+    "String(Item.MpConsume)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.MpConsume != 0)"
+   ],
+   "label": "MP Cost",
+   "labelSysstring": 320,
+   "line": 448
+  },
+  {
+   "args": [
+    "12"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemBlank",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)"
+   ],
+   "line": 455
+  },
+  {
+   "args": [
+    "1490",
+    "\"\"",
+    "true",
+    "false",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)"
+   ],
+   "label": "<Augmentation Effects>",
+   "labelSysstring": 1490,
+   "line": 458
+  },
+  {
+   "args": [
+    "255",
+    "255",
+    "255",
+    "0"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "SetTooltipItemColor",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)"
+   ],
+   "line": 459
+  },
+  {
+   "args": [
+    "0",
+    "strDesc1",
+    "false",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Item.RefineryOp1 != 0)",
+    "if (class'UIDATA_REFINERYOPTION'.static.GetOptionDescription( Item.RefineryOp1, strDesc1, strDesc2, strDesc3 ))",
+    "if (Len(strDesc1)>0)"
+   ],
+   "label": "",
+   "labelSysstring": 0,
+   "line": 477
+  },
+  {
+   "args": [
+    "ColorR",
+    "ColorG",
+    "ColorB",
+    "0"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "SetTooltipItemColor",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Item.RefineryOp1 != 0)",
+    "if (class'UIDATA_REFINERYOPTION'.static.GetOptionDescription( Item.RefineryOp1, strDesc1, strDesc2, strDesc3 ))",
+    "if (Len(strDesc1)>0)"
+   ],
+   "line": 478
+  },
+  {
+   "args": [
+    "0",
+    "strDesc2",
+    "false",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Item.RefineryOp1 != 0)",
+    "if (class'UIDATA_REFINERYOPTION'.static.GetOptionDescription( Item.RefineryOp1, strDesc1, strDesc2, strDesc3 ))",
+    "if (Len(strDesc2)>0)"
+   ],
+   "label": "",
+   "labelSysstring": 0,
+   "line": 482
+  },
+  {
+   "args": [
+    "ColorR",
+    "ColorG",
+    "ColorB",
+    "0"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "SetTooltipItemColor",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Item.RefineryOp1 != 0)",
+    "if (class'UIDATA_REFINERYOPTION'.static.GetOptionDescription( Item.RefineryOp1, strDesc1, strDesc2, strDesc3 ))",
+    "if (Len(strDesc2)>0)"
+   ],
+   "line": 483
+  },
+  {
+   "args": [
+    "0",
+    "strDesc3",
+    "false",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Item.RefineryOp1 != 0)",
+    "if (class'UIDATA_REFINERYOPTION'.static.GetOptionDescription( Item.RefineryOp1, strDesc1, strDesc2, strDesc3 ))",
+    "if (Len(strDesc3)>0)"
+   ],
+   "label": "",
+   "labelSysstring": 0,
+   "line": 487
+  },
+  {
+   "args": [
+    "ColorR",
+    "ColorG",
+    "ColorB",
+    "0"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "SetTooltipItemColor",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Item.RefineryOp1 != 0)",
+    "if (class'UIDATA_REFINERYOPTION'.static.GetOptionDescription( Item.RefineryOp1, strDesc1, strDesc2, strDesc3 ))",
+    "if (Len(strDesc3)>0)"
+   ],
+   "line": 488
+  },
+  {
+   "args": [
+    "0",
+    "strDesc1",
+    "false",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Item.RefineryOp2 != 0)",
+    "if (class'UIDATA_REFINERYOPTION'.static.GetOptionDescription( Item.RefineryOp2, strDesc1, strDesc2, strDesc3 ))",
+    "if (Len(strDesc1)>0)"
+   ],
+   "label": "",
+   "labelSysstring": 0,
+   "line": 502
+  },
+  {
+   "args": [
+    "ColorR",
+    "ColorG",
+    "ColorB",
+    "0"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "SetTooltipItemColor",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Item.RefineryOp2 != 0)",
+    "if (class'UIDATA_REFINERYOPTION'.static.GetOptionDescription( Item.RefineryOp2, strDesc1, strDesc2, strDesc3 ))",
+    "if (Len(strDesc1)>0)"
+   ],
+   "line": 503
+  },
+  {
+   "args": [
+    "0",
+    "strDesc2",
+    "false",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Item.RefineryOp2 != 0)",
+    "if (class'UIDATA_REFINERYOPTION'.static.GetOptionDescription( Item.RefineryOp2, strDesc1, strDesc2, strDesc3 ))",
+    "if (Len(strDesc2)>0)"
+   ],
+   "label": "",
+   "labelSysstring": 0,
+   "line": 508
+  },
+  {
+   "args": [
+    "ColorR",
+    "ColorG",
+    "ColorB",
+    "0"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "SetTooltipItemColor",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Item.RefineryOp2 != 0)",
+    "if (class'UIDATA_REFINERYOPTION'.static.GetOptionDescription( Item.RefineryOp2, strDesc1, strDesc2, strDesc3 ))",
+    "if (Len(strDesc2)>0)"
+   ],
+   "line": 509
+  },
+  {
+   "args": [
+    "0",
+    "strDesc3",
+    "false",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Item.RefineryOp2 != 0)",
+    "if (class'UIDATA_REFINERYOPTION'.static.GetOptionDescription( Item.RefineryOp2, strDesc1, strDesc2, strDesc3 ))",
+    "if (Len(strDesc3)>0)"
+   ],
+   "label": "",
+   "labelSysstring": 0,
+   "line": 513
+  },
+  {
+   "args": [
+    "ColorR",
+    "ColorG",
+    "ColorB",
+    "0"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "SetTooltipItemColor",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Item.RefineryOp2 != 0)",
+    "if (class'UIDATA_REFINERYOPTION'.static.GetOptionDescription( Item.RefineryOp2, strDesc1, strDesc2, strDesc3 ))",
+    "if (Len(strDesc3)>0)"
+   ],
+   "line": 514
+  },
+  {
+   "args": [
+    "1491",
+    "\"\"",
+    "true",
+    "false",
+    "false"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)"
+   ],
+   "label": "Unable to Trade/Drop",
+   "labelSysstring": 1491,
+   "line": 520
+  },
+  {
+   "args": [
+    "ColorR",
+    "ColorG",
+    "ColorB",
+    "0"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "SetTooltipItemColor",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)"
+   ],
+   "line": 521
+  },
+  {
+   "args": [
+    "12"
+   ],
+   "case": "ITEM_WEAPON",
+   "fn": "AddTooltipItemBlank",
+   "guards": [
+    "if (Item.RefineryOp1 != 0 || Item.RefineryOp2 != 0)",
+    "if (Len(Item.Description)>0)"
+   ],
+   "line": 526
+  },
+  {
+   "args": [
+    "95",
+    "String(GetShieldDefense(Item.CrystalType, Item.Enchanted, Item.ShieldDefense))",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ARMOR",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.SlotBitType == 256 || Item.SlotBitType == 128)\t//SBT_LHAND or SBT_RHAND"
+   ],
+   "label": "P. Def.",
+   "labelSysstring": 95,
+   "line": 539
+  },
+  {
+   "args": [
+    "317",
+    "String(Item.ShieldDefenseRate)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ARMOR",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.SlotBitType == 256 || Item.SlotBitType == 128)\t//SBT_LHAND or SBT_RHAND"
+   ],
+   "label": "DEF Rate",
+   "labelSysstring": 317,
+   "line": 542
+  },
+  {
+   "args": [
+    "97",
+    "String(Item.AvoidModify)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ARMOR",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.SlotBitType == 256 || Item.SlotBitType == 128)\t//SBT_LHAND or SBT_RHAND"
+   ],
+   "label": "Evasion",
+   "labelSysstring": 97,
+   "line": 545
+  },
+  {
+   "args": [
+    "52",
+    "String(Item.Weight)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ARMOR",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.SlotBitType == 256 || Item.SlotBitType == 128)\t//SBT_LHAND or SBT_RHAND"
+   ],
+   "label": "Weight",
+   "labelSysstring": 52,
+   "line": 548
+  },
+  {
+   "args": [
+    "0",
+    "SlotString",
+    "false",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ARMOR",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else if (IsMagicalArmor(Item.ClassID))",
+    "if (Len(SlotString)>0)"
+   ],
+   "label": "",
+   "labelSysstring": 0,
+   "line": 556
+  },
+  {
+   "args": [
+    "388",
+    "String(Item.MpBonus)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ARMOR",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else if (IsMagicalArmor(Item.ClassID))"
+   ],
+   "label": "MP Increase",
+   "labelSysstring": 388,
+   "line": 559
+  },
+  {
+   "args": [
+    "95",
+    "String(GetPhysicalDefense(Item.CrystalType, Item.Enchanted, Item.PhysicalDefense))",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ARMOR",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else if (IsMagicalArmor(Item.ClassID))"
+   ],
+   "label": "P. Def.",
+   "labelSysstring": 95,
+   "line": 562
+  },
+  {
+   "args": [
+    "52",
+    "String(Item.Weight)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ARMOR",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else if (IsMagicalArmor(Item.ClassID))"
+   ],
+   "label": "Weight",
+   "labelSysstring": 52,
+   "line": 565
+  },
+  {
+   "args": [
+    "0",
+    "SlotString",
+    "false",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ARMOR",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else",
+    "if (Len(SlotString)>0)"
+   ],
+   "label": "",
+   "labelSysstring": 0,
+   "line": 573
+  },
+  {
+   "args": [
+    "95",
+    "String(GetPhysicalDefense(Item.CrystalType, Item.Enchanted, Item.PhysicalDefense))",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ARMOR",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else"
+   ],
+   "label": "P. Def.",
+   "labelSysstring": 95,
+   "line": 576
+  },
+  {
+   "args": [
+    "52",
+    "String(Item.Weight)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ARMOR",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else"
+   ],
+   "label": "Weight",
+   "labelSysstring": 52,
+   "line": 579
+  },
+  {
+   "args": [
+    "0",
+    "SlotString",
+    "false",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ACCESSARY",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Len(SlotString)>0)"
+   ],
+   "label": "",
+   "labelSysstring": 0,
+   "line": 590
+  },
+  {
+   "args": [
+    "99",
+    "String(GetMagicalDefense(Item.CrystalType, Item.Enchanted, Item.MagicalDefense))",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ACCESSARY",
+   "fn": "AddTooltipItemOption",
+   "guards": [],
+   "label": "M. Def.",
+   "labelSysstring": 99,
+   "line": 593
+  },
+  {
+   "args": [
+    "52",
+    "String(Item.Weight)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ACCESSARY",
+   "fn": "AddTooltipItemOption",
+   "guards": [],
+   "label": "Weight",
+   "labelSysstring": 52,
+   "line": 596
+  },
+  {
+   "args": [
+    "0",
+    "SlotString",
+    "false",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_QUESTITEM",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Len(SlotString)>0)"
+   ],
+   "label": "",
+   "labelSysstring": 0,
+   "line": 605
+  },
+  {
+   "args": [
+    "969",
+    "nTmp",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ETCITEM",
+   "fn": "AddTooltipItemOption2",
+   "guards": [
+    "if (eEtcItemType == ITEME_PET_COLLAR)"
+   ],
+   "label": "Pet Name",
+   "labelSysstring": 969,
+   "line": 619
+  },
+  {
+   "args": [
+    "88",
+    "String(Item.Enchanted)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ETCITEM",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (eEtcItemType == ITEME_PET_COLLAR)"
+   ],
+   "label": "Lv",
+   "labelSysstring": 88,
+   "line": 622
+  },
+  {
+   "args": [
+    "972",
+    "String(Item.Enchanted)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ETCITEM",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else if (eEtcItemType == ITEME_TICKET_OF_LORD)"
+   ],
+   "label": "Seven Signs Event Period",
+   "labelSysstring": 972,
+   "line": 626
+  },
+  {
+   "args": [
+    "670",
+    "String(Item.Blessed)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ETCITEM",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else if (eEtcItemType == ITEME_LOTTO)"
+   ],
+   "label": "Event Number",
+   "labelSysstring": 670,
+   "line": 631
+  },
+  {
+   "args": [
+    "671",
+    "GetLottoString(Item.Enchanted, Item.Damaged)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ETCITEM",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else if (eEtcItemType == ITEME_LOTTO)"
+   ],
+   "label": "Lotto Numbers",
+   "labelSysstring": 671,
+   "line": 634
+  },
+  {
+   "args": [
+    "670",
+    "String(Item.Enchanted)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ETCITEM",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else if (eEtcItemType == ITEME_RACE_TICKET)"
+   ],
+   "label": "Event Number",
+   "labelSysstring": 670,
+   "line": 639
+  },
+  {
+   "args": [
+    "671",
+    "GetRaceTicketString(Item.Blessed)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ETCITEM",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else if (eEtcItemType == ITEME_RACE_TICKET)"
+   ],
+   "label": "Lotto Numbers",
+   "labelSysstring": 671,
+   "line": 642
+  },
+  {
+   "args": [
+    "744",
+    "String(Item.Damaged*100)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ETCITEM",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "else if (eEtcItemType == ITEME_RACE_TICKET)"
+   ],
+   "label": "Purchase Price",
+   "labelSysstring": 744,
+   "line": 645
+  },
+  {
+   "args": [
+    "52",
+    "String(Item.Weight)",
+    "true",
+    "true",
+    "false"
+   ],
+   "case": "ITEM_ETCITEM",
+   "fn": "AddTooltipItemOption",
+   "guards": [],
+   "label": "Weight",
+   "labelSysstring": 52,
+   "line": 648
+  },
+  {
+   "args": [
+    "12"
+   ],
+   "case": "tail",
+   "fn": "AddTooltipItemBlank",
+   "guards": [
+    "if (Item.CurrentDurability >= 0 && Item.Durability > 0)"
+   ],
+   "line": 661
+  },
+  {
+   "args": [
+    "1492",
+    "\"\"",
+    "true",
+    "false",
+    "false"
+   ],
+   "case": "tail",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.CurrentDurability >= 0 && Item.Durability > 0)"
+   ],
+   "label": "<Shadow Item Info>",
+   "labelSysstring": 1492,
+   "line": 664
+  },
+  {
+   "args": [
+    "255",
+    "255",
+    "255",
+    "0"
+   ],
+   "case": "tail",
+   "fn": "SetTooltipItemColor",
+   "guards": [
+    "if (Item.CurrentDurability >= 0 && Item.Durability > 0)"
+   ],
+   "line": 665
+  },
+  {
+   "case": "tail",
+   "fields": {
+    "bLineBreak": "true",
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_ID": "1493",
+    "t_bDrawOneLine": "true",
+    "t_color.A": "255",
+    "t_color.B": "163",
+    "t_color.G": "163",
+    "t_color.R": "163"
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (Item.CurrentDurability >= 0 && Item.Durability > 0)"
+   ],
+   "line": 668
+  },
+  {
+   "case": "tail",
+   "fields": {
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_bDrawOneLine": "true",
+    "t_color.A": "255",
+    "t_color.B": "121",
+    "t_color.G": "155",
+    "t_color.R": "176",
+    "t_strText": "\" \" $ Item.CurrentDurability $ \"/\" $ Item.Durability"
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (Item.CurrentDurability >= 0 && Item.Durability > 0)"
+   ],
+   "line": 680
+  },
+  {
+   "args": [
+    "1491",
+    "\"\"",
+    "true",
+    "false",
+    "false"
+   ],
+   "case": "tail",
+   "fn": "AddTooltipItemOption",
+   "guards": [
+    "if (Item.CurrentDurability >= 0 && Item.Durability > 0)"
+   ],
+   "label": "Unable to Trade/Drop",
+   "labelSysstring": 1491,
+   "line": 701
+  },
+  {
+   "args": [
+    "12"
+   ],
+   "case": "tail",
+   "fn": "AddTooltipItemBlank",
+   "guards": [
+    "if (Item.CurrentDurability >= 0 && Item.Durability > 0)",
+    "if (Len(Item.Description)>0)"
+   ],
+   "line": 706
+  },
+  {
+   "case": "tail",
+   "fields": {
+    "bLineBreak": "true",
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_color.A": "255",
+    "t_color.B": "207",
+    "t_color.G": "190",
+    "t_color.R": "178",
+    "t_strText": "Item.Description"
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (Len(Item.Description)>0)"
+   ],
+   "line": 715
+  },
+  {
+   "case": "tail",
+   "fields": {
+    "Condition": {
+     "EnableColor": "\"176,185,205\"",
+     "EquipID": "String(ClassID)",
+     "NormalColor": "\"112,115,123\"",
+     "ServerID": "String(Item.ServerID)",
+     "Type": "\"Equip\""
+    },
+    "bLineBreak": "true",
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_bDrawOneLine": "true",
+    "t_color.A": "255",
+    "t_color.B": "123",
+    "t_color.G": "115",
+    "t_color.R": "112",
+    "t_strText": "strTmp"
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (Item.ClassID>0)",
+    "if (Item.ClassID != ClassID)",
+    "if (Len(strTmp)>0)"
+   ],
+   "line": 744
+  },
+  {
+   "case": "tail",
+   "fields": {
+    "Condition": {
+     "ClassID": "String(Item.ClassID)",
+     "EffectID": "String(idx)",
+     "EnableColor": "\"183,178,122\"",
+     "NormalColor": "\"128,127,103\"",
+     "ServerID": "String(Item.ServerID)",
+     "Type": "\"SetEffect\""
+    },
+    "bLineBreak": "true",
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_color.A": "255",
+    "t_color.B": "103",
+    "t_color.G": "127",
+    "t_color.R": "128",
+    "t_strText": "strTmp"
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (Item.ClassID>0)",
+    "if (Len(strTmp)>0)"
+   ],
+   "line": 769
+  },
+  {
+   "case": "tail",
+   "fields": {
+    "Condition": {
+     "ClassID": "String(Item.ClassID)",
+     "EnableColor": "\"111,146,169\"",
+     "NormalColor": "\"74,92,104\"",
+     "ServerID": "String(Item.ServerID)",
+     "Type": "\"EnchantEffect\""
+    },
+    "bLineBreak": "true",
+    "eType": "DIT_TEXT",
+    "nOffSetY": "6",
+    "t_color.A": "255",
+    "t_color.B": "104",
+    "t_color.G": "92",
+    "t_color.R": "74",
+    "t_strText": "strTmp"
+   },
+   "fn": "RawDrawItem",
+   "guards": [
+    "if (Item.ClassID>0)",
+    "if (Len(strTmp)>0)"
+   ],
+   "line": 793
+  }
+ ],
+ "itemTypeEnum": [
+  "ITEM_WEAPON",
+  "ITEM_ARMOR",
+  "ITEM_ACCESSARY",
+  "ITEM_QUESTITEM",
+  "ITEM_ASSET",
+  "ITEM_ETCITEM"
+ ],
+ "minimumWidth": 144,
+ "natives": {
+  "attackSpeed": {
+   "_evidence": "NWindow.dll GetAttackSpeedString 0x10145ed0 -- a four-step compare ladder; the arm is taken when atkSpd < the bound.",
+   "_text": [
+    "Very Slow",
+    "Slow",
+    "Normal",
+    "Fast",
+    "Very Fast"
+   ],
+   "ladder": [
+    {
+     "below": 260,
+     "sysstring": 310
+    },
+    {
+     "below": 309,
+     "sysstring": 309
+    },
+    {
+     "below": 352,
+     "sysstring": 308
+    },
+    {
+     "below": 406,
+     "sysstring": 307
+    },
+    {
+     "below": null,
+     "sysstring": 306
+    }
+   ]
+  },
+  "enchant": {
+   "_evidence": "NWindow.dll GetPhysicalDamage 0x1014e1f0, GetMagicalDamage 0x1014e290, and the shared defence routine 0x1014e330. Step helpers 0x10146910 (weapon) / 0x101469a0 (armour). Result = ftol(step(enchant) * table[crystalType] + base).",
+   "armorStep": "enchant <= 3 ? enchant : 3*enchant - 6",
+   "defenseTable": [
+    0.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mAtkTableByWeaponType": {
+    "1": "byHandedness",
+    "2": "byHandedness",
+    "3": "oneHanded",
+    "4": "oneHanded",
+    "5": "twoHanded",
+    "6": "bow",
+    "7": "oneHanded",
+    "8": "twoHanded"
+   },
+   "mAtkTables": {
+    "bow": [
+     0.0,
+     2.0,
+     3.0,
+     3.0,
+     3.0,
+     4.0
+    ],
+    "oneHanded": [
+     0.0,
+     2.0,
+     3.0,
+     3.0,
+     3.0,
+     4.0
+    ],
+    "twoHanded": [
+     0.0,
+     2.0,
+     3.0,
+     3.0,
+     3.0,
+     4.0
+    ]
+   },
+   "pAtkTableByWeaponType": {
+    "1": "byHandedness",
+    "2": "byHandedness",
+    "3": "oneHanded",
+    "4": "oneHanded",
+    "5": "twoHanded",
+    "6": "bow",
+    "7": "oneHanded",
+    "8": "twoHanded"
+   },
+   "pAtkTables": {
+    "bow": [
+     0.0,
+     4.0,
+     6.0,
+     6.0,
+     8.0,
+     10.0
+    ],
+    "oneHanded": [
+     0.0,
+     2.0,
+     3.0,
+     3.0,
+     4.0,
+     5.0
+    ],
+    "twoHanded": [
+     0.0,
+     2.0,
+     4.0,
+     4.0,
+     5.0,
+     6.0
+    ]
+   },
+   "twoHandedSlotBit": 16384,
+   "weaponStep": "enchant <= 3 ? enchant : 2*enchant - 3"
+  },
+  "gradeSymbol": {
+   "_evidence": "NWindow.dll GetItemGradeString 0x10146390 -- `cmp eax,1 / jl` then `mov eax,[0x10350f70+eax*4]`; crystalType 0 yields the empty string (0x101463e5 xor eax,eax).",
+   "_wrappedBy": "Tooltip.uc:1887 AddTooltipItemGrade -- \"`\" $ name $ \"`\"",
+   "byCrystalType": {
+    "1": "graded",
+    "2": "gradec",
+    "3": "gradeb",
+    "4": "gradea",
+    "5": "grades"
+   }
+  },
+  "predicates": {
+   "isMagicalArmor": {
+    "_evidence": "NWindow.dll 0x10164d80 -- looks the ClassID up in the loaded armour table and tests field +0x5e4 == 3, which is armorgrp's armor_type.",
+    "rule": "armorgrp.armor_type == 3"
+   },
+   "isStackableItem": {
+    "_evidence": "NWindow.dll execIsStackableItem 0x100f6a00 -- three `cmp eax,imm8 / je` at 0x100f6a82, 0x100f6a87, 0x100f6a8c; the immediates are read, not typed.",
+    "source": "etcitemgrp.stackable (0 for weapon/armour records)",
+    "values": [
+     1,
+     2,
+     3
+    ]
+   }
+  },
+  "slotType": {
+   "_armorText": {
+    "1": "Light",
+    "2": "Heavy",
+    "3": "Robe"
+   },
+   "_evidence": "NWindow.dll GetSlotTypeString 0x10145ba0. Arg0 is ItemType (compared against 0..4), arg1 SlotBitType, arg3 ArmorType; the FString return pointer is arg2. Slot bits not listed return the empty string (0x10145eb9).",
+   "_text": {
+    "0": {
+     "128": "One Handed",
+     "16384": "Two Handed",
+     "256": "One Handed"
+    },
+    "1": {
+     "1": "Underwear",
+     "1024": "Upper Body",
+     "128": "Shield",
+     "2048": "Lower Body",
+     "256": "Shield",
+     "262144": "Hair Accessory",
+     "32768": "Upper and Lower Body",
+     "4096": "Boots",
+     "512": "Gloves",
+     "524288": "Hair Accessory",
+     "64": "Headgear",
+     "65536": "Hair Accessory",
+     "8192": "Cloak"
+    },
+    "2": {
+     "16": "Ring",
+     "2": "Earring",
+     "32": "Ring",
+     "4": "Earring",
+     "8": "Necklace"
+    },
+    "3": {
+     "*": "Quest Item"
+    },
+    "4": {
+     "*": "Money"
+    }
+   },
+   "armorClassBySysstring": {
+    "1": 245,
+    "2": 246,
+    "3": 244
+   },
+   "armorClassSuffixSlots": [
+    "1024",
+    "2048",
+    "32768"
+   ],
+   "byItemTypeAndSlotBit": {
+    "0": {
+     "128": 242,
+     "16384": 243,
+     "256": 242
+    },
+    "1": {
+     "1": 229,
+     "1024": 235,
+     "128": 231,
+     "2048": 236,
+     "256": 231,
+     "262144": 1024,
+     "32768": 542,
+     "4096": 233,
+     "512": 232,
+     "524288": 1024,
+     "64": 230,
+     "65536": 1024,
+     "8192": 234
+    },
+    "2": {
+     "16": 239,
+     "2": 237,
+     "32": 239,
+     "4": 237,
+     "8": 238
+    },
+    "3": {
+     "*": 240
+    },
+    "4": {
+     "*": 241
+    }
+   },
+   "separator": " / "
+  },
+  "weaponType": {
+   "_evidence": "NWindow.dll GetWeaponTypeString 0x10145ab0, jump table 0x10145b74. Any weaponType outside 1..8 returns \"\" (0x10145b6f xor eax,eax).",
+   "_text": {
+    "1": "Sword",
+    "2": "Blunt",
+    "3": "Dagger",
+    "4": "Pole",
+    "5": "Fist",
+    "6": "Bow",
+    "7": "Etc",
+    "8": "Double Blades"
+   },
+   "sysstringByType": {
+    "1": 43,
+    "2": 44,
+    "3": 45,
+    "4": 46,
+    "5": 47,
+    "6": 48,
+    "7": 49,
+    "8": 504
+   }
+  }
+ },
+ "noGradeColouring": {
+  "fact": "AddTooltipItemName (Tooltip.uc:1847) sets NO colour on the item name, and no branch in ReturnTooltip_NTT_ITEM tints it by grade. The grade is a 12x12 symbol appended after the name, not a colour."
+ },
+ "setItemMax": 3,
+ "shieldSlotBits": [
+  256,
+  128
+ ],
+ "tooltipTypes": [
+  "Inventory",
+  "InventoryPrice1",
+  "InventoryPrice1HideEnchant",
+  "InventoryPrice1HideEnchantStackable",
+  "InventoryPrice2",
+  "InventoryPrice2PrivateShop"
+ ],
+ "window": {
+  "_defaultTextColorEvidence": "NWindow.dll ??0FDrawItemInfo@@QAE@XZ 0x10115930 -- four `push 0xff` at 0x10115999 into the FColor ctor, stored at this+0x24 (t_color) by 0x101159d5. Tooltip.uc's StartItem() copies a bare local of this `native constructive` struct, so every DrawItemInfo starts opaque white; the item name, the grade symbol and the stackable count are the entries that never override it.",
+  "_evidence": "NWindow.dll NCTooltip::DrawTooltip 0x10054680. Nine texture handles at ctrl+0x00..+0x20 are painted row-major: TL(x,y,8,8) T(x+8,y,W-16,8) TR(x+W-8,y,8,8) / L(x,y+8,8,H-16) C(x+8,y+8,W-16,H-16) R(x+W-8,y+8,8,H-16) / BL(x,y+H-8,8,8) B(x+8,y+H-8,W-16,8) BR(x+W-8,y+H-8,8,8).",
+  "_gradeSymbolEvidence": "0x100656ee `mov eax,0xc` taken when 0x10146430 (Len==8 and Mid(1,6) is in the grade table) is true.",
+  "_sizeEvidence": "TooltipInfo::CalculateSize 0x10054120 -> 0x10065570 writes W = max(MinimumWidth, widest line) and H = sum of line heights, with NO padding added (TooltipInfo::SetTooltipInfo 0x10054f20 only copies MinimumWidth/SimpleLineCount before calling it). The frame is drawn at exactly W x H, so the content's 5px inset is a real overhang, not a margin.",
+  "blankRule": "DIT_BLANK contributes exactly b_nHeight and breaks the line",
+  "contentInset": 5,
+  "defaultTextColor": "#FFFFFF",
+  "flipBelowCursorOffset": 32,
+  "gradeSymbolSize": 12,
+  "lineHeightRule": "max over the line of (DrawItemInfo.nOffSetY + item height)",
+  "sliceCorner": 8,
+  "textureFormat": "L2UI_CH3.Tooltip.Tooltip%d",
+  "textureRefs": [
+   "L2UI_CH3.Tooltip.Tooltip1",
+   "L2UI_CH3.Tooltip.Tooltip2",
+   "L2UI_CH3.Tooltip.Tooltip3",
+   "L2UI_CH3.Tooltip.Tooltip4",
+   "L2UI_CH3.Tooltip.Tooltip5",
+   "L2UI_CH3.Tooltip.Tooltip6",
+   "L2UI_CH3.Tooltip.Tooltip7",
+   "L2UI_CH3.Tooltip.Tooltip8",
+   "L2UI_CH3.Tooltip.Tooltip9"
+  ]
+ }
+}

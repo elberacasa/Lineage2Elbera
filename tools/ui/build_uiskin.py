@@ -114,6 +114,35 @@ CLASSICONS = os.path.join(REPO, "assets/gamedata/classicons.json")
 if os.path.exists(CLASSICONS):
     IMPLICIT += json.load(open(CLASSICONS)).get("icons", [])
 
+# The item tooltip's nine-slice frame is native-referenced the same way: the
+# only place `L2UI_CH3.Tooltip.Tooltip%d` appears is inside NWindow.dll
+# (NCTooltip's ctor, literal at 0x10256a74), and NCTooltip::DrawTooltip
+# 0x10054680 paints the nine handles row-major. tools/ui/mine_itemtooltip.py
+# decodes that and writes the expanded refs, so this list cannot drift from
+# the DLL either.
+ITEMTOOLTIP = os.path.join(REPO, "assets/gamedata/itemtooltip.json")
+if os.path.exists(ITEMTOOLTIP):
+    IMPLICIT += json.load(open(ITEMTOOLTIP))["window"]["textureRefs"]
+
+# The five grade badges the tooltip draws after the item name.
+#
+# HALF DECODED, HALF AUTHORED — read this before trusting it.
+#   DECODED: GetItemGradeString returns the literal names "graded" "gradec"
+#   "gradeb" "gradea" "grades" (NWindow.dll table 0x10350f70);
+#   AddTooltipItemGrade wraps them in backticks (Tooltip.uc:1887); the layout
+#   pass recognises exactly `Len==8, Mid(1,6) in that table` and gives the run
+#   a 12x12 box (NWindow.dll 0x10146430 / 0x100656ee).
+#   AUTHORED: which TEXTURE each name resolves to. `graded` is not an object
+#   name in ANY shipped .utx (checked all of systextures/ with umodel), the
+#   string appears nowhere outside NWindow.dll's own table, and the routine
+#   that turns a backtick run into a sprite is in Engine.dll, which is
+#   THEMIDA-packed (docs/HANDOFF.md §5). The mapping below is the obvious
+#   letter match against symbol.utx's five grade badges and nothing more.
+#   It would be falsified by finding the resolver and seeing a different
+#   package/group, or by a badge that draws at other than 12x12.
+IMPLICIT += ["symbol.Icon.grade_d", "symbol.Icon.grade_c", "symbol.Icon.grade_b",
+             "symbol.Icon.grade_a", "symbol.Icon.grade_s"]
+
 
 def staged_name(ref):
     """'L2UI_CH3.ChatWnd.Back' -> 'L2UI_CH3__Back' (flat, collision-free)."""
@@ -142,7 +171,23 @@ def collect(doc):
     for ref in IMPLICIT:
         pkg, leaf = ref.split(".")[0], ref.split(".")[-1]
         cand = os.path.join(LIBRARY, pkg, leaf + ".png")
-        if os.path.exists(cand):
+        if not os.path.exists(cand):
+            # umodel exports the object's own name, whose case need not match
+            # the reference's -- L2UI_CH3.Tooltip.Tooltip1 is on disk as
+            # L2UI_CH3/tooltip1.png. The xdat branch above already resolves
+            # case-insensitively; this makes the implicit branch agree instead
+            # of silently depending on a case-insensitive filesystem.
+            cand = None
+            for cand_pkg in os.listdir(LIBRARY):
+                if cand_pkg.lower() != pkg.lower():
+                    continue
+                d = os.path.join(LIBRARY, cand_pkg)
+                for f in os.listdir(d):
+                    if f.lower() == leaf.lower() + ".png":
+                        cand = os.path.join(d, f)
+                        break
+                break
+        if cand:
             out[ref] = cand
         else:
             print(f"  warn: implicit chrome {ref} not in the library")

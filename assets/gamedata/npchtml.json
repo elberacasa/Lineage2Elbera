@@ -1,0 +1,317 @@
+{
+ "_note": "The retail NPC dialog window (NpcHtmlMessage). Interface.xdat declares no such window -- it is a native class, and every value here is an inline immediate at the address it names. Re-verify with --check.",
+ "_source": "assets/interlude/system/NWindow.dll",
+ "_tool": "tools/ui/mine_npchtml.py",
+ "align": {
+  "evidence": "NWindow.dll 0x1034ed30 -- the five alignment keywords, h then v.",
+  "h": [
+   "CENTER",
+   "RIGHT",
+   "LEFT"
+  ],
+  "v": [
+   "TOP",
+   "BOTTOM"
+  ]
+ },
+ "colorRule": {
+  "byteOrder": "ARGB",
+  "caseSensitive": true,
+  "evidence": "NWindow.dll NCHtmlObject::GetMatchedColor 0x100825d0 -- null guard 0x10082609, wide compare against 0x1024dd44 L\"LEVEL\" returning the immediate at 0x10082653, concatenation onto 0x1024dd38 L\"0xff\" at 0x1008269d, and the base-16 parse (push 0x10 / push 0 / push ebx / call 0x101c3629) at 0x10082705. Byte order is ARGB because the one named colour's own immediate 0xffffcc00 is retail's gold level tint.",
+  "hexPrefix": "0xff",
+  "namedColor": "LEVEL",
+  "radix": 16,
+  "rule": "GetMatchedColor(s): s == NULL -> 0; wcscmp(s, L\"LEVEL\") == 0 -> 0xffffcc00; else wcstoul(L\"0xff\" + s, NULL, 16)."
+ },
+ "colors": {
+  "evidence": "NWindow.dll 0x100856fa push 0xffdcdcdc (body text, the not-a-link branch), 0x100856a3 mov eax,0xff6699ff (link text, taken when the anchor's own GetMatchedColor result is 0) with the same value pushed again at 0x100856c9, and 0x10082653 mov eax,0xffffcc00 (NCHtmlObject::GetMatchedColor's only named colour).",
+  "level": "#FFCC00",
+  "link": "#6699FF",
+  "text": "#DCDCDC"
+ },
+ "entities": [
+  "AElig",
+  "Aacute",
+  "Acirc",
+  "Agrave",
+  "Aring",
+  "Atilde",
+  "Auml",
+  "Ccedil",
+  "ETH",
+  "Eacute",
+  "Ecirc",
+  "Egrave",
+  "Euml",
+  "Iacute",
+  "Icirc",
+  "Igrave",
+  "Iuml",
+  "Ntilde",
+  "Oacute",
+  "Ocirc",
+  "Ograve",
+  "Oslash",
+  "Otilde",
+  "Ouml",
+  "THORN",
+  "Uacute",
+  "Ucirc",
+  "Ugrave",
+  "Uuml",
+  "Yacute",
+  "aacute",
+  "acirc",
+  "aelig",
+  "agrave",
+  "amp",
+  "aring",
+  "atilde",
+  "auml",
+  "ccedil",
+  "eacute",
+  "ecirc",
+  "egrave",
+  "eth",
+  "euml",
+  "gt",
+  "iacute",
+  "icirc",
+  "igrave",
+  "iuml",
+  "lt",
+  "nbsp",
+  "ntilde",
+  "oacute",
+  "ocirc",
+  "ograve",
+  "oslash",
+  "otilde",
+  "ouml",
+  "quot",
+  "szlig",
+  "thorn",
+  "uacute",
+  "ucirc",
+  "ugrave",
+  "uuml",
+  "yacute",
+  "yuml"
+ ],
+ "entitiesEvidence": "NWindow.dll 0x1034ec10 -- a flat sorted array of 67 wide names, the client's complete named-entity set. `apos` and `copy` are NOT in it, so &apos; and &copy; stay literal. No numeric-reference (&#nn;) path was located, and the shipped datapack uses none.",
+ "tags": {
+  "A": [
+   "ACTION",
+   "CMD",
+   "HREF",
+   "LINK",
+   "MSG"
+  ],
+  "ADDRESS": [],
+  "B": [],
+  "BAR": [
+   "ALIGN",
+   "DISABLED",
+   "HEIGHT",
+   "MAX",
+   "MIN",
+   "NAME",
+   "TOOLTIP",
+   "VALUE",
+   "WIDTH"
+  ],
+  "BODY": [
+   "DEFFIXEDFONT",
+   "DEFFON"
+  ],
+  "BR": [],
+  "BR1": [],
+  "BUTTON": [
+   "ACTION",
+   "BACK",
+   "FORE",
+   "HEIGHT",
+   "VALUE",
+   "WIDTH"
+  ],
+  "CENTER": [],
+  "COMBOBOX": [
+   "LIST",
+   "SEL",
+   "VAR",
+   "WIDTH"
+  ],
+  "COMMENT": [],
+  "EDIT": [
+   "ACTION",
+   "HEIGHT",
+   "LENGTH",
+   "TYPE",
+   "VAR",
+   "WIDTH"
+  ],
+  "EXTEND": [],
+  "FONT": [
+   "COLOR",
+   "FACE",
+   "SIZE",
+   "FG",
+   "B"
+  ],
+  "H1": [],
+  "H2": [],
+  "H3": [],
+  "H4": [],
+  "H5": [],
+  "H6": [],
+  "H7": [],
+  "HEAD": [],
+  "HTML": [
+   "HEIGHT",
+   "IMGSRC",
+   "NOSCROLLBAR",
+   "QUERYDELAY",
+   "TEXTANI",
+   "WIDTH",
+   "X",
+   "Y"
+  ],
+  "I": [],
+  "IMG": [
+   "HEIGHT",
+   "SRC",
+   "TOOLTIP",
+   "WIDTH"
+  ],
+  "INPUT": [
+   "CHECKED,",
+   "DISABLED",
+   "HEIGHT",
+   "MAX",
+   "MAXLENGTH",
+   "MIN",
+   "NAME",
+   "SIZE",
+   "TOOLTIP",
+   "TYPE",
+   "VALUE",
+   "WIDTH"
+  ],
+  "LEFT": [],
+  "LI": [],
+  "MULTIEDIT": [
+   "HEIGHT",
+   "VAR",
+   "WIDTH"
+  ],
+  "OL": [
+   "TYP"
+  ],
+  "OPTION": [
+   "SELECTED",
+   "TOOLTIP",
+   "VALUE"
+  ],
+  "P": [
+   "ALIGN"
+  ],
+  "PRE": [],
+  "RIGHT": [],
+  "SELECT": [
+   "DISABLED",
+   "HEIGHT",
+   "MULTIPLE",
+   "NAME",
+   "SIZE",
+   "TOOLTIP",
+   "WIDTH"
+  ],
+  "SPIN": [
+   "NAME",
+   "MAX",
+   "MIN",
+   "READONLY",
+   "SIZE",
+   "TOOLTIP",
+   "VALU"
+  ],
+  "STRIKE": [],
+  "SUB": [],
+  "SUP": [],
+  "TABLE": [
+   "ALIGN,",
+   "BACKGROUND",
+   "BGCOLOR",
+   "BORDER",
+   "BORDERCOLOR",
+   "BORDERCOLORDARK",
+   "BORDERCOLORLIGHT",
+   "CELLPADDING",
+   "CELLSPACING",
+   "HEIGHT",
+   "WIDTH"
+  ],
+  "TD": [
+   "ALIGN",
+   "BACKGROUND",
+   "BGCOLOR",
+   "BORDER",
+   "FIXWIDTH",
+   "HEIGHT",
+   "VALIGN",
+   "WIDTH"
+  ],
+  "TEXTAREA": [
+   "ALIGN",
+   "DISABLED",
+   "NAME",
+   "ROWS",
+   "TOOLTIP"
+  ],
+  "TEXTCODE": [],
+  "TITLE": [],
+  "TR": [],
+  "TT": [],
+  "U": [],
+  "UL": [
+   "TYPE"
+  ],
+  "UNKNOWN": [],
+  "VAR": [],
+  "VOLUMN": [
+   "DISABLED",
+   "NAME",
+   "MIN",
+   "MAX",
+   "READONL",
+   "SIZE",
+   "TOOLTIP",
+   "VALUE"
+  ]
+ },
+ "tagsEvidence": "NWindow.dll 0x1034e9a8 -- 51 sorted 12-byte records {const wchar_t* name, const wchar_t** attrs, int attrCount}. This is the complete element-name table of the client's HTML parser; a name absent from it is the UNKNOWN case.",
+ "window": {
+  "background": "L2UI_ch3.NpcWnd.Npc1_back",
+  "dock": {
+   "anchored": 1,
+   "hMode": 0,
+   "rule": "y = round(viewportHeight * 0.5 - 252)",
+   "vMode": 5,
+   "x": 0,
+   "yOffset": 252.0,
+   "yScale": 0.5
+  },
+  "evidence": "NWindow.dll 0x1013fde7 and 0x1013fec5 -- both NCNPCHtmlViewer instances (alloc 0x1d4, the size its own deleting dtor frees at 0x100899ef; ctor 0x10089fd0 writes vtable 0x1024ef7c) call SetWindowRect (vtable slot 0xc0, body 0x1005e8f0) with push 0x191 (h) / push 0x136 (w) / anchored=1 hMode=0 vMode=5, y = parentHeight * 0.5 - 252 from the doubles at 0x1022f270/0x1027ddd8. Interior from NCNPCHtmlViewer::OnCreate 0x1008a030: title bar (0,0,W,20) at 0x1008a0d7, html frame (7,30,W-14,H-37) at 0x1008a1c1/0x1008a16d with the doubles at 0x1024f730/0x1024f738. Background control built at 0x1013fe74 and stored over OnCreate's own L2UI.etcwnd.NPCHtml_BACK at 0x1013fe86.",
+  "frame": {
+   "height": 364,
+   "insetHeight": 37,
+   "insetWidth": 14,
+   "width": 296,
+   "x": 7,
+   "y": 30
+  },
+  "height": 401,
+  "titleBarHeight": 20,
+  "width": 310
+ }
+}

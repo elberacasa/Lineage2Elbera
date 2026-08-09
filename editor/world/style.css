@@ -302,17 +302,59 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 .target-bar-hp > div { background: linear-gradient(#e05656, #a02828); }
 .target-bar-mp > div { background: linear-gradient(#5a7fe0, #2c4aa0); }
 
-/* NPC dialog (js/ui/npcdialog.js) */
-.npc-dialog-body { font: 12px/1.5 -apple-system, "Segoe UI", sans-serif; color: #cfd4de; }
-.npc-dialog-title { color: #c9a959; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
-.npc-link { color: #7fb3ff; text-decoration: underline; cursor: pointer; }
-.npc-link:hover { color: #a9ccff; }
-.npc-btn {
-  display: inline-block; margin: 2px 4px 2px 0; padding: 3px 14px;
-  background: #241f14; color: #e6dcc0; border: 1px solid #c9a959;
-  border-radius: 3px; cursor: pointer; font: 12px -apple-system, sans-serif;
+/* NPC dialog (js/ui/npcdialog.js + js/ui/npchtml.js)
+   ---------------------------------------------------------------------------
+   There are no colours, sizes or fonts here. Every one of those comes from
+   assets/gamedata/npchtml.json (mined out of NWindow.dll by
+   tools/ui/mine_npchtml.py) and is applied in JS, because the client decides
+   them: the text colour depends on whether the run is inside an <a>, the link
+   colour depends on whether the anchor carries its own, and the glyphs come
+   off the retail font sheet through Font.canvas — there is no TTF to fall
+   back on. What is left here is layout plumbing only.
+
+   The previous version of this block was the visual defect: a web font
+   (-apple-system), a #c9a959 title, a #7fb3ff link and a CSS-drawn button.
+   None of those three colours exists anywhere in the client. */
+.npc-dialog-body { font-size: 0; }         /* canvases only; kill text leading */
+.npc-dialog-content { word-break: break-word; }
+/* One word off the retail glyph sheet, and the sheet's own space advance. */
+.l2h-w { display: inline-block; vertical-align: top; }
+.l2h-w canvas { display: block; }
+.l2h-sp { display: inline-block; vertical-align: top; }
+.npc-link { cursor: pointer; }
+/* Retail links are drawn with an underline argument in the same call as the
+   text (NWindow.dll 0x100856af pushes 1 where the plain-text branch pushes 0
+   at 0x100856de). The rule is on the WORD so it tracks the glyph box. */
+.npc-link canvas, span.l2h-sp.npc-link { border-bottom: 1px solid currentColor; }
+/* The underline's colour is NOT the run's text colour. The link branch pushes
+   the same 0xff6699ff twice — once as the per-run text colour (used only when
+   the anchor carries none of its own) and once unconditionally as the draw's
+   colour argument (NWindow.dll 0x100856a3 and 0x100856c9). So a
+   <font color="98BFBF"> inside an <a> gets teal glyphs on a #6699FF rule,
+   which is what retail shows. The literal below is that same mined value; it
+   is the only colour in this file and it is the client's. */
+.npc-link { color: #6699FF; }
+.npc-btn { user-select: none; }
+.npc-btn-label {
+  position: absolute; left: 0; right: 0; top: 50%;
+  transform: translateY(-50%); text-align: center; pointer-events: none;
 }
-.npc-btn:hover { background: #322a18; }
-.npc-btn:disabled { opacity: .45; cursor: default; }
-.npc-table { border-collapse: collapse; }
-.npc-table td, .npc-table th { padding: 1px 6px; }
+.npc-btn-label canvas { display: inline-block; vertical-align: middle; }
+.npc-btn[data-disabled] { cursor: default; }
+.npc-table { font-size: 0; }
+.npc-table td { vertical-align: top; }
+.npc-html-img { background-repeat: no-repeat; }
+/* The frame draws its own retail scrollbar (npcdialog.js _buildScrollbar), so
+   the native one must not also appear inside the scroller. */
+.npc-html-scroll { scrollbar-width: none; }
+.npc-html-scroll::-webkit-scrollbar { width: 0; height: 0; }
+.npc-sb-btn { background-repeat: no-repeat; }
+.npc-sb-thumb { cursor: pointer; }
+/* <edit>/<multiedit>/<combobox> are real client controls with their own art
+   (L2UI_CH3.Etc.inputbox1..3, l2ui_ch3.multiedit.M_inputbox0N — named in
+   NWindow.dll at 0x1009567d..0x10095b98). Those sprites are NOT staged yet,
+   so the control is AUTHORED as a plain box rather than drawn wrong. */
+.npc-edit {
+  font: 11px monospace; background: #000; color: #DCDCDC;
+  border: 1px solid #555; vertical-align: top;
+}
