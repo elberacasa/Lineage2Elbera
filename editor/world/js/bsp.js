@@ -20,13 +20,82 @@
 // a 48 m grid, the same size as the client's prop clusters), so the chunks
 // toggle under the same draw distance as the props — see
 // Terrain.setPropDrawDistance.
+//
+// LIGHTING. The retail BSP is not lit by a dynamic light at all. Every drawn
+// node either carries a BAKED LIGHTMAP or its surface carries PF_UNLIT — over
+// the 18,656 drawn nodes of 22_22, 17_25, 20_21, 20_16, 24_20 and 23_18 there
+// is not one exception (tools/world/bsp.py collect(), which raises if that
+// ever stops holding). So this file gives the BSP an UNLIT material:
+//   * lightmapped surface -> MeshBasicMaterial, map x lightMap on UV set 1;
+//     the lightmap is the retail 512x512 DXT1 atlas sheet decoded by
+//     tools/world/bsplight.py, and the UVs come out of the retail render
+//     vertices, so neither the texels nor the mapping is reconstructed here.
+//   * PF_UNLIT surface -> MeshBasicMaterial, map only (retail fullbright).
+// The sun/ambient rig in worldlight.js keeps lighting the PROPS, which is
+// where retail uses it.
+//
+// THE BLEND IS 2X, AND THAT COMES OUT OF THE CLIENT. Engine.dll is
+// Themida-packed, but D3DDrv.dll is NOT, and it carries its pixel shaders
+// as plain source. All three of its lighting shaders end the same way:
+//     mul_x2 r0, r0, v0
+//     // r0 = r0 * lighting
+// i.e. this renderer's own definition of "surface colour times lighting"
+// is a MODULATE-2X, which is why the modulate here is 2x and not 1x (see
+// LIGHTMAP_MODULATE, and LIGHTMAP_INTENSITY for what 2x becomes once the
+// client's own sRGB pipeline is accounted for).
+// Scope of that evidence, stated so nobody over-reads it: those three are
+// the TERRAIN shaders (weightmap layers x vertex lighting). No shader for
+// the BSP lightmap pass survives in the binary — that path is fixed
+// function — so this is the engine's own convention carried across to the
+// BSP, not a direct read of the BSP pass. `?lmi=<float>` overrides it.
+// The atlas argues the same way: its texels reach 255 (247 on 17_25, 255
+// on 20_21), so the range is not pre-halved, and Giran's most common texel
+// is 48..63 of 255, which at 1x would render the plaza at a quarter
+// brightness.
+//
+// One thing is still deliberately NOT chosen:
+//   * which of the (up to 8) colour variants of a sheet retail shows.
+//     Variant 0 is used because it is the first in the retail array;
+//     `?lm=<0..7>` picks another and `?lm=off` drops the lightmaps
+//     entirely (that is how the before/after shots are taken from one
+//     build). See tools/world/bsplight.py, KNOWN GAPS 1.
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { L2_TO_M } from './coords.js';
 
+// `?lm=off` | `?lm=<0..7>` -> null (no lightmaps) | variant index
+function lightmapVariant() {
+  const q = new URLSearchParams(location.search).get('lm');
+  if (q === 'off') return null;
+  const n = Number.parseInt(q ?? '', 10);
+  return Number.isInteger(n) && n >= 0 && n <= 7 ? n : 0;
+}
+
+// Retail's modulate factor, from D3DDrv.dll's own `mul_x2 ... // r0 = r0 *
+// lighting` (see the header).
+const LIGHTMAP_MODULATE = 2.0;
+
+// ...expressed in THIS renderer's space. Retail multiplied 8-bit framebuffer
+// values, i.e. in gamma space; main.js runs three with
+// outputColorSpace = SRGBColorSpace, so the multiply happens on LINEAR
+// values and the lightmap texture is sRGB-decoded before it is used.
+// Scaling an encoded value by k is scaling the linear value by k^gamma, so
+// retail's 2x becomes 2^2.2 here. 2.2 is the sRGB transfer exponent the
+// same renderer applies to every other texture in this client, not a
+// number picked to taste.
+const SRGB_GAMMA = 2.2;
+const LIGHTMAP_INTENSITY = Math.pow(LIGHTMAP_MODULATE, SRGB_GAMMA);
+
+function lightmapIntensity() {
+  const q = Number.parseFloat(
+    new URLSearchParams(location.search).get('lmi') ?? '');
+  return Number.isFinite(q) && q >= 0 ? q : LIGHTMAP_INTENSITY;
+}
+
 export class Bsp {
-  constructor(gltfScene) {
+  constructor(gltfScene, lightmaps = new Map()) {
+    this.lightmaps = lightmaps;
     this.group = new THREE.Group();
     this.group.name = 'bsp';
     this.group.rotation.x = -Math.PI / 2;
@@ -41,6 +110,11 @@ export class Bsp {
 
     gltfScene.updateMatrixWorld(true);
     this.group.updateMatrixWorld(true);
+    // GLTFLoader hands the SAME material instance to every primitive that
+    // uses a given glTF material, so the swap below is memoised: without
+    // this, 22_22's 52 materials would become 130 (one per primitive) and
+    // the shared source material would be disposed once per primitive.
+    const swapped = new Map();
     for (const child of gltfScene.children) {
       const center = new THREE.Vector3();
       let n = 0;
@@ -48,7 +122,7 @@ export class Bsp {
         if (!o.isMesh) return;
         o.castShadow = true;
         o.receiveShadow = true;
-        Bsp._prepMaterial(o.material);
+        o.material = Bsp._prepMaterial(o.material, lightmaps, swapped);
         o.geometry.computeBoundingSphere();
         o.geometry.computeBoundingBox();
         this.boundsL2.union(o.geometry.boundingBox);
@@ -69,13 +143,76 @@ export class Bsp {
   // The converter marks alpha-cutout surfaces alphaMode MASK already; the
   // rest is the same treatment the props get (doubleSided is baked into the
   // glTF materials — a BSP shell is a room you walk INSIDE).
-  static _prepMaterial(material) {
+  //
+  // Returns the material to use: the glTF's MeshStandardMaterial is swapped
+  // for an unlit MeshBasicMaterial, because that is what retail does with
+  // BSP (see the LIGHTING note at the top). Every value carried over comes
+  // off the glTF material the converter wrote.
+  static _prepMaterial(material, lightmaps, swapped) {
     const mats = Array.isArray(material) ? material : [material];
-    for (const m of mats) {
-      if (!m.map) continue;
-      m.map.anisotropy = 4;
-      m.side = THREE.DoubleSide;
+    const out = mats.map((m) => {
+      const done = swapped.get(m.uuid);
+      if (done) return done;
+      if (m.map) {
+        m.map.anisotropy = 4;
+      }
+      const basic = new THREE.MeshBasicMaterial({
+        name: m.name,
+        map: m.map ?? null,
+        color: 0xffffff,
+        side: THREE.DoubleSide,
+        transparent: m.transparent,
+        alphaTest: m.alphaTest,
+        depthWrite: m.depthWrite,
+      });
+      const sheet = m.userData?.lightmapSheet;
+      const lm = Number.isInteger(sheet) ? lightmaps.get(sheet) : null;
+      if (lm) {
+        basic.lightMap = lm;
+        // three samples lightMap on the UV set named by texture.channel;
+        // the converter writes the retail lightmap UVs as TEXCOORD_1,
+        // which GLTFLoader turns into the `uv1` attribute.
+        basic.lightMap.channel = 1;
+        basic.lightMapIntensity = lightmapIntensity();
+      }
+      basic.userData = m.userData;
+      swapped.set(m.uuid, basic);
+      m.dispose();
+      return basic;
+    });
+    return Array.isArray(material) ? out : out[0];
+  }
+
+  // Load the atlas sheets this tile's glTF asks for. -> Map(sheet -> Texture)
+  static async _loadLightmaps(baseUrl, gltf) {
+    const variant = lightmapVariant();
+    if (variant === null) return new Map();
+    const sheets = new Set();
+    for (const m of gltf.parser?.json?.materials ?? []) {
+      const s = m.extras?.lightmapSheet;
+      if (Number.isInteger(s) && s >= 0) sheets.add(s);
     }
+    const loader = new THREE.TextureLoader();
+    const out = new Map();
+    await Promise.all([...sheets].map(async (s) => {
+      const url = `${baseUrl}lightmap/g${s}p${variant}.png`;
+      try {
+        const tex = await loader.loadAsync(url);
+        // The atlas PNG is written top-down, row 0 = atlas row 0, and the
+        // retail UVs address it the same way, so the sampler must NOT flip.
+        tex.flipY = false;
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+        tex.generateMipmaps = false;
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.needsUpdate = true;
+        out.set(s, tex);
+      } catch {
+        console.warn(`bsp: lightmap sheet ${s} failed to load (${url})`);
+      }
+    }));
+    return out;
   }
 
   // -> Bsp, or null when the tile ships no bsp.gltf (not every tile has
@@ -104,7 +241,8 @@ export class Bsp {
       // parse the text we already have (loadAsync would refetch); baseUrl
       // resolves bsp.bin and bsp/*.png
       const gltf = await new GLTFLoader().parseAsync(text, baseUrl);
-      return new Bsp(gltf.scene);
+      const lightmaps = await Bsp._loadLightmaps(baseUrl, gltf);
+      return new Bsp(gltf.scene, lightmaps);
     } catch (err) {
       console.warn(`bsp: ${url} failed to load (${err.message})`);
       return null;

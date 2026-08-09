@@ -1,26 +1,36 @@
 {
- "creatures": 495,
+ "aliased_by_slot": {
+  "attack": 1,
+  "die": 2,
+  "idle": 0,
+  "run": 7,
+  "walk": 1
+ },
  "buckets": {
-  "full": 352,
-  "partial": 92,
-  "none": 51
+  "full": 357,
+  "none": 46,
+  "partial": 92
+ },
+ "creatures": 495,
+ "creatures_with_dropped_clips": 4,
+ "dropped_by_slot": {
+  "attack": 0,
+  "die": 2,
+  "idle": 4,
+  "run": 0,
+  "walk": 0
+ },
+ "gap_by_slot": {
+  "attack": 134,
+  "die": 82,
+  "idle": 42,
+  "run": 118,
+  "walk": 111
  },
  "no_anim_binding": 42,
  "psa_missing": 0,
- "dropped_by_slot": {
-  "idle": 4,
-  "walk": 0,
-  "run": 2,
-  "attack": 2,
-  "die": 4
- },
- "gap_by_slot": {
-  "idle": 47,
-  "walk": 116,
-  "run": 119,
-  "attack": 136,
-  "die": 83
- },
- "creatures_with_dropped_clips": 6,
- "special_is_wait_not_spatk": 235
+ "special_no_retail_answer": 290,
+ "special_serves_other_mismatch": 1,
+ "special_serves_retail_cast": 204,
+ "special_serves_wait_not_cast": 0
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""lightmap.py - decode the level UModel's undecoded tail.
+"""lightmap.py - the RENDER SECTION TABLE at the head of the level
+UModel's tail. (The baked lighting after it is tools/world/bsplight.py.)
 
 WHY THIS EXISTS, AND WHAT IT OVERTURNS
 
@@ -8,9 +9,9 @@ bytes after `RootOutside`/`Linked` in the LEVEL UModel are
 
     "the lightmap tail (an FLightMapIndex array plus the raw LightBits blob)"
 
-and skipped them. That is FALSE for the first ~25% of the tail and unproven
-for the rest. What the first region actually is has been decoded here and is
-verified by exact byte consumption plus an independent invariant.
+and skipped them. That is FALSE. What the first region actually is has been
+decoded here and is verified by exact byte consumption plus an independent
+invariant; the rest is decoded in `tools/world/bsplight.py`.
 
 WHAT DECODES, EXACTLY (region A - the RENDER SECTION TABLE)
 
@@ -53,47 +54,57 @@ vector (|n| == 1 to 2e-3 on every vertex the walk touches -- that is the
 termination test the walk uses). Bytes 12..19 are two floats that routinely
 exceed 1 and go negative, i.e. a tiling texture UV.
 
-  *** Bytes 20..27 are NOT identified. *** They are two 4-byte slots. On
-  22_22 they read as floats inside [0,1] for 98.6% of vertices, which is
-  what a lightmap UV pair would look like -- but 44 of 26,056 are NaN and
-  317 are outside [0,1], and on 17_25 6.5% are outside. On 17_25 many of
-  them read as plausible u16 pairs instead. That is a correct measurement
-  (most values lie in [0,1]) that does NOT license the inference (they are
-  lightmap UVs), so this tool records the bytes and refuses to name them.
+  Bytes 20..27 ARE the LIGHTMAP UV, and the paragraph that used to stand
+  here -- "*** Bytes 20..27 are NOT identified *** ... this tool records
+  the bytes and refuses to name them" -- was right to refuse at the time
+  and is now superseded. The refusal rested on 44 NaN and 317 out-of-[0,1]
+  readings on 22_22 and 6.5% out of range on 17_25. Every one of those
+  belongs to a node with `i_light_map == -1`, i.e. a node the retail data
+  leaves unlit, and the bytes there are simply never sampled. Restricted to
+  the vertices whose node DOES carry a lightmap, and tested against the
+  independently decoded lightmap rectangles, (u*512, v*512) lands inside
+  the vertex's own rectangle on 5021/5021 (22_22), 3100/3100 (17_25),
+  18599/18599 (20_21) and 3156/3156 (20_16) -- 100.00%, zero outside, zero
+  NaN. See tools/world/bsplight.py.
 
-WHAT DOES NOT DECODE (region B - after the section table)
+WHAT REGION B IS (after the section table) -- DECODED, see bsplight.py
 
-After the section table comes `cidx N`, then N variable-length records, then
-`cidx N` again and N x i32 running 0..N-1 (an identity index). N is 595 on
-22_22, 272 on 17_25, 1,888 on 20_21. Region B is 1.47 MB of 22_22's 2.07 MB
-tail and 172.9 MB across the 100 tiles.
+Region B is the baked lighting, and it DOES decode -- in
+`tools/world/bsplight.py`, which is the tool to read and the gate to run
+(`bsplight.py --check`). It is an FLightMap record array (per lit surface:
+iSurf, its rectangle in a 512x512 atlas sheet, 25 floats, and per-light
+1-bit shadow masks) followed by the atlas sheets themselves as 512x512
+DXT1. 99 of the 100 tiles walk to the byte.
 
-Region B is where the baked lighting lives, and it is NOT decoded. What is
-established about it, by measurement:
+Three claims that used to stand in this paragraph were WRONG, and they are
+recorded here rather than deleted because each is the same failure this
+repository keeps making -- a correct measurement welded to an unexamined
+inference:
 
-  * a record begins `u16 A, u8 B, u16 C, u8 W, u8 H` then ~40 bytes of
-    floats including an FVector in tile world space;
-  * `C` is cumulative: C(next) == C(prev) + W(prev) on the records walked,
-    i.e. W/H are the size of something packed side by side into a strip;
-  * the bulk of a record is a run of sub-blocks, each
-        7 x i32 (the 1st two are W,H; the 6th and 7th are W-1, H-1)
-        u8 unknown
-        u8 len
-        len bytes
-    where **len == ceil(W/8) * H on every sub-block walked** -- one BIT per
-    texel, rows padded to whole bytes. That is a per-light visibility mask,
-    which is how UE1-family engines store baked shadows.
+  * "a record begins u16 A, u8 B, u16 C, u8 W, u8 H". The fields are
+    COMPACT INDICES, not fixed-width integers, which is why the framing
+    seemed to shift: the true header is six cidx (iSurf, Q, X, Y, W, H).
+    The reading happened to line up on the small-valued records that were
+    walked by hand.
+  * "C is cumulative, i.e. W/H are the size of something packed side by
+    side into a STRIP". C is the rectangle's X in a 512x512 SHEET, and it
+    only looked cumulative because the first records of 22_22 happen to sit
+    in one row. Y exists and was being read as part of another field.
+  * "7 x i32 (the 1st two are W,H; the 6th and 7th are W-1, H-1) ... u8
+    unknown, u8 len, len bytes". The order is the other way round -- the
+    mask data comes FIRST and the seven i32 are its footer -- and the 6th
+    and 7th are W+PadU-1 and H+PadV-1, not W-1 and H-1. The padding fields
+    read as 0 on every sub-block that was walked by hand, which is what hid
+    them. `len == RowBytes * H` with `RowBytes == ceil(W/8)`, so the
+    "one BIT per texel" part was right.
 
-  What is missing before any of it can be drawn: which surface each record
-  belongs to, the atlas the masks composite into, and the light colour /
-  attenuation each mask is multiplied by. None of that is decoded, so this
-  tool emits none of it and the client draws none of it. Approximating it
-  with an ambient-occlusion bake, a vertex-colour stand-in or a screen-space
-  effect is explicitly out of bounds for this repository.
+  What was listed as missing -- "which surface each record belongs to, the
+  atlas the masks composite into, and the light colour / attenuation each
+  mask is multiplied by" -- is: iSurf is the first cidx of the record; the
+  atlas is in the same tail; and the composited result is already baked, so
+  no light colour has to be reconstructed at all.
 
 KNOWN GAPS
-  * region B is not decoded (above).
-  * bytes 20..27 of the render vertex are not identified (above).
   * CountA's meaning is not established (above); --check pins the exact set
     of sections where it differs from NumPolys, so the gap cannot grow
     quietly.
@@ -147,7 +158,8 @@ def unit_normal_at(data, pos):
 
 
 def decode_tail(pkg, model):
-    """-> dict describing region A exactly, and region B by size only.
+    """-> dict describing region A exactly, and region B by size only
+    (region B's own decoder is tools/world/bsplight.py).
 
     Raises L2Error if the section table does not walk cleanly, which is the
     whole point: a desync must never be mistaken for data.
@@ -224,14 +236,18 @@ def decode_tail(pkg, model):
                 "samples": unnamed_slot_total,
                 "nanOrInf": unnamed_slot_nan,
                 "outside01": unnamed_slot_outside01,
-                "note": "bytes 20..27 of the render vertex are NOT identified",
+                "note": "bytes 20..27 of the render vertex are the LIGHTMAP "
+                        "UV -- see tools/world/bsplight.py; the counts here "
+                        "are the NaN/out-of-range readings that belong to "
+                        "nodes with i_light_map == -1",
             },
         },
         "regionB": {
             "bytes": model.lightmap_tail - region_a,
-            "decoded": False,
-            "note": "baked-lighting records; see the module docstring for "
-                    "what is established and what is missing",
+            "decoded": True,
+            "note": "the baked lighting: FLightMap records + 512x512 DXT1 "
+                    "atlas sheets. Decoded by tools/world/bsplight.py, "
+                    "which writes bsplight.json and lightmap/*.png",
         },
         "materials": sorted(set(s["material"] for s in sections)),
         "sectionList": sections,
@@ -341,7 +357,7 @@ def main(argv):
             continue
         a = info["regionA"]
         print("%-8s %3d sections %7d verts %6d polys (nodes %6d, %+d)  "
-              "regionA %8d B  regionB %9d B undecoded"
+              "regionA %8d B  regionB %9d B (-> bsplight.py)"
               % (tile, a["sections"], a["vertices"], a["polygons"],
                  a["bspNodes"], a["polygonsMinusNodes"], a["bytes"],
                  info["regionB"]["bytes"]))

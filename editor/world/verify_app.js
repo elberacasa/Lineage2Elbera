@@ -132,5 +132,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   } finally {
     await browser.close();
   }
-  console.log(JSON.stringify(summary, null, 2));
+  // EXIT EXPLICITLY. MEASURED 2026-08-09: this suite finished all its work,
+  // printed the complete summary below, and then sat at 0.0% CPU until the
+  // battery's watchdog killed it at 300 s — a full run's worth of wall clock
+  // burned AFTER the last useful line. `browser.close()` had already returned
+  // (the summary prints after the finally block, and it printed), so the leak
+  // is a handle that outlives the browser, not a hung teardown.
+  //
+  // This does NOT weaken the suite: a throw never reaches this line, and an
+  // unhandled rejection still exits nonzero on its own. The callback form is
+  // deliberate — process.exit() can truncate a pending stdout write when
+  // stdout is a pipe, which is exactly how the battery runs it.
+  process.stdout.write(JSON.stringify(summary, null, 2) + '\n',
+    () => process.exit(0));
 })();

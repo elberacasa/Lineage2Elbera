@@ -551,6 +551,12 @@ regenerate with `tools/ui/mine_classicons.py`, guard `--check`).
 > | "verify_targetwnd cannot pass while a battery holds 8085/8086" (commit a8d0d9b's message, repeated into this wave's brief) | true when written, false now: the suite leases ephemeral ports from the OS and spawns its own mocks. Only its file header still said 8085/8086. **A commit message is a snapshot, not a standing fact** |
 > | "verify_m5 fails with `Cannot read properties of undefined (reading 'click')`" | verify_m5 passes 12/12 standalone against a fresh mock on 8085. The throw is a *symptom of a mock collision*, not a bug in the suite: with the old `mock_gateway.js` a second bind died silently, the page then talked to a mock in another state, ChatWnd's tab strip never came up, and `.find(...).click()` threw on `undefined` |
 > | "HANDOFF describes bspfloor.bin's old single-section format" (this wave's brief) | HANDOFF never described `bspfloor.bin` at all. The contract lives in `tools/world/README.md`, and what was stale there was its **size** claim, not its layout |
+> | "`special_is_wait_not_spatk` counts FIXED creatures, not broken ones" (this wave's brief) | Half right, and the half it missed is the point. The metric was **blind**, not merely inverted: it tested `retail has a spatk` AND `a distinct 'special' clip shipped` — never *what was in the clip*. `audit_bindings.py --selftest` seeds the exact regression the name describes (special ← a wait pose) and the old expression reads **196 before and 196 after**; the replacement goes **0 → 78**. Of the 196 it last reported, **194 served `spatk01`** — correct creatures. Renamed to `special_serves_wait_not_cast` and judged against the client's own `MagicShotAnimName`, not a name convention (2026-08-09) |
+> | the audit's own `dropped_by_slot` — "6 creatures dropped their run clip, 2 their attack clip" | An **artefact of comparing slot NAMES to glTF clip names**. `audit_bindings.py` never opened the manifest's `clips` map, which records which retail sequence each shipped clip carries. retail names the SAME sequence for two slots on these creatures (`portrait_spirit`'s `WalkAnimName` **is** `run`), so the extractor emits it once and `mapAnimations`' run→walk chain plays the right motion. Corrected counts: dropped run **0**, attack **0**, and **4** creatures — all static props — genuinely lose a clip. The data was on disk the whole time (2026-08-09) |
+> | "the mock on :8085 DIED mid-run" (`tools/battery.sh`'s own banner, and the 2026-08-08 note behind it) | **False alarm, measured mid-battery 2026-08-09.** The respawn exited 98 with "port 8085 is already in use", which *proves* the original was listening; `ps` showed all three mock PIDs still carrying the battery's own start time, never restarted; the suite that ran under the warning passed. One refused `nc -z` is not death. `check_mocks` now probes 3× and checks for the **process** before restarting, and says "slow accept" rather than "DIED" when the process is alive. The 2026-08-08 claim that "something outside this script killed the 8086/8087 mocks" was most likely this same misfire — no process was ever shown to have exited |
+> | "verify_anim's baseline is stale" (this wave's brief) | True, but it was only **two of three** causes. The third: the drift check used `JSON.stringify`, which is **key-order sensitive**, and the baseline has two writers that disagree — `audit_bindings.py --check` writes it `sort_keys=True`, `verify_anim.js` writes it in insertion order. Regenerating from the Python side made every nested count "drift" with **identical numbers on both sides**. Fixed with an order-independent serialiser (2026-08-09) |
+> | "register verify_ghostnpc, verify_steps, verify_emotes, verify_text, verify_sky, verify_walksurface" (this wave's brief) | **Five of the six were already registered.** Only `verify_ghostnpc` was unclassified. It belongs in `live`, not `mock`: it spawns its OWN mock on 8087 and refuses to start if the port is bound, and the shared mocks hold 8087 for the whole mock section |
+> | "verify-clan waits for a `move` op that is now `teleport`" (this wave's brief) | Already fixed. `gateway/test/verify-clan.js:58-63` handles **both** ops and carries the comment explaining the a8d0d9b split |
 >
 > The pattern in almost every case was the same and is worth naming: a
 > **correct measurement** followed by an **unexamined inference**, written up
@@ -602,6 +608,27 @@ regenerate with `tools/ui/mine_classicons.py`, guard `--check`).
   with the `\x0cSafePackage\x00` trailer.
 - umodel cannot export G16 heightmaps — decode them with l2lib
   (`00 40 80 10` marker).
+- **`Engine.dll` is THEMIDA-PACKED — do not try to disassemble it.** Its code
+  is ciphertext at rest. Re-verified 2026-08-09 with
+  `python3 tools/ui/mine_nameplate.py --check`, which is the standing gate:
+  - the PE carries a section literally named **`Themida`**, and **no** section
+    flagged TEXT;
+  - **`objdump -d` emits 0 instructions for the entire file** — not few, zero;
+  - all **10,083** exports resolve into a ~45 KB stub (the 5 nameplate exports
+    span **44,935 bytes** of address space), so an export address tells you
+    nothing about where the code is;
+  - the control: `objdump -d` on **`NWindow.dll`** emits **27** instructions
+    over one known paint routine, proving the toolchain works on a plain PE.
+  - Entropy is NOT the test (6.56 vs 6.25 bits/byte for NWindow's `.text` —
+    too close to conclude anything). The `Themida` section name plus the zero
+    instruction count is the test.
+  - **Export NAMES are still legitimate evidence** and have been mined
+    successfully (`DrawTargetName`, `GetNameColor`, …). **NWindow.dll is
+    readable** and has been mined. Only Engine.dll's *code* is unavailable.
+  - `mine_nameplate.py --check` FAILS if objdump ever finds an instruction or
+    the `Themida` section disappears, so the day this stops being true, the
+    documented gaps in `editor/world/js/nameplates.js` get reopened
+    automatically instead of staying closed on a stale claim.
 - **`assets/world/<tile>/bspfloor.bin` has TWO sections, not one.** Anything
   that reads section 1 and stops is reading ~6% of the file. Written by
   `tools/world/bspfloor.py` (`--check` re-derives and compares byte for byte);

@@ -806,9 +806,20 @@ def mesh_material_slots(pkg, export):
 #           cidx NumVertices, NumVertices x 40-byte render vertex,
 #           i32 CountA, cidx Material, i32 NumPolys, u32 PolyFlags, i32 ?
 #   whose NumPolys sum to len(nodes) EXACTLY on all 100 converted tiles
-#   (523,279 of 22_22's 2,066,899 tail bytes). Only what follows it is baked
-#   lighting, and that is still undecoded. The decoder and the full evidence
-#   are in tools/world/lightmap.py; `lightmap.py --check` is the gate.
+#   (523,279 of 22_22's 2,066,899 tail bytes). The render vertex is
+#       0..11 FVector position   12..19 texture UV
+#       20..27 LIGHTMAP UV       28..39 unit normal
+#   -- bytes 20..27 were recorded as "NOT identified" until they were
+#   tested against the independently decoded lightmap rectangles: u*512,
+#   v*512 falls inside the node's own lightmap rectangle on 5021/5021
+#   (22_22), 3100/3100 (17_25), 18599/18599 (20_21) and 3156/3156 (20_16)
+#   vertices whose node carries a lightmap. (The NaNs and out-of-range
+#   values seen earlier all belong to nodes with iLightMap == -1.)
+#   What follows the section table IS the baked lighting and it decodes:
+#   an FLightMap record array (one per lit surface: iSurf, atlas x/y/w/h,
+#   25 floats, and per-light 1-bit shadow masks) followed by EIGHT
+#   512x512 DXT1 lightmap atlas pages. Decoder and full evidence:
+#   tools/world/bsplight.py; `bsplight.py --check` is the gate.
 #
 # FBspNode:
 #   FPlane Plane (16)            unit normal + distance, verified |n| == 1
@@ -874,8 +885,26 @@ PF_ANTIPORTAL = 0x08000000
 
 
 class BspNode(object):
+    # The last three i32 of an FBspNode used to be read and thrown away
+    # under the comment "render-section indices". They are kept now because
+    # they are the only link the file has between a BSP node and the retail
+    # renderer's own data, and each one is named from a MEASUREMENT, not a
+    # header (17_25, 20_16, 20_21, 22_22 unless stated):
+    #   i_section     0 .. NumSections-1 of the region-A render section
+    #                 table, on every node of every tile (22_22: 0..65 with
+    #                 all 66 sections hit; 20_21: 0..42 of 43).
+    #   i_vert_offset the node's first vertex inside that section's vertex
+    #                 block: Points[Verts[iVertPool+k]] equals the render
+    #                 vertex at (i_vert_offset + k) to the BIT on 13050
+    #                 (22_22), 8686 (17_25), 21291 (20_21) and 5616 (20_16)
+    #                 node vertices -- 0 mismatches, worst |delta| 0.0.
+    #   i_light_map   -1, or an index into the region-B lightmap record
+    #                 array. Its maximum is exactly N-1 for that array's own
+    #                 count N on every tile measured (594/595, 271/272,
+    #                 1887/1888, 409/410) -- see tools/world/bsplight.py.
     __slots__ = ("plane", "zone_mask", "flags", "i_vert_pool", "i_surf",
-                 "i_back", "i_front", "i_plane", "num_vertices", "i_zone")
+                 "i_back", "i_front", "i_plane", "num_vertices", "i_zone",
+                 "i_section", "i_vert_offset", "i_light_map")
 
 
 class BspSurf(object):
@@ -951,7 +980,8 @@ def _read_model(pkg, export, extra_field):
         nd.i_zone = (r.u8(), r.u8())
         nd.num_vertices = r.u8()
         r.bytes(8)                         # iLeaf[2]
-        r.bytes(12)                        # render-section indices
+        (nd.i_section, nd.i_vert_offset,
+         nd.i_light_map) = struct.unpack("<3i", r.bytes(12))
         m.nodes.append(nd)
 
     n = farray(r.compact(), "Surfs")

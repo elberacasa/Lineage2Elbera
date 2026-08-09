@@ -217,9 +217,11 @@ carry 146 740 BSP node polygons between them.
   brush `Location`/`PrePivot` step to get wrong. The client applies the
   coords.js map as one group transform (`rotation.x = -PI/2`, `scale 0.01`).
 - **Structure**: one glTF node per spatial chunk (4800 L2u = 48 m grid,
-  matching the client's `PROP_CLUSTER_SIZE`), one primitive per material
-  inside a chunk. Attributes `POSITION`, `NORMAL` (the BSP node plane),
-  `TEXCOORD_0`; indices are a triangle fan per BSP node, wound CCW.
+  matching the client's `PROP_CLUSTER_SIZE`), one primitive per
+  material **× lightmap sheet** inside a chunk (a primitive can bind one
+  lightmap, so the sheet is part of the bucket key). Attributes
+  `POSITION`, `NORMAL` (the BSP node plane), `TEXCOORD_0`, `TEXCOORD_1`;
+  indices are a triangle fan per BSP node, wound CCW.
 - **Materials**: `pbrMetallicRoughness` with `baseColorTexture` →
   `bsp/<name>.png`, `metallicFactor 0`, `roughnessFactor 1`,
   `doubleSided: true` (the player walks *inside* these shells),
@@ -229,7 +231,41 @@ carry 146 740 BSP node polygons between them.
   `U = dot(P - Points[pBase], Vectors[vTextureU]) / texture width` (same for
   V), i.e. texture *pixels* normalised by the shipped PNG's size.
 - `asset.extras` records the per-tile stats (nodes drawn/skipped by
-  category, triangles, cluster size).
+  category, triangles, cluster size, and the lightmap counts below).
+
+### Lightmaps (sibling files — the retail baked lighting)
+
+Decoded by `tools/world/bsplight.py` out of the level UModel's tail; the
+full format, the evidence and the known gaps are that file's docstring.
+
+```
+assets/world/<tile>/bsplight.json          records, counts, page list
+assets/world/<tile>/lightmap/g<S>p<V>.png  512×512 RGBA — sheet S, variant V
+```
+
+```
+python3 tools/world/bsplight.py 22_22 [...]   # decode + write
+python3 tools/world/bsplight.py --all
+python3 tools/world/bsplight.py --check       # the gate (exit 1 on drift)
+node editor/world/verify_bsplight.js          # in the real client
+```
+
+- `TEXCOORD_1` is the **retail lightmap UV**, read verbatim out of bytes
+  20..27 of the level model's own 40-byte render vertices. It is not
+  projected or reconstructed. Proof that those bytes are the lightmap UV:
+  `(u·512, v·512)` lands inside the vertex's own independently-decoded
+  lightmap rectangle on 403 735 of 403 735 vertices across the 99 tiles
+  that decode.
+- Each material carries **either** `extras.lightmapSheet` (the sheet whose
+  PNG the client binds as `lightMap` on UV set 1) **or** `extras.unlit`
+  (the surface carries `PF_UNLIT`, retail draws it fullbright). Twelve
+  drawn nodes in the whole world are neither; they are counted in
+  `asset.extras.unlitUnflaggedNodes` and pinned in `bsplight.UNLIT_UNFLAGGED`.
+- **The client draws BSP unlit**: `MeshBasicMaterial`, texture × lightmap,
+  no dynamic light. That is not a style choice — it is what the split above
+  forces, since retail leaves no drawn BSP surface for a dynamic light to
+  light. The 2× modulate comes from `D3DDrv.dll`'s own shaders
+  (`mul_x2 r0, r0, v0 // r0 = r0 * lighting`); see `editor/world/js/bsp.js`.
 
 ### What is dropped, and on what evidence
 

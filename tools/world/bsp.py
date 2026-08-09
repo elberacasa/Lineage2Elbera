@@ -93,10 +93,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
+PF_UNLIT = 0x00400000    # named from the data: see collect()
 from l2lib import (L2Error, PF_FAKEBACKDROP, PF_INVISIBLE,  # noqa: E402
                    PF_MASKED, PF_PORTAL, extract_texture_rgba, level_model,
                    load_package, read_model, read_polys, resolve_material,
                    write_png)
+import bsplight                                          # noqa: E402
 from convert import (GRID, SPACING, RETAIL_MATERIALS, find_library_png,  # noqa: E402
                      find_prop_start, png_has_significant_alpha, prop_objref)
 
@@ -206,18 +208,27 @@ class TextureLibrary(object):
 # geometry
 # ---------------------------------------------------------------------------
 
-def surface_geometry(model, node, surf, tex_w, tex_h):
-    """One BSP node -> (positions, normals, uvs, fan indices).
+def surface_geometry(model, node, surf, tex_w, tex_h, lm_uv=None):
+    """One BSP node -> (positions, normals, uvs, lightmap uvs, fan indices).
 
     Positions are the raw world-space Points; the normal is the node plane
     (unit, asserted by the parser); UVs are the retail BSP projection
     normalised by the texture size.
+
+    `lm_uv` is the node's LIGHTMAP UVs read straight out of the retail
+    render vertices by tools/world/bsplight.py -- nothing is projected or
+    reconstructed here. The render vertex at (node.i_vert_offset + k) is
+    the SAME point as Points[Verts[i_vert_pool + k]] (bit-identical on
+    13,050 / 8,686 / 21,291 / 5,616 node vertices of 22_22 / 17_25 /
+    20_21 / 20_16), which is what licenses indexing them together. When a
+    node carries no lightmap the UVs are 0,0 and the primitive gets no
+    lightmap texture at all, so those zeros are never sampled.
     """
     base = model.points[surf.p_base]
     tu = model.vectors[surf.v_texture_u]
     tv = model.vectors[surf.v_texture_v]
     nx, ny, nz = node.plane[0], node.plane[1], node.plane[2]
-    pos, nrm, uv = [], [], []
+    pos, nrm, uv, uv1 = [], [], [], []
     for k in range(node.num_vertices):
         p = model.points[model.verts[node.i_vert_pool + k][0]]
         dx, dy, dz = p[0] - base[0], p[1] - base[1], p[2] - base[2]
@@ -225,10 +236,11 @@ def surface_geometry(model, node, surf, tex_w, tex_h):
         nrm.extend((nx, ny, nz))
         uv.append((dx * tu[0] + dy * tu[1] + dz * tu[2]) / tex_w)
         uv.append((dx * tv[0] + dy * tv[1] + dz * tv[2]) / tex_h)
+        uv1.extend(lm_uv[k] if lm_uv else (0.0, 0.0))
     idx = []
     for k in range(1, node.num_vertices - 1):
         idx.extend((0, k, k + 1))
-    return pos, nrm, uv, idx
+    return pos, nrm, uv, uv1, idx
 
 
 def sky_zones(pkg, model):
@@ -293,19 +305,23 @@ def world_box_actors(pkg, model):
     return out
 
 
-def collect(pkg, model, textures, drop_water):
-    """-> ({(cluster, material_key): buckets}, stats)
+def collect(pkg, model, textures, drop_water, lightmaps=None):
+    """-> ({(cluster, material_key, sheet): buckets}, stats)
 
-    A bucket is {"pos", "nrm", "uv", "idx", "tex"}; `cluster` is the
-    CLUSTER_L2 grid cell of the node centroid.
+    A bucket is {"pos", "nrm", "uv", "uv1", "idx", "tex", "sheet"};
+    `cluster` is the CLUSTER_L2 grid cell of the node centroid. `sheet` is
+    the lightmap atlas sheet the node's texels live on, or -1 for a node
+    the retail data leaves unlit -- a primitive can bind one lightmap, so
+    the sheet has to be part of the bucket key.
     """
     buckets = {}
     sky = sky_zones(pkg, model)
     world_box = world_box_actors(pkg, model)
     stats = dict(nodes=len(model.nodes), drawn=0, skipped_flags=0,
                  skipped_sky=0, skipped_worldbox=0, skipped_water=0,
-                 skipped_notex=0, triangles=0, missing=set())
-    for node in model.nodes:
+                 skipped_notex=0, triangles=0, lit=0, unlit=0,
+                 unlit_unflagged=0, missing=set())
+    for index, node in enumerate(model.nodes):
         surf = model.surfs[node.i_surf]
         if surf.flags & SKIP_FLAGS:
             stats["skipped_flags"] += 1
@@ -331,18 +347,43 @@ def collect(pkg, model, textures, drop_water):
             stats["skipped_notex"] += 1
             continue
         uri, tw, th = tex
-        pos, nrm, uv, idx = surface_geometry(model, node, surf, tw, th)
+        # THE RETAIL LIGHTING MODEL FOR BSP, and it is not a choice made
+        # here: a drawn node almost always either carries a baked lightmap
+        # or its surface carries PF_UNLIT (0x400000). Measured over all 99
+        # tiles whose lightmaps decode, only TWELVE drawn nodes are neither
+        # -- 4 on 20_22 (Castle_Kent_t.GL_CA_in_wall), 2 on 24_15
+        # (FX_E_T.theme_transparency_wall_t00) and 6 on 25_12
+        # (Schtgart_Dwarf_MithrilMines_T.Dwarf_Tunnel01), all with PolyFlags
+        # exactly 0. That is 12 of 146,550 nodes, and they are COUNTED
+        # (stats["unlit_unflagged"], surfaced in bsp.gltf's extras) rather
+        # than explained: what the retail engine does with them is not
+        # established. They draw the same as PF_UNLIT, which is the only
+        # option that adds no invented light.
+        sheet, lm_uv = -1, None
+        if lightmaps is not None and node.i_light_map >= 0:
+            sheet = lightmaps["records"][node.i_light_map]["group"]
+            lm_uv = lightmaps["uv"][index]
+        elif lightmaps is not None and not surf.flags & PF_UNLIT:
+            stats["unlit_unflagged"] += 1
+        pos, nrm, uv, uv1, idx = surface_geometry(model, node, surf, tw, th,
+                                                  lm_uv)
+        if sheet >= 0:
+            stats["lit"] += 1
+        else:
+            stats["unlit"] += 1
         cx = int(sum(pos[0::3]) / node.num_vertices // CLUSTER_L2)
         cy = int(sum(pos[1::3]) / node.num_vertices // CLUSTER_L2)
-        key = (cx, cy, uri, bool(surf.flags & PF_MASKED))
+        key = (cx, cy, uri, bool(surf.flags & PF_MASKED), sheet)
         b = buckets.get(key)
         if b is None:
-            b = buckets[key] = dict(pos=[], nrm=[], uv=[], idx=[], tex=uri,
+            b = buckets[key] = dict(pos=[], nrm=[], uv=[], uv1=[], idx=[],
+                                    tex=uri, sheet=sheet,
                                     masked=bool(surf.flags & PF_MASKED))
         off = len(b["pos"]) // 3
         b["pos"].extend(pos)
         b["nrm"].extend(nrm)
         b["uv"].extend(uv)
+        b["uv1"].extend(uv1)
         b["idx"].extend(i + off for i in idx)
         stats["drawn"] += 1
         stats["triangles"] += len(idx) // 3
@@ -396,13 +437,14 @@ def write_gltf(out_dir, tile, buckets, stats):
     mat_index = {}
     nodes, meshes = [], []
     by_cluster = {}
-    for (cx, cy, uri, masked), bucket in sorted(buckets.items()):
-        by_cluster.setdefault((cx, cy), []).append((uri, masked, bucket))
+    for (cx, cy, uri, masked, sheet), bucket in sorted(buckets.items()):
+        by_cluster.setdefault((cx, cy), []).append((uri, masked, sheet,
+                                                    bucket))
 
     for (cx, cy), items in sorted(by_cluster.items()):
         prims = []
-        for uri, masked, bucket in items:
-            key = (uri, masked)
+        for uri, masked, sheet, bucket in items:
+            key = (uri, masked, sheet)
             if key not in mat_index:
                 png = os.path.join(out_dir, uri)
                 # Alpha state, in order of how well it is sourced:
@@ -444,6 +486,19 @@ def write_gltf(out_dir, tile, buckets, stats):
                     # PF_MASKED surface whose material we could not read, and
                     # real foliage refs are 10 or 30, not 128
                     mat["alphaCutoff"] = cutoff if cutoff is not None else 0.5
+                if sheet < 0:
+                    # PF_UNLIT: retail draws it fullbright, and saying so
+                    # explicitly stops the client from reading "no lightmap"
+                    # as "lightmap missing".
+                    mat["extras"] = {"unlit": True}
+                else:
+                    # glTF 2.0 has no core lightmap slot, so the retail
+                    # atlas travels in `extras` and bsp.js binds it as
+                    # THREE.MeshStandardMaterial.lightMap on UV set 1.
+                    # It is a plain sibling PNG, not an embedded texture,
+                    # because several primitives share one sheet.
+                    mat["extras"] = {"lightmapSheet": sheet,
+                                     "lightmapUV": 1}
                 materials.append(mat)
                 mat_index[key] = len(materials) - 1
             nvert = len(bucket["pos"]) // 3
@@ -451,7 +506,8 @@ def write_gltf(out_dir, tile, buckets, stats):
                 "attributes": {
                     "POSITION": b.vec(bucket["pos"], 3),
                     "NORMAL": b.vec(bucket["nrm"], 3),
-                    "TEXCOORD_0": b.vec(bucket["uv"], 2)},
+                    "TEXCOORD_0": b.vec(bucket["uv"], 2),
+                    "TEXCOORD_1": b.vec(bucket["uv1"], 2)},
                 "indices": b.indices(bucket["idx"], nvert),
                 "material": mat_index[key],
                 "mode": 4})
@@ -474,11 +530,17 @@ def write_gltf(out_dir, tile, buckets, stats):
                       "skippedWater": stats["skipped_water"],
                       "skippedNoTexture": stats["skipped_notex"],
                       "clusterL2": CLUSTER_L2,
-                      "lightmaps": "not decoded; the UModel tail's first "
-                                   "region is the render section table "
-                                   "(see assets/world/<tile>/bsprender.json "
-                                   "and tools/world/lightmap.py), the baked "
-                                   "lighting after it is undecoded"}},
+                      "litNodes": stats["lit"],
+                      "unlitNodes": stats["unlit"],
+                      "unlitUnflaggedNodes": stats["unlit_unflagged"],
+                      "lightmaps": "TEXCOORD_1 is the retail baked-lightmap "
+                                   "UV read out of the level UModel's render "
+                                   "vertices; each material's extras.lightmap "
+                                   "names the atlas sheet PNG (%d = the "
+                                   "colour variant, see "
+                                   "tools/world/bsplight.py KNOWN GAPS 1). "
+                                   "Nodes the retail data leaves unlit carry "
+                                   "no lightmap and TEXCOORD_1 0,0."}},
         "scene": 0,
         "scenes": [{"nodes": list(range(len(nodes)))}],
         "nodes": nodes,
@@ -510,6 +572,25 @@ def scene_has_water(out_dir):
         return False
 
 
+def tile_lightmaps(pkg, model, tile):
+    """-> {"records": [...], "uv": {node: [(u,v)...]}} or None.
+
+    None means the retail baked lighting could not be decoded for this
+    tile; the BSP is then written exactly as it was before lightmaps
+    existed, rather than with an invented substitute.
+    """
+    try:
+        info = bsplight.decode_model(pkg, model, tile)
+    except L2Error as exc:
+        print("  %s: lightmaps NOT decoded (%s) -- writing the BSP unlit"
+              % (tile, exc))
+        return None
+    if not info["records"]:
+        return None
+    return {"records": info["recordList"],
+            "uv": bsplight.lightmap_uvs(pkg, model)}
+
+
 def convert_tile(tile):
     unr = os.path.join(MAPS, tile + ".unr")
     if not os.path.exists(unr):
@@ -522,7 +603,8 @@ def convert_tile(tile):
     if model is None:
         raise L2Error("%s: no level UModel" % tile)
     textures = TextureLibrary(os.path.join(out_dir, "bsp"))
-    buckets, stats = collect(pkg, model, textures, scene_has_water(out_dir))
+    buckets, stats = collect(pkg, model, textures, scene_has_water(out_dir),
+                             tile_lightmaps(pkg, model, tile))
     size = write_gltf(out_dir, tile, buckets, stats)
     stats["bytes"] = size
     stats["primitives"] = sum(1 for _ in buckets)

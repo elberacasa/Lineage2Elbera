@@ -67,6 +67,23 @@ function sourceGuard() {
       : 'all 6 state mappings match');
 }
 
+// Key-ORDER-INDEPENDENT serialisation for the baseline diff.
+//
+// FIXED 2026-08-09. The drift check used JSON.stringify directly, which is
+// order-sensitive for objects, and the baseline has TWO writers that disagree
+// about order: audit_bindings.py --check writes it with sort_keys=True
+// (alphabetical), this file writes it with JSON.stringify (Python insertion
+// order: idle, walk, run, attack, die). So regenerating the baseline from the
+// Python side made every nested count "drift" -- {"attack":0,"die":2,...} vs
+// {"idle":4,"walk":0,...} -- with identical NUMBERS on both sides. A diff that
+// reports a failure when nothing changed is how a red suite gets ignored.
+function stable(v) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) return `[${v.map(stable).join(',')}]`;
+  return `{${Object.keys(v).sort().map(
+    k => `${JSON.stringify(k)}:${stable(v[k])}`).join(',')}}`;
+}
+
 // --------------------------------------------------- 1+2. audit + buckets
 function runAudit() {
   const raw = execFileSync('python3',
@@ -88,6 +105,15 @@ function auditChecks(audit) {
     b.full + b.partial + b.none === s.creatures,
     `full ${b.full} / partial ${b.partial} / static ${b.none}`);
 
+  // The skill-cast slot, against the client's own MagicShotAnimName rather
+  // than a name convention. Zero is the whole point: a creature that "casts"
+  // by standing in a wait pose is the bug commit 3dc180e closed, and the
+  // metric that was supposed to hold it shut could not see it (see the
+  // rename note below and audit_bindings.py --selftest).
+  check('no creature plays a WAIT pose where retail names a real cast clip',
+    s.special_serves_wait_not_cast === 0,
+    `${s.special_serves_wait_not_cast} creatures serve a wait pose`);
+
   // A creature that ships NO clips must be one that genuinely has nothing to
   // bind. Nine do not: they carry a real MeshAnimation with real sequences and
   // still shipped static. That is a pipeline defect, not a retail gap, and it
@@ -105,11 +131,11 @@ function auditChecks(audit) {
   }
   const base = JSON.parse(fs.readFileSync(basePath, 'utf8'));
   const drift = Object.keys({ ...base, ...s }).filter(
-    k => JSON.stringify(base[k]) !== JSON.stringify(s[k]));
+    k => stable(base[k]) !== stable(s[k]));
   check('binding table + bucketed counts match the frozen baseline',
     drift.length === 0,
     drift.length ? drift.map(k =>
-      `${k}: ${JSON.stringify(base[k])} -> ${JSON.stringify(s[k])}`).join('; ')
+      `${k}: ${stable(base[k])} -> ${stable(s[k])}`).join('; ')
       : 'no drift');
 }
 
@@ -192,15 +218,50 @@ function playerChecks() {
   check('death / damage / sit / cast / dance present on every player model',
     nonStance.length === 0, nonStance.join(', ') || need.join(', '));
 
-  // The social actions. actionname.json defines 12 distinct emotes and the
-  // retail player set carries a clip for each; the pipeline extracted only
-  // Social_dance, and entities.js:socialFlash() plays 'dance' for every one
-  // of them. Asserted as a KNOWN GAP so the day it is fixed, this fires.
-  const socials = models.filter(m => m.animations.some(
-    a => /^social/i.test(a))).length;
-  check('KNOWN GAP: no player model carries the per-emote social clips '
-    + '(11 of 12 emotes have no animation; all play "dance")',
-    socials === 0, `${socials} models carry a social_* clip`);
+  // The social actions. actionname.dat defines 12 emotes (actionIds 2..13).
+  //
+  // THIS CHECK WAS INVERTED ON 2026-08-09. It used to assert `socials === 0`
+  // as a KNOWN GAP -- "the pipeline extracted only Social_dance, so all 12
+  // ids play dance" -- with a note that it would fire the day someone fixed
+  // it. Commit 3dc180e fixed it, the tripwire fired exactly as designed, and
+  // then it sat red for two waves because a FIRED tripwire and a BROKEN suite
+  // look identical in a results table. A tripwire that has served its purpose
+  // has to be converted into the positive assertion it was guarding for,
+  // otherwise the battery reports a success as a failure forever.
+  //
+  // Measured now: 14 models x 12 ids = 168 resolutions, 168 land on a clip
+  // the model actually ships (11 social_* clips + `dance` for id 12).
+  const emoteHoles = [];
+  for (const m of models) {
+    const have = new Set(m.animations.map(x => x.toLowerCase()));
+    const t = m.socialActions || {};
+    for (let id = 2; id <= 13; id++) {
+      const clip = t[String(id)];
+      if (!clip) emoteHoles.push(`${m.id}:${id} unmapped`);
+      else if (!have.has(clip.toLowerCase())) {
+        emoteHoles.push(`${m.id}:${id} -> ${clip} (not shipped)`);
+      }
+    }
+  }
+  check('every player model resolves all 12 SocialAction ids to a clip it '
+    + 'actually ships (no emote falls back to "dance")',
+    emoteHoles.length === 0,
+    emoteHoles.length ? emoteHoles.slice(0, 12).join(', ')
+      : `${models.length} models x 12 ids = ${models.length * 12} resolutions`);
+
+  // The distinctness that the old gap was really about: if the pipeline ever
+  // regresses to extracting one clip, every id would map to the same name and
+  // the resolution check above would still pass.
+  const distinct = new Set();
+  for (const m of models) {
+    for (let id = 2; id <= 13; id++) {
+      const c = (m.socialActions || {})[String(id)];
+      if (c) distinct.add(`${m.id}:${c.toLowerCase()}`);
+    }
+  }
+  check('the 12 emotes are 12 DISTINCT clips per model, not one clip reused',
+    distinct.size === models.length * 12,
+    `${distinct.size} distinct model/clip pairs, expected ${models.length * 12}`);
 }
 
 // ------------------------------------------------------------------ shots
@@ -278,8 +339,14 @@ async function shots(audit) {
   console.log('  per-slot dropped/gap     : '
     + Object.keys(s.dropped_by_slot).map(k =>
       `${k} ${s.dropped_by_slot[k]}/${s.gap_by_slot[k]}`).join('  '));
-  console.log(`  special = a WAIT pose while retail ships a real SpAtk: `
-    + `${s.special_is_wait_not_spatk}`);
+  // RENAMED 2026-08-09 with the audit's metric. The old line printed
+  // `special_is_wait_not_spatk`, a number that COUNTED CORRECT CREATURES:
+  // audit_bindings.py --selftest shows it reads 196 both before and after a
+  // seeded regression to wait poses, i.e. it never inspected the clip at all.
+  console.log('  special slot vs the client\'s own MagicShotAnimName: '
+    + `${s.special_serves_retail_cast} correct, `
+    + `${s.special_serves_wait_not_cast} serving a wait pose, `
+    + `${s.special_serves_other_mismatch} other mismatch`);
   console.log('');
   for (const c of summary.checks) {
     console.log(`  [${c.ok ? 'ok' : 'FAIL'}] ${c.name}`);

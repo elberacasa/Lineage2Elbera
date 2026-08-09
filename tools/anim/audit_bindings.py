@@ -6,25 +6,44 @@ Three layers, kept strictly apart so a measurement is never welded to an
 inference:
 
   RETAIL   what the shipped MeshAnimation genuinely holds -- umodel exports
-           the .psa, assemble.parse_psa names its sequences.  The oracle.
-  SHIPPED  what editor/characters/monsters/models/<id>.gltf actually carries
-           (read from the glTF itself, not from the manifest's summary).
+           the .psa, assemble.parse_psa names its sequences.  The oracle for
+           "does this motion exist at all".
+  NAMED    what the CLIENT ITSELF says each creature plays per slot:
+           tools/anim/creature_anim_table.json, decoded from Engine.Pawn's
+           `localized ...AnimName` arrays in the package .int keyed by the
+           class npcgrp.dat gives the mesh.  The oracle for "which sequence
+           fills this slot" -- retail's own answer, never a name convention.
+  SHIPPED  what editor/characters/monsters/models/<id>.gltf actually carries,
+           read from the glTF itself, PLUS the manifest's `clips` map, which
+           records WHICH RETAIL SEQUENCE each shipped clip carries.
   RUNTIME  what entities.js:mapAnimations() resolves those clips to, replayed
            here verbatim, including its `first` fallback.
 
 A slot is then classified, per creature:
 
-  bound         SHIPPED has the clip and RUNTIME binds it
+  bound         SHIPPED has a clip named for the slot and RUNTIME binds it
+  aliased       SHIPPED has no clip of that name, but the retail sequence
+                retail names for the slot DID ship under another slot's clip
+                and the RUNTIME fallback chain reaches it.  Correct, not a
+                defect: the extractor emits one clip when two slots resolve
+                to the SAME retail sequence (portrait_spirit's WalkAnimName
+                *is* `run`), and mapAnimations' run->walk / special->attack
+                chain lands on it.
   gap           RETAIL has no sequence for the slot -- an honest missing
                 animation.  Documented, never synthesised.
   dropped       RETAIL HAS a sequence whose action token is exactly this
-                slot's, but the extractor's alias table did not list that
-                spelling, so it never shipped.  A pipeline bug, not a gap.
+                slot's, and it shipped under NO name at all.  A pipeline bug.
   fallback      RUNTIME serves this slot from some OTHER clip (mapAnimations
                 keyword miss -> `first`).  What the player actually sees.
 
 Only the action token is used to claim `dropped` (Walk_Pole is a walk;
 SpAtk01 is not a Wait).  Nothing is inferred from a sequence's contents.
+
+MEASURED 2026-08-09, and the reason the classifier now reads `clips`: judging
+a slot by comparing its NAME to the glTF clip names called six creatures
+`dropped` whose sequence had shipped perfectly well under another slot's clip
+(dropped run 2->6 was pure artefact).  The manifest recorded the real answer
+the whole time and this file never opened it.
 
 Usage:
   audit_bindings.py            full report
@@ -45,6 +64,11 @@ import assemble  # noqa: E402
 PSA_DIR = os.environ.get('L2_PSA_DIR',
                          os.path.join(HERE, 'psa'))
 BASELINE = os.path.join(HERE, 'baseline.json')
+ANIM_TABLE = os.path.join(HERE, 'creature_anim_table.json')
+
+# Set only by --selftest. Rewrites each creature's 'special' clip to the wait
+# pose the old extractor picked, so the metric can be shown to MOVE.
+SIM_WAIT_REGRESSION = False
 
 # entities.js:mapAnimations() -- the keyword lists, verbatim.
 RUNTIME_KEYWORDS = {
@@ -60,17 +84,15 @@ RUNTIME_CHAIN = {'run': ['walk'], 'special': ['attack']}
 
 CORE = ['idle', 'walk', 'run', 'attack', 'die']
 
-# tools/src/char_pipeline/build_monsters.py:ANIM_CANDIDATES, verbatim
-EXTRACTOR_CANDIDATES = {
-    'idle':    ['Wait', 'Wait_1HS', 'Wait_Hand', 'SpWait01'],
-    'walk':    ['Walk', 'Walk_1HS', 'Walk_Hand'],
-    'run':     ['run', 'Run_1HS', 'Run_Hand', 'Run'],
-    'attack':  ['atk01', 'Atk01_1HS', 'Atk01_Hand', 'Atk01_Bow',
-                'Atk01_Pole', 'Attack01'],
-    'die':     ['death', 'Death_Hand', 'die', 'Death'],
-    'corpse':  ['deathwait', 'deathwait_Hand'],
-    'special': ['SpWait01', 'Social01', 'atkwait', 'AtkWait_1HS'],
-}
+# DELETED 2026-08-09: a copy of build_monsters.py:ANIM_CANDIDATES that called
+# itself "verbatim" and had not been verbatim since commit 3dc180e.  It still
+# carried the OLD 'special': ['SpWait01', 'Social01', ...] wait-pose list, had
+# no 'social' slot, and its 'idle' list was missing the atkwait spellings --
+# i.e. it described a pipeline that no longer existed.  It was also DEAD: the
+# only reader, extractor_would_take(), was never called from anywhere.  A
+# stale copy of someone else's table is a false claim waiting to be believed;
+# the manifest's own `clips`/`clipSource` say what the extractor really chose,
+# so the audit reads that instead of re-deriving it.
 
 # Retail's sequence grammar is <Action>[_<Stance>][_<Prefix>].  A slot owns an
 # action token; any stance/prefix suffix is still that action.  Deliberately
@@ -108,18 +130,6 @@ def slots_present_in_retail(seqs):
     return out
 
 
-def extractor_would_take(seqs):
-    """Replay build_monsters.py's alias table over a retail sequence list."""
-    ci = {s.lower(): s for s in seqs}
-    sel = {}
-    for slot, cands in EXTRACTOR_CANDIDATES.items():
-        for c in cands:
-            if c.lower() in ci:
-                sel[slot] = ci[c.lower()]
-                break
-    return sel
-
-
 def runtime_map(clips):
     """entities.js:mapAnimations() replayed. -> {state: clip|None}."""
     first = clips[0] if clips else None
@@ -149,14 +159,17 @@ def load_psa_index():
     return idx
 
 
-def main():
+def main(capture=None):
     argv = sys.argv[1:]
-    check = '--check' in argv
-    as_json = '--json' in argv
+    check = '--check' in argv and capture is None
+    as_json = '--json' in argv and capture is None
 
     manifest = json.load(open(os.path.join(
         ROOT, 'editor/characters/monsters/manifest.json')))['models']
     bindings = json.load(open(os.path.join(HERE, 'bindings.json')))
+    # The client's own per-creature answer for which sequence fills each slot.
+    # Present since 3dc180e and never read here before 2026-08-09.
+    anim_table = json.load(open(ANIM_TABLE))['meshes']
     psa_idx = load_psa_index()
     if not psa_idx:
         print('no .psa exports under %s -- run tools/anim/export_psa.sh first'
@@ -185,12 +198,37 @@ def main():
         retail_slots = slots_present_in_retail(seqs)
         rt = runtime_map(clips)
         shipped = set(clips)
+        # WHICH RETAIL SEQUENCE each shipped clip carries, per the extractor.
+        # `clip_seq` is keyed by glTF clip name; `seq_shipped` is the set of
+        # retail sequences that reached the browser under ANY clip name.
+        clip_seq = {k: str(v) for k, v in (e.get('clips') or {}).items()}
+        if SIM_WAIT_REGRESSION and 'special' in shipped:
+            # --selftest only: replay the PRE-3dc180e extractor, whose
+            # 'special' candidate list led with the wait poses.
+            w = [s for s in seqs
+                 if s.lower().startswith(('spwait', 'atkwait'))]
+            if w:
+                clip_seq['special'] = w[0]
+        seq_shipped = {clip_seq[c].lower() for c in clips if c in clip_seq}
 
         slots = {}
         for slot in CORE:
             served = rt.get(slot)
+            want = clip_seq.get(slot)          # sequence retail names here
             if slot in shipped:
                 slots[slot] = {'state': 'bound', 'clip': slot}
+            elif want and want.lower() in seq_shipped:
+                # Deduped: the SAME retail sequence fills two slots, so the
+                # extractor emitted it once. Correct only if the runtime
+                # fallback chain actually lands on the clip carrying it.
+                slots[slot] = {
+                    'state': 'aliased',
+                    'retail': want,
+                    'served_by': served,
+                    'serves_retail_clip':
+                        bool(served) and clip_seq.get(served, '').lower()
+                        == want.lower(),
+                }
             elif retail_slots.get(slot):
                 slots[slot] = {'state': 'dropped',
                                'retail': retail_slots[slot],
@@ -202,9 +240,31 @@ def main():
                 slots[slot] = {'state': 'fallback', 'clip': slot,
                                'served_by': served}
 
+        # --- the 'special' (skill-cast) slot, judged against the CLIENT ---
+        # Retail's MagicShotAnimName is what the creature plays when a skill
+        # fires. Compare what the runtime actually serves against that name;
+        # do NOT infer from whether a sequence called spatk* merely exists.
+        magic = ((anim_table.get(mid) or {}).get('anims', {})
+                 .get('MagicShotAnimName') or {}).get('0')
+        sp_served = rt.get('special')
+        sp_seq = clip_seq.get(sp_served) if sp_served else None
+        special = {'retail_cast': magic, 'served_by': sp_served,
+                   'served_retail': sp_seq}
+        if not magic:
+            special['state'] = 'no_retail_answer'
+        elif sp_seq and sp_seq.lower() == magic.lower():
+            special['state'] = 'correct'
+        elif sp_seq and any(w in sp_seq.lower()
+                            for w in ('wait', 'spwait', 'atkwait')) \
+                and not any(w in magic.lower()
+                            for w in ('wait', 'spwait', 'atkwait')):
+            special['state'] = 'wait_not_cast'
+        else:
+            special['state'] = 'mismatch'
+
         report[mid] = {
             'anim': anim, 'psa_found': bool(psa),
-            'shipped': clips, 'retail': seqs,
+            'shipped': clips, 'retail': seqs, 'special': special,
             'slots': slots,
             'retail_special_attack': [s for s in seqs
                                       if action_token(s).startswith('spatk')],
@@ -215,13 +275,22 @@ def main():
     buckets = {'full': 0, 'partial': 0, 'none': 0}
     dropped_total = {s: 0 for s in CORE}
     gap_total = {s: 0 for s in CORE}
+    aliased_total = {s: 0 for s in CORE}
     creatures_with_dropped = []
-    spatk_dropped = 0
+    # 'special' slot, judged against the client's own MagicShotAnimName.
+    sp = {'correct': 0, 'wait_not_cast': 0, 'mismatch': 0,
+          'no_retail_answer': 0}
+    sp_mismatches = []
     for mid, r in report.items():
         states = [r['slots'][s]['state'] for s in CORE]
+        served_ok = [s == 'bound' or (s == 'aliased'
+                     and r['slots'][c].get('serves_retail_clip'))
+                     for c, s in zip(CORE, states)]
         if not r['shipped']:
             buckets['none'] += 1
-        elif all(s == 'bound' for s in states):
+        elif all(served_ok):
+            # every core slot plays the sequence retail names for it, whether
+            # under its own clip or via a deduped alias the runtime reaches
             buckets['full'] += 1
         else:
             buckets['partial'] += 1
@@ -234,8 +303,12 @@ def main():
                 dropped_total[s] += 1
             elif st == 'gap':
                 gap_total[s] += 1
-        if r['retail_special_attack'] and r['shipped_special']:
-            spatk_dropped += 1
+            elif st == 'aliased':
+                aliased_total[s] += 1
+        st = r['special']['state']
+        sp[st] = sp.get(st, 0) + 1
+        if st in ('wait_not_cast', 'mismatch'):
+            sp_mismatches.append((mid, r['special']))
 
     summary = {
         'creatures': len(report),
@@ -245,9 +318,29 @@ def main():
                            if r['anim'] and not r['psa_found']),
         'dropped_by_slot': dropped_total,
         'gap_by_slot': gap_total,
+        'aliased_by_slot': aliased_total,
         'creatures_with_dropped_clips': len(creatures_with_dropped),
-        'special_is_wait_not_spatk': spatk_dropped,
+        # RENAMED 2026-08-09. The old key was `special_is_wait_not_spatk` and
+        # it counted `retail has a spatk AND a distinct 'special' clip
+        # shipped` -- which is the condition for the slot being RIGHT. Of the
+        # 196 it last reported, 194 served spatk01. It read backwards: a
+        # metric whose number goes UP as the port gets MORE correct, under a
+        # name that says the opposite. These four count the real thing, and
+        # `special_serves_wait_not_cast` is the defect the old name described.
+        'special_serves_retail_cast': sp['correct'],
+        'special_serves_wait_not_cast': sp['wait_not_cast'],
+        'special_serves_other_mismatch': sp['mismatch'],
+        'special_no_retail_answer': sp['no_retail_answer'],
     }
+
+    if capture is not None:
+        capture['summary'] = summary
+        # The DELETED metric's expression, verbatim, so --selftest can show
+        # what it did (and did not) do under the same mutation.
+        capture['old_special_is_wait_not_spatk'] = sum(
+            1 for r in report.values()
+            if r['retail_special_attack'] and r['shipped_special'])
+        return 0
 
     if as_json:
         json.dump({'summary': summary, 'creatures': report},
@@ -284,15 +377,30 @@ def main():
           % summary['psa_missing'])
     print()
     print('per-slot, across all creatures:')
-    print('  %-8s %8s %8s' % ('slot', 'DROPPED', 'GAP'))
+    print('  %-8s %8s %8s %8s' % ('slot', 'DROPPED', 'GAP', 'ALIASED'))
     for s in CORE:
-        print('  %-8s %8d %8d' % (s, dropped_total[s], gap_total[s]))
+        print('  %-8s %8d %8d %8d'
+              % (s, dropped_total[s], gap_total[s], aliased_total[s]))
+    print('  (ALIASED = retail names the SAME sequence for two slots, so it')
+    print("   shipped once and the runtime's fallback chain reaches it.")
+    print('   Correct by construction -- not a loss.)')
     print()
     print('creatures losing >=1 clip the retail asset HAS : %d'
           % summary['creatures_with_dropped_clips'])
-    print("creatures whose 'special' is a WAIT pose while  ")
-    print('  the retail set carries a real SpAtk           : %d'
-          % spatk_dropped)
+    print()
+    print("the 'special' (skill-cast) slot, against the client's own")
+    print('MagicShotAnimName -- NOT against a name convention:')
+    print('  serves exactly the retail cast clip           : %d'
+          % summary['special_serves_retail_cast'])
+    print('  serves a WAIT pose instead (the real defect)  : %d'
+          % summary['special_serves_wait_not_cast'])
+    print('  serves some other mismatched clip             : %d'
+          % summary['special_serves_other_mismatch'])
+    print('  creature has no decoded MagicShotAnimName     : %d'
+          % summary['special_no_retail_answer'])
+    for mid, s in sp_mismatches[:10]:
+        print('    %-38s serves %-12s retail says %s'
+              % (mid, s['served_retail'], s['retail_cast']))
     print()
     print('worst offenders (dropped clips retail actually ships):')
     for mid, drops in sorted(creatures_with_dropped,
@@ -303,5 +411,48 @@ def main():
     return 0
 
 
+def selftest():
+    """Prove the metric reads the RIGHT WAY ROUND.
+
+    Re-runs the audit against a manifest mutated to look like the old
+    pipeline -- 'special' filled with a wait pose -- and asserts that the new
+    metric MOVES while the deleted one does not. The deleted metric only ever
+    asked "does a distinct 'special' clip exist?", never "what is in it", so
+    it is numerically IDENTICAL before and after the regression it was named
+    for. Measured 2026-08-09: old 196 -> 196, new 0 -> 78.
+    """
+    global SIM_WAIT_REGRESSION
+    clean, dirty = {}, {}
+    SIM_WAIT_REGRESSION = False
+    main(capture=clean)
+    SIM_WAIT_REGRESSION = True
+    main(capture=dirty)
+    SIM_WAIT_REGRESSION = False
+
+    ok = True
+    c = clean['summary']['special_serves_wait_not_cast']
+    d = dirty['summary']['special_serves_wait_not_cast']
+    print('special_serves_wait_not_cast : %d clean -> %d regressed' % (c, d))
+    if c != 0:
+        print('  FAIL: the current tree should serve NO wait poses'); ok = False
+    if d <= c:
+        print('  FAIL: the metric did not rise on a seeded regression')
+        ok = False
+    else:
+        print('  ok: seeded regression detected (+%d)' % (d - c))
+
+    o1, o2 = (clean['old_special_is_wait_not_spatk'],
+              dirty['old_special_is_wait_not_spatk'])
+    print('old special_is_wait_not_spatk: %d clean -> %d regressed' % (o1, o2))
+    if o1 == o2:
+        print('  ok: confirmed BLIND — the deleted metric could not see it')
+    else:
+        print('  NOTE: the old metric moved too; re-read the reasoning above')
+    print('selftest: %s' % ('PASS' if ok else 'FAIL'))
+    return 0 if ok else 1
+
+
 if __name__ == '__main__':
+    if '--selftest' in sys.argv[1:]:
+        sys.exit(selftest())
     sys.exit(main())

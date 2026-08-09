@@ -170,6 +170,14 @@ SUITES=(
 "gw|smoke-protocol|gateway|300|test/smoke-protocol.js"
 
 # --- browser against the REAL stack ---------------------------------------
+# Registered 2026-08-09 (was the last UNCLASSIFIED suite on disk). It is in
+# `live`, not `mock`, for a hard reason: it SPAWNS ITS OWN mock on 8087 and
+# refuses to run if that port is already bound ("refusing to talk to someone
+# else's mock", verify_ghostnpc.js:213). The shared mocks hold 8087 for the
+# whole mock section, so it can only run after stop_mocks. Its live half also
+# needs the real gateway. --check is REQUIRED: verify_ghostnpc.js:362 gates
+# its nonzero exit on it. MEASURED standalone 2026-08-09: 86 s.
+"live|verify_ghostnpc|editor/world|300|verify_ghostnpc.js|--check"
 "live|verify_live|editor/world|900|verify_live.js"
 "live|verify_equipswap|editor/world|600|verify_equipswap.js"
 "live|verify_soulshot|editor/world|900|verify_soulshot.js|--check"
