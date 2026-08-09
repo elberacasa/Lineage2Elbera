@@ -93,4 +93,4 @@ async function launch() {
   }
   console.log(JSON.stringify(summary, null, 2));
   if (summary.result !== 'PASS') process.exit(1);
-})().catch(e => { console.error('VERIFY SKILLDEPTH LIVE FAILED:', e.message); process.exit(1); });
+})().catch(e => { console.error('VERIFY SKILLDEPTH LIVE FAILED:', e.stack || e.message); process.exit(1); });

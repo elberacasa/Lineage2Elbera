@@ -448,6 +448,55 @@ ANIM_CANDIDATES = {
     'damage': ['Damagefly_{P}', 'Damegefly_{P}'],
 }
 
+# ---------------------------------------------------------- social emotes
+#
+# actionname.dat defines twelve emotes (its `type` field, 2..13, is the
+# SocialAction id the server broadcasts) and retail ships a clip for each.
+# Only 'dance' above was ever extracted, so eleven of the twelve had no
+# animation to play.
+#
+# The actionId -> clip mapping is NOT inferred from the names.  Engine.Pawn
+# declares `var localized name PcSocialAnimName[20]` and the client indexes it
+# with the SocialAction id; the values live in system/lineagewarrior.int, one
+# section per race/gender prefix.  tools/anim/creature_anim_table.py decrypts
+# that and writes tools/anim/social_actions.json:
+#
+#   [MFighter] PcSocialAnimName[2]=Social_Nod_MFighter
+#              PcSocialAnimName[3]=Social_Victory_MFighter
+#              PcSocialAnimName[4]=Social_Atk_MFighter        ... through [13]
+#
+# so "Greeting is a nod" and "Advance is Social_Atk" are the client's answers,
+# not this file's guesses.  All 14 prefixes carry all twelve.
+_SOCIAL = None
+
+
+def social_clips(prefix):
+    """-> {actionType(str): psa_clip_name} for a race/gender prefix, from the
+    decoded PcSocialAnimName table.  {} when the table is missing."""
+    global _SOCIAL
+    if _SOCIAL is None:
+        p = os.path.join(ROOT, 'tools/anim/social_actions.json')
+        try:
+            _SOCIAL = json.load(open(p))['prefixes']
+        except Exception as e:
+            print('  note: no social action table (%s) — emotes limited to '
+                  "the legacy 'dance' clip" % e)
+            _SOCIAL = {}
+    return _SOCIAL.get(prefix.lower(), {})
+
+
+def social_slot(clip, prefix):
+    """'Social_waiting_a_MFighter' -> 'social_waiting_a' (the glTF clip name).
+
+    Derived from the retail clip name itself, so a race whose set is spelled
+    differently still lands on the same slot as long as the client points at
+    it; nothing here invents a name."""
+    base = clip
+    if base.lower().endswith('_' + prefix.lower()):
+        base = base[:-(len(prefix) + 1)]
+    return 'social_' + base[len('Social_'):].lower() \
+        if base.lower().startswith('social_') else 'social_' + base.lower()
+
 
 def umodel(args, **kw):
     r = subprocess.run([UMODEL, '-game=l2'] + args, cwd=CLIENT,
@@ -627,6 +676,40 @@ def build_combo(cid, race, gender, cname, pkg, prefix, texpkg, bindings):
             raise SystemExit('FATAL: stance clip %s would overwrite the '
                              'frozen clip of the same name' % k)
         selection[k] = v
+
+    # ADD the twelve social emotes, keyed by the SocialAction id the server
+    # broadcasts (see social_clips).  Appended AFTER the frozen and stance
+    # names so the glTF animation ORDER is unchanged for everything that
+    # already existed -- entities.js mapAnimations resolves several slots by
+    # first-key-that-contains-a-word (find('attack','atk','hit')), and
+    # 'social_atk' must never be reachable before 'attack'.
+    by_clip = {v.lower(): k for k, v in selection.items()}
+    social_actions, missing_emotes = {}, []
+    for atype, clip in sorted(social_clips(prefix).items(), key=lambda kv: int(kv[0])):
+        hit = names_ci.get(clip.lower())
+        if not hit:
+            missing_emotes.append((atype, clip))
+            continue
+        if hit.lower() in by_clip:
+            # type 12 is Social_dance_<P>, already carried by the frozen
+            # 'dance' clip -- point the action at that rather than paying for
+            # a second copy of the same keyframes.
+            social_actions[atype] = by_clip[hit.lower()]
+            continue
+        slot = social_slot(hit, prefix)
+        if slot in selection:
+            raise SystemExit('FATAL: emote clip %s would overwrite %s'
+                             % (hit, slot))
+        selection[slot] = hit
+        by_clip[hit.lower()] = slot
+        social_actions[atype] = slot
+    if missing_emotes:
+        print('  WARNING: %d emote clips named by PcSocialAnimName are not in '
+              '%s: %s' % (len(missing_emotes), anim_obj, missing_emotes))
+    print('  emotes: %d of 12 SocialAction types resolve (%s)'
+          % (len(social_actions),
+             ', '.join('%s=%s' % kv for kv in sorted(
+                 social_actions.items(), key=lambda kv: int(kv[0])))))
     print('  anims: %d frozen (%s) + %d stanced across %s'
           % (len(legacy), ', '.join(legacy), len(stanced),
              ', '.join(sorted(set(k.rsplit('_', 1)[1]
@@ -647,7 +730,12 @@ def build_combo(cid, race, gender, cname, pkg, prefix, texpkg, bindings):
              'animations': sorted(selection.keys()),
              # which stance suffixes this model carries a full locomotion
              # set for; the client joins this with stances.json
-             'stances': sorted(set(k.rsplit('_', 1)[1] for k in stanced))}
+             'stances': sorted(set(k.rsplit('_', 1)[1] for k in stanced)),
+             # SocialAction id -> glTF clip name, straight from the client's
+             # own PcSocialAnimName table.  The runtime reads msg.actionId
+             # off the socialAction broadcast and looks it up here; before
+             # this existed every emote played 'dance'.
+             'socialActions': social_actions}
     # true in-world height (L2 units) = glTF Y extent x 100 x MeshScale.z
     # decoded from the .ukx (scale_util) — the client sizes the model from
     # this, never from a hardcoded fallback

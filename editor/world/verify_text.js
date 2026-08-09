@@ -27,8 +27,19 @@
 //   C  TEXT COLOURS     Every colour literal handed to Font.set/Font.canvas
 //                       must be attributable to a decoded client record:
 //                       an Interface.xdat TextBox colour, a systemmsg-e.dat
-//                       message colour, or the NWindow.dll chat channel table.
-//                       Anything else is authored.
+//                       message colour, the NWindow.dll chat channel table, or
+//                       assets/gamedata/native_colors.json (the colours
+//                       NWindow.dll decides in code because no xdat record
+//                       carries them -- button labels, item stack counts, and
+//                       the TextBox default; see tools/ui/mine_native_colors.py).
+//
+//                       Anything else must carry an explicit AUTHORED
+//                       admission attached to the value, and every file's
+//                       AUTHORED count is budgeted so it can only shrink.
+//                       The gate also enforces a FLOOR on the number of
+//                       Layout.color/textColor/native lookups: a decode that
+//                       nothing reads is not a fix, and a literal-counting
+//                       gate would otherwise be satisfied by deleting text.
 //
 //   D  GLYPH RANGE      The -e sheets cover code points 32..126 only. A string
 //                       containing anything else renders as a blank advance.
@@ -277,6 +288,20 @@ function attributedColours() {
   const set = new Map(); // colour -> source
   const add = (c, src) => { if (c && !set.has(c.toUpperCase())) set.set(c.toUpperCase(), src); };
 
+  // Colours NWindow.dll decides in code because no xdat record carries them:
+  // a Button's label (352 Button records, none coloured), an item slot's
+  // stack-count badge, and the fallback a TextBox uses when its own record
+  // has no colour. Mined by tools/ui/mine_native_colors.py, which ships the
+  // instruction site behind each value and re-reads the DLL under --check.
+  const np = path.join(GAMEDATA, 'native_colors.json');
+  if (fs.existsSync(np)) {
+    const nat = JSON.parse(fs.readFileSync(np, 'utf8')).colors || {};
+    for (const [k, v] of Object.entries(nat)) add(v.color, `NWindow.dll ${k}`);
+  } else {
+    notes.push('assets/gamedata/native_colors.json absent -- '
+      + 'run python3 tools/ui/mine_native_colors.py --emit');
+  }
+
   const ip = path.join(GAMEDATA, 'interface.json');
   if (fs.existsSync(ip)) {
     walk(JSON.parse(fs.readFileSync(ip, 'utf8')).windows, n => {
@@ -314,42 +339,198 @@ function jsFiles(dir, acc = []) {
   return acc;
 }
 
+// Colour literals that are ADMITTED inventions, per file. A literal counts as
+// authored only when the word AUTHORED appears in its own trailing comment or
+// in the contiguous // block directly above the Font call -- so the admission
+// is attached to the value, not floating somewhere in the file.
+//
+// This budget may only SHRINK. It is not a licence: every entry below is a
+// place where no Interface.xdat record and no NWindow.dll constant governs the
+// control, and the comment at the site says which. Lower a number when a site
+// is bound; never raise one.
+const AUTHORED_BUDGET = {
+  'js/ui/clanwnd.js': 2,          // ListCtrl column headers; per-row oust 'x'
+  'js/ui/multisellwnd.js': 4,     // missing-icon '?' x2; shortfall/sufficiency tints
+  'js/ui/partywnd.js': 3,         // member name, leader mark, per-row kick 'x'
+  'js/ui/questwnd.js': 1,         // ListCtrl row text
+  'js/ui/shopwnd.js': 1,          // missing-icon '?' placeholder
+  'js/ui/skillwnd.js': 1,         // port-only footer
+  'js/ui/statuswnd.js': 1,        // NameCtrl player name
+  'js/ui/storewnd.js': 1,         // missing-icon '?' placeholder
+  'js/ui/targetstatuswnd.js': 1,  // port-only close affordance
+  'js/ui/tradewnd.js': 1,         // missing-icon '?' placeholder
+  'js/ui/warehousewnd.js': 1,     // missing-icon '?' placeholder
+  'js/ui/window.js': 1,           // the port's own title bar
+};
+
+// Wiring floor. The decode is useless if nothing reads it, and a gate that
+// only counts literals can be satisfied by deleting text. This is the number
+// of Layout.color/textColor/native call sites the client must not drop below.
+const LAYOUT_COLOUR_CALLS_MIN = 40;
+
+/** Colour literals that actually reach the bitmap font renderer -- i.e. that
+ *  sit inside a Font.set(...) / Font.canvas(...) argument list, with the
+ *  parens balanced so multi-line calls are covered.
+ *
+ *  The previous version of this gate accepted ANY line containing `color:`,
+ *  which is not what its own header promises. That over-match reported three
+ *  hits in main.js's character-select overlay -- an Object.assign(el.style,
+ *  {...}) block on an element explicitly styled `system-ui, sans-serif`, which
+ *  never touches Font at all. Those are CSS on a DOM node, not glyph tints. */
+function fontColourSites(src) {
+  const out = [];               // {colour, line, authored}
+  const lines = src.split('\n');
+
+  // A colour hoisted into a module constant is still a colour. Two real
+  // escapes this closes, both found in the UI tree:
+  //   const SUB_COLOR = '#b09b79';  ... Font.set(el, t, { color: SUB_COLOR })
+  //   Font.set(el, t, { color: short ? SHORT_COLOR : '#9fb07a' })
+  // The first hides the literal behind a name; the second hides it behind a
+  // ternary, so it never sits directly after `color:`. Scanning the whole
+  // argument list for quoted hex, plus resolving named constants, catches
+  // both. Without this a file can "pass" by moving its literals up a scope.
+  const consts = new Map();     // NAME -> {colour, line}
+  const cre = /^\s*(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*'(#[0-9a-fA-F]{6})'\s*;/;
+  lines.forEach((l, i) => {
+    const c = cre.exec(l);
+    if (c) consts.set(c[1], { colour: c[2].toUpperCase(), line: i + 1 });
+  });
+
+  const call = /Font\.(?:set|canvas)\s*\(/g;
+  let m;
+  while ((m = call.exec(src)) !== null) {
+    // walk to the matching ')' so the whole argument list is in scope
+    let i = m.index + m[0].length, depth = 1, q = null;
+    for (; i < src.length && depth > 0; i++) {
+      const ch = src[i];
+      if (q) { if (ch === '\\') i++; else if (ch === q) q = null; continue; }
+      if (ch === "'" || ch === '"' || ch === '`') q = ch;
+      else if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+    }
+    const body = src.slice(m.index, i);
+    const startLine = src.slice(0, m.index).split('\n').length;
+
+    // every quoted 6-digit hex anywhere in the argument list
+    for (const c of body.matchAll(/'(#[0-9a-fA-F]{6})'/g)) {
+      const line = startLine + body.slice(0, c.index).split('\n').length - 1;
+      out.push({
+        colour: c[1].toUpperCase(),
+        line,
+        authored: isAuthored(lines, startLine, line),
+      });
+    }
+
+    // ...and every module constant that holds one and is named in the call
+    for (const [name, k] of consts) {
+      if (!new RegExp(`\\b${name}\\b`).test(body)) continue;
+      out.push({
+        colour: k.colour,
+        line: k.line,
+        via: name,
+        // the admission may sit at the constant's declaration or at the use
+        authored: isAuthored(lines, k.line, k.line)
+          || isAuthored(lines, startLine, startLine),
+      });
+    }
+    call.lastIndex = i;
+  }
+  return out;
+}
+
+/** The AUTHORED admission must be attached: on the literal's own line, on the
+ *  Font call's first line, or in the unbroken // comment block above it. */
+function isAuthored(lines, startLine, litLine) {
+  const own = /\bAUTHORED\b/;
+  if (own.test(lines[litLine - 1] || '')) return true;
+  if (own.test(lines[startLine - 1] || '')) return true;
+  for (let k = startLine - 2; k >= 0; k--) {
+    const t = (lines[k] || '').trim();
+    if (!t.startsWith('//')) break;
+    if (own.test(t)) return true;
+  }
+  return false;
+}
+
 function gateColours() {
   console.log('\nC  TEXT COLOURS   Font.set/Font.canvas literals vs decoded records');
   const known = attributedColours();
   console.log(`   attributable palette: ${known.size} colours `
-    + `(xdat + systemmsg + NWindow chat table)`);
+    + '(xdat + systemmsg + NWindow chat table + NWindow native colours)');
 
-  const used = new Map(); // colour -> [sites]
-  const re = /color:\s*'(#[0-9a-fA-F]{6})'/g;
+  const bad = new Map();        // colour -> [sites]     unmarked, unattributed
+  const authored = new Map();   // file -> [{colour,line}]
+  let attributedUses = 0;
+
   for (const f of jsFiles(JSROOT)) {
     const rel = path.relative(__dirname, f);
-    const lines = fs.readFileSync(f, 'utf8').split('\n');
-    lines.forEach((l, i) => {
-      // only colours that reach the bitmap font renderer
-      if (!/Font\.(set|canvas)\(/.test(l) && !/color:/.test(l)) return;
-      for (const m of l.matchAll(re)) {
-        const c = m[1].toUpperCase();
-        if (!used.has(c)) used.set(c, []);
-        used.get(c).push(`${rel}:${i + 1}`);
+    const seen = new Set();
+    for (const s of fontColourSites(fs.readFileSync(f, 'utf8'))) {
+      if (s.via) {                       // a constant counts once per file
+        if (seen.has(s.via)) continue;
+        seen.add(s.via);
       }
-    });
+      if (known.has(s.colour)) { attributedUses++; continue; }
+      if (s.authored) {
+        if (!authored.has(rel)) authored.set(rel, []);
+        authored.get(rel).push(s);
+        continue;
+      }
+      if (!bad.has(s.colour)) bad.set(s.colour, []);
+      bad.get(s.colour).push(`${rel}:${s.line}`);
+    }
   }
 
-  const unattributed = [...used.entries()].filter(([c]) => !known.has(c))
-    .sort((a, b) => b[1].length - a[1].length);
-  const attributed = [...used.entries()].filter(([c]) => known.has(c));
+  const authoredTotal = [...authored.values()].reduce((n, a) => n + a.length, 0);
+  console.log(`   remaining literals: ${attributedUses} match a decoded colour, `
+    + `${authoredTotal} admitted AUTHORED, ${[...bad.values()]
+      .reduce((n, a) => n + a.length, 0)} unsourced. `
+    + '(A literal that merely MATCHES a decoded colour is still a literal -- '
+    + 'the bound sites are the Layout lookups counted below.)');
 
-  console.log(`   ${used.size} distinct literals: `
-    + `${attributed.length} attributable, ${unattributed.length} NOT`);
-  for (const [c, sites] of unattributed) {
-    console.log(`     ${c}  x${String(sites.length).padStart(2)}  ${sites[0]}`
-      + (sites.length > 1 ? ` (+${sites.length - 1} more)` : ''));
+  // -- unsourced: the hard failure ----------------------------------------
+  for (const [c, sites] of [...bad.entries()].sort((a, b) => b[1].length - a[1].length)) {
+    console.log(`     UNSOURCED ${c}  x${String(sites.length).padStart(2)}  `
+      + sites.join(', '));
+    fail('C', `${c} x${sites.length} matches no Interface.xdat / systemmsg / `
+      + `NWindow record and carries no AUTHORED admission (${sites.join(', ')})`);
   }
-  if (unattributed.length) {
-    const total = unattributed.reduce((n, [, s]) => n + s.length, 0);
-    fail('C', `${total} text-colour literals across ${unattributed.length} colours `
-      + `match no Interface.xdat / systemmsg / NWindow record`);
+
+  // -- authored: allowed, listed, and budgeted so it can only shrink ------
+  for (const [rel, hits] of [...authored.entries()].sort()) {
+    const budget = AUTHORED_BUDGET[rel];
+    const mark = budget == null ? 'UNBUDGETED' : (hits.length > budget ? 'GREW' : 'ok');
+    console.log(`     AUTHORED  ${rel}  ${hits.length}`
+      + (budget == null ? '' : `/${budget}`) + `  ${mark}  `
+      + hits.map(h => `${h.colour}@${h.line}`).join(' '));
+    if (budget == null) {
+      fail('C', `${rel} admits ${hits.length} AUTHORED colour literal(s) but has `
+        + `no entry in AUTHORED_BUDGET -- add one, at this count, deliberately`);
+    } else if (hits.length > budget) {
+      fail('C', `${rel} AUTHORED colour literals grew ${budget} -> ${hits.length}; `
+        + `this budget may only shrink`);
+    }
+  }
+  for (const [rel, budget] of Object.entries(AUTHORED_BUDGET)) {
+    const have = (authored.get(rel) || []).length;
+    if (have < budget) {
+      notes.push(`AUTHORED_BUDGET['${rel}'] is ${budget} but only ${have} remain `
+        + `-- lower it to ${have} to lock the gain in`);
+    }
+  }
+
+  // -- wiring: the decode has to be READ, not merely present --------------
+  let calls = 0;
+  const wire = /Layout\.(?:color|textColor|native)\s*\(/g;
+  for (const f of jsFiles(JSROOT)) {
+    calls += (fs.readFileSync(f, 'utf8').match(wire) || []).length;
+  }
+  console.log(`   Layout.color/textColor/native call sites: ${calls} `
+    + `(floor ${LAYOUT_COLOUR_CALLS_MIN})`);
+  if (calls < LAYOUT_COLOUR_CALLS_MIN) {
+    fail('C', `only ${calls} Layout colour lookups remain, below the floor of `
+      + `${LAYOUT_COLOUR_CALLS_MIN} -- text colours are being deleted or `
+      + `re-hard-coded rather than bound`);
   }
 }
 

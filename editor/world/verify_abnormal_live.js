@@ -94,4 +94,4 @@ async function launch() {
     await p2.browser.close();
   }
   console.log(JSON.stringify(summary, null, 2));
-})().catch(e => { console.error('VERIFY ABNORMAL LIVE FAILED:', e.message); process.exit(1); });
+})().catch(e => { console.error('VERIFY ABNORMAL LIVE FAILED:', e.stack || e.message); process.exit(1); });

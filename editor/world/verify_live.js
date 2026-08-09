@@ -261,4 +261,4 @@ async function sayViaUI(c, text) {
   fs.writeFileSync(path.join(OUT, 'live_summary.json'), JSON.stringify(summary, null, 2));
   console.log(JSON.stringify(summary, null, 2));
   if (summary.failure) process.exit(1);
-})().catch(e => { console.error('VERIFY LIVE FAILED:', e.message); process.exit(1); });
+})().catch(e => { console.error('VERIFY LIVE FAILED:', e.stack || e.message); process.exit(1); });

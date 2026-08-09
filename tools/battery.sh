@@ -58,6 +58,8 @@ SUITES=(
 "mock|verify_shortcutwnd|editor/world|300|verify_shortcutwnd.js"
 "mock|verify_inventorywnd|editor/world|300|verify_inventorywnd.js"
 "mock|verify_chatwnd|editor/world|300|verify_chatwnd.js"
+"mock|verify_nameplates|editor/world|300|verify_nameplates.js|--check"
+"mock|verify_dropmesh|editor/world|300|verify_dropmesh.js|--check"
 "mock|verify_dialog|editor/world|300|verify_dialog.js"
 "mock|verify_actionwnd|editor/world|300|verify_actionwnd.js"
 "mock|verify_minimap|editor/world|300|verify_minimap.js"

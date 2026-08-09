@@ -49,7 +49,13 @@ function rawClient(tag) {
     else if (m.op === 'addNpc') st.npcs.push(m);
     else if (m.op === 'addPlayer') st.players.push(m);
     else if (m.op === 'npcHtml') st.htmls.push(m.html);
+    // Same stale-op trap as gateway/test/verify-clan.js: commit a8d0d9b split
+    // the conflated `move` op into move/teleport/validate, and an
+    // admin_teleport has produced a `teleport` (x,y,z — no tx/ty/tz) ever
+    // since. Waiting on `move` here meant "A teleported" never became true.
     else if (m.op === 'move') st.moves.set(m.id, { x: m.tx, y: m.ty, z: m.tz });
+    else if (m.op === 'teleport') st.moves.set(m.id, { x: m.x, y: m.y, z: m.z });
+    else if (m.op === 'validate') st.moves.set(m.id, { x: m.x, y: m.y, z: m.z });
     else if (m.op === 'clanAsk') st.asks.push(m);
     else if (m.op === 'clanMembers') st.memberLists.push(m.members);
     else if (m.op === 'clanInfo') st.clanInfos.push(m);
@@ -168,7 +174,7 @@ function rawClient(tag) {
         leaveOpacity: btn('ClanQuitBtn') && btn('ClanQuitBtn').style.opacity,
         inviteOpacity: btn('ClanAskJoinBtn') && btn('ClanAskJoinBtn').style.opacity,
         bHasOust: !!(bRow && [...bRow.querySelectorAll('div')]
-          .some(d => (d.__l2text || '').startsWith('×'))),
+          .some(d => (d.__l2text || '').startsWith('x'))),
         selfOust: null, // below
         bIcons: bRow ? [...bRow.querySelectorAll('div')]
           .map(d => d.style.backgroundImage).filter(Boolean) : [],
@@ -178,7 +184,7 @@ function rawClient(tag) {
       const rows = [...document.querySelectorAll('#l2-clanwnd [data-member]')];
       const selfRow = rows.find(r => r.dataset.member === an);
       return !!(selfRow && [...selfRow.querySelectorAll('div')]
-        .some(d => (d.__l2text || '').startsWith('×')));
+        .some(d => (d.__l2text || '').startsWith('x')));
     }, aName);
     await page.screenshot({ path: path.join(OUT, 'clan_live_leader.png') });
 
@@ -226,7 +232,7 @@ function rawClient(tag) {
       const rows = [...document.querySelectorAll('#l2-clanwnd [data-member]')];
       const dRow = rows.find(r => r.dataset.member === dn);
       [...dRow.querySelectorAll('div')]
-        .find(d => (d.__l2text || '').startsWith('×')).click();
+        .find(d => (d.__l2text || '').startsWith('x')).click();
     }, dName);
     await page.waitForFunction(
       `window.__world.net.log.some(m => m.dir === 'out' && m.op === 'clanOust')`,

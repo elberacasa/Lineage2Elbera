@@ -72,16 +72,31 @@ function check(summary, name, ok, detail) {
       const c = window.__world.character;
       return c && c.current ? c.current.getClip().name : null;
     });
+    // `userData.skillFx` is now stamped by THREE different producers, and only
+    // one of them is what this suite asserts on:
+    //   js/skills.js:333       { kind, skillId, source:'authored-pop' }  MeshBasicMaterial
+    //   js/skillvfx.js:440     { source:'skillvfx.json' }                ShaderMaterial
+    //   js/skillvfx.js:522     { source:'skillmesh.json', mesh }         ShaderMaterial
+    // A ShaderMaterial has no `.color`, so the unconditional
+    // `o.material.color.getHexString()` this used to do threw
+    // `Cannot read properties of undefined (reading 'getHexString')` the
+    // moment the retail VFX layer put an emitter in the scene — a SUITE bug
+    // caused by a legitimate product addition, not a regression in the FX.
+    // Filter to the authored-pop objects (they are the ones carrying `kind`
+    // and `skillId`, which every check below matches on) and read the colour
+    // defensively so a future material type reports rather than throws.
     const fxNow = () => page.evaluate(() => {
       const out = [];
       window.__world.scene.traverse(o => {
-        if (o.userData.skillFx) {
-          out.push({
-            ...o.userData.skillFx,
-            color: '#' + o.material.color.getHexString(),
-            pos: o.position.toArray().map(v => +v.toFixed(2)),
-          });
-        }
+        const fx = o.userData.skillFx;
+        if (!fx || fx.kind == null) return;
+        const col = o.material && o.material.color;
+        out.push({
+          ...fx,
+          color: col ? '#' + col.getHexString() : null,
+          materialType: o.material ? o.material.type : null,
+          pos: o.position.toArray().map(v => +v.toFixed(2)),
+        });
       });
       return out;
     });
@@ -179,4 +194,4 @@ function check(summary, name, ok, detail) {
   }
   console.log(JSON.stringify(summary, null, 2));
   if (summary.failed) process.exit(1);
-})().catch(e => { console.error('VERIFY SKILLANIM FAILED:', e.message); process.exit(1); });
+})().catch(e => { console.error('VERIFY SKILLANIM FAILED:', e.stack || e.message); process.exit(1); });

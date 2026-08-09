@@ -155,4 +155,4 @@ const ALTAR = { l2x: -23771, l2y: -39531, plane: -4672, floor: -10904 };
     await browser.close();
   }
   console.log(JSON.stringify(summary, null, 2));
-})().catch(e => { console.error('VERIFY GEODATA FAILED:', e.message); process.exit(1); });
+})().catch(e => { console.error('VERIFY GEODATA FAILED:', e.stack || e.message); process.exit(1); });

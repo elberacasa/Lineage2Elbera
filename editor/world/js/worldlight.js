@@ -56,8 +56,13 @@ import { L2_TO_M } from './coords.js';
 // 3 for 3, which is what these being the defaults predicts.
 //
 // These replace the client's own invented fallbacks (a 60 m near plane and
-// the blue sky-horizon colour). 72 of the 100 tiles omit both start and
+// the blue sky-horizon colour). 81 of the 100 tiles omit start and 77 omit
 // colour, so this is the fog most of the world actually renders with.
+//
+// A fourth default is settled the same way but by counting the MAPS rather
+// than the class stream: bDistanceFog defaults to FALSE. Across every
+// ZoneInfo of all 100 maps it is True 429 times and absent 391 times and
+// False zero times, and UE2 only serialises what differs from the default.
 const FOG_START_L2 = 3000;                     // Engine.ZoneInfo default
 const FOG_END_L2 = 8000;                       // Engine.ZoneInfo default
 const FOG_COLOR_DEFAULT = [128, 128, 128];     // Engine.ZoneInfo default, RGB
@@ -131,11 +136,29 @@ export class WorldLight {
         this.scene.fog.near = (fog.start != null ? fog.start : FOG_START_L2) * L2_TO_M;
         this.scene.fog.far = (fog.end != null ? fog.end : FOG_END_L2) * L2_TO_M;
       } else if (this.fallback.fog) {
-        // bDistanceFog absent or false. Whether the ZoneInfo default is
-        // "off" was NOT readable from the part of the defaults stream that
-        // decoded, so this deliberately keeps the client's own rig rather
-        // than asserting retail draws no fog here. Affects 3 tiles
-        // (17_20, 22_24, 25_21), all of which DO carry a fog colour.
+        // bDistanceFog absent. This used to say the ZoneInfo default was
+        // "NOT readable", and to fire on 3 tiles (17_20, 22_24, 25_21).
+        // Both halves are now settled and neither is true any more:
+        //
+        //   * the default IS readable, from the map data rather than from
+        //     the class: across every ZoneInfo of all 100 maps, 429 carry
+        //     bDistanceFog = True and 391 omit it, and NOT ONE carries
+        //     False. UE2 serialises a property only when it differs from
+        //     the class default, so a default of True could not produce 429
+        //     explicit Trues -- the default is False, and absent means the
+        //     zone genuinely draws no distance fog.
+        //   * those 3 tiles were never fog-less. light_extract.py read
+        //     ZoneInfo[0] only, and on exactly those maps actor 0 is a zone
+        //     that omits bDistanceFog while a later ZoneInfo on the SAME map
+        //     sets it True. It now picks the zone that turns fog on
+        //     (tools/world/light_extract.py `_fog_zone`), so all 100 tiles
+        //     arrive here with fog.enabled true and this branch is dead for
+        //     every shipped tile. `light_extract.py --check` fails if any
+        //     tile ever loses its fog again.
+        //
+        // The branch is kept for a tile that has no ZoneInfo at all. It is
+        // the ONLY remaining consumer of main.js's unsourced 60 m / 420 m
+        // initial fog; nothing on disk reaches it.
         const c = fog && fog.color;
         if (c) this.scene.fog.color.setRGB(c[0] / 255, c[1] / 255, c[2] / 255);
         else this.scene.fog.color.copy(this.fallback.fog.color);

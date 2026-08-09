@@ -59,10 +59,16 @@ evidence and the EPolyFlags bit derivations live in `l2lib.ue2package`
     that list IS this surface (convert.py WATER_TEXTURE names the same
     retail shader), and two coincident planes z-fight.
 
-NOT DECODED, deliberately: the lightmap tail of the level UModel (an
-FLightMapIndex array plus the raw LightBits blob, ~1.8 MB on 17_25). Baked
-lighting is out of scope for the web port; the client lights the BSP with
-the same rig it uses for props. Nothing here fakes it.
+THE TAIL OF THE LEVEL UModel. This file used to say the bytes after
+RootOutside/Linked were "an FLightMapIndex array plus the raw LightBits
+blob". That was never checked and it is wrong about the first quarter of
+them: `tools/world/lightmap.py` decodes that part exactly and it is the
+retail RENDER SECTION TABLE (per-material sections of 40-byte render
+vertices, whose NumPolys sum to len(model.nodes) on 100/100 tiles). Only
+what follows the section table is baked-lighting data, and that part is
+still NOT decoded -- see lightmap.py's docstring for what is established
+about it and what is missing. This tool draws none of it and fakes none of
+it; the client still lights the BSP with the same rig it uses for props.
 
 OUTPUT (sibling files -- scene.json is a frozen contract and is not touched)
 
@@ -468,7 +474,11 @@ def write_gltf(out_dir, tile, buckets, stats):
                       "skippedWater": stats["skipped_water"],
                       "skippedNoTexture": stats["skipped_notex"],
                       "clusterL2": CLUSTER_L2,
-                      "lightmaps": "not decoded (out of scope)"}},
+                      "lightmaps": "not decoded; the UModel tail's first "
+                                   "region is the render section table "
+                                   "(see assets/world/<tile>/bsprender.json "
+                                   "and tools/world/lightmap.py), the baked "
+                                   "lighting after it is undecoded"}},
         "scene": 0,
         "scenes": [{"nodes": list(range(len(nodes)))}],
         "nodes": nodes,

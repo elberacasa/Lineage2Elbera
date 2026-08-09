@@ -93,17 +93,140 @@ NPC_PKG = 'LineageNpcs'
 NPCS = ['a_guard_MElf_m00', 'a_common_peopleA_MHuman_m00',
         'black_market_trader_MDwarf_m00']
 
-# frozen-contract animation mapping (first hit wins, case-insensitive)
+# ------------------------------------------------------- animation binding
+#
+# PRIMARY SOURCE: the client's own per-creature animation-name table, decoded
+# by tools/anim/creature_anim_table.py to tools/anim/creature_anim_table.json.
+# Engine.Pawn declares `var localized name WaitAnimName[4]` (and Run/Walk/
+# Atk01/SpAtk01/Death/DeathWait/CastShort/CastMid/CastLong/CastEnd/MagicShot/
+# MagicThrow/MagicNoTarget/NpcSocial); `localized` puts the VALUES in the
+# package's .int, keyed by class name, and npcgrp.dat carries both the class
+# and the mesh for every npcId.  So "what does this creature play when it
+# casts?" has a decoded answer per creature and does not have to be guessed
+# from a name convention.  Cross-checked: 13082 of 13103 clip names the table
+# produces exist in the .psa the mesh is actually rigged against.
+#
+# Contract slot -> the retail variable that fills it.  Index [0] is the
+# default row; [1..3] are per-weapon-stance rows the client picks by the
+# creature's equipped weapon, which this port does not model -- documented
+# gap, not a guess.
+RETAIL_SLOTS = {
+    'idle':    ['WaitAnimName', 'AtkWaitAnimName'],
+    'walk':    ['WalkAnimName'],
+    'run':     ['RunAnimName'],
+    'attack':  ['Atk01AnimName'],
+    'die':     ['DeathAnimName'],
+    'corpse':  ['DeathWaitAnimName'],
+    # 'special' is this port's skill-cast slot (entities.js skillFlash).
+    # Retail splits the cast in two: CastShort/Mid/Long is the wind-up (a
+    # stance -- usually atkwait) and MagicShot/MagicThrow is the clip played
+    # when the skill actually fires.  The firing clip is the one with the
+    # motion (measured mean per-frame quaternion delta over 25 creature sets:
+    # spatk01 0.0144, atk01 0.0160, versus atkwait 0.0041 and spwait01
+    # 0.0067), so the single-clip slot takes MagicShotAnimName.  For 315
+    # creatures that IS spatk01; for melee creatures like the gremlin retail
+    # names atk01 there, and the table says so rather than this file guessing.
+    'special': ['MagicShotAnimName'],
+    # Social emote (SocialAction broadcast).  Retail keeps this SEPARATE from
+    # the cast -- NpcSocialAnimName, usually spwait01.  Before this table the
+    # 'special' slot was doing both jobs with a wait pose, which is why a
+    # skill cast looked like a creature standing still.
+    'social':  ['NpcSocialAnimName'],
+}
+
+# FALLBACK ONLY: name-convention candidates for the meshes npcgrp/.int cannot
+# answer for (props and event NPCs whose classes carry no localized table).
+# First hit wins, case-insensitive.  The 'special' list now leads with the
+# real strike clips and keeps the old wait poses only as a last resort, so a
+# creature that HAS a strike can never bind a standing pose as its cast.
 ANIM_CANDIDATES = {
-    'idle':    ['Wait', 'Wait_1HS', 'Wait_Hand', 'SpWait01'],
+    'idle':    ['Wait', 'Wait_1HS', 'Wait_Hand', 'SpWait01',
+                'atkwait', 'AtkWait_1HS', 'atkwait_2HS', 'atk_wait'],
     'walk':    ['Walk', 'Walk_1HS', 'Walk_Hand'],
     'run':     ['run', 'Run_1HS', 'Run_Hand', 'Run'],
     'attack':  ['atk01', 'Atk01_1HS', 'Atk01_Hand', 'Atk01_Bow',
                 'Atk01_Pole', 'Attack01'],
     'die':     ['death', 'Death_Hand', 'die', 'Death'],
     'corpse':  ['deathwait', 'deathwait_Hand'],
-    'special': ['SpWait01', 'Social01', 'atkwait', 'AtkWait_1HS'],
+    'special': ['spatk01', 'SpAtk01_1HS', 'SpAtk01_2HS', 'spatk02',
+                'atk01', 'Atk01_1HS',
+                'SpWait01', 'Social01', 'atkwait', 'AtkWait_1HS'],
+    'social':  ['Social01', 'SpWait01', 'Social02'],
 }
+
+# entities.js:mapAnimations() resolves each runtime state to the FIRST glTF
+# clip whose name contains one of these words, falling back to the first clip
+# in the file.  Kept here because the aliasing below is only safe while it
+# holds -- verify_creature_anims.js asserts these literals against
+# entities.js, so an edit there fails loudly instead of silently changing
+# which clip a creature plays.  Slots absent from this table ('corpse',
+# 'social') are not resolved by mapAnimations at all today.
+RUNTIME_FALLBACK = {
+    'idle':    [('idle', 'wait', 'stand')],
+    'walk':    [('walk',)],
+    'run':     [('run',), ('walk',)],
+    'attack':  [('attack', 'atk', 'hit')],
+    'special': [('special',), ('attack',)],
+    'die':     [('die', 'death', 'dead')],
+}
+
+
+def runtime_resolves_to(slot, emitted):
+    """Replay mapAnimations() for `slot` over the emitted clip names."""
+    for words in RUNTIME_FALLBACK.get(slot, []):
+        for name in emitted:
+            if any(w in name.lower() for w in words):
+                return name
+    return emitted[0] if emitted else None
+
+
+_ANIM_TABLE = None
+
+
+def retail_anim_table():
+    """-> {mesh_id_lower: {AnimVar: {index: clip}}} decoded from the client,
+    or {} when the table has not been generated yet."""
+    global _ANIM_TABLE
+    if _ANIM_TABLE is None:
+        p = os.path.join(ROOT, 'tools/anim/creature_anim_table.json')
+        try:
+            _ANIM_TABLE = {k: v['anims'] for k, v in
+                           json.load(open(p))['meshes'].items()}
+        except Exception as e:
+            print('  note: no retail animation table (%s) — falling back to '
+                  'name candidates for every creature' % e)
+            _ANIM_TABLE = {}
+    return _ANIM_TABLE
+
+
+def select_clips(mesh_id, names_ci):
+    """-> ({slot: psa_clip_name}, source) for the clips this creature ships.
+
+    Retail table first, name candidates only where it cannot answer.  A table
+    entry naming a clip the bound .psa does not contain (retail ships 21 such
+    dangling references, e.g. batur_orc_shaman_a -> SpAtk01) falls through to
+    the candidate list rather than being forced.
+    """
+    rec = retail_anim_table().get(mesh_id.lower(), {})
+    selection, source = {}, {}
+    for slot, variables in RETAIL_SLOTS.items():
+        for var in variables:
+            clip = (rec.get(var) or {}).get('0')
+            hit = names_ci.get((clip or '').lower())
+            if hit:
+                selection[slot] = hit
+                source[slot] = 'retail:%s' % var
+                break
+    for slot, cands in ANIM_CANDIDATES.items():
+        if slot in selection:
+            continue
+        for c in cands:
+            hit = names_ci.get(c.lower())
+            if hit:
+                selection[slot] = hit
+                source[slot] = 'candidate'
+                break
+    return selection, source
 
 
 def umodel(args, **kw):
@@ -402,34 +525,80 @@ def build_one(mesh_id, pkg, stage, outdir):
             print('  animation by name convention (mesh carries no '
                   'Animation reference): %s' % anim_obj)
     psa = None
-    selection = {}
+    selection, source, alias = {}, {}, {}
     if anim_obj and anim_ukx:
         export_one(anim_ukx, anim_obj, [], stage)
         psa = find_exported(stage, anim_obj, '.psa')
     if psa:
         _bones, anims = assemble.parse_psa(psa)
         names_ci = {n.lower(): n for n in anims}
-        for anim_id, cands in ANIM_CANDIDATES.items():
-            for c in cands:
-                hit = names_ci.get(c.lower())
-                if hit:
-                    selection[anim_id] = hit
+        resolved, source = select_clips(mesh_id, names_ci)
+        # Emit in the frozen contract order, and emit each retail clip ONCE:
+        # retail routinely points two slots at the same clip (the gremlin's
+        # MagicShotAnimName and Atk01AnimName are both atk01), and duplicating
+        # the keyframes would grow every .bin for no picture.  A slot whose
+        # clip is already carried by an earlier slot becomes an alias, which
+        # the client resolves the same way it always has -- entities.js
+        # mapAnimations already reads `special: find('special') ||
+        # find('attack')`, and 'attack' is exactly the clip the alias points
+        # at.  The full slot -> retail clip map is written to the manifest so
+        # nothing has to re-derive it.
+        by_clip = {}
+        for slot in ANIM_CANDIDATES:
+            clip = resolved.get(slot)
+            if not clip:
+                continue
+            if clip.lower() in by_clip:
+                alias[slot] = by_clip[clip.lower()]
+            else:
+                by_clip[clip.lower()] = slot
+                selection[slot] = clip
+        # An alias is only allowed when mapAnimations() actually recovers the
+        # SAME retail clip.  It usually does -- 'special' aliased to 'attack'
+        # is exactly its documented fallback -- but not always: arachnoid_m00
+        # has MagicShotAnimName=wait, so 'special' would alias to 'idle' while
+        # the runtime, finding no 'special' key, falls through to 'attack' and
+        # plays atk01.  Promote any such slot back to a real clip rather than
+        # ship a creature playing something retail did not name.  Promoting
+        # changes the emitted list, so this runs to a fixed point.
+        while True:
+            emitted = [s for s in ANIM_CANDIDATES if s in selection]
+            promote = None
+            for slot, target in alias.items():
+                if slot not in RUNTIME_FALLBACK:
+                    continue          # not resolved by mapAnimations at all
+                got = runtime_resolves_to(slot, emitted)
+                if selection.get(got) != selection.get(target):
+                    promote = slot
                     break
-    if 'idle' not in selection:
-        # No MeshAnimation whose name matches this mesh.  Some monster
-        # meshes are inanimate props (alchemic_box_m00 — a chest) and the
-        # package genuinely holds no <base>_anim for them.  The
-        # mesh->MeshAnimation binding lives in the LineageMonster uscript
-        # classes, which are NOT in this repo, so pairing such a mesh with
-        # a similarly-named anim set (mimic_anim) would be a guess.  Ship
-        # the static mesh instead: a correct still model beats a coloured
-        # capsule, and it is what build_npcs.py already does for the
-        # retail-static NPCs.  Re-run once the uscript is decoded.
+            if promote is None:
+                break
+            selection[promote] = resolved[promote]
+            del alias[promote]
+        # inject_animations writes the glTF clips in selection order, and the
+        # runtime resolution above depends on that order -- restore it after
+        # any promotion appended a slot out of sequence.
+        selection = {s: selection[s] for s in ANIM_CANDIDATES if s in selection}
+    if not selection:
+        # Nothing bindable at all.  Some monster meshes are inanimate props
+        # (alchemic_box_m00 — a chest) and the package genuinely holds no
+        # animation for them; ship the static mesh, which is what
+        # build_npcs.py already does for the retail-static NPCs.
+        #
+        # This used to test `'idle' not in selection`, which threw away every
+        # clip already found whenever the set happened to ship no Wait
+        # sequence -- follower_of_frintessa_m00 (a raid boss) has Atk01_1HS,
+        # Run_1HS, Run_2HS, AtkWait_1HS, death and deathwait and shipped as a
+        # statue with all six discarded.  Keep whatever exists.
         print('  note: no animation set for %s — shipping static mesh'
               % mesh_id)
         selection, psa = {}, None
     else:
-        print('  anims:', ', '.join('%s=%s' % kv for kv in selection.items()))
+        print('  anims:', ', '.join('%s=%s [%s]'
+                                    % (k, v, source.get(k, '?'))
+                                    for k, v in selection.items()),
+              ('| alias: ' + ', '.join('%s->%s' % kv for kv in alias.items()))
+              if alias else '')
 
     out_gltf = os.path.join(outdir, '%s.gltf' % mesh_id)
     parts = [{'psk': psk, 'name': mesh_name, 'sections': sections}]
@@ -452,7 +621,7 @@ def build_one(mesh_id, pkg, stage, outdir):
             print('  note: animation set does not fit this skeleton (%s)'
                   ' -- shipping static mesh' % e)
             g, bin_data, ctx = assemble.merge_parts(parts, out_gltf)
-            selection, psa = {}, None
+            selection, psa, alias, source = {}, None, {}, {}
     g['buffers'][0]['byteLength'] = len(bin_data)
     with open(out_gltf, 'w') as f:
         json.dump(g, f)
@@ -462,6 +631,20 @@ def build_one(mesh_id, pkg, stage, outdir):
     entry = {'id': mesh_id, 'gltf': 'models/%s.gltf' % mesh_id,
              'animations': sorted(selection.keys(),
                                   key=list(ANIM_CANDIDATES).index)}
+    if selection:
+        # Provenance, so a verifier (or the next reader) can tell WHICH retail
+        # clip filled each slot without re-exporting 495 .psa: the clip name,
+        # and whether it came from the client's own table or from the
+        # name-convention fallback.  `clipAlias` names the slot that actually
+        # carries a slot's clip when two slots share one.
+        clips = {k: selection[k] for k in entry['animations']}
+        clips.update({a: selection[t] for a, t in alias.items()})
+        order = list(ANIM_CANDIDATES)
+        entry['clips'] = {k: clips[k] for k in sorted(clips, key=order.index)}
+        entry['clipSource'] = {k: source.get(k, '?') for k in entry['clips']}
+        if alias:
+            entry['clipAlias'] = {k: alias[k]
+                                  for k in sorted(alias, key=order.index)}
     # true in-world height (L2 units) = glTF Y extent x 100 x MeshScale.z
     # decoded from the .ukx (scale_util) — the client sizes the model from
     # this, never from a hardcoded fallback

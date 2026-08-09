@@ -71,4 +71,4 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   }
   console.log(JSON.stringify(summary, null, 2));
   await browser.close();
-})().catch(e => { console.error('FAILED:', e.message); process.exit(1); });
+})().catch(e => { console.error('FAILED:', e.stack || e.message); process.exit(1); });

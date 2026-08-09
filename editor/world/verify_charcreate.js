@@ -193,4 +193,4 @@ const NAME = LIVE ? randName('T') : randName('Vrk');
   }
   console.log(JSON.stringify(summary, null, 2));
   if (!summary.ok) { console.error('VERIFY FAILED'); process.exit(1); }
-})().catch(e => { console.error('VERIFY FAILED:', e.message); process.exit(1); });
+})().catch(e => { console.error('VERIFY FAILED:', e.stack || e.message); process.exit(1); });

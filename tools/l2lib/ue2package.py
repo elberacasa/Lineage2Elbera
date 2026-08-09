@@ -797,11 +797,18 @@ def mesh_material_slots(pkg, export):
 #                                 cidx iVolumetric, u64 VisibleZones
 #   Lights     TArray<AActor*>    cidx each (Light / NMovableSunLight)
 #   i32 RootOutside, i32 Linked
-#   ... lightmap tail (FLightMapIndex array + the raw LightBits blob).
-#   NOT DECODED -- baked lighting is out of scope for the web port. On a
-#   brush model the tail is 3 zero bytes (three empty arrays); on the level
-#   model it is ~1.8 MB and read_model() reports its size instead of
-#   parsing it (see Model.lightmap_tail).
+#   ... the tail, recorded as `Model.lightmap_tail` and not parsed here.
+#   On a brush model it is 3 zero bytes (three empty arrays). On the LEVEL
+#   model it is 1.8-8.5 MB and it is NOT, as this comment used to assert,
+#   "an FLightMapIndex array + the raw LightBits blob". Measured: its first
+#   region is the retail RENDER SECTION TABLE
+#       cidx NumSections, then per section
+#           cidx NumVertices, NumVertices x 40-byte render vertex,
+#           i32 CountA, cidx Material, i32 NumPolys, u32 PolyFlags, i32 ?
+#   whose NumPolys sum to len(nodes) EXACTLY on all 100 converted tiles
+#   (523,279 of 22_22's 2,066,899 tail bytes). Only what follows it is baked
+#   lighting, and that is still undecoded. The decoder and the full evidence
+#   are in tools/world/lightmap.py; `lightmap.py --check` is the gate.
 #
 # FBspNode:
 #   FPlane Plane (16)            unit normal + distance, verified |n| == 1

@@ -266,4 +266,4 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     process.exit(1);
   }
   console.log('VERIFY SHORTCUT: PASS');
-})().catch(e => { console.error('VERIFY SHORTCUT FAILED:', e.message); process.exit(1); });
+})().catch(e => { console.error('VERIFY SHORTCUT FAILED:', e.stack || e.message); process.exit(1); });

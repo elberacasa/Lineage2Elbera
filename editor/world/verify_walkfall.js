@@ -49,6 +49,15 @@ const STEPS = 2600;          // ~50 m of travel, several geodata blocks
 
 (async () => {
   const browser = await puppeteer.launch({
+    // puppeteer's default protocolTimeout is 180 s. This suite's own waits are
+    // longer than that (a tile switch is given several minutes), so WITHOUT
+    // this line the CDP call underneath waitForFunction times out first and the
+    // wait fails with `Waiting failed / Runtime.callFunctionOn timed out`
+    // BEFORE reaching its own deadline -- a suite failure that says nothing
+    // about the world it was measuring. Observed 2026-08-08 in verify_feet
+    // (line 169, timeout 300000) and verify_ground. Keep this >= the largest
+    // timeout below.
+    protocolTimeout: 900000,
     executablePath: CHROME,
     args: ['--headless=new', '--use-angle=swiftshader', '--window-size=640,480'],
   });

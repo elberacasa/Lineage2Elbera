@@ -68,7 +68,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         inviteOpacity: btn('ClanAskJoinBtn') && btn('ClanAskJoinBtn').style.opacity,
         boardOpacity: btn('ClanBoardBtn') && btn('ClanBoardBtn').style.opacity,
         oustMarks: [...document.querySelectorAll('#l2-clanwnd [data-member] div')]
-          .filter(d => (d.__l2text || '').startsWith('×')).length,
+          .filter(d => (d.__l2text || '').startsWith('x')).length,
         registered: window.__world.wndMgr.names.includes('ClanWnd'),
       };
     });

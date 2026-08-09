@@ -1,3 +1,31 @@
+/* Elbera dev shell + the few CSS affordances the retail UI has no art for.
+ *
+ * WHAT IS IN HERE, and how it is classified (tools/audit/unsourced.py does
+ * NOT scan CSS, so this header is the classification):
+ *
+ *  - The DEV SHELL: #hud, #help, #online-label, #settings-btn, the loading
+ *    spinner, the character-select and creation screens' chrome. Retail has
+ *    no counterpart for any of it -- there is no in-game HUD strip, no
+ *    "online" toggle, no browser settings button. Every colour, radius and
+ *    padding in those rules is AUTHORED and cannot be otherwise.
+ *
+ *  - HOVER affordances (.shortcut-slot:hover, .inv-cell:hover,
+ *    .doll-slot:hover). Retail marks a hovered slot by swapping the control's
+ *    TEXTURE, which NWindow does natively; no colour exists to port. The
+ *    1px inset ring is AUTHORED.
+ *
+ *  - #c9a959 (15 uses) is the dev shell's brand gold and is AUTHORED. It is
+ *    NOT retail's tan: the decoded palette's equivalent is #B09B79
+ *    (Interface.xdat, 121 controls; ClanWnd.uc 'Gold'), and every place the
+ *    PORTED UI paints text now reads its colour through Layout.textColor /
+ *    Layout.native instead of a literal (editor/world/js/ui is at zero
+ *    unsourced literals). This file is deliberately the exception: it is the
+ *    scaffolding around the port, not the port.
+ *
+ *  - Layout that mirrors a decoded value belongs in js/ui, not here. If a
+ *    rule in this file starts positioning a RETAIL window, move it.
+ */
+
 html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
 #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 

@@ -330,7 +330,14 @@ which are untouched.
 Written by `python3 tools/world/bspfloor.py --all` from the SHIPPED
 `bsp.gltf` (identity node transforms, raw L2 world units), gate
 `--check` (re-derives and compares byte for byte; 100/100 OK). One file per
-converted tile, ~83 KB average, 8.3 MB for the set.
+converted tile.
+
+**Size, re-measured 2026-08-08 over the shipped files** (the "~83 KB average,
+8.3 MB for the set" that stood here was the SECTION-1-ONLY file, from before
+the WALK raster landed): the 100-tile set is **126.5 MiB**, mean **1,295 KiB**
+per tile, min 128 KiB (`17_24`), max 4,449 KiB (`23_18`). On Giran `22_22` the
+file is 1,411,751 B = 77,818 B of section 1 + 1,333,933 B of section 2, i.e.
+section 2 is **17.1x** section 1 and the file grew **18.1x**.
 
 ```
 u32  magic 'BSPF' 0x46505342

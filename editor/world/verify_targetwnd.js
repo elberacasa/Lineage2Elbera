@@ -5,6 +5,7 @@
 // only (server target stays), WndMgr movable.
 // Output: verify_shots/tw_*.png + JSON summary.
 const fs = require('fs');
+const net = require('net');
 const path = require('path');
 const { spawn } = require('child_process');
 const puppeteer = require(
@@ -15,13 +16,55 @@ const OUT = path.join(__dirname, 'verify_shots');
 const GREMLIN = 70001;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-function startMock(port, level) {
+// This suite used to hard-code 8085 and 8086 — the SAME ports tools/battery.sh
+// starts its shared mocks on. Under the battery, both spawns died with a
+// silent EADDRINUSE (stdio was 'ignore', and mock_gateway has no 'error'
+// listener so the process just exits), the browser then connected to the
+// battery's level-1 mock, and the level40 phase measured a level-1 viewer.
+// Ports are now leased from the OS, so the suite is runnable standalone at
+// any time and never collides with anything.
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.on('error', reject);
+    srv.listen(0, '127.0.0.1', () => {
+      const { port } = srv.address();
+      srv.close(() => resolve(port));
+    });
+  });
+}
+
+function canConnect(port) {
+  return new Promise((resolve) => {
+    const s = net.connect({ port, host: '127.0.0.1' });
+    s.on('connect', () => { s.destroy(); resolve(true); });
+    s.on('error', () => resolve(false));
+  });
+}
+
+// Spawn the mock and PROVE it is listening before handing the port to the
+// browser; a mock that failed to bind used to be indistinguishable from one
+// that bound, which is exactly how the level40 phase went silently wrong.
+async function startMock(port, level) {
   const env = { ...process.env };
   if (level) env.MOCK_LEVEL = String(level);
   const proc = spawn('node', [path.join(__dirname, 'mock_gateway.js'), String(port)], {
-    env, stdio: 'ignore',
+    env, stdio: ['ignore', 'ignore', 'pipe'],
   });
-  return proc;
+  let stderr = '';
+  proc.stderr.on('data', d => { stderr += d; });
+  let dead = false;
+  proc.on('exit', (code) => { dead = true; proc.exitCode_ = code; });
+  for (let i = 0; i < 60; i++) {
+    if (dead) {
+      throw new Error(`mock_gateway on :${port} exited (${proc.exitCode_}): `
+        + stderr.trim().split('\n').slice(0, 3).join(' / '));
+    }
+    if (await canConnect(port)) return proc;
+    await sleep(100);
+  }
+  proc.kill();
+  throw new Error(`mock_gateway on :${port} never started listening`);
 }
 
 // The follow camera converges FRAME-RATE-dependently; under battery load
@@ -50,15 +93,56 @@ function projectEntity(page, id) {
   }, id);
 }
 
+// Point the follow camera at the entity, let it stop, and hand back a
+// projection that is actually ON SCREEN. The old code aimed once, settled
+// once, and then reused that aim for the SECOND click: by then the follow
+// camera had converged back toward the character's own heading and the
+// gremlin had drifted off the right edge (measured: x=640 for the first
+// click, x=1369 on a 1280-wide viewport for the second). The click landed
+// nowhere, the target was dropped, and the wait for 'attack' timed out.
+async function aimAt(page, id, viewport) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await page.evaluate((eid) => {
+      const w = window.__world;
+      const e = w.entities.getEntity(eid);
+      const c = w.character.group.position;
+      w.followCam.yaw = Math.atan2(e.group.position.x - c.x, e.group.position.z - c.z);
+      w.followCam.pitch = 0.3;
+      w.followCam.dist = Math.max(w.followCam.minDist, 4);
+    }, id);
+    await sleep(600);
+    await settleCam(page);
+    const p = await projectEntity(page, id);
+    const margin = 24;
+    if (!p.behind && p.x > margin && p.x < viewport.width - margin
+        && p.y > margin && p.y < viewport.height - margin) return p;
+  }
+  throw new Error(`aimAt(${id}): entity never projected on screen`);
+}
+
+// Labelled wait: an unlabelled "Waiting failed: 10000ms exceeded" gives the
+// next reader nothing to work with.
+async function waitFor(page, expr, label, timeout = 10000) {
+  try {
+    await page.waitForFunction(expr, { timeout });
+  } catch (err) {
+    const ops = await page.evaluate(() =>
+      window.__world.net.log.slice(-15).map(m => `${m.dir || ''}:${m.op}${m.id ? '#' + m.id : ''}`))
+      .catch(() => []);
+    throw new Error(`${label} (${err.message}); last ops: ${ops.join(' ')}`);
+  }
+}
+
 async function run(mode, port) {
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     args: ['--headless=new', '--use-angle=swiftshader', '--window-size=1280,900'],
   });
   const summary = { consoleLogs: [] };
+  const viewport = { width: 1280, height: 900 };
   try {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 900 });
+    await page.setViewport(viewport);
     page.on('console', m => summary.consoleLogs.push(m.text()));
     page.on('pageerror', e => summary.consoleLogs.push('PAGEERROR: ' + e.message));
 
@@ -66,25 +150,15 @@ async function run(mode, port) {
       { waitUntil: 'networkidle0' });
     await page.waitForFunction('window.__world && window.__world.ready', { timeout: 30000 });
     await page.click('#online-toggle');
-    await page.waitForFunction(
-      'window.__world.entities.snapshot().length >= 6', { timeout: 20000 });
+    await waitFor(page, 'window.__world.entities.snapshot().length >= 6',
+      `${mode}: the mock never spawned 6 entities`, 20000);
     await sleep(1500);
 
-    await page.evaluate((id) => {
-      const w = window.__world;
-      const e = w.entities.getEntity(id);
-      const c = w.character.group.position;
-      w.followCam.yaw = Math.atan2(e.group.position.x - c.x, e.group.position.z - c.z);
-      w.followCam.pitch = 0.3;
-      w.followCam.dist = Math.max(w.followCam.minDist, 4);
-    }, GREMLIN);
-    await sleep(1500);
-    await settleCam(page);
-    const gp = await projectEntity(page, GREMLIN);
+    const gp = await aimAt(page, GREMLIN, viewport);
     await page.mouse.click(gp.x, gp.y);
-    await page.waitForFunction(
+    await waitFor(page,
       `window.__world.net.log.some(m => m.op === 'target_ok' && m.id === ${GREMLIN})`,
-      { timeout: 10000 });
+      `${mode}: first click did not target the gremlin`);
     await sleep(600);
 
     summary.window = await page.evaluate(() => {
@@ -107,13 +181,15 @@ async function run(mode, port) {
     });
     await page.screenshot({ path: path.join(OUT, `tw_01_${mode}_target.png`) });
 
-    // HP bar tracks status ops (attack -> hp drops); FRESH projection —
-    // the camera may still have been converging for the first click
-    const gp2 = await projectEntity(page, GREMLIN);
+    // HP bar tracks status ops. A second click on an ALREADY-targeted monster
+    // is the attack (main.js clickEntity, the `combat.targetId === id` branch),
+    // so re-aim from scratch: the follow camera has been converging back to
+    // the character's heading since the first click.
+    const gp2 = await aimAt(page, GREMLIN, viewport);
     await page.mouse.click(gp2.x, gp2.y);
-    await page.waitForFunction(
+    await waitFor(page,
       `window.__world.net.log.filter(m => m.op === 'attack').length >= 2`,
-      { timeout: 10000 });
+      `${mode}: second click on the targeted gremlin produced no attack`);
     await sleep(2500);
     summary.hpTrack = await page.evaluate(() => ({
       hp: window.__world.targetWnd.target.hp,
@@ -155,22 +231,78 @@ async function run(mode, port) {
   return summary;
 }
 
+const results = [];
+const check = (name, ok, detail = '') => {
+  results.push({ name, ok: !!ok, detail });
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
+};
+
+// conColor, transcribed from js/ui/targetstatuswnd.js:42-51 (which cites
+// ui-port-handoff.md §4). diff = viewerLevel - targetLevel, the sign the
+// gateway sends in target_ok.color.
+const conColor = (d) => d == null ? '#DCDCDC'
+  : d <= -9 ? '#FF0000' : d <= -6 ? '#FF9191' : d <= -3 ? '#FAFE91'
+  : d <= 2 ? '#DCDCDC' : d <= 5 ? '#A2FFAB' : d <= 8 ? '#A2A8FC' : '#0000FF';
+
+function assertPhase(mode, s) {
+  const w = s.window;
+  check(`${mode}: target window visible`, w.visible);
+  check(`${mode}: name is the clicked NPC`, w.name === 'Gremlin', String(w.name));
+  check(`${mode}: diff = viewerLevel - targetLevel`,
+    w.diff === w.viewerLevel - w.npcLevel,
+    `diff=${w.diff} viewer=${w.viewerLevel} npc=${w.npcLevel}`);
+  check(`${mode}: name color is the con-table color for that diff`,
+    w.color === conColor(w.diff), `${w.color} vs ${conColor(w.diff)} (diff ${w.diff})`);
+  check(`${mode}: HP bar shown, MP hidden for a monster`, w.hpVisible && !w.mpVisible,
+    `hp=${w.hpVisible} mp=${w.mpVisible}`);
+  check(`${mode}: HP bar tracks status ops`,
+    s.hpTrack.hp < s.hpTrack.maxHp && /%$/.test(s.hpTrack.width),
+    `${s.hpTrack.hp}/${s.hpTrack.maxHp} width=${s.hpTrack.width}`);
+  check(`${mode}: close hides the window but keeps the server target`,
+    s.close.display === 'none' && s.close.targetStill === GREMLIN,
+    JSON.stringify(s.close));
+  check(`${mode}: window is movable (WndMgr)`, s.movable.moved,
+    `${s.movable.from} -> ${s.movable.to}`);
+  const errs = s.consoleLogs.filter(l => l.startsWith('PAGEERROR:'));
+  check(`${mode}: no page errors`, errs.length === 0, errs.slice(0, 2).join(' | '));
+}
+
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
-  const mock1 = startMock(8085, null);
-  await sleep(1000);
-  const out = {};
+  const out = { ports: {} };
+  const p1 = await freePort();
+  out.ports.level1 = p1;
+  const mock1 = await startMock(p1, null);
   try {
-    out.level1 = await run('level1', 8085);
+    out.level1 = await run('level1', p1);
   } finally {
     mock1.kill();
   }
-  const mock40 = startMock(8086, 40);
-  await sleep(1000);
+  const p40 = await freePort();
+  out.ports.level40 = p40;
+  const mock40 = await startMock(p40, 40);
   try {
-    out.level40 = await run('level40', 8086);
+    out.level40 = await run('level40', p40);
   } finally {
     mock40.kill();
   }
+
+  assertPhase('level1', out.level1);
+  assertPhase('level40', out.level40);
+  // The whole point of the two phases: MOCK_LEVEL must actually reach the
+  // client, and the higher-level viewer must recolor the same Gremlin.
+  check('level40 mock seeded a level-40 viewer',
+    out.level40.window.viewerLevel === 40, String(out.level40.window.viewerLevel));
+  check('the two phases disagree on the con color',
+    out.level1.window.color !== out.level40.window.color,
+    `${out.level1.window.color} vs ${out.level40.window.color}`);
+
+  out.results = results;
+  const failed = results.filter(r => !r.ok);
   console.log(JSON.stringify(out, null, 2));
-})().catch(e => { console.error('VERIFY TARGET FAILED:', e.message); process.exit(1); });
+  console.log(`verify_targetwnd: ${results.length - failed.length}/${results.length} checks passed`);
+  if (failed.length) {
+    console.error('VERIFY TARGET FAILED: ' + failed.map(f => f.name).join('; '));
+    process.exit(1);
+  }
+})().catch(e => { console.error('VERIFY TARGET FAILED:', e.stack || e.message); process.exit(1); });

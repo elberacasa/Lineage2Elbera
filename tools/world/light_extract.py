@@ -99,6 +99,47 @@ def _first(pkg, cls):
         return None
 
 
+def _fog_zone(pkg):
+    """The ZoneInfo whose fog this tile renders with -> (props, index).
+
+    A map carries many ZoneInfo actors (4 on 17_20, 14 on 22_24, 17 on
+    22_22) and this client applies ONE rig per tile, so one of them has to
+    be picked. Picking `exports[0]` -- what this file used to do -- is not
+    that choice, it is no choice: on 17_20, 22_24 and 25_21 actor 0 is a
+    zone that never sets `bDistanceFog`, while a LATER ZoneInfo on the same
+    tile sets it True. Those three tiles were the only ones the client fell
+    back to its own unsourced 60 m / 420 m fog on, and the fog was in the
+    map the whole time, one actor further down.
+
+    So: prefer the first ZoneInfo that actually turns distance fog on, and
+    fall back to actor 0 when none does. On 97 of the 100 converted tiles
+    that IS actor 0, so this changes 3 tiles and nothing else.
+
+    `bDistanceFog` is a boolean and UE2 serialises a property only when it
+    differs from the class default, so an absent one means "class default".
+    Measured over every ZoneInfo of every one of the 100 maps: 429 carry
+    `bDistanceFog = True` and 391 omit it, and **not one carries False**.
+    A class default of True could not produce 429 explicit Trues; the
+    default is therefore False, and "absent" means this zone draws no
+    distance fog. That is why picking a zone that omits it silently turned
+    the tile's fog off.
+    """
+    exports = pkg.exports_by_class("ZoneInfo")
+    if not exports:
+        return None, None
+    fallback = None
+    for i, exp in enumerate(exports):
+        try:
+            props = _props(pkg, exp)
+        except Exception:
+            continue
+        if fallback is None:
+            fallback = (props, i)
+        if props.get("bDistanceFog"):
+            return props, i
+    return fallback if fallback else (None, None)
+
+
 def extract(tile):
     path = os.path.join(MAPS, "%s.unr" % tile)
     if not os.path.exists(path):
@@ -124,18 +165,24 @@ def extract(tile):
             entry["yaw_deg"] = math.degrees(yaw)
         out["sun"] = entry
 
-    zone = _first(pkg, "ZoneInfo")
+    zone, zone_index = _fog_zone(pkg)
     if zone:
         out["ambient"] = {
             "vector": _vector(zone.get("AmbientVector")),
             "brightness": _u8(zone.get("AmbientBrightness")),
         }
         out["fog"] = {
+            # `enabled` is TRUE only when the zone serialised bDistanceFog.
+            # It is null when the property is absent, which means the
+            # ZoneInfo class default -- and that default is False (see
+            # _fog_zone). null therefore means "this zone draws no distance
+            # fog", not "unknown".
             "enabled": bool(zone.get("bDistanceFog")) or None,
             "color": _color(zone.get("DistanceFogColor")),
             "start": _f32(zone.get("DistanceFogStart")),
             "end": _f32(zone.get("DistanceFogEnd")),
         }
+        out["zoneInfoIndex"] = zone_index
     return out
 
 
@@ -185,8 +232,19 @@ def main():
                 continue
             if on_disk.get("sun"):
                 have_sun += 1
-            if (on_disk.get("fog") or {}).get("end") is not None:
+            fog = on_disk.get("fog") or {}
+            if fog.get("end") is not None:
                 have_fog += 1
+            # Every map turns distance fog on in SOME ZoneInfo. Before
+            # _fog_zone existed this file read ZoneInfo[0] only, and 3 tiles
+            # (17_20, 22_24, 25_21) came out with enabled=null -- which sent
+            # the client to a fog range it invented. A tile whose fog is off
+            # again means the zone pick regressed, so it is a failure, not a
+            # statistic.
+            if not fog.get("enabled"):
+                print("FAIL %s: no ZoneInfo on this map enables distance fog "
+                      "(the client would fall back to an unsourced range)" % t)
+                bad += 1
         print("check: %d tiles, %d with a sun, %d with fog, %d bad"
               % (len(names), have_sun, have_fog, bad))
         return 1 if bad else 0

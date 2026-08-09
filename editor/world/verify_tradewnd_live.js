@@ -177,6 +177,6 @@ async function launch() {
   }
   console.log(JSON.stringify(summary, null, 2));
 })().catch(async (e) => {
-  console.error('VERIFY TRADEWND LIVE FAILED:', e.message);
+  console.error('VERIFY TRADEWND LIVE FAILED:', e.stack || e.message);
   process.exit(1);
 });

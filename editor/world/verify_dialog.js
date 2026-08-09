@@ -172,4 +172,4 @@ async function settleCam(page) {
     await browser.close();
   }
   console.log(JSON.stringify(summary, null, 2));
-})().catch(e => { console.error('VERIFY DIALOG FAILED:', e.message); process.exit(1); });
+})().catch(e => { console.error('VERIFY DIALOG FAILED:', e.stack || e.message); process.exit(1); });

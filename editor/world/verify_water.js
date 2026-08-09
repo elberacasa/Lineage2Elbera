@@ -104,4 +104,4 @@ const SPOTS = [
     console.error('VERIFY WATER FAILED');
     process.exit(1);
   }
-})().catch(e => { console.error('VERIFY WATER FAILED:', e.message); process.exit(1); });
+})().catch(e => { console.error('VERIFY WATER FAILED:', e.stack || e.message); process.exit(1); });

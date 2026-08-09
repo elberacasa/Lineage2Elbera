@@ -77,4 +77,4 @@ const SPOTS = [
   }
   console.log(JSON.stringify(summary, null, 1));
   if (summary.failures.length) { console.error('VERIFY TORCH FAILED'); process.exit(1); }
-})().catch(e => { console.error('VERIFY TORCH FAILED:', e.message); process.exit(1); });
+})().catch(e => { console.error('VERIFY TORCH FAILED:', e.stack || e.message); process.exit(1); });

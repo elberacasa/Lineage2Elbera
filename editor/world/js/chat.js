@@ -63,7 +63,14 @@ const CHANNELS = {
   17: { name: 'hero', color: '#DCDCDC' },
   18: { name: 'critical', color: '#7B7DF2' },
 };
-const DEFAULT_CHAT_COLOR = '#DCDCDC';
+// Say type 0 IS the default arm of that switch, so the fallback for an
+// unknown channel is CHANNELS[0]'s own colour rather than a second copy of it.
+const DEFAULT_CHAT_COLOR = CHANNELS[0].color;
+// name -> say type, inverted from the table above so a command handler never
+// types a say-type id (NWindow.dll say-type switch 0x10141760, ids per
+// gateway/README).
+const SAY = Object.fromEntries(
+  Object.entries(CHANNELS).map(([id, c]) => [c.name, Number(id)]));
 
 // ChatWnd.uc CheckFilter maps each say type to one filter flag:
 //   bNormal->0  bShout->1  bWhisper->2  bParty->3  bClan->4  bTrade->8
@@ -74,7 +81,9 @@ const DEFAULT_CHAT_COLOR = '#DCDCDC';
 const ALWAYS = [10, 18];              // CHAT_ANNOUNCE, CHAT_CRITICAL_ANNOUNCE
 const FLAG_CHANNEL = {
   bNormal: [0], bShout: [1], bWhisper: [2], bParty: [3], bClan: [4],
-  bTrade: [8], bAlly: [9], bHero: [17], bUnion: [15, 16],
+  // say-type ids, transcribed from ChatWnd.uc CheckFilter (uc:640-696)
+  bTrade: [SAY.trade], bAlly: [SAY.alliance], bHero: [SAY.hero],
+  bUnion: [SAY.commander, SAY.partyroom],
 };
 
 // Transcribed verbatim from ChatWnd.uc SetDefaultFilterValue (uc:698-777),
@@ -115,19 +124,34 @@ export class ChatBox {
   constructor(rootEl, logEl, inputEl, { onSend } = {}) {
     this.onSend = onSend || (() => {});
     this.lines = [];
+    // AUTHORED scrollback depth. ChatWnd.uc keeps its history in the native
+    // NCHtmlObject and never states a line cap, and no xdat record carries
+    // one, so this is the port's own ring size — a memory bound, not a
+    // retail number.
     this.maxLines = 60;
     this.filter = 'all';
 
     const def = Layout.window(WND);
+    // Fallback = the mined ChatWnd rect itself (Interface.xdat, tier 1,
+    // docs/ui-mined-values.md §3: 348x187), cross-checked against
+    // WindowsInfo.ini, whose only 348x187 section is section [6].
     this.w = def && def.width ? def.width : 348;
     this.h = def && def.height ? def.height : 187;
 
     const root = rootEl || document.createElement('div');
     root.id = 'chat';
     root.innerHTML = '';
+    // DEVIATION: the log is browser text, not a Font.canvas blit like every
+    // other string in this port, because a chat line has to wrap, scroll and
+    // be selectable and the bitmap path does none of those. What is NOT
+    // invented is its SIZE: the em box is the client's own SmallFont-e.gly
+    // cell height, and line-height 1 because that cell already carries the
+    // font's leading. 13 is that cell height, read from the .gly by
+    // tools/ui/build_font.py; it is only reached if the sheet has not loaded.
+    const lh = Font.lineHeight('small') || 13;
     root.style.cssText = `position:fixed;width:${Skin.px(this.w)}px;`
       + `height:${Skin.px(this.h)}px;z-index:11;pointer-events:none;`
-      + 'font:12px/1.45 -apple-system, "Segoe UI", sans-serif;';
+      + `font:${Skin.px(lh)}px/1 -apple-system, "Segoe UI", sans-serif;`;
     this.root = root;
     this._logEl = logEl;
     this._inputEl = inputEl;
@@ -315,7 +339,9 @@ export class ChatBox {
     this.input = document.createElement('input');
     this.input.id = 'chat-input';
     this.input.type = 'text';
-    this.input.maxLength = 200;
+    // aCis Say2.java:81 drops the packet outright when the text is empty or
+    // longer than 100 characters, so anything past 100 was silently lost.
+    this.input.maxLength = 100;
     this.input.placeholder = 'say… (Enter to send, Esc to close)';
     // ChatEditBox carries NO texture in the xdat: its well is painted by
     // ChatWndBottomTex1, which the window already draws. So the box is
@@ -327,8 +353,11 @@ export class ChatBox {
       + `width:${Skin.px(editSize ? editSize.w : 303)}px;`
       + `height:${Skin.px(editSize ? editSize.h : 16)}px;`
       + 'display:none;pointer-events:auto;box-sizing:border-box;'
-      + 'background:transparent;color:#e6eaf2;border:0;'
-      + 'font:inherit;outline:none;padding:0 2px;';
+      // The text colour is the one NCTextBox falls back to when its own xdat
+      // record carries none — field 0x348's initialiser, mined out of
+      // NWindow.dll at 0x10052aca. ChatEditBox is exactly such a record.
+      + `background:transparent;color:${Layout.native('textBoxDefault')};border:0;`
+      + 'font:inherit;outline:none;padding:0;';
     if (inputEl && inputEl !== this.input) inputEl.remove();
     root.appendChild(this.input);
 
@@ -354,8 +383,13 @@ export class ChatBox {
     const el = this.root;
     el.style.right = 'auto';
     el.style.top = 'auto';
-    el.style.left = '8px';
-    el.style.bottom = '8px';
+    // AUTHORED dock inset. WindowsInfo.ini carries an (x, y) for 39 windows
+    // and ChatWnd is not one of them — the only 348x187 section it has,
+    // section [6], records the SIZE and no position (see
+    // assets/gamedata/windowsinfo.json, whose numeric sections are
+    // deliberately left unmapped). So the gutter is the port's own.
+    el.style.left = '8px';      // AUTHORED gutter, see above
+    el.style.bottom = '8px';    // AUTHORED gutter, see above
     this.filter = 'all';
     this._paintTabs();
     this._applyFilter();
@@ -403,12 +437,14 @@ export class ChatBox {
 
   // parse input prefixes into a say op payload
   _submit(text) {
+    // Say types come from SAY, the inverse of the DLL-mined CHANNELS table —
+    // never from a typed id.
     const m = text.match(/^\/(w|whisper|tell)\s+(\S+)\s+([\s\S]+)$/i);
-    if (m) return this.onSend({ channel: 2, target: m[2], text: m[3] });
+    if (m) return this.onSend({ channel: SAY.tell, target: m[2], text: m[3] });
     const s = text.match(/^\/(shout)\s+([\s\S]+)$/i);
-    if (s) return this.onSend({ channel: 1, text: s[2] });
+    if (s) return this.onSend({ channel: SAY.shout, text: s[2] });
     const t = text.match(/^\/(trade)\s+([\s\S]+)$/i);
-    if (t) return this.onSend({ channel: 8, text: t[2] });
+    if (t) return this.onSend({ channel: SAY.trade, text: t[2] });
     // DEV BACKDOOR: the mock gateway's fixture commands (mock_gateway.js
     // say-handler) are recognized ops of this port — the verify suites
     // drive scenario fixtures by typing them. Not "unknown": they go out.
