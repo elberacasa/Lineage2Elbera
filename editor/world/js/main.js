@@ -689,6 +689,12 @@ net.on('charSheet', (msg) => {
     }
     character.setWeapon(rh);
     character.setOffhand(msg.paperdoll.lhand);  // shields, dual-wield second blade
+    // ...and the four ARMORED slots, which ride the very same UserInfo and had
+    // been decoded by the gateway all along (gameclient.js readPaperdollItems
+    // fills gloves/chest/legs/feet) without anything reading them. Unlike the
+    // hands this swaps body geometry, so it is idempotent by item id inside
+    // armor.js rather than re-running on every UserInfo.
+    character.setArmor(msg.paperdoll);
     gameSound.setWeapon(rh);                    // impact sounds follow the weapon
   }
   if (document.getElementById('charsheet-panel').classList.contains('visible')) {

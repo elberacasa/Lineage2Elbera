@@ -20,8 +20,24 @@ mesh node with NO transform whose child is the single bone, i.e. the
 geometry is already positioned in mesh space.  Emitting the same points
 under a single identity node drops the skin, the bone node and the
 inverse-bind matrix without moving a single vertex, and makes the client
-side unambiguous: `Weapon_R_Bone.add(gltf.scene)` with an identity
+side unambiguous: `<socket bone>.add(gltf.scene)` with an identity
 transform is correct by construction.
+
+**Which socket bone.**  Four, not two, and the choice is data.  The
+retail pawn classes in `assets/interlude/system/LineageWarrior.u` carry,
+in their serialised class default properties, identically on all 14
+playable classes: `RightHandBone=Weapon_R_Bone`,
+`LeftHandBone=Weapon_L_Bone`, `RightArmBone=Shield_R_Bone`,
+`LeftArmBone=Shield_L_Bone` (Engine.u `Pawn` var names, read natively
+through APawn::GetLArmBoneName in engine.dll).  So a SHIELD hangs on the
+ARM bone, not the hand bone; hanging one on `Weapon_L_Bone` put the plate
+edge-on through the fist.  There is no per-item attach transform to bake
+either: a UE2 USkeletalMesh serialises an explicit socket table
+(AttachAliases/AttachBoneNames/AttachCoords, UEViewer UnMesh2.cpp:447)
+and, decoded for all 14 body meshes, each carries exactly one socket —
+`e_bone` on `Bip01_head` — while all 17 shield meshes carry none.  The
+bone frame is the whole transform.  Gated by
+`editor/world/verify_shield.js --check`.
 
 **Origin/scale are retail, untouched.**  ULodMesh carries
 MeshScale/MeshOrigin/RotOrigin, which the engine applies at instance time
@@ -68,9 +84,14 @@ Frozen output contract (client codes against it):
     {"models": [{"id": "small_sword_m00_wp",
                  "gltf": "models/small_sword_m00_wp.gltf",
                  "handness": 1, "nativeHeight": 0.6, "nativeLength": 23.9}]}
-  (handness: 0 shield -> Weapon_L_Bone, everything else -> Weapon_R_Bone;
-   1 one-hand, 2 two-hand, 3 dual sword, 4 pole/staff, 5 bow, 6 other,
-   7 dual fist -- weapongrp's own field, passed through unchanged.
+  (handness is weapongrp's own field, passed through unchanged:
+   0 shield, 1 one-hand, 2 two-hand, 3 dual sword, 4 pole/staff, 5 bow,
+   6 other, 7 dual fist.  It is also the ONLY carrier of shield-ness the
+   client gets -- assets/gamedata/weaponmesh.json drops the field when it
+   is 0 -- so editor/world/js/equipment.js keys the socket choice off this
+   entry.  handness 0 -> Shield_L_Bone (the pawn's LeftArmBone), off-hand
+   weapon -> Weapon_L_Bone (LeftHandBone), everything else ->
+   Weapon_R_Bone (RightHandBone); see the socket note below.
    See native_length() on why BOTH size fields are emitted.)
   editor/characters/weapons/models/<id>.gltf + .bin + <id>[_sN].png
 

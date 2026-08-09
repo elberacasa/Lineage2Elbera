@@ -10,7 +10,7 @@
 //   mesh name -> glTF       editor/characters/weapons/manifest.json, built by
 //                           tools/src/char_pipeline/build_weapons.py.
 //   character -> socket     the character glTFs carry NCSoft's own attachment
-//                           bones, `Weapon_R_Bone` and `Weapon_L_Bone`.
+//                           bones. FOUR of them, not two — see below.
 //
 // That last one is why nothing here computes a position. The weapon meshes ship
 // with their retail origin intact (the builder verified 410 of 417 have an
@@ -18,6 +18,45 @@
 // correct transform is the identity: parent the weapon to the socket bone and
 // let the animation move it. Any offset or rotation fudge here would be a sign
 // the mesh had been mangled upstream, not something to paper over.
+//
+// Which bone — decoded, not chosen
+// --------------------------------
+// The retail pawn classes name their own attach bones. `LineageWarrior.u`'s
+// class default properties (the serialised tagged-property block of each
+// UClass export; decoded with tools/l2lib/ue2package.py) carry, IDENTICALLY on
+// all 14 playable pawn classes MFighter/FFighter/MMagic/FMagic/MElf/FElf/
+// MDarkElf/FDarkElf/MOrc/FOrc/MShaman/FShaman/MDwarf/FDwarf:
+//
+//     RightHandBone = Weapon_R_Bone      LeftHandBone = Weapon_L_Bone
+//     RightArmBone  = Shield_R_Bone      LeftArmBone  = Shield_L_Bone
+//     SpineBone = bip01_spine2   CapeBone = Cape_Bone   HeadBone = Bip01_head
+//
+// Those four are `var name` slots on Engine.u's `Pawn`, read natively through
+// APawn::GetLHandBoneName/GetLArmBoneName (exported by engine.dll). So a SHIELD
+// hangs on the ARM bone `Shield_L_Bone`, not on the hand bone a sword uses.
+// All 14 character glTFs carry both bones (verified: they are siblings under
+// `Bip01_L_Hand`, ~4 cm and ~90 degrees apart), which is exactly why hanging a
+// shield on `Weapon_L_Bone` put it through the forearm instead of across it.
+//
+// Corroborated geometrically on human_fighter_m + tower_shield_m00_sh: the
+// shield plate's normal sits 88.2 degrees off the forearm axis on
+// Shield_L_Bone (the forearm lies IN the plate, i.e. strapped) and 4.0 degrees
+// off it on Weapon_L_Bone (the forearm skewers the plate).
+//
+// The transform is still the identity, and that is decoded too rather than
+// assumed: a UE2 USkeletalMesh carries an explicit socket table
+// (AttachAliases / AttachBoneNames / AttachCoords, UEViewer UnMesh2.cpp:447).
+// Decoded for all 14 body meshes, each holds exactly ONE socket — alias
+// `e_bone` on `Bip01_head`, origin (0,0,7.2..9.7) with identity axes, an
+// effect anchor above the head. There is no weapon or shield socket coord
+// anywhere, and all 17 shield meshes have identity MeshScale/MeshOrigin/
+// RotOrigin and no socket table of their own. The bone frame IS the transform.
+//
+// NOT recovered: engine.dll is Themida-packed, so the native call site that
+// picks LeftArmBone over LeftHandBone for the shield slot cannot be
+// disassembled. The bone binding above and the geometry are the evidence.
+// `Shield_R_Bone` / RightArmBone is decoded but unused here — the player
+// paperdoll never puts a shield in the right hand.
 //
 // Names are compared lowercased throughout: weapongrp and the .ukx export table
 // disagree on case for six meshes, and picking either spelling verbatim would
@@ -77,7 +116,35 @@ export function weaponInfo(itemId) {
   // The manifest is keyed by the object name alone; weaponmesh keeps the
   // package prefix because that is how weapongrp writes it.
   const mesh = full.includes('.') ? full.slice(full.indexOf('.') + 1) : full;
-  return { mesh, handness: rec.h || 1, weaponType: rec.w || 0 };
+  // ABSENT `h` MEANS ZERO, NOT ONE. export_weaponmesh.py writes `h` only when
+  // weapongrp's handness is truthy (`if rec.get("handness")`), so every one of
+  // the 95 shield rows — handness 0, the client's own HAND enum ordinal —
+  // arrives with no `h` at all. The old `rec.h || 1` turned all 95 of them
+  // into one-handed weapons, which is why nothing downstream could tell a
+  // shield from a sword. weapongrp has no other handness-0 equippable: the
+  // only other rows with handness 0 are the 33 body_part 0 pet/quest sacks,
+  // which never reach a paperdoll slot.
+  return { mesh, handness: rec.h == null ? 0 : rec.h, weaponType: rec.w || 0 };
+}
+
+// --- sockets ---------------------------------------------------------------
+// Names are retail (see the header): the pawn's LeftHandBone/LeftArmBone.
+const SOCKET_WEAPON = { R: 'Weapon_R_Bone', L: 'Weapon_L_Bone' };
+const SOCKET_SHIELD_L = 'Shield_L_Bone';
+
+// Is this mesh a shield? weapongrp's `handness` says so and nothing else does:
+// 0 is the client's HAND ordinal, which for an equippable means a shield. The
+// manifest is the better of the two carriers — build_weapons.py copies the
+// weapongrp value through unchanged per MESH, and shield-ness is a property of
+// the mesh, not of the item — so it wins; weaponmesh is the fallback for a
+// mesh that was never built. Verified over the whole shipped roster: the 17
+// manifest entries with handness 0 are exactly the 17 `_sh` meshes, and
+// weapongrp agrees (95 body_part 8 rows, all `_sh`).
+function isShield(info) {
+  if (!info) return false;
+  const entry = _manifest && _manifest[info.mesh.toLowerCase()];
+  if (entry && typeof entry.handness === 'number') return entry.handness === 0;
+  return info.handness === 0;
 }
 
 // Which animation stance a weapon puts a character in.
@@ -120,15 +187,34 @@ function loadWeapon(meshId) {
 // Find a socket bone anywhere under a loaded character. getObjectByName walks
 // the whole subtree, which is what we want: the bones live under the skinned
 // mesh's armature, not at the model root.
-export function findSocket(root, side = 'R') {
+//
+// `shield` picks the ARM bone instead of the hand bone (see the header). It
+// has NO fallback on purpose: `Shield_L_Bone` is present on all 14 shipped
+// character glTFs, and quietly falling back to `Weapon_L_Bone` would restore
+// the exact defect this replaces while looking like it worked.
+export function findSocket(root, side = 'R', shield = false) {
   if (!root) return null;
-  return root.getObjectByName(`Weapon_${side}_Bone`)
+  if (shield) return root.getObjectByName(SOCKET_SHIELD_L) || null;
+  return root.getObjectByName(SOCKET_WEAPON[side] || SOCKET_WEAPON.R)
       || root.getObjectByName(`Bip01_${side}_Hand`)   // pre-socket models
       || null;
 }
 
-// Attach `itemId`'s weapon to `root`'s right-hand socket, replacing whatever is
-// there. Returns the attached Object3D, or null when the item has no model.
+// Every bone an item on `side` could be hanging from. A left-hand swap can
+// cross sockets (shield -> dagger), so both have to be swept or the old model
+// stays on the bone the new one did not land on.
+function sideSockets(root, side) {
+  const out = [findSocket(root, side, false)];
+  if (side === 'L') out.push(findSocket(root, side, true));
+  return out.filter(Boolean);
+}
+
+// Attach `itemId`'s model to the socket that item's own weapongrp row calls
+// for — `Weapon_R_Bone` by default, `Weapon_L_Bone` for an off-hand weapon,
+// `Shield_L_Bone` for a shield — replacing whatever is on either socket of
+// that side. Returns the attached Object3D, or null when the item has no
+// model. `side` is the paperdoll slot; the shield/weapon choice is data, not a
+// caller decision, so callers need not (and must not) know the bone.
 //
 // `state` is a small holder the caller owns (one per character) so repeated
 // calls can dispose the previous weapon — three.js will not do that for us and
@@ -152,8 +238,9 @@ export async function equipWeapon(root, itemId, state, side = 'R') {
     return state.object;                     // already wearing exactly this
   }
 
-  const socket = findSocket(root, side);
-  detachWeapon(state, socket);
+  const shield = isShield(info);
+  const socket = findSocket(root, side, shield);
+  detachWeapon(state, sideSockets(root, side));
   state.meshId = wantMesh;
   if (!wantMesh) return null;
 
@@ -161,7 +248,9 @@ export async function equipWeapon(root, itemId, state, side = 'R') {
   if (!template || state.gen !== gen) return null;   // a newer call superseded us
 
   if (!socket) {
-    console.warn('[equipment] no weapon socket on this model');
+    // Named, because "no socket" for a shield and for a sword mean different
+    // missing bones and a silent substitution is how this bug got here.
+    console.warn(`[equipment] model has no ${shield ? SOCKET_SHIELD_L : SOCKET_WEAPON[side]}`);
     return null;
   }
 
@@ -180,8 +269,10 @@ export async function equipWeapon(root, itemId, state, side = 'R') {
 // Remove every weapon hanging on a socket, not just the one we think is there.
 // The tracked reference can go stale (a superseded load, a model swap), and a
 // leftover clone is invisible to `state` but very visible on screen.
+// Takes one socket or a list of them (an off hand has two).
 function clearSocket(socket) {
   if (!socket) return;
+  if (Array.isArray(socket)) { for (const s of socket) clearSocket(s); return; }
   for (const child of [...socket.children]) {
     if (child.name && child.name.startsWith('weapon_')) socket.remove(child);
   }

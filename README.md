@@ -483,11 +483,16 @@ ours.
   arithmetically against 6,499 datapack templates and empirically: a predicted
   1201 ms swing cycle against observed gaps of 1188/1206/1208/1193
   (`verify-atkspeed` 12/12, `verify_atktiming` 13/13).
-- **Gear renders, in the right stance.** Weapons and shields hang on NCSoft's
-  own `Weapon_R_Bone`/`Weapon_L_Bone` sockets at an identity transform — 410 of
-  417 meshes ship an identity MeshScale, so no offset was ever needed. Holding
-  a sword selects the retail 1HS animation set: 83 clips per character across
-  six weapon stances, where the pipeline used to extract 14 and stand every
+- **Gear renders, in the right stance.** Gear hangs on the bones the retail
+  pawn classes name for it, at an identity transform — 410 of 417 meshes ship
+  an identity MeshScale, so no offset was ever needed. Which bone is decoded,
+  not chosen: `LineageWarrior.u`'s class defaults set `RightHandBone =
+  Weapon_R_Bone`, `LeftHandBone = Weapon_L_Bone` and `LeftArmBone =
+  Shield_L_Bone` identically on all 14 playable pawn classes, so a **shield
+  goes on the arm bone, not the hand bone** — it used to go on `Weapon_L_Bone`
+  and stuck out of the fist edge-on (`verify_shield` 11/11). Holding a sword
+  selects the retail 1HS animation set: 83 clips per character across six
+  weapon stances, where the pipeline used to extract 14 and stand every
   character unarmed (`verify_equipment` 14/14).
 - **99.7% of spawned NPCs are real models.** 495 monster and NPC models, up
   from 150; colour-coded capsule placeholders are down from 15,558 spawned

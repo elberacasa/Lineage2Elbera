@@ -66,11 +66,58 @@ Distribution: 92× one-hand (1), 25× pole/staff (4), 17× shield (0),
 16× two-hand (2), 13× bow (5), 11× dual fist (7), 5× dual sword (3),
 2× other (6).
 
-## 3. Attachment — nothing to correct
+## 3. Attachment — identity transform, but FOUR bones
 
-The character glTFs already carry NCSoft's own weapon sockets as nodes
-named `Weapon_R_Bone` / `Weapon_L_Bone` (present in all 14 models).  The
-weapon mesh is parented to the socket with an **identity transform**; no
+> **Correction (was wrong here until it was decoded).**  This section used to
+> say weapons *and shields* hang on `Weapon_R_Bone` / `Weapon_L_Bone`.  The
+> identity-transform half was right; the bone list was not.  The retail pawn
+> classes name **four** attach bones, and a shield uses the arm one.  See §3.0.
+
+### 3.0 Which bone — from the client's own class defaults
+
+`LineageWarrior.u` carries one `UClass` export per playable pawn, and the tail
+of each export is that class's serialised default-property block (tagged
+property stream; decoded with `tools/l2lib/ue2package.py`).  Identically on all
+14 — MFighter, FFighter, MMagic, FMagic, MElf, FElf, MDarkElf, FDarkElf, MOrc,
+FOrc, MShaman, FShaman, MDwarf, FDwarf:
+
+| property (Engine.u `Pawn`) | value |
+|---|---|
+| `RightHandBone` | `Weapon_R_Bone` |
+| `LeftHandBone`  | `Weapon_L_Bone` |
+| `RightArmBone`  | `Shield_R_Bone` |
+| `LeftArmBone`   | `Shield_L_Bone` |
+| `SpineBone` / `CapeBone` / `HeadBone` | `bip01_spine2` / `Cape_Bone` / `Bip01_head` |
+
+Those are `var name` slots read natively through
+`APawn::GetLHandBoneName` / `GetLArmBoneName` (both exported by `engine.dll`).
+So a **shield hangs on `Shield_L_Bone`**, not on the hand bone a sword uses.
+All 14 character glTFs carry both; they are siblings under `Bip01_L_Hand`,
+about 4 cm and 90° apart.
+
+Corroborated geometrically on `human_fighter_m` + `tower_shield_m00_sh`: the
+plate normal sits **88.2° off the forearm axis on `Shield_L_Bone`** (the arm
+lies *in* the plate — strapped) and **4.0° off it on `Weapon_L_Bone`** (the arm
+skewers the plate).  `verify_shield.js` re-measures this live and gates at 60°.
+
+**NOT recovered:** `engine.dll` is Themida-packed (its only code section is
+literally named `Themida`), so the native call site that picks `LeftArmBone`
+over `LeftHandBone` for the shield slot cannot be disassembled.  The class
+defaults above and the geometry are the evidence.
+
+There is also no per-item attach *transform* to find, and that is decoded too
+rather than assumed: a UE2 `USkeletalMesh` serialises an explicit socket table
+(`AttachAliases` / `AttachBoneNames` / `AttachCoords`, UEViewer
+`Unreal/UnrealMesh/UnMesh2.cpp:447`).  Decoded for all 14 body meshes, each
+holds **exactly one** socket — alias `e_bone` on `Bip01_head`, origin
+`(0, 0, 7.2…9.7)` with identity axes, an effect anchor above the head.  No
+weapon or shield socket coord exists anywhere in the client, and all 17 shield
+meshes have an empty socket table of their own.  The bone frame *is* the
+transform.
+
+### 3.1 The transform itself — nothing to correct
+
+The item mesh is parented to the socket with an **identity transform**; no
 offset, rotation or scale is applied anywhere, client-side or at build
 time.  Three facts make that correct rather than lucky:
 
@@ -109,7 +156,7 @@ position/rotation/scale.  `verify/after/weapons/`:
 
 | render | what it shows |
 |---|---|
-| `human_fighter_m_sword_shield.png` | short sword in the right hand, tower shield on the left forearm, idle |
+| `human_fighter_m_sword_shield.png` | short sword in the right hand, tower shield in the left — **note: `weapon_check.js` takes an explicit `R`/`L`, so its shield renders sit on `Weapon_L_Bone`, the wrong bone. It is a mesh/texture check, not an attachment check; the attachment authority is `editor/world/verify_shield.js`.** |
 | `human_fighter_m_sword_attack.png` | same sword tracking the `attack` clip overhead |
 | `elf_f_bow.png` | bow gripped at the riser |
 | `human_mystic_m_staff.png` | journeyman's staff held on the shaft |

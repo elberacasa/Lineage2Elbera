@@ -482,6 +482,12 @@ export class EntityManager {
       // and the frame or two of empty-handedness it would cause.
       if (msg.paperdoll && msg.paperdoll.rhand) ch.wantWeapon = msg.paperdoll.rhand;
       if (msg.paperdoll && msg.paperdoll.lhand) ch.wantOffhand = msg.paperdoll.lhand;
+      // Armor rides the same CharInfo paperdoll (gloves/chest/legs/feet are
+      // indices 4/5/6/7 of the 12-slot CharInfo layout, decoded by the gateway
+      // since the inventory wave). Set BEFORE load for the same reason the
+      // weapon is: load() re-applies it once the skeleton exists, so a remote
+      // player never appears in their underwear for a frame.
+      if (msg.paperdoll) ch.wantArmor = msg.paperdoll;
       await ch.load(`/characters/${entry.gltf}`, entry.nativeHeight || null);
       if (this.entities.has(id)) return;   // raced with a duplicate add
       ch.id = id;

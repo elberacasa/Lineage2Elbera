@@ -109,24 +109,33 @@ const check = (name, ok, detail = '') => {
         `children=${bare.children}`);
 
   // --- off hand -------------------------------------------------------------
-  // Shields and the second blade of a dual set hang on Weapon_L_Bone. The data
-  // is fully sourced — 95 shield item ids, 17 shield meshes built — so there is
-  // nothing to invent here, only to attach.
+  // A SHIELD DOES NOT HANG ON Weapon_L_Bone — this suite used to assert that it
+  // did, and it was wrong. The retail pawn classes (LineageWarrior.u class
+  // defaults, all 14 of them) bind LeftHandBone = Weapon_L_Bone but
+  // LeftArmBone = Shield_L_Bone, and a shield is an ARM item. The full decode
+  // and the geometric proof live in verify_shield.js; this suite only keeps
+  // the join honest, so it asks the socket by name from the module that owns
+  // the decision rather than hard-coding a bone a second time.
   const off = await page.evaluate(async (shieldId) => {
     const ch = window.__world.character;
     await ch.setOffhand(shieldId);
-    const socket = ch.model.getObjectByName('Weapon_L_Bone');
-    const held = socket && socket.children.find(c => c.name && c.name.startsWith('weapon_'));
-    const res = { name: held ? held.name : null, children: socket ? socket.children.length : -1 };
+    const shieldBone = ch.model.getObjectByName('Shield_L_Bone');
+    const handBone = ch.model.getObjectByName('Weapon_L_Bone');
+    const worn = b => (b ? b.children.filter(c => c.name && c.name.startsWith('weapon_')) : []);
+    const held = worn(shieldBone)[0];
+    const res = {
+      name: held ? held.name : null,
+      onHandBone: worn(handBone).length,
+    };
     await ch.setOffhand(0);
-    const after = socket.children.filter(c => c.name && c.name.startsWith('weapon_')).length;
-    return { ...res, clearedTo: after };
+    return { ...res, clearedTo: worn(shieldBone).length + worn(handBone).length };
   }, SHIELD);
 
-  check('a shield attaches to the left socket',
-        !!off.name && off.name.includes('shield'), off.name || 'nothing attached');
+  check('a shield attaches to the shield socket, not the left hand socket',
+        !!off.name && off.name.includes('shield') && off.onHandBone === 0,
+        `${off.name || 'nothing attached'}; Weapon_L_Bone children=${off.onHandBone}`);
   check('unequipping the off hand clears it', off.clearedTo === 0,
-        `${off.clearedTo} left on the bone`);
+        `${off.clearedTo} left on the off-hand bones`);
 
   // --- stance ---------------------------------------------------------------
   // The clips are per weapon stance (Wait_1HS_MFighter and friends). Holding a

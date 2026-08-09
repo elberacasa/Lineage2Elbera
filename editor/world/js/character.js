@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { L2_TO_M } from './coords.js';
 import { equipWeapon, stanceFor } from './equipment.js';
+import { applyArmor, detachArmor } from './armor.js';
 
 const CHAR_HEIGHT = 1.75;      // meters — fallback normalization (~1.7 charcreate)
 
@@ -142,8 +143,28 @@ export class Character {
     // nothing special is needed to keep a shield off a two-hander.
     this.offhand = { object: null, meshId: null };
     this.wantOffhand = 0;
+    // Worn armor: { pieces, key, hidden }, owned by armor.js. Unlike a weapon
+    // this is not an attachment — the pieces are SkinnedMeshes bound to this
+    // character's own skeleton, standing in for the body meshes the base glTF
+    // ships. `wantArmor` survives a model reload for the same reason
+    // `wantWeapon` does: the reload builds a new skeleton and every piece has
+    // to be re-bound to it.
+    this.armor = { pieces: [], key: null };
+    this.wantArmor = null;
     // animation stance the equipped weapon calls for; 'hand' is unarmed
     this.stance = 'hand';
+  }
+
+  // The four armored paperdoll slots, straight off the wire. aCis writes
+  // gloves/chest/legs/feet in both UserInfo and CharInfo and the gateway has
+  // decoded all four since the inventory wave (gameclient.js
+  // readPaperdollItems); nothing consumed them until now.
+  // Safe to call before the model has loaded: the ids are remembered and
+  // applied when load() finishes.
+  setArmor(paperdoll) {
+    this.wantArmor = paperdoll || null;
+    if (!this.model || !this.modelId) return Promise.resolve(null);
+    return applyArmor(this.model, this.modelId, this.wantArmor, this.armor);
   }
 
   // The equipped left-hand item id from the server's paperdoll.
@@ -273,6 +294,13 @@ export class Character {
     this.offhand = { object: null, meshId: null };
     if (this.wantWeapon) equipWeapon(this.model, this.wantWeapon, this.weapon);
     if (this.wantOffhand) equipWeapon(this.model, this.wantOffhand, this.offhand, 'L');
+    // Same reason as the weapon re-hang, one step further: the armor pieces are
+    // bound to the OLD skeleton, which this load has just replaced. Reset the
+    // holder so applyArmor rebuilds and re-binds rather than believing the
+    // cached key still describes what is on screen.
+    detachArmor(this.armor);
+    this.armor = { pieces: [], key: null };
+    if (this.wantArmor) applyArmor(this.model, this.modelId, this.wantArmor, this.armor);
     return this;
   }
 

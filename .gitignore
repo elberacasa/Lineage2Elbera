@@ -34,6 +34,11 @@ editor/cache/
 editor/characters/models/
 editor/characters/models_lq/
 editor/characters/monsters/models/
+# Armor paperdoll build output (tools/mesh/build_armor.py): 638 geometry glTFs
+# and 3,979 diffuse PNGs, 781 MB. Weapons are small enough to track (12 MB);
+# this is not. armor/manifest.json stays tracked, like every other manifest.
+editor/characters/armor/*/
+!editor/characters/armor/manifest.json
 editor/charcreate/verify_shots/
 editor/world/verify_shots/
 

@@ -117,10 +117,12 @@ SUITES=(
 "solo|verify_steps|editor/world|300|verify_steps.js|--check"
 # Browser suites against the dev server only.
 "solo|verify_app|editor/world|300|verify_app.js"
+"solo|verify_armor|editor/world|300|verify_armor.js|--check"
 "solo|verify_audio|editor/world|300|verify_audio.js"
 "solo|verify_bsp|editor/world|600|verify_bsp.js"
 "solo|verify_camera|editor/world|900|verify_camera.js"
 "solo|verify_equipment|editor/world|300|verify_equipment.js"
+"solo|verify_shield|editor/world|300|verify_shield.js|--check"
 "solo|verify_feet|editor/world|1500|verify_feet.js|--check"
 "solo|verify_geodata|editor/world|600|verify_geodata.js"
 "solo|verify_ground|editor/world|1800|verify_ground.js"
