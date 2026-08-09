@@ -1089,3 +1089,36 @@ gate is `tools/battery.sh`. This is the house rule — follow it.
 | Ops runbook (ES) | `docs/README-ADMIN.md`, player guide `docs/GUIA-JUGADORES.md` |
 | aCis packet sources (the real spec) | `server/aCis_gameserver/java/net/sf/l2j/gameserver/network/{server,client}packets/` |
 | Headless verification harnesses | `gateway/test/`, `editor/world/verify_*.js`, `editor/charcreate/verify_app.js`, `tools/src/char_pipeline/render_check.js` |
+
+---
+
+## Skill effects and sounds — decoded 2026-08-09
+
+Committed under `fcf1bad`, whose message covers only the taxonomy lane. Three
+defects, all the project's signature shape: **data correctly decoded, then
+wired to the wrong field.**
+
+1. **Skill sounds were a coin flip, not three phases.** `skillsoundgrp`'s three
+   spell-sound slots are **cast / shot / explosion**; the builder interned all
+   three into one list and the runtime picked at random. Power Strike had a 50/50
+   chance of playing its *impact* sound the instant the gesture began, and the
+   shot sound of **1,092 skills** could never fire at the right moment.
+   Slot→phase is measured, not read off one row: 1,002 of 1,105 populated
+   slot-1 names end `_shot`; 114 of 147 slot-2 names end `_explosion`.
+
+2. **The six gain floats are (volume, radius) PAIRS, not three volumes then
+   three radii.** The blocked reading disagrees with populated-slot presence on
+   **1,254 of 4,194 slots**; the paired reading disagrees on **21**, and on
+   zero for the shot/explosion groups. Decisive: `SoundVolume` is a *byte*
+   property and the blocked reading yields volumes of 600 and 800, which are
+   impossible. Under the old reading **951 shot sounds carried radius 0** —
+   silent under the linear falloff.
+
+3. **`AttachOn` was decoded and then thrown away.** The builder kept only the
+   bone *name*, only for two attach methods, and the runtime never read even
+   that — so every effect hung off the collision-cylinder centre and was
+   re-placed every frame, for life. The enum ordinals were re-verified against
+   the class that declares them, and the retail default proves the 79 actions
+   omitting the field are genuinely "no attachment" rather than unset.
+   Semantic corroboration: the only two left-hand cast actions are the two
+   **shield** skills.
