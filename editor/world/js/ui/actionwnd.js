@@ -49,9 +49,9 @@ const SECTIONS = [
 
 export class ActionWnd {
   constructor(parent = document.body, { onUse } = {}) {
-    const def = Layout.window(WND);
-    this.w = def && def.width ? def.width : 256;
-    this.h = def && def.height ? def.height : 335;
+    const def = Layout.windowSize(WND);
+    this.w = def.w;
+    this.h = def.h;
     this.onUse = onUse || (() => {});
     this.sections = {};   // cat -> { grid: element, count: n }
 
@@ -86,14 +86,13 @@ export class ActionWnd {
       Font.set(head, sec.label, { color: Layout.textColor('ActionWnd', 'txtBasic') });
       win.body.appendChild(head);
 
-      const pos = Layout.pos(WND, sec.item) ?? { x: 18, y: 25 + s * 113 };
-      const size = Layout.size(WND, sec.item) || { w: 219, h: 104 };
+      const pos = Layout.posOf(WND, sec.item);
+      const size = Layout.sizeOf(WND, sec.item);
       const grid = document.createElement('div');
       grid.className = 'l2-action-grid';
       grid.style.cssText = 'position:absolute;display:flex;flex-wrap:wrap;'
         + 'align-content:flex-start;overflow:hidden;pointer-events:auto;';
-      const g = Layout.grid(WND, sec.item)
-        || { cellX: 32, cellY: 32, gapX: 5, gapY: 3 };
+      const g = Layout.gridOf(WND, sec.item);
       const pitchX = g.cellX + g.gapX;                         // 37
 
       // Column count. A row holds n cells when n*cell + (n-1)*gap <= paneW,
@@ -169,6 +168,11 @@ export class ActionWnd {
     // 'Exchange' clipped to 'Exchang e' and 'Walk/Run' to 'Walk/Ru n'.
     const label = document.createElement('div');
     label.className = 'l2-action-label';
+    // EVERY number and the colour in this declaration are AUTHORED, for the
+    // reason stated above: retail drew ICONS in these cells and never drew
+    // text, so no record, texture or instruction in the client governs a
+    // text label here. Sizes were chosen to fit the longest action name in
+    // the 34px slot plus the 5px grid gap; the colour is ours.
     label.style.cssText = 'position:absolute;left:50%;top:50%;'
       + 'transform:translate(-50%,-50%);width:46px;'
       + 'font:8px sans-serif;color:#d8cba6;text-align:center;'

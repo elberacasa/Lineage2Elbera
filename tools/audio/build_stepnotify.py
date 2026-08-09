@@ -193,6 +193,8 @@ BANK_PROPS = {
     "actor": ("DefaultActorWalkSound", "DefaultActorRunSound"),
 }
 
+# SPEC: UE2 property tag -- the low nibble of the info byte is the property
+# type ordinal, 1=Byte 2=Int 3=Bool 4=Float 5=Object (Core/UnObj).
 PROP_BYTE, PROP_INT, PROP_BOOL, PROP_FLOAT, PROP_OBJECT = 1, 2, 3, 4, 5
 
 
@@ -206,7 +208,7 @@ def psa_seqs(path):
     while o < len(d):
         cid = d[o:o + 20].split(b"\0")[0].decode("ascii", "replace")
         dsz, dcnt = struct.unpack("<ii", d[o + 24:o + 32])
-        o += 32
+        o += 32       # SPEC: .psa chunk header is 32 bytes
         chunks[cid] = (o, dsz, dcnt)
         o += dsz * dcnt
     if "ANIMINFO" not in chunks:
@@ -243,6 +245,9 @@ def _try_record(pkg, off, end, want_frames, want_rate):
             return None
         name = pkg.names[ni]
         ng = r.compact()
+        # AUTHORED plausibility bound on the group count while scanning for
+        # the sequence record: a candidate offset that yields more than this
+        # is rejected. Not a format limit -- a search heuristic.
         if not 0 <= ng <= 8:
             return None
         for _ in range(ng):
@@ -253,6 +258,7 @@ def _try_record(pkg, off, end, want_frames, want_rate):
         if frames != want_frames:
             return None
         nn = r.compact()
+        # AUTHORED plausibility bound on the notify count, as above.
         if not 0 <= nn <= 64:
             return None
         notifys = []
@@ -274,6 +280,7 @@ def _try_record(pkg, off, end, want_frames, want_rate):
                 return None
             notifys.append((t, pkg.names[fn], obj))
         rate = r.f32()
+        # AUTHORED float tolerance for matching the .psa's own rate.
         if abs(rate - want_rate) > 1e-4:
             return None
         if r.pos > end:
@@ -399,6 +406,9 @@ def build(stats):
             s["steps"] = sorted(steps)
             action = s["name"].split("_")[0].lower()
             if action in ("walk", "run"):
+                # 2 == one footfall per foot in a walk/run cycle, which is
+                # what the decoded AnimNotify keyframes describe; a clip
+                # that disagrees is what this statistic surfaces.
                 if len(steps) != 2:
                     stats["locomotion_not_two_steps"] += 1
             elif steps:
@@ -411,10 +421,12 @@ def build(stats):
             s = by_name.get(seq_name.lower())
             if not s:
                 return False
+            # two decoded AnimNotify footfalls per cycle, as above
             if len(s["steps"]) != 2:
                 stats["clips_without_two_steps"] += 1
                 return False
             f, rate = s["frames"], s["rate"]
+            # a .psa timeline needs at least 2 frames to have a duration
             if f < 2 or rate <= 0:
                 stats["clips_bad_timeline"] += 1
                 return False
@@ -488,6 +500,7 @@ def check_gltf(doc, stats):
                 if ai.get("count") != c["frames"]:
                     continue
                 mx = (ai.get("max") or [None])[0]
+                # AUTHORED float tolerance, as above.
                 if mx is None or abs(mx - want_last) > 1e-4:
                     continue
                 ok = True

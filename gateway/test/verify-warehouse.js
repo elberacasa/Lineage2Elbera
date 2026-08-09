@@ -57,7 +57,7 @@ const R = {
 let ws;
 function connect() {
   ws = new WebSocket(url);
-  ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
+  ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
   ws.on('open', () => ws.send(JSON.stringify({ op: 'login', deviceId })));
   ws.on('message', async (d) => {
     const m = JSON.parse(d);
@@ -319,6 +319,6 @@ async function talkAndGetLink(id, regex, label) {
     finalAdena === SEED_ADENA - FEE && finalItem && finalItem.count === regItem.count;
   console.log(pass ? 'VERIFY-WAREHOUSE: PASS' : 'VERIFY-WAREHOUSE: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-WAREHOUSE: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-WAREHOUSE: FAIL', e.stack || e.message); process.exit(1); });
 
 setTimeout(() => { console.error('VERIFY-WAREHOUSE: global timeout'); process.exit(1); }, 1500000);

@@ -57,7 +57,7 @@ const R = {
   questLists: [], moves: new Map(), diedIds: new Set(), sysTexts: [],
 };
 const ws = new WebSocket(url);
-ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
+ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
 ws.on('open', () => ws.send(JSON.stringify({ op: 'login', deviceId })));
 ws.on('message', async (d) => {
   const m = JSON.parse(d);
@@ -248,6 +248,6 @@ async function walkTo(target, label, waypoints = WAYPOINTS) {
     !afterAbort.some((e) => e.id === 6);
   console.log(pass ? 'VERIFY-QUEST: PASS' : 'VERIFY-QUEST: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-QUEST: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-QUEST: FAIL', e.stack || e.message); process.exit(1); });
 
 setTimeout(() => { console.error('VERIFY-QUEST: global timeout'); process.exit(1); }, 540000);

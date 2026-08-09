@@ -1,0 +1,241 @@
+{
+ "_note": "Retail default window placement, absolute pixels at 1024x768. \"numeric\" holds the [1]..[8] sections, whose window identity is NOT decoded -- do not map them.",
+ "_source": "assets/interlude/system/WindowsInfo.ini",
+ "_tool": "tools/ui/mine_windowsinfo.py",
+ "docks": {
+  "AbnormalStatusWnd": {
+   "x": 348,
+   "y": 583
+  },
+  "BoardWnd": {
+   "x": 189,
+   "y": 118
+  },
+  "CalculatorWnd": {
+   "x": 384,
+   "y": 278
+  },
+  "DuelManager": {
+   "h": 368,
+   "w": 176,
+   "x": 848,
+   "y": 220
+  },
+  "FishViewportWnd": {
+   "x": 284,
+   "y": 245
+  },
+  "GMInventoryWnd": {
+   "x": 0,
+   "y": 111
+  },
+  "HennaInfoWnd": {
+   "x": 668,
+   "y": 127
+  },
+  "HennaListWnd": {
+   "x": 668,
+   "y": 127
+  },
+  "HeroTowerWnd": {
+   "x": 212,
+   "y": 220
+  },
+  "InventoryWnd": {
+   "x": 722,
+   "y": 127
+  },
+  "MacroEditWnd": {
+   "x": 484,
+   "y": 183
+  },
+  "MacroInfoWnd": {
+   "x": 384,
+   "y": 303
+  },
+  "MacroListWnd": {
+   "x": 384,
+   "y": 183
+  },
+  "MainWnd": {
+   "x": 0,
+   "y": 183
+  },
+  "ManorInfoWnd": {
+   "x": 100,
+   "y": 109
+  },
+  "MinimapWnd": {
+   "x": 16,
+   "y": 63
+  },
+  "MultiSellWnd": {
+   "x": 220,
+   "y": 189
+  },
+  "OlympiadBuff1Wnd": {
+   "x": 0,
+   "y": 49
+  },
+  "OlympiadBuff2Wnd": {
+   "x": 676,
+   "y": 49
+  },
+  "OlympiadPlayer1Wnd": {
+   "x": 0,
+   "y": 0
+  },
+  "OlympiadTargetWnd": {
+   "x": 0,
+   "y": 160
+  },
+  "OptionWnd": {
+   "x": 384,
+   "y": 143
+  },
+  "PartyWnd": {
+   "h": 368,
+   "w": 176,
+   "x": 0,
+   "y": 92
+  },
+  "PartyWndCompact": {
+   "x": 0,
+   "y": 88
+  },
+  "PetStatusWnd": {
+   "h": 46,
+   "w": 176,
+   "x": 0,
+   "y": 88
+  },
+  "PetWnd": {
+   "x": 172,
+   "y": 81
+  },
+  "QuestListWnd": {
+   "x": 212,
+   "y": 241
+  },
+  "RefineryWnd": {
+   "x": 379,
+   "y": 261
+  },
+  "SSQMainBoard": {
+   "x": 384,
+   "y": 204
+  },
+  "ShortcutWndHorizontal": {
+   "x": 347,
+   "y": 722
+  },
+  "ShortcutWndJoypad": {
+   "x": 426,
+   "y": 686
+  },
+  "ShortcutWndJoypadExpand": {
+   "x": 296,
+   "y": 686
+  },
+  "ShortcutWndVertical": {
+   "x": 805,
+   "y": 264
+  },
+  "ShortcutWndVertical_1": {
+   "x": 2411,
+   "y": 792
+  },
+  "ShortcutWndVertical_2": {
+   "x": 4814,
+   "y": 1584
+  },
+  "SiegeInfoWnd": {
+   "x": 0,
+   "y": 204
+  },
+  "SkillTrainInfoWnd": {
+   "x": 384,
+   "y": 183
+  },
+  "SkillTrainListWnd": {
+   "x": 384,
+   "y": 183
+  },
+  "StatusWnd": {
+   "h": 84,
+   "w": 176,
+   "x": 444,
+   "y": 0
+  },
+  "SummonedStatusWnd": {
+   "h": 46,
+   "w": 176,
+   "x": 0,
+   "y": 88
+  },
+  "SummonedWnd": {
+   "x": 172,
+   "y": 81
+  },
+  "TargetStatusWnd": {
+   "h": 46,
+   "w": 176,
+   "x": 337,
+   "y": 0
+  },
+  "TeaserSlideWnd": {
+   "x": 0,
+   "y": 0
+  },
+  "TutorialViewerWnd": {
+   "x": 714,
+   "y": 0
+  },
+  "UnionDetailWnd": {
+   "x": 1400,
+   "y": 940
+  },
+  "UnionWnd": {
+   "x": 200,
+   "y": 108
+  },
+  "UnrefineryWnd": {
+   "x": 379,
+   "y": 261
+  }
+ },
+ "numeric": {
+  "1": {
+   "x": 0,
+   "y": 113
+  },
+  "2": {
+   "x": 0,
+   "y": 113
+  },
+  "3": {
+   "x": 0,
+   "y": 113
+  },
+  "4": {
+   "x": 359,
+   "y": 320
+  },
+  "5": {
+   "x": 347,
+   "y": 768
+  },
+  "6": {
+   "h": 187,
+   "w": 348
+  },
+  "7": {
+   "x": 384,
+   "y": 180
+  },
+  "8": {
+   "x": 345,
+   "y": 187
+  }
+ }
+}

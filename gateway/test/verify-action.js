@@ -104,4 +104,4 @@ function makeClient(name, deviceId) {
     SOCIAL_CASES.every((c) => c.ok) && !leaked;
   console.log(pass ? 'VERIFY-ACTION: PASS' : 'VERIFY-ACTION: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-ACTION: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-ACTION: FAIL', e.stack || e.message); process.exit(1); });

@@ -31,16 +31,29 @@ import { Layout } from './layout.js';
 const DIALOG_W = 360;
 const DIALOG_MAX_H = 420;
 
-const FONT_NAMED_COLORS = {
-  LEVEL: '#c8b98a', BROWN: '#c8b98a', WHITE: '#ffffff', RED: '#ff4040',
-  GREEN: '#40ff40', BLUE: '#4080ff', YELLOW: '#ffff40', ORANGE: '#ff8040',
-};
+// `<font color="...">` — resolved exactly the way the client resolves it.
+//
+// This used to be an eight-entry table of typed colours (LEVEL/BROWN/WHITE/
+// RED/GREEN/BLUE/YELLOW/ORANGE). Seven of those eight names DO NOT EXIST in
+// the client: NCHtmlObject::GetMatchedColor (NWindow.dll 0x100825d0) is the
+// NPC-dialog parser's whole name table, and it compares against exactly one
+// wide string, L"LEVEL" (0x1024dd44 — referenced once in the image), returning
+// the immediate at 0x10082653. Every other name it concatenates after
+// L"0xff" (0x1024dd38) and hands to the numeric parser — i.e. it is only ever
+// treated as a bare hex colour, never as a name.
+//
+// So: the one real name comes from Layout.htmlColor() (decoded by
+// tools/ui/mine_native_colors.py section 5, --check re-reads the DLL), a
+// 6/8-digit hex string is taken as written, and anything else is DROPPED
+// rather than given an invented colour — the text still renders, at the
+// element's inherited colour, which is the honest degrade for a tag whose
+// value the client would have parsed to something we have not decoded.
 const SAFE_COLOR = /^#?[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/;
 
 function safeColor(raw) {
   if (!raw) return null;
   if (SAFE_COLOR.test(raw)) return raw.startsWith('#') ? raw : '#' + raw;
-  return FONT_NAMED_COLORS[raw.toUpperCase()] || null;
+  return Layout.htmlColor(raw);
 }
 
 export class NpcDialog {

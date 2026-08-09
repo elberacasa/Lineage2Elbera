@@ -51,13 +51,65 @@ Invite button, accept, oust through the window); `verify-clan.js` PASS;
 (0 failures — `tools/world/reconvert.log`); `verify_ground` unchanged
 (13 pre-existing borderline cells, same before and after the terrain fixes).
 
-The full health check is one command — **`tools/battery.sh`** (42 suites:
-24 client UI/world suites against the mock gateway, then 18 live-protocol
-suites against the real aCis; `--client-only` / `--gateway-only` to run a
-subset; exit 0 only if everything passes). Run it before claiming anything
-still works. Budget time for it: the gateway half alone takes ~25–40 min —
+The full health check is one command — **`tools/battery.sh`**. As of
+2026-08-08 it runs **108 suites in four sections**, and the section it runs
+is chosen by flag:
+
+| flag | sections | needs |
+|---|---|---|
+| *(none)* | mock + solo + gw + live | everything: dev server, gateway, aCis, MariaDB |
+| `--client-only` | mock + solo | dev server on 8083 only |
+| `--mock-only` | mock (35) | 8083 + the mocks the script starts itself |
+| `--solo-only` | solo (26) | 8083 only |
+| `--gateway-only` | gw (30) | aCis + gateway |
+| `--live-only` | live (17) | aCis + gateway + 8083 |
+| `--no-live` | mock + solo + gw | as above, minus the long browser-vs-real-server suites |
+
+Exit 0 only if every suite that ran passed. Run it before claiming anything
+still works. Budget time: the gateway half alone takes ~25–40 min —
 `verify-shop` scripts a full walk from spawn to the TI town merchant and
-needs ~9 min by itself.
+needs ~9 min by itself. Per-suite output lands in
+`/tmp/elbera_battery/<suite>.log` (override with `BATTERY_LOGDIR`); a FAIL
+row prints its log path.
+
+Two flags exist because of specific failures, and both are cheap:
+
+- **`tools/battery.sh --list`** prints the suite table plus the deliberate
+  exclusions, and **exits nonzero** if any script on disk is in neither list,
+  or if any table row names a file that does not exist. Coverage rotted
+  silently once (53 of 111 scripts were named); this is what stops it.
+- **`tools/battery.sh --selftest`** proves the harness itself, in ~20 s: that
+  a hanging suite is killed at its deadline and reported as a TIMEOUT failure,
+  that the reason is written into the suite's log, that a `mock_gateway.js`
+  port collision exits 98 with a diagnosis instead of dying silently, and that
+  `--list` is clean. It FAILS on the pre-2026-08-08 tree.
+
+**Every suite runs under a hard deadline** (the per-suite `LIMIT` column in
+`--list`; `BATTERY_TIMEOUT` overrides all of them). This is not a nicety: in
+the sweep before this one two suites sat at 0.0% CPU for 7 and 36 minutes and
+the whole run produced **no table at all**. A blown deadline is now a FAIL row
+reading `TIMEOUT (>Ns)`, the suite is killed (along with any orphaned headless
+Chrome), and the sweep continues. Timeouts are never retried — retrying a hang
+only doubles it.
+
+**What the battery still does not cover**, stated so a green run is not
+over-read:
+
+- `verify_loadprofile` — an instrument, not a suite; it prints a profile and
+  has no pass/fail of its own beyond `--check` against a baseline. Results
+  and method: **`docs/load-profile.md`**. Headline, measured 2026-08-09 on
+  Giran: cold `worldReady` **15.4 s**, warm **15.8 s** — a fully primed cache
+  does NOT make it faster, so network transfer is not the critical path.
+  The client's own JS is under 200 ms of that (glTF parse 102 ms, BSP build
+  5 ms, terrain+prop instancing 17 ms); `bspfloor.bin`'s new walk raster is
+  1 request / 9 ms / 0.9% of bytes, and HTTP/1.0's connection-per-asset is
+  worth ~1.7 s serial (~290 ms over six sockets). The per-PHASE breakdown is
+  a documented gap: the instrumented reload times out at 900 s.
+- `verify_hd_closeup` — an A/B screenshot generator that needs a human eye.
+- `verify_skillcast` — needs a SECOND gateway on `:8096`
+  (`GATEWAY_PORT=8096 node gateway/src/server.js`); nothing spawns it yet.
+- `verify_app` and `verify_terrain` are IN the battery but assert nothing (see
+  §5) — they are smoke, not verification.
 
 ---
 
@@ -489,6 +541,16 @@ regenerate with `tools/ui/mine_classicons.py`, guard `--check`).
 > | "umodel cannot export VertMesh" (skill fx) | it can; only a `.3d` decoder is missing |
 > | "all converted outputs are gitignored" (README) | the decoded `.dat` tables are tracked |
 > | the audit's own roll-sign spec for props | an exhaustive sign search found no match for it |
+> | "the renderer is losing props" | the renderer never lost one — `tools/world/convert.py` had never *read* 6,782 of them (below) |
+> | "this prop is missing — the raycast proves it" | the ray was fired at an actor **origin that lies outside its own mesh** (below) |
+> | "curLoad is not forwarded yet" (`js/ui/inventorywnd.js`) | it is — `bridge.js:794` puts it on the charSheet op; comment corrected 2026-08-08 |
+> | verify_m5 / verify_targetwnd "passing" | neither suite asserted anything; both printed a summary and exited 0 regardless (fixed 2026-08-08) |
+> | "alpha is not coverage" (`js/ui/font.js`) | it is. The old comment measured something real — `LargeFont-e`'s alpha field really does sit at 34 rather than 0 — and inferred from it that alpha could not be coverage *anywhere*. Coverage was taken as `max(R,G,B)` instead, which is 255 only on the white glyph core and 0 on every dark outline step, so the retail font's built-in outline was thrown away: 78.1% of retail coverage mass survived for SmallFont and **26.8%** for LargeFont (`verify_text.js` gate B) |
+> | "the battery covers the suites" (`tools/battery.sh`) | it named 53 of the 111 verification scripts on disk. 58 — including **every** `*_live` browser suite, `verify_props`, `verify_feet`, `verify_walksurface`, `verify_bsp`, `verify_pathfinding`, `gateway/test/verify-movement` — were never executed by it (fixed 2026-08-08; `tools/battery.sh --list` now exits nonzero if any script on disk is in neither the run table nor the explicit excluded list, **and** if any table row points at a file that does not exist — one did) |
+> | two suites in the battery "passing" | `verify_app` and `verify_terrain` contain no assertion and never call `process.exit` with a failure code. They are screenshot/report generators; in the battery they could only fail by throwing. Left in (they still catch hard breakage via unhandled rejection) but they are **smoke, not verification** |
+> | "verify_targetwnd cannot pass while a battery holds 8085/8086" (commit a8d0d9b's message, repeated into this wave's brief) | true when written, false now: the suite leases ephemeral ports from the OS and spawns its own mocks. Only its file header still said 8085/8086. **A commit message is a snapshot, not a standing fact** |
+> | "verify_m5 fails with `Cannot read properties of undefined (reading 'click')`" | verify_m5 passes 12/12 standalone against a fresh mock on 8085. The throw is a *symptom of a mock collision*, not a bug in the suite: with the old `mock_gateway.js` a second bind died silently, the page then talked to a mock in another state, ChatWnd's tab strip never came up, and `.find(...).click()` threw on `undefined` |
+> | "HANDOFF describes bspfloor.bin's old single-section format" (this wave's brief) | HANDOFF never described `bspfloor.bin` at all. The contract lives in `tools/world/README.md`, and what was stale there was its **size** claim, not its layout |
 >
 > The pattern in almost every case was the same and is worth naming: a
 > **correct measurement** followed by an **unexamined inference**, written up
@@ -540,6 +602,29 @@ regenerate with `tools/ui/mine_classicons.py`, guard `--check`).
   with the `\x0cSafePackage\x00` trailer.
 - umodel cannot export G16 heightmaps — decode them with l2lib
   (`00 40 80 10` marker).
+- **`assets/world/<tile>/bspfloor.bin` has TWO sections, not one.** Anything
+  that reads section 1 and stops is reading ~6% of the file. Written by
+  `tools/world/bspfloor.py` (`--check` re-derives and compares byte for byte);
+  full contract in `tools/world/README.md`.
+  - **Section 1 `BSPF`** — the 128-unit terrain-vertex raster: `u32` magic,
+    `u16 gridSize` (256), `u16 maxLayers`, `i32 originX, originY`,
+    `i32 spacing` (128), then `gridSize²` records of `u8 count` +
+    `count × i16` floor Z, row-major with `gx` fastest (heightmap.u16 order).
+  - **Section 2 `WALK`** (added 2026-08-08) — the 16-unit walk raster, present
+    only when the tile has geodata: `u32` magic, `i32 fineSpacing` (16),
+    `u16 fineCells`, `u16 blockCells` (8), then `(fineCells/blockCells)²`
+    block records, `bx` fastest: `u8 type` — 0 EMPTY, 1 UNIFORM
+    (`u8 count`, `count × i16`), 2 CELLS (64 × `u8 count`, `count × i16`,
+    cell index `(cy%8)*8 + (cx%8)`). A fine cell **is** the geodata cell
+    (same origin, `floor()` indexing) and its height is the cell CENTRE.
+  - **Measured cost of section 2** (this tree, 100 tiles, `du` on the shipped
+    files): the set is **126.5 MiB**, mean **1,295 KiB**/tile, min 128 KiB
+    (17_24), max 4,449 KiB (23_18). On Giran 22_22 the file is 1,411,751 B of
+    which section 1 is **77,818 B** and section 2 is **1,333,933 B** — an
+    **18.1×** growth for that tile. `tools/world/README.md` still carried the
+    pre-WALK figures ("~83 KB average, 8.3 MB for the set"); corrected
+    2026-08-08. Whether the client should be fetching all of it per tile is
+    an open question, not a settled one — see the load profile.
 
 ### Rendering / models
 
@@ -576,6 +661,85 @@ regenerate with `tools/ui/mine_classicons.py`, guard `--check`).
   fact** (chargrp has 14 records), not a bug.
 - Dungeon tiles 19_16/21_25: all props are below the flat terrain plane —
   correct conversion; the client needs an interior mode, not a converter fix.
+- **Startup cost is GPU-side setup, not fetching or parsing.** Measured
+  2026-08-08 on Giran (22_22) with `editor/world/verify_loadprofile.js`
+  (re-runnable, `--check`) and `verify_shadercount.js`:
+
+  | | cold (empty cache) | warm (cache primed) |
+  |---|---|---|
+  | domContentLoaded | 4,215 ms | 17,648 ms |
+  | first contentful paint | 6,600 ms | 18,160 ms |
+  | world ready / interactive | 158,153 ms | 147,188 ms |
+  | first frame after ready | 184,465 ms | 162,652 ms |
+
+  Warm CPU self-time, by source: `getShaderInfoLog` 42.2 s,
+  `getProgramInfoLog` 26.9 s, `texSubImage2D` 26.3 s, `vertexAttribPointer`
+  14.4 s, `uniformMatrix4fv` 6.7 s — against **glTF parse 324 ms**,
+  `js/terrain.js` **44 ms**, `js/geodata.js` 50 ms, `js/bsp*.js` 15 ms.
+  Network, warm: 3,090 requests / 152 MB decoded, of which prop glTF+bin is
+  **2,680 requests / 112 MB** (the 3×3 neighbourhood, all cache hits,
+  5.8 s of resource wall time).
+
+  Counts for the same load: **19** shader programs, 2,427 distinct
+  materials, 2,100 geometries, 436 textures, **4,059 InstancedMeshes for
+  1,946 placements**, 678 draw calls.
+
+  Three things follow, and the third is the one to be careful about:
+
+  1. Caching buys 7% (158 s → 147 s). Transfer is not the bottleneck.
+  2. Extraction and parsing are noise. The renderer's *setup* is everything:
+     436 texture uploads and 4,059 InstancedMesh buffer/VAO builds.
+  3. **The seconds above are SwiftShader seconds and are NOT the owner's.**
+     42 s of `getShaderInfoLog` for *nineteen* programs is 2.2 s per program
+     — a software-rasterizer artifact; real hardware compiles these in
+     milliseconds. This profile RANKS the phases; it does not predict a real
+     client's wall clock, and it cannot confirm or deny a slowdown the owner
+     sees on his own GPU. Do not quote these numbers as the client's speed.
+
+  On the wave that prompted this: commit 398286c's own text reports 1891
+  placements for 22_22 before its extraction fix; 1,946 are there now, so
+  Giran gained **+55 (+2.9%)**. Against 4,059 InstancedMeshes that is a
+  proportional ~3% on the dominant cost, not a step change — and program
+  count (19) does not scale with prop variety at all, because three.js
+  dedupes programs across materials. So the prop wave is a poor candidate
+  for a *noticeable* slowdown. Caveat, stated rather than buried: the 1891
+  baseline comes from that commit message, not from a file this run read —
+  `scene.json` is gitignored, so there is nothing to diff against.
+- **CORRECTED 2026-08-08 — the renderer was never losing props, and a
+  downward raycast at an actor's origin does NOT prove a prop is missing.**
+
+  What was measured, and still holds: props were genuinely absent in-world
+  (the owner's Giran staircase among them). The count is now 163,953
+  placements across 100 tiles, independently recounted straight from
+  `assets/world/*/scene.json`, up from 157,171 — and every one resolves to
+  a drawable primitive.
+
+  What was inferred and was wrong, twice over:
+
+  1. *"The renderer is dropping them."* It is not. Measured live across 6
+     tiles, every `scene.json` placement that has a gltf becomes an
+     `InstancedMesh` instance — 22_22: 1,891 placements → 7,188 instances,
+     exactly `sum(prims × placements)`, with 0 loader warnings. The loss was
+     entirely upstream in extraction: `find_prop_start()` scored a re-synced
+     parse deeper inside the actor body above the real property list (it can
+     parse cleanly, end exactly at the body end, and carry MORE tags while
+     missing `StaticMesh`), and `Mover` (553) / `MovableStaticMeshActor`
+     (655) were never read at all. The header length was never a mystery —
+     docs 3.1 gives the layout, so it is `2*len(cidx(ClassIndex)) + 13`.
+
+  2. *"This raycast proves the prop is not there."* **This is the trap: an
+     actor's origin is not inside its own mesh.** The evidence that
+     "proved" a phantom prop was a downward ray fired at the actor origin;
+     the mesh in question spans 0.54–3.09 m from that origin along local Z,
+     so the ray passed beside it and hit nothing. A null result from a ray
+     aimed at an origin is evidence about the *origin*, not about the mesh.
+     Aim at the mesh's own world-space bounding box, or count instances
+     directly. The trap is written up again in `verify_props.js`'s header.
+
+  The lesson, same shape as the town floors: "props are missing" was a
+  correct observation; "therefore the renderer is dropping them" was an
+  untested inference, and it sent work into the renderer for a bug that was
+  in the converter.
 - **CORRECTED 2026-08-08 — town floors are NOT dirt.** This entry used to
   read "town floors painted with the base dirt are a retail fact", and it
   was wrong in a way worth understanding, because the mistake is the kind
@@ -619,6 +783,113 @@ regenerate with `tools/ui/mine_classicons.py`, guard `--check`).
 - Parallel agents work in this repo — before overwriting generated files,
   check mtimes; prefer merging over replacing.
 - Killing only the Java process respawns it (loop scripts) — §2.2.
+- **A mock gateway that fails to bind is SILENT, and the suite then talks to
+  the wrong mock.** `editor/world/mock_gateway.js:218-219` constructs the
+  `WebSocketServer` and unconditionally prints `mock gateway on ws://...` on
+  the next line, with no `'error'` listener anywhere in the file. On
+  EADDRINUSE it therefore prints the success banner and dies. This is not
+  hypothetical: `verify_targetwnd` hard-coded ports 8085/8086 — the same two
+  `tools/battery.sh` starts its shared mocks on — so under the battery its
+  own `MOCK_LEVEL=40` mock died, the browser connected to the battery's
+  level-1 mock instead, and the level-40 phase "failed" for a reason nowhere
+  near where anyone was looking. Fixed 2026-08-08 on both sides (the suite
+  now leases ephemeral ports and proves the mock is listening before using
+  it; the battery kills survivors and waits on each port instead of
+  `sleep 2`). **The root cause in `mock_gateway.js` is fixed as of
+  2026-08-08**: there is now a `wss.on('error')` that exits **98** with a
+  diagnosis on EADDRINUSE, and the `mock gateway on ws://...` banner is
+  printed from the `'listening'` event, so it can no longer be emitted by a
+  process that never bound. `tools/battery.sh --selftest` re-proves both.
+
+  This is also what `verify_m5`'s reported
+  `Cannot read properties of undefined (reading 'click')` was: with the mock
+  in the wrong state ChatWnd's tab strip never appeared, so
+  `[...querySelectorAll('#chat-tabs .chat-tab')].find(...)` returned
+  `undefined` and `.click()` threw. The suite is fine — it passes 12/12
+  standalone and in the battery. **Read a `.find(...).<method>()` throw as
+  "the thing I was looking for was not there", and go find out why it was
+  not there.**
+- **A protocol change silently rots every suite that matched on the old op.**
+  Commit `a8d0d9b` split one conflated `move` op into `move` / `teleport` /
+  `validate`. Two suites kept recording only `move` into their position map
+  and then waited for an `admin_teleport` to show up there —
+  `gateway/test/verify-clan.js:55` and
+  `editor/world/verify_clanwnd_live.js:52`. Neither had failed *loudly*: they
+  timed out inside a `waitFor` on a phase called "A teleported near Bitz",
+  which reads like a server problem. Both fixed 2026-08-08 (they now record
+  `teleport` and `validate` too). When you change an op in `bridge.js`,
+  `grep -rn "op === '<old>'" gateway/test editor/world`.
+- **Do not read a suite's exit code as evidence it checked anything.** Two of
+  the battery's suites printed a JSON summary and exited 0 unconditionally —
+  they could only fail by throwing. `verify_m5` was "passing" while pressing
+  keys that had been unbound for a wave (bare `KeyC`/`KeyI`, when the retail
+  keymap had moved to Alt+T/Alt+V) and reading stack counts out of
+  `textContent` when the bitmap font puts them on `__l2text`. When you touch
+  a suite, check that it can actually fail. Still true today for `verify_app`
+  and `verify_terrain` (they contain no assertion at all), and three suites —
+  `verify_text`, `verify_audio_coverage`, `verify_creature_anims` — exit 0
+  unless you pass `--check`, which is why the battery now passes it.
+- **A `/command` the chat parser does not recognise is SWALLOWED, and that can
+  make a product feature unreachable.** `js/chat.js:434-437` answers any
+  unmatched `/x` with "Unknown command: /x" and returns — correct behaviour in
+  itself (retail parses commands client-side). But `_submit`'s trade rule at
+  `js/chat.js:410` only matches `/trade <message>`; bare `/trade` matches
+  nothing, so it never reaches `js/main.js:480`, whose `if (text === '/trade')`
+  is the retail trade-invite on the current target. That branch is DEAD CODE
+  today: measured 2026-08-08 with Aria targeted (`combat.target =
+  {id:80001,name:'Aria'}`, entity kind `player`) — typing `/trade` produced the
+  chat line "Unknown command: /trade" and no `tradeRequest` op. `verify_tradewnd`
+  has been failing on exactly this; the suite is right.
+- **Suites can assert values the port has since deliberately DELETED.**
+  `verify_skillanim.js` still requires four authored skill sprites — a
+  `#ffc060` slash, a `#6fd8ff` bolt, a hit flash, an `#86f0b0` aura. Those were
+  invented placeholders; `js/skills.js:300-333` documents their removal in
+  favour of the decoded retail tables (`js/skillvfx.js`, which
+  `verify_skillvfx` passes on). The suite is now a tripwire holding the port to
+  invented colours. Its clip assertions (`spAtk01`, `dance`) are still right and
+  still pass. Fix the FX half against `skillvfx.json`, or drop it — do not
+  re-add the sprites to make it green.
+- **"0.0% CPU with an empty log" is NOT proof of a deadlock.** Several suites
+  buffer everything into one `console.log` at the very end.
+  `verify_pathfinding` takes **13 minutes** standalone and prints nothing until
+  the last second — measured 2026-08-09, it exits cleanly with a full summary.
+  It was killed by a 420 s deadline in the sweep before that and read as a
+  hang. Its limit is now 2400 s. Before calling a silent suite hung, run it
+  alone and let it finish. A genuine hang looks different, and there is one:
+  `verify_remoteanim` printed its **complete** JSON summary — its last
+  statement — and then never exited, twice out of three runs, with
+  `browser.close()` already awaited. 58 of the browser suites have no explicit
+  `process.exit(0)`, so any puppeteer handle that outlives `close()` parks the
+  process forever.
+- **A suite that hangs used to take the whole sweep with it.** Two suites once
+  sat at 0.0% CPU for 7 and 36 minutes and the run produced no table at all.
+  Every suite in `tools/battery.sh` now has a deadline and a watchdog; a hang
+  is a `FAIL ... TIMEOUT (>Ns)` row and the sweep continues. If you add a
+  suite, add its row (with a limit ~3x its observed runtime) —
+  `tools/battery.sh --list` exits nonzero if you do not.
+- **The browser client no longer auto-enters the world on a fresh device.**
+  `js/main.js:359-364`: with character creation enabled (the default), the
+  client sends `login{noAutoCreate:true}`, so a brand-new deviceId gets
+  `auth_ok{chars:[]}` and the creation overlay opens and WAITS. Six live suites
+  still boot `http://127.0.0.1:8083/` with no `?cc=0` and a fresh profile or a
+  fresh deviceId, so `enterWorld` never arrives and they die on a 120 s wait
+  that looks like a server problem: `verify_live.js:25`,
+  `verify_abnormal_live.js:14`, `verify_actionwnd_live.js`,
+  `verify_minimap_live.js`, `verify_partywnd_live.js`, `verify_questwnd_live.js`
+  (and the same shape in `verify_storewnd_live` / `verify_tradewnd_live` /
+  `verify_shopwnd_live` / `verify_skilldepth_live`). The suites that PASS are
+  exactly the ones with a PINNED deviceId whose character already exists
+  (`verify_soulshot`, `verify_equipswap`, `verify_invchatwnd_live`,
+  `verify_warehousewnd_live`) or that use `?cc=0` (`verify_clanwnd_live:21`).
+  `main.js:359` even says "?cc=0 opts back into the legacy auto-create (kept for
+  the older suites)" — these are those suites, never updated.
+- **The battery's own mocks can be killed under it by another agent's shell.**
+  Measured 2026-08-08: the 8086 and 8087 mocks died partway through a mock
+  section and `verify_charcreate`, `verify_charsel` and `verify_selfmodel` all
+  went PASS -> FAIL on a 20 s wait; all three passed standalone minutes later.
+  `tools/battery.sh` now re-checks all three ports before EVERY mock-section
+  suite and prints a loud `!!` block if it had to restart one — treat the row
+  under that block as suspect.
 
 ---
 
@@ -685,12 +956,18 @@ The real remaining backlog, in order:
 5. **Server ops backlog** (`docs/README-ADMIN.md` §8): rate balancing after
    playtest, backup automation, VPS migration (§7 of that doc — ports,
    hostnames, player patch, guide placeholders).
-6. **Onboarding + movement depth** (from the 2026-08-02 live audit):
-   aCis TutorialShowHtml-family packets are unparsed at the gateway (no
-   tutorial reaches the browser; the Newbie Helper dialog is a dead-end
-   text box); no client-side pathfinding — far clicks walk straight-line
-   legs and stop at geometry (loudly now, but still stuck); char-select
-   screen for multi-char accounts (today: first slot auto-enters).
+6. ~~**Onboarding + movement depth**~~ (from the 2026-08-02 live audit) —
+   **DONE 2026-08-07**, commit 25d6bec "Wave 3: geodata pathfinding,
+   tutorial bridge, character select". All three items this entry listed as
+   missing now exist and are gated: the TutorialShowHtml family is parsed
+   and bridged (`gateway/src/gameclient.js:255-274, 881`; suite
+   `gateway/test/verify-tutorial.js`, in the battery); click-to-move runs a
+   budgeted coarse A* over the geodata NavGrid (`js/geodata.js:296-330`;
+   suite `verify_pathfinding.js`, NOT in the battery — see §1); and
+   multi-char accounts get a select screen (`verify_charsel.js`, in the
+   battery). Left over from the same audit and still open: the Newbie
+   Helper dialog itself was only ever a text box, so re-check it end to end
+   before assuming the tutorial bridge made it useful.
 7. **Later**: Seven Signs catacomb tiles (16_12/18_10/19_10/20_10), KTX2
    compression, WebGPU eval, mobile layout.
 
@@ -718,6 +995,7 @@ gate is `tools/battery.sh`. This is the house rule — follow it.
 | .unr/map format lore | `docs/map-format.md`, `docs/tile-map.md` |
 | .dat schemas | `docs/dat-format-notes.md` |
 | Ground-truth oracle | `docs/ground-truth.md` |
+| **Where startup time goes (measured, Giran)** | **`docs/load-profile.md`** |
 | Format library (use this for new parsers) | `tools/l2lib/` (+ its README, tests) |
 | Server build + custom mods | `server/BUILD-NOTES.md` |
 | Ops runbook (ES) | `docs/README-ADMIN.md`, player guide `docs/GUIA-JUGADORES.md` |

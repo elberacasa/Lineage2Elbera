@@ -58,21 +58,20 @@ export function skillType(id, passiveFlag) {
 
 export class SkillWnd {
   constructor(parent = document.body, { onCast } = {}) {
-    const def = Layout.window(WND);
-    this.w = def && def.width ? def.width : 256;
-    this.h = def && def.height ? def.height : 335;
+    const def = Layout.windowSize(WND);
+    this.w = def.w;
+    this.h = def.h;
     this.onCast = onCast || (() => {});
     this.skills = [];
     this.tab = 'active';
     this._activeToggles = new Set();   // skill ids with a live toggle buff
     this._weaponGate = null;           // WeaponGate (js/weapongate.js)
 
-    const pane = Layout.size(WND, 'ASkill') || { w: 239, h: 280 };
+    const pane = Layout.sizeOf(WND, 'ASkill');
     this.pane = pane;
     this.cellArt = Skin.content(CELL_REF);
     const cellArt = this.cellArt;
-    const grid = Layout.grid(WND, 'SkillItem')
-      || { cellX: 32, cellY: 32, gapX: 5, gapY: 3 };
+    const grid = Layout.gridOf(WND, 'SkillItem');
     this.cellIcon = grid.cellX;                       // 32 icon
     this.pitch = { x: grid.cellX + grid.gapX, y: grid.cellY + grid.gapY };  // 37 x 35
     this.cell = cellArt ? cellArt.w : this.cellIcon + 2;   // 34 slot art
@@ -86,12 +85,12 @@ export class SkillWnd {
     this.root = win.root;
 
     // --- tab strip (Active | Passive), skinned from the xdat's TabCtrl ---
-    const tabSize = Layout.size(WND, 'TabCtrl') || { w: 189, h: 23 };
+    const tabSize = Layout.sizeOf(WND, 'TabCtrl');
     const tabs = document.createElement('div');
     tabs.style.cssText = 'position:absolute;display:flex;';
     // MINED (docs/ui-mined-values.md §3): TabCtrl at (12,8). Fallback keeps
     // the previous AUTHORED offset if the lookup ever fails.
-    const tabPos = Layout.pos(WND, 'TabCtrl') ?? { x: 6, y: 4 };
+    const tabPos = Layout.posOf(WND, 'TabCtrl');
     tabs.style.left = `${Skin.px(tabPos.x)}px`;
     tabs.style.top = `${Skin.px(tabPos.y)}px`;
     tabs.style.height = `${Skin.px(tabSize.h)}px`;
@@ -113,7 +112,7 @@ export class SkillWnd {
     }
 
     // --- the two panes ---
-    const panePos = Layout.pos(WND, 'ASkill') ?? { x: 6, y: tabPos.y + tabSize.h + 9 };
+    const panePos = Layout.posOf(WND, 'ASkill');
     this.panes = {};
     for (const key of ['active', 'passive']) {
       const p = document.createElement('div');
@@ -265,6 +264,9 @@ export class SkillWnd {
       // toggles are active but behave differently; mark them
       if (type === 'TOGGLE') {
         const dot = document.createElement('div');
+        // AUTHORED marker, size and colour both: MagicSkillWnd.uc keeps
+        // toggles in their own pane rather than marking them in place, so
+        // retail has no such dot and no record or texture describes one.
         dot.style.cssText = 'position:absolute;left:1px;top:1px;'
           + 'width:5px;height:5px;border-radius:50%;background:#7fd8e8;'
           + 'box-shadow:0 0 3px #000;';

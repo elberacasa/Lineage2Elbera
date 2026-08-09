@@ -57,9 +57,9 @@ export class MenuWnd {
   constructor(parent = document.body, { onAction } = {}) {
     this.onAction = onAction || (() => {});
     const WND = 'MenuWnd';
-    const def = Layout.window(WND);
-    this.w = def && def.width ? def.width : 173;
-    this.h = def && def.height ? def.height : 46;
+    const def = Layout.windowSize(WND);
+    this.w = def.w;
+    this.h = def.h;
 
     const root = document.createElement('div');
     root.id = 'l2-menuwnd';
@@ -147,6 +147,8 @@ export class MenuWnd {
     const el = this.root;
     el.style.left = 'auto';
     el.style.top = 'auto';
+    // AUTHORED dock: WindowsInfo.ini has no [MenuWnd] section, so nothing
+    // in the client says where this opens. Bottom-right, 8px off both edges.
     el.style.right = '8px';
     el.style.bottom = '8px';
   }
@@ -165,9 +167,9 @@ export class SystemMenuWnd {
   constructor(parent = document.body, { onAction } = {}) {
     this.onAction = onAction || (() => {});
     const WND = 'SystemMenuWnd';
-    const def = Layout.window(WND);
-    this.w = def && def.width ? def.width : 172;
-    this.h = def && def.height ? def.height : 295;
+    const def = Layout.windowSize(WND);
+    this.w = def.w;
+    this.h = def.h;
 
     const root = document.createElement('div');
     root.id = 'l2-systemmenuwnd';
@@ -199,10 +201,10 @@ export class SystemMenuWnd {
     const rows = SYSMENU_ROWS;
     this.buttons = {};
     rows.forEach((r) => {
-      const bp = Layout.pos(WND, r.id) || { x: 13, y: 29 };
-      const bs = Layout.size(WND, r.id) || { w: 36, h: 36 };
+      const bp = Layout.posOf(WND, r.id);
+      const bs = Layout.sizeOf(WND, r.id);
       const lp = Layout.pos(WND, 'txt' + r.id.slice(3)) || null;
-      const ls = Layout.size(WND, 'txt' + r.id.slice(3)) || { w: 121, h: 25 };
+      const ls = Layout.sizeOf(WND, 'txt' + r.id.slice(3));
 
       const btn = document.createElement('div');
       btn.className = 'sysmenu-btn' + (r.enabled ? '' : ' disabled');
@@ -225,7 +227,9 @@ export class SystemMenuWnd {
       this.buttons[r.id] = btn;
 
       const label = document.createElement('div');
-      const lx = lp ? lp.x : bp.x + bs.w + 2;
+      // AUTHORED 2px gutter, used only when the label control has no record
+    // of its own; every txt* control in the xdat does have one.
+    const lx = lp ? lp.x : bp.x + bs.w + 2;
       const ly = lp ? lp.y : bp.y;
       label.style.cssText = `position:absolute;left:${Skin.px(lx)}px;`
         + `top:${Skin.px(ly)}px;width:${Skin.px(ls.w)}px;height:${Skin.px(ls.h)}px;`
@@ -254,6 +258,9 @@ export class SystemMenuWnd {
     const el = this.root;
     el.style.right = 'auto';
     el.style.bottom = 'auto';
+    // AUTHORED: WindowsInfo.ini has no [SystemMenuWnd] section. Centred,
+    // which is where retail's modal system menu appears in play footage but
+    // is not a value anything in the client states.
     el.style.left = `calc(50% - ${Skin.px(this.w) / 2}px)`;
     el.style.top = `calc(50% - ${Skin.px(this.h) / 2}px)`;
   }

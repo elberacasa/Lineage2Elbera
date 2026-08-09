@@ -71,21 +71,21 @@ const SLOTS_PER_PAGE = 12;    // ShortcutWnd.uc:4
 // Slot positions: EXACT, from the xdat's nested slot records
 // (docs/ui-mined-native.md §1c — all 12 slots are declared as variants
 // inside Shortcut1's span; earlier notes said only Shortcut1 exists, which
-// the deeper decode disproved). SOURCED table:
+// the deeper decode disproved):
 //   slot  1   2   3   4  |  5    6    7    8  |  9    10   11   12
 //   pos  32  69  106 143 | 185  222  259  296 | 338  375  412  449
 // pitch 37 (36px slot + 1px) with a +5px separator after slots 4 and 8,
 // grouping the bar 4|4|4. Vertical mirrors: (5,32) first slot.
 //
-// These are now FALLBACKS only. The same twelve origins, the same 4|4|4
-// stepping and the 36px slot are re-derived from the background art by
-// tools/ui/mine_shortcutslots.py and read through Layout.shortcutArt() —
-// which is what proves the table: the art's own twelve wells reproduce it
-// independently of the record decode, in both orientations.
-const SLOT_X = [32, 69, 106, 143, 185, 222, 259, 296, 338, 375, 412, 449];
-const SLOT_Y = [32, 69, 106, 143, 185, 222, 259, 296, 338, 375, 412, 449];
-const SLOT = 36;
-const SLOT_Y0 = 5, SLOT_V_X0 = 5;
+// Those twelve numbers used to be duplicated into this file as SLOT_X /
+// SLOT_Y / SLOT / SLOT_Y0 / SLOT_V_X0 "fallbacks". They are gone. The same
+// twelve origins, the same 4|4|4 stepping and the 36px slot are re-derived
+// from the background art by tools/ui/mine_shortcutslots.py, shipped in
+// editor/world/ui/shortcutslots.json and READ through Layout.shortcutArt() —
+// which is what proves the table: the art's own twelve wells reproduce the
+// record decode independently, in both orientations. If that harvest is ever
+// missing the bar draws no slots and says so, rather than laying them out
+// from a copy nobody re-derived.
 
 const ALLOWED_TYPES = new Set(['skill', 'item', 'action']);
 
@@ -128,9 +128,9 @@ export class ShortcutWnd {
 
     const H = 'ShortcutWnd';
     this.H = H;
-    const def = Layout.size(H, 'ShortcutWndHorizontal') || { w: 504, h: 46 };
+    const def = Layout.sizeOf(H, 'ShortcutWndHorizontal');
     this.w = def.w; this.h = def.h;
-    const vdef = Layout.size(H, 'ShortcutWndVertical') || { w: 46, h: 504 };
+    const vdef = Layout.sizeOf(H, 'ShortcutWndVertical');
     this.vw = vdef.w; this.vh = vdef.h;
     // Background placement per orientation, MEASURED from the art
     // (tools/ui/mine_shortcutslots.py — see the header). Null when the
@@ -337,6 +337,9 @@ export class ShortcutWnd {
       // first, icon layered on top only if the png resolves (same degrade
       // as ActionWnd's cells)
       const label = document.createElement('div');
+      // AUTHORED size and colour: same case as ActionWnd's cells -- retail
+      // drew the action ICON here and never any text, so nothing in the
+      // client governs a label's font or colour.
       label.style.cssText = 'position:absolute;inset:0;font:8px sans-serif;'
         + 'color:#d8cba6;text-align:center;line-height:9px;overflow:hidden;'
         + 'display:flex;align-items:center;justify-content:center;'
@@ -376,16 +379,18 @@ export class ShortcutWnd {
   _renderRow(host, page, vertical, subName) {
     const slots = this.data[page] || {};
     const art = this._art(vertical);
-    // MEASURED (mine_shortcutslots.py): the icon fills the well's 32px
-    // interior, inset 2px inside the 36px slot rect. Falls back to filling
-    // the whole rect when the harvest is absent.
-    const inset = art ? art.iconInset : 0;
-    const cell = art ? art.iconCell : SLOT;
-    // the constant short-axis origin (Shortcut1's y horizontal / x vertical)
-    // Shortcut1's constant short-axis origin: y horizontal, x vertical. Same
-    // number (5) in both, which is why one field covers both.
-    const short = art ? art.slotShort : (vertical ? SLOT_V_X0 : SLOT_Y0);
-    const table = art ? art.slotOrigins : (vertical ? SLOT_Y : SLOT_X);
+    // No harvest -> no slots. Every number below (the 36px slot rect, the
+    // 32px icon cell inside it, the 2px inset, the constant short-axis
+    // origin and the twelve long-axis origins) is MEASURED off the
+    // background art by tools/ui/mine_shortcutslots.py; none of them has an
+    // honest substitute, so the row degrades to empty instead.
+    if (!art) return;
+    const inset = art.iconInset;
+    const cell = art.iconCell;
+    // Shortcut1's constant short-axis origin: y horizontal, x vertical. The
+    // art gives the same number for both, which is why one field covers both.
+    const short = art.slotShort;
+    const table = art.slotOrigins;
     for (let i = 0; i < SLOTS_PER_PAGE; i++) {
       const el = document.createElement('div');
       el.className = 'shortcut-slot' + (slots[i] ? '' : ' empty');
@@ -539,7 +544,9 @@ export class ShortcutWnd {
     });
     this.root.appendChild(bar);
 
-    // expanded: two more rows above (ShortcutWndHorizontal_1/_2 layouts)
+    // expanded: two more rows above, because ShortcutWndHorizontal_1 and _2
+    // are the only expanded-row sub-windows Interface.xdat declares --
+    // and WindowsInfo.ini agrees, carrying _1/_2 and nothing beyond.
     if (this.expanded && !vertical) {
       for (let r = 2; r >= 1; r--) {
         const row = this._renderBar({
@@ -553,6 +560,7 @@ export class ShortcutWnd {
     }
 
     const totalW = vertical ? this.vw : this.w;
+    // 3 rows = the main bar plus the two the xdat declares (see render()).
     const totalH = vertical ? this.vh : this.h * (this.expanded ? 3 : 1);
     this.root.style.width = `${Skin.px(totalW)}px`;
     this.root.style.height = `${Skin.px(totalH)}px`;
@@ -661,17 +669,20 @@ export class ShortcutWnd {
     }
   }
 
-  /** WndMgr reset: SOURCED docks — WindowsInfo.ini [ShortcutWndHorizontal]
-   *  posX=347 posY=722 / [ShortcutWndVertical] posX=805 posY=264, absolute
-   *  retail px at 1024x768 (Skin.px applies the uiScale; no proportional
-   *  rescale — retail doesn't scale UI with resolution). */
+  /** WndMgr reset: the dock is READ from the client's own WindowsInfo.ini
+   *  ([ShortcutWndHorizontal] / [ShortcutWndVertical]) through Layout.dock(),
+   *  in absolute retail px at 1024x768 — Skin.px applies the uiScale, and
+   *  retail does not scale its UI with resolution. If the harvest is missing
+   *  the bar keeps its current spot rather than jumping to a typed one. */
   onDefaultPosition() {
     const el = this.root;
+    const d = Layout.dock(this.vertical
+      ? 'ShortcutWndVertical' : 'ShortcutWndHorizontal');
+    if (!d) return;
     el.style.right = 'auto';
     el.style.bottom = 'auto';
-    const d = this.vertical ? { left: 805, top: 264 } : { left: 347, top: 722 };
-    el.style.left = `${Skin.px(d.left)}px`;
-    el.style.top = `${Skin.px(d.top)}px`;
+    el.style.left = `${Skin.px(d.x)}px`;
+    el.style.top = `${Skin.px(d.y)}px`;
   }
 
   place(o = {}) {

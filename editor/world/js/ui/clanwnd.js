@@ -72,11 +72,13 @@ const COLOR_SELF = '#ffffff';        // ClanWnd.uc:1175-1177 BrightWhite
 // ListCtrl "ClanInfo" schema, mined from the xdat record (see header):
 // header dwords (100,6,1,19,19) then per column (sysid, width, ...).
 const ROW_H = 19;                    // SOURCED: schema row height
+// Each id is a sysstring key; each width is the column width the same
+// ListCtrl schema record carries. Both are decoded, neither is chosen.
 const COLUMNS = [
-  { sysid: 50, w: 127 },             // 'Name'
-  { sysid: 537, w: 30 },             // 'Lv'
-  { sysid: 391, w: 30 },             // 'Cls'
-  { sysid: 346, w: 50 },             // 'Status'
+  { sysid: 50, w: 127 },             // sysstring 'Name'
+  { sysid: 537, w: 30 },             // sysstring 'Lv'
+  { sysid: 391, w: 30 },             // sysstring 'Cls'
+  { sysid: 346, w: 50 },             // sysstring 'Status'
 ];
 const ICON_CLASS = { w: 11, h: 11 }; // SOURCED: uc:1292-1293 nTextureWidth/Height
 const ICON_ONLINE = { w: 31, h: 11 }; // SOURCED: uc:1294-1295
@@ -102,7 +104,7 @@ const BUTTONS = [
 ];
 
 const SYS_AGIT_NONE = 27;            // uc:938 Clear() default
-const SYS_GROUP_MAIN = 1399;         // uc:1594 combobox group name
+const SYS_GROUP_MAIN = 1399;         // sysstring id, ClanWnd.uc:1594 combobox group name
 
 export class ClanWnd {
   constructor(parent = document.body,
@@ -120,9 +122,9 @@ export class ClanWnd {
     this._strings = null;            // sysstring.json (id -> text)
     this._icons = null;              // classicons.json
 
-    const def = Layout.window(WND);
-    this.w = def && def.width ? def.width : 256;
-    this.h = def && def.height ? def.height : 335;
+    const def = Layout.windowSize(WND);
+    this.w = def.w;
+    this.h = def.h;
 
     const win = new L2Window({
       title: 'Clan', width: this.w, height: this.h, closable: true,
@@ -150,8 +152,8 @@ export class ClanWnd {
     this.countEl = this._text('ClanCurrentNum', '');
 
     // --- group combobox: one entry, no dropdown (DEVIATION — see header) ---
-    const cbPos = Layout.pos(WND, 'ComboboxMainClanWnd') ?? { x: 10, y: 61 };
-    const cbSize = Layout.size(WND, 'ComboboxMainClanWnd') || { w: 188, h: 19 };
+    const cbPos = Layout.posOf(WND, 'ComboboxMainClanWnd');
+    const cbSize = Layout.sizeOf(WND, 'ComboboxMainClanWnd');
     this.comboEl = document.createElement('div');
     this.comboEl.style.cssText = 'position:absolute;display:flex;'
       + 'align-items:center;pointer-events:none;'
@@ -160,8 +162,8 @@ export class ClanWnd {
     win.body.appendChild(this.comboEl);
 
     // --- member list: header row + scrollable rows over the ListCtrl rect ---
-    const listPos = Layout.pos(WND, 'ClanMemberList') ?? { x: 10, y: 82 };
-    const listSize = Layout.size(WND, 'ClanMemberList') || { w: 237, h: 137 };
+    const listPos = Layout.posOf(WND, 'ClanMemberList');
+    const listSize = Layout.sizeOf(WND, 'ClanMemberList');
     const listEl = document.createElement('div');
     listEl.style.cssText = 'position:absolute;pointer-events:auto;'
       + `left:${Skin.px(listPos.x)}px;top:${Skin.px(listPos.y)}px;`
@@ -180,7 +182,7 @@ export class ClanWnd {
     this._btns = new Map();
     for (const b of BUTTONS) {
       const pos = Layout.pos(WND, b.id);
-      const size = Layout.size(WND, b.id) || { w: 76, h: 23 };
+      const size = Layout.sizeOf(WND, b.id);
       if (!pos) continue;
       const el = document.createElement('div');
       el.dataset.btn = b.id;
@@ -227,8 +229,11 @@ export class ClanWnd {
     this._render();
   }
 
-  _text(ctrl, initial, color = '#dcdcdc') {
-    const pos = Layout.pos(WND, ctrl) ?? { x: 0, y: 0 };
+  // Default colour: NCTextBox's own field-0x348 initialiser, decoded from
+  // NWindow.dll (Layout.native('textBoxDefault')). Callers that name a
+  // control with its own xdat colour pass Layout.textColor() instead.
+  _text(ctrl, initial, color = Layout.native('textBoxDefault')) {
+    const pos = Layout.posOf(WND, ctrl);
     const el = document.createElement('div');
     el.style.cssText = 'position:absolute;pointer-events:none;'
       + `left:${Skin.px(pos.x)}px;top:${Skin.px(pos.y)}px;`;
@@ -460,8 +465,12 @@ export class ClanWnd {
       + `left:${Skin.px(8)}px;display:flex;gap:8px;`;
     const mk = (label, accept) => {
       const b = document.createElement('div');
+      // Size comes from the button art's own content rect. No art, no
+      // button: a typed 49x23 would be a second, unverified copy of a
+      // measurement the sprite already carries.
       const art = Skin.content('L2UI_CH3.Button.SmallButton1');
-      const w = art ? art.w : 49, h = art ? art.h : 23;
+      if (!art) return null;
+      const w = art.w, h = art.h;
       b.style.cssText = `width:${Skin.px(w)}px;height:${Skin.px(h)}px;`
         + 'display:flex;align-items:center;justify-content:center;cursor:pointer;';
       Skin.apply(b, 'L2UI_CH3.Button.SmallButton1', { stretch: true });

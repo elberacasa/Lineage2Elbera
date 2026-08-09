@@ -34,9 +34,11 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 DLL = os.path.join(REPO, "assets/interlude/system/NWindow.dll")
 OUT = os.path.join(REPO, "assets/gamedata/classicons.json")
 
-CLASSIFIER_VA = 0x10147480   # classId -> case 0..15
-CLASSIFIER_END = 0x101477D4  # xorl %eax,%eax ; retl $0x4  (default block)
-JUMPTABLE_VA = 0x1014EC38    # 16 case addresses
+# All three addresses are decoded from NWindow.dll and re-asserted by the
+# --check gate below; none is a number chosen here.
+CLASSIFIER_VA = 0x10147480   # decoded: classId -> case 0..15
+CLASSIFIER_END = 0x101477D4  # decoded: xorl %eax,%eax ; retl $0x4 (default block)
+JUMPTABLE_VA = 0x1014EC38    # decoded: 16 case addresses
 ICON_REF = re.compile(r"^L2UI_CH3\.PartyWnd\.party_styleicon[1-7](_[123])?$")
 
 
@@ -50,6 +52,7 @@ class Pe:
         self.secs = []
         off = pe + 0x18 + soh
         for i in range(nsec):
+            # SPEC: PE/COFF -- IMAGE_SECTION_HEADER is 40 bytes.
             o = off + i * 40
             vsize, vaddr, rsize, raddr = struct.unpack_from("<IIII", self.data, o + 8)
             self.secs.append((self.imgbase + vaddr, vsize, raddr, rsize))
@@ -66,6 +69,7 @@ class Pe:
     def ustr(self, va):
         o = self.off(va)
         s = b""
+        # SPEC: a UTF-16LE string is 2 bytes per code unit, NUL-terminated.
         while self.data[o:o + 2] != b"\x00\x00":
             s += self.data[o:o + 2]
             o += 2
@@ -82,6 +86,8 @@ def disasm(start, end):
     for line in out.splitlines():
         m = re.match(r"\s*([0-9a-f]+):\s+(?:[0-9a-f]{2} )+\s*(\S+)\s*(.*)", line)
         if m:
+            # SPEC: objdump prints addresses and immediates in base 16;
+            # groups 1/2/3 are address, mnemonic, operands.
             ins.append((int(m.group(1), 16), m.group(2), m.group(3).strip()))
     return ins
 
@@ -90,13 +96,15 @@ def mine(pe):
     # --- the 16 icon refs, via the jump table (each case is movl $strVA, %eax)
     icons = []
     for i in range(16):
-        case = pe.dword(JUMPTABLE_VA + i * 4)
+        case = pe.dword(JUMPTABLE_VA + i * 4)   # SPEC: 32-bit jump-table entry
         o = pe.off(case)
+        # decoded: every case block starts `mov eax,<imm32>` (opcode 0xB8)
         assert pe.data[o] == 0xB8, f"case {i}: expected movl at {hex(case)}"
         str_va = struct.unpack_from("<I", pe.data, o + 1)[0]
         ref = pe.ustr(str_va)
         assert ICON_REF.match(ref), f"case {i}: unexpected icon ref {ref!r}"
         icons.append(ref)
+    # decoded: the jump table has 16 entries, one per class-icon texture
     assert len(set(icons)) == 16, "icon refs are not 16 distinct textures"
 
     # --- the classId -> case map, by following every cmp/branch in the chain
@@ -109,7 +117,8 @@ def mine(pe):
             return 0
         assert mn == "movl" and op.startswith("$"), \
             f"unexpected block at {hex(addr)}: {mn} {op}"
-        val = int(op.split(",")[0][1:], 16)
+        val = int(op.split(",")[0][1:], 16)   # SPEC: objdump immediate, base 16
+        # decoded: the switch has cases 0..15, matching the 16-entry table
         assert 0 <= val <= 15, f"block value out of range: {val}"
         return val
 
@@ -117,11 +126,14 @@ def mine(pe):
     for i, (a, mn, op) in enumerate(ins):
         if mn != "cmpl" or not (op.startswith("$") and op.endswith(", %eax")):
             continue
-        cid = int(op.split(",")[0][1:], 16)
+        cid = int(op.split(",")[0][1:], 16)   # SPEC: objdump immediate, base 16
         naddr, nmn, nop = ins[i + 1]
         if nmn == "je":
+            # SPEC: objdump address, base 16
             classes[cid] = block_val(int(nop.split()[0], 16))
         elif nmn == "jne":  # a match falls through to the block right after
+            # decoded: the compare is followed by a two-instruction stub
+            # (jump + target) before the block address
             classes[cid] = block_val(ins[i + 2][0])
 
     # invariants: every real class id but 0 carries an explicit cmp; the rest
@@ -154,6 +166,8 @@ def main():
         "icons": icons,
         "classes": {str(k): classes[k] for k in sorted(classes)},
     }
+    # 16 = the decoded jump table's entry count; 89 = the number of ordinals
+    # in aCis's ClassId enum, which mine_classnames.py parses independently.
     ok = len(icons) == 16 and len(classes) == 89
     if args.check:
         if ok and os.path.exists(OUT):

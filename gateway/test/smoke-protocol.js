@@ -18,7 +18,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('login OK, sessionKey:', sessionKey, 'server:', server);
 
   const game = new GameSession();
-  game.on('error', (e) => { console.error('game error:', e.message); process.exit(1); });
+  game.on('error', (e) => { console.error('game error:', e.stack || e.message); process.exit(1); });
   game.on('close', () => { console.log('game closed'); process.exit(0); });
   game.on('parseError', (p) => console.error('parseError:', p.op.toString(16), p.error.message));
 

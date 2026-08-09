@@ -23,5 +23,47 @@
       "evidence": "NWindow.dll 0x10052aca mov [esi+0x348],<colour> -- field 0x348 is the text colour, since the exported ?execGetTextColor@UTextBoxHandle@@ (0x10131690) returns it via 0x10051682",
       "role": "TextBox text, when the record carries no colour"
     }
+  },
+  "htmlNamedColors": {
+    "_evidence": "NWindow.dll NCHtmlObject::GetMatchedColor 0x100825d0 -- the complete name table of the NPC-dialog HTML parser. It compares against L\"LEVEL\" (0x1024dd44) and returns the immediate at 0x10082653; any other name is concatenated after L\"0xff\" (0x1024dd38) and handed to the numeric parser, i.e. treated as a bare hex colour. There is no second named colour.",
+    "names": {
+      "LEVEL": "#FFCC00"
+    }
+  },
+  "ladders": {
+    "conColor": {
+      "evidence": "NWindow.dll ?execGetTargetNameColor@UUIDATA_TARGET@@ (0x1012a950, from the export table) -- compare ladder 0x1012a9d2..0x1012a9fd (5x cmp/jg/mov imm32) plus the branchless tail at 0x1012a9fe (and 0x00A2A7FD / add 0xFF0000FF)",
+      "role": "Target/NPC name tint by level difference. The parameter is the viewer's level minus the target's, so a target far ABOVE the viewer takes the first rung. Rungs are ordered; the first whose maxDiff is >= the value wins, and maxDiff null is the open-ended last rung.",
+      "rungs": [
+        {
+          "color": "#FF0000",
+          "maxDiff": -9
+        },
+        {
+          "color": "#FF9191",
+          "maxDiff": -6
+        },
+        {
+          "color": "#FAFE91",
+          "maxDiff": -3
+        },
+        {
+          "color": "#DCDCDC",
+          "maxDiff": 2
+        },
+        {
+          "color": "#A2FFAB",
+          "maxDiff": 5
+        },
+        {
+          "color": "#A2A8FC",
+          "maxDiff": 8
+        },
+        {
+          "color": "#0000FF",
+          "maxDiff": null
+        }
+      ]
+    }
   }
 }

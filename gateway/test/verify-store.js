@@ -232,6 +232,6 @@ async function killGremlin(c, label) {
     noListAfterStop && nothingMoved && persistOk;
   console.log(pass ? 'VERIFY-STORE: PASS' : 'VERIFY-STORE: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-STORE: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-STORE: FAIL', e.stack || e.message); process.exit(1); });
 
 setTimeout(() => { console.error('VERIFY-STORE: global timeout'); process.exit(1); }, 420000);

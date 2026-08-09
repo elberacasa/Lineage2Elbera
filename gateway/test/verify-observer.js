@@ -72,4 +72,4 @@ function makeClient(name, deviceId) {
   const pass = aDealt.length > 0 && bSawAAttacks.length > 0 && !!bSawDie;
   console.log(pass ? 'VERIFY-OBSERVER: PASS' : 'VERIFY-OBSERVER: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-OBSERVER: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-OBSERVER: FAIL', e.stack || e.message); process.exit(1); });

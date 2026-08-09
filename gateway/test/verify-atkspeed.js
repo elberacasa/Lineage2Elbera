@@ -55,7 +55,7 @@ const pass = [];
 const check = (ok, msg) => (ok ? pass : fail).push(msg);
 
 const ws = new WebSocket(url);
-ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
+ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
 ws.on('open', () => ws.send(JSON.stringify({ op: 'login', deviceId })));
 
 ws.on('message', async (data) => {

@@ -21,6 +21,21 @@
 // as the animation starts), the shot (`s`, shot_sounds — a projectile leaving)
 // and the explosion (`x`, exp_sounds — the impact on the target). Weapons
 // carry four impact sounds (`h`) plus an equip (`e`) and a drop (`d`).
+//
+// CORRECTION (2026-08-08). The line above used to read "Nothing here is
+// authored -- every sound name, volume and radius comes out of the client's
+// own tables." The first half is true; the second was not:
+//   * npcgrp and skillsoundgrp DO carry per-record volume and radius, and
+//     assets/audio/bindings.json ships them for all 6,495 npc and 1,368
+//     skill records -- 0 missing. Those paths are fully table-driven and the
+//     `|| <number>` fallbacks that used to guard them were unreachable. They
+//     are gone.
+//   * weapongrp does NOT. bindings.json carries no `v` or `r` for any of the
+//     1,311 weapon records, so the weapon hit and drop calls below were
+//     playing at typed values. Marked AUTHORED at the site.
+//   * weapongrp.json DOES carry a `drop_radius` per weapon (7 on the first
+//     record), and tools/audio/build_audio.py never reads it -- see the drop()
+//     handover below. That file has another owner; the value is on disk.
 
 import { audio } from './audio.js';
 
@@ -99,13 +114,16 @@ export class GameSound {
     const npcId = this._npcOf.get(msg.targetId);
     const rec = npcId != null ? this.npc[String(npcId)] : null;
     if (rec) {
-      const opts = { volume: rec.v || 250, radius: rec.r || 250 };
+      const opts = { volume: rec.v, radius: rec.r };   // npcgrp's own
       audio.playOneOf(this._refs(rec.d), pos, opts);   // impact on the hide
       audio.playOneOf(this._refs(rec.m), pos, opts);   // the creature's cry
     }
 
     if (msg.id === selfId && this._weaponId) {
       const w = this.weapon[String(this._weaponId)];
+      // AUTHORED volume and radius: weapongrp gives item_sound its four
+      // impact names but no volume and no radius for them, and bindings.json
+      // therefore ships none. Nothing decoded fixes these two numbers.
       if (w) audio.playOneOf(this._refs(w.h), pos, { volume: 250, radius: 40 });
     }
   }
@@ -139,7 +157,7 @@ export class GameSound {
     const rec = npcId != null ? this.npc[String(npcId)] : null;
     if (rec) {
       audio.playOneOf(this._refs(rec.a), pos,
-                      { volume: rec.v || 250, radius: rec.r || 250 });
+                      { volume: rec.v, radius: rec.r });   // npcgrp's own
     }
   }
 
@@ -151,7 +169,7 @@ export class GameSound {
     const rec = npcId != null ? this.npc[String(npcId)] : null;
     if (rec) {
       audio.playOneOf(this._refs(rec.m), pos,
-                      { volume: rec.v || 250, radius: rec.r || 250 });
+                      { volume: rec.v, radius: rec.r });   // npcgrp's own
     }
     this.forget(entityId);
   }
@@ -162,7 +180,7 @@ export class GameSound {
     if (!this.ready || !pos) return;
     const rec = this.skill[String(skillId)];
     if (!rec) return;
-    const opts = { volume: rec.v || 250, radius: rec.r || 50 };
+    const opts = { volume: rec.v, radius: rec.r };   // skillsoundgrp's own
     audio.playOneOf(this._refs(rec.c), pos, opts);
   }
 
@@ -170,7 +188,7 @@ export class GameSound {
     if (!this.ready || !pos) return;
     const rec = this.skill[String(skillId)];
     if (!rec) return;
-    const opts = { volume: rec.v || 250, radius: rec.r || 50 };
+    const opts = { volume: rec.v, radius: rec.r };   // skillsoundgrp's own
     // The explosion is the impact; fall back to the shot when a skill has no
     // explosion bank (most buffs are cast-only and correctly stay quiet here).
     const impact = this._refs(rec.x) || this._refs(rec.s);
@@ -189,6 +207,12 @@ export class GameSound {
     if (!this.ready) return;
     const rec = this.weapon[String(itemId)];
     if (rec && rec.d != null) {
+      // AUTHORED, and it should not stay that way: weapongrp.json carries a
+      // `drop_radius` field per weapon (7 on the first record) that
+      // tools/audio/build_audio.py does not read, so bindings.json has no
+      // `r` to use here. HANDOVER to that file's owner: emit drop_radius as
+      // the weapon record's `r` and this call becomes `radius: rec.r`.
+      // The volume has no source in weapongrp at all.
       audio.playAt(this.names[rec.d], pos, { volume: 250, radius: 30 });
     }
   }

@@ -35,7 +35,7 @@ async function partA() {
     sysTexts: [], moves: new Map(), removedIds: new Set(), attacks: [],
   };
   const ws = new WebSocket(url);
-  ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
+  ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
   ws.on('open', () => ws.send(JSON.stringify({ op: 'login', deviceId: 'verify-mods-A-' + suffix })));
   ws.on('message', async (d) => {
     const m = JSON.parse(d);

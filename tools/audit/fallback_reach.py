@@ -22,6 +22,18 @@ last-wins for a bare name, path index for a slashed name), and reports:
 
 `--check` fails while any LIVE site exists.
 
+**2026-08-08: this gate is now VACUOUS, and that is deliberate — read on
+before you trust its green.**  The shape it inspects was removed from the
+client in the UI-lane pass: `Layout.size(W, C) || { w: 240, h: 314 }` is gone
+everywhere, replaced by accessors that degrade to nothing
+(`Layout.sizeOf`/`posOf`/`gridOf`/`autosizeOf`/`windowSize`).  So this script
+now finds 0 sites and passes by having nothing to judge.  The gate that
+actually has teeth is `tools/audit/layout_bind.py --check`, whose GATE A fails
+on ANY reappearance of the shape (it reports 60 and exits 1 against a
+`git archive` of the pre-pass tree).  Keep this file: it is the instrument that
+proved the 53 literals were unreachable in the first place, and
+`layout_bind.py` imports its index and resolver rather than copying them.
+
 Read-only.  Writes nothing.
 
   python3 tools/audit/fallback_reach.py

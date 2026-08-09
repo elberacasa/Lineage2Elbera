@@ -94,9 +94,9 @@ export class StoreWnd {
     this.selected = null;      // {pane, index}
     this.storeOpen = false;    // storeState latch (M13)
 
-    const def = Layout.window(WND);
-    this.w = def && def.width ? def.width : 256;
-    this.h = def && def.height ? def.height : 401;
+    const def = Layout.windowSize(WND);
+    this.w = def.w;
+    this.h = def.h;
 
     const win = new L2Window({
       title: 'Private Store', width: this.w, height: this.h, closable: true,
@@ -114,10 +114,9 @@ export class StoreWnd {
 
     this.panes = {};
     for (const [key, ctrl] of [['top', 'TopList'], ['bottom', 'BottomList']]) {
-      const pos = Layout.pos(WND, ctrl) ?? { x: 9, y: key === 'top' ? 48 : 215 };
-      const size = Layout.size(WND, ctrl) || { w: 239, h: 104 };
-      const grid = Layout.grid(WND, ctrl)
-        || { cellX: 32, cellY: 32, gapX: 5, gapY: 3 };
+      const pos = Layout.posOf(WND, ctrl);
+      const size = Layout.sizeOf(WND, ctrl);
+      const grid = Layout.gridOf(WND, ctrl);
       const el = document.createElement('div');
       el.className = `l2-store-${key}`;
       el.style.cssText = 'position:absolute;overflow-y:auto;overflow-x:hidden;'
@@ -169,7 +168,7 @@ export class StoreWnd {
 
   _ctrlBtn(ctrl, onClick, label = null) {
     const pos = Layout.pos(WND, ctrl);
-    const size = Layout.size(WND, ctrl) || { w: 76, h: 23 };
+    const size = Layout.sizeOf(WND, ctrl);
     if (!pos) return null;
     const b = document.createElement('div');
     b.className = 'l2-store-btn';
@@ -200,7 +199,7 @@ export class StoreWnd {
       this.win.body.appendChild(l);
     }
     const vp = Layout.pos(WND, valueCtrl);
-    const vSize = Layout.size(WND, valueCtrl) || { w: 89 };
+    const vSize = Layout.sizeOf(WND, valueCtrl);
     const v = document.createElement('div');
     v.style.cssText = 'position:absolute;pointer-events:none;text-align:right;'
       + `left:${Skin.px((vp || { x: 158 }).x)}px;top:${Skin.px((vp || { y: 332 }).y)}px;`
@@ -404,6 +403,9 @@ export class StoreWnd {
     input.style.cssText = `position:absolute;left:${Skin.px(10)}px;`
       + `top:${Skin.px(10)}px;width:${Skin.px(160)}px;`
       + 'background:#10131a;border:1px solid #5a5344;color:#e8e0d0;'
+      // AUTHORED 12px: a browser <input>, not a client control -- the
+      // retail number pad is native and has no font record here.
+      // AUTHORED 12px: a browser <input>, not a client control.
       + 'font:12px sans-serif;';
     win.body.appendChild(input);
     const ok = document.createElement('div');
@@ -486,6 +488,9 @@ export class StoreWnd {
       win.body.appendChild(input);
       return input;
     };
+    // AUTHORED row tops: this whole count/price prompt is ours (retail
+    // opens DIALOG_NumberPad, which the xdat does not describe), so the two
+    // row offsets and the button row below are placements we chose.
     const countInput = mkRow('Count', 8);
     const priceInput = mkRow('Price', 34);
     const ok = document.createElement('div');
@@ -566,6 +571,8 @@ export class StoreWnd {
     input.style.cssText = `position:absolute;left:${Skin.px(8)}px;`
       + `top:${Skin.px(10)}px;width:${Skin.px(204)}px;`
       + 'background:#10131a;border:1px solid #5a5344;color:#e8e0d0;'
+      // AUTHORED 12px: a browser <input>/<div>, not a client control -- the
+      // retail number pad is native and has no font record here.
       + 'font:12px sans-serif;';
     win.body.appendChild(input);
     const btn = (label, left, cb) => {
@@ -580,12 +587,13 @@ export class StoreWnd {
       win.body.appendChild(b);
       return b;
     };
+    // AUTHORED button x positions, same reason as the row tops above.
     const ok = btn('OK', 34, () => {
       this.title = input.value.trim();
       win.hide();
       this._renderLabels();
     });
-    btn('Cancel', 120, () => win.hide());
+    btn('Cancel', 120, () => win.hide());   // AUTHORED x, as above
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') ok.click();
       e.stopPropagation();
@@ -619,6 +627,14 @@ export class StoreWnd {
       + `height:${Skin.px(this.panes[pane].pitch.y)}px;`
       + 'cursor:pointer;vertical-align:top;'
       + (this.selected && this.selected.pane === pane && this.selected.index === index
+        // AUTHORED selection outline. Nothing in the client decides this:
+        // no ItemWindow record carries a colour, NCItemWnd's render holds
+        // exactly ONE colour immediate (the stack-count badge -- asserted by
+        // tools/ui/mine_native_colors.py section 2), and no xdat control names
+        // a selection texture. `L2UI_CH3.iconselect1/2` DO exist in the
+        // extracted texture library and are referenced by nothing we have
+        // decoded; if someone ties them to item selection this outline should
+        // be replaced by that art, not by another colour.
         ? 'outline:1px solid #c8a959;' : '');
     cell.title = `${entry.name || info.name} — ${costString(entry.price)} a`;
     const icon = document.createElement('div');
@@ -644,8 +660,16 @@ export class StoreWnd {
     cell.appendChild(icon);
     if (entry.count > 1) {
       const c = document.createElement('div');
+      // AUTHORED 2px right inset. NCItemWnd draws this badge itself and
+      // its position is computed in native code we have not decoded --
+      // only its COLOUR was recovered (see mine_native_colors.py §2).
       c.style.cssText = 'position:absolute;right:2px;bottom:0;pointer-events:none;'
         + 'text-shadow:0 1px 1px #000;';
+      // AUTHORED overflow cap. The badge helper NCItemWnd calls
+      // (NWindow.dll 0x10064790) switches on wcslen and has a branch
+      // per digit count, so retail does clamp the label somewhere --
+      // but which count it clamps AT is not decoded, and 9999+ is our
+      // choice, not a reading.
       Font.set(c, String(entry.count > 9999 ? '9999+' : entry.count),
                { color: Layout.native('itemSlotCount') });
       cell.appendChild(c);
@@ -663,6 +687,14 @@ export class StoreWnd {
       [...el.children].forEach((cell, i) => {
         cell.style.outline = (this.selected
           && this.selected.pane === pane && this.selected.index === i)
+          // AUTHORED selection outline. Nothing in the client decides this:
+          // no ItemWindow record carries a colour, NCItemWnd's render holds
+          // exactly ONE colour immediate (the stack-count badge -- asserted by
+          // tools/ui/mine_native_colors.py section 2), and no xdat control names
+          // a selection texture. `L2UI_CH3.iconselect1/2` DO exist in the
+          // extracted texture library and are referenced by nothing we have
+          // decoded; if someone ties them to item selection this outline should
+          // be replaced by that art, not by another colour.
           ? '1px solid #c8a959' : '';
       });
     }

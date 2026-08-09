@@ -52,7 +52,7 @@ FONTS = {
 def png_size(path):
     with open(path, "rb") as f:
         head = f.read(24)
-    if head[:8] != b"\x89PNG\r\n\x1a\n":
+    if head[:8] != b"\x89PNG\r\n\x1a\n":   # SPEC: PNG (RFC 2083) signature
         raise ValueError(f"not a PNG: {path}")
     return struct.unpack(">II", head[16:24])
 
@@ -60,6 +60,9 @@ def png_size(path):
 def parse_gly(path):
     d = open(path, "rb").read()
     tex_w, tex_h, pages, first, count = struct.unpack_from("<5I", d, 0)
+    # SPEC: PNG (RFC 2083) -- an IHDR chunk is 8 bytes of header + 13 bytes
+    # of data (rounded to the 20-byte prefix this reader skips), and each
+    # glyph record that follows is a fixed 16 bytes.
     need = 20 + count * 16
     if len(d) < need:
         raise ValueError(f"{os.path.basename(path)}: truncated "

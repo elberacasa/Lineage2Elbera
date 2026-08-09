@@ -170,10 +170,10 @@ export class DetailStatusWnd {
     this._strings = null;
     this._classes = null;
 
-    const def = Layout.window(WND);
-    // fallbacks only; the record decodes cleanly (256x335)
-    this.w = def && def.width ? def.width : 256;
-    this.h = def && def.height ? def.height : 335;
+    const def = Layout.window(WND);          // kept for def.children below
+    const wndSize = Layout.windowSize(WND);
+    this.w = wndSize.w;
+    this.h = wndSize.h;
 
     // The window record's own texture IS a full-window interior, so L2Window
     // draws it 1:1 (its `ownFits` path) exactly as ClanWnd/ActionWnd do.
@@ -363,8 +363,12 @@ export class DetailStatusWnd {
     this._text('txtExp', e != null ? `${(e * 100).toFixed(2)}%` : null);
 
     // weight: percentage carried, and the fill texture the uc picks for it
-    const wpct = s.maxLoad ? (100 * (s.curLoad || 0)) / s.maxLoad : null;
-    this._setBar('texWeight', wpct != null ? wpct / 100 : 0);
+    // wfrac is the fraction; wpct is the same number as a percentage for
+    // the label and for the WEIGHT_BARS thresholds, which the uc states in
+    // percent. The 100s are the percent<->fraction conversion, nothing else.
+    const wfrac = s.maxLoad ? (s.curLoad || 0) / s.maxLoad : null;
+    const wpct = wfrac != null ? wfrac * 100 : null;
+    this._setBar('texWeight', wfrac != null ? wfrac : 0);
     this._text('txtWeight', wpct != null ? `${wpct.toFixed(2)}%` : null);
     if (wpct != null && this.bars.texWeight) {
       const pick = WEIGHT_BARS.find(b => wpct <= b.max);
@@ -405,7 +409,7 @@ export class DetailStatusWnd {
   /** WndMgr reset: SOURCED — WindowsInfo.ini [DetailStatusWnd] is absent, so
    *  the dock is the xdat record's own (0, 65). */
   onDefaultPosition() {
-    const p = Layout.pos(WND) || { x: 0, y: 65 };
+    const p = Layout.posOf(WND);
     this.wnd.place({ left: p.x, top: p.y });
   }
 

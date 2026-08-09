@@ -267,7 +267,12 @@ export class ChatBox {
         this._applyFilter();
       });
       this.tabs.appendChild(t);
-      Font.set(t, label, { color: key === 'all' ? '#e8dcc0' : '#a09274' });
+      // A tab's label is a BUTTON label: NCTabButton shares NCButton's paint
+      // (both vtables carry 0x10005e00 at slot 99, which calls 0x100034b0),
+      // so it takes the same IsEnableWindow()-driven colour. Retail marks the
+      // SELECTED tab with a different TEXTURE, not a different text colour --
+      // the Skin.apply above already does that. SOURCED NWindow.dll 0x100035a8.
+      Font.set(t, label, { color: Layout.native('buttonLabel') });
     }
     this._paintTabs();
 
@@ -377,7 +382,9 @@ export class ChatBox {
       const ref = this.tabTex[on ? 1 : 0] || this.tabTex[0];
       if (ref) Skin.apply(t, ref, { content: Skin.content(ref) });
       const label = (TABS.find(x => x[0] === t.dataset.tab) || [, ''])[1];
-      Font.set(t, label, { color: on ? '#e8dcc0' : '#a09274' });
+      // same as _paintTabs: the tab ART carries the selected state, not the
+      // label colour (NWindow.dll NCTabButton -> NCButton paint 0x100034b0)
+      Font.set(t, label, { color: Layout.native('buttonLabel') });
     }
   }
 

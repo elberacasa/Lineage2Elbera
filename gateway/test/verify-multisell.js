@@ -55,7 +55,7 @@ const R = {
 let ws;
 function connect() {
   ws = new WebSocket(url);
-  ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
+  ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
   ws.on('open', () => ws.send(JSON.stringify({ op: 'login', deviceId })));
   ws.on('message', async (d) => {
     const m = JSON.parse(d);
@@ -281,6 +281,6 @@ async function walkTo(target, label) {
   const pass = xmlOk && removed116 && adenaAfter === adenaAfterBuy - 557;
   console.log(pass ? 'VERIFY-MULTISELL: PASS' : 'VERIFY-MULTISELL: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-MULTISELL: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-MULTISELL: FAIL', e.stack || e.message); process.exit(1); });
 
 setTimeout(() => { console.error('VERIFY-MULTISELL: global timeout'); process.exit(1); }, 900000);

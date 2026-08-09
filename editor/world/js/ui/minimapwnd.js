@@ -62,13 +62,15 @@ export function minimapMeta() {
 
 export class MinimapWnd {
   constructor(parent = document.body) {
-    const def = Layout.window(WND);
-    this.w = def && def.width ? def.width : 334;
-    this.h = def && def.height ? def.height : 413;
+    const def = Layout.windowSize(WND);
+    this.w = def.w;
+    this.h = def.h;
     this.meta = null;
     this.currentTile = null;    // '<tx>_<ty>' the composition centers on
     this.span = 0;              // world units per tile edge, from the manifest
     this.crop = 0;              // tile crop edge in image px, from the manifest
+    this.tileOriginX = 0;       // grid index of world x=0, solved from the manifest
+    this.tileOriginY = 0;       // grid index of world y=0, solved from the manifest
     this._lastTick = 0;
     this._dots = [];
 
@@ -88,8 +90,8 @@ export class MinimapWnd {
     win.body.appendChild(back);
 
     // --- the map viewport (the xdat's native MinimapCtrl rect) ---
-    const viewPos = Layout.pos(WND, 'Minimap') ?? { x: 3, y: 51 };
-    const viewSize = Layout.size(WND, 'Minimap') || { w: 328, h: 328 };
+    const viewPos = Layout.posOf(WND, 'Minimap');
+    const viewSize = Layout.sizeOf(WND, 'Minimap');
     this.view = viewSize;
     const view = document.createElement('div');
     view.className = 'l2-minimap-view';
@@ -110,6 +112,7 @@ export class MinimapWnd {
     // exported; a CSS triangle stands in (white, dark outline via shadow)
     const arrow = document.createElement('div');
     arrow.className = 'l2-minimap-self';
+    // AUTHORED, every number: this whole triangle is ours (see above).
     arrow.style.cssText = 'position:absolute;width:0;height:0;'
       + 'border-left:5px solid transparent;border-right:5px solid transparent;'
       + 'border-bottom:9px solid #ffffff;'
@@ -132,15 +135,18 @@ export class MinimapWnd {
     this._buildExpand(parent);
 
     parent.appendChild(win.root);
-    // SOURCED dock: WindowsInfo.ini [MinimapWnd] posX=16 posY=63 — absolute
+    // Dock READ from WindowsInfo.ini [MinimapWnd] via Layout.dock() — the
+    // client's own file, mined by tools/ui/mine_windowsinfo.py. Absolute
     // retail px at 1024x768 (Skin.px applies the uiScale; no proportional
-    // rescale).
-    this.defaultPlace = { left: 16, top: 63 };
+    // rescale). Null only if that harvest is missing, in which case the
+    // window opens wherever WndMgr last left it rather than at a typed spot.
+    const dock = Layout.dock('MinimapWnd');
+    this.defaultPlace = dock ? { left: dock.x, top: dock.y } : null;
   }
 
   _footerBtn(ctrlName, label, onClick) {
     const pos = Layout.pos(WND, ctrlName);
-    const size = Layout.size(WND, ctrlName) || { w: 76, h: 23 };
+    const size = Layout.sizeOf(WND, ctrlName);
     if (!pos) return null;
     const tex = Layout.tex(WND, ctrlName).filter(r => Skin.sprite(r));
     const b = document.createElement('div');
@@ -178,21 +184,45 @@ export class MinimapWnd {
   async setMeta() {
     this.meta = await minimapMeta();
     if (this.meta) {
-      const anyTile = Object.values(this.meta.tiles || {})[0];
+      const names = Object.keys(this.meta.tiles || {});
+      const anyTile = this.meta.tiles && this.meta.tiles[names[0]];
       if (anyTile) {
         // world units per tile edge + crop edge in px — READ, not retyped
         this.span = anyTile.worldRect[2] - anyTile.worldRect[0];
         this.crop = anyTile.size[0];
+        // ...and so is the grid origin. Every tile in the manifest carries
+        // both its NAME and its worldRect, so tx - worldX/span is the
+        // origin index, recovered from the data instead of typed as 20/18.
+        // Solved from the first tile and asserted against every other one:
+        // a manifest that disagreed with itself would be a real defect, and
+        // silently keeping the first answer would hide it.
+        const [tx, ty] = names[0].split('_').map(Number);
+        this.tileOriginX = tx - anyTile.worldRect[0] / this.span;
+        this.tileOriginY = ty - anyTile.worldRect[1] / this.span;
+        for (const n of names) {
+          const t = this.meta.tiles[n];
+          const [ax, ay] = n.split('_').map(Number);
+          if (ax - t.worldRect[0] / this.span !== this.tileOriginX
+              || ay - t.worldRect[1] / this.span !== this.tileOriginY) {
+            console.warn(`[Minimap] tile ${n} disagrees with the grid origin `
+              + `(${this.tileOriginX},${this.tileOriginY}) the rest of `
+              + 'minimap.json implies');
+            break;
+          }
+        }
       }
     }
     return this;
   }
 
-  /** Tile name '<tx>_<ty>' for an L2 world point. The +20/+18 grid origin
-   *  is SOURCED from the same validated formula main.js uses for scene
-   *  tiles (tile-map.json: 17_24 -> origin [-98304, 196608]). */
+  /** Tile name '<tx>_<ty>' for an L2 world point. The grid origin is READ
+   *  out of minimap.json's own tile table (see load()), not typed: it is
+   *  whatever index makes each tile's declared worldRect land where its
+   *  name says. It resolves to 20/18, the same origin main.js's scene
+   *  tile-map uses, but nothing here asserts that number. */
   tileOf(x, y) {
-    return `${20 + Math.floor(x / this.span)}_${18 + Math.floor(y / this.span)}`;
+    return `${this.tileOriginX + Math.floor(x / this.span)}`
+      + `_${this.tileOriginY + Math.floor(y / this.span)}`;
   }
 
   /** Composition px for a world point, current tile at the CENTER of the
@@ -202,8 +232,8 @@ export class MinimapWnd {
   projectTile(x, y) {
     const [tx0, ty0] = this.currentTile.split('_').map(Number);
     return {
-      x: (x / this.span - (tx0 - 20) + 1) * this.crop,
-      y: (y / this.span - (ty0 - 18) + 1) * this.crop,
+      x: (x / this.span - (tx0 - this.tileOriginX) + 1) * this.crop,
+      y: (y / this.span - (ty0 - this.tileOriginY) + 1) * this.crop,
     };
   }
 
@@ -281,6 +311,9 @@ export class MinimapWnd {
       const ex = e.pos[0] / L2_TO_M;
       const ey = -e.pos[2] / L2_TO_M;
       const ep = this.projectTile(ex, ey);
+      // AUTHORED dot colours. The retail minimap's entity markers are
+      // drawn by the native control from art that was never exported;
+      // nothing decoded says what colour a player or an NPC dot is.
       const dot = this._dot(e.kind === 'player' ? '#ffd24a' : '#d8d8d8');
       dot.style.left = `${Skin.px(ep.x - 2)}px`;
       dot.style.top = `${Skin.px(ep.y - 2)}px`;
@@ -325,8 +358,11 @@ export class MinimapWnd {
     const mw = Math.floor(iw * fit), mh = Math.floor(ih * fit);
 
     const box = document.createElement('div');
+    // left/top 50% with a -50%/-50% translate is the CSS idiom for
+    // "centre in the parent"; the 50s are structural, not geometry.
     box.style.cssText = 'position:absolute;left:50%;top:50%;'
       + `width:${mw}px;height:${mh}px;transform:translate(-50%,-50%);`;
+    // AUTHORED 2px 9-slice inset, same case as window.js's frame backs.
     Skin.nine(box, 'L2UI_CH3.Minimap.MapWnd_back_max', 2);
     ov.appendChild(box);
 
@@ -350,6 +386,9 @@ export class MinimapWnd {
     }
     for (const e of this._lastEnts || []) {
       const p = this.projectWorld(e.pos[0] / L2_TO_M, -e.pos[2] / L2_TO_M);
+      // AUTHORED dot colours. The retail minimap's entity markers are
+      // drawn by the native control from art that was never exported;
+      // nothing decoded says what colour a player or an NPC dot is.
       const dot = this._dot(e.kind === 'player' ? '#ffd24a' : '#d8d8d8');
       dot.style.left = `${p.x * fit - 2}px`;
       dot.style.top = `${p.y * fit - 2}px`;
@@ -403,6 +442,6 @@ export class MinimapWnd {
   toggle(force) { this.win.toggle(force); return this; }
 
   onDefaultPosition() {
-    this.place(this.defaultPlace);
+    if (this.defaultPlace) this.place(this.defaultPlace);
   }
 }

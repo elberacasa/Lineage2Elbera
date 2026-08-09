@@ -183,6 +183,10 @@ export class L2Window {
       Skin.apply(backdrop, backRef);
       this.height = win.height;
     } else {
+      // AUTHORED 2px 9-slice inset: the window frame arts carry no declared
+      // slice geometry anywhere in Interface.xdat, and 2px is the corner
+      // radius the frames read as. Only reached for backs that are NOT a
+      // full-window interior (the branch above draws those 1:1).
       Skin.nine(backdrop, backRef, 2);
     }
 

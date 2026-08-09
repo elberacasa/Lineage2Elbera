@@ -52,7 +52,16 @@ function makeClient(name, deviceId) {
     else if (m.op === 'addNpc') c.state.npcs.push(m);
     else if (m.op === 'addPlayer') c.state.players.push(m);
     else if (m.op === 'npcHtml') c.state.htmls.push(m.html);
+    // MoveToLocation carries a DESTINATION (tx,ty,tz) alongside the mover's
+    // current position; TeleportToLocation carries only where the character
+    // now IS (x,y,z). Commit a8d0d9b split what used to be one conflated
+    // `move` op into move/teleport/validate — this suite kept waiting for a
+    // `move` after admin_teleport, which the gateway has not sent since, so
+    // every phase gated on "A teleported near X" timed out. Both ops answer
+    // the same question here ("where is A?"), so record both.
     else if (m.op === 'move') c.state.moves.set(m.id, { x: m.tx, y: m.ty, z: m.tz });
+    else if (m.op === 'teleport') c.state.moves.set(m.id, { x: m.x, y: m.y, z: m.z });
+    else if (m.op === 'validate') c.state.moves.set(m.id, { x: m.x, y: m.y, z: m.z });
     else if (m.op === 'clanAsk') { c.state.asks.push(m); console.log(`[${name}] clanAsk:`, JSON.stringify(m)); }
     else if (m.op === 'clanInfo') { c.state.clanInfos.push(m); console.log(`[${name}] clanInfo:`, JSON.stringify(m)); }
     else if (m.op === 'clanMembers') { c.state.memberLists.push(m); console.log(`[${name}] clanMembers:`, JSON.stringify(m)); }
@@ -216,6 +225,6 @@ const snippet = (h, n = 120) => h.replace(/\s+/g, ' ').slice(0, n);
   const pass = !!(lvlOk && createOk && askOk && joinOk && ciB0 && cmB0 && cmA3 && ciC0 && cmA4 && crestOk);
   console.log(pass ? 'VERIFY-CLAN: PASS' : 'VERIFY-CLAN: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-CLAN: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-CLAN: FAIL', e.stack || e.message); process.exit(1); });
 
 setTimeout(() => { console.error('VERIFY-CLAN: global timeout'); process.exit(1); }, 300000);

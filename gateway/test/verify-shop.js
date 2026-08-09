@@ -22,7 +22,7 @@ const R = {
   diedIds: new Set(), buyList: null, sellList: null, invUpdates: [], itemLists: [], selfDead: false,
 };
 const ws = new WebSocket(url);
-ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
+ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
 ws.on('open', () => ws.send(JSON.stringify({ op: 'login', deviceId })));
 ws.on('message', async (d) => {
   const m = JSON.parse(d);
@@ -206,6 +206,6 @@ async function walkTo(target, label) {
     sellable && adenaAfterSell === adenaAfterBuy + sellable.price;
   console.log(pass ? 'VERIFY-SHOP: PASS' : 'VERIFY-SHOP: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-SHOP: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-SHOP: FAIL', e.stack || e.message); process.exit(1); });
 
 setTimeout(() => { console.error('VERIFY-SHOP: global timeout'); process.exit(1); }, 900000);

@@ -60,9 +60,9 @@ export function questStarted(progress) {
 
 export class QuestWnd {
   constructor(parent = document.body, { onAbort } = {}) {
-    const def = Layout.window(WND);
-    this.w = def && def.width ? def.width : 256;
-    this.h = def && def.height ? def.height : 335;
+    const def = Layout.windowSize(WND);
+    this.w = def.w;
+    this.h = def.h;
     this.onAbort = onAbort || (() => {});
     this.quests = [];          // {id, name, progress}
     this.selected = null;      // quest id
@@ -81,15 +81,15 @@ export class QuestWnd {
     win.body.appendChild(back);
 
     // quest count over the mined txtQuestNum rect (190,12)
-    const numPos = Layout.pos(WND, 'txtQuestNum') ?? { x: 190, y: 12 };
+    const numPos = Layout.posOf(WND, 'txtQuestNum');
     this.numEl = document.createElement('div');
     this.numEl.style.cssText = 'position:absolute;pointer-events:none;'
       + `left:${Skin.px(numPos.x)}px;top:${Skin.px(numPos.y)}px;`;
     win.body.appendChild(this.numEl);
 
     // the journal list over the mined MainTree rect (7,27, 242x274)
-    const listPos = Layout.pos(WND, 'MainTree') ?? { x: 7, y: 27 };
-    const listSize = Layout.size(WND, 'MainTree') || { w: 242, h: 274 };
+    const listPos = Layout.posOf(WND, 'MainTree');
+    const listSize = Layout.sizeOf(WND, 'MainTree');
     this.listEl = document.createElement('div');
     this.listEl.className = 'l2-quest-list';
     this.listEl.style.cssText = 'position:absolute;overflow-y:auto;'
@@ -100,8 +100,8 @@ export class QuestWnd {
 
     // abort button on the mined btnClose rect (91,306) — retail cancels
     // the SELECTED quest from here (QuestTreeWnd.uc HandleQuestCancel)
-    const abPos = Layout.pos(WND, 'btnClose') ?? { x: 91, y: 306 };
-    const abSize = Layout.size(WND, 'btnClose') || { w: 77, h: 23 };
+    const abPos = Layout.posOf(WND, 'btnClose');
+    const abSize = Layout.sizeOf(WND, 'btnClose');
     const ab = document.createElement('div');
     ab.className = 'l2-quest-abort';
     ab.style.cssText = `position:absolute;left:${Skin.px(abPos.x)}px;`

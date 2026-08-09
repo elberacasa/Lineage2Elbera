@@ -41,7 +41,12 @@ const BACK = 'L2UI.EtcWndBack.AbnormalBack';   // AbnormalStatusWnd.uc:188
 const CELL = 26;    // xdat StatusIcon control 26x26 (measured art agrees)
 const ICON = 24;    // uc:187 info.Size = 24
 const MAX_COL = 12; // NSTATUSICON_MAXCOL, AbnormalStatusWnd.uc:4
-const DOCK = { left: 348, top: 583 };   // WindowsInfo.ini [AbnormalStatusWnd]
+// Dock READ from WindowsInfo.ini [AbnormalStatusWnd] (see Layout.dock);
+// resolved lazily because Layout loads after this module is evaluated.
+const dock = () => {
+  const d = Layout.dock('AbnormalStatusWnd');
+  return d ? { left: d.x, top: d.y } : null;
+};
 
 export class AbnormalWnd {
   constructor(parent = document.body) {
@@ -55,7 +60,8 @@ export class AbnormalWnd {
     root.style.cssText = 'position:fixed;z-index:12;display:none;pointer-events:auto;';
     this.root = root;
     parent.appendChild(root);
-    this.place(DOCK);
+    const d = dock();
+    if (d) this.place(d);   // no harvest -> leave it where it is
   }
 
   _normalize(e) {
@@ -160,6 +166,9 @@ export class AbnormalWnd {
   tick() {
     if (!this.effects.length) return;
     const now = performance.now();
+    // AUTHORED redraw throttle. AbnormalStatusWnd.uc drives the countdown
+    // off the engine's own tick; nothing in the client states a period, so
+    // this is ours: fast enough that a 1s remaining-time label never skips.
     if (now - this._lastTick < 250) return;
     this._lastTick = now;
     const alive = this.effects.filter(e => this.remaining(e, now) > 0);
@@ -183,6 +192,7 @@ export class AbnormalWnd {
 
   /** WndMgr reset: the WindowsInfo.ini dock. */
   onDefaultPosition() {
-    this.place(DOCK);
+    const d = dock();
+    if (d) this.place(d);   // no harvest -> leave it where it is
   }
 }

@@ -85,12 +85,14 @@ function tintedSheet(name, color) {
   tint.fillRect(0, 0, 1, 1);
   const [tr, tg, tb] = tint.getImageData(0, 0, 1, 1).data;
 
+  // Stride 4 and the +0/+1/+2 offsets are the RGBA layout of an
+  // ImageData buffer, fixed by the canvas spec -- not measurements.
   for (let i = 0; i < d.length; i += 4) {
     // modulate the texel by the text colour; alpha carries the coverage,
     // outline included
-    d[i] = (d[i] * tr) / 255;
-    d[i + 1] = (d[i + 1] * tg) / 255;
-    d[i + 2] = (d[i + 2] * tb) / 255;
+    d[i] = (d[i] * tr) / 255;         // R, RGBA layout
+    d[i + 1] = (d[i + 1] * tg) / 255;  // G, RGBA layout
+    d[i + 2] = (d[i + 2] * tb) / 255;  // B, RGBA layout
   }
   ctx.putImageData(px, 0, 0);
 
@@ -166,6 +168,9 @@ export const Font = {
           ctx.drawImage(sheet, g.x, g.y, g.w, g.h, x, dy, g.w, g.h);
           x += g.w + 1;
         } else {
+          // Advance for a glyph the sheet does not carry: the sheet's own
+          // space glyph. AUTHORED 3px only if even the space is missing,
+          // which would mean the font failed to load at all.
           const sp = Font.glyph(font, ' ');
           x += (sp ? sp.w : 3) + 1;
         }

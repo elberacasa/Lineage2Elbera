@@ -207,6 +207,9 @@ def main():
                     for k, v in GUARD_TEXTURES.items())
         print(f"interface.json  {'STALE' if stale else 'up to date'}")
 
+    # 1600 is a floor on the number of texture references the xdat decode
+    # must still produce -- the shipped interface.json carries more. An
+    # AUTHORED regression tripwire, not a decoded quantity.
     ok = not bad and decoded >= 1600 and not stale
     if args.check:
         print("CHECK", "PASS" if ok else "FAIL")

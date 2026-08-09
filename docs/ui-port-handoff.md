@@ -293,21 +293,47 @@ supports only skill+item.
 
 ### 2.3 Windows not yet built
 
-`TargetStatusWnd` (176×46, art and behaviour already researched — see §4),
-`ChatWnd` (348×187), `InventoryWnd`, `MenuWnd` (173×46, four 34×34 buttons),
-`MinimapWnd`, `RadarWnd`, `SystemMenuWnd`, `DetailStatusWnd`.
+**CORRECTED 2026-08-08 — this list was stale and had been telling readers to
+build windows that already exist.** Every window it named except `RadarWnd`
+has since been built, each with its own suite in `tools/battery.sh`:
+
+| window | file | suite |
+|---|---|---|
+| `TargetStatusWnd` | `js/ui/targetstatuswnd.js` | `verify_targetwnd` |
+| `ChatWnd` | `js/chat.js` | `verify_chatwnd` |
+| `InventoryWnd` | `js/ui/inventorywnd.js` | `verify_inventorywnd` |
+| `MenuWnd` / `SystemMenuWnd` | `js/ui/menuwnd.js` | `verify_ui` |
+| `MinimapWnd` | `js/ui/minimapwnd.js` | `verify_minimap` |
+| `DetailStatusWnd` | `js/ui/detailstatuswnd.js` | `verify_detailstatuswnd` |
+
+Still genuinely absent: **`RadarWnd`** (no file; `js/ui/minimapwnd.js:41`
+notes it is a separate always-on window, not the same thing as the map),
+`ChatFilterWnd`, the messenger and the party-matching windows (`js/chat.js`
+disables those three buttons with `AUTHORED-disabled` titles), and the BBS
+and Macro windows (`main.js`: Alt+B / Alt+R left unbound).
 
 ### 2.4 Behaviour not implemented
 
-- Skills do not cast from the new window; no cooldown display
-- Toggle skills have no on/off state
-- `weaponsAllowed` is not enforced (real values: DAGGER, DUAL, DUALFIST, BOW,
-  POLE, SWORD, BLUNT, BIGBLUNT, BIGSWORD, SHIELD)
-- Item drag-and-drop semantics from `InventoryWnd.uc` (`DragSrcName` →
-  equip / unequip / reorder / pet transfer) are not implemented
-- `L2Window` is missing most of the `UIAPI_WINDOW` contract: `Iconize`
-  (minimise to icon), `IsMinimizedWindow`, `SetAlwaysOnTop`, `SetFocus`,
-  anchors, tooltips
+**CORRECTED 2026-08-08 — the first four entries were done and the list had
+not been updated.** What is verified true today:
+
+- ~~Skills do not cast from the new window; no cooldown display~~ — they do:
+  `js/ui/skillwnd.js:249` calls `onCast`, and `:311-315` runs the same
+  cooldown sweep as the shortcut bar (`js/ui/shortcutwnd.js:582`).
+- ~~`weaponsAllowed` is not enforced~~ — it is, by `js/weapongate.js`, pushed
+  into both the skill window and the shortcut bar on every `itemList` /
+  `invUpdate` (`main.js:471-476`) and consulted again at cast time.
+- ~~Item drag-and-drop semantics are not implemented~~ — implemented from
+  `InventoryWnd.uc`: grid reorder, `*->EquipItem` equips, `EquipItem->
+  InventoryItem` unequips, `*->TrashButton` destroys behind a warning
+  (`js/ui/inventorywnd.js:26-40, 155-285`).
+- Toggle skills: **unverified either way.** `js/skills.js:93-101` handles a
+  toggle's cast bar and its genuinely-zero reuse, but nothing found in the
+  client stores an on/off state per toggle. Treat the original claim as
+  unconfirmed rather than as fact, and check before relying on it.
+- Still true: `L2Window` is missing most of the `UIAPI_WINDOW` contract —
+  `Iconize` (minimise to icon), `IsMinimizedWindow`, `SetAlwaysOnTop`,
+  `SetFocus`, anchors, tooltips.
 
 ### 2.5 Invented UI still on screen
 

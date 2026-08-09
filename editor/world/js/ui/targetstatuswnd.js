@@ -22,9 +22,11 @@
 //     only; players show HP+MP (noted in code).
 //   - close button hides the frame; the server-side target stays
 //
-// Con-color (ui-port-handoff.md §4, sign settled by protocol: gateway's
-// target_ok.color = viewerLevel - targetLevel, raw from aCis
-// MyTargetSelected; verify-level proved 1-1=0). diff -> name color:
+// Con-color: DECODED from NWindow.dll's own compare ladder, not transcribed
+// -- see conColor() below and tools/ui/mine_native_colors.py section 4. The
+// sign is settled by protocol: gateway's target_ok.color = viewerLevel -
+// targetLevel, raw from aCis MyTargetSelected; verify-level proved 1-1=0.
+// The ladder the DLL yields (for reference only; the code READS it):
 //   <=-9 #FF0000 | -8..-6 #FF9191 | -5..-3 #FAFE91 | -2..2 #DCDCDC
 //   3..5 #A2FFAB | 6..8 #A2A8FC | >=9 #0000FF
 
@@ -35,26 +37,32 @@ import { WndMgr } from './wndmgr.js';
 
 const WND = 'TargetStatusWnd';
 
-const CON_COLORS = [
-  [Infinity, '#FF0000'],     // <= -9 (matched via first rule below)
-];
-
+/** Name tint by level difference — READ, not written.
+ *
+ *  The ladder used to be seven hex literals and six thresholds typed into
+ *  this function. They are now decoded out of the client's own binary:
+ *  `?execGetTargetNameColor@UUIDATA_TARGET@@` (NWindow.dll 0x1012a950, named
+ *  by the export table) is a flat cmp/jg/mov chain over the level difference,
+ *  and `tools/ui/mine_native_colors.py` reads all thirteen values off the
+ *  instruction stream into `native_colors.json` under `ladders.conColor`.
+ *  `python3 tools/ui/mine_native_colors.py --check` re-reads the DLL and
+ *  fails on drift.
+ *
+ *  `diff` is viewerLevel - targetLevel (gateway `target_ok.color`, raw from
+ *  aCis MyTargetSelected), so a target far ABOVE the viewer takes the first
+ *  rung — which is the red one, matching retail.
+ *
+ *  Null when the harvest is missing: the caller then paints the name with the
+ *  control's own record colour rather than substituting a typed one. */
 export function conColor(diff) {
-  if (diff == null) return '#DCDCDC';
-  if (diff <= -9) return '#FF0000';
-  if (diff <= -6) return '#FF9191';
-  if (diff <= -3) return '#FAFE91';
-  if (diff <= 2) return '#DCDCDC';
-  if (diff <= 5) return '#A2FFAB';
-  if (diff <= 8) return '#A2A8FC';
-  return '#0000FF';
+  return Layout.ladder('conColor', diff);
 }
 
 export class TargetStatusWnd {
   constructor(parent = document.body) {
-    const def = Layout.window(WND);
-    this.w = def && def.width ? def.width : 176;
-    this.h = def && def.height ? def.height : 46;
+    const def = Layout.windowSize(WND);
+    this.w = def.w;
+    this.h = def.h;
     this.target = null;   // {id, name, kind, color, hp, maxHp, mp, maxMp}
 
     const root = document.createElement('div');
@@ -107,6 +115,10 @@ export class TargetStatusWnd {
       el.style.cssText = `position:absolute;left:${Skin.px(pos.x)}px;`
         + `top:${Skin.px(pos.y)}px;`
         + `width:${Skin.px(this.w + (auto ? auto.insets[0] : 0))}px;`
+        // AUTHORED bar box: height, radius, plate and border are all ours.
+        // barHP/barMP are BarCtrl records -- the xdat gives their position
+        // and their autosize rule (both read above) but names no texture and
+        // no height, because NWindow renders a BarCtrl natively.
         + 'height:5px;border-radius:2px;overflow:hidden;'
         + 'background:rgba(10,12,17,.8);border:1px solid #222;';
       const fill = document.createElement('div');
@@ -140,15 +152,18 @@ export class TargetStatusWnd {
 
   // -- placement --------------------------------------------------------------
 
-  /** WndMgr reset: SOURCED — WindowsInfo.ini [TargetStatusWnd] posX=337
-   *  posY=0, absolute retail px at 1024x768 (Skin.px applies the uiScale;
-   *  no proportional rescale — retail doesn't scale UI with resolution). */
+  /** WndMgr reset: the dock is READ from the client's own WindowsInfo.ini
+   *  ([TargetStatusWnd]) through Layout.dock(), in absolute retail px at
+   *  1024x768 — Skin.px applies the uiScale, and retail does not scale its
+   *  UI with resolution. Nothing moves if the harvest is missing. */
   onDefaultPosition() {
     const el = this.root;
+    const d = Layout.dock('TargetStatusWnd');
+    if (!d) return;
     el.style.right = 'auto';
     el.style.bottom = 'auto';
-    el.style.left = `${Skin.px(337)}px`;
-    el.style.top = `${Skin.px(0)}px`;
+    el.style.left = `${Skin.px(d.x)}px`;
+    el.style.top = `${Skin.px(d.y)}px`;
   }
 
   place(o = {}) {
@@ -166,8 +181,10 @@ export class TargetStatusWnd {
   setTarget(id, name, { kind = 'npc', color = null, level = null } = {}) {
     this.target = { id, name, kind, color, level,
       hp: null, maxHp: null, mp: null, maxMp: null };
+    // ladder first; if the harvest is missing, the control's own record
+    // colour -- never a typed substitute
     Font.set(this.nameEl, name || `#${id}`,
-      { color: conColor(color) });
+      { color: conColor(color) || Layout.textColor(WND, 'UserName') });
     this._renderBars();
     this.root.style.display = 'block';
   }
@@ -175,7 +192,8 @@ export class TargetStatusWnd {
   setColor(diff) {
     if (this.target) {
       this.target.color = diff;
-      Font.set(this.nameEl, this.target.name, { color: conColor(diff) });
+      Font.set(this.nameEl, this.target.name,
+        { color: conColor(diff) || Layout.textColor(WND, 'UserName') });
     }
   }
 

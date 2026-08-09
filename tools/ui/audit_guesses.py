@@ -46,7 +46,10 @@ MARKER = re.compile(r"AUTHORED|DEVIATION|MEASURED|SOURCED", re.IGNORECASE)
 # Values that are not geometry in any meaningful sense
 TRIVIAL = {"0", "1", "2", "3"}
 
-LOOKBACK = 8      # lines of preceding comment that may carry the marker
+# AUTHORED window: how far above a literal this tool looks for a marker
+# comment. Wider than tools/audit/unsourced.py's 4, deliberately -- that one
+# tightened its window after 14 lines produced false SOURCED verdicts.
+LOOKBACK = 8
 
 
 def justified(lines, i):
@@ -101,6 +104,7 @@ def main():
             print(f"\n{fn}")
             for ln, text, what, ok in show:
                 flag = "ok  " if ok else "GUESS"
+                # AUTHORED terminal width for the report line; 81 + 3 dots.
                 snippet = text if len(text) <= 84 else text[:81] + "..."
                 print(f"  {flag}  L{ln:<4} {what:<16} {snippet}")
 

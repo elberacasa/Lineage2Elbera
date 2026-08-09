@@ -12,7 +12,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const R = { me: null, npcs: [], players: [], targetOk: null, selfLevel: 1 };
 const ws = new WebSocket(url);
-ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
+ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
 ws.on('open', () => ws.send(JSON.stringify({ op: 'login', deviceId })));
 ws.on('message', async (d) => {
   const m = JSON.parse(d);
@@ -61,4 +61,4 @@ ws.on('message', async (d) => {
   const pass = npcLevelOk && playerFieldOk && targetOk;
   console.log(pass ? 'VERIFY-LEVEL: PASS' : 'VERIFY-LEVEL: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-LEVEL: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-LEVEL: FAIL', e.stack || e.message); process.exit(1); });

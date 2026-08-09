@@ -62,7 +62,13 @@ OUT = os.path.join(REPO, "editor/world/ui/invslots.json")
 
 # The well bevel's light edge. Exact, not a threshold: this triple appears in
 # long runs only on well borders.
-BEVEL = (57, 56, 57)
+BEVEL = (57, 56, 57)   # MEASURED off Inventory_Back, not a chosen colour
+# AUTHORED instrument thresholds, all of them: this file MEASURES a texture,
+# and the numbers below are the acceptance window of that measurement, not
+# values read out of the client. Each is justified against a decoded quantity
+# where one exists (the 34px well from the xdat, the 18px adena coin) and the
+# whole harvest is cross-checked against Interface.xdat by the --check gate,
+# which is what actually proves the thresholds were wide enough and no wider.
 MIN_RUN = 20          # a well side is 34px; 20 rejects incidental artwork
 TITLEBAR = 20         # BackTexture sits at y=20 -> body space is xdat y - 20
 
@@ -85,6 +91,8 @@ def load_art():
     im = Image.open(ART).convert("RGB")
     a = np.asarray(im).astype(int)
     # the sprite is power-of-two padded; the art is the top-left 256x381
+    # 256x381 is InventoryWnd's own decoded size (Interface.xdat: 256x401
+    # minus the 20px titlebar), so this crop is read, not chosen.
     return a[:381, :256]
 
 
@@ -122,21 +130,24 @@ def find_wells(a):
     for i, x0 in enumerate(cols):
         for x1 in cols[i + 1:]:
             w = x1 - x0 + 1
+            # AUTHORED width window around the decoded 34px well.
             if w < 20 or w > 40:
                 continue
             for (y0, y1) in vspans[x0]:
                 for (z0, z1) in vspans[x1]:
                     # the two edges must describe the same well: same span
                     # within a pixel or two (artwork nibbles the ends)
+                    # AUTHORED +/-3px slop (artwork nibbles the ends).
                     if abs(y0 - z0) <= 3 and abs(y1 - z1) <= 3:
                         top, bot = min(y0, z0), max(y1, z1)
                         h = bot - top + 1
+                        # AUTHORED +/-2px squareness slop.
                         if abs(h - w) <= 2:          # wells are square
                             wells.add((x0, top, w, h))
     return sorted(wells, key=lambda r: (r[1], r[0]))
 
 
-def cluster(values, tol=2):
+def cluster(values, tol=2):   # AUTHORED 2px coordinate tolerance
     """Collapse near-equal coordinates to their minimum."""
     out = []
     for v in sorted(values):
@@ -163,10 +174,13 @@ def coloured_rect(a, y0):
     green->yellow->red gradient and the adena coin, so a saturation test
     isolates the gauge once the coin's column is excluded by requiring a run
     wider than any icon."""
+    # AUTHORED saturation threshold: how far R/G/B must spread before a
+    # pixel counts as coloured rather than grey.
     sat = (a.max(2) - a.min(2)) > 24
     rows = []
     for y in range(y0, a.shape[0]):
-        r = runs(sat[y], 60)          # 60 rejects the adena coin (18px wide)
+        # AUTHORED run width: wide enough to reject the 18px adena coin.
+        r = runs(sat[y], 60)
         if r:
             rows.append((y, max(r, key=lambda s: s[1] - s[0])))
     if not rows:
@@ -235,11 +249,14 @@ def derive():
 
     under = xdat_ctrl(doc, "InventoryWnd", "EquipItem_Underwear")
     ux, uy = under["x"], under["y"] - TITLEBAR
+    # 5x3 is InventoryWnd.uc's own EQUIPITEM_* layout (see DOLL_NAMES above),
+    # asserted here against what the art actually yields.
     ck("paperdoll is 5 columns x 3 rows", len(dcols) == 5 and len(drows) == 3,
        f"{len(dcols)}x{len(drows)}")
     ck("paperdoll well size == xdat EquipItem_Underwear",
        dcell == under["width"] == under["height"], f"art {dcell}, xdat {under['width']}")
     ck("xdat EquipItem_Underwear lands on a mined well",
+       # 5x3 as above; col 4 / row 1 is where the xdat puts EquipItem_Underwear
        len(dcols) == 5 and len(drows) == 3 and dcols[3] == ux and drows[0] == uy,
        f"xdat ({ux},{uy}) vs mined col4/row1 "
        f"({dcols[3] if len(dcols) > 3 else '?'},{drows[0] if drows else '?'})")
@@ -253,12 +270,15 @@ def derive():
     adena_ctrl = xdat_ctrl(doc, "InventoryWnd", "AdenaText")
     weight_ctrl = xdat_ctrl(doc, "InventoryWnd", "InvenWeight")
     wy = weight_ctrl["y"] - TITLEBAR
+    # 60 = the same AUTHORED run width used for the gauge scan above.
     bands = [b for b in bevel_boxes(a, 60) if b[1] > grows[-1] + dcell]
     # each field is bounded by a bevel run above and below at the same x/width
     fields = {}
     for (x0, y, w) in bands:
         fields.setdefault((x0, w), []).append(y)
     field_rects = [(x0, min(ys), w, max(ys) - min(ys) + 1)
+                   # AUTHORED acceptance rule: a field must show a bevel
+                   # run above AND below it, i.e. at least 2 runs
                    for (x0, w), ys in fields.items() if len(ys) >= 2]
     field_rects.sort(key=lambda r: r[1])
 
@@ -288,6 +308,7 @@ def derive():
         "window": "InventoryWnd",
         "source": "L2UI_CH3.InventoryWnd.Inventory_Back (tier 3, measured) "
                   "cross-checked against Interface.xdat (tier 1)",
+        # 20 = TITLEBAR above, itself the xdat's BackTexture y.
         "space": "InventoryWnd body pixels (xdat y minus the 20px titlebar)",
         "doll": doll,
         "dollCell": dcell,

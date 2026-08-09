@@ -72,9 +72,9 @@ export class TradeWnd {
     this.ownConfirmed = false;   // two-phase latch (M12)
     this.selected = null;        // index into this.tradable
 
-    const def = Layout.window(WND);
-    this.w = def && def.width ? def.width : 256;
-    this.h = def && def.height ? def.height : 471;
+    const def = Layout.windowSize(WND);
+    this.w = def.w;
+    this.h = def.h;
 
     const win = new L2Window({
       title: 'Trade', width: this.w, height: this.h, closable: true,
@@ -90,11 +90,9 @@ export class TradeWnd {
     for (const [key, ctrl] of [['inventory', 'InventoryList'],
                                ['my', 'MyList'],
                                ['other', 'OtherList']]) {
-      const pos = Layout.pos(WND, ctrl)
-        ?? { x: 9, y: key === 'inventory' ? 35 : key === 'my' ? 202 : 329 };
-      const size = Layout.size(WND, ctrl) || { w: 239, h: 108 };
-      const grid = Layout.grid(WND, ctrl)
-        || { cellX: 32, cellY: 32, gapX: 5, gapY: 3 };
+      const pos = Layout.posOf(WND, ctrl);
+      const size = Layout.sizeOf(WND, ctrl);
+      const grid = Layout.gridOf(WND, ctrl);
       const el = document.createElement('div');
       el.className = `l2-trade-${key}`;
       el.style.cssText = 'position:absolute;overflow-y:auto;overflow-x:hidden;'
@@ -126,7 +124,7 @@ export class TradeWnd {
     // partner name at the TargetName rect (uc:216/220 — retail appends the
     // clan; the contract carries the name only)
     const tnPos = Layout.pos(WND, 'TargetName');
-    const tnSize = Layout.size(WND, 'TargetName') || { w: 100 };
+    const tnSize = Layout.sizeOf(WND, 'TargetName');
     this.targetNameEl = document.createElement('div');
     this.targetNameEl.style.cssText = 'position:absolute;pointer-events:none;'
       + `left:${Skin.px((tnPos || { x: 11 }).x)}px;`
@@ -150,7 +148,7 @@ export class TradeWnd {
 
   _ctrlBtn(ctrl, onClick, label = null) {
     const pos = Layout.pos(WND, ctrl);
-    const size = Layout.size(WND, ctrl) || { w: 76, h: 23 };
+    const size = Layout.sizeOf(WND, ctrl);
     if (!pos) return null;
     const b = document.createElement('div');
     b.className = 'l2-trade-btn';
@@ -342,8 +340,12 @@ export class TradeWnd {
       + `left:${Skin.px(8)}px;display:flex;gap:8px;`;
     const btn = (label, cb) => {
       const b = document.createElement('div');
-      b.style.cssText = 'width:49px;height:23px;display:flex;'
-        + 'align-items:center;justify-content:center;cursor:pointer;';
+      // Size is the button art's own content rect, read from the sprite --
+      // not a second copy of a measurement the art already carries.
+      const art = Skin.content('L2UI_CH3.Button.SmallButton1');
+      if (!art) return null;
+      b.style.cssText = `width:${Skin.px(art.w)}px;height:${Skin.px(art.h)}px;`
+        + 'display:flex;align-items:center;justify-content:center;cursor:pointer;';
       Skin.apply(b, 'L2UI_CH3.Button.SmallButton1', { stretch: true });
       Font.set(b, label, { color: Layout.native('buttonLabel') });
       b.addEventListener('click', (e) => { e.stopPropagation(); cb(); });
@@ -388,6 +390,14 @@ export class TradeWnd {
       + (pane === 'inventory' ? 'cursor:pointer;' : '')
       + 'vertical-align:top;'
       + (pane === 'inventory' && this.selected === index
+        // AUTHORED selection outline. Nothing in the client decides this:
+        // no ItemWindow record carries a colour, NCItemWnd's render holds
+        // exactly ONE colour immediate (the stack-count badge -- asserted by
+        // tools/ui/mine_native_colors.py section 2), and no xdat control names
+        // a selection texture. `L2UI_CH3.iconselect1/2` DO exist in the
+        // extracted texture library and are referenced by nothing we have
+        // decoded; if someone ties them to item selection this outline should
+        // be replaced by that art, not by another colour.
         ? 'outline:1px solid #c8a959;' : '');
     cell.title = info.name + (entry.count > 1 ? ` ×${entry.count}` : '');
     const icon = document.createElement('div');
@@ -410,8 +420,16 @@ export class TradeWnd {
     cell.appendChild(icon);
     if (entry.count > 1) {
       const c = document.createElement('div');
+      // AUTHORED 2px right inset. NCItemWnd draws this badge itself and
+      // its position is computed in native code we have not decoded --
+      // only its COLOUR was recovered (see mine_native_colors.py §2).
       c.style.cssText = 'position:absolute;right:2px;bottom:0;pointer-events:none;'
         + 'text-shadow:0 1px 1px #000;';
+      // AUTHORED overflow cap. The badge helper NCItemWnd calls
+      // (NWindow.dll 0x10064790) switches on wcslen and has a branch
+      // per digit count, so retail does clamp the label somewhere --
+      // but which count it clamps AT is not decoded, and 9999+ is our
+      // choice, not a reading.
       Font.set(c, String(entry.count > 9999 ? '9999+' : entry.count),
                { color: Layout.native('itemSlotCount') });
       cell.appendChild(c);
@@ -428,6 +446,14 @@ export class TradeWnd {
 
   _renderSelection() {
     [...this.panes.inventory.el.children].forEach((cell, i) => {
+      // AUTHORED selection outline. Nothing in the client decides this:
+      // no ItemWindow record carries a colour, NCItemWnd's render holds
+      // exactly ONE colour immediate (the stack-count badge -- asserted by
+      // tools/ui/mine_native_colors.py section 2), and no xdat control names
+      // a selection texture. `L2UI_CH3.iconselect1/2` DO exist in the
+      // extracted texture library and are referenced by nothing we have
+      // decoded; if someone ties them to item selection this outline should
+      // be replaced by that art, not by another colour.
       cell.style.outline = this.selected === i ? '1px solid #c8a959' : '';
     });
   }

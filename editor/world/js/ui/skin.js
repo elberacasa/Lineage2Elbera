@@ -174,6 +174,9 @@ export const Skin = {
    */
   gauge(el, fillRef, backRef, { width, height } = {}) {
     const back = Skin.sprite(backRef), fillS = Skin.sprite(fillRef);
+    // AUTHORED 16px, reached only when NEITHER the fill nor the back
+    // sprite loaded -- i.e. the gauge has no art at all and this is the
+    // height of the empty box that says so.
     const h = height ?? (fillS || back || { h: 16 }).h;
     if (width == null) {
       throw new Error('Skin.gauge: width is required (the sprite is a tile)');

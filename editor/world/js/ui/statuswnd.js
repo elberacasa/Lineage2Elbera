@@ -35,11 +35,6 @@ const BARS = [
 // Gauge row height: MEASURED from the bar art (ps_hpbar_back is 8x12 of art
 // inside an 8x16 export), not eyeballed.
 const ROW_REF = 'L2UI_CH3.PlayerStatusWnd.ps_hpbar_back';
-// INSET is only a fallback now: every control in this window (bands, level
-// box, name and the four gauges) decodes its own x/y out of the xdat
-// (docs/ui-mined-values.md §3, docs/xdat-tail-has0.md §4).
-const INSET = 4;
-
 // The gauge label, SOURCED from the native control that draws it:
 // NWindow.dll NCStatusBarCtrl render (RTTI .?AVNCStatusBarCtrl@@ at
 // 0x1034c8d0 -> vtable 0x102412a4, slot 99 -> 0x1004c7c0).
@@ -93,22 +88,25 @@ function barTextures(ctrl) {
 
 export class StatusWnd {
   constructor(parent = document.body) {
-    const def = Layout.window(WND);
-    this.defaultW = def && def.width ? def.width : 176;
-    this.h = def && def.height ? def.height : 84;
+    const def = Layout.windowSize(WND);
+    this.defaultW = def.w;
+    this.h = def.h;
 
-    this.lSize = Layout.size(WND, 'StatusWndLeftTex') || { w: 16, h: this.h };
-    this.rSize = Layout.size(WND, 'StatusWndRightTex') || { w: 4, h: this.h };
+    this.lSize = Layout.sizeOf(WND, 'StatusWndLeftTex');
+    this.rSize = Layout.sizeOf(WND, 'StatusWndRightTex');
     this.lTex = Layout.tex0(WND, 'StatusWndLeftTex');
     this.rTex = Layout.tex0(WND, 'StatusWndRightTex');
     // MINED (docs/ui-mined-values.md §3): StatusWndLeftTex at (12,0),
     // StatusWnd_LevelTextBox_back at (15,6). Fallbacks keep the previous
     // AUTHORED offsets if the lookup ever fails.
     this.leftX = Layout.pos(WND, 'StatusWndLeftTex')?.x ?? 0;
-    this.lvlPos = Layout.pos(WND, 'StatusWnd_LevelTextBox_back')
-      ?? { x: INSET, y: INSET };
+    this.lvlPos = Layout.posOf(WND, 'StatusWnd_LevelTextBox_back');
 
     // width is user state; height never changes
+    // AUTHORED 60px: the two end caps are decoded, but nothing in the
+    // client states a minimum for the stretchable centre -- retail's
+    // StatusWnd is not user-resizable at all. This is the narrowest centre
+    // that still shows the level box and a readable name.
     this.minW = this.lSize.w + this.rSize.w + 60;
     this.maxW = 640;
     this.w = this._loadWidth();
@@ -134,11 +132,10 @@ export class StatusWnd {
     this.bandL = this._band(this.lTex);
     this.bandC = this._band(this.cTex || this.lTex);
     this.bandR = this._band(this.rTex);
-    this.centerInset = (Layout.autosize(WND, 'StatusWndCenterTex')
-      || { insets: [0, 0] }).insets[0];
+    this.centerInset = Layout.autosizeOf(WND, 'StatusWndCenterTex').insets[0];
 
     // --- level box ---
-    const lvlSize = Layout.size(WND, 'StatusWnd_LevelTextBox_back') || { w: 22, h: 20 };
+    const lvlSize = Layout.sizeOf(WND, 'StatusWnd_LevelTextBox_back');
     this.lvlSize = lvlSize;
     const lvl = document.createElement('div');
     lvl.style.cssText = 'position:absolute;display:flex;align-items:center;'
@@ -156,7 +153,7 @@ export class StatusWnd {
     const name = document.createElement('div');
     name.style.position = 'absolute';
     // MINED (has0 decode): UserName at (40, 9) — replaces the AUTHORED offset.
-    const namePos = Layout.pos(WND, 'UserName') ?? { x: INSET + lvlSize.w + 4, y: 6 };
+    const namePos = Layout.posOf(WND, 'UserName');
     name.style.left = `${Skin.px(namePos.x)}px`;
     name.style.top = `${Skin.px(namePos.y)}px`;
     root.appendChild(name);
@@ -176,7 +173,7 @@ export class StatusWnd {
     this.labels = {};
     for (const { key, ctrl } of BARS) {
       const { fill, back, warn } = barTextures(ctrl);
-      const pos = Layout.pos(WND, ctrl) ?? { x: INSET, y: 4 + lvlSize.h + 3 };
+      const pos = Layout.posOf(WND, ctrl);
       const row = document.createElement('div');
       row.style.position = 'absolute';
       row.style.left = `${Skin.px(pos.x)}px`;
@@ -231,7 +228,7 @@ export class StatusWnd {
   }
 
   // data rule (has0 autosize): gauge width = parent.width + insetA
-  _gaugeW() { return this.w + ((Layout.autosize(WND, 'CPBar') || { insets: [-2 * INSET, 0] }).insets[0]); }
+  _gaugeW() { return this.w + (Layout.autosizeOf(WND, 'CPBar').insets[0]); }
 
   _loadWidth() {
     try {
@@ -292,14 +289,33 @@ export class StatusWnd {
     grip.addEventListener('pointercancel', end);
   }
 
-  /** Default dock: SOURCED — WindowsInfo.ini [StatusWnd] posX=444 posY=0
-   *  (absolute retail px at 1024x768; Skin.px applies the uiScale — retail
-   *  does not rescale UI with resolution, so no proportional rescale).
-   *  DEVIATION: posX 444 -> 513. Both docks are individually sourced, but
-   *  the sourced TargetStatusWnd dock (337 + width 176) ends exactly at
-   *  513 — the sourced combination overlaps by 69px and is unreadable, so
-   *  this window butts against the target frame instead. */
-  place({ left = 513, top = 0 } = {}) {
+  /** Default dock. WindowsInfo.ini [StatusWnd] is posX=444 posY=0 (absolute
+   *  retail px at 1024x768; Skin.px applies the uiScale — retail does not
+   *  rescale UI with resolution).
+   *
+   *  DEVIATION on posX, and the deviated value is DERIVED, not typed: the
+   *  sourced TargetStatusWnd dock plus that window's sourced width is where
+   *  the target frame ends, and this window butts against it. Both operands
+   *  are read (WindowsInfo.ini via Layout.dock, Interface.xdat via
+   *  Layout.windowSize); the only authored part is the decision to prefer
+   *  the abutment over retail's 444, which overlaps the target frame by 69px
+   *  and is unreadable in the port.
+   *
+   *  If either decode is missing we fall back to retail's own posX rather
+   *  than to a number of our own — and if THAT is missing too the window
+   *  stays where it is. */
+  place(o = {}) {
+    const tDock = Layout.dock('TargetStatusWnd');
+    const tSize = Layout.size('TargetStatusWnd');
+    const own = Layout.dock('StatusWnd');
+    const derived = (tDock && tSize) ? tDock.x + tSize.w : (own ? own.x : null);
+    const left = o.left != null ? o.left : derived;
+    const top = o.top != null ? o.top : (own ? own.y : 0);
+    if (left == null) return this;
+    return this._placeAt(left, top);
+  }
+
+  _placeAt(left, top) {
     this.root.style.left = `${Skin.px(left)}px`;
     this.root.style.top = `${Skin.px(top)}px`;
     this.root.style.right = 'auto';
@@ -337,6 +353,9 @@ export class StatusWnd {
       const moved = down
         ? Math.hypot(e.clientX - down.x, e.clientY - down.y) : 0;
       down = null;
+      // AUTHORED 4px slop: the distance a pointer may travel between down
+      // and up and still count as a click rather than a drag. A browser
+      // concept; retail has no equivalent number.
       if (moved > 4) return;
       const r = this.root.getBoundingClientRect();
       const x = e.clientX - r.left;
@@ -390,6 +409,8 @@ export class StatusWnd {
     // low HP: the client swaps the fill for its 'warn' texture
     const hp = this.rows.hp;
     if (hp.warn && s.maxHp) {
+      // AUTHORED threshold. StatusWnd.uc names the warn texture but not the
+      // fraction at which it swaps, and nothing in the xdat carries one.
       const low = frac(s.hp, s.maxHp) < 0.3;
       if (low !== this._low) {
         this._low = low;

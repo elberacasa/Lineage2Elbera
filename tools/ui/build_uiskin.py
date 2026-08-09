@@ -41,6 +41,8 @@ def png_size(path):
     """(width, height) straight out of the IHDR — no image library needed."""
     with open(path, "rb") as f:
         head = f.read(24)
+    # SPEC: PNG (RFC 2083) -- 8-byte signature, then the first chunk, whose
+    # 4-char type sits at offset 12 and must be IHDR.
     if head[:8] != b"\x89PNG\r\n\x1a\n" or head[12:16] != b"IHDR":
         raise ValueError(f"not a PNG: {path}")
     return struct.unpack(">II", head[16:24])
@@ -69,8 +71,11 @@ def content_rect(path):
         return None
     minx, miny, maxx, maxy = w, h, -1, -1
     for y in range(h):
-        row = y * w * 4
+        row = y * w * 4   # SPEC: RGBA, 4 bytes per pixel
         for x in range(w):
+            # SPEC: RGBA -- +3 is the alpha byte. The > 4 threshold is
+            # AUTHORED: what counts as "not transparent" when a sprite's
+            # edge carries a dithered fringe.
             if px[row + x * 4 + 3] > 4:
                 if x < minx: minx = x
                 if x > maxx: maxx = x
@@ -185,6 +190,14 @@ def main():
         print("CHECK", "PASS" if ok else "FAIL")
         return 0 if ok else 1
 
+    # 4x is the upscale factor the HD pass bakes (see --hd); it matches the
+    # character pipeline's own 4x, not a number chosen here.
+    # 4x matches the character pipeline's own HD factor (docs/character-
+    # pipeline.md); the sprites are upscaled by the same amount so Skin.px
+    # keeps one scale for the whole UI.
+    # AUTHORED 4x: nothing in the client asks for an upscale at all -- the
+    # HD pass is ours. 4 matches what the character pipeline already bakes,
+    # so Skin.px keeps a single scale across the whole UI.
     scale = 4 if args.hd else 1
     os.makedirs(STAGE, exist_ok=True)
     for f in os.listdir(STAGE):

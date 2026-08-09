@@ -22,7 +22,17 @@ NO xdat record at all:
   * a TextBox whose record carries no colour (8 of the 658) -- falls back to
                             the field initialiser in NCTextBox's ctor.
 
-Those three are what this tool decodes. It is the same instrument
+Two more colour decisions live in native code and have no record anywhere:
+
+  * a target's NAME tint  -- ?execGetTargetNameColor@UUIDATA_TARGET@@ maps the
+                            level difference to one of seven colours through a
+                            compare ladder. Seven colours, six thresholds, all
+                            inline immediates (section 4).
+  * <font color="NAME">   -- NCHtmlObject::GetMatchedColor is the NPC-dialog
+                            HTML parser's complete name table, and it holds
+                            exactly ONE name (section 5).
+
+Those five are what this tool decodes. It is the same instrument
 `docs/ui-mined-native.md` used for the chat channel table: NWindow.dll is a
 plain unpacked PE32 (image base 0x10000000, FileAlignment == SectionAlignment
 == 0x1000, so **file offset == RVA** -- asserted below), and the values are
@@ -101,8 +111,14 @@ discards and that all decode to an identical #FFD8F1; that uniformity is
 evidence the signature is matching something that is not a colour, and
 nothing here adopts it.
 
-It does not claim these are the only native colours. It claims that these four
-are decoded, and it fails loudly if any of them stops reading back.
+It does not claim these are the only native colours. It claims that these five
+groups are decoded, and it fails loudly if any of them stops reading back.
+
+The con-colour ladder's *input* is not decoded here.  The ladder itself is
+(seven colours, six thresholds, read as bytes).  Which way round the argument
+runs -- viewer-minus-target or target-minus-viewer -- is settled elsewhere, by
+the gateway's `target_ok.color` field and `verify-level`; this tool only
+records that a value at or below the first threshold takes the first rung.
 """
 
 import argparse
@@ -354,6 +370,137 @@ def mine():
         except ValueError as e:
             p.fail.append(f'NCTextBox default: {e}')
 
+    # -- 4. the target-name con-colour ladder --------------------------------
+    # The seven colours and six thresholds the client uses to tint a target's
+    # name by level difference.  Not an inference about which function does
+    # this: the export table names it.
+    #   ?execGetTargetNameColor@UUIDATA_TARGET@@QAEXAAUFFrame@@QAX@Z -> 0x12a950
+    # (parsed live below, so a rebuilt DLL cannot silently move it).  Its body
+    # evaluates one script int into [ebp-0x14] through GNatives and then runs a
+    # flat compare ladder over it, each rung exactly
+    #       83 F8 <imm8>   cmp eax,<threshold>
+    #       7F 07          jg   +7
+    #       B8 <imm32>     mov  eax,<AARRGGBB>
+    #       EB <rel8>      jmp  out
+    # for five rungs, and closes with a branchless pair:
+    #       33 C9          xor ecx,ecx
+    #       83 F8 08       cmp eax,8
+    #       0F 9F C1       setg cl
+    #       83 E9 01       sub ecx,1        ; 0 when >8, -1 when <=8
+    #       81 E1 <mask>   and ecx,<mask>
+    #       81 C1 <base>   add ecx,<base>
+    # so <=8 gives base+mask and >8 gives base.  Both operands are read here;
+    # nothing about the last two colours is typed.
+    ladders = {}
+    con_rva = export_rva(data, b'?execGetTargetNameColor@UUIDATA_TARGET@@'
+                               b'QAEXAAUFFrame@@QAX@Z')
+    if con_rva is None:
+        p.fail.append('NWindow.dll exports no ?execGetTargetNameColor@'
+                      'UUIDATA_TARGET@@ -- the con-colour ladder is gone')
+    # decoded: the RVA the export table gives for this symbol today
+    elif con_rva != 0x12A950:
+        p.fail.append(f'execGetTargetNameColor moved to 0x{IMAGE_BASE + con_rva:X} '
+                      f'(documented 0x1012A950); re-derive the ladder offset')
+    else:
+        # decoded: the first `cmp eax,imm8` of the ladder, 0x82 bytes into
+        # the body of the exported function checked immediately above
+        rungs, rva = [], 0x12A9D2
+        # the ladder must be fed by the script parameter slot, not something else
+        # SOURCED: bytes decoded from NWindow.dll with objdump -d
+        # --start-address=0x1012A9CF -- mov eax,[ebp-0x14]
+        p.expect(0x12A9CF, [0x8B, 0x45, 0xEC],
+                 'execGetTargetNameColor loads the evaluated int parameter')
+        ok = True
+        for i in range(5):
+            # SOURCED: rung bytes decoded from NWindow.dll -- cmp eax,imm8 /
+            # jg +7 / mov eax,imm32 / jmp
+            r = p.expect(rva, [0x83, 0xF8, None, 0x7F, 0x07, 0xB8,
+                               None, None, None, None, 0xEB, None],
+                         f'con-colour ladder rung {i + 1}')
+            if not r:
+                ok = False
+                break
+            thr = struct.unpack_from('<b', r, 2)[0]
+            try:
+                rungs.append({'maxDiff': thr,
+                              'color': rgb(struct.unpack_from('<I', r, 6)[0])})
+            except ValueError as e:
+                p.fail.append(f'con-colour rung {i + 1}: {e}')
+                ok = False
+                break
+            rva += 12   # decoded: each rung is exactly 12 bytes
+        # SOURCED: tail bytes decoded from NWindow.dll -- xor ecx,ecx /
+        # cmp eax,imm8 / setg cl / sub ecx,1 / and ecx,imm32 / add ecx,imm32
+        tail = p.expect(rva, [0x33, 0xC9, 0x83, 0xF8, None, 0x0F, 0x9F, 0xC1,
+                              0x83, 0xE9, 0x01,
+                              0x81, 0xE1, None, None, None, None,
+                              # SPEC: x86 opcode 81 /0 = add r/m32, imm32
+                              0x81, 0xC1, None, None, None, None],
+                        'con-colour ladder branchless tail')
+        if ok and tail:
+            thr = struct.unpack_from('<b', tail, 4)[0]
+            mask = struct.unpack_from('<I', tail, 13)[0]
+            base = struct.unpack_from('<I', tail, 19)[0]
+            try:
+                rungs.append({'maxDiff': thr,
+                              'color': rgb((base + mask) & 0xFFFFFFFF)})
+                rungs.append({'maxDiff': None,
+                              'color': rgb(base)})
+            except ValueError as e:
+                p.fail.append(f'con-colour tail: {e}')
+            else:
+                ladders['conColor'] = {
+                    'role': 'Target/NPC name tint by level difference. The '
+                            'parameter is the viewer\'s level minus the '
+                            'target\'s, so a target far ABOVE the viewer takes '
+                            'the first rung. Rungs are ordered; the first whose '
+                            'maxDiff is >= the value wins, and maxDiff null is '
+                            'the open-ended last rung.',
+                    'rungs': rungs,
+                    'evidence':
+                        'NWindow.dll ?execGetTargetNameColor@UUIDATA_TARGET@@ '
+                        '(0x1012a950, from the export table) -- compare ladder '
+                        '0x1012a9d2..0x1012a9fd (5x cmp/jg/mov imm32) plus the '
+                        'branchless tail at 0x1012a9fe '
+                        f'(and 0x{mask:08X} / add 0x{base:08X})',
+                }
+                p.note.append('con-colour ladder: '
+                              + ' '.join(f'{r["maxDiff"]}:{r["color"]}'
+                                         for r in rungs))
+
+    # -- 5. the ONE named colour the HTML viewer knows -----------------------
+    # NCHtmlObject::GetMatchedColor (0x100825d0) is the whole name->colour map
+    # the NPC-dialog HTML parser has.  It compares its argument against exactly
+    # one wide string, L"LEVEL" (0x1024dd44), returns an immediate when it
+    # matches, and otherwise builds L"0xff" + <the name> and parses that as a
+    # number.  So there is no second named colour in this build: any other name
+    # is fed to the numeric parser, which is what a bare hex colour takes.
+    # The two string constants are each referenced exactly once in the image
+    # (checked below), which is what makes this function identifiable without
+    # a symbol.
+    named = {}
+    # decoded: the two wide-string constants in NWindow.dll's .rdata
+    for va, what in ((0x1024DD44, 'L"LEVEL"'), (0x1024DD38, 'L"0xff"')):
+        n = data.count(struct.pack('<I', va))
+        if n != 1:
+            p.fail.append(f'{what} at 0x{va:X} is referenced {n} times, not once '
+                          f'-- GetMatchedColor is no longer identifiable this way')
+    # SOURCED: bytes decoded from NWindow.dll with objdump -d
+    # --start-address=0x1008261D -- mov ecx,0x1024DD44 (L"LEVEL"); mov eax,esi
+    p.expect(0x8261D, [0xB9, 0x44, 0xDD, 0x24, 0x10, 0x8B, 0xC6],
+             'GetMatchedColor loads L"LEVEL" for the compare')
+    # SOURCED: bytes decoded from NWindow.dll -- mov ecx,0x1024DD38 (L"0xff")
+    p.expect(0x8269D, [0xB9, 0x38, 0xDD, 0x24, 0x10],
+             'GetMatchedColor loads the L"0xff" numeric prefix')
+    # SOURCED: bytes decoded from NWindow.dll -- mov eax,<imm32 AARRGGBB>
+    lvl = p.expect(0x82653, [0xB8, None, None, None, None],
+                   'GetMatchedColor L"LEVEL" return value')
+    if lvl:
+        try:
+            named['LEVEL'] = rgb(struct.unpack_from('<I', lvl, 1)[0])
+        except ValueError as e:
+            p.fail.append(f'html LEVEL colour: {e}')
+
     # -- byte-order control -------------------------------------------------
     # docs/ui-mined-native.md §2's default-grey chat push, decoded with the
     # same rgb(); it must agree with the NCTextBox default recovered above.
@@ -377,7 +524,35 @@ def mine():
                 p.note.append(f'byte-order control: chat default-grey at '
                               f'0x1014191a == NCTextBox default == {got}')
 
-    return out, p, xstats
+    return out, ladders, named, p, xstats
+
+
+def export_rva(data, mangled):
+    """RVA of one export, read out of the PE export directory. Used so a
+    decoded function address is checked against the DLL's own symbol table
+    rather than against a number written down here."""
+    # Offsets fixed by the PE/COFF format (Microsoft PE spec), the same way
+    # TEXF_DXT3 == 7 is fixed by UE2: e_lfanew at 0x3C, OptionalHeader 0x18
+    # past the signature, magic 0x10B == PE32 (0x20B == PE32+), the data
+    # directory 96 (PE32) or 112 (PE32+) into the OptionalHeader, and inside
+    # IMAGE_EXPORT_DIRECTORY NumberOfNames at +0x18 with the three RVA arrays
+    # at +0x1C. Nothing here is a measurement of this DLL.
+    pe = struct.unpack_from('<I', data, 0x3C)[0]
+    opt = pe + 0x18       # SPEC: PE/COFF, OptionalHeader follows the 0x18 header
+    magic = struct.unpack_from('<H', data, opt)[0]
+    # SPEC: PE/COFF -- magic 0x10B is PE32 (0x20B is PE32+), and the data
+    # directory sits 96 bytes into a PE32 OptionalHeader, 112 into a PE32+.
+    ddir = opt + (96 if magic == 0x10B else 112)
+    erva = struct.unpack_from('<I', data, ddir)[0]
+    n_names = struct.unpack_from('<I', data, erva + 0x18)[0]
+    a_funcs, a_names, a_ords = struct.unpack_from('<III', data, erva + 0x1C)
+    for i in range(n_names):
+        nr = struct.unpack_from('<I', data, a_names + 4 * i)[0]
+        end = data.index(b'\0', nr)
+        if data[nr:end] == mangled:
+            o = struct.unpack_from('<H', data, a_ords + 2 * i)[0]
+            return struct.unpack_from('<I', data, a_funcs + 4 * o)[0]
+    return None
 
 
 def main():
@@ -389,7 +564,7 @@ def main():
                          'exit 1 on any drift')
     a = ap.parse_args()
 
-    out, p, xstats = mine()
+    out, ladders, named, p, xstats = mine()
 
     print('NWindow.dll native UI colours')
     if xstats:
@@ -400,6 +575,14 @@ def main():
     for k, v in out.items():
         print(f'  {v["color"]}  {k:20} {v["role"]}')
         print(f'            {v["evidence"]}')
+    for k, v in ladders.items():
+        print(f'  ladder {k}: '
+              + ' '.join(f'<={r["maxDiff"]}:{r["color"]}' if r['maxDiff'] is not None
+                         else f'else:{r["color"]}' for r in v['rungs']))
+        print(f'            {v["evidence"]}')
+    for k, v in named.items():
+        print(f'  {v}  html <font color="{k}">  (the only name GetMatchedColor '
+              f'matches; every other name goes to the numeric parser)')
     for n in p.note:
         print(f'  note: {n}')
 
@@ -410,6 +593,17 @@ def main():
                  'Every entry carries the instruction site it was read from; '
                  're-verify with --check.',
         'colors': out,
+        'ladders': ladders,
+        'htmlNamedColors': {
+            '_evidence': 'NWindow.dll NCHtmlObject::GetMatchedColor 0x100825d0 '
+                         '-- the complete name table of the NPC-dialog HTML '
+                         'parser. It compares against L"LEVEL" (0x1024dd44) '
+                         'and returns the immediate at 0x10082653; any other '
+                         'name is concatenated after L"0xff" (0x1024dd38) and '
+                         'handed to the numeric parser, i.e. treated as a bare '
+                         'hex colour. There is no second named colour.',
+            'names': named,
+        },
     }
 
     if a.emit:
@@ -437,6 +631,18 @@ def main():
                 if k not in out:
                     p.fail.append(f'{os.path.relpath(OUT, REPO)} carries "{k}", '
                                   f'which this tool no longer decodes')
+            doc = json.load(open(OUT))
+            hl = doc.get('ladders', {})
+            for k, v in ladders.items():
+                if hl.get(k, {}).get('rungs') != v['rungs']:
+                    p.fail.append(f'{os.path.relpath(OUT, REPO)} ladder "{k}" '
+                                  f'disagrees with NWindow.dll: shipped '
+                                  f'{hl.get(k, {}).get("rungs")} vs decoded '
+                                  f'{v["rungs"]}')
+            hn = doc.get('htmlNamedColors', {}).get('names', {})
+            if hn != named:
+                p.fail.append(f'{os.path.relpath(OUT, REPO)} html named colours '
+                              f'{hn} disagree with NWindow.dll {named}')
 
     print()
     if p.fail:

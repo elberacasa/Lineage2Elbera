@@ -35,11 +35,18 @@ const SHORTCUT = '/ui/shortcutslots.json';
 // `python3 tools/ui/mine_native_colors.py --check` re-reads the DLL and fails
 // on drift.
 const NATIVE = '/gamedata/native_colors.json';
+// The position every retail window opens at, read straight out of the
+// client's own assets/interlude/system/WindowsInfo.ini by
+// tools/ui/mine_windowsinfo.py. Absolute pixels at 1024x768 (the client does
+// not rescale its UI with resolution). Fourteen UI modules used to cite this
+// file in a comment beside a typed pair of numbers; they now read it.
+const DOCKS = '/gamedata/windowsinfo.json';
 
 let _doc = null;
 let _wells = null;
 let _shortcut = null;
 let _native = null;
+let _docks = null;
 const _index = new Map();       // 'Window/Control' -> node (FLAT, see below)
 const _pathIndex = new Map();   // 'Window/Sub/.../Control' -> node (full path)
 
@@ -61,6 +68,7 @@ export const Layout = {
     _wells = await fetch(WELLS).then(r => (r.ok ? r.json() : null)).catch(() => null);
     _shortcut = await fetch(SHORTCUT).then(r => (r.ok ? r.json() : null)).catch(() => null);
     _native = await fetch(NATIVE).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    _docks = await fetch(DOCKS).then(r => (r.ok ? r.json() : null)).catch(() => null);
     _doc = await fetch(SRC).then(r => (r.ok ? r.json() : null)).catch(() => null);
     if (!_doc) { _doc = { windows: [], textures: {} }; return Layout; }
     for (const w of _doc.windows) {
@@ -165,6 +173,52 @@ export const Layout = {
     return (n && n.color) || null;
   },
 
+  /** The client's own default placement for a window, {x, y} in absolute
+   *  1024x768 pixels, from WindowsInfo.ini (see DOCKS above). Null when that
+   *  file names no such window — the caller then keeps whatever placement it
+   *  can justify, marked AUTHORED at the site. Never guess a dock: retail's
+   *  are far from uniform (InventoryWnd 722,127 but MinimapWnd 16,63), so a
+   *  plausible-looking pair is exactly the kind of value that reads as
+   *  decoded and is not. */
+  dock(name) {
+    const d = _docks && _docks.docks && _docks.docks[name];
+    return (d && d.x != null && d.y != null) ? { x: d.x, y: d.y } : null;
+  },
+
+  /** A colour ladder NWindow.dll walks in code: an ordered list of
+   *  {maxDiff, color}, the first rung whose maxDiff is >= the value wins, and
+   *  a null maxDiff is the open-ended last rung. Today the only ladder is
+   *  'conColor', read out of ?execGetTargetNameColor@UUIDATA_TARGET@@ by
+   *  tools/ui/mine_native_colors.py. Returns null when the harvest is absent.
+   *  Use `Layout.ladder(name, value)` to resolve one; the raw list is here
+   *  only for tools that want to show it. */
+  ladderRungs(name) {
+    const l = _native && _native.ladders && _native.ladders[name];
+    return (l && l.rungs) || null;
+  },
+
+  /** Resolve a native colour ladder at `value`, or null when the harvest is
+   *  absent — the caller's cue to leave the text at its own record colour
+   *  rather than to type a substitute. */
+  ladder(name, value) {
+    const rungs = Layout.ladderRungs(name);
+    if (!rungs || value == null) return null;
+    for (const r of rungs) {
+      if (r.maxDiff == null || value <= r.maxDiff) return r.color;
+    }
+    return null;
+  },
+
+  /** The colour the client's HTML viewer gives a `<font color="NAME">`.
+   *  NCHtmlObject::GetMatchedColor knows exactly one name; every other string
+   *  it treats as a bare hex number. Null for anything it does not name — the
+   *  caller must then either parse it as hex or drop the tag, which is what
+   *  the client does. */
+  htmlColor(name) {
+    const t = _native && _native.htmlNamedColors && _native.htmlNamedColors.names;
+    return (t && t[String(name).toUpperCase()]) || null;
+  },
+
   /** A colour NWindow.dll decides in code because no xdat record carries it.
    *  Keys: 'buttonLabel', 'buttonLabelDisabled', 'itemSlotCount',
    *  'textBoxDefault' -- see the NATIVE comment above and
@@ -193,5 +247,69 @@ export const Layout = {
   align(winName, ctrlName) {
     const n = ctrlName ? Layout.find(winName, ctrlName) : Layout.window(winName);
     return (n && n.align) || null;
+  },
+
+  // ---- required lookups: degrade to nothing, never to a typed number -----
+  //
+  // Callers used to write `Layout.size(W, C) || { w: 239, h: 104 }`. That
+  // second operand is a literal nobody decoded, and the audit
+  // (tools/audit/unsourced.py) counts it as UNSOURCED whatever number it
+  // holds — replacing it with a *better* number would not help. So the
+  // guarded form is gone and these four take its place.
+  //
+  // When the record is missing they return the EMPTY rect and report the
+  // miss once, naming the window and control. Painting nothing is the
+  // degrade this file's header prescribes: a size we did not decode has no
+  // honest value, and zero makes the gap visible instead of dressing it up
+  // as retail geometry.
+  //
+  // No call site reaches the degrade today: `tools/audit/fallback_reach.py
+  // --check` resolves 53/53 of the lookups these replaced, and
+  // `editor/world/verify_layout_bind.js` re-checks every window/control pair
+  // the UI actually asks for. The empty rect is a tripwire, not a design.
+
+  /** {w, h} of a window declared in Interface.xdat; {w:0,h:0} if it is not. */
+  windowSize(name) {
+    const n = Layout.window(name);
+    if (n && n.width != null && n.height != null) return { w: n.width, h: n.height };
+    return Layout._degrade(`window ${name}`, { w: 0, h: 0 });
+  },
+
+  /** size(), with the empty rect instead of null. */
+  sizeOf(winName, ctrlName) {
+    return Layout.size(winName, ctrlName)
+      || Layout._degrade(`size ${winName}/${ctrlName}`, { w: 0, h: 0 });
+  },
+
+  /** pos(), with the parent origin instead of null. */
+  posOf(winName, ctrlName) {
+    return Layout.pos(winName, ctrlName)
+      || Layout._degrade(`pos ${winName}/${ctrlName}`, { x: 0, y: 0 });
+  },
+
+  /** autosize(), with a no-op rule instead of null: factors 0 (meaning "do
+   *  not auto-size") and zero insets, so the caller's arithmetic is a
+   *  no-change. */
+  autosizeOf(winName, ctrlName) {
+    return Layout.autosize(winName, ctrlName)
+      || Layout._degrade(`autosize ${winName}/${ctrlName}`,
+        { autosize: [0, 0], insets: [0, 0] });
+  },
+
+  /** grid(), with a zero cell instead of null. */
+  gridOf(winName, ctrlName) {
+    return Layout.grid(winName, ctrlName)
+      || Layout._degrade(`grid ${winName}/${ctrlName}`,
+        { cellX: 0, cellY: 0, gapX: 0, gapY: 0 });
+  },
+
+  _missed: new Set(),
+  _degrade(what, empty) {
+    if (!Layout._missed.has(what)) {
+      Layout._missed.add(what);
+      console.warn(`[Layout] no decoded record for ${what} — painting nothing`
+        + ' (a typed size would be an invention)');
+    }
+    return empty;
   },
 };

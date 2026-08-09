@@ -52,7 +52,10 @@ import { L2Window } from './window.js';
 import { WndMgr } from './wndmgr.js';
 import { Layout } from './layout.js';
 
-const WND_W = 176;    // WindowsInfo.ini [PartyWnd] width
+// PartyWnd's own width, READ from Interface.xdat (Layout.windowSize) —
+// WindowsInfo.ini [PartyWnd] independently states the same 176, which is one
+// of the six sections tools/ui/mine_windowsinfo.py cross-checks.
+const wndW = () => Layout.windowSize('PartyWnd').w;
 const ROW_H = 46;     // NPARTYSTATUS_HEIGHT, PartyWnd.uc:5
 const MAX_MEMBERS = 8;  // NPARTYSTATUS_MAXCOUNT, PartyWnd.uc:6
 // DEVIATION: the sourced posY=92 collides with the sourced MinimapWnd
@@ -60,7 +63,21 @@ const MAX_MEMBERS = 8;  // NPARTYSTATUS_MAXCOUNT, PartyWnd.uc:6
 // so the map covers y 63..496) — the pair is unreadable in the port.
 // posX=0 stays sourced; posY drops below the map (63 + 433 + a 4px gap,
 // the gap itself AUTHORED).
-const DOCK = { left: 0, top: 500 };   // WindowsInfo.ini [PartyWnd] posX; posY deviated (above)
+// posX is READ from WindowsInfo.ini [PartyWnd]. posY is DERIVED from two
+// other decoded values — the MinimapWnd dock and that window's own height
+// plus its titlebar — so this window clears the map instead of colliding
+// with it. The only authored number left is the 4px gap between them.
+const MAP_GAP = 4;        // AUTHORED: nothing in the client spaces two docks
+const TITLEBAR_H = 20;    // docs/ui-mined-values.md §3: BackTexture y=20
+const dock = () => {
+  const own = Layout.dock('PartyWnd');
+  if (!own) return null;
+  const map = Layout.dock('MinimapWnd');
+  const mapSize = Layout.size('MinimapWnd');
+  const below = (map && mapSize)
+    ? map.y + mapSize.h + TITLEBAR_H + MAP_GAP : null;
+  return { left: own.x, top: below != null ? below : own.y };
+};
 
 // retail member-row art (PlayerStatusWnd gauges reused for the bars)
 const HP_FILL = 'L2UI_CH3.PlayerStatusWnd.ps_HPbar';
@@ -92,7 +109,7 @@ export class PartyWnd {
     const root = document.createElement('div');
     root.id = 'l2-partywnd';
     root.style.cssText = `position:fixed;z-index:12;display:none;`
-      + `width:${Skin.px(WND_W)}px;pointer-events:auto;`;
+      + `width:${Skin.px(wndW())}px;pointer-events:auto;`;
     this.root = root;
     parent.appendChild(root);
 
@@ -127,7 +144,8 @@ export class PartyWnd {
     // --- the partyAsk prompt (AUTHORED — no DialogBox in the port) ---
     this._buildAsk(parent);
 
-    this.place(DOCK);
+    const d = dock();
+    if (d) this.place(d);   // no harvest -> leave it where it is
   }
 
   _smallBtn(label, onClick) {
@@ -271,11 +289,14 @@ export class PartyWnd {
 
       if (m.leader && Skin.sprite(CROWN)) {
         const crown = document.createElement('div');
-        const cs = Skin.content(CROWN) || { w: 16, h: 16 };
+        // The crown's size is the sprite's own content rect. No sprite, no
+    // crown -- a typed 16x16 would be a guess at art we failed to load.
+    const cs = Skin.content(CROWN);
+    if (!cs) return;
         // SOURCED: PartyWnd.uc:398 anchors the crown -(nameWidth/2)-18
         // left of the centered name (the 18 is uc:194/398), y=8
         const nw = Font.measure(m.name || '');
-        const cx = (WND_W - 13) / 2 - nw / 2 - 18;
+        const cx = (wndW() - 13) / 2 - nw / 2 - 18;
         crown.style.cssText = `position:absolute;top:${Skin.px(8)}px;`
           + `left:${Skin.px(Math.max(0, cx))}px;width:${Skin.px(cs.w)}px;`
           + `height:${Skin.px(cs.h)}px;pointer-events:none;`;
@@ -303,7 +324,7 @@ export class PartyWnd {
       row.appendChild(hpRow);
       row.appendChild(mpRow);
       // bar width: row width minus insets — AUTHORED (no mined row layout)
-      const barW = WND_W - 13 - 8;
+      const barW = wndW() - 13 - 8;
       const barH = (Skin.content(HP_BACK) || { h: 12 }).h;  // MEASURED 12
       const hpSet = Skin.gauge(hpRow, HP_FILL, HP_BACK, { width: barW, height: barH });
       const mpSet = Skin.gauge(mpRow, MP_FILL, MP_BACK, { width: barW, height: barH });
@@ -348,6 +369,7 @@ export class PartyWnd {
 
   /** WndMgr reset: the DOCK above (sourced posX, deviated posY). */
   onDefaultPosition() {
-    this.place(DOCK);
+    const d = dock();
+    if (d) this.place(d);   // no harvest -> leave it where it is
   }
 }

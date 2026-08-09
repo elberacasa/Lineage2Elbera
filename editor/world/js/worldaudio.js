@@ -29,8 +29,14 @@ import { audio, RADIUS_UNIT, DEFAULT_RADIUS } from './audio.js';
 import { L2_TO_M } from './coords.js';
 
 const MAX_LIVE = 16;          // concurrent ambient loops
+// AUTHORED poll rate: how often the listener's position is re-tested
+// against every emitter. Retail does this in its own render loop; there is
+// no client-side number to port.
 const UPDATE_HZ = 4;
-const HYSTERESIS = 1.15;      // must recede 15% past its radius before stopping
+// AUTHORED 15% overshoot before an emitter stops, so a listener standing on
+// the boundary does not stutter it on and off. Retail's own emitter culling
+// is inside the engine and was not decoded.
+const HYSTERESIS = 1.15;
 
 // AmbientSoundType, from Engine.u's ASType1 enum:
 // 0 Always, 1 Day, 2 Night, 3 Water. Interlude has no day/night cycle in this
@@ -83,6 +89,9 @@ export class WorldAudio {
         // is Core.dll's GAudioDefaultRadius (80.0f) — the driver's own default,
         // not a chosen number.
         radius: a.radius == null ? DEFAULT_RADIUS : a.radius,
+        // AUTHORED volume fallback: unlike the radius above, Core.dll
+        // exports no default volume, and an AmbientSoundObject that omits
+        // SoundVolume leaves us nothing to read.
         volume: a.volume == null ? 250 : a.volume,
         pitch: a.pitch == null ? 1 : a.pitch,
       });

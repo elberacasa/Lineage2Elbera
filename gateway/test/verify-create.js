@@ -108,7 +108,7 @@ ws.on('message', async (data) => {
   }
 });
 ws.on('close', () => finish());
-ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
+ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
 
 let finished = false;
 function finish() {

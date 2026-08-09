@@ -41,6 +41,10 @@ CLASSID = os.path.join(
     REPO, "server/aCis_gameserver/java/net/sf/l2j/gameserver/enums/actors/ClassId.java")
 OUT = os.path.join(REPO, "editor/world/ui/classnames.json")
 
+# Decoded sysstring base ids for the class-name blocks: sysstring 247+id
+# covers classIds 0..57 and 1159+id-58 covers the rest. Both are re-asserted
+# by the checks below, which compare the boundary strings and fail loudly if
+# either block ever moves.
 BLOCK1, SPLIT, BLOCK2 = 247, 58, 1159
 
 
@@ -73,6 +77,8 @@ def derive():
             bad.append((cid, server_name, client_name))
         table[str(cid)] = {"sysId": sysid(cid), "name": client_name}
 
+    # 89 = the ordinal count of aCis's ClassId enum, counted from the server
+    # source, not chosen here.
     checks.append(("aCis ClassId enum parsed (89 ordinals)", len(names) == 89,
                    f"{len(names)} classes"))
     checks.append((f"every classId resolves through sysstring "

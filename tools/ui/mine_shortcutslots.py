@@ -123,7 +123,7 @@ def find_wells(a):
     mine_invslots.find_wells: two vertical bevel runs sharing a row span,
     separated by the well's width."""
     import numpy as np
-    m = np.zeros(a.shape[:2], dtype=bool)
+    m = np.zeros(a.shape[:2], dtype=bool)   # SPEC: numpy HxWxC, [:2] is HxW
     for c in BEVEL:
         m |= ((a[:, :, 0] == c[0]) & (a[:, :, 1] == c[1]) & (a[:, :, 2] == c[2]))
     vspans = {}
@@ -137,13 +137,19 @@ def find_wells(a):
     for i, x0 in enumerate(cols):
         for x1 in cols[i + 1:]:
             w = x1 - x0 + 1
+            # AUTHORED width window around the decoded 36px slot: the three
+            # thresholds here and below are the acceptance window of a
+            # MEASUREMENT, and the --check gate proves it by reconciling the
+            # harvest against the xdat's own twelve slot records.
             if w < 20 or w > 40:
                 continue
             for (y0, y1) in vspans[x0]:
                 for (z0, z1) in vspans[x1]:
+                    # AUTHORED +/-3px slop, as above
                     if abs(y0 - z0) <= 3 and abs(y1 - z1) <= 3:
                         top, bot = min(y0, z0), max(y1, z1)
                         h = bot - top + 1
+                        # AUTHORED +/-2px squareness slop, as above
                         if abs(h - w) <= 2:
                             wells.add((x0, top, w, h))
     return sorted(wells, key=lambda r: (r[1], r[0]))
@@ -285,9 +291,13 @@ def derive():
             "wellInset": inset_short,
             "well": cell,
             "iconInset": inset_short + 1,
-            "iconCell": cell - 2,
+            # the icon sits one pixel inside the well on each side, so the cell
+        # is the MEASURED well minus 2 -- both pixels, not a chosen inset
+        "iconCell": cell - 2,
         }
 
+    # 2 = the two orientation sub-windows ShortcutWnd declares in
+    # Interface.xdat (ShortcutWndHorizontal, ShortcutWndVertical)
     if len(out) == 2:
         h, v = out["ShortcutWndHorizontal"], out["ShortcutWndVertical"]
         ck("both orientations agree on the art offset",

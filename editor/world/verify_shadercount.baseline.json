@@ -1,0 +1,16 @@
+{
+  "at": "2026-08-09T01:07:57.853Z",
+  "tiles": {
+    "22_22": {
+      "programs": 19,
+      "distinctMaterials": 2427,
+      "instancedMeshes": 4059,
+      "placements": 1946,
+      "distinctGltfFiles": 288,
+      "geometries": 2100,
+      "textures": 437,
+      "drawCalls": 678,
+      "triangles": 248301
+    }
+  }
+}

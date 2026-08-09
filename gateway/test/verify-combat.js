@@ -27,7 +27,7 @@ const R = {
 };
 
 const ws = new WebSocket(url);
-ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
+ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
 ws.on('open', () => ws.send(JSON.stringify({ op: 'login', deviceId })));
 
 ws.on('message', async (data) => {

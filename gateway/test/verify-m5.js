@@ -84,4 +84,4 @@ function makeClient(name, deviceId) {
   const pass = sheetOk && whisperOk && shoutOk && menuLogged;
   console.log(pass ? 'VERIFY-M5: PASS' : 'VERIFY-M5: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-M5: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-M5: FAIL', e.stack || e.message); process.exit(1); });

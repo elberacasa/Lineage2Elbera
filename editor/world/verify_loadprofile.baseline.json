@@ -1,0 +1,53 @@
+{
+  "format": 2,
+  "tile": "22_22",
+  "at": "2026-08-09T03:22:08.603Z",
+  "metrics": {
+    "cold.domContentLoaded": 421.7,
+    "cold.loadEvent": 422.2,
+    "cold.firstPaint": 380,
+    "cold.firstContentfulPaint": 380,
+    "cold.worldReady": 15371.4,
+    "cold.firstFrameAfterReady": 16713.2,
+    "cold.interactive": 15371.4,
+    "cold.reloadWarmTotal": 0,
+    "cold.reloadColdTotal": 0,
+    "warm.domContentLoaded": 1772.4,
+    "warm.loadEvent": 1772.7,
+    "warm.firstPaint": 1752,
+    "warm.firstContentfulPaint": 1752,
+    "warm.worldReady": 15792.9,
+    "warm.firstFrameAfterReady": 17235.6,
+    "warm.interactive": 15792.9,
+    "warm.reloadWarmTotal": 0,
+    "warm.reloadColdTotal": 0
+  },
+  "provenance": {
+    "head": "3dc180e",
+    "dirtyFiles": 140,
+    "treeChangedDuringRun": false,
+    "machineBefore": {
+      "cpus": 10,
+      "loadavg": [
+        4.07,
+        6.02,
+        7.05
+      ],
+      "freeMemMB": 1846,
+      "platform": "darwin 25.5.0"
+    },
+    "machineAfter": {
+      "cpus": 10,
+      "loadavg": [
+        12.08,
+        11.79,
+        11.41
+      ],
+      "freeMemMB": 2106,
+      "platform": "darwin 25.5.0"
+    },
+    "propsCount": 1946,
+    "phasesCaptured": 0,
+    "reloadError": "Runtime.callFunctionOn timed out. Increase the 'protocolTimeout' setting in launch/connect calls for a higher timeout if needed."
+  }
+}

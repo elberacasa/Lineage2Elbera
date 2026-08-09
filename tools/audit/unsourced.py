@@ -387,8 +387,11 @@ AUTHORED_RE = re.compile(
 SOURCED_RE = re.compile(
     # explicit markers
     r"\bSOURCED\b|\bMEASURED\b|\bVERIFIED\b|\bdecoded\b|\bcross-?check\w*\b"
-    # client binaries / formats
-    r"|\.(dat|utx|ukx|unr|psa|psk|uax|usx|int|xdat|gly|u)\b"
+    # client binaries / formats.  `.dll` and `.ini` are here for the same
+    # reason `.dat` is: Core.dll's GAudioMaxRadiusMultiplier and
+    # WindowsInfo.ini's docks are shipped client files, and a comment naming
+    # one is exactly as much of a citation as a comment naming a .dat.
+    r"|\.(dat|utx|ukx|unr|psa|psk|uax|usx|int|xdat|gly|dll|ini|uc|u)\b"
     r"|\bxdat\b|\bumodel\b|\bl2lib\b|\bInterface\.u\b|\bEngine\.u\b|\bNWindow\b"
     # named client tables
     r"|\b(npcgrp|itemgrp|weapongrp|armorgrp|chargrp|skillgrp|skillsoundgrp"
@@ -532,9 +535,46 @@ def benign(hit, line, lang):
         if val in (0.0, 100.0) and hit["type"] == "number":
             return "css 0/100%"
 
+    # ---- fixed by a specification, not by us ----------------------------
+    # Three constructs kept showing up in the UNSOURCED pool where neither
+    # SOURCED nor AUTHORED is the honest verdict: they are not decoded from
+    # the client, and they are not ours either -- a standard fixes them, the
+    # same way `TEXF_DXT3 == 7` is fixed by UE2.  Each rule is anchored to
+    # the construct that makes the number structural, so a bare 50 or 4
+    # somewhere else is still counted.
+    #
+    # Added 2026-08-08 with the UI lane; before this they were 5 residual
+    # UNSOURCED hits that could only have been cleared by writing a false
+    # AUTHORED marker next to them.
+    if raw == "50" and re.search(r"translate\(\s*-50%|(?:left|top)\s*:\s*50%", line):
+        return "CSS centring idiom (50% + -50% translate)"
+    if raw == "4" and re.search(r"\+=\s*4\b", line) and ".length" in line:
+        return "RGBA / typed-buffer stride"
+    if raw == "100" and re.search(r"[*/]\s*100\b|\b100\s*\*", line) \
+            and re.search(r"pct|percent|%", line, re.I):
+        return "fraction <-> percent"
+
     # exponent-style tolerances written as 1e-6 etc are numerics of last resort;
     # they stay in the pool.
     return None
+
+
+# An EXPLICIT "fixed by a published specification" marker.
+#
+# Three of this repo's tools are format readers -- a hand-rolled PNG decoder,
+# a PE export-table walker, a UE2 package parser -- and their constants are
+# neither decoded from the Lineage client nor chosen by us: a standard fixes
+# them.  Calling those SOURCED would be a lie (nothing in the client says
+# them) and calling them AUTHORED would be a worse one (we did not choose
+# them).  BENIGN is the right bucket, and this marker is how a line opts in.
+#
+# It fires ONLY on the literal string "SPEC:" in the attached comment, and the
+# convention is that the marker NAMES the standard, e.g.
+#     # SPEC: PNG (RFC 2083) colour type 6 == RGBA, 4 bytes per pixel
+# so every use is greppable and every use can be checked by a human against
+# the document it cites.  It cannot swallow anything silently: no marker, no
+# exemption.
+SPEC_RE = re.compile(r"\bSPEC:", re.I)
 
 
 def classify(hit, lines, lang):
@@ -543,6 +583,8 @@ def classify(hit, lines, lang):
     if b:
         return "BENIGN", b
     ev = evidence(lines, hit["line"], lang)
+    if SPEC_RE.search(ev):
+        return "BENIGN", "fixed by a named specification"
     mn = NEGATED_RE.search(ev)
     if mn:
         return "AUTHORED", "negated: " + mn.group(0)
@@ -688,9 +730,34 @@ def main():
             json.dump(rows, fh, indent=1)
 
     if args.write_baseline:
+        # Re-recording the baseline is the ONE operation that can hide a
+        # regression, so it refuses to do so quietly: every file whose count
+        # goes UP is printed and written into the baseline's own `_absorbed`
+        # block, with the date and the was -> now pair.  A future reader can
+        # then see exactly what a rebaseline forgave and when.
         base = {f: c["UNSOURCED"] for f, c in per_file.items() if c["UNSOURCED"]}
+        try:
+            old = json.load(open(BASELINE))
+        except OSError:
+            old = {}
+        grew = {f: [old.get(f, 0), n] for f, n in base.items()
+                if n > old.get(f, 0)}
+        history = old.get("_absorbed", []) if isinstance(old.get("_absorbed"), list) else []
+        if grew:
+            history.append({
+                "date": __import__("datetime").date.today().isoformat(),
+                "files": grew,
+                "total_added": sum(n - w for w, n in grew.values()),
+            })
+            print(f"ABSORBING {len(grew)} file(s) that GREW — recorded in "
+                  f"_absorbed:", file=sys.stderr)
+            for f, (w, n) in sorted(grew.items()):
+                print(f"  {f}: {w} -> {n}", file=sys.stderr)
+        out = {f: n for f, n in base.items()}
+        if history:
+            out["_absorbed"] = history
         with open(BASELINE, "w") as fh:
-            json.dump(base, fh, indent=1, sort_keys=True)
+            json.dump(out, fh, indent=1, sort_keys=True)
         print(f"baseline written: {len(base)} files, {sum(base.values())} UNSOURCED")
         return 0
 
@@ -742,6 +809,12 @@ def main():
         for f, c in per_file.items():
             if c["UNSOURCED"] > base.get(f, 0):
                 bad.append((f, base.get(f, 0), c["UNSOURCED"]))
+        if isinstance(base.get("_absorbed"), list) and base["_absorbed"]:
+            last = base["_absorbed"][-1]
+            print(f"\nnote: the baseline has absorbed growth before — most "
+                  f"recently {last['total_added']} literals across "
+                  f"{len(last['files'])} file(s) on {last['date']}. "
+                  f"See _absorbed in {os.path.relpath(BASELINE, REPO)}.")
         if bad:
             print("\nREGRESSION — UNSOURCED literals added:", file=sys.stderr)
             for f, was, now in sorted(bad):

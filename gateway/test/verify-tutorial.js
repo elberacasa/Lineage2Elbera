@@ -22,7 +22,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const R = { me: null, htmls: [], closes: 0 };
 const ws = new WebSocket(url);
-ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
+ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
 ws.on('open', () => ws.send(JSON.stringify({ op: 'login', deviceId })));
 ws.on('message', (d) => {
   const m = JSON.parse(d);
@@ -74,4 +74,4 @@ const snippet = (h, n = 160) => h.replace(/\s+/g, ' ').slice(0, n);
   console.log(`htmls received=${R.htmls.length} closes=${R.closes}`);
   console.log('VERIFY-TUTORIAL: PASS');
   process.exit(0);
-})().catch((e) => { console.error('VERIFY-TUTORIAL: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-TUTORIAL: FAIL', e.stack || e.message); process.exit(1); });

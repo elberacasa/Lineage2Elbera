@@ -131,6 +131,6 @@ const waitFor = (fn, timeout, label) => new Promise((resolve, reject) => {
   const pass = askOk && noParty && compOk && !!hpDrop && !!emptyA && !!emptyB && !!emptyB2;
   console.log(pass ? 'VERIFY-PARTY: PASS' : 'VERIFY-PARTY: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-PARTY: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-PARTY: FAIL', e.stack || e.message); process.exit(1); });
 
 setTimeout(() => { console.error('VERIFY-PARTY: global timeout'); process.exit(1); }, 300000);

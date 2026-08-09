@@ -216,7 +216,28 @@ const SELF_BASE = {
 
 let nextPlayerId = 1000001;
 const wss = new WebSocketServer({ host: '127.0.0.1', port: PORT });
-console.log(`mock gateway on ws://127.0.0.1:${PORT}`);
+
+// A PORT COLLISION USED TO BE SILENT. With no 'error' listener the underlying
+// http server emits EADDRINUSE, EventEmitter turns an unhandled 'error' into a
+// throw, and the process died writing a stack trace nobody read (the battery
+// redirected it, and verify_targetwnd spawned with stdio 'ignore'). Every suite
+// that then connected to that port reached the OTHER, already-running mock —
+// possibly seeded with a different MOCK_LEVEL — and measured the wrong thing
+// while reporting PASS. Fail loudly and with a distinct exit code instead.
+wss.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`mock_gateway: port ${PORT} is already in use — refusing to `
+      + 'start. Something else is serving this port; a suite that connects to '
+      + 'it would silently talk to the wrong mock.');
+    process.exit(98);
+  }
+  console.error(`mock_gateway: server error on :${PORT}: ${err && err.stack || err}`);
+  process.exit(99);
+});
+
+wss.on('listening', () => {
+  console.log(`mock gateway on ws://127.0.0.1:${PORT}`);
+});
 
 wss.on('connection', (ws) => {
   const timers = [];

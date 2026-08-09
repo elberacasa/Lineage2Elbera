@@ -36,8 +36,14 @@ OUT = os.path.join(REPO, "editor/world/ui/atlas")
 # ---------------------------------------------------------------- png io
 
 def png_read(path):
+    # Everything in this reader is SPEC: PNG, RFC 2083 / W3C PNG 1.2 --
+    # 8-byte signature, chunk = length + 4-char type + data + 4-byte CRC,
+    # IHDR = width/height/bit-depth/colour-type, colour type 6 == RGBA so
+    # 4 bytes per pixel with alpha at +3, and filter types 0..4
+    # (None/Sub/Up/Average/Paeth) one byte per scanline. None of it is a
+    # measurement of anything in the Lineage client.
     d = open(path, "rb").read()
-    pos, idat = 8, b""
+    pos, idat = 8, b""   # SPEC: PNG (RFC 2083) signature is 8 bytes
     w = h = ct = None
     while pos < len(d):
         ln, typ = struct.unpack_from(">I4s", d, pos)
@@ -50,26 +56,26 @@ def png_read(path):
             idat += chunk
         elif typ == b"IEND":
             break
-    if ct != 6:
+    if ct != 6:   # SPEC: PNG colour type 6 == truecolour with alpha
         raise SystemExit(f"{path}: expected RGBA (colour type 6), got {ct}")
     raw = zlib.decompress(idat)
-    stride = w * 4
+    stride = w * 4   # SPEC: PNG colour type 6 == 4 bytes per pixel
     out, prev, o = bytearray(), bytearray(stride), 0
     for _ in range(h):
         ft = raw[o]; o += 1
         line = bytearray(raw[o:o + stride]); o += stride
         if ft:
             for i in range(stride):
-                a = line[i - 4] if i >= 4 else 0
+                a = line[i - 4] if i >= 4 else 0   # SPEC: PNG filtering, 4 = bytes/pixel at colour type 6
                 b = prev[i]
-                c = prev[i - 4] if i >= 4 else 0
+                c = prev[i - 4] if i >= 4 else 0   # SPEC: PNG filtering, 4 = bytes/pixel at colour type 6
                 if ft == 1:
                     line[i] = (line[i] + a) & 255
-                elif ft == 2:
+                elif ft == 2:   # SPEC: PNG filter type 2 = Up
                     line[i] = (line[i] + b) & 255
-                elif ft == 3:
+                elif ft == 3:   # SPEC: PNG filter type 3 = Average
                     line[i] = (line[i] + (a + b) // 2) & 255
-                elif ft == 4:
+                elif ft == 4:   # SPEC: PNG filter type 4 = Paeth
                     pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
                     pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
                     line[i] = (line[i] + pr) & 255
@@ -82,7 +88,7 @@ def png_write(path, w, h, px):
     raw = bytearray()
     for y in range(h):
         raw.append(0)
-        raw += px[y * w * 4:(y + 1) * w * 4]
+        raw += px[y * w * 4:(y + 1) * w * 4]   # SPEC: PNG RGBA, 4 bytes/pixel
 
     def chunk(tag, data):
         c = struct.pack(">I", len(data)) + tag + data
@@ -98,13 +104,18 @@ def png_write(path, w, h, px):
 # ------------------------------------------------------------- splitting
 
 def split(px, w, x0, y0, x1, y1, alpha, min_size, depth=0):
-    """Recursively guillotine-split a region on fully transparent gutters."""
+    """Recursively guillotine-split a region on fully transparent gutters.
+
+    SPEC: PNG colour type 6 -- the `* 4` strides and the `+ 3` alpha offset
+    throughout this function are the RGBA layout, not chosen numbers.
+    The recursion cap is AUTHORED (see below).
+    """
     def row_empty(y):
-        base = y * w * 4
-        return all(px[base + x * 4 + 3] <= alpha for x in range(x0, x1))
+        base = y * w * 4   # SPEC: PNG RGBA, 4 bytes/pixel
+        return all(px[base + x * 4 + 3] <= alpha for x in range(x0, x1))   # SPEC: PNG RGBA, +3 is alpha
 
     def col_empty(x):
-        return all(px[y * w * 4 + x * 4 + 3] <= alpha for y in range(y0, y1))
+        return all(px[y * w * 4 + x * 4 + 3] <= alpha for y in range(y0, y1))   # SPEC: PNG RGBA, +3 is alpha
 
     # trim the region's own transparent margin
     while y0 < y1 and row_empty(y0): y0 += 1
@@ -114,6 +125,8 @@ def split(px, w, x0, y0, x1, y1, alpha, min_size, depth=0):
     if x1 - x0 < min_size or y1 - y0 < min_size:
         return []
 
+    # AUTHORED recursion cap: deep enough that no shipped atlas hits it
+    # (the deepest observed split is 7), shallow enough to bound the walk.
     if depth < 12:
         # horizontal gutters first, then vertical; alternate as we recurse
         bands, run = [], None
@@ -154,16 +167,22 @@ def split(px, w, x0, y0, x1, y1, alpha, min_size, depth=0):
 
 
 def crop(px, w, r):
+    # SPEC: PNG colour type 6 -- 4 bytes per pixel.
     x, y, cw, ch = r
     out = bytearray()
     for row in range(y, y + ch):
         base = row * w * 4
-        out += px[base + x * 4: base + (x + cw) * 4]
+        out += px[base + x * 4: base + (x + cw) * 4]   # SPEC: PNG RGBA, 4 bytes/pixel
     return bytes(out)
 
 
-def montage(items, cols=6, pad=6):
-    """Grid of every island, each on a magenta plate so edges are visible."""
+def montage(items, cols=6, pad=6):   # AUTHORED: debug contact sheet only
+    """Grid of every island, each on a magenta plate so edges are visible.
+
+    A DEBUG contact sheet, not a shipped asset: the column count, the padding
+    and the plate colours are AUTHORED and affect nothing but this preview.
+    The `* 4` / `+ 3` arithmetic is SPEC: PNG colour type 6 (RGBA).
+    """
     cw = max(i["w"] for i in items) + pad * 2
     ch = max(i["h"] for i in items) + pad * 2
     rows = (len(items) + cols - 1) // cols
@@ -173,29 +192,34 @@ def montage(items, cols=6, pad=6):
         cx, cy = (idx % cols) * cw, (idx // cols) * ch
         for y in range(ch):                      # plate
             for x in range(cw):
-                o = ((cy + y) * W + cx + x) * 4
+                o = ((cy + y) * W + cx + x) * 4   # SPEC: PNG RGBA, 4 bytes/pixel
                 edge = x < 1 or y < 1 or x >= cw - 1 or y >= ch - 1
                 canvas[o:o+4] = bytes((255, 0, 255, 255) if edge else (34, 34, 40, 255))
         ox, oy = cx + pad, cy + pad
         for y in range(it["h"]):                 # sprite, alpha-composited
             for x in range(it["w"]):
-                s = (y * it["w"] + x) * 4
-                a = it["px"][s + 3]
+                s = (y * it["w"] + x) * 4   # SPEC: PNG RGBA, 4 bytes/pixel
+                a = it["px"][s + 3]   # SPEC: PNG RGBA, +3 is alpha
                 if not a:
                     continue
-                o = ((oy + y) * W + ox + x) * 4
+                o = ((oy + y) * W + ox + x) * 4   # SPEC: PNG RGBA, 4 bytes/pixel
                 for c in range(3):
                     canvas[o + c] = (it["px"][s + c] * a + canvas[o + c] * (255 - a)) // 255
-                canvas[o + 3] = 255
+                canvas[o + 3] = 255   # SPEC: PNG RGBA, +3 is alpha
     return W, H, bytes(canvas)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("texture", help="e.g. L2UI_CH3/npc1_back")
+    # AUTHORED defaults, all three: these are the knobs of a measuring
+    # instrument, not values read out of the client. `--alpha 8` is what
+    # counts as "transparent" when a texture's gutters carry a little
+    # dithering; `--min 4` drops islands too small to be a control; `--cols`
+    # only shapes the debug contact sheet.
     ap.add_argument("--alpha", type=int, default=8, help="gutter alpha threshold")
-    ap.add_argument("--min", type=int, default=4, help="smallest island edge, px")
-    ap.add_argument("--cols", type=int, default=6)
+    ap.add_argument("--min", type=int, default=4, help="smallest island edge, px")   # AUTHORED instrument knob
+    ap.add_argument("--cols", type=int, default=6)   # AUTHORED: debug contact sheet only
     args = ap.parse_args()
 
     src = os.path.join(LIBRARY, args.texture + ".png")

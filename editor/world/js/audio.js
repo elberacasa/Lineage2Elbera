@@ -86,9 +86,17 @@ export const RADIUS_UNIT = 50;
 export const DEFAULT_RADIUS = 80;
 const VOLUME_SCALE = 1 / 255;      // table volumes are a 0..255 byte
 
-// Beyond this a sound is inaudible anyway; skipping the decode keeps a busy
-// town from thrashing the buffer cache with sounds nobody can hear.
-const CULL_DISTANCE_M = 120;
+// There is no separate cull distance, and there must not be one.
+//
+// Under the linear model above (gain = 1 - d/(R x RADIUS_UNIT), decoded from
+// ALAudio.dll) the gain reaches exactly zero at `maxDistance`, so maxDistance
+// IS the inaudibility cutoff -- a second, smaller number can only truncate a
+// sound that the client would still be playing.
+//
+// A `CULL_DISTANCE_M = 120` used to sit here, and it became a live defect
+// the moment RADIUS_UNIT was corrected from 25 to 50: every one of the 6,519
+// npcgrp records has sound_radius 250, i.e. an audible range of 125 m, and
+// 176 skillsoundgrp entries reach 300-400 m. All of them were being clipped.
 
 const BUSES = ['music', 'sfx', 'ambient', 'ui'];
 const STORE_KEY = 'l2vzla.audio';
@@ -158,6 +166,13 @@ export class AudioEngine {
   // ---- volume -----------------------------------------------------------
 
   _loadVolumes() {
+    // AUTHORED, all five. This is a browser mixer we invented: retail has
+    // four sliders (SoundVolume / MusicVolume / WavVoiceVolume /
+    // OggVoiceVolume, ALAudio's UALAudioSubsystem getters) and no 'ui' or
+    // 'ambient' bus at all, so there is no retail default to port. The
+    // Option.ini shipped with the client is one player's SAVED state
+    // (SoundVolume=0.0), not a factory default, and reading it as one would
+    // mute the game.
     const v = { master: 0.7, music: 0.35, sfx: 0.8, ambient: 0.45, ui: 0.6 };
     try {
       const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
@@ -172,6 +187,8 @@ export class AudioEngine {
     const v = Math.min(1, Math.max(0, value));
     this.volumes[bus] = v;
     const node = bus === 'master' ? this.master : this.buses[bus];
+    // AUTHORED 20 ms smoothing: a WebAudio artefact-avoidance constant
+    // (a step change on a GainNode clicks). Nothing in the client has one.
     if (node) node.gain.setTargetAtTime(v, this.ctx.currentTime, 0.02);
     try { localStorage.setItem(STORE_KEY, JSON.stringify(this.volumes)); } catch { /* ignore */ }
   }
@@ -285,7 +302,15 @@ export class AudioEngine {
 
   // One-shot at a world position. `volume` and `radius` are the raw table
   // values (0..255 byte, Unreal radius units); pass them straight through.
-  playAt(ref, position, { volume = 250, radius = 50, bus = 'sfx', pitch = 1 } = {}) {
+  //
+  // The radius default is Core.dll's GAudioDefaultRadius (80.0f) -- the
+  // driver's own answer for a source that carries no radius. It used to be
+  // 50, which is RADIUS_UNIT's number reused as if it were a radius.
+  // The volume default is AUTHORED: nothing in ALAudio.dll or Core.dll
+  // exports a per-source default volume, and the only tables that would
+  // supply one (npcgrp, skillsoundgrp) always carry their own.
+  playAt(ref, position,
+         { volume = 250, radius = DEFAULT_RADIUS, bus = 'sfx', pitch = 1 } = {}) {
     if (!this.ready || !this.unlocked || !ref || !position) return;
 
     // Callers hand us shared scratch vectors (main.js reuses one for every
@@ -299,8 +324,8 @@ export class AudioEngine {
     if (lp) {
       const dx = px - lp.x, dy = py - lp.y, dz = pz - lp.z;
       const d2 = dx * dx + dy * dy + dz * dz;
-      const cull = Math.min(CULL_DISTANCE_M, maxDistance);
-      if (d2 > cull * cull) return;
+      // maxDistance IS the cutoff: the linear gain reaches zero there.
+      if (d2 > maxDistance * maxDistance) return;
     }
 
     this._buffer(ref).then(buf => {
@@ -320,6 +345,8 @@ export class AudioEngine {
   }
 
   // Non-positional one-shot: UI clicks, system feedback, our own inventory.
+  // AUTHORED volume default, as in playAt: no decoded per-source default
+  // exists, and interface sounds carry no table entry at all.
   play2D(ref, { volume = 250, bus = 'ui', pitch = 1 } = {}) {
     if (!this.ready || !this.unlocked || !ref) return;
     this._buffer(ref).then(buf => {
@@ -380,6 +407,8 @@ export class AudioEngine {
       const t = this.ctx.currentTime;
       old.gain.gain.setValueAtTime(old.gain.gain.value, t);
       old.gain.gain.linearRampToValueAtTime(0, t + fade);
+      // AUTHORED 50 ms tail past the ramp, so the node is not stopped on the
+      // exact sample the ramp reaches zero (that clicks in WebAudio).
       old.source.stop(t + fade + 0.05);
       this._music = null;
     }
@@ -417,7 +446,10 @@ export class AudioEngine {
   // Persistent positioned loops from the map's AmbientSoundObjects. Keyed by
   // the caller so a tile can start and stop its own emitters as it streams in
   // and out without tracking node handles.
-  async ambientStart(key, ref, position, { volume = 250, radius = 80 } = {}) {
+  // radius default: Core.dll GAudioDefaultRadius (80.0f), the same constant
+  // worldaudio.js passes explicitly. volume default AUTHORED, as in playAt.
+  async ambientStart(key, ref, position,
+                     { volume = 250, radius = DEFAULT_RADIUS } = {}) {
     if (!this.ready || !this.unlocked || this._ambient.has(key)) return;
     const buf = await this._buffer(ref);
     if (!buf || this._ambient.has(key)) return;

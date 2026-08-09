@@ -181,6 +181,6 @@ const waitFor = (fn, timeout, label) => new Promise((resolve, reject) => {
     noPrematureEnd && doneOk && movedOk;
   console.log(pass ? 'VERIFY-TRADE: PASS' : 'VERIFY-TRADE: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-TRADE: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-TRADE: FAIL', e.stack || e.message); process.exit(1); });
 
 setTimeout(() => { console.error('VERIFY-TRADE: global timeout'); process.exit(1); }, 300000);

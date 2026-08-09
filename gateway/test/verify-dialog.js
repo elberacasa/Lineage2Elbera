@@ -10,7 +10,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const R = { me: null, npcs: [], htmls: [], actionFailed: 0, moves: new Map() };
 const ws = new WebSocket(url);
-ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
+ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
 ws.on('open', () => ws.send(JSON.stringify({ op: 'login', deviceId })));
 ws.on('message', async (d) => {
   const m = JSON.parse(d);
@@ -83,4 +83,4 @@ const snippet = (h, n = 160) => h.replace(/\s+/g, ' ').slice(0, n);
   const pass = html1.length > 20 && html2.length > 20 && menuHtml.includes('.autoloot') && html3.length > 20;
   console.log(pass ? 'VERIFY-DIALOG: PASS' : 'VERIFY-DIALOG: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-DIALOG: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-DIALOG: FAIL', e.stack || e.message); process.exit(1); });

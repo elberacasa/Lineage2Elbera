@@ -22,6 +22,8 @@
 import { Skin } from './skin.js';
 
 const STORE = 'l2vzla.wndpos';
+// AUTHORED stacking base: z-index is a browser concept, not a client one.
+// 12 sits above the canvas and the HUD layers style.css assigns below it.
 const BASE_Z = 12;
 
 let _z = BASE_Z;
@@ -192,9 +194,13 @@ export const WndMgr = {
 window.addEventListener('resize', () => {
   for (const [, w] of _windows) {
     const r = w.el.getBoundingClientRect();
+    // AUTHORED 40px: the width of window edge that must stay on screen
+    // after a viewport resize. Retail clamps to the desktop, which is a
+    // different rule in a different coordinate space.
     if (r.left > window.innerWidth - 40) {
       w.el.style.left = `${Math.max(0, window.innerWidth - r.width)}px`;
     }
+    // AUTHORED 40px, as above.
     if (r.top > window.innerHeight - 40) {
       w.el.style.top = `${Math.max(0, window.innerHeight - r.height)}px`;
     }

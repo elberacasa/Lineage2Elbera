@@ -81,9 +81,9 @@ export class MultiSellWnd {
     this.items = [];           // server entries (verbatim)
     this.selected = -1;        // index into this.items
 
-    const def = Layout.window(WND);
-    this.w = def && def.width ? def.width : 512;
-    this.h = def && def.height ? def.height : 401;
+    const def = Layout.windowSize(WND);
+    this.w = def.w;
+    this.h = def.h;
 
     const win = new L2Window({
       title: 'Exchange', width: this.w, height: this.h, closable: true,
@@ -96,10 +96,9 @@ export class MultiSellWnd {
 
     // -- left: the entry grid (ItemList, one first-product icon per entry) --
     {
-      const pos = Layout.pos(WND, 'ItemList') ?? { x: 9, y: 48 };
-      const size = Layout.size(WND, 'ItemList') || { w: 240, h: 314 };
-      const grid = Layout.grid(WND, 'ItemList')
-        || { cellX: 32, cellY: 32, gapX: 5, gapY: 3 };
+      const pos = Layout.posOf(WND, 'ItemList');
+      const size = Layout.sizeOf(WND, 'ItemList');
+      const grid = Layout.gridOf(WND, 'ItemList');
       const el = document.createElement('div');
       el.className = 'l2-multisell-list';
       el.style.cssText = 'position:absolute;overflow-y:auto;overflow-x:hidden;'
@@ -116,8 +115,8 @@ export class MultiSellWnd {
 
     // -- right: product detail (ItemInfo) and ingredient detail (NeededItem) --
     for (const [key, ctrl] of [['products', 'ItemInfo'], ['needed', 'NeededItem']]) {
-      const pos = Layout.pos(WND, ctrl) ?? { x: 262, y: key === 'products' ? 45 : 217 };
-      const size = Layout.size(WND, ctrl) || { w: 244, h: 150 };
+      const pos = Layout.posOf(WND, ctrl);
+      const size = Layout.sizeOf(WND, ctrl);
       const el = document.createElement('div');
       el.className = `l2-multisell-${key}`;
       el.style.cssText = 'position:absolute;overflow-y:auto;overflow-x:hidden;'
@@ -147,15 +146,18 @@ export class MultiSellWnd {
     this._ctrlBtn('CancelButton', () => this.hide(), 'Cancel');
 
     parent.appendChild(win.root);
-    // AUTHORED dock (WindowsInfo.ini not mined for this window); same
-    // family spot as the other trading windows.
-    this.defaultPlace = { right: 12, top: 60 };
+    // Dock READ from WindowsInfo.ini [MultiSellWnd] via Layout.dock(). The
+    // comment this replaced said "WindowsInfo.ini not mined for this window"
+    // and typed {right:12, top:60}; the client's file has had a [MultiSellWnd]
+    // section all along.
+    const dock = Layout.dock('MultiSellWnd');
+    this.defaultPlace = dock ? { left: dock.x, top: dock.y } : null;
     this._buildAmountPrompt(parent);
   }
 
   _ctrlBtn(ctrl, onClick, label = null) {
     const pos = Layout.pos(WND, ctrl);
-    const size = Layout.size(WND, ctrl) || { w: 76, h: 23 };
+    const size = Layout.sizeOf(WND, ctrl);
     if (!pos) return null;
     const b = document.createElement('div');
     b.className = 'l2-multisell-btn';
@@ -239,6 +241,8 @@ export class MultiSellWnd {
 
   _buildAmountPrompt(parent) {
     const win = new L2Window({
+      // AUTHORED prompt: the xdat declares no amount dialog for MultiSellWnd
+      // (retail types the count into the window itself), so nothing sizes it.
       title: 'Amount', width: 180, height: 70, closable: false,
     });
     win.root.id = 'l2-multisell-amount';
@@ -317,6 +321,14 @@ export class MultiSellWnd {
       + `height:${Skin.px(this.listPane.pitch.y)}px;`
       + `cursor:${affordable ? 'pointer' : 'default'};vertical-align:top;`
       + (affordable ? '' : 'opacity:0.35;')
+      // AUTHORED selection outline. Nothing in the client decides this:
+      // no ItemWindow record carries a colour, NCItemWnd's render holds
+      // exactly ONE colour immediate (the stack-count badge -- asserted by
+      // tools/ui/mine_native_colors.py section 2), and no xdat control names
+      // a selection texture. `L2UI_CH3.iconselect1/2` DO exist in the
+      // extracted texture library and are referenced by nothing we have
+      // decoded; if someone ties them to item selection this outline should
+      // be replaced by that art, not by another colour.
       + (index === this.selected ? 'outline:1px solid #c8a959;' : '');
     cell.title = displayName(info, prod.enchant)
       + ((entry.products || []).length > 1 ? ` (+${entry.products.length - 1} more)` : '')
@@ -355,6 +367,14 @@ export class MultiSellWnd {
 
   _renderSelection() {
     [...this.listPane.el.children].forEach((cell, i) => {
+      // AUTHORED selection outline. Nothing in the client decides this:
+      // no ItemWindow record carries a colour, NCItemWnd's render holds
+      // exactly ONE colour immediate (the stack-count badge -- asserted by
+      // tools/ui/mine_native_colors.py section 2), and no xdat control names
+      // a selection texture. `L2UI_CH3.iconselect1/2` DO exist in the
+      // extracted texture library and are referenced by nothing we have
+      // decoded; if someone ties them to item selection this outline should
+      // be replaced by that art, not by another colour.
       cell.style.outline = i === this.selected ? '1px solid #c8a959' : '';
     });
   }
@@ -442,6 +462,6 @@ export class MultiSellWnd {
   toggle(force) { this.win.toggle(force); return this; }
 
   onDefaultPosition() {
-    this.place(this.defaultPlace);
+    if (this.defaultPlace) this.place(this.defaultPlace);
   }
 }

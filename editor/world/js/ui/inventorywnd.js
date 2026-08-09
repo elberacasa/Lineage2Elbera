@@ -60,6 +60,10 @@ const SLOT_BITS = [
   ['gloves', 0x0200], ['chest', 0x0400], ['legs', 0x0800], ['feet', 0x1000],
   ['underwear', 0x0001],
 ];
+// Combined paperdoll masks aCis sends for the paired slots: the OR of the
+// two single-slot bits declared immediately above (rear|lear, rfinger|lfinger)
+// plus the two-hand marker. Every value here is a union of decoded bits, not
+// a number of ours.
 const LR_PAIRS = { 0x0006: ['rear', 'lear'], 0x0030: ['rfinger', 'lfinger'], 0x4000: ['rhand'] };
 
 // Paperdoll slot names, in InventoryWnd.uc's EQUIPITEM_* order. Positions
@@ -108,8 +112,9 @@ export class InventoryWnd {
 
     const def = Layout.window(WND);
     const backSize = Layout.size(WND, 'BackTexture');
-    const w = backSize ? backSize.w : (def && def.width) || 256;
-    const h = backSize ? backSize.h : ((def && def.height) || 401) - TITLEBAR_H;
+    const wndSize = Layout.windowSize(WND);
+    const w = backSize ? backSize.w : wndSize.w;
+    const h = backSize ? backSize.h : wndSize.h - TITLEBAR_H;
 
     const win = new L2Window({
       title: 'Inventory', width: w, height: h, closable: true, winName: WND,
@@ -191,6 +196,9 @@ export class InventoryWnd {
     // --- bottom row: crystallize / trash / adena / weight ------------------
     // Drop targets, per InventoryWnd.uc OnDropItem (uc:305 TrashButton,
     // uc:332 CrystallizeButton) — not click buttons.
+    // The third argument is the confirmation systemmsg id the client shows
+    // before the op: 336 "You are attempting to crystalize $s1..." and
+    // 74 "Do you wish to destroy your $s1?" in systemmsg.json.
     this._dropButton(body, 'CrystallizeButton', 336, (oid) => this.onCrystallize(oid));
     this._dropButton(body, 'TrashButton', 74, (oid) => this.onDestroy(oid));
 
@@ -233,11 +241,14 @@ export class InventoryWnd {
 
     parent.appendChild(win.root);
     WndMgr.register('InventoryWnd', this, { handle: win.bar });
-    // SOURCED dock: WindowsInfo.ini [InventoryWnd] posX=722 posY=127 —
-    // absolute retail px at 1024x768 (Skin.px applies the uiScale; no
-    // proportional rescale).
-    this.place({ left: 722, top: 127 });
-    this.defaultPlace = { left: 722, top: 127 };
+    // Dock READ from WindowsInfo.ini [InventoryWnd] via Layout.dock() — the
+    // client's own file, mined by tools/ui/mine_windowsinfo.py. Absolute
+    // retail px at 1024x768 (Skin.px applies the uiScale; no proportional
+    // rescale). Null only if that harvest is missing, in which case the
+    // window opens where WndMgr left it rather than at a typed spot.
+    const dock = Layout.dock('InventoryWnd');
+    this.defaultPlace = dock ? { left: dock.x, top: dock.y } : null;
+    if (this.defaultPlace) this.place(this.defaultPlace);
   }
 
   // -- pieces ----------------------------------------------------------------
@@ -357,6 +368,8 @@ export class InventoryWnd {
 
   async applyUpdate(updated) {
     if (!this.meta) this.meta = await itemMeta();
+    // InventoryUpdate's per-item change code, straight from the packet:
+    // aCis writes 1=ADDED, 2=MODIFIED, 3=REMOVED (ItemInfo/InventoryUpdate).
     const CHANGE = { 1: 'add', 2: 'modify', 3: 'remove' };
     for (const u of updated) {
       const change = CHANGE[u.change] || u.change;
@@ -378,7 +391,7 @@ export class InventoryWnd {
   }
 
   place(o) { this.win.place(o || this.defaultPlace); return this; }
-  onDefaultPosition() { this.place(this.defaultPlace); }
+  onDefaultPosition() { if (this.defaultPlace) this.place(this.defaultPlace); }
 
   // -- render ------------------------------------------------------------------
 
@@ -421,7 +434,9 @@ export class InventoryWnd {
       if (it.count > 1) {
         const c = document.createElement('span');
         c.className = 'count';
-        Font.set(c, String(it.count), { color: '#e8dcc0' });
+        // the stack-count badge is drawn by NCItemWnd's own render, not by
+        // any declared control: SOURCED NWindow.dll 0x1003118d
+        Font.set(c, String(it.count), { color: Layout.native('itemSlotCount') });
         el.appendChild(c);
       }
       el.draggable = true;
@@ -478,7 +493,11 @@ export class InventoryWnd {
 
     // adena
     const adena = [...this.items.values()].find(it => it.itemId === ADENA_ID);
-    Font.set(this.adenaEl, adena ? String(adena.count) : '0', { color: '#e8dcc0' });
+    // InventoryWnd/AdenaText is a TextBox and carries its own colour in
+    // Interface.xdat; textColor() falls through to NCTextBox's own default
+    // if it ever stops doing so.
+    Font.set(this.adenaEl, adena ? String(adena.count) : '0',
+      { color: Layout.textColor(WND, 'AdenaText') });
 
     // weight gauge — needs BOTH ends of the load, and now has both. UserInfo
     // carries getCurrentWeight() immediately before getWeightLimit()
@@ -501,8 +520,14 @@ export class InventoryWnd {
       const on = t.dataset.tab === this.tab;
       const ref = this.tabTex[on ? 1 : 0] || this.tabTex[0];
       if (ref) Skin.apply(t, ref, { content: Skin.content(ref) });
+      // The tab's LABEL colour does not encode selection in retail: the
+      // InventoryTab record carries no colour, and NCTabButton shares
+      // NCButton's slot-99 paint (asserted by tools/ui/mine_native_colors.py),
+      // which picks the colour from enabled state alone. Both tabs are
+      // enabled, so both take buttonLabel; selection is carried by the two
+      // textures the record names, which the line above already swaps.
       Font.set(t, t.dataset.tab === 'quest' ? 'Quest' : 'Inventory',
-        { color: on ? '#c9a959' : '#8a93a5' });
+        { color: Layout.native('buttonLabel') });
     }
   }
 }

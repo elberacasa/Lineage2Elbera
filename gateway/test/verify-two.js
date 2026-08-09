@@ -103,4 +103,4 @@ const waitFor = (fn, timeout, label) => new Promise((resolve, reject) => {
   const pass = bSeesA && aSeesB && bMoveFromA && moveMatches && bChatFromA;
   console.log(pass ? 'VERIFY-TWO: PASS' : 'VERIFY-TWO: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-TWO: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-TWO: FAIL', e.stack || e.message); process.exit(1); });

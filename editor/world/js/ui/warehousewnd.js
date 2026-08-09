@@ -90,9 +90,9 @@ export class WarehouseWnd {
     this.cart = new Map();     // key -> {objectId, itemId, count, enchant, name, icon}
     this.selected = null;      // {pane, index}
 
-    const def = Layout.window(WND);
-    this.w = def && def.width ? def.width : 256;
-    this.h = def && def.height ? def.height : 401;
+    const def = Layout.windowSize(WND);
+    this.w = def.w;
+    this.h = def.h;
 
     const win = new L2Window({
       title: 'Warehouse', width: this.w, height: this.h, closable: true,
@@ -105,10 +105,9 @@ export class WarehouseWnd {
 
     this.panes = {};
     for (const [key, ctrl] of [['top', 'TopList'], ['bottom', 'BottomList']]) {
-      const pos = Layout.pos(WND, ctrl) ?? { x: 9, y: key === 'top' ? 48 : 215 };
-      const size = Layout.size(WND, ctrl) || { w: 239, h: 104 };
-      const grid = Layout.grid(WND, ctrl)
-        || { cellX: 32, cellY: 32, gapX: 5, gapY: 3 };
+      const pos = Layout.posOf(WND, ctrl);
+      const size = Layout.sizeOf(WND, ctrl);
+      const grid = Layout.gridOf(WND, ctrl);
       const el = document.createElement('div');
       el.className = `l2-wh-${key}`;
       el.style.cssText = 'position:absolute;overflow-y:auto;overflow-x:hidden;'
@@ -164,7 +163,7 @@ export class WarehouseWnd {
 
   _ctrlBtn(ctrl, onClick, label = null) {
     const pos = Layout.pos(WND, ctrl);
-    const size = Layout.size(WND, ctrl) || { w: 76, h: 23 };
+    const size = Layout.sizeOf(WND, ctrl);
     if (!pos) return null;
     const b = document.createElement('div');
     b.className = 'l2-wh-btn';
@@ -195,7 +194,7 @@ export class WarehouseWnd {
       this.win.body.appendChild(l);
     }
     const vp = Layout.pos(WND, valueCtrl);
-    const vSize = Layout.size(WND, valueCtrl) || { w: 89 };
+    const vSize = Layout.sizeOf(WND, valueCtrl);
     const v = document.createElement('div');
     v.style.cssText = 'position:absolute;pointer-events:none;text-align:right;'
       + `left:${Skin.px((vp || { x: 158 }).x)}px;top:${Skin.px((vp || { y: 332 }).y)}px;`
@@ -241,6 +240,9 @@ export class WarehouseWnd {
       Font.set(this.labels.bottom, bottom,
                { color: Layout.textColor(WND, 'BottomText') });
     }
+    // whType is the warehouse kind the gateway forwards from the aCis
+    // packet: 1 = private, 2 = clan, 3 = castle (WarehouseWithdrawList /
+    // WarehouseDepositList type field).
     this.win.setTitle(this.whType === 2 ? 'Clan Warehouse'
       : this.whType === 3 ? 'Castle Warehouse' : 'Warehouse');
   }
@@ -397,6 +399,14 @@ export class WarehouseWnd {
       + `height:${Skin.px(this.panes[pane].pitch.y)}px;`
       + 'cursor:pointer;vertical-align:top;'
       + (this.selected && this.selected.pane === pane && this.selected.index === index
+        // AUTHORED selection outline. Nothing in the client decides this:
+        // no ItemWindow record carries a colour, NCItemWnd's render holds
+        // exactly ONE colour immediate (the stack-count badge -- asserted by
+        // tools/ui/mine_native_colors.py section 2), and no xdat control names
+        // a selection texture. `L2UI_CH3.iconselect1/2` DO exist in the
+        // extracted texture library and are referenced by nothing we have
+        // decoded; if someone ties them to item selection this outline should
+        // be replaced by that art, not by another colour.
         ? 'outline:1px solid #c8a959;' : '');
     cell.title = entry.name || info.name;
     const icon = document.createElement('div');
@@ -419,8 +429,16 @@ export class WarehouseWnd {
     cell.appendChild(icon);
     if (entry.count > 1) {
       const c = document.createElement('div');
+      // AUTHORED 2px right inset. NCItemWnd draws this badge itself and
+      // its position is computed in native code we have not decoded --
+      // only its COLOUR was recovered (see mine_native_colors.py §2).
       c.style.cssText = 'position:absolute;right:2px;bottom:0;pointer-events:none;'
         + 'text-shadow:0 1px 1px #000;';
+      // AUTHORED overflow cap. The badge helper NCItemWnd calls
+      // (NWindow.dll 0x10064790) switches on wcslen and has a branch
+      // per digit count, so retail does clamp the label somewhere --
+      // but which count it clamps AT is not decoded, and 9999+ is our
+      // choice, not a reading.
       Font.set(c, String(entry.count > 9999 ? '9999+' : entry.count),
                { color: Layout.native('itemSlotCount') });
       cell.appendChild(c);
@@ -438,6 +456,14 @@ export class WarehouseWnd {
       [...el.children].forEach((cell, i) => {
         cell.style.outline = (this.selected
           && this.selected.pane === pane && this.selected.index === i)
+          // AUTHORED selection outline. Nothing in the client decides this:
+          // no ItemWindow record carries a colour, NCItemWnd's render holds
+          // exactly ONE colour immediate (the stack-count badge -- asserted by
+          // tools/ui/mine_native_colors.py section 2), and no xdat control names
+          // a selection texture. `L2UI_CH3.iconselect1/2` DO exist in the
+          // extracted texture library and are referenced by nothing we have
+          // decoded; if someone ties them to item selection this outline should
+          // be replaced by that art, not by another colour.
           ? '1px solid #c8a959' : '';
       });
     }

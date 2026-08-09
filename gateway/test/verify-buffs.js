@@ -22,7 +22,7 @@ function sql(q) {
 
 const R = { me: null, me3: null, buffSnaps: [], coolTimes: [], casts: [] };
 const ws = new WebSocket(url);
-ws.on('error', (e) => { console.error('ws error:', e.message); process.exit(1); });
+ws.on('error', (e) => { console.error('ws error:', e.stack || e.message); process.exit(1); });
 
 const waitFor = (fn, timeout, label) => new Promise((resolve, reject) => {
   const t0 = Date.now();
@@ -53,7 +53,7 @@ const waitFor = (fn, timeout, label) => new Promise((resolve, reject) => {
 
   // --- phase 2: real session ---
   const ws2 = new WebSocket(url);
-  ws2.on('error', (e) => { console.error('ws2 error:', e.message); process.exit(1); });
+  ws2.on('error', (e) => { console.error('ws2 error:', e.stack || e.message); process.exit(1); });
   ws2.on('open', () => ws2.send(JSON.stringify({ op: 'login', deviceId })));
   ws2.on('message', async (d) => {
     const m = JSON.parse(d);
@@ -132,6 +132,6 @@ const waitFor = (fn, timeout, label) => new Promise((resolve, reject) => {
   
   console.log(pass ? 'VERIFY-BUFFS: PASS' : 'VERIFY-BUFFS: FAIL');
   process.exit(pass ? 0 : 1);
-})().catch((e) => { console.error('VERIFY-BUFFS: FAIL', e.message); process.exit(1); });
+})().catch((e) => { console.error('VERIFY-BUFFS: FAIL', e.stack || e.message); process.exit(1); });
 
 setTimeout(() => { console.error('VERIFY-BUFFS: global timeout'); process.exit(1); }, 400000);
