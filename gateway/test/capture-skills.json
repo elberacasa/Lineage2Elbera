@@ -1,7 +1,7 @@
 {
- "when": "2026-08-08T15:54:29.685Z",
+ "when": "2026-08-09T18:03:01.788Z",
  "selfId": 268502805,
- "targetId": 268505758,
+ "targetId": 268548411,
  "skillList": [
   {
    "id": 3,
@@ -81,64 +81,7 @@
    },
    "events": [
     {
-     "dt": 28,
-     "op": "actionFailed"
-    },
-    {
-     "dt": 132,
-     "op": "sysMsg",
-     "id": 35,
-     "params": [
-      14
-     ]
-    },
-    {
-     "dt": 132,
-     "op": "traceUndecoded",
-     "packet": "0x2b"
-    },
-    {
-     "dt": 132,
-     "op": "traceUndecoded",
-     "packet": "0x2b"
-    },
-    {
-     "dt": 132,
-     "op": "changeMove",
-     "id": 268505758,
-     "running": 1
-    },
-    {
-     "dt": 132,
-     "op": "addNpc",
-     "id": 268505758,
-     "npcId": 20002,
-     "name": "Rabbit",
-     "level": 1,
-     "x": -70945,
-     "y": 258677,
-     "z": -3096,
-     "heading": 0,
-     "runSpeed": 79,
-     "walkSpeed": 49,
-     "running": 1,
-     "pAtkSpd": 272,
-     "mAtkSpd": 333,
-     "atkSpdMul": 1.2092797756195068,
-     "rhand": 0,
-     "lhand": 0
-    },
-    {
-     "dt": 132,
-     "op": "status",
-     "id": 268505758,
-     "hp": 47,
-     "maxHp": 61,
-     "mp": 0,
-     "maxMp": 0
-    },
-    {
-     "dt": 748,
+     "dt": 44,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -147,21 +90,21 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 748,
+     "dt": 44,
      "op": "skillCast",
      "casterId": 268502805,
-     "targetId": 268505758,
+     "targetId": 268548411,
      "skillId": 1177,
      "level": 1,
      "hitTime": 6253,
      "reuse": 9380
     },
     {
-     "dt": 749,
+     "dt": 44,
      "op": "sysMsg",
      "id": 46,
      "params": [
@@ -169,49 +112,14 @@
      ]
     },
     {
-     "dt": 749,
+     "dt": 44,
      "op": "gauge",
      "color": "blue",
      "time": 6253,
      "maxTime": 6253
     },
     {
-     "dt": 1261,
-     "op": "changeMove",
-     "id": 268505758,
-     "running": 0
-    },
-    {
-     "dt": 1261,
-     "op": "addNpc",
-     "id": 268505758,
-     "npcId": 20002,
-     "name": "Rabbit",
-     "level": 1,
-     "x": -70945,
-     "y": 258677,
-     "z": -3096,
-     "heading": 0,
-     "runSpeed": 79,
-     "walkSpeed": 49,
-     "running": 0,
-     "pAtkSpd": 272,
-     "mAtkSpd": 333,
-     "atkSpdMul": 1.2092797756195068,
-     "rhand": 0,
-     "lhand": 0
-    },
-    {
-     "dt": 3122,
-     "op": "status",
-     "id": 268505758,
-     "hp": 51,
-     "maxHp": 61,
-     "mp": 0,
-     "maxMp": 0
-    },
-    {
-     "dt": 3763,
+     "dt": 3029,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -220,28 +128,19 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 6138,
-     "op": "status",
-     "id": 268505758,
-     "hp": 55,
-     "maxHp": 61,
-     "mp": 0,
-     "maxMp": 0
-    },
-    {
-     "dt": 6607,
+     "dt": 5887,
      "op": "skillLaunch",
      "casterId": 268502805,
-     "targetId": 268505758,
+     "targetId": 268548411,
      "skillId": 1177,
      "level": 1
     },
     {
-     "dt": 6740,
+     "dt": 6047,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -250,11 +149,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 6994,
+     "dt": 6295,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -263,11 +162,17 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 6995,
+     "dt": 6295,
+     "op": "autoAttack",
+     "id": 268548411,
+     "on": true
+    },
+    {
+     "dt": 6295,
      "op": "sysMsg",
      "id": 35,
      "params": [
@@ -275,24 +180,25 @@
      ]
     },
     {
-     "dt": 6995,
+     "dt": 6295,
      "op": "changeMove",
-     "id": 268505758,
+     "id": 268548411,
      "running": 1
     },
     {
-     "dt": 6995,
+     "dt": 6295,
      "op": "addNpc",
-     "id": 268505758,
+     "id": 268548411,
      "npcId": 20002,
      "name": "Rabbit",
      "level": 1,
-     "x": -70945,
-     "y": 258677,
+     "x": -71852,
+     "y": 258366,
      "z": -3096,
-     "heading": 0,
+     "heading": 23911,
      "runSpeed": 79,
      "walkSpeed": 49,
+     "speedMul": 1.100000023841858,
      "running": 1,
      "pAtkSpd": 272,
      "mAtkSpd": 333,
@@ -301,33 +207,40 @@
      "lhand": 0
     },
     {
-     "dt": 6995,
+     "dt": 6296,
      "op": "status",
-     "id": 268505758,
-     "hp": 2,
+     "id": 268548411,
+     "hp": 8,
      "maxHp": 61,
      "mp": 0,
      "maxMp": 0
     },
     {
-     "dt": 8254,
+     "dt": 6296,
+     "op": "autoAttack",
+     "id": 268502805,
+     "on": true
+    },
+    {
+     "dt": 8680,
      "op": "changeMove",
-     "id": 268505758,
+     "id": 268548411,
      "running": 0
     },
     {
-     "dt": 8254,
+     "dt": 8680,
      "op": "addNpc",
-     "id": 268505758,
+     "id": 268548411,
      "npcId": 20002,
      "name": "Rabbit",
      "level": 1,
-     "x": -70945,
-     "y": 258677,
+     "x": -71920,
+     "y": 258443,
      "z": -3096,
-     "heading": 0,
+     "heading": 23929,
      "runSpeed": 79,
      "walkSpeed": 49,
+     "speedMul": 1.100000023841858,
      "running": 0,
      "pAtkSpd": 272,
      "mAtkSpd": 333,
@@ -347,7 +260,7 @@
    },
    "events": [
     {
-     "dt": 47,
+     "dt": 25,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -356,11 +269,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 47,
+     "dt": 25,
      "op": "skillCast",
      "casterId": 268502805,
      "targetId": 268502805,
@@ -370,7 +283,7 @@
      "reuse": 15633
     },
     {
-     "dt": 47,
+     "dt": 25,
      "op": "sysMsg",
      "id": 46,
      "params": [
@@ -378,14 +291,14 @@
      ]
     },
     {
-     "dt": 47,
+     "dt": 25,
      "op": "gauge",
      "color": "blue",
      "time": 7816,
      "maxTime": 7816
     },
     {
-     "dt": 3037,
+     "dt": 3026,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -394,11 +307,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 6043,
+     "dt": 6024,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -407,11 +320,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 7457,
+     "dt": 7421,
      "op": "skillLaunch",
      "casterId": 268502805,
      "targetId": 268502805,
@@ -419,7 +332,7 @@
      "level": 1
     },
     {
-     "dt": 7852,
+     "dt": 7845,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -428,8 +341,8 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     }
    ]
   },
@@ -443,7 +356,7 @@
    },
    "events": [
     {
-     "dt": 46,
+     "dt": 24,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -452,11 +365,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 46,
+     "dt": 24,
      "op": "skillCast",
      "casterId": 268502805,
      "targetId": 268502805,
@@ -466,7 +379,7 @@
      "reuse": 15633
     },
     {
-     "dt": 46,
+     "dt": 24,
      "op": "sysMsg",
      "id": 46,
      "params": [
@@ -474,14 +387,14 @@
      ]
     },
     {
-     "dt": 46,
+     "dt": 24,
      "op": "gauge",
      "color": "blue",
      "time": 7816,
      "maxTime": 7816
     },
     {
-     "dt": 3035,
+     "dt": 3010,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -490,11 +403,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 6041,
+     "dt": 6008,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -503,11 +416,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 7455,
+     "dt": 7421,
      "op": "skillLaunch",
      "casterId": 268502805,
      "targetId": 268502805,
@@ -515,7 +428,7 @@
      "level": 1
     },
     {
-     "dt": 7862,
+     "dt": 7846,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -524,8 +437,8 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     }
    ]
   },
@@ -539,7 +452,7 @@
    },
    "events": [
     {
-     "dt": 37,
+     "dt": 50,
      "op": "skillCast",
      "casterId": 268502805,
      "targetId": 268502805,
@@ -549,7 +462,7 @@
      "reuse": 64038
     },
     {
-     "dt": 37,
+     "dt": 50,
      "op": "sysMsg",
      "id": 46,
      "params": [
@@ -557,14 +470,14 @@
      ]
     },
     {
-     "dt": 37,
+     "dt": 50,
      "op": "gauge",
      "color": "blue",
      "time": 800,
      "maxTime": 800
     },
     {
-     "dt": 439,
+     "dt": 440,
      "op": "skillLaunch",
      "casterId": 268502805,
      "targetId": 268502805,
@@ -572,7 +485,7 @@
      "level": 1
     },
     {
-     "dt": 826,
+     "dt": 849,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -581,11 +494,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 826,
+     "dt": 849,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -594,11 +507,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 826,
+     "dt": 849,
      "op": "charSheet",
      "str": 40,
      "dex": 30,
@@ -615,10 +528,12 @@
      "critical": 88,
      "runSpeed": 115,
      "walkSpeed": 80,
+     "speedMul": 1.4478260278701782,
      "pAtkSpd": 416,
      "mAtkSpd": 213,
      "atkSpdMul": 1.525333285331726,
      "running": true,
+     "curLoad": 7821,
      "maxLoad": 109020,
      "paperdoll": {
       "rhand": 2369,
@@ -630,7 +545,7 @@
      }
     },
     {
-     "dt": 826,
+     "dt": 849,
      "op": "sysMsg",
      "id": 110,
      "params": [
@@ -638,7 +553,7 @@
      ]
     },
     {
-     "dt": 826,
+     "dt": 849,
      "op": "buffs",
      "effects": [
       {
@@ -649,7 +564,7 @@
      ]
     },
     {
-     "dt": 3828,
+     "dt": 3832,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -658,11 +573,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 6818,
+     "dt": 6842,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -671,8 +586,8 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     }
    ]
   },
@@ -686,7 +601,7 @@
    },
    "events": [
     {
-     "dt": 47,
+     "dt": 25,
      "op": "skillCast",
      "casterId": 268502805,
      "targetId": 268502805,
@@ -696,7 +611,7 @@
      "reuse": 144086
     },
     {
-     "dt": 47,
+     "dt": 25,
      "op": "sysMsg",
      "id": 46,
      "params": [
@@ -704,14 +619,14 @@
      ]
     },
     {
-     "dt": 47,
+     "dt": 25,
      "op": "gauge",
      "color": "blue",
      "time": 1200,
      "maxTime": 1200
     },
     {
-     "dt": 859,
+     "dt": 823,
      "op": "skillLaunch",
      "casterId": 268502805,
      "targetId": 268502805,
@@ -719,7 +634,7 @@
      "level": 1
     },
     {
-     "dt": 1233,
+     "dt": 1219,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -728,11 +643,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 1233,
+     "dt": 1219,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -741,11 +656,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 1233,
+     "dt": 1219,
      "op": "charSheet",
      "str": 40,
      "dex": 30,
@@ -762,10 +677,12 @@
      "critical": 88,
      "runSpeed": 115,
      "walkSpeed": 80,
+     "speedMul": 1.4478260278701782,
      "pAtkSpd": 416,
      "mAtkSpd": 213,
      "atkSpdMul": 1.525333285331726,
      "running": true,
+     "curLoad": 7821,
      "maxLoad": 109020,
      "paperdoll": {
       "rhand": 2369,
@@ -777,7 +694,7 @@
      }
     },
     {
-     "dt": 1233,
+     "dt": 1219,
      "op": "sysMsg",
      "id": 110,
      "params": [
@@ -785,7 +702,7 @@
      ]
     },
     {
-     "dt": 1233,
+     "dt": 1219,
      "op": "buffs",
      "effects": [
       {
@@ -801,7 +718,7 @@
      ]
     },
     {
-     "dt": 4254,
+     "dt": 4219,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -810,11 +727,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 4622,
+     "dt": 4638,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -823,11 +740,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 4622,
+     "dt": 4638,
      "op": "charSheet",
      "str": 40,
      "dex": 30,
@@ -844,10 +761,12 @@
      "critical": 88,
      "runSpeed": 115,
      "walkSpeed": 80,
+     "speedMul": 1.100000023841858,
      "pAtkSpd": 416,
      "mAtkSpd": 213,
      "atkSpdMul": 1.525333285331726,
      "running": true,
+     "curLoad": 7821,
      "maxLoad": 109020,
      "paperdoll": {
       "rhand": 2369,
@@ -859,7 +778,7 @@
      }
     },
     {
-     "dt": 4622,
+     "dt": 4638,
      "op": "sysMsg",
      "id": 92,
      "params": [
@@ -867,7 +786,7 @@
      ]
     },
     {
-     "dt": 4622,
+     "dt": 4638,
      "op": "buffs",
      "effects": [
       {
@@ -878,7 +797,7 @@
      ]
     },
     {
-     "dt": 7247,
+     "dt": 7219,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -887,8 +806,8 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 1919,
-     "sp": 120
+     "exp": 2226,
+     "sp": 140
     }
    ]
   },
@@ -902,22 +821,87 @@
    },
    "events": [
     {
-     "dt": 31,
-     "op": "traceUndecoded",
-     "packet": "0x60"
+     "dt": 34,
+     "op": "actionFailed"
     },
     {
-     "dt": 408,
+     "dt": 520,
+     "op": "sysMsg",
+     "id": 35,
+     "params": [
+      15
+     ]
+    },
+    {
+     "dt": 520,
+     "op": "autoAttack",
+     "id": 268502805,
+     "on": true
+    },
+    {
+     "dt": 520,
+     "op": "autoAttack",
+     "id": 268548411,
+     "on": true
+    },
+    {
+     "dt": 520,
+     "op": "changeMove",
+     "id": 268548411,
+     "running": 1
+    },
+    {
+     "dt": 520,
+     "op": "addNpc",
+     "id": 268548411,
+     "npcId": 20002,
+     "name": "Rabbit",
+     "level": 1,
+     "x": -71735,
+     "y": 258289,
+     "z": -3104,
+     "heading": 56154,
+     "runSpeed": 79,
+     "walkSpeed": 49,
+     "speedMul": 1.100000023841858,
+     "running": 1,
+     "pAtkSpd": 272,
+     "mAtkSpd": 333,
+     "atkSpdMul": 1.2092797756195068,
+     "rhand": 0,
+     "lhand": 0
+    },
+    {
+     "dt": 520,
+     "op": "status",
+     "id": 268548411,
+     "hp": 46,
+     "maxHp": 61,
+     "mp": 0,
+     "maxMp": 0
+    },
+    {
+     "dt": 1123,
+     "op": "moveToPawn",
+     "id": 268502805,
+     "targetId": 268548411,
+     "distance": 40,
+     "x": -71754,
+     "y": 258284,
+     "z": -3104
+    },
+    {
+     "dt": 2412,
      "op": "skillCast",
      "casterId": 268502805,
-     "targetId": 268505758,
+     "targetId": 268548411,
      "skillId": 3,
      "level": 1,
      "hitTime": 864,
      "reuse": 10406
     },
     {
-     "dt": 408,
+     "dt": 2412,
      "op": "sysMsg",
      "id": 46,
      "params": [
@@ -925,57 +909,32 @@
      ]
     },
     {
-     "dt": 408,
+     "dt": 2412,
      "op": "gauge",
      "color": "blue",
      "time": 864,
      "maxTime": 864
     },
     {
-     "dt": 870,
-     "op": "skillLaunch",
-     "casterId": 268502805,
-     "targetId": 268505758,
-     "skillId": 3,
-     "level": 1
-    },
-    {
-     "dt": 1294,
-     "op": "selfStatus",
-     "hp": 183,
-     "maxHp": 183,
-     "mp": 49,
-     "maxMp": 59,
-     "cp": 73,
-     "maxCp": 73,
-     "level": 4,
-     "exp": 1919,
-     "sp": 120
-    },
-    {
-     "dt": 1294,
-     "op": "traceUndecoded",
-     "packet": "0x2b"
-    },
-    {
-     "dt": 1294,
+     "dt": 2534,
      "op": "changeMove",
-     "id": 268505758,
-     "running": 1
+     "id": 268548411,
+     "running": 0
     },
     {
-     "dt": 1294,
+     "dt": 2534,
      "op": "addNpc",
-     "id": 268505758,
+     "id": 268548411,
      "npcId": 20002,
      "name": "Rabbit",
      "level": 1,
-     "x": -71054,
-     "y": 258739,
-     "z": -3096,
-     "heading": 27374,
+     "x": -71580,
+     "y": 258330,
+     "z": -3104,
+     "heading": 2697,
      "runSpeed": 79,
      "walkSpeed": 49,
+     "speedMul": 1.100000023841858,
      "running": 0,
      "pAtkSpd": 272,
      "mAtkSpd": 333,
@@ -984,67 +943,15 @@
      "lhand": 0
     },
     {
-     "dt": 1294,
-     "op": "status",
-     "id": 268505758,
-     "hp": 0,
-     "maxHp": 61,
-     "mp": 0,
-     "maxMp": 0
-    },
-    {
-     "dt": 1294,
-     "op": "status",
-     "id": 268505758,
-     "hp": 0,
-     "maxHp": 61,
-     "mp": 0,
-     "maxMp": 0
-    },
-    {
-     "dt": 1294,
-     "op": "skillCast",
+     "dt": 2897,
+     "op": "skillLaunch",
      "casterId": 268502805,
-     "targetId": 268502805,
-     "skillId": 2278,
-     "level": 1,
-     "hitTime": 0,
-     "reuse": 0
+     "targetId": 268548411,
+     "skillId": 3,
+     "level": 1
     },
     {
-     "dt": 1294,
-     "op": "sysMsg",
-     "id": 46,
-     "params": [
-      2278
-     ]
-    },
-    {
-     "dt": 1294,
-     "op": "skillCast",
-     "casterId": 268502805,
-     "targetId": 268502805,
-     "skillId": 2279,
-     "level": 1,
-     "hitTime": 0,
-     "reuse": 0
-    },
-    {
-     "dt": 1294,
-     "op": "sysMsg",
-     "id": 46,
-     "params": [
-      2279
-     ]
-    },
-    {
-     "dt": 1294,
-     "op": "sysMsg",
-     "id": 361,
-     "params": []
-    },
-    {
-     "dt": 1294,
+     "dt": 3290,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -1053,11 +960,87 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2226,
+     "sp": 140
     },
     {
-     "dt": 1294,
+     "dt": 3290,
+     "op": "changeMove",
+     "id": 268548411,
+     "running": 1
+    },
+    {
+     "dt": 3290,
+     "op": "addNpc",
+     "id": 268548411,
+     "npcId": 20002,
+     "name": "Rabbit",
+     "level": 1,
+     "x": -71615,
+     "y": 258318,
+     "z": -3104,
+     "heading": 36104,
+     "runSpeed": 79,
+     "walkSpeed": 49,
+     "speedMul": 1.100000023841858,
+     "running": 0,
+     "pAtkSpd": 272,
+     "mAtkSpd": 333,
+     "atkSpdMul": 1.2092797756195068,
+     "rhand": 0,
+     "lhand": 0
+    },
+    {
+     "dt": 3290,
+     "op": "status",
+     "id": 268548411,
+     "hp": 0,
+     "maxHp": 61,
+     "mp": 0,
+     "maxMp": 0
+    },
+    {
+     "dt": 3290,
+     "op": "status",
+     "id": 268548411,
+     "hp": 0,
+     "maxHp": 61,
+     "mp": 0,
+     "maxMp": 0
+    },
+    {
+     "dt": 3290,
+     "op": "skillCast",
+     "casterId": 268502805,
+     "targetId": 268502805,
+     "skillId": 2283,
+     "level": 1,
+     "hitTime": 0,
+     "reuse": 0
+    },
+    {
+     "dt": 3290,
+     "op": "sysMsg",
+     "id": 46,
+     "params": [
+      2283
+     ]
+    },
+    {
+     "dt": 3291,
+     "op": "selfStatus",
+     "hp": 183,
+     "maxHp": 183,
+     "mp": 49,
+     "maxMp": 59,
+     "cp": 73,
+     "maxCp": 73,
+     "level": 4,
+     "exp": 2407,
+     "sp": 150
+    },
+    {
+     "dt": 3291,
      "op": "charSheet",
      "str": 40,
      "dex": 30,
@@ -1074,10 +1057,12 @@
      "critical": 88,
      "runSpeed": 115,
      "walkSpeed": 80,
+     "speedMul": 1.100000023841858,
      "pAtkSpd": 416,
-     "mAtkSpd": 213,
+     "mAtkSpd": 277,
      "atkSpdMul": 1.525333285331726,
      "running": true,
+     "curLoad": 7821,
      "maxLoad": 109020,
      "paperdoll": {
       "rhand": 2369,
@@ -1089,7 +1074,37 @@
      }
     },
     {
-     "dt": 1294,
+     "dt": 3291,
+     "op": "sysMsg",
+     "id": 110,
+     "params": [
+      2283
+     ]
+    },
+    {
+     "dt": 3291,
+     "op": "buffs",
+     "effects": [
+      {
+       "skillId": 78,
+       "level": 1,
+       "duration": 44
+      },
+      {
+       "skillId": 2283,
+       "level": 1,
+       "duration": 119
+      }
+     ]
+    },
+    {
+     "dt": 3291,
+     "op": "sysMsg",
+     "id": 361,
+     "params": []
+    },
+    {
+     "dt": 3291,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -1098,56 +1113,105 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2407,
+     "sp": 150
     },
     {
-     "dt": 1294,
+     "dt": 3291,
+     "op": "charSheet",
+     "str": 40,
+     "dex": 30,
+     "con": 43,
+     "int": 21,
+     "wit": 11,
+     "men": 25,
+     "pAtk": 8,
+     "pDef": 78,
+     "mAtk": 2,
+     "mDef": 48,
+     "accuracy": 36,
+     "evasion": 36,
+     "critical": 88,
+     "runSpeed": 115,
+     "walkSpeed": 80,
+     "speedMul": 1.100000023841858,
+     "pAtkSpd": 416,
+     "mAtkSpd": 277,
+     "atkSpdMul": 1.525333285331726,
+     "running": true,
+     "curLoad": 7821,
+     "maxLoad": 109020,
+     "paperdoll": {
+      "rhand": 2369,
+      "lhand": 0,
+      "gloves": 0,
+      "chest": 1146,
+      "legs": 1147,
+      "feet": 0
+     }
+    },
+    {
+     "dt": 3291,
+     "op": "selfStatus",
+     "hp": 183,
+     "maxHp": 183,
+     "mp": 49,
+     "maxMp": 59,
+     "cp": 73,
+     "maxCp": 73,
+     "level": 4,
+     "exp": 2407,
+     "sp": 150
+    },
+    {
+     "dt": 3291,
      "op": "sysMsg",
      "id": 95,
      "params": [
-      162,
+      181,
       10
      ]
     },
     {
-     "dt": 1294,
+     "dt": 3291,
      "op": "status",
-     "id": 268505758,
+     "id": 268548411,
      "hp": 0,
      "maxHp": 61,
      "mp": 0,
      "maxMp": 0
     },
     {
-     "dt": 1294,
+     "dt": 3291,
      "op": "die",
-     "id": 268505758
+     "id": 268548411
     },
     {
-     "dt": 1294,
-     "op": "traceUndecoded",
-     "packet": "0x2c"
+     "dt": 3291,
+     "op": "autoAttack",
+     "id": 268548411,
+     "on": false
     },
     {
-     "dt": 1294,
+     "dt": 3291,
      "op": "changeMove",
-     "id": 268505758,
+     "id": 268548411,
      "running": 0
     },
     {
-     "dt": 1294,
+     "dt": 3291,
      "op": "addNpc",
-     "id": 268505758,
+     "id": 268548411,
      "npcId": 20002,
      "name": "Rabbit",
      "level": 1,
-     "x": -71054,
-     "y": 258739,
-     "z": -3096,
-     "heading": 27374,
+     "x": -71615,
+     "y": 258318,
+     "z": -3104,
+     "heading": 36104,
      "runSpeed": 79,
      "walkSpeed": 49,
+     "speedMul": 1.100000023841858,
      "running": 0,
      "pAtkSpd": 272,
      "mAtkSpd": 333,
@@ -1156,20 +1220,15 @@
      "lhand": 0
     },
     {
-     "dt": 1294,
+     "dt": 3291,
      "op": "sysMsg",
      "id": 35,
      "params": [
-      68
+      71
      ]
     },
     {
-     "dt": 1862,
-     "op": "traceUndecoded",
-     "packet": "0x2b"
-    },
-    {
-     "dt": 4314,
+     "dt": 6303,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -1178,21 +1237,8 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
-    },
-    {
-     "dt": 7280,
-     "op": "selfStatus",
-     "hp": 183,
-     "maxHp": 183,
-     "mp": 51,
-     "maxMp": 59,
-     "cp": 73,
-     "maxCp": 73,
-     "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2407,
+     "sp": 150
     }
    ]
   },
@@ -1206,7 +1252,7 @@
    },
    "events": [
     {
-     "dt": 26,
+     "dt": 23,
      "op": "skillCast",
      "casterId": 268502805,
      "targetId": 268502805,
@@ -1216,7 +1262,7 @@
      "reuse": 0
     },
     {
-     "dt": 26,
+     "dt": 23,
      "op": "sysMsg",
      "id": 46,
      "params": [
@@ -1224,7 +1270,7 @@
      ]
     },
     {
-     "dt": 26,
+     "dt": 23,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -1233,11 +1279,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2407,
+     "sp": 150
     },
     {
-     "dt": 26,
+     "dt": 23,
      "op": "charSheet",
      "str": 40,
      "dex": 30,
@@ -1254,10 +1300,12 @@
      "critical": 88,
      "runSpeed": 115,
      "walkSpeed": 80,
+     "speedMul": 1.100000023841858,
      "pAtkSpd": 416,
-     "mAtkSpd": 213,
+     "mAtkSpd": 277,
      "atkSpdMul": 1.525333285331726,
      "running": true,
+     "curLoad": 7821,
      "maxLoad": 109020,
      "paperdoll": {
       "rhand": 2369,
@@ -1269,13 +1317,18 @@
      }
     },
     {
-     "dt": 26,
+     "dt": 23,
      "op": "buffs",
      "effects": [
       {
        "skillId": 78,
        "level": 1,
        "duration": 36
+      },
+      {
+       "skillId": 2283,
+       "level": 1,
+       "duration": 112
       },
       {
        "skillId": 312,
@@ -1285,7 +1338,7 @@
      ]
     },
     {
-     "dt": 5003,
+     "dt": 5014,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -1294,16 +1347,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2407,
+     "sp": 150
     },
     {
-     "dt": 5918,
-     "op": "traceUndecoded",
-     "packet": "0x2c"
-    },
-    {
-     "dt": 8006,
+     "dt": 8023,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -1312,8 +1360,14 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2407,
+     "sp": 150
+    },
+    {
+     "dt": 8337,
+     "op": "autoAttack",
+     "id": 268502805,
+     "on": false
     }
    ]
   },
@@ -1327,7 +1381,7 @@
    },
    "events": [
     {
-     "dt": 23,
+     "dt": 33,
      "op": "skillCast",
      "casterId": 268502805,
      "targetId": 268502805,
@@ -1337,7 +1391,7 @@
      "reuse": 0
     },
     {
-     "dt": 23,
+     "dt": 33,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -1346,11 +1400,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2407,
+     "sp": 150
     },
     {
-     "dt": 23,
+     "dt": 33,
      "op": "sysMsg",
      "id": 46,
      "params": [
@@ -1358,13 +1412,13 @@
      ]
     },
     {
-     "dt": 23,
+     "dt": 33,
      "op": "changeWait",
      "id": 268502805,
      "waitType": 0
     },
     {
-     "dt": 23,
+     "dt": 33,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -1373,11 +1427,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2407,
+     "sp": 150
     },
     {
-     "dt": 23,
+     "dt": 33,
      "op": "charSheet",
      "str": 40,
      "dex": 30,
@@ -1394,10 +1448,12 @@
      "critical": 88,
      "runSpeed": 115,
      "walkSpeed": 80,
+     "speedMul": 1.100000023841858,
      "pAtkSpd": 416,
-     "mAtkSpd": 213,
+     "mAtkSpd": 277,
      "atkSpdMul": 1.525333285331726,
      "running": true,
+     "curLoad": 7821,
      "maxLoad": 109020,
      "paperdoll": {
       "rhand": 2369,
@@ -1409,13 +1465,18 @@
      }
     },
     {
-     "dt": 23,
+     "dt": 33,
      "op": "buffs",
      "effects": [
       {
        "skillId": 78,
        "level": 1,
        "duration": 25
+      },
+      {
+       "skillId": 2283,
+       "level": 1,
+       "duration": 100
       },
       {
        "skillId": 226,
@@ -1430,13 +1491,13 @@
      ]
     },
     {
-     "dt": 2009,
+     "dt": 2030,
      "op": "sysMsg",
      "id": 175,
      "params": []
     },
     {
-     "dt": 2009,
+     "dt": 2030,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -1445,11 +1506,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2407,
+     "sp": 150
     },
     {
-     "dt": 2009,
+     "dt": 2030,
      "op": "charSheet",
      "str": 40,
      "dex": 30,
@@ -1466,10 +1527,12 @@
      "critical": 88,
      "runSpeed": 115,
      "walkSpeed": 80,
+     "speedMul": 1.100000023841858,
      "pAtkSpd": 416,
-     "mAtkSpd": 213,
+     "mAtkSpd": 277,
      "atkSpdMul": 1.525333285331726,
      "running": true,
+     "curLoad": 7821,
      "maxLoad": 109020,
      "paperdoll": {
       "rhand": 2369,
@@ -1481,7 +1544,7 @@
      }
     },
     {
-     "dt": 2009,
+     "dt": 2030,
      "op": "sysMsg",
      "id": 335,
      "params": [
@@ -1489,13 +1552,18 @@
      ]
     },
     {
-     "dt": 2009,
+     "dt": 2030,
      "op": "buffs",
      "effects": [
       {
        "skillId": 78,
        "level": 1,
        "duration": 23
+      },
+      {
+       "skillId": 2283,
+       "level": 1,
+       "duration": 98
       },
       {
        "skillId": 312,
@@ -1514,8 +1582,8 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2407,
+     "sp": 150
     },
     {
      "dt": 3801,
@@ -1527,11 +1595,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2407,
+     "sp": 150
     },
     {
-     "dt": 6022,
+     "dt": 6020,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -1540,11 +1608,11 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2407,
+     "sp": 150
     },
     {
-     "dt": 8800,
+     "dt": 8818,
      "op": "selfStatus",
      "hp": 183,
      "maxHp": 183,
@@ -1553,8 +1621,8 @@
      "cp": 73,
      "maxCp": 73,
      "level": 4,
-     "exp": 2081,
-     "sp": 130
+     "exp": 2407,
+     "sp": 150
     }
    ]
   }
@@ -1562,11 +1630,11 @@
  "toggleUses": [
   [
    {
-    "dt": 34,
+    "dt": 44,
     "op": "actionFailed"
    },
    {
-    "dt": 320,
+    "dt": 325,
     "op": "skillCast",
     "casterId": 268502805,
     "targetId": 268502805,
@@ -1576,7 +1644,7 @@
     "reuse": 0
    },
    {
-    "dt": 320,
+    "dt": 325,
     "op": "selfStatus",
     "hp": 183,
     "maxHp": 183,
@@ -1585,11 +1653,11 @@
     "cp": 73,
     "maxCp": 73,
     "level": 4,
-    "exp": 2081,
-    "sp": 130
+    "exp": 2407,
+    "sp": 150
    },
    {
-    "dt": 320,
+    "dt": 325,
     "op": "charSheet",
     "str": 40,
     "dex": 30,
@@ -1606,10 +1674,12 @@
     "critical": 88,
     "runSpeed": 115,
     "walkSpeed": 80,
+    "speedMul": 1.100000023841858,
     "pAtkSpd": 416,
-    "mAtkSpd": 213,
+    "mAtkSpd": 277,
     "atkSpdMul": 1.525333285331726,
     "running": true,
+    "curLoad": 7821,
     "maxLoad": 109020,
     "paperdoll": {
      "rhand": 2369,
@@ -1621,7 +1691,7 @@
     }
    },
    {
-    "dt": 320,
+    "dt": 325,
     "op": "sysMsg",
     "id": 335,
     "params": [
@@ -1629,20 +1699,25 @@
     ]
    },
    {
-    "dt": 320,
+    "dt": 325,
     "op": "buffs",
     "effects": [
      {
       "skillId": 78,
       "level": 1,
       "duration": 12
+     },
+     {
+      "skillId": 2283,
+      "level": 1,
+      "duration": 87
      }
     ]
    }
   ],
   [
    {
-    "dt": 51,
+    "dt": 41,
     "op": "skillCast",
     "casterId": 268502805,
     "targetId": 268502805,
@@ -1652,7 +1727,7 @@
     "reuse": 0
    },
    {
-    "dt": 51,
+    "dt": 41,
     "op": "sysMsg",
     "id": 46,
     "params": [
@@ -1660,7 +1735,7 @@
     ]
    },
    {
-    "dt": 51,
+    "dt": 42,
     "op": "selfStatus",
     "hp": 183,
     "maxHp": 183,
@@ -1669,11 +1744,11 @@
     "cp": 73,
     "maxCp": 73,
     "level": 4,
-    "exp": 2081,
-    "sp": 130
+    "exp": 2407,
+    "sp": 150
    },
    {
-    "dt": 51,
+    "dt": 42,
     "op": "charSheet",
     "str": 40,
     "dex": 30,
@@ -1690,10 +1765,12 @@
     "critical": 88,
     "runSpeed": 115,
     "walkSpeed": 80,
+    "speedMul": 1.100000023841858,
     "pAtkSpd": 416,
-    "mAtkSpd": 213,
+    "mAtkSpd": 277,
     "atkSpdMul": 1.525333285331726,
     "running": true,
+    "curLoad": 7821,
     "maxLoad": 109020,
     "paperdoll": {
      "rhand": 2369,
@@ -1705,13 +1782,18 @@
     }
    },
    {
-    "dt": 51,
+    "dt": 42,
     "op": "buffs",
     "effects": [
      {
       "skillId": 78,
       "level": 1,
       "duration": 9
+     },
+     {
+      "skillId": 2283,
+      "level": 1,
+      "duration": 84
      },
      {
       "skillId": 312,
@@ -1723,7 +1805,7 @@
   ],
   [
    {
-    "dt": 38,
+    "dt": 47,
     "op": "skillCast",
     "casterId": 268502805,
     "targetId": 268502805,
@@ -1733,7 +1815,7 @@
     "reuse": 0
    },
    {
-    "dt": 38,
+    "dt": 47,
     "op": "selfStatus",
     "hp": 183,
     "maxHp": 183,
@@ -1742,11 +1824,11 @@
     "cp": 73,
     "maxCp": 73,
     "level": 4,
-    "exp": 2081,
-    "sp": 130
+    "exp": 2407,
+    "sp": 150
    },
    {
-    "dt": 38,
+    "dt": 47,
     "op": "charSheet",
     "str": 40,
     "dex": 30,
@@ -1763,10 +1845,12 @@
     "critical": 88,
     "runSpeed": 115,
     "walkSpeed": 80,
+    "speedMul": 1.100000023841858,
     "pAtkSpd": 416,
-    "mAtkSpd": 213,
+    "mAtkSpd": 277,
     "atkSpdMul": 1.525333285331726,
     "running": true,
+    "curLoad": 7821,
     "maxLoad": 109020,
     "paperdoll": {
      "rhand": 2369,
@@ -1778,7 +1862,7 @@
     }
    },
    {
-    "dt": 38,
+    "dt": 47,
     "op": "sysMsg",
     "id": 335,
     "params": [
@@ -1786,13 +1870,18 @@
     ]
    },
    {
-    "dt": 38,
+    "dt": 47,
     "op": "buffs",
     "effects": [
      {
       "skillId": 78,
       "level": 1,
       "duration": 6
+     },
+     {
+      "skillId": 2283,
+      "level": 1,
+      "duration": 81
      }
     ]
    }
@@ -1800,7 +1889,7 @@
  ],
  "moveDuringCast": [
   {
-   "dt": 31,
+   "dt": 35,
    "op": "selfStatus",
    "hp": 183,
    "maxHp": 183,
@@ -1809,21 +1898,21 @@
    "cp": 73,
    "maxCp": 73,
    "level": 4,
-   "exp": 2081,
-   "sp": 130
+   "exp": 2407,
+   "sp": 150
   },
   {
-   "dt": 32,
+   "dt": 35,
    "op": "skillCast",
    "casterId": 268502805,
    "targetId": 268502805,
    "skillId": 1011,
    "level": 1,
-   "hitTime": 7816,
-   "reuse": 15633
+   "hitTime": 6010,
+   "reuse": 12021
   },
   {
-   "dt": 32,
+   "dt": 35,
    "op": "sysMsg",
    "id": 46,
    "params": [
@@ -1831,22 +1920,22 @@
    ]
   },
   {
-   "dt": 32,
+   "dt": 35,
    "op": "gauge",
    "color": "blue",
-   "time": 7816,
-   "maxTime": 7816
+   "time": 6010,
+   "maxTime": 6010
   },
   {
-   "dt": 1544,
+   "dt": 1531,
    "op": "actionFailed"
   },
   {
-   "dt": 1544,
+   "dt": 1531,
    "op": "actionFailed"
   },
   {
-   "dt": 3009,
+   "dt": 3036,
    "op": "selfStatus",
    "hp": 183,
    "maxHp": 183,
@@ -1855,11 +1944,11 @@
    "cp": 73,
    "maxCp": 73,
    "level": 4,
-   "exp": 2081,
-   "sp": 130
+   "exp": 2407,
+   "sp": 150
   },
   {
-   "dt": 3184,
+   "dt": 3172,
    "op": "selfStatus",
    "hp": 183,
    "maxHp": 183,
@@ -1868,11 +1957,11 @@
    "cp": 73,
    "maxCp": 73,
    "level": 4,
-   "exp": 2081,
-   "sp": 130
+   "exp": 2407,
+   "sp": 150
   },
   {
-   "dt": 3184,
+   "dt": 3173,
    "op": "charSheet",
    "str": 40,
    "dex": 30,
@@ -1889,10 +1978,12 @@
    "critical": 88,
    "runSpeed": 115,
    "walkSpeed": 80,
+   "speedMul": 1.100000023841858,
    "pAtkSpd": 416,
-   "mAtkSpd": 213,
+   "mAtkSpd": 277,
    "atkSpdMul": 1.525333285331726,
    "running": true,
+   "curLoad": 7821,
    "maxLoad": 109020,
    "paperdoll": {
     "rhand": 2369,
@@ -1904,7 +1995,7 @@
    }
   },
   {
-   "dt": 3184,
+   "dt": 3173,
    "op": "sysMsg",
    "id": 92,
    "params": [
@@ -1912,12 +2003,26 @@
    ]
   },
   {
-   "dt": 3184,
+   "dt": 3173,
    "op": "buffs",
-   "effects": []
+   "effects": [
+    {
+     "skillId": 2283,
+     "level": 1,
+     "duration": 75
+    }
+   ]
   },
   {
-   "dt": 6026,
+   "dt": 5637,
+   "op": "skillLaunch",
+   "casterId": 268502805,
+   "targetId": 268502805,
+   "skillId": 1011,
+   "level": 1
+  },
+  {
+   "dt": 6037,
    "op": "selfStatus",
    "hp": 183,
    "maxHp": 183,
@@ -1926,19 +2031,11 @@
    "cp": 73,
    "maxCp": 73,
    "level": 4,
-   "exp": 2081,
-   "sp": 130
+   "exp": 2407,
+   "sp": 150
   },
   {
-   "dt": 7429,
-   "op": "skillLaunch",
-   "casterId": 268502805,
-   "targetId": 268502805,
-   "skillId": 1011,
-   "level": 1
-  },
-  {
-   "dt": 7844,
+   "dt": 6037,
    "op": "selfStatus",
    "hp": 183,
    "maxHp": 183,
@@ -1947,44 +2044,60 @@
    "cp": 73,
    "maxCp": 73,
    "level": 4,
-   "exp": 2081,
-   "sp": 130
+   "exp": 2407,
+   "sp": 150
   },
   {
-   "dt": 7873,
+   "dt": 6037,
    "op": "move",
    "id": 268502805,
-   "tx": -70993,
-   "ty": 258744,
-   "tz": -3096
+   "tx": -71470,
+   "ty": 258466,
+   "tz": -3081,
+   "x": -71614,
+   "y": 258320,
+   "z": -3104
+  },
+  {
+   "dt": 9053,
+   "op": "selfStatus",
+   "hp": 183,
+   "maxHp": 183,
+   "mp": 52,
+   "maxMp": 59,
+   "cp": 73,
+   "maxCp": 73,
+   "level": 4,
+   "exp": 2407,
+   "sp": 150
   }
  ],
  "interrupt": [
   {
-   "dt": 37,
+   "dt": 31,
    "op": "selfStatus",
-   "hp": 146,
+   "hp": 167,
    "maxHp": 183,
    "mp": 57,
    "maxMp": 59,
    "cp": 73,
    "maxCp": 73,
    "level": 4,
-   "exp": 2081,
-   "sp": 130
+   "exp": 2407,
+   "sp": 150
   },
   {
-   "dt": 37,
+   "dt": 31,
    "op": "skillCast",
    "casterId": 268502805,
-   "targetId": 268505787,
+   "targetId": 268548503,
    "skillId": 1177,
    "level": 1,
-   "hitTime": 6253,
-   "reuse": 9380
+   "hitTime": 4808,
+   "reuse": 7212
   },
   {
-   "dt": 37,
+   "dt": 31,
    "op": "sysMsg",
    "id": 46,
    "params": [
@@ -1992,18 +2105,209 @@
    ]
   },
   {
-   "dt": 37,
+   "dt": 31,
    "op": "gauge",
    "color": "blue",
-   "time": 6253,
-   "maxTime": 6253
+   "time": 4808,
+   "maxTime": 4808
   },
   {
-   "dt": 770,
+   "dt": 270,
+   "op": "sysMsg",
+   "id": 36,
+   "params": [
+    "Gremlin",
+    8
+   ]
+  },
+  {
+   "dt": 270,
+   "op": "selfStatus",
+   "hp": 159,
+   "maxHp": 183,
+   "mp": 57,
+   "maxMp": 59,
+   "cp": 73,
+   "maxCp": 73,
+   "level": 4,
+   "exp": 2407,
+   "sp": 150
+  },
+  {
+   "dt": 270,
+   "op": "sysMsg",
+   "id": 36,
+   "params": [
+    "Gremlin",
+    8
+   ]
+  },
+  {
+   "dt": 270,
+   "op": "selfStatus",
+   "hp": 151,
+   "maxHp": 183,
+   "mp": 57,
+   "maxMp": 59,
+   "cp": 73,
+   "maxCp": 73,
+   "level": 4,
+   "exp": 2407,
+   "sp": 150
+  },
+  {
+   "dt": 1189,
    "op": "attack",
-   "id": 268505786,
+   "id": 268548502,
    "targetId": 268502805,
-   "damage": 16,
+   "damage": 10,
+   "hitIndex": 0,
+   "hitCount": 1,
+   "hitDelay": 919,
+   "attackType": "NONE",
+   "soulshot": false,
+   "critical": false,
+   "shield": false,
+   "miss": false
+  },
+  {
+   "dt": 1189,
+   "op": "attack",
+   "id": 268548501,
+   "targetId": 268502805,
+   "damage": 0,
+   "hitIndex": 0,
+   "hitCount": 1,
+   "hitDelay": 919,
+   "attackType": "NONE",
+   "soulshot": false,
+   "critical": false,
+   "shield": false,
+   "miss": true
+  },
+  {
+   "dt": 1416,
+   "op": "selfStatus",
+   "hp": 154,
+   "maxHp": 183,
+   "mp": 58,
+   "maxMp": 59,
+   "cp": 73,
+   "maxCp": 73,
+   "level": 4,
+   "exp": 2407,
+   "sp": 150
+  },
+  {
+   "dt": 1531,
+   "op": "actionFailed"
+  },
+  {
+   "dt": 1531,
+   "op": "actionFailed"
+  },
+  {
+   "dt": 1531,
+   "op": "skillCancel",
+   "casterId": 268502805
+  },
+  {
+   "dt": 1531,
+   "op": "actionFailed"
+  },
+  {
+   "dt": 1531,
+   "op": "actionFailed"
+  },
+  {
+   "dt": 1531,
+   "op": "actionFailed"
+  },
+  {
+   "dt": 1531,
+   "op": "target_lost",
+   "id": 268502805,
+   "x": -71470,
+   "y": 258466,
+   "z": -3104
+  },
+  {
+   "dt": 1532,
+   "op": "npcHtml",
+   "html": "<html><title>Teleport</title><body><center>\n\t<table width=270>\n\t\t<tr>\n\t\t\t<td><button value=\"Main\" action=\"bypass -h admin_admin\" width=45 height=15 back=\"sek.cbui94\" fore=\"sek.cbui92\"></td>\n\t\t\t<td width=180 align=center>Teleport Menu</td>\n\t\t\t<td><button value=\"Back\" action=\"bypass -h admin_admin\" width=45 height=15 back=\"sek.cbui94\" fore=\"sek.cbui92\"></td>\n\t\t</tr>\n\t</table><br>\n\t<br>\n\t\n\tMove to locations\n\t<table width=280>\n\t\t<tr>\n\t\t\t<td><button value=\"Town & Castle\" action=\"bypass admin_link tele/town_castle.htm\" width=95 height=21 back=\"bigbutton_over\" fore=\"bigbutton\"></td>\n\t\t\t<td><button value=\"Hunting Zone\" action=\"bypass admin_link tele/hunting_zone.htm\" width=75 height=21 back=\"L2UI_ch3.Btn1_normalOn\" fore=\"L2UI_ch3.Btn1_normal\"></td>\n\t\t\t<td><button value=\"Other location\" action=\"bypass admin_link tele/other.htm\" width=95 height=21 back=\"bigbutton_over\" fore=\"bigbutton\"></td>\n\t\t</tr>\n\t</table><br>\n\t<br>\n\t\n\tMove to given coords\n\t<table width=240>\n\t\t<tr>\n\t\t\t<td width=10>X</td><td><edit var=\"char_cord_x\" width=50></td>\n\t\t\t<td width=10>Y</td><td><edit var=\"char_cord_y\" width=50></td>\n\t\t\t<td width=10>Z</td><td><edit var=\"char_cord_z\" width=50></td>\n\t\t\t<td><button value=\"Go\" action=\"bypass admin_teleport $char_cord_x $char_cord_y $char_cord_z\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t</tr>\n\t</table><br>\n\t<br>\n\t\n\tMovement related actions\n\t<table width=200>\n\t\t<tr>\n\t\t\t<td><button value=\"Normal\" action=\"bypass admin_instant_move 0\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t\t<td><button value=\"Teleport x1\" action=\"bypass admin_instant_move 1\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t\t<td><button value=\"Teleport\" action=\"bypass admin_instant_move 2\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t</tr><tr>\n\t\t\t<td><button value=\"Strider\" action=\"bypass admin_ride 1\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t\t<td><button value=\"Wyvern\" action=\"bypass admin_ride 2\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t\t<td><button value=\"Dismount\" action=\"bypass admin_unride\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t</tr>\n\t</table><br>\n\t<br>\n\t\n\tGM Speed\n\t<table width=187>\n\t\t<tr>\n\t\t\t<td><button action=\"bypass admin_gmspeed 1\" width=34 height=24 back=\"L2UI_ch3.calculate2_1_over\" fore=\"L2UI_ch3.calculate2_1\"></td>\n\t\t\t<td><button action=\"bypass admin_gmspeed 2\" width=34 height=24 back=\"L2UI_ch3.calculate2_2_over\" fore=\"L2UI_ch3.calculate2_2\"></td>\n\t\t\t<td><button action=\"bypass admin_gmspeed 3\" width=34 height=24 back=\"L2UI_ch3.calculate2_3_over\" fore=\"L2UI_ch3.calculate2_3\"></td>\n\t\t\t<td><button action=\"bypass admin_gmspeed 4\" width=34 height=24 back=\"L2UI_ch3.calculate2_4_over\" fore=\"L2UI_ch3.calculate2_4\"></td>\n\t\t\t<td width=17></td>\n\t\t\t<td><button action=\"bypass admin_gmspeed 0\" width=34 height=24 back=\"L2UI_ch3.calculate2_c_over\" fore=\"L2UI_ch3.calculate2_c\"></td>\n\t\t</tr>\n\t</table>\n</center></body></html>\n"
+  },
+  {
+   "dt": 2101,
+   "op": "sysMsg",
+   "id": 42,
+   "params": [
+    "Gremlin"
+   ]
+  },
+  {
+   "dt": 3020,
+   "op": "attack",
+   "id": 268548502,
+   "targetId": 268502805,
+   "damage": 10,
+   "hitIndex": 0,
+   "hitCount": 1,
+   "hitDelay": 919,
+   "attackType": "NONE",
+   "soulshot": false,
+   "critical": false,
+   "shield": false,
+   "miss": false
+  },
+  {
+   "dt": 3021,
+   "op": "attack",
+   "id": 268548501,
+   "targetId": 268502805,
+   "damage": 7,
+   "hitIndex": 0,
+   "hitCount": 1,
+   "hitDelay": 919,
+   "attackType": "NONE",
+   "soulshot": false,
+   "critical": false,
+   "shield": false,
+   "miss": false
+  },
+  {
+   "dt": 4413,
+   "op": "selfStatus",
+   "hp": 157,
+   "maxHp": 183,
+   "mp": 59,
+   "maxMp": 59,
+   "cp": 73,
+   "maxCp": 73,
+   "level": 4,
+   "exp": 2407,
+   "sp": 150
+  },
+  {
+   "dt": 4870,
+   "op": "attack",
+   "id": 268548501,
+   "targetId": 268502805,
+   "damage": 8,
+   "hitIndex": 0,
+   "hitCount": 1,
+   "hitDelay": 919,
+   "attackType": "NONE",
+   "soulshot": false,
+   "critical": false,
+   "shield": false,
+   "miss": false
+  },
+  {
+   "dt": 4870,
+   "op": "attack",
+   "id": 268548502,
+   "targetId": 268502805,
+   "damage": 17,
    "hitIndex": 0,
    "hitCount": 1,
    "hitDelay": 919,
@@ -2014,9 +2318,24 @@
    "miss": false
   },
   {
-   "dt": 811,
+   "dt": 6719,
    "op": "attack",
-   "id": 268505785,
+   "id": 268548502,
+   "targetId": 268502805,
+   "damage": 9,
+   "hitIndex": 0,
+   "hitCount": 1,
+   "hitDelay": 919,
+   "attackType": "NONE",
+   "soulshot": false,
+   "critical": false,
+   "shield": false,
+   "miss": false
+  },
+  {
+   "dt": 6719,
+   "op": "attack",
+   "id": 268548501,
    "targetId": 268502805,
    "damage": 8,
    "hitIndex": 0,
@@ -2029,100 +2348,37 @@
    "miss": false
   },
   {
-   "dt": 1019,
+   "dt": 7424,
    "op": "selfStatus",
-   "hp": 149,
-   "maxHp": 183,
-   "mp": 58,
-   "maxMp": 59,
-   "cp": 73,
-   "maxCp": 73,
-   "level": 4,
-   "exp": 2081,
-   "sp": 130
-  },
-  {
-   "dt": 1534,
-   "op": "actionFailed"
-  },
-  {
-   "dt": 1534,
-   "op": "actionFailed"
-  },
-  {
-   "dt": 1534,
-   "op": "skillCancel",
-   "casterId": 268502805
-  },
-  {
-   "dt": 1534,
-   "op": "actionFailed"
-  },
-  {
-   "dt": 1534,
-   "op": "actionFailed"
-  },
-  {
-   "dt": 1534,
-   "op": "actionFailed"
-  },
-  {
-   "dt": 1534,
-   "op": "traceUndecoded",
-   "packet": "0x2a"
-  },
-  {
-   "dt": 1535,
-   "op": "npcHtml",
-   "html": "<html><title>Teleport</title><body><center>\n\t<table width=270>\n\t\t<tr>\n\t\t\t<td><button value=\"Main\" action=\"bypass -h admin_admin\" width=45 height=15 back=\"sek.cbui94\" fore=\"sek.cbui92\"></td>\n\t\t\t<td width=180 align=center>Teleport Menu</td>\n\t\t\t<td><button value=\"Back\" action=\"bypass -h admin_admin\" width=45 height=15 back=\"sek.cbui94\" fore=\"sek.cbui92\"></td>\n\t\t</tr>\n\t</table><br>\n\t<br>\n\t\n\tMove to locations\n\t<table width=280>\n\t\t<tr>\n\t\t\t<td><button value=\"Town & Castle\" action=\"bypass admin_link tele/town_castle.htm\" width=95 height=21 back=\"bigbutton_over\" fore=\"bigbutton\"></td>\n\t\t\t<td><button value=\"Hunting Zone\" action=\"bypass admin_link tele/hunting_zone.htm\" width=75 height=21 back=\"L2UI_ch3.Btn1_normalOn\" fore=\"L2UI_ch3.Btn1_normal\"></td>\n\t\t\t<td><button value=\"Other location\" action=\"bypass admin_link tele/other.htm\" width=95 height=21 back=\"bigbutton_over\" fore=\"bigbutton\"></td>\n\t\t</tr>\n\t</table><br>\n\t<br>\n\t\n\tMove to given coords\n\t<table width=240>\n\t\t<tr>\n\t\t\t<td width=10>X</td><td><edit var=\"char_cord_x\" width=50></td>\n\t\t\t<td width=10>Y</td><td><edit var=\"char_cord_y\" width=50></td>\n\t\t\t<td width=10>Z</td><td><edit var=\"char_cord_z\" width=50></td>\n\t\t\t<td><button value=\"Go\" action=\"bypass admin_teleport $char_cord_x $char_cord_y $char_cord_z\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t</tr>\n\t</table><br>\n\t<br>\n\t\n\tMovement related actions\n\t<table width=200>\n\t\t<tr>\n\t\t\t<td><button value=\"Normal\" action=\"bypass admin_instant_move 0\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t\t<td><button value=\"Teleport x1\" action=\"bypass admin_instant_move 1\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t\t<td><button value=\"Teleport\" action=\"bypass admin_instant_move 2\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t</tr><tr>\n\t\t\t<td><button value=\"Strider\" action=\"bypass admin_ride 1\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t\t<td><button value=\"Wyvern\" action=\"bypass admin_ride 2\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t\t<td><button value=\"Dismount\" action=\"bypass admin_unride\" width=65 height=19 back=\"L2UI_ch3.smallbutton2_over\" fore=\"L2UI_ch3.smallbutton2\"></td>\n\t\t</tr>\n\t</table><br>\n\t<br>\n\t\n\tGM Speed\n\t<table width=187>\n\t\t<tr>\n\t\t\t<td><button action=\"bypass admin_gmspeed 1\" width=34 height=24 back=\"L2UI_ch3.calculate2_1_over\" fore=\"L2UI_ch3.calculate2_1\"></td>\n\t\t\t<td><button action=\"bypass admin_gmspeed 2\" width=34 height=24 back=\"L2UI_ch3.calculate2_2_over\" fore=\"L2UI_ch3.calculate2_2\"></td>\n\t\t\t<td><button action=\"bypass admin_gmspeed 3\" width=34 height=24 back=\"L2UI_ch3.calculate2_3_over\" fore=\"L2UI_ch3.calculate2_3\"></td>\n\t\t\t<td><button action=\"bypass admin_gmspeed 4\" width=34 height=24 back=\"L2UI_ch3.calculate2_4_over\" fore=\"L2UI_ch3.calculate2_4\"></td>\n\t\t\t<td width=17></td>\n\t\t\t<td><button action=\"bypass admin_gmspeed 0\" width=34 height=24 back=\"L2UI_ch3.calculate2_c_over\" fore=\"L2UI_ch3.calculate2_c\"></td>\n\t\t</tr>\n\t</table>\n</center></body></html>\n"
-  },
-  {
-   "dt": 2625,
-   "op": "attack",
-   "id": 268505786,
-   "targetId": 268502805,
-   "damage": 8,
-   "hitIndex": 0,
-   "hitCount": 1,
-   "hitDelay": 919,
-   "attackType": "NONE",
-   "soulshot": false,
-   "critical": false,
-   "shield": false,
-   "miss": false
-  },
-  {
-   "dt": 2647,
-   "op": "attack",
-   "id": 268505785,
-   "targetId": 268502805,
-   "damage": 8,
-   "hitIndex": 0,
-   "hitCount": 1,
-   "hitDelay": 919,
-   "attackType": "NONE",
-   "soulshot": false,
-   "critical": false,
-   "shield": false,
-   "miss": false
-  },
-  {
-   "dt": 4027,
-   "op": "selfStatus",
-   "hp": 152,
+   "hp": 160,
    "maxHp": 183,
    "mp": 59,
    "maxMp": 59,
    "cp": 73,
    "maxCp": 73,
    "level": 4,
-   "exp": 2081,
-   "sp": 130
+   "exp": 2407,
+   "sp": 150
   },
   {
-   "dt": 4464,
+   "dt": 8557,
    "op": "attack",
-   "id": 268505786,
+   "id": 268548501,
+   "targetId": 268502805,
+   "damage": 0,
+   "hitIndex": 0,
+   "hitCount": 1,
+   "hitDelay": 919,
+   "attackType": "NONE",
+   "soulshot": false,
+   "critical": false,
+   "shield": false,
+   "miss": true
+  },
+  {
+   "dt": 8558,
+   "op": "attack",
+   "id": 268548502,
    "targetId": 268502805,
    "damage": 8,
    "hitIndex": 0,
@@ -2135,11 +2391,19 @@
    "miss": false
   },
   {
-   "dt": 4485,
+   "dt": 9476,
+   "op": "sysMsg",
+   "id": 42,
+   "params": [
+    "Gremlin"
+   ]
+  },
+  {
+   "dt": 10401,
    "op": "attack",
-   "id": 268505785,
+   "id": 268548501,
    "targetId": 268502805,
-   "damage": 8,
+   "damage": 7,
    "hitIndex": 0,
    "hitCount": 1,
    "hitDelay": 919,
@@ -2150,11 +2414,11 @@
    "miss": false
   },
   {
-   "dt": 6306,
+   "dt": 10401,
    "op": "attack",
-   "id": 268505786,
+   "id": 268548502,
    "targetId": 268502805,
-   "damage": 8,
+   "damage": 9,
    "hitIndex": 0,
    "hitCount": 1,
    "hitDelay": 919,
@@ -2165,105 +2429,17 @@
    "miss": false
   },
   {
-   "dt": 6334,
-   "op": "attack",
-   "id": 268505785,
-   "targetId": 268502805,
-   "damage": 8,
-   "hitIndex": 0,
-   "hitCount": 1,
-   "hitDelay": 919,
-   "attackType": "NONE",
-   "soulshot": false,
-   "critical": false,
-   "shield": false,
-   "miss": false
-  },
-  {
-   "dt": 7040,
+   "dt": 10426,
    "op": "selfStatus",
-   "hp": 155,
+   "hp": 163,
    "maxHp": 183,
    "mp": 59,
    "maxMp": 59,
    "cp": 73,
    "maxCp": 73,
    "level": 4,
-   "exp": 2081,
-   "sp": 130
-  },
-  {
-   "dt": 8162,
-   "op": "attack",
-   "id": 268505786,
-   "targetId": 268502805,
-   "damage": 8,
-   "hitIndex": 0,
-   "hitCount": 1,
-   "hitDelay": 919,
-   "attackType": "NONE",
-   "soulshot": false,
-   "critical": false,
-   "shield": false,
-   "miss": false
-  },
-  {
-   "dt": 8185,
-   "op": "attack",
-   "id": 268505785,
-   "targetId": 268502805,
-   "damage": 8,
-   "hitIndex": 0,
-   "hitCount": 1,
-   "hitDelay": 919,
-   "attackType": "NONE",
-   "soulshot": false,
-   "critical": false,
-   "shield": false,
-   "miss": false
-  },
-  {
-   "dt": 9982,
-   "op": "attack",
-   "id": 268505786,
-   "targetId": 268502805,
-   "damage": 8,
-   "hitIndex": 0,
-   "hitCount": 1,
-   "hitDelay": 919,
-   "attackType": "NONE",
-   "soulshot": false,
-   "critical": false,
-   "shield": false,
-   "miss": false
-  },
-  {
-   "dt": 10035,
-   "op": "selfStatus",
-   "hp": 158,
-   "maxHp": 183,
-   "mp": 59,
-   "maxMp": 59,
-   "cp": 73,
-   "maxCp": 73,
-   "level": 4,
-   "exp": 2081,
-   "sp": 130
-  },
-  {
-   "dt": 10035,
-   "op": "attack",
-   "id": 268505785,
-   "targetId": 268502805,
-   "damage": 8,
-   "hitIndex": 0,
-   "hitCount": 1,
-   "hitDelay": 919,
-   "attackType": "NONE",
-   "soulshot": false,
-   "critical": false,
-   "shield": false,
-   "miss": false
+   "exp": 2407,
+   "sp": 150
   }
  ]
 }

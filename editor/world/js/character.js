@@ -281,6 +281,26 @@ export class Character {
 
     root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
 
+    // A SECOND load() on the same Character has to REPLACE the body, not add
+    // one. Found while probing the cast clip live: loading orc_fighter_m over
+    // an already-loaded human_fighter_m left the human's 90-odd
+    // AnimationActions in `actions`, so `_clip('spAtk01')` at the bow stance
+    // answered `spatk01_bow` — a clip the orc does not ship — and the action
+    // it returned belonged to the DISCARDED mixer, which nothing updates.
+    // The old body also stayed in the group.
+    //
+    // Latent, not live, and said that way deliberately: the one runtime path
+    // that changes the self model (main.js loadCharacter, the race/class
+    // swap) builds a NEW Character and removes the old group, and remote
+    // players are loaded once per entity — so no shipped path re-enters here
+    // today. It is fixed because the method must be safe on its own terms,
+    // and because the probe that found it is the same shape as the next
+    // feature that will call it.
+    if (this.model) this.group.remove(this.model);
+    if (this.mixer) this.mixer.stopAllAction();
+    this.actions = {};
+    this.current = null;
+    this.castPhases = null;
     this.model = root;
     this.group.add(root);
     this.mixer = new THREE.AnimationMixer(root);
@@ -383,10 +403,19 @@ export class Character {
   // Neither is a free parameter: both are values the server computed for the
   // client. The clip's own length only decides the animation when nothing
   // sourced is available.
+  // Play a clip that the CLIENT'S OWN table already resolved (js/castanim.js
+  // slotClip): no _clip() stance guessing, because the table is already
+  // stance-indexed and its answer is frequently NOT '<name>_<stance>'.
+  // Falls through to oneShot's machinery for rate/hold.
+  oneShotExact(clip, fade = 0.1, opts = {}) {
+    return this.oneShot(clip, fade, Object.assign({ exact: true }, opts));
+  }
+
   oneShot(name, fade = 0.1, opts = {}) {
     // resolve the stance here too, so the hold time matches the clip that
-    // actually plays — a 1HS swing and the unarmed one are different lengths
-    const resolved = this._clip(name);
+    // actually plays — a 1HS swing and the unarmed one are different lengths.
+    // opts.exact skips that: the caller already holds retail's own answer.
+    const resolved = opts.exact ? name : this._clip(name);
     const action = this.actions[resolved];
     if (!action) return;
     const clipSec = action.getClip().duration;
@@ -400,11 +429,73 @@ export class Character {
       action.reset().play();
       this.current = action;
     } else {
-      this.play(resolved, fade);
+      // play() re-resolves the stance; for an exact clip that would undo the
+      // table's answer (play('atk01_bow') with stance 'bow' -> atk01_bow_bow,
+      // a miss, then idle). Drive the mixer directly instead.
+      if (opts.exact) {
+        action.reset().setEffectiveWeight(1).fadeIn(fade).play();
+        if (this.current) this.current.fadeOut(fade);
+        this.current = action;
+      } else {
+        this.play(resolved, fade);
+      }
     }
     action.setEffectiveTimeScale(rate);
-    this.lastOneShot = { clip: resolved, rate, ms: (clipSec / rate) * 1000 };
-    this.emoteUntil = performance.now() + (clipSec / rate) * 1000;
+    const ms = (clipSec / rate) * 1000;
+    this.lastOneShot = { clip: resolved, rate, ms };
+    this.emoteUntil = performance.now() + ms;
+    // Retail fires a cast's phases off the CLIP's own AnimNotify keyframes,
+    // not off a wall-clock timer (tools/anim/build_pawnanim.py). `opts.phases`
+    // is [{u, fn}] with u a fraction of this clip; each fires once, at the
+    // wall-clock instant this playback reaches that fraction — so stretching
+    // the clip to the server's hitTime moves the phase with it, exactly as
+    // AnimRate does in the client.
+    this.castPhases = null;
+    if (opts.phases && opts.phases.length) {
+      const t0 = performance.now();
+      this.castPhases = opts.phases.map(p => ({
+        u: p.u, fn: p.fn, at: t0 + p.u * ms, fired: false,
+      }));
+    }
+    return this.lastOneShot;
+  }
+
+  // INTERRUPTION. aCis broadcasts MagicSkillCanceled (gateway op
+  // `skillCancel`) when an in-flight cast dies — the caster is stunned, moves,
+  // runs out of MP, or is killed. js/skills.js already consumed it for the
+  // cast BAR; the animation kept running to the end of the stretched clip and
+  // its phase callbacks kept firing, so a cancelled 6-second nuke went on
+  // gesturing for six seconds and still "launched".
+  //
+  // Cancelling drops the pending phases (nothing may fire after the abort)
+  // and releases the emote hold, so update()'s own idle/sit fallback takes
+  // the body back on the next frame. It does NOT force a pose: retail's
+  // CastEnd recovery clip is not shipped by the character pipeline yet
+  // (build_pawnanim.py records castEnd for all 14 pawns and the glTFs carry
+  // none of them), and inventing one here would be a guess.
+  cancelCast() {
+    const had = !!(this.castPhases || this.emoteUntil > performance.now());
+    this.castPhases = null;
+    this.emoteUntil = 0;
+    this.lastCancel = { at: performance.now(), had };   // verification hook
+    return had;
+  }
+
+  // Fire any clip-time phase callbacks whose keyframe this playback has
+  // reached. Called from update(); safe to call with nothing pending.
+  _runCastPhases(now) {
+    const ph = this.castPhases;
+    if (!ph) return;
+    let live = false;
+    for (const p of ph) {
+      if (p.fired) continue;
+      if (now >= p.at) {
+        p.fired = true;
+        this.lastPhase = { u: p.u, at: p.at };   // verification hook
+        try { p.fn(); } catch (e) { /* a phase must never break the frame */ }
+      } else live = true;
+    }
+    if (!live) this.castPhases = null;
   }
 
   /**
@@ -461,6 +552,11 @@ export class Character {
         moving = true;
       }
     }
+
+    // Clip-time cast phases fire regardless of what the body is doing: the
+    // launch instant is a keyframe of the clip that is playing, and a player
+    // who starts walking mid-cast still gets the server's launch.
+    this._runCastPhases(performance.now());
 
     if (moving) {
       const pos = this.group.position;

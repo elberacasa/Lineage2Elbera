@@ -953,6 +953,11 @@ net.on('skillLaunch', (msg) => {
   const pos = entityHeadPos(msg.targetId);
   if (pos) gameSound.launch(msg.skillId, pos);
 });
+// MagicSkillCanceled (gateway op `skillCancel`) — the cast died in flight.
+// js/skills.js already polled this op for the cast BAR; the ANIMATION never
+// heard about it, so a cancelled cast kept gesturing for the full stretched
+// hitTime and still fired its launch phase. entities.cancelCast drops both.
+net.on('skillCancel', (msg) => { entities.cancelCast(msg.casterId); });
 // ExAutoSoulShot — the server confirming a shot toggle. It answers only on
 // success (RequestAutoSoulShot returns silently when the item is missing or
 // the player is dead/trading), so this, not the click, is the truth.

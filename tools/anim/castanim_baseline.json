@@ -1,0 +1,132 @@
+{
+ "A_concat_mismatches": 10,
+ "A_mismatch_detail": [
+  {
+   "client": "atk01_bow",
+   "clientSeq": "atk01_Bow_FDwarf",
+   "legacy": "spAtk01",
+   "model": "dwarf_f",
+   "stance": "bow"
+  },
+  {
+   "client": "atk01_bow",
+   "clientSeq": "atk01_Bow_MDwarf",
+   "legacy": "spAtk01",
+   "model": "dwarf_m",
+   "stance": "bow"
+  },
+  {
+   "client": "atk01_1hs",
+   "clientSeq": "Atk01_1HS_FMagic",
+   "legacy": "spAtk01",
+   "model": "human_mystic_f",
+   "stance": "1hs"
+  },
+  {
+   "client": "atk01_bow",
+   "clientSeq": "atk01_Bow_FMagic",
+   "legacy": "spAtk01",
+   "model": "human_mystic_f",
+   "stance": "bow"
+  },
+  {
+   "client": "atk01_1hs",
+   "clientSeq": "Atk01_1HS_MMagic",
+   "legacy": "spAtk01",
+   "model": "human_mystic_m",
+   "stance": "1hs"
+  },
+  {
+   "client": "atk01_bow",
+   "clientSeq": "atk01_Bow_MMagic",
+   "legacy": "spAtk01",
+   "model": "human_mystic_m",
+   "stance": "bow"
+  },
+  {
+   "client": "atk01_bow",
+   "clientSeq": "atk01_Bow_Forc",
+   "legacy": "spAtk01",
+   "model": "orc_fighter_f",
+   "stance": "bow"
+  },
+  {
+   "client": "atk01_bow",
+   "clientSeq": "atk01_Bow_Morc",
+   "legacy": "spAtk01",
+   "model": "orc_fighter_m",
+   "stance": "bow"
+  },
+  {
+   "client": "atk01_bow",
+   "clientSeq": "atk01_Bow_FShaman",
+   "legacy": "spAtk01",
+   "model": "orc_mystic_f",
+   "stance": "bow"
+  },
+  {
+   "client": "atk01_bow",
+   "clientSeq": "atk01_Bow_MShaman",
+   "legacy": "spAtk01",
+   "model": "orc_mystic_m",
+   "stance": "bow"
+  }
+ ],
+ "A_pairs_walked": 84,
+ "A_pairs_with_client_entry": 50,
+ "B_by_category": {
+  "dance_or_song_client_slot_spAtk05": 33,
+  "magic_client_slots_castX_magicX": 402,
+  "passive_or_toggle_no_gesture": 1896,
+  "physical_floor_slot_spAtk01": 363
+ },
+ "B_distinct_physical_codes_collapsed": 27,
+ "B_generic_floor": 363,
+ "B_physical_codes": {
+  "A": 3,
+  "B": 5,
+  "C": 20,
+  "D": 53,
+  "E": 6,
+  "G": 13,
+  "L": 23,
+  "M": 1,
+  "MS01": 1,
+  "Mix01": 1,
+  "Mix02": 1,
+  "Mix03": 2,
+  "Mix04": 2,
+  "Mix05": 2,
+  "Mix06": 3,
+  "Mix07": 2,
+  "Mix08": 1,
+  "Mix09": 2,
+  "S": 31,
+  "U": 18,
+  "V": 9,
+  "X": 63,
+  "Y": 7,
+  "f": 60,
+  "i": 17,
+  "j": 12,
+  "t": 5
+ },
+ "B_skill_rows": 2694,
+ "B_specific_clip": 435,
+ "C_magic_slots_client_fills_gltf_lacks": {
+  "castEnd": 14,
+  "magicNoTarget": 14,
+  "magicShot": 14
+ },
+ "C_spatk_clips_reachable": 44,
+ "C_spatk_clips_shipped": 230,
+ "C_spatk_clips_unreachable": 186,
+ "D_notify_keyframes_by_kind": {
+  "AttackItem": 466,
+  "AttackPreShot": 48,
+  "AttackShot": 525,
+  "AttackVoice": 254,
+  "Channeling": 14,
+  "Sound": 2045
+ }
+}

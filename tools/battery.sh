@@ -115,6 +115,10 @@ SUITES=(
 "solo|verify_audio_coverage|editor/world|120|verify_audio_coverage.js|--check"
 "solo|verify_creature_anims|editor/world|180|verify_creature_anims.js|--check"
 "solo|verify_anim|editor/world|420|verify_anim.js|--check"
+# Pure-data + source-text suite (no browser, no server): the skill-cast clip
+# table out of lineagewarrior.int, the .ukx phase keyframes, and the live-aCis
+# cast-timing capture.
+"solo|verify_castanim|editor/world|120|verify_castanim.js|--check"
 "solo|verify_steps|editor/world|300|verify_steps.js|--check"
 # Browser suites against the dev server only.
 "solo|verify_app|editor/world|300|verify_app.js"

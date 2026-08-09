@@ -11,6 +11,7 @@ import { l2ToThree, l2HeadingToThreeYaw, L2_TO_M } from './coords.js';
 import { makeLabel } from './labels.js';
 import { skillAnimMeta, skillAnimInfo } from './gamedata.js';
 import { clipForSkill, lastSkillMsg } from './skillfx_anim.js';
+import { pawnAnim, castPlan } from './castanim.js';
 import { activeSkillFx } from './skills.js';
 
 const _headPos = new THREE.Vector3();
@@ -631,18 +632,44 @@ export class EntityManager {
     // which is a weapon strike animation and never a cast.
     if (!msg) { this.lastCastClip = null; return; }
     if (msg.op === 'skillLaunch' && ch.emoteUntil > performance.now()) return;
-    skillAnimMeta().then(meta => {
+    Promise.all([skillAnimMeta(), pawnAnim()]).then(([meta, pa]) => {
       const entry = skillAnimInfo(meta, msg.skillId, msg.level || 1);
-      const clip = clipForSkill(entry, msg.hitTime);
+      // The clip now comes from the CLIENT'S OWN stance-indexed slot table
+      // (lineagewarrior.int -> /characters/pawnanim.json), not from pasting
+      // '_<stance>' onto a logical name. Ten of the 84 (pawn, stance) pairs
+      // disagreed; see js/castanim.js for the list.
+      const plan = (pa && ch.modelId)
+        ? castPlan(pa, ch.modelId, ch.stance, entry, msg.hitTime)
+        : null;
+      // Fallback path: no table loaded (offline mock, model not yet known).
+      // Keeps the previous logical-name behaviour rather than going silent.
+      const clip = (plan && plan.cast) || clipForSkill(entry, msg.hitTime);
       // null = the skill genuinely has NO cast gesture (empty skillgrp
       // animation code — every TOGGLE in the data, checked: 32/32). The old
       // `|| 'attack'` turned each of those into a full weapon swing, so
       // toggling Vicious Stance on made the character attack the air.
       this.lastCastClip = clip;   // verification hook (name logic picked)
+      this.lastCastPlan = plan;   // verification hook (slot + phase times)
       if (!clip || !(ch.actions && ch.actions[clip])) return;
+
+      // Phase keyframes: retail marks the launch instant with an
+      // AnimNotify_AttackShot INSIDE the clip, so the effect fires from the
+      // clip's own playback time. Stretching the clip to the server's
+      // hitTime carries the phase with it — which is what the client's
+      // Get<Slot>AnimRate exports do. Nothing fires when the clip carries no
+      // AttackShot (retail's CastShort/Mid/Long carry none on 13 of 14
+      // pawns: their launch is the separate MagicThrow clip).
+      const phases = [];
+      const u = plan && plan.castShotU;
+      if (u != null) {
+        phases.push({ u, fn: () => { this.lastCastShot = { skillId: msg.skillId, u }; } });
+      }
       // hitTime 0 (toggles, instant skills) means "no cast time": let the clip
       // run at its own length rather than dividing by zero's worth of stretch.
-      ch.oneShot(clip, 0.1, msg.hitTime > 0 ? { durationMs: msg.hitTime } : {});
+      const opts = msg.hitTime > 0 ? { durationMs: msg.hitTime } : {};
+      if (phases.length) opts.phases = phases;
+      if (plan && plan.cast === clip) ch.oneShotExact(clip, 0.1, opts);
+      else ch.oneShot(clip, 0.1, opts);
     });
   }
 
@@ -725,7 +752,27 @@ export class EntityManager {
     }
   }
 
+  // MagicSkillCanceled (gateway op `skillCancel`) — the in-flight cast died.
+  // Same self fallback as skillFlash/die: the local player is not in the
+  // EntityManager. Returns the Character it cancelled, or null.
+  cancelCast(casterId) {
+    const e = this.entities.get(casterId);
+    if (e && e.kind === 'player') { e.cancelCast(); return e; }
+    if (!e) {
+      const w = typeof window !== 'undefined' && window.__world;
+      if (w && w.net.selfId === casterId && w.character) {
+        w.character.cancelCast();
+        return w.character;
+      }
+    }
+    return null;
+  }
+
   die(id) {
+    // Death mid-cast is an interruption too, and it arrives as its own packet
+    // rather than as a skillCancel. Without this the corpse kept playing the
+    // stretched cast clip and still fired its launch phase.
+    this.cancelCast(id);
     const e = this.entities.get(id);
     if (!e) {
       // the local player is not in the EntityManager — same self fallback
