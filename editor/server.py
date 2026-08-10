@@ -138,7 +138,7 @@ def run(cmd, timeout=SUBPROCESS_TIMEOUT):
     """Run a command, return (rc, stdout, stderr). Never raises on rc != 0."""
     try:
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout
+            cmd, capture_output=True, text=True, timeout=timeout, shell=False
         )
         return proc.returncode, proc.stdout, proc.stderr
     except subprocess.TimeoutExpired:
@@ -188,7 +188,7 @@ def parse_umodel_list(stdout):
 def cache_key(path):
     st = path.stat()
     raw = "%s|%d|%d" % (str(path), int(st.st_mtime), st.st_size)
-    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
 def get_contents(pkg_abs):
