@@ -3,7 +3,8 @@
 The browser samples **original sparse local tracks**, without using PSA
 resampling or glTF frame times. The inspector now pairs this primitive with
 separately verified source-mesh association, reference fallback and neutral
-parent-coordinate math. Complete native animation and live hair placement
+parent-coordinate math. [Live Character playback](original-animation-runtime.md)
+also uses this path for admitted nonnegative wait and cast frames. Complete native animation and live hair placement
 remain unfinished.
 
 ## Reproduce
@@ -43,6 +44,12 @@ returns `quaternion`, `position`, `first`, `second`, `alpha`, `wrapped` and
 `hemisphereFlipped`. Values remain in original source-local coordinates.
 Invalid or unsupported records throw; the function does not invent a reference
 pose, normalize missing fields, choose a mesh bone or alter its inputs.
+
+`prepareOriginalTrack(track, duration)` owns an immutable validated copy and
+returns `sample(frame)` plus `firstPose()` for raw first keys. Fresh
+`sampleOriginalTrack` calls still revalidate caller data. `firstPose()` does not
+mean `sample(0)`: the original tiny-interval branch can choose a successor even
+at frame zero.
 
 The bounded input shape is explicit `flags: 0`, nonempty time keys starting at
 zero and strictly increasing, one quaternion per time, and either one position
@@ -139,7 +146,8 @@ Expand **Original sparse animation keys**, choose **Load original keys**, then
 **Preview original keys**. Play, pause and scrub use the selected pose source.
 The source view includes the full sequence period and closing interval; the
 exported comparison clamps at its last stored frame. Cast and sit/stand replays
-retain existing game playback; starting either leaves this experimental view.
+leave the manual comparison and use the [live Character backend](original-animation-runtime.md),
+including admitted nonnegative source poses and explicit transition limits.
 
 ### Source association and fallback
 
