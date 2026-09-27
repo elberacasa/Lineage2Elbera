@@ -1,6 +1,6 @@
 # Full browser port: feature and evidence inventory
 
-Snapshot: 2026-09-26, during the active world, quest, trainer and animation work.
+Snapshot: 2026-09-27, during the active world, quest, appearance and animation work.
 This is a code/source inventory, not a completion percentage or a
 claim of broad live gameplay validation. It includes no private binary dumps,
 credentials or account records. Paths below are repository-relative.
@@ -29,6 +29,13 @@ A rendered window, matching label, large exported dataset or passing test count
 cannot stand in for the latter two. The aCis server is the interoperability
 target here; its rules are not by themselves evidence of original client
 animation, presentation or timing.
+
+The latest appearance checkpoint corrects default hair input selection and
+separates source extraction from converted characters. Original dispatch and
+bounded coordinate arithmetic now distinguish148 ordinary from14 dynamic hair
+meshes. The [attachment evidence](native-hair-attachment-evidence.md) records
+the new comparison-copy import bindings and the remaining actor/transform
+requirements. No new animated hair runtime is claimed by these checks.
 
 | Area | What the browser currently does | Concrete remaining work and evidence |
 | --- | --- | --- |

@@ -35,6 +35,12 @@ jobs:
           python3 -m unittest discover -s tools/dat -p test_build_hair.py
           python3 -m unittest discover -s tools/ui -p test_hair_selection_native.py
           python3 -m unittest discover -s tools/ui -p test_creation_appearance_native.py
+          python3 -m unittest discover -s tools/ui -p test_hair_attachment_native.py
+          python3 -m unittest discover -s tools/src/char_pipeline -p test_default_hair_bindings.py
+      - name: Synthetic PE and native method comparison fixtures
+        run: |
+          python3 -m pip install capstone==5.0.7
+          python3 -m unittest discover -s tools/ui -p test_supplemental_pe.py
       - name: Java configuration round trip
         run: node --test deploy/test/password-config.test.cjs
       - name: Standalone toolkit packaging tests

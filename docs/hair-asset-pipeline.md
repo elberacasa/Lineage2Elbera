@@ -99,6 +99,34 @@ sharing, accessor bounds, packed property types/duplicate array elements and
 read-only verification. These tests establish decoder and admission behavior;
 they do not substitute for a visual or native animation comparison.
 
+The [attachment verifier](native-hair-attachment-evidence.md) independently
+decodes the saved dispatch word after each complete skeletal export. Of the162
+meshes,148 select ordinary rendering and14 select dynamic hair. Both original
+paths explicitly select a master head record, with different subsequent
+transforms. Source weight differences alone therefore cannot justify changing
+the current head binding.
+
+## Character conversion uses source-selected defaults
+
+The character builder now selects base style/color zero from the freshly decoded
+hair table instead of constructing filenames from the face name. Each part is
+explicitly present or absent; a missing required export stops conversion.
+Qualified mesh/texture identities and export fingerprints must match. Hair
+textures are freshly decoded from the exact Texture object selected by the
+source material graph, preserving RGBA, including FinalBlend child textures.
+The older library-image, sibling-name and mesh-slot substitutions are bypassed
+for hair. Only one material slot with texture index zero and zero PolyFlags is
+admitted by this path.
+
+This corrects input selection. The assembler's existing skin-weight rewrites
+and material settings remain compatibility behavior, and conversion alone does
+not certify native attachment, animation or appearance. Body/face texture
+selection is outside this correction. Portable regression checks:
+
+```sh
+node tools/src/char_pipeline/test_default_hair_bindings.mjs
+```
+
 ## Browser inspection
 
 With the local editor running and the private catalog generated, open
@@ -108,6 +136,13 @@ index. The page exposes the base table's exact indices, including absent
 parts; these stored slots are not character-creation menu bounds. Dwarf male
 style 0 offers a small rigid-stream example; Dark Elf female style 0 also
 contains a separate soft-rig hair part.
+
+![Elbera Tools showing the original Dark Elf female hair parts](img/elbera-tools-hair-soft.jpg)
+
+Actual browser inspection of Dark Elf female style0/color0: one rigid part and
+one part with13 source bind bones, both using the decoded alpha reference150.
+The soft-rig part is displayed statically; this screenshot does not show hair
+simulation or character attachment.
 
 The inspector verifies the served LOD0 JSON and PNG bytes against the catalog's
 SHA-256 values before display. It preserves source XYZ positions, UVs and
