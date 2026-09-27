@@ -29,7 +29,7 @@ live crafting or proof that every original-client behavior has been reproduced.
 | ![Elbera Tools player face inspection](docs/img/elbera-tools-faces.png) | ![Elbera Tools recipe and shortcut inspection](docs/img/elbera-tools-recipes.png) |
 | Explicit original face indices, with source mesh and texture checks. | Original recipe metadata and browser controls, using clearly labeled replay state. |
 
-![Elbera Tools original hair geometry and color inspection](docs/img/elbera-tools-hair.png)
+![Elbera Tools original hair geometry and color inspection](docs/img/elbera-tools-hair.jpg)
 
 **Original hair inspection:** exact source mesh/color choices, including distinct
 alpha rules for the two hair parts. This is a static source view; animated body
