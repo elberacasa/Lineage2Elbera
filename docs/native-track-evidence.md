@@ -1,8 +1,10 @@
 # Elbera Tools: ordinary original animation tracks
 
-The browser can now sample **original sparse local tracks**, without using PSA
-resampling or glTF frame times. This is an inspection primitive, not a claim that
-complete native animation, mesh bone association or live hair placement is solved.
+The browser samples **original sparse local tracks**, without using PSA
+resampling or glTF frame times. The inspector now pairs this primitive with
+separately verified source-mesh association, reference fallback and neutral
+parent-coordinate math. Complete native animation and live hair placement
+remain unfinished.
 
 ## Reproduce
 
@@ -103,80 +105,152 @@ supplied inputs, not a universal package-format guarantee.
 
 ## Browser pose preview
 
-The existing [Elbera Tools pawn inspector](../editor/world/test/pawn-original.html)
-can now render original sparse keys on its loaded browser character. Generate
-private inputs, start the usual local asset server, open
-`/test/pawn-original.html?model=human_fighter_f&slot=castMid&stance=hand`, expand
-**Original sparse animation keys**, and choose **Load original keys**:
+The [Elbera Tools pawn inspector](../editor/world/test/pawn-original.html) now
+combines original sparse keys with the **original face-mesh reference skeleton**,
+native first-name linkup, reference fallback and neutral current-parent math.
+It displays the result through the existing browser character and keeps the
+exported animation available as a separate comparison.
+
+Generate both private inputs, start the usual local asset server, and open
+`/test/pawn-original.html?model=human_fighter_f&slot=castMid&stance=hand`:
 
 ```sh
+# One model: original keys and its matching source skeleton sidecar.
 python3 tools/anim/export_source_tracks.py human_fighter_f --write
-# Or decode all 14 models; --check independently compares existing outputs.
+python3 tools/anim/export_source_tracks.py human_fighter_f --skeletons --write
+
+# All 14 ordinary player models; compare existing outputs with fresh decoding.
 python3 tools/anim/export_source_tracks.py --write
+python3 tools/anim/export_source_tracks.py --skeletons --write
 python3 tools/anim/export_source_tracks.py --check
+python3 tools/anim/export_source_tracks.py --skeletons --check
 ```
 
-Toggle **Preview original keys** to compare the original sampler with the
-existing exported animation. Play, pause and scrub share the same controls.
-Original preview includes the full sequence period and its closing interval;
-the exported comparison clamps at its last stored frame. The displayed deltas
-measure local quaternion components (accounting for q/-q) and local translation
-in export units. They are not angular error, world-space displacement or a
-native-client visual score. Cast and sit/stand replays retain existing game
-playback; starting either leaves the experimental preview.
+The paired files are `assets/gamedata/animation-tracks/<model>.json` and
+`<model>.skeleton.json`. The sidecar independently joins the exact original
+class `Mesh` tag, one unique chargrp face entry and the mesh's stored animation
+reference. It preserves the mesh reference bones and their parents, the
+animation reference bones, first-name bindings and source fingerprints.
+The browser checks that the two inputs identify the same model, package and
+animation export, and recomputes the supplied binding table before use.
+This does not establish master-mesh selection for transformed or alternate pawns.
+
+Expand **Original sparse animation keys**, choose **Load original keys**, then
+**Preview original keys**. Play, pause and scrub use the selected pose source.
+The source view includes the full sequence period and closing interval; the
+exported comparison clamps at its last stored frame. Cast and sit/stand replays
+retain existing game playback; starting either leaves this experimental view.
+
+### Source association and fallback
+
+There are two distinct associations:
+
+1. **Mesh → animation:** the original rule chooses the first matching interned
+   FName, ignoring animation parents and duplicate occurrence counts. The
+   same-package name-table gate supports the decoded-name adapter for all 14
+   source pairs. See [linkup evidence](native-animation-linkup-evidence.md).
+2. **Source mesh → displayed browser bones:** a separate strict name-and-parent
+   correspondence admits the loaded export. It preserves loader source names,
+   rejects ambiguity and introduces no renamed-finger aliases.
+
+All **14 original face skeletons** pass the current source association. Thirteen
+map every bone; male Human Fighter maps **69 of 70**, with one source reference
+fallback. Its unmatched `Bip01_R_Finger01` receives the original face mesh's
+local quaternion and position; its mapped child still animates. This follows
+[GetFrame's later reference/cached-pose selection](native-pose-fallback-evidence.md),
+rather than borrowing the duplicate left-finger animation track.
+
+Movement `BoneIndices` is a different serialized list. It is not the lookup
+used by this ordinary GetFrame path, so the **15 measured empty lists** are no
+longer a reason to reject the preview. Ordinary movement flags, start bone zero
+and a complete animation track array remain required; unsupported data fails
+explicitly.
+
+### Neutral hierarchy and display basis
+
+The preview explicitly selects **channel zero, base bone zero, root locking
+off and no additional modifiers**. Each matched bone uses its sampled local
+quaternion/position; unmatched bones use original reference locals. The
+[coordinate helper](native-pose-coordinate-evidence.md) builds source records
+and composes children with `ApplyPivotWithoutScale(local, currentParent)`.
+Reference-cache `ApplyPivot` is a different operation and is not substituted.
+
+The resulting source coordinate matrices are displayed through the measured
+glTF geometry basis: swap source Y/Z, scale translations by `0.01`, and change
+basis as `B * C * B⁻¹`. This is a browser display adapter, not native actor/world
+placement. It retains the complete matrices, including scale/shear, instead of
+decomposing them into guessed local quaternions. The existing skeleton's outer
+transform is applied once; leaving the preview restores its prior matrix state.
+
+The displayed export deltas now measure the maximum **hierarchy basis component
+difference** and **hierarchy translation distance in export units**. They are
+not local quaternion error, angular error, world-space displacement or a
+native-client visual score. A source-correct association may differ visibly
+from an older adapted export. No aggregate numerical matrix-basis accuracy
+claim is made by this document.
+
+### Current tool capture and conversion checks
+
+![Elbera Tools showing Human Fighter source hierarchy with 69 animation links and one reference bone](img/elbera-tools-source-hierarchy.jpg)
+
+Actual neutral source preview at 0.677 seconds. The visible difference from the
+export includes the original missing-finger rule; the delta is not a native
+rendering error score. The stage, camera and lighting are inspection controls.
+[Capture provenance](img/README.md).
+
+A fresh local source audit covers all 1,139 face bones across 14 models and their
+exact name/parent correspondence to the displayed joints. Seventy actual preview
+applications (five CastEnd times per model) produced finite matrices and restored
+matrix state and mixer transforms. An independent `B * C * B⁻¹` comparator checks
+the display algebra; it does not compare screenshots against a running native
+client.
+
+Canonical glTF nodes are assembled from the upper-body part, so they are not a
+universal face-reference oracle. Dark Elf male has a different source root and
+six Dummy leaf bases; Orc fighter male has a different Weapon_R_Bone reference.
+Checking 45 actual inverse-bind records across ten non-hair part skins in those
+two models confirms that each part retains its own original reference within
+conversion precision. These differences do not justify replacing the inverse
+binds. The preview retains them; complete native deformation and equipment/hair
+attachment remain separate work.
+
+### Earlier preview and retained capture
+
+The first sparse-key preview directly adapted animation locals into the built
+skeleton and admitted 13 models. It rejected the male Human Fighter name mismatch
+and empty movement maps. The source-mesh association and fallback above replace
+those restrictions; the earlier conservative rejection was not the native rule.
+
+That earlier local-key adapter used position `f32(0.01 * [x,z,y])` and quaternion
+`[x,z,y,w]`, with root XYZ negated. Its measured **94,831 translation and 94,831
+quaternion first-key comparisons** explained the existing PSA/glTF export path.
+They remain useful historical conversion evidence, but are not an oracle for
+the new source hierarchy or the original runtime's root quaternion handling.
 
 ![Elbera Tools rendering a female Human Fighter from original sparse casting keys](img/elbera-tools-animation-keys.jpg)
 
-Actual local preview, at 0.677 seconds. This is the existing browser character
-with original-key sampling enabled, not a capture from the official client.
-
-The adapter requires unique case-insensitive bone names **under the same parent
-identity**, using the loader's preserved source names. It never matches by a
-name alone or substitutes an index. Each sequence must have ordinary flags,
-start bone zero, a complete track array and an explicit identity BoneIndices
-array. This last requirement bounds the preview; it does not establish the
-native linkup table. Missing exported comparison clips remain unavailable.
-
-The supplied outputs fully match this structural gate for **13 of 14** models.
-Male Human Fighter is deliberately rejected: its animation calls one right-hand
-finger `Bip01_L_Finger01`, while the merged export names it `Bip01_R_Finger01`.
-A separate original-part reconstruction explains that export mapping, including
-two swapped index pairs, but explicit reusable binding metadata has not yet been
-added. The inspector does not hide this with a name alias. Fifteen original
-sequences also have empty serialized maps and remain outside this preview gate.
-
-The raw-source-to-existing-export conversion is position
-`f32(0.01 * [x,z,y])` and quaternion `[x,z,y,w]`, with root XYZ negated. This
-combines the existing PSA mirror with the measured glTF conversion; applying
-only the latter directly to raw source keys would reverse Y/W incorrectly.
-Across the uniquely matched bone records, **94,831 translation and 94,831
-quaternion first keys** matched the existing exports at their Float32 stores. This checks
-the adapter, not native actor placement or all intermediate poses.
-
-The preview still uses the current browser hierarchy, inverse bind matrices,
-skinning, grounding and hair adaptations. Original GetFrame linkup, live parent
-composition, channel mixing, root-motion modifiers, initial tweening and dynamic
-hair must be integrated separately before adopting it as game playback. Original
-keys and captured local receipts stay ignored and are not part of the public
-repository or the standalone Core 0.1.0 archive.
+Retained capture of the earlier local-key preview at 0.677 seconds. It shows
+the browser character, not the official client, and predates the source-face
+hierarchy milestone described above.
 
 ## Boundaries before live adoption
 
-The ordinary mode-zero caller explicitly passes an animation linkup table entry
-as the track index (`0x106da5b0..0x106da60d`), skipping negative entries. That table
-is separate from serialized movement `BoneIndices`; 15 measured source sequence
-maps are empty. This sampler does not infer a mesh-to-animation association,
-substitute an identity map or attach hair to a guessed head bone.
-
-The raw animation reference skeleton can be inspected independently. Applying
-it to a rendered character still needs the source association, parent composition,
-channel masks/mixing, initial tween, root-motion behavior and mesh transforms.
-The current-pose comparison uses `ApplyPivotWithoutScale`; reference-cache
-`ApplyPivot` results must not be substituted for that different operation.
-Ordinary and dynamic hair paths remain separate, as described in the
+The neutral preview still uses existing browser geometry, inverse bind matrices,
+skinning, grounding and hair adaptations. The source association, local fallback
+and base current-parent math are now implemented for inspection; complete native
+GetFrame is not. Negative-frame initial tweening, cached-pose transitions,
+additional channels, root motion/locking, bone and actor modifiers, actor/world
+placement, notify-driven effects and dynamic hair need separate integration.
+Ordinary and dynamic hair remain distinct, as described in the
 [attachment evidence](native-hair-attachment-evidence.md).
 
-JavaScript/Python Float64 intermediates approximate native x87. Visible Float32
+The original reference skeleton and raw tracks can also be inspected without
+the rendered character. Original keys, skeleton sidecars and local receipts stay
+ignored; they are not included in the public repository or Core 0.1.0 archive.
+
+JavaScript/Python Float64 intermediates approximate native x87. Explicit Float32
 stores are preserved, but native precision control, exceptions and original CRT
-trigonometry are not reproduced bit-for-bit. The browser helper is deliberately
-bounded and must not be advertised as complete native skeletal playback.
+behavior are not reproduced universally bit-for-bit. Exact block correspondence
+with the separately pinned supplemental copy binds selected missing calls; it
+does not authenticate that copy or establish owned runtime import restoration.
+The browser helpers must not be advertised as complete native skeletal playback.

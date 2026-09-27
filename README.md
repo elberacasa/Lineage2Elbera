@@ -59,15 +59,18 @@ browser behavior and focused verification.
 | **Character appearance** | Original face indices, five male / seven female creation hairstyles, four source color choices, and corrected default hair mesh/material selection. | [Appearance](docs/native-face-selection-evidence.md) · [Hair pipeline](docs/hair-asset-pipeline.md) |
 | **Hair and material inspection** | All **162** base-table meshes exported with original LOD0 geometry and weights; **648** material references retain their source identities. The inspector shows rigid and soft-rig parts in a static view. | [Inspecting original hair](docs/hair-asset-pipeline.md#browser-inspection) |
 | **Native transform research** | Ordinary and dynamic hair paths distinguished; retained coordinate arithmetic checked. A separately pinned comparison copy identifies missing imports within exactly matched code blocks. | [Attachment evidence](docs/native-hair-attachment-evidence.md) · [Comparison scope](docs/supplemental-engine-evidence.md) |
-| **Original animation keys** | All **1,367** player sequences decoded without resampling. The pawn inspector now compares original sparse-key poses using recovered interpolation against the existing export; full native skeletal playback remains open. | [Preview and evidence](docs/native-track-evidence.md#browser-pose-preview) |
+| **Original animation and skeletons** | All **1,367** player sequences and **14** original face skeletons feed the pawn inspector. Native name links, missing-bone reference poses and current-parent math produce a neutral source-pose comparison against the existing export. | [Preview guide](docs/native-track-evidence.md#browser-pose-preview) · [Linkup](docs/native-animation-linkup-evidence.md) · [Coordinate evidence](docs/native-pose-coordinate-evidence.md) |
 | **Quest progression** | *Letters of Love* completed through server interactions; the reward survived reconnect and appeared in the browser inventory. | [Quest playtest](docs/quest-completion-playtest.md) |
 | **Shops and original dialogs** | A browser purchase and potion use changed server-owned inventory and currency. Quantity and confirmation dialogs use recovered client rules. | [Shop playtest](docs/shop-playtest.md) |
 | **Recipes and shortcuts** | Recipe books, manufacture details and source-index shortcuts are connected; the live empty Common Craft book was checked. Successful crafting remains a separate test. | [Recipe evidence](docs/native-recipe-evidence.md) |
 | **Community tooling** | Standalone Elbera Tools Core release, portable checks, source provenance, updated guides and actual inspection screenshots. | [Download Core](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0) · [Tool catalog](tools/README.md) |
 
 The latest appearance milestone is [PR #5](https://github.com/elberacasa/Lineage2Elbera/pull/5).
-Animated hair attachment remains unfinished; the new checks establish specific
-source rules rather than complete rendering parity.
+The newest animation comparison includes male Human Fighter's **69 matched
+bones plus one original reference pose**, without inventing a finger alias.
+It is a neutral inspector mode; existing browser skinning and hair adaptations
+remain in use. Full native playback, actor modifiers and animated hair
+attachment are still unfinished.
 
 ## Elbera Tools
 
@@ -88,6 +91,20 @@ supported scope and unresolved cases.
 *Direct browser captures, September 26–27, 2026. These tools run offline;
 recipe fixtures do not grant items, and a static asset view does not verify
 animation. [Capture details](docs/img/README.md).*
+
+<details>
+<summary><strong>New: original animation and source-skeleton preview</strong></summary>
+
+<p align="center">
+  <img src="docs/img/elbera-tools-source-hierarchy.jpg" width="600" alt="Elbera Tools Human Fighter animation preview with 69 original links and one reference bone">
+</p>
+
+Human Fighter's original missing-bone behavior is now visible in the inspector,
+with recovered parent transforms and a comparison against the existing export.
+This is a neutral source-pose view, with full gameplay animation still in progress.
+[Reproduce this view](docs/native-track-evidence.md#browser-pose-preview).
+
+</details>
 
 ### Download the standalone toolkit
 
@@ -173,6 +190,8 @@ for original client presentation.
   and actual converted geometry are compared separately. A screenshot is one
   observation, not a substitute for those checks.
   [Player transforms](docs/player-transform-audit.md) ·
+  [Original pose preview](docs/native-track-evidence.md#browser-pose-preview) ·
+  [Reference fallback](docs/native-pose-fallback-evidence.md) ·
   [Hair pipeline](docs/hair-asset-pipeline.md).
 
 </details>

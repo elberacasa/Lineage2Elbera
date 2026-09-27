@@ -39,6 +39,10 @@ inputs rather than treating another build as equivalent.
 | Player posed bounds | `node tools/dat/audit_player_bounds.mjs --poses` | Actual-loader first/last source-key bounds and selected bones for idle/Sit/SitWait/Stand. Measures the current browser adaptation, never derives a native ground offset. Keep output private. |
 | Original pawn timing | `python3 tools/anim/build_pawnanim.py --check` | Bounded original sequence traversal for 14 player models; exact frame/rate fields and ordered, class-identified notifies. Requires private source and generated timing data. [Contract and limits](../docs/pawn-animation-timing-evidence.md). |
 | Original sparse animation keys | `python3 tools/anim/export_source_tracks.py` | Read-only by default; `--write` retains private source keys and hashes, `--check` compares a fresh decode. All 14 player exports; no PSA resampling or fabricated keys. [Browser preview](../docs/native-track-evidence.md#browser-pose-preview). |
+| Original player skeletons | `python3 tools/anim/export_source_tracks.py --skeletons` | Read-only source face/class/chargrp/animation joins; `--write` emits matching private `.skeleton.json` sidecars and `--check` re-decodes them. All 14 source faces admitted; male Human Fighter has 69 links and one original reference fallback. [Inputs and usage](../docs/native-track-evidence.md#browser-pose-preview). |
+| Native bone association | `python3 tools/ui/check_animation_linkup_native.py --check` | First matching original FName; duplicate names retain the first animation index, missing names remain −1. Optional pinned comparison binds the erased equality call. Parent matching and serialized movement `BoneIndices` are separate. [Evidence](../docs/native-animation-linkup-evidence.md). |
+| Native local-pose fallback | `python3 tools/ui/check_pose_fallback_native.py --check` | 49 anchors and 47 instruction cases establish local copies, negative-link skips, reference selection and the root-lock gate. Optional `--comparison-engine` binds mask allocation/current composition; `--audit-assets` adds the original Fighter example. Neutral inputs only. [Evidence](../docs/native-pose-fallback-evidence.md). |
+| Original parent-coordinate math | `python3 tools/ui/check_pose_coordinates_native.py --check` | 888 retained Core cases plus 104 quaternion-coordinate cases. Distinguishes reference `ApplyPivot` from current `ApplyPivotWithoutScale`; Float32 stores retained, x87/CRT approximation and supplemental import boundaries explicit. [Evidence](../docs/native-pose-coordinate-evidence.md). |
 | Ordinary quaternion interpolation | `python3 tools/ui/check_quaternion_native.py --check` | Complete 519-byte owned method and explicit erased-call boundary. Optional pinned `--comparison-engine` verifies five named math imports and 210 instruction cases; not native CRT parity. [Evidence](../docs/native-quaternion-evidence.md). |
 | Ordinary sparse-track sampling | `python3 tools/ui/check_track_native.py --check` | Original key search, closing-pair hemisphere and translation stores: 687 instruction cases plus 59 browser comparisons. Requires owned inputs and Node; no full skeleton or initial-tween claim. [Evidence](../docs/native-track-evidence.md). |
 | Cast loop inputs | `python3 tools/anim/check_cast_loop_inputs.py --source` | Original keys, skeleton and source frame/rate checks against existing `castEnd` exports; accepts only exact dense samples or byte-constant endpoint pairs. Without `--source`, validates shape only. Writes an ignored receipt; does not certify native interpolation or other loop slots. |
@@ -119,14 +123,18 @@ These inspections do not connect to the game server:
   remain inspectable without a fabricated game encounter.
 - **Player faces, animation and casting:** actual Character loader with exact
   source face indices, mesh/material/texture references and explicit unsupported
-  hair paths. Uses original slot/stance lookup. Replay Sit → SitWait and Stand → Wait with
-  model-specific rates and direct notify sounds, or use the ordinary casting
-  and Agent action preview. Play once, scrub exported tracks or replay a complete
-  supported ordinary player phase schedule using explicitly supplied packet
-  timing and casting speed. Original ordered animation events are displayed;
-  an optional sound control enables supported direct Sound notifies. Missing
-  inputs remain unsupported. This does not cast an online skill or certify
-  native pose interpolation, full sound output or event-driven skill effects.
+  hair paths. The original-key preview combines private sparse tracks and the
+  matching `--skeletons` sidecar: native first-name linkup, original reference
+  fallback and current-parent math are displayed through the measured glTF
+  matrix basis. All 14 source faces are admitted, including male Human Fighter's
+  69 links plus one reference bone; empty movement maps are not rejected as
+  missing native associations. This is a neutral channel-zero/base-bone-zero,
+  root-lock-off, modifier-free comparison using existing browser skinning/hair.
+  [Generate inputs and use the preview](../docs/native-track-evidence.md#browser-pose-preview).
+  The separate Sit → SitWait / Stand → Wait and ordinary casting replays retain
+  the game playback path, original slot/stance lookup and supported direct
+  notify sounds. They use supplied timing and targets, do not cast an online
+  skill, and do not certify full native playback, sound or effect placement.
 - **Dyes and tattoos:** supply list/detail/state packets to the actual source-backed
   controls. Drawing/removal requests stay in local inspection output; the page
   never applies a tattoo or changes resources. No prices or stat totals are
@@ -207,6 +215,11 @@ python3 -m unittest discover -s tools/xdat -p test_parse_xdat.py
 python3 -m unittest discover -s tools/anim -p test_build_npc_variants.py
 python3 -m unittest discover -s tools/anim -p test_recover_pawn_clips.py
 python3 -m unittest discover -s tools/anim -p test_pawnanim_source.py
+python3 -m unittest discover -s tools/anim -p test_export_source_tracks.py
+python3 -S -m unittest discover -s tools/ui -p test_animation_linkup_native.py
+python3 -S -m unittest discover -s tools/ui -p test_pose_coordinates_native.py
+node --test editor/world/test/nativequaternion.test.mjs editor/world/test/nativetrack.test.mjs editor/world/test/nativecoords.test.mjs
+node --test editor/world/test/sourcepose.test.mjs editor/world/test/pawn-source-inspection.test.mjs
 python3 -m unittest discover -s tools/anim -p test_cast_loop_inputs.py
 python3 -m unittest discover -s tools/dat -p 'test_export_*.py'
 ```
