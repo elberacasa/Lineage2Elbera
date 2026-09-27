@@ -80,7 +80,7 @@ not establish whether an `AnimEnd` callback evaluates the old endpoint.
 `PlayAnim` calls channel helper `0x106b2700` through thunk `0x1031379b` at
 `0x106b3017`. The helper returns an existing channel unchanged when count is
 already greater than the requested index. Otherwise it appends 0x70-byte
-records. Its full 78-byte body matches the supplemental body at VA minus
+records. Its checked 78-byte allocation block matches the supplemental block at VA minus
 `0x40`, with only two declared six-byte import replacements: Core
 `FArray::AddZeroed` and `FArray::Shrink`. The owned named `AddZeroed` body at
 `0x10109110` explicitly zeroes the appended bytes (`rep stosd` / `rep stosb`).

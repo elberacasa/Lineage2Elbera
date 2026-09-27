@@ -2169,3 +2169,30 @@ Native spawn research continues separately. Constructor-return defaults,
 startup script dispatch, earlier animation requests and later native selection
 must remain distinct. Shipping analysis tools does not admit automatic native
 NPC state playback or complete the full browser-client goal.
+
+## Fresh animation notification default — 27 September 2026
+
+The later pose-cache allocator proof supersedes the old claim that a fresh
+channel's notification-disable field was unknown. The notify verifier now
+accepts an explicit supplemental Engine input and reuses that existing check:
+newly appended 112-byte channels have +0x44 zero. Without the comparison it
+reports the caller binding as unbound; wrong or missing supplied files fail.
+The archive remains unauthenticated, and existing channels, later enable calls,
+actor/sequence eligibility and callbacks remain separate conditions. Updated
+the evidence guides and runtime comments; browser behavior is unchanged.
+
+Both original-input modes pass the retained 91 anchors, 16 ranges, 90 boundary
+cases and six arithmetic executions. The 23 portable notify cases, eight
+allocation/cache cases and six browser-clock cases pass. Independent review
+checked failure handling and corrected an overstatement of the compared
+78-byte allocation prefix as a complete function.
+
+Private original-source investigation continues through NPC owner callbacks,
+constructor/controller values, client startup scripts, volume guards and the
+full resource-setup suffix. An earlier shortened SetPawnResource range located
+the stance write but did not cover the remaining resource work. The full
+ordinary method also adjusts accessory fields and resource flags; mesh loading
+can queue asynchronously. These are explicit integration dependencies, not
+reasons to infer a neutral live actor. Automatic original NPC playback remains
+off while those finite joins are verified. No new gameplay parity is claimed
+for this evidence correction, and the full browser-client goal remains active.

@@ -4,14 +4,16 @@ This evidence covers the owner's Interlude `USkeletalMeshInstance::UpdateAnimati
 and the source notify array it consumes. It is a static proof for this exact build,
 not a run of the original client. The supported portable model has an explicitly
 enabled channel, finite positive ordinary playback, immutable callback state, and
-**no batch that requires native class filtering**. The removal and channel-default
-limits below are intentional admission boundaries.
+**no batch that requires native class filtering**. Fresh allocation and later
+channel/actor state have separate evidence boundaries below.
 
 Reproduce the pinned original-code checks:
 
 ```sh
 python3 tools/ui/check_anim_notify_native.py --check
 python3 tools/ui/check_anim_notify_native.py --json
+# Also bind the otherwise erased fresh-channel allocator:
+python3 tools/ui/check_anim_notify_native.py --check --comparison-engine /path/to/pinned/supplemental/engine.dll
 ```
 
 Run portable tests without client files or Capstone:
@@ -32,7 +34,7 @@ No decoded code, source animation values, poses or client files are distributed.
 | Input | SHA-256 |
 | --- | --- |
 | `assets/interlude/system/engine.dll` | `07b24af4ab55e4230d0a7949df5b07565319e62a1b20f38fefb16ebe54821ad0` |
-| `assets/interlude/system/core.dll` | `9462f87a5e77d21865e2e00264efd44df25feb47aa78f8a72e9cf66ce4e919bf` |
+| `assets/interlude/system/Core.dll` | `9462f87a5e77d21865e2e00264efd44df25feb47aa78f8a72e9cf66ce4e919bf` |
 
 Engine PE base is `0x10300000`; all addresses below are RVAs unless explicitly
 marked VA. The shared decoder derives the DWORD subtraction key from the original
@@ -73,11 +75,22 @@ a valid current sequence, and the ordinary active-channel checks. There is no
 Role comparison in this notify branch.
 
 The named `EnableChannelNotify(channel, enable)` method (`0x3b4380`) stores
-`channel.+0x44 = !enable`. **The fresh-channel default is not proved**: the array
-allocator call in `0x3b2700` is erased. The verifier pins Core `Add` and
-`AddZeroed`, but the push arguments alone do not prove which was called. A port
-must carry an explicit supported channel-enabled input; this proof does not
-authorize enabling every channel unconditionally.
+`channel.+0x44 = !enable`. The later
+[pose-cache allocation check](native-pose-cache-evidence.md#channel-state-and-mesh-replacement)
+closes the allocator identity under its explicit supplemental correspondence:
+the checked 78-byte allocation block calls named Core `AddZeroed` for each new 0x70-byte
+record, then `Shrink`. The owned Core body explicitly zero-fills those bytes.
+Therefore **a newly appended channel's notify-disable DWORD at +0x44 starts
+zero** under that qualified allocation path. The former blanket statement
+that this initial field was unresolved is superseded by this evidence.
+
+The optional `--comparison-engine` above freshly runs that existing check and
+includes its exact block correspondence and pinned image hash in
+`freshChannelNotifyGate`. Without that input, this command reports the caller
+binding as unbound. The third-party comparison is not publisher-authenticated.
+An existing channel is returned unchanged, and later EnableChannelNotify calls,
+actor/sequence eligibility and callback mutations remain separate inputs. This
+does not authorize treating every live channel as permanently enabled.
 
 ## Batch contract for the supported branch
 
@@ -185,7 +198,8 @@ must remain visible when integrating the clock.
 `editor/world/js/animnotify-clock.js` implements the bounded no-removal clock;
 `castplayback.js` uses it for ordinary Character casts. The browser explicitly
 sets the enabled-channel input for these casts. This is a declared browser
-policy, not a recovered fresh native channel default. Missing source fields,
+policy; the recovered fresh-channel default does not establish later live-channel
+state. Missing source fields,
 legacy named functions and removal-dependent batches remain unsupported.
 The clock returns an entire validated event batch before presentation callbacks;
 these callbacks are observational/direct-audio only. Pawn pending skill state,

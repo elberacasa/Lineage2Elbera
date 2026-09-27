@@ -52,7 +52,8 @@ export function advanceWaitSequence(state,delta,advancementBudget=4) {
  * native channel loop consumes remaining delta with the SAME four-step cap.
  * Segments retain notify identity; advancing an endpoint does not itself
  * evaluate GetFrame or replace the last source-pose cache. EnableChannelNotify is an
- * explicit browser policy; the fresh native allocation default is unknown.
+ * explicit browser policy. Fresh appended channels have notify-disable zero
+ * under the checked allocation correspondence; later channel mutation is separate.
  */
 export function advanceWaitPlayback(state,delta) {
   const segments=[];
