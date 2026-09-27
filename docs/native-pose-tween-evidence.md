@@ -92,7 +92,7 @@ six-NOP/import substitutions and two same-target direct-call displacements:
 | `0x106da791–0x106da809` | 120 | Fraction/reset bookkeeping; Core `FName::operator!=` |
 | `0x106da975–0x106daa65` | 240 | Raw first keys, cached locals, hemisphere call, tween call and Core `FQuat::Normalize` |
 | `0x106d9aa0–0x106d9ad3` | 51 | Empty channel creation calls `FArray::AddZeroed(0x70,1)`, then `Shrink` |
-| `0x106c4ae0–0x106c4b6e` | 142 | Named `SetMesh` clears its coordinate/cache arrays with `FArray::Empty` |
+| `0x106c4ae0–0x106c4b70` | 144 | Complete named `SetMesh`, including its `ret 4`, clears coordinate/cache arrays with `FArray::Empty` |
 
 Supplemental addresses in these blocks are owned addresses minus `0x40`.
 Core's named bodies are checked independently: `FName::operator!=` at

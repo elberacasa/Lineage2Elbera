@@ -85,10 +85,12 @@ callback's newly selected SitWait/Wait channel can consume the remainder
 within that update. Discarding it or advancing the new clip by the entire
 original delta would both change the recovered control flow.
 
-The named `EnableChannelNotify` method binds the `+0x44` gate, but the
-freshly allocated channel's default remains unresolved. Explicitly enabling
-notifications is a bounded browser admission choice, not a recovered
-allocation default. Arbitrary callback mutation, channel-array reallocation,
+The named `EnableChannelNotify` method binds the `+0x44` gate. The later
+pose-cache allocation evidence establishes zero in a freshly appended
+channel's notify-disable field, under explicit supplemental correspondence.
+The browser still carries an explicit enabled-channel policy; this initial
+value does not establish the state after later enable calls or callbacks.
+Arbitrary callback mutation, channel-array reallocation,
 destruction and the full notify-removal behavior remain outside this proof.
 See [animation notify evidence](native-animation-notify-evidence.md).
 

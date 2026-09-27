@@ -115,8 +115,8 @@ def verify(comparison_engine=None):
     P = PEImage(comparison_engine, COMPARISON_SHA) if comparison_engine else None
     methods = {
         '??0USkeletalMeshInstance@@QAE@XZ': (0x103f4460, 0x103f45ec),
-        '??0USkeletalMeshInstance@@QAE@ABV0@@Z': (0x103f4650, 0x103f494f),
-        '?SetMesh@USkeletalMeshInstance@@UAEXPAVUMesh@@@Z': (0x106c4ae0, 0x106c4b6e),
+        '??0USkeletalMeshInstance@@QAE@ABV0@@Z': (0x103f4650, 0x103f4950),
+        '?SetMesh@USkeletalMeshInstance@@UAEXPAVUMesh@@@Z': (0x106c4ae0, 0x106c4b70),
         '?ActualizeAnimLinkups@USkeletalMeshInstance@@UAEXXZ': (0x106ba200, 0x106ba281),
         '?GetFrame@USkeletalMeshInstance@@UAEXPAVAActor@@PAVFLevelSceneNode@@PAVFVector@@HAAHK@Z':
             (0x106d9a70, 0x106dc53b),
@@ -165,8 +165,14 @@ def verify(comparison_engine=None):
     # Direct bodies, not a claim about inherited/erased constructors or every
     # external writer. PlayAnim's exact channel pointer is ESI after 106b30a2.
     def rows(start, end):
-        return list(E.dis.disasm(E.data[E.offset(start):E.offset(end)], start))
-    for start, end in ((0x103f4460, 0x103f45ec), (0x106c4ae0, 0x106c4b6e),
+        result = list(E.dis.disasm(E.data[E.offset(start):E.offset(end)], start))
+        cursor = start
+        for instruction in result:
+            assert instruction.address == cursor, 'noncontiguous decoded range'
+            cursor += instruction.size
+        assert cursor == end, 'native range ends inside an instruction'
+        return result
+    for start, end in ((0x103f4460, 0x103f45ec), (0x106c4ae0, 0x106c4b70),
                        (0x106ba200, 0x106ba281)):
         assert not any('0x1fc]' in i.op_str for i in rows(start, end))
     channel_stores = [i for i in rows(0x106b2fe0, 0x106b371b)
@@ -183,12 +189,14 @@ def verify(comparison_engine=None):
     comparisons = []
     if P:
         for start, end, sites in [
-            (0x106b2700, 0x106b274e, [(0x106b2726, '?AddZeroed@FArray@@QAEHHH@Z'),
+            (0x106b2700, 0x106b2750, [(0x106b2726, '?AddZeroed@FArray@@QAEHHH@Z'),
                                       (0x106b2738, '?Shrink@FArray@@QAEXH@Z')]),
-            (0x106c4ae0, 0x106c4b6e, [(va, '?Empty@FArray@@QAEXHH@Z') for va in
+            (0x106c4ae0, 0x106c4b70, [(va, '?Empty@FArray@@QAEXHH@Z') for va in
                 (0x106c4af4, 0x106c4b04, 0x106c4b14, 0x106c4b24,
                  0x106c4b34, 0x106c4b44, 0x106c4b54)]),
         ]:
+            terminal = rows(start, end)[-1]
+            assert (terminal.mnemonic, terminal.op_str) == ('ret', '4')
             a = E.data[E.offset(start):E.offset(end)]
             b = P.read(start - 0x40, end - start)
             comparisons.append(dict(ownedStartVA=hex(start),
@@ -290,7 +298,7 @@ def verify(comparison_engine=None):
         reset_cases += 1
         steps += n
     ranges = []
-    for label, start, end in [('channel allocation', 0x106b2700, 0x106b274e),
+    for label, start, end in [('channel allocation', 0x106b2700, 0x106b2750),
                              ('repeat key', 0x106d9b79, 0x106d9bb2),
                              ('marker', 0x106d9dad, 0x106d9dd4),
                              ('empty cache reset', 0x106d9e27, 0x106d9e4d),

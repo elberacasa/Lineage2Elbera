@@ -1,7 +1,8 @@
 // Elbera Tools: bounded original skeletal channel clock and notify crossings.
 // docs/native-animation-notify-evidence.md pins the original instructions.
-// Explicit enabled-channel input; fresh native channel defaults, filtering
-// through erased imports, general callback mutation remains unsupported. The ordinary wait adapter
+// Explicit enabled-channel input: fresh appended +0x44 is zero under the checked
+// allocation correspondence; later enable calls, filtering and callback mutation
+// still need caller admission. The ordinary wait adapter
 // handles the separately verified channel-zero AnimEnd replacement.
 const f = Math.fround;
 const finite = value => typeof value === 'number' && Number.isFinite(value) && Number.isFinite(f(value));

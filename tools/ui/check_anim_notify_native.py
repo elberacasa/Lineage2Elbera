@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Elbera Tools: pinned Interlude skeletal notify selection and clock evidence.
 
---check/--json require the owner's Engine.dll and capstone. Synthetic helpers
+--check/--json require the owner's Engine/Core DLLs and capstone. Synthetic helpers
 and their unittest suite use only Python's standard library. The verifier
 decodes but never executes or emits original code. This is a finite ordinary
 channel model, not an original-client emulator or a callback implementation.
+Optional --comparison-engine reuses the independently checked channel allocation
+trace to bind the fresh notify-disable field, not later actor/channel state.
 """
 import argparse
 import hashlib
 import json
 import math
+from pathlib import Path
 import struct
 
 CORE_SHA = '9462f87a5e77d21865e2e00264efd44df25feb47aa78f8a72e9cf66ce4e919bf'
@@ -194,11 +197,11 @@ def native_split_delta(image, old, current, time, delta):
     return memory['dword ptr [ebp - 0x14]']
 
 
-def verify():
+def verify(comparison_engine=None):
     # Lazy imports keep synthetic tests independent of capstone/private assets.
     from check_tutorial_quest_native import Image, ROOT, ENGINE_SHA
     image = Image(ROOT / 'assets/interlude/system/engine.dll', ENGINE_SHA, True)
-    core = Image(ROOT / 'assets/interlude/system/core.dll', CORE_SHA)
+    core = Image(ROOT / 'assets/interlude/system/Core.dll', CORE_SHA)
     for name, rva in (('?Remove@FArray@@QAEXHHH@Z', 0x523c0),
                       ('?Add@FArray@@QAEHHH@Z', 0x90c0),
                       ('?AddZeroed@FArray@@QAEHHH@Z', 0x9110)):
@@ -328,14 +331,32 @@ def verify():
         actual = native_split_delta(image, old, current, time, delta)
         assert actual == split_delta(old, current, time, delta)
         arithmetic.append({'old': old, 'current': current, 'time': time, 'delta': delta, 'result': actual})
+    fresh_channel = {'status': 'unbound-without-comparison',
+                     'scope': 'fresh appended channel only; existing or later-mutated channels excluded'}
+    if comparison_engine is not None:
+        # This is the same allocator used by PlayAnim, not a second inferred
+        # zero-fill model. Keep its exact import correspondence and limits.
+        from check_pose_cache_native import verify as verify_cache
+        allocation = verify_cache(comparison_engine)
+        assert allocation['ownedEngineSHA256'] == image.sha
+        assert allocation['ownedCoreSHA256'] == core.sha
+        block = next(row for row in allocation['comparisons']
+                     if row['ownedStartVA'] == '0x106b2700')
+        fresh_channel.update(status='conditional-source-allocation-verified',
+            notifyDisableOffset='0x44', notifyDisableInitialValue=0,
+            recordBytes=0x70, evidenceTool='check_pose_cache_native.py',
+            supplementalEngineSHA256=allocation['supplementalEngineSHA256'],
+            allocationBlock=block,
+            qualification='named AddZeroed/Shrink correspondence; supplemental image not authenticated')
     return {'tool': 'Elbera Tools', 'engineSHA256': ENGINE_SHA, 'coreSHA256': CORE_SHA,
             'instructionAnchors': len(anchors), 'regions': regions,
             'nativeBoundaryCases': comparisons, 'nativeRemainderCases': arithmetic,
+            'freshChannelNotifyGate': fresh_channel,
             'limits': ['static original-code evidence, not original-client execution',
                        'Float64 intermediates with original Float32 stores; x87 bit parity not claimed',
                        'imported class/name/allocation calls are erased; class constants and surrounding control flow pinned',
                        'batches needing class filtering reject by default: erased Remove import and aliased array element',
-                       'fresh channel notify-disable default is unresolved; named enable API and existing-state gates proved',
+                       'fresh notify-disable field is zero only with the reported allocation correspondence; later enable calls and actor/sequence gates remain separate',
                        'portable clock excludes callback mutation, destruction, negative rates and AnimEnd callbacks',
                        'sound/effect/action implementations are separate proofs']}
 
@@ -366,9 +387,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
     parser.add_argument('--json', action='store_true')
+    parser.add_argument('--comparison-engine', type=Path,
+                        help='pinned supplemental Engine for fresh-channel allocator correspondence')
     args = parser.parse_args()
-    result = verify()
+    result = verify(args.comparison_engine)
     if args.json: print(json.dumps(result, indent=2))
     else: print(f"PASS: Elbera Tools notify proof; {result['instructionAnchors']} anchors, "
                 f"{len(result['regions'])} ranges, {result['nativeBoundaryCases']} native boundary cases, "
-                f"{len(result['nativeRemainderCases'])} native remainder cases")
+                f"{len(result['nativeRemainderCases'])} native remainder cases; "
+                f"fresh channel: {result['freshChannelNotifyGate']['status']}")

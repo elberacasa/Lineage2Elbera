@@ -94,6 +94,14 @@ model, including one-frame poses. Keys are not resampled. The optional
 quantizing or normalizing them. It does not prove native shader, CPU skinning,
 inverse-bind or final deformation equivalence.
 
+The current repository exporter additionally decodes the ordered notify objects
+with the shared player decoder: original normalized times, qualified class
+ancestry, explicit sound scalars/defaults and object hashes. `Engine.u` must match
+the selector recovery fingerprint. Unknown inherited sound properties remain
+unknown; exported events do not establish native dispatch or audio behavior.
+This addition follows the immutable published 0.1.0 archive, which contains raw
+event references. Rebuild from current source to include decoded object metadata.
+
 Outputs are private `assets/gamedata/animation-tracks/runtime/*.l2anim` files
 and `assets/gamedata/npc-animation-runtime.json`. A write replaces the index
 with the **selected NPC set**, not an automatic union. Each model file is

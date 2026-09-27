@@ -527,7 +527,8 @@ export class Character {
    *  transitions are admitted; unknown history and native modifiers remain gaps. */
   startCastSchedule(schedule, hooks = null) {
     // Browser cast channels explicitly enable notifies. Native EnableChannelNotify
-    // is recovered; the original newly allocated channel default is unresolved.
+    // is recovered, as is a fresh appended channel's zero disable field under
+    // allocation correspondence. Later channel mutations need separate admission.
     const state = createCastPlayback(schedule, { notifiesEnabled:true });
     if (!state || !this.mixer || !this.model) return { status: 'unsupported', reason: 'missing-playback-input' };
     const actions = [];

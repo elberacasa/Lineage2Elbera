@@ -190,11 +190,19 @@ def collect_npcs(npc_ids, *, include_skin=False):
     sys.path[:0] = [str(ROOT / p) for p in ('tools/dat', 'tools/ui', 'tools/src/char_pipeline')]
     from build_hair import Sources, source_lod0
     from build_npc_variants import recover_selectors, unique_source_export, mesh_animation_reference
-    from build_pawnanim import original_animation, source_ref_path
+    from build_pawnanim import (original_animation, source_ref_path, load_package,
+                               class_parents, original_notify, sound_class_defaults)
     with tempfile.TemporaryDirectory(prefix='elbera-npc-source-') as tmp:
         selectors = recover_selectors(tmp, npc_ids)
     if set(selectors['npcs']) != {str(i) for i in npc_ids}:
         raise ValueError('source selector NPC set differs from request')
+    engine_path = ROOT / 'assets/interlude/system/Engine.u'
+    engine_sha = hashlib.sha256(engine_path.read_bytes()).hexdigest()
+    if selectors['sources'].get('system/Engine.u') != engine_sha:
+        raise ValueError('NPC notify class package changed during collection')
+    engine, _ = load_package(str(engine_path))
+    engine_parents = class_parents(engine, 'Engine')
+    sound_defaults = sound_class_defaults(engine)
     sources, catalogs, skeletons, models, npcs = Sources(), {}, {}, {}, {}
     def package(reference):
         npc_model_id(reference)  # Same qualified-reference syntax, not identity assignment.
@@ -224,6 +232,15 @@ def collect_npcs(npc_ids, *, include_skin=False):
             animation_package = package(animation_ref)
             animation_export = unique_source_export(animation_package, animation_ref, 'MeshAnimation')
             animation = original_animation(animation_package, animation_export, include_tracks=True)
+            package_name = Path(animation_package.path).stem
+            parents = {**engine_parents, **class_parents(animation_package, package_name)}
+            # Reuse the player decoder: sequence references alone cannot tell
+            # the clock which objects are AttackShot, BoneScale or Sound.
+            # Preserve original array order, null objects and Float32 times.
+            for sequence in animation['sequences']:
+                sequence['notifies'] = [original_notify(animation_package, note, package_name,
+                                                       parents, sound_defaults)
+                                       for note in sequence['notifies']]
             start, size = animation_export.serial_offset, animation_export.serial_size
             animation_sha = hashlib.sha256(animation_package.data[start:start + size]).hexdigest()
             selected_animation = selectors['animations'].get(animation_ref.casefold(), {})
@@ -239,7 +256,9 @@ def collect_npcs(npc_ids, *, include_skin=False):
                 'modelId': model_id, 'meshRef': full_mesh_ref, 'animationRef': stored_ref,
                 'source': {'packageSHA256': source['animationPackageSHA256'], 'exportSHA256': animation_sha,
                     'fileVersion': animation_package.file_version, 'licenseeVersion': animation_package.licensee_version,
-                    'exportOffset': start, 'exportSize': size}, **animation}
+                    'exportOffset': start, 'exportSize': size,
+                    'notifyClassPackage': {'file': 'Engine.u', 'SHA256': engine_sha},
+                    'notifySoundDefaults': sound_defaults}, **animation}
             skeletons[model_id] = {'format': 'elbera-original-npc-skeleton-v1', 'modelId': model_id,
                 'meshRef': full_mesh_ref, 'animationRef': stored_ref, 'bones': mesh['bones'],
                 'animationBones': animation['bones'],
@@ -266,6 +285,7 @@ def collect_npcs(npc_ids, *, include_skin=False):
         'sources': selectors['sources'], 'sourceSHA256': selectors['sourceSHA256'],
         'scope': {'selection': 'explicit requested NPC IDs; index replaced as one selected set',
             'transport': 'authored ELBA transport; all original sparse sequences and keys retained',
+            'notifies': 'original ordered objects, qualified class ancestry and explicit sound defaults; native dispatch remains separate',
             'built': 'source LOD0 geometry and bone-parent paths; optional stored GPU influence inputs; native skinning and placement unverified',
             'playback': 'source inputs only; original NPC state, rate and modifier admission remains separate'}}
     return catalogs, skeletons, index

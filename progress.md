@@ -2169,3 +2169,69 @@ Native spawn research continues separately. Constructor-return defaults,
 startup script dispatch, earlier animation requests and later native selection
 must remain distinct. Shipping analysis tools does not admit automatic native
 NPC state playback or complete the full browser-client goal.
+
+## Fresh animation notification default — 27 September 2026
+
+The later pose-cache allocator proof supersedes the old claim that a fresh
+channel's notification-disable field was unknown. The notify verifier now
+accepts an explicit supplemental Engine input and reuses that existing check:
+newly appended 112-byte channels have +0x44 zero. Without the comparison it
+reports the caller binding as unbound; wrong or missing supplied files fail.
+The archive remains unauthenticated, and existing channels, later enable calls,
+actor/sequence eligibility and callbacks remain separate conditions. Updated
+the evidence guides and runtime comments; browser behavior is unchanged.
+
+Both original-input modes pass the retained 91 anchors, 16 ranges, 90 boundary
+cases and six arithmetic executions. The 23 portable notify cases, eight
+allocation/cache cases and six browser-clock cases pass. Independent review
+checked failure handling and corrected an overstatement of the compared
+78-byte allocation prefix as a complete function.
+
+Private original-source investigation continues through NPC owner callbacks,
+constructor/controller values, client startup scripts, volume guards and the
+full resource-setup suffix. An earlier shortened SetPawnResource range located
+the stance write but did not cover the remaining resource work. The full
+ordinary method also adjusts accessory fields and resource flags; mesh loading
+can queue asynchronously. These are explicit integration dependencies, not
+reasons to infer a neutral live actor. Automatic original NPC playback remains
+off while those finite joins are verified. No new gameplay parity is claimed
+for this evidence correction, and the full browser-client goal remains active.
+
+## Complete native method boundaries — 27 September 2026
+
+The channel allocator comparison now covers its complete 80-byte body, including
+all bytes of `ret 4`; SetMesh likewise covers 144 bytes through its return.
+Earlier ends cut through those instructions. The cache and standalone tween
+checks now reject partial instruction ranges. Independent review reproduced the
+full comparisons, deliberately restored the truncated endpoints in memory and
+confirmed rejection, and reran 20 portable cases plus native cache/tween checks.
+This strengthens evidence framing without changing browser behavior.
+
+## Original NPC notify objects — 27 September 2026
+
+The NPC collector now reuses the player notify decoder instead of transporting
+only raw object references. It retains all 34 original Gremlin/Fox events,
+qualified classes, exact normalized times, source-object hashes and explicit
+sound fields/default provenance. Engine.u must match selector recovery. The
+16 sequence key payloads, both skeletons/GPU inputs and all 14 player bundles
+remain unchanged. The existing NPC inspector shows compact ordered event cards
+with expandable raw evidence; it dispatches no effects or sounds.
+
+Verification: 35 portable export cases, 16 pawn-source cases (including the
+private original comparison), 30 browser-module cases, fresh NPC export/check,
+and independent review. The extracted standalone profile passes 98 cases with
+the optional pinned synthetic PE suite; its 43-file allowlist already contains
+the reused helpers. Browser checks covered both NPCs, attack events, empty
+one-frame corpse events, timeline play/pause, restore and expandable evidence,
+with no warning/error logs. A curated actual tool screenshot accompanies the
+updated guide; existing README galleries remain intact. Published NPC Source
+0.1.0 is immutable and predates this metadata addition.
+
+Private native investigation also closes bounded fresh mesh setup and the
+Talking Island zone/volume class census. Post-load animation linkage and
+decoration initialization are being checked before live original NPC startup
+can be admitted. Original Wait sounds have Random=30 and attack-wait sounds
+Random=50; the current supported direct-sound runtime only admits Random=100.
+Resolving that original RNG/dispatch path remains real work, not permission to
+drop events or invent a browser probability. Automatic native NPC playback is
+still off. The full browser-client goal remains active.

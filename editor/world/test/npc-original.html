@@ -12,6 +12,8 @@ code{overflow-wrap:anywhere}small{color:#c3cbd2}.gap{color:#ffd18b}
 #track-panel h1{font-size:18px;margin:0 0 4px}#track-panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:#d6b980;margin:24px 0 10px}
 #track-panel select,#track-panel input{width:100%;box-sizing:border-box}#track-panel button{margin:10px 6px 4px 0}#track-panel label{display:block;margin:18px 0 6px}
 #track-readout{font:12px/1.8 ui-monospace,monospace;white-space:pre-wrap;color:#d8e4ec}#track-limit{font-size:12px;line-height:1.6}
+#notify-content article{margin:8px 0;padding:7px;border:1px solid #46515c;font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+#notify-content p{margin:4px 0}#notify-content details{margin-top:6px}#notify-content code{white-space:normal}#notify-status{font-size:12px;line-height:1.5}
 @media(max-width:700px){#workspace{flex-direction:column}#track-panel{width:auto;max-height:42vh;border-left:0;border-top:1px solid #46515c}}
 </style>
 <script type="importmap">{"imports":{"three":"../vendor/three.module.min.js","three/addons/":"../vendor/addons/"}}</script>
@@ -30,6 +32,8 @@ code{overflow-wrap:anywhere}small{color:#c3cbd2}.gap{color:#ffd18b}
 <button id="play-track" disabled>Play source timeline</button><button id="restore-track" disabled>Restore model</button>
 <label for="source-frame">Normalized source frame</label><input id="source-frame" type="range" min="0" max="1" step="0.0001" value="0" disabled>
 <output id="track-readout"></output>
+<details id="notify-details"><summary id="notify-summary">Original notifies</summary>
+<p id="notify-status">No source sequence selected.</p><div id="notify-content"></div></details>
 <h2>Evidence and limits</h2><p id="track-limit" class="gap">Source track inspection is separate from native NPC state selection and gameplay timing.</p>
 <details><summary>Qualified source identity</summary><p id="track-identity"></p></details>
 </aside></div>
@@ -76,10 +80,52 @@ let current=null, framing=true, generation=0, inspection=null, playing=false, ov
 const sequenceSelect=document.querySelector('#sequence'), frameInput=document.querySelector('#source-frame');
 const playButton=document.querySelector('#play-track'), restoreButton=document.querySelector('#restore-track');
 const trackStatus=document.querySelector('#track-status'), trackReadout=document.querySelector('#track-readout');
+const notifySummary=document.querySelector('#notify-summary'), notifyStatus=document.querySelector('#notify-status');
+const notifyContent=document.querySelector('#notify-content');
+function showNotifies(name){
+  notifyContent.replaceChildren();notifySummary.textContent='Original notifies';
+  const matches=current?.originalSource?.catalog?.sequences?.filter(row=>row.name===name)||[];
+  if(matches.length!==1){notifyStatus.textContent='No source sequence selected.';return;}
+  const notes=matches[0].notifies;
+  if(!Array.isArray(notes)){notifyStatus.textContent='Notify metadata is unavailable in this source bundle; this does not establish an empty source.';return;}
+  notifySummary.textContent=`Original notifies · ${notes.length}`;
+  notifyStatus.textContent=notes.length
+    ? 'Source order · normalized t. Manual inspection; no event, effect or sound dispatch.'
+    : 'The original sequence contains no notify records. This does not rule out effects or sounds triggered elsewhere.';
+  const value=v=>v===null?'None':v===undefined?'unavailable':Object.is(v,-0)?'-0':String(v);
+  for(const note of notes){
+    const article=document.createElement('article');notifyContent.appendChild(article);
+    const title=document.createElement('strong');
+    title.textContent=`Source index ${value(note.index)} · t ${value(note.t)}`;article.appendChild(title);
+    paragraph(`Class: ${value(note.classPath)}`,article);
+    if(note.sound!==null&&note.sound!==undefined)paragraph(`Sound: ${value(note.sound)}`,article);
+    const details=document.createElement('details'), summary=document.createElement('summary');
+    summary.textContent='Object and raw fields';details.appendChild(summary);article.appendChild(details);
+    paragraph(`Object: ${value(note.objectPath)} · ref ${value(note.objectRef)}`,details);
+    paragraph(`Function: ${value(note.function)}`,details);
+    if(note.isSound===true){
+      const info=note.soundInfo;
+      paragraph(`Sound source: ${value(info?.status)} · ${value(note.sound)}`,details);
+      if(info?.status==='source-surface')paragraph('No fixed sound reference; native surface selection is not replayed.',details);
+      paragraph('Raw original Sound fields (no conversion):',details);
+      for(const field of ['volume','radius','random']){
+        paragraph(`${field}: ${value(info?.[field])} · source ${value(info?.fieldSources?.[field])}`,details);
+      }
+    }else{
+      paragraph(note.isSound===false?'No decoded Sound-subtype object in this record; other notify/function behavior is not replayed.':'Sound classification is unavailable.',details);
+    }
+    if(note.source){
+      paragraph(`Source export: ${value(note.source.export)} · SHA-256 ${value(note.source.SHA256)}`,details);
+    }else{
+      paragraph('No notify-object export provenance; the sequence record identity remains in the source bundle.',details);
+    }
+  }
+}
 function stopInspection(){inspection?.dispose();inspection=null;playing=false;overlay=false;frame=0;
   sequenceSelect.replaceChildren();frameInput.value='0';trackReadout.textContent='';playButton.textContent='Play source timeline';
   for(const control of [sequenceSelect,frameInput,playButton,restoreButton])control.disabled=true;
   trackStatus.textContent='Waiting for the source bundle…';document.querySelector('#track-identity').textContent='';
+  notifyContent.replaceChildren();notifySummary.textContent='Original notifies';notifyStatus.textContent='No source sequence selected.';
   document.querySelector('#track-limit').textContent='Source track inspection is separate from native NPC state selection and gameplay timing.';
 }
 function failInspection(result){
@@ -99,6 +145,7 @@ function displayFrame(){
 }
 function selectSequence(){
   if(!inspection)return;playing=false;playButton.textContent='Play source timeline';frame=0;
+  showNotifies(sequenceSelect.value);
   const result=inspection.select(sequenceSelect.value);
   if(result.status==='unsupported'){failInspection(result);return;}
   displayFrame();

@@ -61,7 +61,7 @@ browser behavior and focused verification.
 | **Hair and material inspection** | All **162** base-table meshes exported with original LOD0 geometry and weights; **648** material references retain their source identities. The inspector shows rigid and soft-rig parts in a static view. | [Inspecting original hair](docs/hair-asset-pipeline.md#browser-inspection) |
 | **Native transform research** | Ordinary and dynamic hair paths distinguished; retained coordinate arithmetic checked. A separately pinned comparison copy identifies missing imports within exactly matched code blocks. | [Attachment evidence](docs/native-hair-attachment-evidence.md) · [Comparison scope](docs/supplemental-engine-evidence.md) |
 | **Original animation and skeletons** | All **1,367** player sequences and **14** original face skeletons have lossless runtime bundles. Live wait, sit, stand and cast schedules use original keys, fresh-instance initialization and transitions from evaluated source poses. | [Live playback guide](docs/original-animation-runtime.md) · [Cache evidence](docs/native-pose-cache-evidence.md) · [Fresh instances](docs/native-pose-allocation-evidence.md) |
-| **NPC animation recovery** | All **16** original Gremlin and Fox sequences now render in the browser inspector, including combat-wait and single-frame death-wait. Original GPU weight lanes now reach the renderer unchanged for **1,746 vertices**, with conversion and loader normalization removed from that path. Full skinning and automatic native state playback remain unfinished. | [NPC source inspector](docs/original-npc-animation-runtime.md) · [Skin input evidence](docs/native-npc-skin-evidence.md) · [Native state evidence](docs/native-npc-animation-evidence.md) |
+| **NPC animation recovery** | All **16** original Gremlin and Fox sequences render in the browser inspector, including combat-wait and single-frame death-wait. **34 original events** now retain their classes, timing and sound properties. Original GPU weight lanes reach the renderer unchanged for **1,746 vertices**. Full skinning, event dispatch and automatic native state playback remain unfinished. | [NPC source inspector](docs/original-npc-animation-runtime.md) · [Skin input evidence](docs/native-npc-skin-evidence.md) · [Native state evidence](docs/native-npc-animation-evidence.md) |
 | **Quest progression** | *Letters of Love* completed through server interactions; the reward survived reconnect and appeared in the browser inventory. | [Quest playtest](docs/quest-completion-playtest.md) |
 | **Shops and original dialogs** | A browser purchase and potion use changed server-owned inventory and currency. Quantity and confirmation dialogs use recovered client rules. | [Shop playtest](docs/shop-playtest.md) |
 | **Recipes and shortcuts** | Recipe books, manufacture details and source-index shortcuts are connected; the live empty Common Craft book was checked. Successful crafting remains a separate test. | [Recipe evidence](docs/native-recipe-evidence.md) |
@@ -148,7 +148,8 @@ the gameplay component, with existing browser skinning and inspection lighting.
 
 Inspect every recovered Gremlin and Young Fox sequence, play its source timeline,
 scrub normalized frames and restore the converted model. The tool keeps original
-class and animation identities visible. Gremlin and Fox now retain every stored
+class and animation identities visible. Expand **Original notifies** to inspect
+each sequence's ordered events and raw sound fields. Gremlin and Fox retain every stored
 GPU weight lane through import, including repeated bones. Native shader math,
 inverse binds, effects and gameplay state transitions still need integration.
 [Reproduce the view and its source checks](docs/original-npc-animation-runtime.md).

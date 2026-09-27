@@ -499,6 +499,14 @@ class NpcSourceCollectorTests(unittest.TestCase):
         self.npc=npc
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name)
+        engine_path=self.root/'assets/interlude/system/Engine.u'
+        engine_path.parent.mkdir(parents=True);engine_path.write_bytes(b'SYNTHETIC ENGINE CLASSES')
+        self.engine=SimpleNamespace(path=engine_path)
+        self.engine_sha=hashlib.sha256(engine_path.read_bytes()).hexdigest()
+        self.parents={'engine.animnotify_sound':'Engine.AnimNotify',
+                      'engine.animnotify':'Core.Object'}
+        self.sound_defaults={'classPath':'Engine.AnimNotify_Sound',
+                             'values':{'Volume':1.,'Random':100},'source':{'fixture':True}}
         c,s=npc_runtime_fixture();self.animation={k:c[k] for k in ('bones','sequences')}
         self.mesh_ref=s['meshRef'];self.anim_ref=s['animationRef']
         self.mesh={'bones':s['bones'],'animationReference':-1,'sourceExportSHA256':hashlib.sha256(b'MESH').hexdigest()}
@@ -518,6 +526,7 @@ class NpcSourceCollectorTests(unittest.TestCase):
             'animations':{self.anim_ref.casefold():{'sourceExportSHA256':asha}},
             'sources':{'animations/'+Path(p.path).name:hashlib.sha256(p.data).hexdigest()
                        for p in (self.mesh_package,self.anim_package)},'sourceSHA256':'f'*64}
+        self.selectors['sources']['system/Engine.u']=self.engine_sha
         owner=self;self.export_calls=[]
         class Sources:
             def get(self,kind,name):
@@ -537,7 +546,11 @@ class NpcSourceCollectorTests(unittest.TestCase):
                 unique_source_export=export,mesh_animation_reference=lambda p,e:(self.anim_ref,{
                     'sourceExportSHA256':self.mesh['sourceExportSHA256'],'animationReferenceOffset':99})),
             'build_pawnanim':SimpleNamespace(original_animation=lambda p,e,include_tracks:copy.deepcopy(self.animation),
-                source_ref_path=lambda p,ref,pkg:self.mesh_ref if ref==1 else self.anim_ref),
+                source_ref_path=lambda p,ref,pkg:self.mesh_ref if ref==1 else self.anim_ref,
+                load_package=lambda path:(self.engine,None),
+                class_parents=lambda p,name:self.parents if p is self.engine else {},
+                sound_class_defaults=lambda p:copy.deepcopy(self.sound_defaults),
+                original_notify=exporter.pawn.original_notify),
             'check_animation_linkup_native':linkup,
         }
         for patcher in [patch.dict(sys.modules,modules),patch.object(npc,'ROOT',self.root),
@@ -554,6 +567,8 @@ class NpcSourceCollectorTests(unittest.TestCase):
         self.assertEqual(c['source']['packageSHA256'],s['source']['animationPackageSHA256'])
         self.assertNotEqual(s['source']['meshPackageSHA256'],s['source']['animationPackageSHA256'])
         self.assertEqual(c['source']['exportSHA256'],hashlib.sha256(b'ANIMATION').hexdigest())
+        self.assertEqual(c['source']['notifyClassPackage'],{'file':'Engine.u','SHA256':self.engine_sha})
+        self.assertEqual(c['source']['notifySoundDefaults'],self.sound_defaults)
         self.assertEqual(index['npcs']['102']['className'],'Original.Creature102')
         self.assertEqual(index['npcs']['101']['selectors'],self.selectors['npcs']['101']['selectors'])
         self.assertEqual(index['models'][model]['bundle'],f'animation-tracks/runtime/{model}.l2anim')
@@ -563,11 +578,63 @@ class NpcSourceCollectorTests(unittest.TestCase):
         for change,pattern in [
                 (lambda:self.selectors['animations'][self.anim_ref.casefold()].__setitem__('sourceExportSHA256','0'*64),'animation changed'),
                 (lambda:self.selectors['sources'].__setitem__('animations/MeshPkg.ukx','0'*64),'package changed'),
+                (lambda:self.selectors['sources'].__setitem__('system/Engine.u','0'*64),'notify class package changed'),
                 (lambda:self.mesh_package.names.append('ROOT'),'name-table')]:
             selectors=copy.deepcopy(self.selectors);names=self.mesh_package.names[:]
             change()
             with self.subTest(pattern=pattern),self.assertRaisesRegex(ValueError,pattern):self.npc.collect_npcs([101,102])
             self.selectors=selectors;self.mesh_package.names=names
+
+    def test_actual_notify_decoder_retains_order_nulls_sound_and_source_identity_in_bundle(self):
+        from l2lib.ue2package import encode_compact as compact
+        package=self.anim_package
+        package.names += ['None','Sound','Radius','Volume']
+        name=lambda value:compact(package.names.index(value))
+        raw=(name('Sound')+b'\x05'+compact(-4)+name('Radius')+b'\x22'+struct.pack('<i',37)
+             +name('Volume')+b'\x24'+struct.pack('<f',-0.)+name('None'))
+        note=SimpleNamespace(index=1,serial_offset=len(package.data),serial_size=len(raw),
+                             class_index=-2,package_index=0,name='StoredNote')
+        objects={2:note,-1:SimpleNamespace(name='Engine',package_index=0),
+                 -2:SimpleNamespace(name='AnimNotify_Sound',package_index=-1),
+                 -3:SimpleNamespace(name='FixtureSounds',package_index=0),
+                 -4:SimpleNamespace(name='Click',package_index=-3)}
+        package.resolve_ref=lambda ref:objects[ref]
+        package.name=lambda index:package.names[index]
+        package.export_name=package.import_name=lambda row:row.name
+        package.class_name_of=lambda row:'AnimNotify_Sound'
+        package.data+=raw;package.path.write_bytes(package.data)
+        self.selectors['sources']['animations/AnimPkg.ukx']=hashlib.sha256(package.data).hexdigest()
+        self.animation['sequences'][0]['notifies']=[
+            {'index':0,'t':.75,'objectRef':2,'function':'None'},
+            {'index':1,'t':-.0,'objectRef':0,'function':'None'},
+            {'index':2,'t':.25,'objectRef':2,'function':'None'}]
+        original=copy.deepcopy(self.animation)
+        catalogs,skeletons,_=self.npc.collect_npcs([101,102]);model=next(iter(catalogs))
+        catalog=catalogs[model];notes=catalog['sequences'][0]['notifies']
+        self.assertEqual(self.animation,original,'collection must not mutate decoded inputs')
+        self.assertEqual([(n['index'],n['t'],n['objectRef']) for n in notes],[(0,.75,2),(1,-.0,0),(2,.25,2)])
+        self.assertEqual(notes[0]['classPath'],'Engine.AnimNotify_Sound')
+        self.assertEqual(notes[0]['objectPath'],'AnimPkg.StoredNote')
+        self.assertEqual(notes[0]['sound'],'FixtureSounds.Click')
+        self.assertEqual(notes[0]['soundInfo']['status'],'source-direct')
+        self.assertEqual(notes[0]['soundInfo']['fieldSources'],
+                         {'volume':'object','radius':'object','random':'Engine.AnimNotify_Sound'})
+        self.assertEqual(notes[0]['source'],{'export':1,'SHA256':hashlib.sha256(raw).hexdigest()})
+        self.assertTrue(notes[0]['isSound']);self.assertFalse(notes[0]['isAttackShot'])
+        self.assertIsNone(notes[1]['classPath']);self.assertFalse(notes[1]['isSound'])
+        self.assertEqual(struct.pack('<f',notes[1]['t']),struct.pack('<f',-0.))
+        self.assertEqual(struct.pack('<f',notes[0]['soundInfo']['volume']),struct.pack('<f',-0.))
+        blob=pack_animation_bundle(catalog,skeletons[model]);size=struct.unpack_from('<I',blob,8)[0]
+        self.assertEqual(json.loads(blob[16:16+size])['catalog']['sequences'][0]['notifies'],notes)
+        self.assertEqual(catalog['sequences'][0]['movement'],original['sequences'][0]['movement'])
+        # Missing class evidence and an unfinished object reject rather than
+        # converting an unsupported event to an empty notify array.
+        self.parents={}
+        with self.assertRaisesRegex(exporter.pawn.L2Error,'unresolved notify class'):
+            self.npc.collect_npcs([101,102])
+        self.parents={'engine.animnotify_sound':'Engine.AnimNotify'}
+        note.serial_size-=1
+        with self.assertRaises(exporter.pawn.L2Error):self.npc.collect_npcs([101,102])
 
     def test_missing_source_or_requested_ids_never_use_legacy_built_alias(self):
         self.selectors['npcs']['101']['status']='unresolved-source'

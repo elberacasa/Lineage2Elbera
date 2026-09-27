@@ -66,7 +66,7 @@ inputs rather than treating another build as equivalent.
 | NPC material variants | `python3 tools/dat/export_npc_materials.py --help` | Original per-NPC material slots and source graphs; independently checked geometry and native blend states. [Evidence and limitations](../docs/native-npc-material-evidence.md). |
 | Skill animation selector | `python3 tools/ui/check_skillanim_native.py --check` | Derives all 32 original selector branches; verifies browser mapping. Does not certify playback rates or complete phase scheduling. |
 | Animation endpoints | `python3 tools/ui/check_anim_terminal_native.py --check` | Original one-shot endpoint and loop period, with explicit compressed-track/interpolation limits. [Evidence](../docs/native-animation-terminal-evidence.md). |
-| Animation notify clock | `python3 tools/ui/check_anim_notify_native.py --check` | Original ordered crossings, null records, batch arithmetic and shared four-step budget. Explicit channel policy and unresolved filtering/callback boundaries. [Evidence](../docs/native-animation-notify-evidence.md). |
+| Animation notify clock | `python3 tools/ui/check_anim_notify_native.py --check` | Original ordered crossings, null records, batch arithmetic and shared four-step budget. Optional `--comparison-engine` freshly binds the new channel's zero notify-disable field through the existing allocation verifier. Later channel state and filtering/callback boundaries remain explicit. [Evidence](../docs/native-animation-notify-evidence.md). |
 | Browser notify comparison | `python3 tools/ui/check_anim_notify_runtime.py --check` | Actual JavaScript channel compared with the independent bounded reference. `--source-coverage` audits original slot combinations, not skill/playability completeness. |
 | Pawn skill-event lifecycle | `python3 tools/ui/check_pawn_notify_native.py --check` | Original pending flag order, Agent stages/targets and cleanup. LastShotName imported helper and complete effect playback remain unresolved. [Evidence](../docs/native-pawn-notify-evidence.md). |
 | Skill and animation sounds | `python3 tools/ui/check_cast_sound_native.py --check` | Original three-layer phase table, ordered ID/level lookup, voice slots and direct Sound-notify fields/defaults. [Evidence and limits](../docs/native-cast-sound-evidence.md). |
@@ -142,7 +142,9 @@ These inspections do not connect to the game server:
   exposes all eight original sparse sequences. The manual source overlay pauses
   the entity mixer and restores its local pose on exit. Its `frames/rate` timeline
   is an inspection control. Optional source GPU weight lanes are preserved
-  without renormalization; full skinning, state selection, placement and gameplay
+  without renormalization. The current exporter also decodes notify objects;
+  **Original notifies** displays their exact times, classes and raw sound fields
+  without dispatching them. Full skinning, state selection, placement and gameplay
   timing remain separate. [Generate the private inputs](../docs/original-npc-animation-runtime.md).
 - **Player faces, animation and casting:** actual Character loader with exact
   source face indices, mesh/material/texture references and explicit unsupported

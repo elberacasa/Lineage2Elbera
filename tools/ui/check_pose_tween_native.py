@@ -165,6 +165,15 @@ def verify(comparison_engine=None, check_js=False):
         (0x106db21e,'mov','dword ptr [ebp + 0x1fc], 1'),
     ]
     for anchor in anchors: E.instruction(*anchor)
+    # SetMesh is compared as a complete method, unlike the bounded arithmetic
+    # slices below. Include all three bytes of its ret 4 instruction.
+    set_mesh_rows = list(E.dis.disasm(E.data[E.offset(0x106c4ae0):E.offset(0x106c4b70)],0x106c4ae0))
+    cursor = 0x106c4ae0
+    for instruction in set_mesh_rows:
+        assert instruction.address == cursor, 'noncontiguous SetMesh body'
+        cursor += instruction.size
+    assert cursor == 0x106c4b70, 'SetMesh ends inside an instruction'
+    assert (set_mesh_rows[-1].mnemonic,set_mesh_rows[-1].op_str) == ('ret','4')
     MATH={'?appAcos@@YANN@Z':math.acos,'?appSin@@YANN@Z':math.sin,'?appSqrt@@YANN@Z':math.sqrt}
     blocks=[]
     if P:
@@ -173,7 +182,7 @@ def verify(comparison_engine=None, check_js=False):
       (0x106da791,0x106da809,[(0x106da7b5,'??9FName@@QBEHABV0@@Z')],[]),
       (0x106da975,0x106daa65,[(0x106daa5f,'?Normalize@FQuat@@QAEHXZ')],[0x106daa29,0x106daa50]),
       (0x106d9aa0,0x106d9ad3,[(0x106d9ab6,'?AddZeroed@FArray@@QAEHHH@Z'),(0x106d9acd,'?Shrink@FArray@@QAEXH@Z')],[]),
-      (0x106c4ae0,0x106c4b6e,[(va,'?Empty@FArray@@QAEXHH@Z') for va in (0x106c4af4,0x106c4b04,0x106c4b14,0x106c4b24,0x106c4b34,0x106c4b44,0x106c4b54)],[]),
+      (0x106c4ae0,0x106c4b70,[(va,'?Empty@FArray@@QAEXHH@Z') for va in (0x106c4af4,0x106c4b04,0x106c4b14,0x106c4b24,0x106c4b34,0x106c4b44,0x106c4b54)],[]),
      ]:
       old=E.data[E.offset(a):E.offset(b)];new=P.read(a-0x40,b-a)
       blocks.append({'ownedStartVA':hex(a),'ownedEndVAExclusive':hex(b),
@@ -350,7 +359,7 @@ def verify(comparison_engine=None, check_js=False):
             # universal exact-bit claim. State/position stores compare exactly.
             assert max(abs(a-b) for a,b in zip(result['quaternion'],expected['quaternion']))<=2e-6
         assert len(actual)==len(cases);js_cases=len(cases)
-    ranges=[dict(startVA=hex(a),endVAExclusive=hex(b),SHA256=hashlib.sha256(E.data[E.offset(a):E.offset(b)]).hexdigest()) for a,b in [(0x106afd00,0x106afe3b),(0x106da41a,0x106da450),(0x106da791,0x106da809),(0x106da975,0x106dab04),(0x106d9e27,0x106d9e4d),(0x106c4ae0,0x106c4b6e)]]
+    ranges=[dict(startVA=hex(a),endVAExclusive=hex(b),SHA256=hashlib.sha256(E.data[E.offset(a):E.offset(b)]).hexdigest()) for a,b in [(0x106afd00,0x106afe3b),(0x106da41a,0x106da450),(0x106da791,0x106da809),(0x106da975,0x106dab04),(0x106d9e27,0x106d9e4d),(0x106c4ae0,0x106c4b70)]]
     return dict(format='elbera-pose-tween-native-evidence-v1',
                 status='supplemental-imports-and-bounded-arithmetic-verified' if P else 'owned-retained-slices-only',
                 ownedEngineSHA256=ENGINE_SHA,ownedCoreSHA256=CORE_SHA,

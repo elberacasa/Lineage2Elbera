@@ -39,6 +39,7 @@ records all contributing class packages and localization files as well:
 | --- | --- |
 | `animations/LineageMonsters.ukx` | `157715304bfb1f289ce6bf202e5651f3809f57d5b061239db0c6a2a817c9a9c9` |
 | `system/LineageMonster.u` | `f06ac53f7df24bd13d6e7a0d25d9e3ca4e4502af2437518e49d96a053987d7b6` |
+| `system/Engine.u` | `9b04ff5cb4258e84dfa8efbdd85d9121f3bdcb5822a9a21ca69d200d05a69761` |
 | `system/npcgrp.dat` | `f551a0f9a0d6765bd783d8f55b1847ba2d5e17acb9a50ae4268c11e1f13d3e8c` |
 
 The bounded mesh reader supports file version 123, licensee 28/30 and LodMesh
@@ -64,8 +65,8 @@ than passing as the old set. `--check` compares fresh bytes and writes nothing.
 
 | NPC | Original mesh → animation | Mesh/animation bones | Base bundle / with GPU inputs |
 | --- | --- | --- | --- |
-| Gremlin 20001 | `LineageMonsters.gremlin_m00` → `LineageMonsters.gremlin_anim` | 55 / 55, all linked | 424,912 / 487,240 bytes |
-| Fox 20091 | `LineageMonsters.fox_m00` → `LineageMonsters.Fox_anim` | 40 / 40, all linked | 348,336 / 370,088 bytes |
+| Gremlin 20001 | `LineageMonsters.gremlin_m00` → `LineageMonsters.gremlin_anim` | 55 / 55, all linked | 433,888 / 496,216 bytes |
+| Fox 20091 | `LineageMonsters.fox_m00` → `LineageMonsters.Fox_anim` | 40 / 40, all linked | 357,336 / 379,084 bytes |
 
 Both bundles retain eight sequences, including the one-frame `deathwait` and
 the `atkwait` absent from their legacy converted clips. All listed source rates
@@ -81,6 +82,27 @@ are 30; counts are recovered data, not browser playback deadlines:
 | `death` | 64 | 43 |
 | `deathwait` | 1 | 1 |
 | `SpWait01` | 101 | 81 |
+
+The current source exporter also decodes all 17 notify records per model through
+the existing player notify reader. It follows qualified original class ancestry,
+fully consumes each referenced object export and preserves serialized order,
+null references and original Float32 times. Object fingerprints remain distinct
+from the sequence fingerprint. `Engine.u` supplies the class hierarchy and the
+explicit `AnimNotify_Sound` defaults; its hash must match selector recovery before
+collection proceeds. The catalog retains this hash and the default-stream evidence.
+
+These 34 events are `Engine.AnimNotify_Sound` or `Engine.AnimNotify_AttackShot`.
+The Gremlin attack sequence's AttackShot time is `0.3618181645870209`; that is a
+stored normalized event time, not a server damage deadline. Wait sound records
+have `Random=30`, and attack-wait sound records have `Random=50`. Their fields
+are preserved without treating them as always-play sounds. The
+[native sound evidence](native-cast-sound-evidence.md#separate-animation-sound-notifies)
+distinguishes original random gating, volume conversion and source data from
+audio-driver behavior. Event extraction alone does not admit live dispatch.
+
+The published NPC Source 0.1.0 archive predates this object-metadata addition;
+its raw event references remain unchanged in that immutable release. These
+instructions describe the current repository exporter.
 
 For these two current models, the exporter independently checks original LOD0
 triangle positions, UVs and winding against actual glTF/buffer contents:
@@ -145,6 +167,8 @@ animation remains the live playback backend.
 
 ## Manual browser inspection
 
+![Elbera Tools showing the original Gremlin pose and decoded event metadata; manual inspection without native event dispatch](img/elbera-tools-npc-notifies.jpg)
+
 With the matching private assets prepared, start the existing local asset server:
 
 ```sh
@@ -165,7 +189,10 @@ Switching sequence/model, an invalid input or disposal restores the captured
 local matrices and transforms instead of leaving an old source pose applied.
 
 The page shows qualified identities, the animation-export hash and explicit
-weight/placement limits. Source inspection does not execute native stance
+weight/placement limits. **Original notifies** lists the selected sequence's
+events in their stored order, including exact normalized times, classes, object
+identities and raw sound fields with their source owners. Missing metadata is
+distinct from an original empty event array. Source inspection does not execute native stance
 selection, transitions, attack choice, notifies, effects or sounds. Recovered
 initial-wait [consumer evidence](native-npc-animation-evidence.md) is separate
 from a complete packet/event admission
@@ -181,7 +208,8 @@ python3 -S -m unittest discover -s tools/anim -p test_build_npc_variants.py
 node --test editor/world/test/npcsourceanim.test.mjs editor/world/test/npc-source-skin.test.mjs editor/world/test/npc-source-inspection.test.mjs editor/world/test/npc-entity-lifecycle.test.mjs editor/world/test/npcanimations.test.mjs
 ```
 
-They cover strict source joins, Float32 transport, malformed data, verified-byte
+They cover strict source joins, Float32 transport, original notify-object decoding
+and provenance, malformed data, verified-byte
 loading, independent actors, pending-load retirement, reversible source inspection
 and existing clip supplements. Fresh `--check` above is a separate original-input
 check. Neither suite is a full native visual or gameplay certification.
