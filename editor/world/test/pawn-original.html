@@ -6,6 +6,7 @@ header{padding:12px 16px;background:#20262e;flex:none;max-height:58vh;overflow-y
 select,button,input{font:inherit;max-width:100%}label{display:inline-block;margin:4px 10px 4px 0}
 #stage{flex:1;min-height:140px;overflow:hidden}canvas{display:block}small{color:#c3cbd2}
 #source,#face-source{overflow-wrap:anywhere}details{margin-top:8px}#cast-form input{width:90px}#cast-schedule{white-space:pre-wrap}#position{width:180px}#cast-events,#wait-events{max-height:100px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.gap{color:#ffd18b}
+#original-source{overflow-wrap:anywhere;color:#c3cbd2}#original-controls{border-left:3px solid #e7c887;padding-left:10px}#original-status{color:#e7c887}
 </style>
 <script type="importmap">{"imports":{"three":"../vendor/three.module.min.js","three/addons/":"../vendor/addons/"}}</script>
 <header>
@@ -17,8 +18,15 @@ select,button,input{font:inherit;max-width:100%}label{display:inline-block;margi
 <label>Clip time <input id="position" type="range" min="0" max="1" step="0.001" value="0" disabled></label>
 <output id="time"></output></p>
 <p id="status" role="status">Loading original slot data…</p><p id="source"></p>
-<small>Drag to orbit; scroll to zoom. Scrubbing samples exported tracks without blending.
-This inspection stage and lighting are not original game presentation. Ordinary phase timing and loop closure now use recovered source rules. Exact compressed-track interpolation, notify effects and remaining native paths are separate work.</small>
+<small>Drag to orbit; scroll to zoom. Scrubbing uses the selected pose source without blending.
+This stage and lighting are for inspection. Original-key preview uses recovered ordinary interpolation; native pose hierarchy, initial tweening, notify effects and remaining native paths are separate work.</small>
+<details id="original-controls"><summary>Original sparse animation keys · experimental pose preview</summary>
+<p><button id="original-load" type="button">Load original keys</button>
+<label><input id="original-enabled" type="checkbox" disabled> Preview original keys</label></p>
+<p id="original-status" role="status">Decode private source tracks with Elbera Tools to compare them with the exported animation.</p>
+<p id="original-source"></p>
+<small>Uses original sparse keys and recovered ordinary interpolation. Bone correspondence and coordinate conversion are checked against the existing export. The browser skeleton, skinning and hair adaptations remain in use; native hierarchy, root-motion modifiers and full animation parity are not established. Sit/stand and skill replays use the existing game playback.</small>
+</details>
 <details id="face-controls"><summary>Original face textures</summary>
 <label>Source face index <select id="face" disabled></select></label>
 <p id="face-status" role="status">Loading original face catalog…</p><p id="face-source"></p>
@@ -48,7 +56,7 @@ This inspection stage and lighting are not original game presentation. Ordinary 
 <pre id="agent-events"></pre>
 <p id="notify-count">No animation events yet.</p><pre id="cast-events"></pre>
 <small>Uses this model and stance, exact original skill-level metadata and the game's phase player.
-The browser explicitly enables animation events. Agent preview uses the live pending-notify controller and action selector. Association simulates a received target entry; it does not fire effects. Completion fallback, native effect placement, emitter behavior and projectile motion remain incomplete. Exact quaternion interpolation remains unfinished.</small>
+The browser explicitly enables animation events. Agent preview uses the live pending-notify controller and action selector. Association simulates a received target entry; it does not fire effects. Completion fallback, native effect placement, emitter behavior and projectile motion remain incomplete. This replay still uses exported poses.</small>
 </details>
 </header><div id="stage"></div>
 <script type="module">
@@ -62,6 +70,7 @@ import { skillAgentBinding } from '../js/skillvfx-binding.js';
 import { SkillFx } from '../js/skills.js';
 import { GameSound } from '../js/gamesound.js';
 import { ordinaryPlayerVoiceMeshType } from '../js/skillsound-binding.js';
+import { createOriginalPosePreview } from '../js/sourcepose.js';
 
 const stage=document.querySelector('#stage'), status=document.querySelector('#status');
 const source=document.querySelector('#source'), time=document.querySelector('#time');
@@ -76,6 +85,9 @@ const camera=new THREE.PerspectiveCamera(40,1,.001,100);
 const orbit=new OrbitControls(camera,renderer.domElement);
 let manifest, pawn, effects, animationMeta, character=null, action=null, playing=false, castPlaying=false, waitPlaying=false, generation=0;
 let appearance=null, faceCatalogError=null, faceGeneration=0;
+let originalCatalog=null, originalPreview=null, originalRequest=null, poseTime=0, poseIntent=0;
+const originalLoad=document.querySelector('#original-load'),originalEnabled=document.querySelector('#original-enabled');
+const originalStatus=document.querySelector('#original-status'),originalSource=document.querySelector('#original-source');
 const face=document.querySelector('#face'),faceStatus=document.querySelector('#face-status'),faceSource=document.querySelector('#face-source');
 let castCompleteText='Schedule complete.';
 const inspectionGround={heightAtWorld:()=>null};
@@ -158,13 +170,81 @@ async function applyFace(){
 }
 face.addEventListener('change',applyFace);
 function controls(enabled){for(const element of [play,pause,position])element.disabled=!enabled;}
-function clockText(){time.textContent=action?`${action.time.toFixed(3)} / ${action.getClip().duration.toFixed(3)} s`:'';}
-function sample(seconds){
-  if(!action)return;
-  action.reset().setLoop(THREE.LoopOnce,1).setEffectiveWeight(1).setEffectiveTimeScale(1).play();
-  action.clampWhenFinished=true;action.time=seconds;
-  character.mixer.update(0);clockText();
+function clockText(){
+  const duration=originalEnabled.checked&&originalPreview?originalPreview.duration:action?.getClip().duration;
+  if(action)status.textContent=originalEnabled.checked&&originalPreview?
+    'Displaying original sparse keys on the existing browser skeleton.':
+    `Loaded original slot binding: ${action.getClip().name}. Exported poses; no fallback selected.`;
+  time.textContent=duration!==undefined?`${poseTime.toFixed(3)} / ${duration.toFixed(3)} s`:'';
 }
+function sample(seconds){
+  if(!character)return;
+  poseTime=seconds;
+  if(action){
+    // The source adapter writes bones outside Three's PropertyMixer. Retire
+    // its cached accumulation before every export baseline, even when this
+    // frame's keys are constant or unchanged from the preceding sample.
+    character.mixer.stopAllAction();
+    action.reset().setLoop(THREE.LoopOnce,1).setEffectiveWeight(1).setEffectiveTimeScale(1).play();
+    action.clampWhenFinished=true;action.time=Math.min(seconds,action.getClip().duration);
+    character.mixer.update(0);
+  }
+  if(originalEnabled.checked&&originalPreview){
+    try{
+      const result=originalPreview.apply(Math.max(0,Math.min(1,Math.fround(seconds/originalPreview.duration))));
+      originalStatus.textContent=`Original keys: ${originalPreview.boneCount} mapped bones · ${result.wrapped} wrapped tracks · ${result.flipped} hemisphere flips.`
+        +(action?` Export comparison: max quaternion component Δ ${result.rotationDelta.toExponential(3)}; translation Δ ${result.positionDelta.toExponential(3)} export units.`:' No exported clip for comparison.');
+    }catch(error){
+      playing=false;originalEnabled.checked=false;originalPreview=null;originalEnabled.disabled=true;
+      originalStatus.textContent=`Unsupported source pose: ${error.message}`;
+      if(action){position.max=String(action.getClip().duration);sample(Math.min(seconds,action.getClip().duration));}
+      else controls(false);
+    }
+  }
+  clockText();
+}
+function configureOriginalPreview(sequenceName){
+  originalPreview=null;originalEnabled.disabled=true;
+  if(!originalCatalog)return;
+  try{
+    if(!action)throw new Error('The exported comparison clip is unavailable.');
+    originalPreview=createOriginalPosePreview(character.model,originalCatalog,sequenceName);
+    originalEnabled.disabled=false;
+    originalStatus.textContent=`Ready: ${originalPreview.boneCount} exact bone correspondences for ${sequenceName}.`;
+  }catch(error){originalEnabled.checked=false;originalStatus.textContent=`Unavailable: ${error.message}`;}
+}
+function originalMode(){
+  ++poseIntent;
+  playing=false;castPlaying=false;waitPlaying=false;character?.cancelCast();skillFx.clear();previewCast=null;
+  character?.mixer.stopAllAction();
+  const duration=originalEnabled.checked&&originalPreview?originalPreview.duration:action?.getClip().duration;
+  controls(duration!==undefined);position.value='0';
+  if(duration!==undefined){position.max=String(duration);sample(0);}
+}
+function useExportedPlayback(){
+  ++poseIntent;
+  if(originalEnabled.checked){originalEnabled.checked=false;originalMode();}
+}
+originalEnabled.addEventListener('change',originalMode);
+originalLoad.addEventListener('click',async()=>{
+  if(!character)return;
+  originalRequest?.abort();const request=new AbortController();originalRequest=request;
+  const actor=character,modelId=model.value,ticket=generation,intent=poseIntent;
+  originalLoad.disabled=true;originalStatus.textContent='Loading privately decoded original tracks…';
+  try{
+    const response=await fetch(`/gamedata/animation-tracks/${encodeURIComponent(modelId)}.json`,{cache:'no-cache',signal:request.signal});
+    if(!response.ok)throw new Error(`HTTP ${response.status}; run python3 tools/anim/export_source_tracks.py ${modelId} --write`);
+    const catalog=await response.json();
+    if(request.signal.aborted||generation!==ticket||character!==actor)return;
+    if(catalog.modelId!==modelId)throw new Error('Original model identity does not match.');
+    originalCatalog=catalog;
+    originalSource.textContent=`${catalog.animationRef} · ${catalog.sequences.length} original sequences · package SHA256 ${catalog.source.packageSHA256}`;
+    configureOriginalPreview(pawn.models[modelId]?.slots?.[slot.value]?.[stance.value]?.seq);
+    // A delayed decode must not replace a newer cast, sit, scrub or pause.
+    if(poseIntent===intent){originalEnabled.checked=!!originalPreview;originalMode();}
+  }catch(error){if(!request.signal.aborted&&generation===ticket)originalStatus.textContent=`Unavailable: ${error.message}`;}
+  finally{if(originalRequest===request){originalRequest=null;originalLoad.disabled=false;}}
+});
 function selectSlot(){
   skillFx.clear();previewCast=null;
   playing=false;castPlaying=false;waitPlaying=false;character?.cancelCast();action=null;controls(false);position.value='0';time.textContent='';
@@ -179,13 +259,14 @@ function selectSlot(){
     :'The original slot table has no entry for this combination.';
   if(data){
     source.textContent+=` Source: ${data.frames} frames at AnimRate ${data.rate}; ${data.notifies.length} decoded notifies.`;
-    if(data.frames>0&&data.rate>0)source.textContent+=` Native sequence period: ${(data.frames/data.rate).toFixed(6)} s; last-frame time: ${((data.frames-1)/data.rate).toFixed(6)} s. Loops include the final interval back to frame zero; this viewer plays the exported one-shot.`;
+    if(data.frames>0&&data.rate>0)source.textContent+=` Native sequence period: ${(data.frames/data.rate).toFixed(6)} s; last-frame time: ${((data.frames-1)/data.rate).toFixed(6)} s. The export ends at the last frame; original-key preview also shows the closing interval back to frame zero.`;
   }
   status.className=action?'':'gap';
   status.textContent=action?`Loaded original slot binding: ${clip}. Exported poses; no fallback selected.`
     :`Unavailable: ${slot.value} / ${stance.value}. No fallback animation is played.`;
   const url=new URL(location.href);url.searchParams.set('model',model.value);url.searchParams.set('slot',slot.value);url.searchParams.set('stance',stance.value);history.replaceState(null,'',url);
-  if(action){position.max=String(action.getClip().duration);sample(0);controls(true);}
+  configureOriginalPreview(binding?.seq);
+  originalMode();
 }
 function release(pawnCharacter){
   if(!pawnCharacter)return;
@@ -204,6 +285,9 @@ function release(pawnCharacter){
 }
 async function selectModel(){
   const ticket=++generation, entry=manifest.models.find(row=>row.id===model.value);
+  originalRequest?.abort();originalRequest=null;originalCatalog=null;originalPreview=null;
+  originalEnabled.checked=false;originalEnabled.disabled=true;originalLoad.disabled=false;originalSource.textContent='';
+  originalStatus.textContent='Load this model’s privately decoded source tracks to compare animation poses.';
   ++faceGeneration;faceChoices(entry.id);
   playing=false;castPlaying=false;waitPlaying=false;action=null;controls(false);source.textContent='';time.textContent='';
   release(character);character=null;
@@ -237,15 +321,16 @@ async function selectModel(){
   }catch(error){release(candidate);if(ticket===generation){status.textContent=error.message;status.className='gap';}}
 }
 model.addEventListener('change',selectModel);slot.addEventListener('change',selectSlot);stance.addEventListener('change',selectSlot);
-play.addEventListener('click',()=>{character?.cancelCast();castPlaying=false;waitPlaying=false;sample(0);playing=true;});
-pause.addEventListener('click',()=>{playing=false;castPlaying=false;waitPlaying=false;});
-position.addEventListener('input',()=>{playing=false;castPlaying=false;waitPlaying=false;character?.cancelCast();sample(Number(position.value));});
+play.addEventListener('click',()=>{++poseIntent;character?.cancelCast();castPlaying=false;waitPlaying=false;character?.mixer.stopAllAction();sample(0);playing=true;});
+pause.addEventListener('click',()=>{++poseIntent;playing=false;castPlaying=false;waitPlaying=false;});
+position.addEventListener('input',()=>{++poseIntent;playing=false;castPlaying=false;waitPlaying=false;character?.cancelCast();character?.mixer.stopAllAction();sample(Number(position.value));});
 waitAudio.addEventListener('change',()=>{
   if(character)character.waitSoundEnabled=waitAudio.checked;
   if(waitAudio.checked)audio.resume();
 });
 for(const [id,type] of [['wait-sit',0],['wait-stand',1]])document.querySelector('#'+id).addEventListener('click',()=>{
   if(!character)return;
+  useExportedPlayback();
   skillFx.clear();previewCast=null;playing=false;castPlaying=false;
   character.stance=stance.value;
   const result=character.setWaitType(type);
@@ -255,6 +340,7 @@ for(const [id,type] of [['wait-sit',0],['wait-stand',1]])document.querySelector(
 });
 document.querySelector('#cast-form').addEventListener('submit',event=>{
   event.preventDefault();if(!character)return;
+  useExportedPlayback();
   playing=false;castPlaying=false;waitPlaying=false;character.cancelCast();
   skillFx.clear();previewCast=null;agentLines=[];lastAgentTick=null;agentEvents.textContent='';
   const id=Number(castSkill.value),level=Number(castLevel.value);
@@ -282,6 +368,7 @@ document.querySelector('#cast-form').addEventListener('submit',event=>{
   castStatus.textContent='Playing original phase schedule with exported poses.';castPlaying=true;
 });
 document.querySelector('#cast-cancel').addEventListener('click',()=>{
+  ++poseIntent;
   skillFx.cancel(1);
   character?.cancelCast();playing=false;waitPlaying=false;castPlaying=!!character;
   castCompleteText='Cancelled. No pending phase can restart.';castStatus.textContent=castCompleteText;
@@ -311,7 +398,10 @@ renderer.setAnimationLoop(()=>{
     }
   }
   if(castPlaying)skillFx.update();
-  if(playing&&action){character.mixer.update(dt);position.value=String(action.time);clockText();if(action.paused)playing=false;}
+  if(playing&&originalEnabled.checked&&originalPreview){
+    sample(Math.min(poseTime+dt,originalPreview.duration));position.value=String(poseTime);
+    if(!originalPreview||poseTime>=originalPreview.duration)playing=false;
+  }else if(playing&&action){character.mixer.update(dt);poseTime=action.time;position.value=String(poseTime);clockText();if(action.paused)playing=false;}
   orbit.update();audio.setListener(camera);renderer.render(scene,camera);
 });
 try{
