@@ -29,8 +29,14 @@ live crafting or proof that every original-client behavior has been reproduced.
 | ![Elbera Tools player face inspection](docs/img/elbera-tools-faces.png) | ![Elbera Tools recipe and shortcut inspection](docs/img/elbera-tools-recipes.png) |
 | Explicit original face indices, with source mesh and texture checks. | Original recipe metadata and browser controls, using clearly labeled replay state. |
 
+![Elbera Tools original hair geometry and color inspection](docs/img/elbera-tools-hair.png)
+
+**Original hair inspection:** exact source mesh/color choices, including distinct
+alpha rules for the two hair parts. This is a static source view; animated body
+attachment and native sampling remain unfinished. [Build and inspection guide](docs/hair-asset-pipeline.md).
+
 With locally generated assets, the [inspection index](editor/world/test/index.html)
-provides face and animation viewers, world diagnostics, quest journals, inventory
+provides hair, face and animation viewers, world diagnostics, quest journals, inventory
 dialogs, merchants, recipes and other focused tools.
 
 ## What works today
@@ -44,7 +50,7 @@ end-to-end scenario are different achievements.
 | Character entry and progression | Ordinary browser creation, selection, entry and reconnect have been exercised. A Dwarf starter character holds its received club and has progressed through normal combat. |
 | Quests and navigation | Letters of Love was completed through ordinary server interactions; its reward survived reconnect and appeared in the browser inventory. The journal correctly removes the completed zero-stage entry. [Playtest](docs/quest-completion-playtest.md). |
 | Merchant interaction | A real browser purchase and use of a healing potion changed the server-owned inventory and currency. Shared quantity dialogs and selected shop layout rules are traced to original sources. [Playtest](docs/shop-playtest.md). |
-| Player appearance | Original face indices reach self and remote actors. Catalogued face meshes and textures are checked against original package data; asynchronous changes retire with the model/session. [Evidence](docs/native-face-selection-evidence.md). |
+| Player appearance | Original face indices reach self and remote actors. Creation choices now use the original sex-specific lists, without invented hair-color tints. All 162 referenced hair meshes and 648 material references have a separate source export; animated hair selection remains unfinished. [Face evidence](docs/native-face-selection-evidence.md) · [Hair pipeline](docs/hair-asset-pipeline.md). |
 | Recipes and shortcuts | Recipe books, manufacture details and recipe shortcuts are connected. Opening the live empty Common Craft book is verified; successful recipe learning and crafting remain separate, unverified journeys. [Evidence](docs/native-recipe-evidence.md). |
 | World and animation foundations | Source terrain coordinates, selected collision geometry, floor-aware navigation, original animation slots and bounded timing rules have reproducible checks. These establish specific behaviors, not complete map or renderer fidelity. |
 
@@ -94,6 +100,7 @@ unsupported cases instead of silently choosing replacements.
 | [l2lib](tools/l2lib/README.md) | Unreal Engine 2 package, DAT and texture readers used by the pipelines. |
 | [World tools](tools/world/) | Terrain conversion, source collision exports, qualified prop checks and navigation inspection. |
 | [Data and animation tools](tools/dat/) · [animation tools](tools/anim/) | Source metadata, appearance, model identity and original sequence recovery. |
+| [Original hair pipeline](docs/hair-asset-pipeline.md) | Raw LOD0 meshes, unmodified skin weights, original material graphs and source/built geometry comparisons. |
 | [UI and native checks](tools/ui/) | Reproducible evidence for layouts, packet fields, dialogs, animation rules and other bounded client behavior. |
 | [Playtest client](tools/playtest/README.md) | Controlled journeys and private receipts using an explicitly selected existing character; includes read-only catalog queries. |
 

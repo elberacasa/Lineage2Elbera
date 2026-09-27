@@ -19,6 +19,8 @@ inputs rather than treating another build as equivalent.
 | Tool | Command | Scope and limits |
 | --- | --- | --- |
 | Original script extraction | `python3 tools/uscript/extract_uscript.py --check` | Bounded TextBuffer reads, unique class validation, no cross-export look-ahead. Checks supplied UI packages without writing their private source text. |
+| Original hair assets | `python3 tools/dat/build_hair.py --check` | All162 source meshes, unchanged LOD0 weights/indices/UVs,648 material references and a separate comparison with existing browser geometry. Omit `--check` to generate private outputs. Full body attachment remains unresolved. [Pipeline](../docs/hair-asset-pipeline.md). |
+| Creation appearance choices | `python3 tools/ui/check_creation_appearance_native.py --check` | Original five male/seven female styles, four colors, three faces, language IDs and request fields. No guessed swatches or claim of creator screen parity. [Evidence](../docs/native-creation-appearance-evidence.md). |
 | Quest journal | `python3 tools/dat/export_quests.py --check` | Re-decrypts and compares original records, exact boundaries and hashes; requires the generated private table. Does not prove server quest rewards. |
 | NPC visual scale | `python3 tools/dat/export_npc_visuals.py --check` | Qualified class inheritance and mesh scale, independent of collision fitting. See [native actor evidence](../docs/native-actor-evidence.md) for default-stream limits. |
 | Player visual scale export | `python3 tools/dat/export_player_visuals.py --check` | Fresh original fields, actual built-part identity and glTF/buffer hashes. `--write-manifest` records exact per-axis products; never infers scale from a silhouette. Placement remains separate. |
@@ -89,6 +91,11 @@ With the existing local world server running, open
 [Elbera Tools](http://127.0.0.1:8083/test/index.html) for the inspection index.
 These inspections do not connect to the game server:
 
+- **Original hair:** `/test/original-hair.html` shows exact source LOD0 geometry
+  and color materials across all14 player models, preserving absent table
+  entries. Mesh/PNG hashes are checked before display. Original alpha and blend
+  state is applied without recoloring. It is a static inspection in source
+  coordinates; body attachment, animation and native sampling remain separate.
 - **Prop identity:** retained legacy Cart/Tank exports beside the repaired
   qualified source variants in17_25, at a shared camera scale. Checks loaded
   embedded source labels and shows export fingerprints, triangle counts and
