@@ -5,6 +5,8 @@
 
 const MODEL = /^[a-z][a-z0-9_]{0,63}$/;
 const HASH = /^[a-f0-9]{64}$/;
+const NPC_MODEL = /^npc_[a-f0-9]{32}$/;
+const QUALIFIED_REF = /^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+$/;
 const fields = [['quaternions', 4], ['positions', 3], ['times', 1]];
 const requests = new Map();
 
@@ -32,15 +34,30 @@ function referenceVector(value, width) {
     && value.every(exactFloat), 'reference pose');
 }
 function sourcePair(catalog, skeleton) {
+  const npc = skeleton?.format === 'elbera-original-npc-skeleton-v1';
   need(record(catalog) && record(skeleton)
     && catalog.format === 'elbera-original-animation-tracks-v1'
-    && skeleton.format === 'elbera-original-player-skeleton-v1', 'source formats');
+    && (npc || skeleton.format === 'elbera-original-player-skeleton-v1'), 'source formats');
   need(typeof catalog.modelId === 'string' && MODEL.test(catalog.modelId)
     && skeleton.modelId === catalog.modelId, 'model identity');
   need(typeof catalog.animationRef === 'string' && catalog.animationRef.length > 0
     && typeof skeleton.animationRef === 'string'
     && skeleton.animationRef.toLowerCase() === catalog.animationRef.toLowerCase(), 'animation identity');
-  for (const [key, other] of [['packageSHA256', 'packageSHA256'], ['exportSHA256', 'animationExportSHA256']]) {
+  if (npc) {
+    // An opaque transport/cache token is not source identity. Keep the exact
+    // qualified references and both package fingerprints, including when the
+    // mesh's serialized Animation points into another original package.
+    need(NPC_MODEL.test(catalog.modelId), 'NPC model token');
+    need(QUALIFIED_REF.test(catalog.animationRef) && QUALIFIED_REF.test(skeleton.animationRef)
+      && typeof catalog.meshRef === 'string' && QUALIFIED_REF.test(catalog.meshRef)
+      && typeof skeleton.meshRef === 'string' && QUALIFIED_REF.test(skeleton.meshRef)
+      && catalog.meshRef.toLowerCase() === skeleton.meshRef.toLowerCase(), 'NPC qualified references');
+    for (const key of ['meshPackageSHA256', 'meshExportSHA256']) {
+      need(typeof skeleton.source?.[key] === 'string' && HASH.test(skeleton.source[key]), 'NPC mesh fingerprint');
+    }
+  }
+  for (const [key, other] of [['packageSHA256', npc ? 'animationPackageSHA256' : 'packageSHA256'],
+    ['exportSHA256', 'animationExportSHA256']]) {
     need(typeof catalog.source?.[key] === 'string' && HASH.test(catalog.source[key])
       && catalog.source[key] === skeleton.source?.[other], 'source fingerprint');
   }

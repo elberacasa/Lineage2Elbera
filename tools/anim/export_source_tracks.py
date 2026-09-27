@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Elbera Tools: retain original sparse player animation keys for inspection.
+"""Elbera Tools: retain original sparse player/NPC animation keys.
 
 No PSA/glTF sampling, quaternion normalization or synthesized keys. Default is
 a read-only audit. --write emits private data; --check compares existing bytes.
 --runtime packs complete catalog/skeleton inputs using Elbera's authored
 transport metadata and exact Float32 key arrays, not a native game file format.
 This preserves source inputs, not complete native playback or bone association.
+--npc IDs --runtime includes a private selected-NPC index with independently
+verified built geometry/bone paths. Skin weights/placement remain unverified.
 """
 import argparse
 import hashlib
@@ -18,6 +20,11 @@ import build_pawnanim as pawn
 
 ROOT = Path(pawn.ROOT)
 OUTPUT = ROOT / 'assets/gamedata/animation-tracks'
+
+
+def collect_npcs(npc_ids):
+    from npc_source_tracks import collect_npcs as collector
+    return collector(npc_ids)
 
 
 def collect(model='all'):
@@ -138,22 +145,39 @@ def main(argv=None):
     content = parser.add_mutually_exclusive_group()
     content.add_argument('--skeletons', action='store_true', help='retain source face reference bones and native track bindings')
     content.add_argument('--runtime', action='store_true', help='pack all original sequences and source skeleton as private ELBA transport')
+    parser.add_argument('--npc', nargs='+', type=int,
+                        help='explicit original NPC IDs; requires --runtime, replaces the selected NPC index')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--write', action='store_true', help='write ignored private source data')
     mode.add_argument('--check', action='store_true', help='freshly decode and compare private output bytes')
     args = parser.parse_args(argv)
+    if args.npc is not None and (not args.runtime or args.model != 'all'):
+        parser.error('--npc requires --runtime and cannot be combined with a player model')
     # Decode and encode every requested model before any output is changed.
+    npc_index = None
     if args.runtime:
         from pack_source_tracks import pack_animation_bundle
-        catalogs, skeletons = collect(args.model), collect_skeletons(args.model)
+        if args.npc is not None:
+            catalogs, skeletons, npc_index = collect_npcs(args.npc)
+        else:
+            catalogs, skeletons = collect(args.model), collect_skeletons(args.model)
         if set(catalogs) != set(skeletons):
             raise ValueError('runtime source model sets differ')
         rows = [(model, data, pack_animation_bundle(data, skeletons[model]))
                 for model, data in catalogs.items()]
+        if npc_index is not None:
+            for model, _data, blob in rows:
+                npc_index['models'][model]['bundleSHA256'] = hashlib.sha256(blob).hexdigest()
+            index_blob = encoded(npc_index)
     else:
         collector = collect_skeletons if args.skeletons else collect
         rows = [(model, data, encoded(data)) for model, data in collector(args.model).items()]
     directory = OUTPUT / 'runtime' if args.runtime else OUTPUT
+    index_target = OUTPUT.parent / 'npc-animation-runtime.json'
+    # A check validates the selected-set index too; it never repairs any file.
+    if args.check and npc_index is not None and (
+            not index_target.exists() or index_target.read_bytes() != index_blob):
+        raise ValueError('missing or stale private NPC animation runtime index')
     for model, data, blob in rows:
         target = directory / (model + ('.l2anim' if args.runtime else '.skeleton.json' if args.skeletons else '.json'))
         if args.check and (not target.exists() or target.read_bytes() != blob):
@@ -176,6 +200,25 @@ def main(argv=None):
                   else f'{len(data["sequences"])} source sequences')
         print(f'{model}: {len(data["bones"])} bones, {detail}; '
               f'{"checked" if args.check else "written" if args.write else "read-only"}; {len(blob)} bytes')
+    if npc_index is not None:
+        if args.write:
+            # Adopt the index only after every bundle. Its hashes prevent a
+            # partially replaced bundle set from masquerading as the old set.
+            index_target.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(dir=index_target.parent, prefix='.npc-animation-', delete=False) as stream:
+                staged = Path(stream.name)
+                try:
+                    stream.write(index_blob)
+                    stream.flush()
+                except BaseException:
+                    staged.unlink(missing_ok=True)
+                    raise
+            try:
+                staged.replace(index_target)
+            finally:
+                staged.unlink(missing_ok=True)
+        print(f'NPC index: {len(npc_index["npcs"])} IDs, {len(rows)} source meshes; '
+              f'{"checked" if args.check else "written" if args.write else "read-only"}')
 
 
 if __name__ == '__main__':

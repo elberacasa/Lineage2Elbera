@@ -1,6 +1,7 @@
 // Bounded original-class animation corrections. Original names come from
 // npcgrp -> qualified UClass ancestry -> localized .int array elements.
 // See tools/anim/build_npc_variants.py and docs/npc-animation-variants.md.
+import { loadNpcSourceAnimationModel } from './npcsourceanim.js';
 const FORMAT = 'l2-interlude-npc-animations-v1';
 const BASE = '/characters/monsters/';
 const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
@@ -119,6 +120,8 @@ async function catalog() {
 }
 
 export async function loadNpcAnimationModel(npcId, entry, loader) {
+  const source = await loadNpcSourceAnimationModel(npcId,entry,loader);
+  if (source) return source;
   const record = originalNpcAnimationRecord(await catalog(), npcId, entry);
   if (record) return verifiedNpcAnimationModel(record, loader);
   return { gltf: await loader.loadAsync(BASE + entry.gltf), overrides: {} };

@@ -8,6 +8,7 @@ quaternions, positions, times in that order. No sharing, gaps or trailing data.
 All other original catalog/skeleton fields and fingerprints remain metadata.
 Only exact finite Float32 input components are accepted; no keys are resampled.
 """
+import hashlib
 import json
 import math
 import re
@@ -22,8 +23,9 @@ def source_pair(catalog, skeleton):
     def need(condition, label):
         if not condition:
             raise ValueError('invalid animation bundle: ' + label)
+    npc = skeleton.get('format') == 'elbera-original-npc-skeleton-v1'
     need(catalog.get('format') == 'elbera-original-animation-tracks-v1'
-         and skeleton.get('format') == 'elbera-original-player-skeleton-v1', 'source formats')
+         and (npc or skeleton.get('format') == 'elbera-original-player-skeleton-v1'), 'source formats')
     model = catalog.get('modelId')
     need(isinstance(model, str) and re.fullmatch(r'[a-z][a-z0-9_]{0,63}', model)
          and skeleton.get('modelId') == model, 'model identity')
@@ -31,7 +33,21 @@ def source_pair(catalog, skeleton):
     need(isinstance(ref, str) and ref and isinstance(skeleton.get('animationRef'), str)
          and ref.casefold() == skeleton['animationRef'].casefold(), 'animation identity')
     a, b = catalog.get('source', {}), skeleton.get('source', {})
-    for key, other in [('packageSHA256', 'packageSHA256'), ('exportSHA256', 'animationExportSHA256')]:
+    if npc:
+        mesh_ref = skeleton.get('meshRef')
+        qualified = r'[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+'
+        need(isinstance(mesh_ref, str) and re.fullmatch(qualified, mesh_ref)
+             and isinstance(catalog.get('meshRef'), str)
+             and catalog['meshRef'].casefold() == mesh_ref.casefold()
+             and re.fullmatch(qualified, ref), 'qualified NPC source identity')
+        need(model == 'npc_' + hashlib.sha256(mesh_ref.lower().encode('utf8')).hexdigest()[:32],
+             'opaque NPC model identity')
+        for key in ('meshPackageSHA256', 'animationPackageSHA256',
+                    'meshExportSHA256', 'animationExportSHA256'):
+            need(isinstance(b.get(key), str) and re.fullmatch(r'[a-f0-9]{64}', b[key]),
+                 'NPC source fingerprint')
+    for key, other in [('packageSHA256', 'animationPackageSHA256' if npc else 'packageSHA256'),
+                       ('exportSHA256', 'animationExportSHA256')]:
         need(isinstance(a.get(key), str) and re.fullmatch(r'[a-f0-9]{64}', a[key])
              and a[key] == b.get(other), 'source fingerprint')
     bones, mesh = catalog.get('bones'), skeleton.get('bones')

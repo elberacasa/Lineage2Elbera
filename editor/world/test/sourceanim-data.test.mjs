@@ -3,6 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { decodeOriginalAnimationBundle, fetchOriginalAnimationBundle } from '../js/sourceanim-data.js';
 
@@ -35,6 +36,16 @@ function rewrite(change, payloadChange = () => {}) {
 }
 function withModel(name) { return rewrite(m=>{m.catalog.modelId=name;m.skeleton.modelId=name;}); }
 function words(values) { const b=new ArrayBuffer(values.length*4),v=new DataView(b);values.forEach((n,i)=>v.setFloat32(i*4,n,true));return Array.from(new Uint32Array(b)); }
+function npcMetadata(metadata, crossPackage = true) {
+  const {catalog,skeleton}=metadata;
+  catalog.meshRef=skeleton.meshRef='MeshPackage.Group.Creature';
+  catalog.modelId=skeleton.modelId='npc_'+createHash('sha256').update(catalog.meshRef.toLowerCase()).digest('hex').slice(0,32);
+  catalog.animationRef=skeleton.animationRef=(crossPackage?'AnimationPackage':'MeshPackage')+'.Group.Animation';
+  skeleton.format='elbera-original-npc-skeleton-v1';
+  skeleton.source={meshPackageSHA256:(crossPackage?'c':'a').repeat(64),
+    animationPackageSHA256:catalog.source.packageSHA256,meshExportSHA256:'d'.repeat(64),
+    animationExportSHA256:catalog.source.exportSHA256};
+}
 
 test('Python transport round-trips every authored Float32 word and complete original metadata',()=>{
   const {catalog,skeleton}=decodeOriginalAnimationBundle(input());
@@ -114,6 +125,48 @@ test('source-pair identities and first-name bindings cannot be silently substitu
     m=>{m.skeleton.bones[1].parent=2;},m=>{m.skeleton.bones[1].orientation[0]=.1;},
     m=>{m.skeleton.bones[2].name='child';}];
   for(const mutate of mutations)assert.throws(()=>decodeOriginalAnimationBundle(rewrite(mutate)));
+});
+
+test('NPC bundles retain qualified source identities and independent mesh/animation package fingerprints',()=>{
+  for(const crossPackage of [false,true]) {
+    const bundle=decodeOriginalAnimationBundle(rewrite(m=>npcMetadata(m,crossPackage)));
+    assert.equal(bundle.skeleton.format,'elbera-original-npc-skeleton-v1');
+    assert.equal(bundle.catalog.meshRef,'MeshPackage.Group.Creature');
+    assert.equal(bundle.skeleton.source.meshPackageSHA256,(crossPackage?'c':'a').repeat(64));
+    assert.equal(bundle.catalog.source.packageSHA256,bundle.skeleton.source.animationPackageSHA256);
+    assert.deepEqual(bundle.skeleton.trackBindings,[0,-1,1]);
+    assert.deepEqual(bundle.catalog.sequences[0].movement.tracks[0].positions,
+      fixture.catalog.sequences[0].movement.tracks[0].positions);
+    assert.equal(Object.isFrozen(bundle.skeleton.source),true);
+  }
+  const mixedCase=decodeOriginalAnimationBundle(rewrite(m=>{
+    npcMetadata(m);m.skeleton.meshRef=m.skeleton.meshRef.toLowerCase();
+    m.skeleton.animationRef=m.skeleton.animationRef.toLowerCase();
+  }));
+  assert.equal(mixedCase.catalog.meshRef,'MeshPackage.Group.Creature','full source spelling is preserved');
+});
+
+test('an NPC filename token cannot authorize missing, unqualified or mismatched source records',()=>{
+  const mutations=[m=>{delete m.catalog.meshRef;},m=>{delete m.skeleton.meshRef;},
+    m=>{m.skeleton.meshRef='OtherPackage.Group.Creature';},m=>{m.catalog.meshRef=m.skeleton.meshRef='Creature';},
+    m=>{m.catalog.meshRef=m.skeleton.meshRef='MeshPackage..Creature';},
+    m=>{m.catalog.meshRef=m.skeleton.meshRef='MeshPackage/Group.Creature';},
+    m=>{m.catalog.animationRef=m.skeleton.animationRef='Animation';},
+    m=>{m.skeleton.animationRef='OtherPackage.Group.Animation';},
+    m=>{m.skeleton.source.animationPackageSHA256='e'.repeat(64);},
+    m=>{m.skeleton.source.animationExportSHA256='e'.repeat(64);},
+    m=>{delete m.skeleton.source.meshPackageSHA256;},m=>{delete m.skeleton.source.meshExportSHA256;},
+    m=>{m.skeleton.source.meshPackageSHA256='invalid';},m=>{m.skeleton.source.meshExportSHA256='g'.repeat(64);},
+    m=>{m.catalog.modelId=m.skeleton.modelId='npc_short';},m=>{m.skeleton.modelId='npc_'+'e'.repeat(32);},
+    m=>{m.skeleton.format='elbera-original-npc-skeleton-v2';},
+    m=>{m.skeleton.source.packageSHA256=m.catalog.source.packageSHA256;delete m.skeleton.source.animationPackageSHA256;},
+    m=>{m.skeleton.trackBindings[1]=0;}];
+  for(const mutate of mutations)assert.throws(()=>decodeOriginalAnimationBundle(rewrite(m=>{npcMetadata(m);mutate(m);})),undefined,mutate.toString());
+  // The old player identity contract cannot borrow the new NPC package field.
+  assert.throws(()=>decodeOriginalAnimationBundle(rewrite(m=>{
+    m.skeleton.source.animationPackageSHA256=m.skeleton.source.packageSHA256;
+    delete m.skeleton.source.packageSHA256;
+  })),/fingerprint/);
 });
 
 test('sequence metadata and original time ordering validate without imposing sampler-only rules',()=>{

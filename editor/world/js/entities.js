@@ -236,8 +236,12 @@ class DropEntity {
 }
 
 class NpcEntity {
-  constructor({ id, npcId, name, level, runSpeed, walkSpeed, speedMul, running,
-                pAtkSpd, atkSpdMul, collisionRadius, collisionHeight, dead }) {
+  constructor(msg) {
+    const { id, npcId, name, level, runSpeed, walkSpeed, speedMul, running,
+      pAtkSpd, atkSpdMul, collisionRadius, collisionHeight, dead } = msg;
+    this.captureOriginalNpcInfo(msg);
+    this._retired = false;
+    this._upgradeGeneration = 0;
     this.id = id;
     this.kind = 'npc';
     this.npcId = npcId;
@@ -292,6 +296,48 @@ class NpcEntity {
     this.capsuleMeshes.push(ring);
   }
 
+  // The packet snapshot is independent of compatibility speed/boolean fields.
+  // Each complete NpcInfo replaces it; absence is unknown, not an old value or
+  // a synthesized neutral equipment bank/multiplier.
+  captureOriginalNpcInfo(msg) {
+    const immutableCopy = value => {
+      if (!value || typeof value !== 'object') return value;
+      return Object.freeze(Array.isArray(value) ? value.map(immutableCopy)
+        : Object.fromEntries(Object.entries(value).map(([key, child]) => [key, immutableCopy(child)])));
+    };
+    const snapshot = {};
+    for (const key of ['npcId', 'combat', 'waitType', 'rhand', 'chest', 'lhand', 'speedMul',
+      'running', 'dead', 'collisionRadius', 'collisionHeight', 'summonAnimationRaw', 'npcInfoTail']) {
+      if (Object.prototype.hasOwnProperty.call(msg, key)) snapshot[key] = immutableCopy(msg[key]);
+    }
+    this.originalNpcInfo = Object.freeze(snapshot);
+  }
+
+  _removeCapsules() {
+    for (const mesh of this.capsuleMeshes || []) {
+      this.group.remove(mesh);
+      // These placeholder resources are created by this entity's constructor.
+      // Do not extend this disposal to loaded/cached monster material graphs.
+      mesh.geometry?.dispose();
+      for (const material of (Array.isArray(mesh.material) ? mesh.material : [mesh.material])) material?.dispose();
+    }
+    this.capsuleMeshes = [];
+  }
+
+  retire() {
+    if (this._retired) return;
+    this._retired = true;
+    this._upgradeGeneration = (this._upgradeGeneration || 0) + 1;
+    clearTimeout(this._attackTimer); clearTimeout(this._fadeTimer);
+    this._attackTimer = this._fadeTimer = null;
+    this.target = null;
+    this.pickResourcesReady = false;
+    this.mixer?.stopAllAction?.();
+    if (this.monsterRoot) this.mixer?.uncacheRoot?.(this.monsterRoot);
+    this.current = null; this.actions = null; this.mixer = null;
+    this._removeCapsules();
+  }
+
   // The NAME always draws NAME_COLOR. The nickcolor that used to be passed in
   // as `color` is the TITLE colour (see titleFor); it is kept on the entity so
   // the second line can use it, and it never touches the name again.
@@ -300,6 +346,7 @@ class NpcEntity {
   // nickcolor positionally and main.js is not this lane's to edit. It is
   // recorded, not applied to the name.
   setLabel(text, color = null) {
+    if (this._retired) return;
     if (this.label) this.group.remove(this.label);
     this.name = text;
     if (color) this.titleColor = color;
@@ -320,6 +367,7 @@ class NpcEntity {
       return;
     }
     npcTitles().then(map => {
+      if (this._retired) return;
       const t = titleFor(map[String(this.npcId)]);
       if (!t) return;
       this.title = t.text;
@@ -331,21 +379,40 @@ class NpcEntity {
 
   // swap the capsule placeholder for a real monster model
   async upgradeToMonster() {
-    const [manifest, meshes] = await Promise.all([monsterManifest(), npcMeshes()]);
-    if (!manifest) return;                     // pipeline hasn't landed: keep capsule
-    const grp = meshes[String(this.npcId)] || {};
-    this.npcType = grp.type || null;   // server NPC type (Monster/Folk/...)
-    const meshName = grp.mesh;
-    const entry = manifest.find(m => m.id === meshName)
-      || manifest.find(m => m.id.toLowerCase() === String(meshName).toLowerCase());
-    if (!entry) return;                        // no model for this npcId: keep capsule
+    if (this._retired || this.monsterRoot) return;
+    const generation = this._upgradeGeneration = (this._upgradeGeneration || 0) + 1;
+    const npcId = this.npcId;
+    this.modelLoadError = null;
+    const current = () => !this._retired && this._upgradeGeneration === generation && this.npcId === npcId;
+    let mixer = null, root = null, adopted = false;
     try {
-      const visualScale = npcVisualScale(await npcVisualMeta(), this.npcId, entry.id);
-      if (!visualScale) throw new Error(`original visual scale unresolved for NPC ${this.npcId}`);
-      const { gltf, overrides: animationOverrides } = await loadNpcAnimationModel(
-        this.npcId, entry, new GLTFLoader());
-      await applyOriginalNpcMaterials(this.npcId, entry, gltf, THREE);
-      const root = gltf.scene;
+      const [manifest, meshes] = await Promise.all([monsterManifest(), npcMeshes()]);
+      if (!current() || !manifest) return;
+      const grp = meshes[String(npcId)] || {};
+      this.npcType = grp.type || null;
+      const meshName = grp.mesh;
+      const entry = manifest.find(m => m.id === meshName)
+        || manifest.find(m => m.id.toLowerCase() === String(meshName).toLowerCase());
+      if (!entry) return;
+      const visualMeta = await npcVisualMeta();
+      if (!current()) return;
+      const visualScale = npcVisualScale(visualMeta, npcId, entry.id);
+      if (!visualScale) throw new Error(`original visual scale unresolved for NPC ${npcId}`);
+      const { gltf, overrides: animationOverrides, originalSource=null } = await loadNpcAnimationModel(
+        npcId, entry, new GLTFLoader());
+      if (!current()) return;
+      await applyOriginalNpcMaterials(npcId, entry, gltf, THREE);
+      if (!current()) return;
+      root = gltf.scene;
+      mixer = new THREE.AnimationMixer(root);
+      const raw = {};
+      for (const clip of gltf.animations) raw[clip.name] = mixer.clipAction(clip);
+      const actions = mapAnimations(raw);
+      actions.social = raw.social || null;
+      for (const [slot, clip] of Object.entries(animationOverrides)) {
+        if (!raw[clip]) throw new Error(`original NPC animation missing: ${clip}`);
+        actions[slot] = raw[clip];
+      }
       // assemble.py preserves source points as (X,Z,-Y)*0.01. Apply the
       // native per-axis visual scale once; collision dimensions do not size
       // a rendered mesh. The existing foot/center placement below is still
@@ -360,36 +427,31 @@ class NpcEntity {
       if (this.label) this.setLabel(this.name);   // re-anchor to true height
       root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
 
-      for (const m of this.capsuleMeshes) this.group.remove(m);
-      this.capsuleMeshes = [];
+      this._removeCapsules();
       this.group.add(root);
       this.pickResourcesReady = true;
-      this.mixer = new THREE.AnimationMixer(root);
-      const raw = {};
-      for (const clip of gltf.animations) raw[clip.name] = this.mixer.clipAction(clip);
-      this.actions = mapAnimations(raw);
-      // The social clip is bound OUTSIDE mapAnimations on purpose: that
-      // function's six keyword lists are replayed byte-for-byte by
-      // tools/anim/audit_bindings.py and asserted as source text by
-      // verify_anim.js, so extending it would invalidate the audit rather
-      // than the audit catching a real change. There is no keyword search to
-      // do here anyway — the pipeline emits the clip under the exact name
-      // 'social' when clips.social exists, and nothing when it does not.
-      this.actions.social = raw.social || null;
-      // Same mesh, distinct original NPC class: use the exact source-bound
-      // sequence after its glTF and geometry buffer have passed hash checks.
-      for (const [slot, clip] of Object.entries(animationOverrides)) {
-        if (!raw[clip]) throw new Error(`original NPC animation missing: ${clip}`);
-        this.actions[slot] = raw[clip];
-      }
+      this.monsterRoot = root;
+      this.originalSource = originalSource;
+      this.mixer = mixer;
+      this.actions = actions;
+      adopted = true;
       this._play(this.dead ? 'die' : 'idle', 0);
       if (this.dead) this._finishDeath();      // died while loading
     } catch (e) {
-      console.warn(`monster model for npcId ${this.npcId} failed:`, e.message);
+      if (current()) {
+        this.modelLoadError = e.message;
+        console.warn(`monster model for npcId ${npcId} failed:`, e.message);
+      }
+    } finally {
+      if (mixer && !adopted) {
+        mixer.stopAllAction();
+        mixer.uncacheRoot(root);
+      }
     }
   }
 
   _play(state, fade = 0.2, once = false, rate = 1) {
+    if (this._retired) return;
     const next = this.actions && this.actions[state];
     if (!next) return;
     if (next === this.current) {
@@ -434,9 +496,9 @@ class NpcEntity {
   // for 381 of the 495, a name candidate for 20, absent for 94), carried in
   // the glTF as the clip literally named 'social' and bound in
   // upgradeToMonster().
-  // Where the mesh ships no social clip at all there is nothing retail would
-  // have played either, so this plays nothing rather than borrowing another
-  // slot; returns the state it played for verification.
+  // An absent converted clip does not prove an original None selector. This
+  // compatibility path plays only an available bound action; unresolved
+  // original selectors stay an explicit parity gap.
   socialFlash() {
     if (!this.actions || this.dead) return null;
     if (!this.actions.social) return null;
@@ -445,6 +507,7 @@ class NpcEntity {
   }
 
   _playTimed(state, rate) {
+    if (this._retired) return;
     const action = this.actions[state];
     if (!action) return;
     const r = rate > 0 && isFinite(rate) ? rate : 1;
@@ -453,19 +516,22 @@ class NpcEntity {
     this.lastFlash = { state, rate: r, ms };   // verification hook
     clearTimeout(this._attackTimer);
     this._attackTimer = setTimeout(() => {
-      if (!this.dead) this._play(this.target ? 'walk' : 'idle');
+      if (!this._retired && !this.dead) this._play(this.target ? 'walk' : 'idle');
     }, ms);
   }
 
   die() {
+    if (this._retired) return;
     this.dead = true;
     this.target = null;
     if (this.actions) this._play('die', 0.15, true);
     clearTimeout(this._attackTimer);
-    this._fadeTimer = setTimeout(() => this._finishDeath(), 2500);
+    clearTimeout(this._fadeTimer);
+    this._fadeTimer = setTimeout(() => { if (!this._retired && this.dead) this._finishDeath(); }, 2500);
   }
 
   _finishDeath() {
+    if (this._retired) return;
     // fade the corpse out
     this.group.traverse(o => {
       if (o.isMesh) {
@@ -477,6 +543,7 @@ class NpcEntity {
   }
 
   revive() {
+    if (this._retired) return;
     this.dead = false;
     clearTimeout(this._fadeTimer);
     this.group.traverse(o => {
@@ -490,6 +557,7 @@ class NpcEntity {
   }
 
   update(dt, terrain) {
+    if (this._retired) return;
     if (this.mixer) this.mixer.update(dt);
     if (!this.target || this.dead) return;
     const pos = this.group.position;
@@ -671,16 +739,20 @@ export class EntityManager {
   addNpc(msg, terrain) {
     const id = msg.id;
     const existing = this.entities.get(id);
-    if (existing) {
+    if (existing?.kind === 'npc' && (!Object.prototype.hasOwnProperty.call(msg, 'npcId') || msg.npcId === existing.npcId)) {
+      existing.captureOriginalNpcInfo(msg);
       existing.collisionRadius = msg.collisionRadius;
       existing.collisionHeight = msg.collisionHeight;
       if (msg.dead != null) existing.dead = !!msg.dead;
       return;
     }
-    if (this.pending.has(id)) return;
+    // A new template on the same object ID cannot inherit the old model or
+    // pending upgrade. Also retire a different entity kind/pending player.
+    if (existing || this.pending.has(id)) this.remove(id);
     const npc = new NpcEntity(msg);
     // type (Monster/Folk) resolves with the async npcgrp fetch
     npcMeshes().then(map => {
+      if (npc._retired || this.entities.get(id) !== npc) return;
       const grp = map[String(npc.npcId)];
       if (grp) npc.npcType = grp.type || null;
     });
@@ -1024,6 +1096,7 @@ export class EntityManager {
       e.cancelCast();
       e.cancelAppearance();
     }
+    if (e.kind === 'npc') e.retire?.();
     this.scene.remove(e.group);
     this.entities.delete(id);
   }

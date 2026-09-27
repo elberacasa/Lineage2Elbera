@@ -1737,21 +1737,46 @@ function parseNpcInfo(r) {
   const collisionRadius = r.readF();
   const collisionHeight = r.readF();
   const rhand = r.readD(); const chest = r.readD(); const lhand = r.readD();
-  r.readC(); // name above
+  // Original opcode 0x16 forwards this byte to Controller.WaitType (+0x435).
+  // Preserve its raw value; the emulator's "name above" label is not proof
+  // of the original client consumer. See the NPC animation evidence.
+  const waitType = r.readC();
   const running = r.readC();
-  r.readC(); // combat
+  const combat = r.readC(); // original state byte; preserve it for NPC animation selection
   const dead = r.readC() !== 0; // alikeDead
-  r.readC(); // summon anim
+  const summonAnimationRaw = r.readC(); // original byte 29; no neutral-state inference
   const name = r.readS();
   const title = r.readS();
+  // The original reader consumes three D words after the strings, then the
+  // separate dddddccffdd extension. Keep the complete raw record, without
+  // assigning source semantics from the emulator's field labels. Legacy
+  // shortened packets remain usable, but cannot imply an all-zero tail.
+  let npcInfoTail;
+  if (r.remaining() >= 58) {
+    npcInfoTail = {
+      prefix: Array.from({ length: 3 }, () => r.readD()),
+      extension: {
+        dwords: Array.from({ length: 5 }, () => r.readD()),
+        bytes: [r.readC(), r.readC()],
+        doubles: [r.readF(), r.readF()],
+        finalDwords: [r.readD(), r.readD()],
+      },
+    };
+    // JSON cannot preserve NaN/Infinity: do not turn those wire values into
+    // null and subsequently admit them as a received numeric source value.
+    if (!npcInfoTail.extension.doubles.every(Number.isFinite)) {
+      throw new RangeError('NpcInfo tail contains a non-finite wire double');
+    }
+  }
   // aCis 409 NpcInfo has NO level field; when Config.ShowNpcLevel is on the
   // server prepends "Lv N" to the title (AbstractNpcInfo.java:106).
   let level = null;
   const lvlMatch = /^Lv (\d+)/.exec(title);
   if (lvlMatch) level = Number(lvlMatch[1]);
   return { id: objectId, npcId, isAttackable, name, title, level, x, y, z, heading,
-           runSpeed, walkSpeed, speedMul, running, rhand, chest, lhand,
-           pAtkSpd, mAtkSpd, atkSpdMul, collisionRadius, collisionHeight, dead };
+           runSpeed, walkSpeed, speedMul, running, waitType, combat, rhand, chest, lhand,
+           pAtkSpd, mAtkSpd, atkSpdMul, collisionRadius, collisionHeight, dead,
+           summonAnimationRaw, ...(npcInfoTail ? { npcInfoTail } : {}) };
 }
 
 // Full UserInfo layout (serverpackets/UserInfo.java). Remember: writeF is an

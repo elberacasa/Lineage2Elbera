@@ -50,8 +50,8 @@ export function advanceWaitSequence(state,delta,advancementBudget=4) {
 
 /** Channel-zero ordinary AnimEnd calls PlayWaiting immediately, then the
  * native channel loop consumes remaining delta with the SAME four-step cap.
- * Each segment must be sampled before installing the next sequence so that
- * its tween starts at the displayed endpoint. EnableChannelNotify is an
+ * Segments retain notify identity; advancing an endpoint does not itself
+ * evaluate GetFrame or replace the last source-pose cache. EnableChannelNotify is an
  * explicit browser policy; the fresh native allocation default is unknown.
  */
 export function advanceWaitPlayback(state,delta) {

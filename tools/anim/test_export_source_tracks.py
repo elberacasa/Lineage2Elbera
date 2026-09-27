@@ -388,4 +388,218 @@ class RuntimeTransportTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(),b'KEEP');self.assertEqual(list(target.parent.iterdir()),[target])
 
 
+def npc_runtime_fixture(mesh_ref='MeshPkg.Group.Creature', animation_ref='AnimPkg.Group.Movement'):
+    from npc_source_tracks import npc_model_id
+    model = npc_model_id(mesh_ref)
+    catalog, skeleton = runtime_fixture(model)
+    catalog.update(meshRef=mesh_ref, animationRef=animation_ref)
+    skeleton.update(format='elbera-original-npc-skeleton-v1', meshRef=mesh_ref, animationRef=animation_ref)
+    skeleton['source'] = {'meshPackageSHA256':'d'*64, 'animationPackageSHA256':'a'*64,
+                          'meshExportSHA256':'e'*64, 'animationExportSHA256':'b'*64}
+    return catalog, skeleton
+
+
+class NpcRuntimeTransportTests(unittest.TestCase):
+    def test_npc_cross_package_identity_preserves_payload_and_both_source_pairs(self):
+        player, player_skeleton = runtime_fixture()
+        catalog, skeleton = npc_runtime_fixture()
+        old, new = pack_animation_bundle(player, player_skeleton), pack_animation_bundle(catalog, skeleton)
+        def parts(blob):
+            _magic,_version,n,_payload = struct.unpack_from('<4sIII',blob)
+            return json.loads(blob[16:16+n]), blob[16+(n+3)//4*4:]
+        meta, payload = parts(new)
+        self.assertEqual(payload, parts(old)[1], 'NPC identity must not resample source keys')
+        self.assertEqual(meta['skeleton'],skeleton)
+        self.assertEqual(meta['catalog']['meshRef'],'MeshPkg.Group.Creature')
+        self.assertEqual(len(meta['catalog']['sequences']),2)
+        self.assertNotEqual(skeleton['source']['meshPackageSHA256'],catalog['source']['packageSHA256'])
+
+    def test_npc_identity_and_missing_source_fields_fail_without_player_fallback(self):
+        mutations = [lambda c,s:c.pop('meshRef'), lambda c,s:s['source'].pop('meshPackageSHA256'),
+                     lambda c,s:s['source'].__setitem__('animationPackageSHA256','f'*64),
+                     lambda c,s:s['source'].__setitem__('meshExportSHA256',''),
+                     lambda c,s:c.__setitem__('meshRef','MeshPkg.Other.Creature'),
+                     lambda c,s:s.__setitem__('meshRef','../Creature'),
+                     lambda c,s:c.__setitem__('modelId','npc_'+'0'*32)]
+        for mutate in mutations:
+            c,s=npc_runtime_fixture();mutate(c,s)
+            with self.subTest(mutate=mutate), self.assertRaises(ValueError):pack_animation_bundle(c,s)
+
+    def test_npc_cli_requires_runtime_before_reads_and_atomically_checks_selected_index(self):
+        c,s=npc_runtime_fixture();model=c['modelId']
+        index={'format':'elbera-original-npc-animation-runtime-index-v1','npcs':{'101':{'modelId':model}},
+               'models':{model:{'meshRef':s['meshRef'],'animationRef':s['animationRef']}}}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(exporter,'OUTPUT',Path(tmp)/'animation-tracks'), \
+             patch.object(exporter,'collect_npcs',side_effect=lambda ids:({model:c},{model:s},copy.deepcopy(index))) as collector, \
+             redirect_stdout(io.StringIO()):
+            with patch('sys.stderr',io.StringIO()), self.assertRaises(SystemExit):exporter.main(['--npc','101'])
+            collector.assert_not_called()
+            exporter.main(['--npc','101','--runtime']);self.assertFalse(exporter.OUTPUT.exists())
+            exporter.main(['--npc','101','--runtime','--write'])
+            bundle=exporter.OUTPUT/'runtime'/f'{model}.l2anim';target=Path(tmp)/'npc-animation-runtime.json'
+            emitted=json.loads(target.read_bytes())
+            self.assertEqual(emitted['models'][model]['bundleSHA256'],hashlib.sha256(bundle.read_bytes()).hexdigest())
+            exporter.main(['--npc','101','--runtime','--check'])
+            before=target.read_bytes();bundle.write_bytes(bundle.read_bytes()+b'bad')
+            with self.assertRaisesRegex(ValueError,'missing or stale'):exporter.main(['--npc','101','--runtime','--check'])
+            self.assertEqual(target.read_bytes(),before)
+            with patch.object(Path,'replace',side_effect=OSError('no replacement')):
+                with self.assertRaises(OSError):exporter.main(['--npc','101','--runtime','--write'])
+            self.assertEqual(target.read_bytes(),before)
+            self.assertEqual(list(bundle.parent.iterdir()),[bundle])
+
+
+class NpcSourceCollectorTests(unittest.TestCase):
+    """Actual collector with authored package-reader boundaries, no asset reads."""
+    def setUp(self):
+        import npc_source_tracks as npc
+        self.npc=npc
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.root=Path(self.temp.name)
+        c,s=npc_runtime_fixture();self.animation={k:c[k] for k in ('bones','sequences')}
+        self.mesh_ref=s['meshRef'];self.anim_ref=s['animationRef']
+        self.mesh={'bones':s['bones'],'animationReference':-1,'sourceExportSHA256':hashlib.sha256(b'MESH').hexdigest()}
+        self.mesh_package=SimpleNamespace(path=self.root/'MeshPkg.ukx',data=b'MESHx',
+            names=['Root','Absent','Child'],file_version=123,licensee_version=30)
+        self.anim_package=SimpleNamespace(path=self.root/'AnimPkg.ukx',data=b'xANIMATIONy',
+            names=['Unrelated','Child','Root'],file_version=123,licensee_version=28)
+        for package in (self.mesh_package,self.anim_package):Path(package.path).write_bytes(package.data)
+        self.mesh_export=SimpleNamespace(index=0,serial_offset=0,serial_size=4)
+        self.anim_export=SimpleNamespace(index=0,serial_offset=1,serial_size=9)
+        asha=hashlib.sha256(b'ANIMATION').hexdigest()
+        self.selectors={'npcs':{str(i):{'className':'Original.Creature'+str(i),'meshName':self.mesh_ref,
+            'status':'source-animation','inheritance':['original.creature'+str(i),'engine.pawn'],
+            'selectors':{'WaitAnimName':{'0':{'value':'Ordinary','status':'source-sequence'}}}} for i in (101,102)},
+            'meshes':{self.mesh_ref.casefold():{'status':'source-animation','animation':self.anim_ref,
+                'sourceExportSHA256':self.mesh['sourceExportSHA256'],'built':{'gltf':'models/fixture.gltf'}}},
+            'animations':{self.anim_ref.casefold():{'sourceExportSHA256':asha}},
+            'sources':{'animations/'+Path(p.path).name:hashlib.sha256(p.data).hexdigest()
+                       for p in (self.mesh_package,self.anim_package)},'sourceSHA256':'f'*64}
+        owner=self;self.export_calls=[]
+        class Sources:
+            def get(self,kind,name):
+                if kind!='animations':raise AssertionError(kind)
+                return {'meshpkg':owner.mesh_package,'animpkg':owner.anim_package}[name.casefold()]
+        def export(package,reference,kind):
+            self.export_calls.append((reference,kind))
+            if (reference,kind)==(self.mesh_ref,'SkeletalMesh'):return self.mesh_export
+            if (reference,kind)==(self.anim_ref,'MeshAnimation'):return self.anim_export
+            raise ValueError('unmatched qualified synthetic export')
+        tool=Path(__file__).resolve().parents[1]/'ui/check_animation_linkup_native.py'
+        spec=importlib.util.spec_from_file_location('check_animation_linkup_native',tool)
+        linkup=importlib.util.module_from_spec(spec);spec.loader.exec_module(linkup)
+        modules={
+            'build_hair':SimpleNamespace(Sources=Sources,source_lod0=lambda p,e:copy.deepcopy(self.mesh)),
+            'build_npc_variants':SimpleNamespace(recover_selectors=lambda tmp,ids:copy.deepcopy(self.selectors),
+                unique_source_export=export,mesh_animation_reference=lambda p,e:(self.anim_ref,{
+                    'sourceExportSHA256':self.mesh['sourceExportSHA256'],'animationReferenceOffset':99})),
+            'build_pawnanim':SimpleNamespace(original_animation=lambda p,e,include_tracks:copy.deepcopy(self.animation),
+                source_ref_path=lambda p,ref,pkg:self.mesh_ref if ref==1 else self.anim_ref),
+            'check_animation_linkup_native':linkup,
+        }
+        for patcher in [patch.dict(sys.modules,modules),patch.object(npc,'ROOT',self.root),
+                        patch.object(sys,'path',sys.path[:]),
+                        patch.object(npc,'built_correspondence',return_value={'geometryProof':{'status':'synthetic-test'},'skinProof':{'status':'unverified'}})]:
+            patcher.start();self.addCleanup(patcher.stop)
+
+    def test_qualified_shared_mesh_deduplicates_bundle_without_collapsing_class_selectors(self):
+        catalogs,skeletons,index=self.npc.collect_npcs([101,102])
+        self.assertEqual(len(catalogs),1);model=next(iter(catalogs));c=catalogs[model];s=skeletons[model]
+        self.assertEqual(self.export_calls,[(self.mesh_ref,'SkeletalMesh'),(self.anim_ref,'MeshAnimation')])
+        self.assertEqual(c['sequences'],self.animation['sequences'])
+        self.assertEqual(s['trackBindings'],[0,-1,1], 'cross-package token numbers cannot be compared as global IDs')
+        self.assertEqual(c['source']['packageSHA256'],s['source']['animationPackageSHA256'])
+        self.assertNotEqual(s['source']['meshPackageSHA256'],s['source']['animationPackageSHA256'])
+        self.assertEqual(c['source']['exportSHA256'],hashlib.sha256(b'ANIMATION').hexdigest())
+        self.assertEqual(index['npcs']['102']['className'],'Original.Creature102')
+        self.assertEqual(index['npcs']['101']['selectors'],self.selectors['npcs']['101']['selectors'])
+        self.assertEqual(index['models'][model]['bundle'],f'animation-tracks/runtime/{model}.l2anim')
+        pack_animation_bundle(c,s)
+
+    def test_stale_package_animation_and_ambiguous_names_reject(self):
+        for change,pattern in [
+                (lambda:self.selectors['animations'][self.anim_ref.casefold()].__setitem__('sourceExportSHA256','0'*64),'animation changed'),
+                (lambda:self.selectors['sources'].__setitem__('animations/MeshPkg.ukx','0'*64),'package changed'),
+                (lambda:self.mesh_package.names.append('ROOT'),'name-table')]:
+            selectors=copy.deepcopy(self.selectors);names=self.mesh_package.names[:]
+            change()
+            with self.subTest(pattern=pattern),self.assertRaisesRegex(ValueError,pattern):self.npc.collect_npcs([101,102])
+            self.selectors=selectors;self.mesh_package.names=names
+
+    def test_missing_source_or_requested_ids_never_use_legacy_built_alias(self):
+        self.selectors['npcs']['101']['status']='unresolved-source'
+        with self.assertRaisesRegex(ValueError,'no resolved original'):self.npc.collect_npcs([101,102])
+        for ids in ([],[101,101],[True],[0],[103]):
+            with self.subTest(ids=ids),self.assertRaises(ValueError):self.npc.collect_npcs(ids)
+
+
+class NpcBuiltCorrespondenceTests(unittest.TestCase):
+    """Actual geometry/path verifier using a fully authored triangle and glTF."""
+    def setUp(self):
+        import npc_source_tracks as npc
+        self.npc=npc
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.base=Path(self.temp.name);(self.base/'models').mkdir()
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'dat'))
+        self.addCleanup(lambda:sys.path.remove(str(Path(__file__).resolve().parents[1]/'dat')))
+        self.raw=bytearray();self.views=[];self.accessors=[]
+        def attribute(rows,fmt,width,component,kind):
+            self.raw.extend(b'\0'*(-len(self.raw)%4));start=len(self.raw)
+            for row in rows:self.raw.extend(struct.pack('<'+str(width)+fmt,*row))
+            self.views.append({'buffer':0,'byteOffset':start,'byteLength':len(self.raw)-start})
+            self.accessors.append({'bufferView':len(self.views)-1,'componentType':component,'count':len(rows),'type':kind})
+            return len(self.accessors)-1
+        pos=attribute([(0.,0.,0.),(1.,0.,0.),(0.,0.,1.)],'f',3,5126,'VEC3')
+        uv=attribute([(0.,0.),(1.,0.),(0.,1.)],'f',2,5126,'VEC2')
+        joints=attribute([(0,0,0,0)]*3,'H',4,5123,'VEC4')
+        weights=attribute([(1.,0.,0.,0.)]*3,'f',4,5126,'VEC4')
+        indices=attribute([(0,),(1,),(2,)],'H',1,5123,'SCALAR')
+        self.weight_offset=self.views[weights]['byteOffset']
+        self.gltf={'asset':{'version':'2.0'},'buffers':[{'uri':'fixture.bin','byteLength':len(self.raw)}],
+            'bufferViews':self.views,'accessors':self.accessors,
+            'nodes':[{'name':'Root'},{'name':'mFixture','mesh':0,'skin':0}],
+            'skins':[{'joints':[0]}],'materials':[{'name':'SyntheticMaterial'}],
+            'meshes':[{'name':'mFixture','primitives':[{'attributes':{'POSITION':pos,'TEXCOORD_0':uv,
+                       'JOINTS_0':joints,'WEIGHTS_0':weights},'indices':indices,'material':0}]}]}
+        self.source={'name':'mFixture','bones':[{'name':'Root','parent':0}],
+            'vertices':[{'position':p,'uv':uv,'sourceInfluences':[(0,1.)]}
+                        for p,uv in [((0.,0.,0.),(0.,0.)),((100.,0.,0.),(1.,0.)),((0.,100.,0.),(0.,1.))]],
+            'stream':'soft','softIndices':[0,1,2],
+            'softSections':[{'firstFace':0,'numFaces':1,'material':0}],
+            'materialSlots':[{'textureIndex':0,'polyFlags':0}], 'sourceLOD0':{'SHA256':'f'*64}}
+        self.diagnostic={'gltf':'models/fixture.gltf','status':'legacy-only'}
+        (self.base/'manifest.json').write_text(json.dumps({'models':[{'id':'fixture','gltf':'models/fixture.gltf'}]}))
+        self.save()
+
+    def save(self):
+        (self.base/'models/fixture.gltf').write_text(json.dumps(self.gltf))
+        (self.base/'models/fixture.bin').write_bytes(self.raw)
+
+    def test_source_geometry_and_bone_paths_match_but_weights_remain_unverified(self):
+        result=self.npc.built_correspondence(self.base,self.diagnostic,self.source)
+        self.assertEqual(result['modelId'],'fixture');self.assertEqual(result['boneNodes'],[0])
+        self.assertEqual(result['geometryProof']['status'],'triangle-position-uv-winding-exact')
+        self.assertEqual(result['sourceTriangles'],1)
+        self.assertEqual(result['skinProof']['status'],'unverified')
+        self.assertEqual(result['buffers'][0],{'uri':'fixture.bin','byteLength':len(self.raw),
+                         'SHA256':hashlib.sha256(self.raw).hexdigest()})
+        for i in range(3):struct.pack_into('<f',self.raw,self.weight_offset+i*16,.5)
+        self.save();changed=self.npc.built_correspondence(self.base,self.diagnostic,self.source)
+        self.assertEqual(changed['skinProof']['status'],'unverified')
+        self.assertEqual(changed['skinProof']['differentInfluenceVertices'],3)
+
+    def test_changed_actual_geometry_and_renamed_bone_cannot_use_legacy_alias(self):
+        struct.pack_into('<f',self.raw,0,2.);self.save()
+        with self.assertRaisesRegex(ValueError,'triangle position'):self.npc.built_correspondence(self.base,self.diagnostic,self.source)
+        struct.pack_into('<f',self.raw,0,0.);self.gltf['nodes'][0]['name']='DifferentRoot';self.save()
+        with self.assertRaisesRegex(ValueError,'bone-parent path'):self.npc.built_correspondence(self.base,self.diagnostic,self.source)
+
+    def test_buffer_escape_or_wrong_size_fails_before_source_admission(self):
+        for uri in ('../fixture.bin','https://invalid/fixture.bin','%2e%2e/fixture.bin'):
+            self.gltf['buffers'][0]['uri']=uri;self.save()
+            with self.subTest(uri=uri),self.assertRaises(ValueError):self.npc.built_correspondence(self.base,self.diagnostic,self.source)
+        self.gltf['buffers'][0]['uri']='fixture.bin';self.raw.append(0);self.save()
+        with self.assertRaisesRegex(ValueError,'byte length'):self.npc.built_correspondence(self.base,self.diagnostic,self.source)
+
+
 if __name__ == '__main__': unittest.main()
