@@ -1,13 +1,15 @@
-# Original NPC class animation variants
+# Elbera Tools: original NPC animation selectors and variants
 
 The browser's old animation catalog is keyed by mesh. Original `npcgrp.dat`
 binds an NPC to both a **class** and a mesh, and several classes share the same
 mesh while declaring different localized animation names. Taking the first
 class for a mesh makes corpse NPCs play a living guard or merchant's idle.
 
-`tools/anim/build_npc_variants.py` fixes the following bounded, independently
-checked cases. Values are decoded afresh on each build; this table documents
-the result, rather than supplying animation values to the converter.
+`tools/anim/build_npc_variants.py` has two separate modes. Its default mode
+builds the bounded clip supplements below. `--selectors-only` recovers the
+qualified per-NPC source fields and sequence timing without changing model
+assets; that catalog is not yet consumed by the browser. Values are decoded
+afresh on each build, rather than supplied by these documentation tables.
 
 | Original class | Original field | Sequence in the mesh's bound animation set |
 | --- | --- | --- |
@@ -23,7 +25,7 @@ Sequence matching follows original name case insensitivity and preserves the
 actual PSA spelling in the generated clip name. The new glTF clips are named
 `native:<sequence>`; original geometry, materials and earlier clips remain.
 
-## Reproduction and evidence chain
+## Existing bounded clip supplements
 
 Run `python3 tools/anim/build_npc_variants.py` with the owner's original
 Interlude files and existing converted models available locally. The script:
@@ -74,6 +76,108 @@ python3 -m unittest discover -s tools/anim -p test_build_npc_variants.py
 node --test editor/world/test/npcanimations.test.mjs
 ```
 
+## Qualified selector recovery without rebuilding models
+
+The selector mode reads original `npcgrp.dat`, qualified UClass parents and
+localized `.int` arrays, then follows each SkeletalMesh's **serialized
+Animation reference**. The animation may belong to another package. Lookup
+matches the full package/object path, including groups; a name suffix or
+same-named object in another package cannot select it. The bounded original
+mesh reader admits package version 123, licensee 28/30 and LodMesh version 5.
+An unsupported layout is reported instead of trying a different animation.
+
+The original MeshAnimation reader preserves each sequence's frame count and
+Float32 rate without decimal rounding. It does not convert these values into
+playback deadlines or pick a stance. Each name retains its localized array
+index and declaring class. Two NPC classes sharing a mesh therefore retain
+independent selectors, including corpse-specific `WaitAnimName` values.
+
+With local original Interlude inputs available:
+
+```sh
+python3 tools/anim/build_npc_variants.py --selectors-only --npc 20001 20091 \
+  --output tmp/restart-audit/npc-animation-audit/selectors.json
+python3 tools/anim/build_npc_variants.py --selectors-only --npc 20001 20091 \
+  --output tmp/restart-audit/npc-animation-audit/selectors.json --check
+python3 -S -m unittest discover -s tools/anim -p test_build_npc_variants.py
+```
+
+`--check` freshly reads the inputs and compares exact output bytes; it writes
+nothing. The first command writes only the requested private catalog. Without
+`--npc`, the tool attempts every original NPC record; the fresh source check
+for this checkpoint covers Gremlin 20001 and fox 20091, not the whole roster.
+Without `--output`, the selector destination is the ignored
+`assets/gamedata/npcselectors.json`. No original files, generated catalogs or
+raw audit extracts belong in the public tool distribution.
+
+The `l2-interlude-npc-selectors-v1` contract contains:
+
+| Field | Meaning and admission limit |
+| --- | --- |
+| `npcs[id]` | Original qualified class and mesh, complete ancestry, localized fields and per-element selectors. NPC identity is never collapsed to a mesh ID. |
+| `selectors[field][index]` | Original value and declaring class. `source-sequence` adds the exact sequence spelling, frame count and rate. |
+| `meshes[qualifiedName]` | Original mesh export hash, serialized reference offset/bytes hash and bound qualified animation identity. |
+| `animations[qualifiedName]` | Original export hash and sequence records with their own source provenance. |
+| `sources` / `sourceSHA256` | Fresh original package/table fingerprints and their canonical aggregate digest. |
+| `meshes[…].built` | Optional diagnostic of the current legacy model manifest, actual glTF/buffer hashes and exact declared aliases. It is **not** source-mesh or baked-pose equivalence proof. |
+
+An explicit original `None` produces `source-none`; an empty localized value
+produces `source-empty-localized-value`; a named sequence absent from the bound
+animation produces `unresolved-sequence`. Missing fields or array indexes stay
+missing: this mode does not yet recover serialized default-property fallback.
+An empty original mesh name, a zero Animation reference and an unreadable
+source export likewise remain separate states. The localized fields survive
+even when there is no usable animation. Missing/ambiguous class ancestry fails
+before the output is written.
+
+Legacy aliases require the manifest's exact source sequence and a unique
+actual glTF clip name. Explicit alias chains are retained only when their
+destination declares that same sequence. These records are labeled
+`legacy-manifest-alias-pose-unverified`; matching labels and byte hashes do
+not prove how a historical converter produced the pose. No keyword search,
+first-clip fallback or visual similarity supplies a missing alias.
+
+Fresh original results illustrate why the distinction matters:
+
+| NPC | Serialized animation object | Ordinary localized names | Source timing examples |
+| --- | --- | --- | --- |
+| Gremlin 20001 | `LineageMonsters.gremlin_anim` | Wait, walk, run, atkwait, atk01, death, deathwait | Wait 61 frames; walk 23; run 17; atk01 55; death 64; deathwait 1; each rate 30. |
+| Fox 20091 | `LineageMonsters.Fox_anim` | Wait, walk, run, atkwait, atk01, death, deathwait | Wait 61 frames; walk 31; run 21; atk01 55; death 43; deathwait 1; each rate 30. |
+
+For both classes all three localized attack-name arrays point to `atk01` at
+index zero. That observation does not establish the general attack-choice
+rule. Fox's localized social array names `spwait01`; no corresponding
+localized Gremlin social field was recovered through its ancestry. The latter
+is unresolved, not proof that the native client never plays its `SpWait01`.
+Both current legacy models omit an `atkwait` clip despite its presence in the
+original animation object.
+
+## Native consumer boundary
+
+A separate read-only inspection of the owned Interlude `Engine.dll`
+(`07b24af4ab55e4230d0a7949df5b07565319e62a1b20f38fefb16ebe54821ad0`)
+establishes why a source name table alone is insufficient for a runtime port.
+The following are preferred-image-base virtual addresses, not RVAs; the
+selector exporter verifies the data chain above, not these native bodies.
+
+| Native consumer | Bounded finding |
+| --- | --- |
+| `APawn::GetCurMoveAnimName`, `0x106176b0` | Ordinary MoveType selects walk/run arrays indexed by `CurWeaponType`; riding and other branches remain separate. |
+| `APawn::GetCurWaitAnimName`, `0x10617240` | Ordinary standing reads `WaitAnimName`; combat reads `AtkWaitAnimName`; dead state reaches `GetDeathWaitAnimName`. Sit, swim, ride and abnormal-state branches also exist. |
+| `GetDeathAnimName`, `0x10614bb0`; `GetDeathWaitAnimName`, `0x10614ca0` | Death transition and corpse wait use distinct source arrays, with special-state alternatives. |
+| `OnNpcInfo`, `0x10494b40` | Stores incoming move/wait and dead/combat state before resource setup and `GetCurWaitAnimName` loop playback at `0x10495634–0x10495654`. |
+| `OnDie`, `0x10490b50` | Sets dead state and uses `GetDeathAnimName` for one-shot playback. This audit does not recover the complete subsequent AnimEnd/corpse lifecycle. |
+| `User::GetAnimType`, `0x10485c10` | Computes the stance from equipment/item metadata; general slot-zero selection cannot be justified by an NPC's class name. |
+| `SwordAttackProcess`, `0x106317f0` | Selects among three attack-name arrays. The upstream choice helper remains unbound, so no random-choice policy is claimed. |
+
+Movement rates also have source rate arrays and native modifiers. Sequence
+`rate` is the original clip rate, not a substitute for those runtime values.
+The smallest next runtime work is to admit exact source selectors only with
+proven stance/state inputs and renderable, independently verified clip data;
+initial dead NPCs need the original corpse-wait selector rather than an
+immediate death transition. Native attack choice, playback/blend clocks and
+the current authored corpse fade remain separate gaps.
+
 ## Remaining fidelity gaps
 
 This change covers the named array elements above. It does not claim the full
@@ -99,7 +203,7 @@ audit finds 165 configured spawn instances with blank mesh fields across these
 effect classes; spawn XML is used only to prioritize the existing server's
 population, never as proof of the official visual behavior.
 
-Per-NPC texture overrides also remain separate work. Original `npcgrp` selects
-gold/ghost texture variants for Golden Cursed Pig, Ghost of Adventurer, Ghost
-Chamberlains/Imperial Tomb Guide and Ghost of Wigoth. A single fixed-material
-glTF per shared mesh cannot represent all of those original records.
+Per-NPC materials have their own bounded implementation and limits, described
+in [original NPC material bindings](native-npc-material-evidence.md). The seven
+ghost overrides and Angel wing-alpha correction do not imply complete Shader
+or lighting parity; Golden Cursed Pig's specular graph remains unresolved.
