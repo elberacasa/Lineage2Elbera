@@ -47,17 +47,33 @@ def source_bytes(root, name):
 
 
 def build_bytes(root, version, revision):
+    return build_source_archive(root, version, revision, FILES, 'core')
+
+
+def build_source_archive(root, version, revision, files, kit, source_state=None):
+    """Shared deterministic archive machinery; each kit supplies an allowlist."""
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}', version):
         raise ValueError('version must be a short filename-safe label')
-    prefix = f'elbera-tools-core-{version}'
-    payload = {name: source_bytes(root, source) for name, source in FILES.items()}
+    if not re.fullmatch(r'[a-z][a-z0-9-]{0,47}', kit):
+        raise ValueError('kit must be a short lowercase filename-safe label')
+    for name in files:
+        path = PurePosixPath(name)
+        if (not name or '\\' in name or path.is_absolute() or '..' in path.parts
+                or str(path) != name or name == 'MANIFEST.json'):
+            raise ValueError(f'unsafe archive path: {name}')
+    prefix = f'elbera-tools-{kit}-{version}'
+    payload = {name: source_bytes(root, source) for name, source in files.items()}
     manifest = {
-        'format': 'elbera-tools-core-release-v1', 'version': version,
+        'format': f'elbera-tools-{kit}-release-v1', 'version': version,
         'sourceRevision': revision, 'sourceOnly': True,
-        'files': [{'path': name, 'sourcePath': FILES[name], 'bytes': len(raw),
+        'files': [{'path': name, 'sourcePath': files[name], 'bytes': len(raw),
                    'sha256': hashlib.sha256(raw).hexdigest()}
                   for name, raw in sorted(payload.items())],
     }
+    if source_state is not None:
+        if source_state not in ('working-tree-candidate', 'committed-source'):
+            raise ValueError('unknown source state')
+        manifest['sourceState'] = source_state
     payload['MANIFEST.json'] = (json.dumps(manifest, indent=2, sort_keys=True) + '\n').encode()
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
@@ -70,13 +86,13 @@ def build_bytes(root, version, revision):
     return stream.getvalue(), prefix
 
 
-def smoke_archive(raw, prefix):
+def smoke_archive(raw, prefix, script='tools/release/smoke_core.py', arguments=()):
     # Unpack only the archive just constructed above. No local assets, app,
     # symlinks, external package installation or inherited PYTHONPATH needed.
     with tempfile.TemporaryDirectory(prefix='elbera-tools-core-') as temp:
         with zipfile.ZipFile(io.BytesIO(raw)) as archive:
             archive.extractall(temp)
-        subprocess.run([sys.executable, '-I', 'tools/release/smoke_core.py'],
+        subprocess.run([sys.executable, '-I', script, *arguments],
                        cwd=Path(temp) / prefix, check=True, timeout=60)
 
 

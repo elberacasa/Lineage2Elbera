@@ -8,6 +8,15 @@ separate allowlisted Python source kit: l2lib, the UTX editor, script extractor
 and XDAT decoder, with portable checks and no game/app assets. Its release
 builder tests the actual archive in an isolated directory before writing it.
 
+[Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
+kit for qualified NPC selectors, original sparse-key bundles and optional GPU
+weight inputs, plus the bounded initial-animation and GPU native verifiers.
+It includes 43 text files and a hash manifest. Portable checks need only Python;
+optional PE fixtures and original native checks require Capstone 5.0.7. Runtime
+bundle export needs your matching converted model data. The graphical NPC
+inspector remains in the full project. See the guide for the four supported
+command paths; bundled support modules are not additional standalone commands.
+
 Run commands below from the repository root. Python tools use the existing
 repository modules; native verifiers also require `pefile` and `capstone`.
 Game files are supplied locally by the operator and are never included in
@@ -40,7 +49,7 @@ inputs rather than treating another build as equivalent.
 | Original pawn timing | `python3 tools/anim/build_pawnanim.py --check` | Bounded original sequence traversal for 14 player models; exact frame/rate fields and ordered, class-identified notifies. Requires private source and generated timing data. [Contract and limits](../docs/pawn-animation-timing-evidence.md). |
 | Original sparse animation keys | `python3 tools/anim/export_source_tracks.py` | Read-only by default; `--write` retains private source keys and hashes, `--check` compares a fresh decode. All 14 player exports; no PSA resampling or fabricated keys. [Browser preview](../docs/native-track-evidence.md#browser-pose-preview). |
 | Original animation runtime | `python3 tools/anim/export_source_tracks.py --runtime` | Lossless private bundles for all 1,367 sequences; `--write` builds and `--check` freshly decodes. Strict immutable browser loader and prepared sampling support live wait/cast schedules. [Format, use and limits](../docs/original-animation-runtime.md). |
-| Original NPC sparse runtime inputs | `python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime` | Read-only by default; `--write` builds the private selected-set index and bundles, `--check` freshly compares them. All eight sequences each for Gremlin/fox, including one-frame corpse poses. Exact triangle geometry and bone-path checks; optional `--npc-skin` retains original GPU weight lanes after loader normalization. Full native skinning remains unverified. The entity loader admits inputs for manual inspection, not automatic native playback. [Inputs, browser route and limits](../docs/original-npc-animation-runtime.md). Excluded from Core 0.1.0. |
+| Original NPC sparse runtime inputs | `python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime` | Read-only by default; `--write` builds the private selected-set index and bundles, `--check` freshly compares them. All eight sequences each for Gremlin/fox, including one-frame corpse poses. Exact triangle geometry and bone-path checks; optional `--npc-skin` retains original GPU weight lanes after loader normalization. Full native skinning remains unverified. The entity loader admits inputs for manual inspection, not automatic native playback. [Inputs, browser route and limits](../docs/original-npc-animation-runtime.md). Included in [NPC Source](release/NPC-SOURCE-README.md), excluded from Core 0.1.0. |
 | Original NPC GPU skin inputs | `python3 tools/ui/check_npc_skin_native.py --comparison-engine /path/to/pinned/engine.dll --check` | Original soft52 serializer, conditional GPU stream binding and all 1,746 source records checked. The optional source bundle carries exact lanes; full shader, inverse-bind and CPU deformation parity remain open. [Evidence and limits](../docs/native-npc-skin-evidence.md). |
 | Original NPC initial-animation inputs | `python3 tools/ui/check_npc_animation_native.py --comparison-engine /path/to/pinned/engine.dll --comparison-core /path/to/pinned/Core.dll --check` | Owned originals plus explicitly supplied pinned supplemental binaries, read without executing them. Bounded initial-loop, packet, empty-equipment stance and fresh-allocation evidence; the original spawn-event table miss is closed for Gremlin/Fox, while fresh abnormal-state/modifier admission remains open. Portable synthetic checks are separate. [Evidence](../docs/native-npc-animation-evidence.md). |
 | Original player skeletons | `python3 tools/anim/export_source_tracks.py --skeletons` | Read-only source face/class/chargrp/animation joins; `--write` emits matching private `.skeleton.json` sidecars and `--check` re-decodes them. All 14 source faces admitted; male Human Fighter has 69 links and one original reference fallback. [Inputs and usage](../docs/native-track-evidence.md#browser-pose-preview). |
@@ -266,8 +275,9 @@ credentials, database snapshots or local gameplay logs in a public release.
 The current ignored `tmp/` receipts remain local evidence.
 
 The current paths are stable entry points. Branding does not require duplicate
-wrappers or another framework. A future standalone package should first audit
-dependencies, licensing, clean-checkout setup and supported client builds.
+wrappers or another framework. Each standalone release uses an explicit file
+allowlist, documents its dependencies and supported source builds, and tests the
+actual extracted archive without private inputs or the browser application.
 
 
 Bounded live Agent lifecycle and player-scale regressions (portable):

@@ -23,8 +23,6 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools/dat'))
 sys.path.insert(0, str(ROOT / 'tools/src/char_pipeline'))
 import extract_gamedata as dat
-import build_monsters as builder
-import assemble
 import uclass_defaults as classes
 import creature_anim_table as localized
 
@@ -416,6 +414,9 @@ def check_skeleton(gltf, fresh, ctx, psa_bones):
 
 
 def build_mesh(mesh_name, records, entry, stage):
+    # Legacy model conversion is not needed for source-only selector recovery.
+    import build_monsters as builder
+    import assemble
     pkg, requested = mesh_name.split('.', 1)
     ukx, _ = builder.ukx_for_package(pkg)
     if not ukx:
