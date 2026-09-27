@@ -113,12 +113,14 @@ test('actual Character retains pre-load appearance, replays after adoption, and 
   const Prototype = vm.runInNewContext(`class Subject {${source.slice(start, end)}}; Subject.prototype`, {
     THREE, PlayerAppearance: Appearance, GLTFLoader: Loader,
     charManifest: async () => [{ id: 'fixture', visualScale: {} }], pawnAnim: async () => ({}),
+    fetchOriginalAnimationBundle: async () => { throw new Error('source-free appearance fixture'); },
     playerVisualScale: () => ({ x: 1, y: 1, z: 1 }), detachArmor() {}, applyArmor() {}, equipWeapon() {},
     faceImage: async () => new THREE.Texture({ source: 'selected' }),
   });
   const ch = Object.assign(Object.create(Prototype), { group: new THREE.Group(), model: null, play() {}, cancelCast() {}, armor: {} });
   assert.equal((await ch.setAppearance({ face: 1 })).status, 'pending');
   await ch.load('/characters/models/fixture.gltf'); await ch._appearance.request.promise;
+  assert.match(ch.lastOriginalPose.reason, /source-free appearance fixture/);
   assert.equal(ch.lastAppearance.status, 'ready'); assert.equal(next.node.material.map.image.source, 'selected');
   const old = next; next = model(); await ch.load('/characters/models/fixture.gltf'); await ch._appearance.request.promise;
   assert.equal(old.node.material, old.material); assert.equal(next.node.material.map.image.source, 'selected');

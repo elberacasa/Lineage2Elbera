@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sampleOriginalTrack } from '../js/nativetrack.js';
+import { prepareOriginalTrack, sampleOriginalTrack } from '../js/nativetrack.js';
 
 const identity = [0, 0, 0, 1];
 const track = (times, quaternions = times.map(() => identity), positions = [[0, 0, 0]]) =>
@@ -111,4 +111,92 @@ test('invalid, missing, unsupported and nonfinite inputs never fabricate a pose'
     [{ ...valid, positions: [[0, 0]] }, 2, 0], [valid, 0, 0], [valid, 0.5, 0],
     [valid, Infinity, 0], [valid, 2, -0.1], [valid, 2, 1.1], [valid, 2, NaN], [valid, 2, -0],
   ]) assert.throws(() => sampleOriginalTrack(value, duration, frame));
+});
+
+test('prepared sampling matches fresh sampling across source interval and search branches', () => {
+  const cases = [
+    [track([0], [[-0, 0, 0, 0.8]], [[3, -2, 7]]), 10],
+    [track([0, 1, 3], [identity, [0, 0, 0, -1], identity], [[2, 4, 6], [5, 7, 9], [10, 20, 30]]), 4],
+    [track([0, 0.00005, 1]), 1],
+    [track(Array.from({ length: 31 }, (_, i) => i * 0.5)), 16],
+    [track(Array.from({ length: 100 }, (_, i) => i * 0.5)), 50],
+  ];
+  for (const [source, duration] of cases) {
+    const prepared = prepareOriginalTrack(source, duration);
+    for (const frame of [0, 0.00001, 0.125, 0.25, 0.5, 0.75, 0.875, 1]) {
+      assert.deepEqual(prepared.sample(frame), sampleOriginalTrack(source, duration, frame));
+    }
+  }
+});
+
+test('prepared reader owns nested and typed input arrays without later caller reads', () => {
+  let retired = false;
+  const watched = values => new Proxy(values, {
+    get(target, key, receiver) {
+      assert.equal(retired, false, 'prepared reader accessed caller storage');
+      return Reflect.get(target, key, receiver);
+    },
+  });
+  const rotations = [[0, 0, 0, 0.8], [0, 0, 0, 1]];
+  const translations = [new Float32Array([2, 4, 6]), new Float32Array([10, 20, 30])];
+  const times = new Float32Array([0, 1]);
+  const source = { flags: 0, times, quaternions: watched(rotations.map(watched)), positions: watched(translations) };
+  const prepared = prepareOriginalTrack(source, 2), expected = prepared.sample(0.75);
+  times[1] = NaN; rotations[0][3] = NaN; translations[1].fill(NaN);
+  for (const key of Object.keys(source)) Object.defineProperty(source, key, {
+    get() { throw new Error('prepared reader retained caller track'); },
+  });
+  retired = true;
+  assert.deepEqual(prepared.sample(0.75), expected);
+  assert.deepEqual(prepared.firstPose(), { quaternion: [0, 0, 0, Math.fround(0.8)], position: [2, 4, 6] });
+});
+
+test('prepared reader exposes no writable storage and returns independent first/sample poses', () => {
+  const prepared = prepareOriginalTrack(track([0, 1], [[-0, 0, 0, 0.8], identity], [[3, -2, 7]]), 2);
+  assert.equal(Object.isFrozen(prepared), true);
+  assert.deepEqual(Object.keys(prepared).sort(), ['firstPose', 'sample']);
+  assert.throws(() => { prepared.sample = () => null; }, TypeError);
+  assert.throws(() => { prepared.times = [0]; }, TypeError);
+  const expected = { quaternion: [-0, 0, 0, Math.fround(0.8)], position: [3, -2, 7] };
+  const first = prepared.firstPose(), sample = prepared.sample(0);
+  assert.deepEqual(first, expected);
+  first.quaternion[0] = 10; first.position[0] = 20;
+  sample.quaternion[3] = 0; sample.position.length = 0;
+  assert.deepEqual(prepared.firstPose(), expected);
+  const next = prepared.sample(0);
+  assert.deepEqual(next.quaternion, expected.quaternion);
+  assert.deepEqual(next.position, expected.position);
+});
+
+test('fresh public sampling observes mutations while a prepared reader remains stable', () => {
+  const source = track([0, 1], [identity.slice(), identity.slice()], [[1, 2, 3]]);
+  const prepared = prepareOriginalTrack(source, 2);
+  source.positions[0][0] = 99;
+  assert.deepEqual(sampleOriginalTrack(source, 2, 0).position, [99, 2, 3]);
+  assert.deepEqual(prepared.sample(0).position, [1, 2, 3]);
+  // The unused later key is still validated by the public call.
+  source.quaternions[1][0] = NaN;
+  assert.throws(() => sampleOriginalTrack(source, 2, 0));
+  assert.deepEqual(prepared.sample(0).quaternion, identity);
+});
+
+test('preparation validates complete source records before any sampling', () => {
+  const valid = track([0, 1]);
+  for (const [source, duration] of [
+    [null, 2], [{ ...valid, flags: 1 }, 2], [valid, 0], [valid, Infinity], [valid, 0.5],
+    [{ ...valid, times: [-0, 1] }, 2], [{ ...valid, times: [0, 0] }, 2],
+    [{ ...valid, quaternions: [identity, [Infinity, 0, 0, 1]] }, 2],
+    [{ ...valid, positions: [[0, 0, 0], [0, NaN, 0]] }, 2],
+    [{ ...valid, positions: new Array(1) }, 2],
+  ]) assert.throws(() => prepareOriginalTrack(source, duration));
+});
+
+test('prepared sample rejects invalid frames and retains existing Float32 frame admission', () => {
+  const prepared = prepareOriginalTrack(track([0, 1]), 2);
+  for (const frame of [-0, -0.01, 1.01, NaN, Infinity, 1e100, undefined, null, '0', []]) {
+    assert.throws(() => prepared.sample(frame));
+  }
+  // Existing semantics round to Float32 before testing the normalized domain.
+  assert.deepEqual(prepared.sample(1 + 2 ** -25), prepared.sample(1));
+  assert.deepEqual(prepared.sample(0).position, [0, 0, 0]);
 });

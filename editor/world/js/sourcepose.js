@@ -1,6 +1,6 @@
 // Elbera Tools: original linkup, sparse keys and neutral current hierarchy.
 // Source-space arithmetic is separate from this measured glTF display adapter.
-import { sampleOriginalTrack } from './nativetrack.js';
+import { sampleOriginalTrack, prepareOriginalTrack } from './nativetrack.js';
 import { originalPoseHierarchy } from './nativecoords.js';
 
 // Raw package -> mirrored PSA -> this project's glTF local-pose conversion.
@@ -90,32 +90,22 @@ function displayMatrix(record, template) {
   return template.clone().set(...rows, 0, 0, 0, 1);
 }
 
-export function createOriginalPosePreview(root, catalog, sequenceName, skeleton) {
+/**
+ * One source skeleton and reversible display owner per browser character.
+ * Sequence sampling remains separate from channel clocks and cached tween
+ * state; neither inspection seconds nor exported bone TRS become source data.
+ */
+export function createOriginalPoseRig(root, catalog, skeleton) {
   if (catalog?.format !== 'elbera-original-animation-tracks-v1') {
     throw new Error('Unsupported original-track catalog.');
   }
   const bindings = sourceLinkup(catalog, skeleton);
-  const sequences = typeof sequenceName === 'string' && catalog.sequences?.filter(
-    row => typeof row.name === 'string' && row.name.toLowerCase() === sequenceName.toLowerCase());
-  if (sequences?.length !== 1) throw new Error('Original sequence is missing or ambiguous.');
-  const sequence = sequences[0], movement = sequence.movement;
-  const bones = matchSourceBones(root, skeleton.bones), parents = skeleton.bones.map(bone => bone.parent);
-  if (movement?.flags !== 0 || movement.startBone !== 0
-      || !Array.isArray(movement.tracks) || movement.tracks.length !== catalog.bones.length) {
-    throw new Error('Only complete ordinary source tracks are supported.');
-  }
-  // Native GetFrame indexes tracks through mesh linkup, not the serialized
-  // movement BoneIndices list. Empty lists and source-order swaps are admitted.
-  if (!Number.isFinite(sequence.rate) || sequence.rate <= 0
-      || !Number.isInteger(sequence.frames) || sequence.frames <= 0) {
-    throw new Error('Missing original sequence frame/rate fields.');
-  }
-  const referencePoses = skeleton.bones.map(bone => ({position:bone.position, quaternion:bone.orientation}));
-  originalPoseHierarchy(referencePoses, parents, {mode:'reference'}); // Validate all original reference records.
-  function poses(frame) {
-    if (!Number.isFinite(frame) || frame < 0 || frame > 1 || Object.is(frame,-0)) throw new Error('Invalid source frame.');
-    const samples = bindings.map((binding, index) => binding < 0 ? {...referencePoses[index], reference:true}
-      : sampleOriginalTrack(movement.tracks[binding], movement.duration, frame));
+  const bones = matchSourceBones(root, skeleton.bones), parents = skeleton.bones.map(bone=>bone.parent);
+  const referencePoses = skeleton.bones.map(bone=>({position:bone.position,quaternion:bone.orientation}));
+  originalPoseHierarchy(referencePoses, parents, {mode:'reference'});
+
+  function coordinates(samples) {
+    if (!Array.isArray(samples) || samples.length !== bones.length) throw new Error('Incomplete source-local pose.');
     const coordinates = originalPoseHierarchy(samples, parents, {mode:'current'});
     const absolute = coordinates.map(record => displayMatrix(record, bones[0].matrix));
     const local = absolute.map((matrix, index) => {
@@ -129,7 +119,6 @@ export function createOriginalPosePreview(root, catalog, sequenceName, skeleton)
     }
     return {samples, coordinates, absolute, local};
   }
-  poses(0); // Complete validation before the preview can alter a bone.
   let saved = null;
   function restore() {
     if (!saved) return;
@@ -138,12 +127,51 @@ export function createOriginalPosePreview(root, catalog, sequenceName, skeleton)
     });
     saved = null; root.updateMatrixWorld(true);
   }
+
+  function sequence(sequenceName, {prepared=false}={}) {
+    const matches = typeof sequenceName === 'string' && catalog.sequences?.filter(
+      row=>typeof row.name==='string' && row.name.toLowerCase()===sequenceName.toLowerCase());
+    if (matches?.length !== 1) throw new Error('Original sequence is missing or ambiguous.');
+    const selected = matches[0], movement = selected.movement;
+    if (movement?.flags !== 0 || movement.startBone !== 0
+        || !Array.isArray(movement.tracks) || movement.tracks.length !== catalog.bones.length) {
+      throw new Error('Only complete ordinary source tracks are supported.');
+    }
+    // The native mesh linkup is independent of serialized movement BoneIndices.
+    if (!Number.isFinite(selected.rate) || selected.rate <= 0
+        || !Number.isInteger(selected.frames) || selected.frames <= 0) {
+      throw new Error('Missing original sequence frame/rate fields.');
+    }
+    const compiled = new Map();
+    if (prepared) for (const binding of bindings) {
+      if (binding >= 0 && !compiled.has(binding)) compiled.set(binding,
+        prepareOriginalTrack(movement.tracks[binding], movement.duration));
+    }
+    function sample(frame) {
+      if (!Number.isFinite(frame) || frame<0 || frame>1 || Object.is(frame,-0)) throw new Error('Invalid source frame.');
+      return bindings.map((binding,index)=>binding<0 ? {
+        position:Array.from(referencePoses[index].position),
+        quaternion:Array.from(referencePoses[index].quaternion),reference:true,
+      } : prepared ? compiled.get(binding).sample(frame)
+        : sampleOriginalTrack(movement.tracks[binding],movement.duration,frame));
+    }
+    // Admit the complete source pose/display domain without changing a bone.
+    coordinates(sample(0));
+    function firstPose() {
+      return bindings.map((binding,index)=>binding<0 ? {
+        position:Array.from(referencePoses[index].position),
+        quaternion:Array.from(referencePoses[index].quaternion),reference:true,
+      } : (compiled.get(binding) ?? prepareOriginalTrack(
+        movement.tracks[binding],movement.duration)).firstPose());
+    }
+    return {sequence:selected,duration:selected.frames/selected.rate,sample,firstPose};
+  }
   return {
-    sequence, boneCount:bones.length, mappedCount:bindings.filter(index=>index>=0).length,
-    referenceCount:bindings.filter(index=>index<0).length, duration:sequence.frames / sequence.rate,
-    restore,
-    apply(frame) {
-      const result = poses(frame); // All-or-nothing validation before mutation.
+    boneCount:bones.length,mappedCount:bindings.filter(index=>index>=0).length,
+    referenceCount:bindings.filter(index=>index<0).length,
+    sequence,restore,
+    display(samples) {
+      const result = coordinates(samples); // Validate every bone before mutation.
       restore(); root.updateMatrixWorld(true);
       const outerInverse = bones[0].parent.matrixWorld.clone();
       if (!Number.isFinite(outerInverse.determinant()) || outerInverse.determinant() === 0) throw new Error('Singular display parent.');
@@ -163,4 +191,12 @@ export function createOriginalPosePreview(root, catalog, sequenceName, skeleton)
       return {basisDelta, positionDelta, wrapped, flipped, coordinates:result.coordinates};
     },
   };
+}
+
+/** Inspection keeps fresh validation so edited input records fail visibly. */
+export function createOriginalPosePreview(root, catalog, sequenceName, skeleton) {
+  const rig = createOriginalPoseRig(root,catalog,skeleton), source = rig.sequence(sequenceName);
+  return {sequence:source.sequence,duration:source.duration,boneCount:rig.boneCount,
+    mappedCount:rig.mappedCount,referenceCount:rig.referenceCount,restore:rig.restore,
+    apply:frame=>rig.display(source.sample(frame))};
 }

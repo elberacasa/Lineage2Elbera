@@ -18,6 +18,7 @@ import unittest
 from unittest.mock import patch
 
 import export_source_tracks as exporter
+from pack_source_tracks import pack_animation_bundle
 from test_pawnanim_source import fixture
 
 
@@ -277,6 +278,114 @@ class SourceSkeletonExportTests(unittest.TestCase):
         self.package.names.append('ROOT')
         with self.assertRaisesRegex(ValueError, 'name'):
             exporter.collect_skeletons('fixture_m')
+
+
+def runtime_fixture(model='fixture_m'):
+    """Authored transport fixture, also consumed by the browser codec tests."""
+    tiny = struct.unpack('<f', struct.pack('<I', 1))[0]
+    third = struct.unpack('<f', struct.pack('<f', .3))[0]
+    bones = [{'name':'Root','parent':0,'flags':0}, {'name':'Child','parent':0,'flags':0},
+             {'name':'Child','parent':1,'flags':0}]
+    track = {'flags':0, 'quaternions':[[0.,-0.,tiny,1.], [2.,-3.,.5,0.], [0.,1.,0.,-1.]],
+             'positions':[[9.125,-0.,-7.5]], 'times':[0.,third,2.],
+             'source':{'SHA256':'c'*64,'offset':77,'size':101}}
+    empty = {'flags':0,'quaternions':[],'positions':[],'times':[],
+             'source':{'SHA256':'d'*64,'offset':178,'size':7}}
+    movement = {'flags':0,'duration':3.,'startBone':0,'rootSpeed':[0.,0.,0.],
+                'boneIndices':[],'tracks':[copy.deepcopy(track) for _ in bones], 'rootTrack':empty}
+    catalog = {'format':'elbera-original-animation-tracks-v1','modelId':model,
+               'animationRef':'Fixture.Animation', 'bones':bones,
+               'source':{'packageSHA256':'a'*64,'exportSHA256':'b'*64,'exportOffset':7,'exportSize':1000},
+               'sequences':[{'name':'Ordinary','rate':30.,'frames':90,'movement':movement,'notifies':[]}]}
+    unusual = copy.deepcopy(catalog['sequences'][0]); unusual['name'] = 'NotASamplerAdmission'
+    unusual['movement']['flags'] = 17; unusual['movement']['tracks'][0]['flags'] = -27
+    unusual['movement']['tracks'][1]['quaternions'] = unusual['movement']['tracks'][1]['quaternions'][:1]
+    catalog['sequences'].append(unusual)
+    skeleton = {'format':'elbera-original-player-skeleton-v1','modelId':model,
+                'animationRef':'Fixture.Animation','meshRef':'Fixture.Face',
+                'animationBones':copy.deepcopy(bones), 'trackBindings':[0,-1,1],
+                'bones':[{'name':name,'parent':parent,'orientation':[0.,-0.,0.,1.],
+                          'position':[1.,tiny,-0.]} for name,parent in [('Root',0),('Absent',0),('Child',1)]],
+                'source':{'packageSHA256':'a'*64,'animationExportSHA256':'b'*64,
+                          'meshExportSHA256':'e'*64,'chargrpSHA256':'f'*64}}
+    return catalog, skeleton
+
+
+class RuntimeTransportTests(unittest.TestCase):
+    def test_binary_arrays_preserve_all_source_bits_order_provenance_and_inputs(self):
+        catalog, skeleton = runtime_fixture()
+        before = copy.deepcopy((catalog, skeleton))
+        blob = pack_animation_bundle(catalog, skeleton)
+        self.assertEqual(blob, pack_animation_bundle(catalog, skeleton))
+        self.assertEqual((catalog, skeleton), before)
+        magic, version, json_size, payload_size = struct.unpack_from('<4sIII', blob)
+        self.assertEqual((magic, version), (b'ELBA',1))
+        metadata = json.loads(blob[16:16+json_size]); start = 16+(json_size+3)//4*4
+        self.assertEqual(len(blob),start+payload_size)
+        self.assertEqual(blob[16+json_size:start],b'\0'*(start-16-json_size))
+        self.assertEqual(metadata['format'],'elbera-original-animation-runtime-v1')
+        self.assertEqual(metadata['skeleton'],skeleton)
+        expected=bytearray(); cursor=0
+        for sequence, packed_sequence in zip(catalog['sequences'],metadata['catalog']['sequences']):
+            raw, packed = sequence['movement'], packed_sequence['movement']
+            self.assertEqual(packed['flags'],raw['flags'])
+            for original, compact in zip(raw['tracks']+[raw['rootTrack']],packed['tracks']+[packed['rootTrack']]):
+                self.assertEqual(compact['flags'],original['flags']); self.assertEqual(compact['source'],original['source'])
+                for key,width in [('quaternions',4),('positions',3),('times',1)]:
+                    desc=compact[key]; self.assertEqual(desc,{'offset':cursor,'count':len(original[key]),'width':width})
+                    for row in original[key]:
+                        values=[row] if width==1 else row
+                        expected.extend(struct.pack('<'+'f'*width,*values)); cursor+=width*4
+        self.assertEqual(blob[start:],bytes(expected))
+
+    def test_invalid_source_bindings_values_shapes_or_identity_fail_before_encoding(self):
+        mutations=[lambda c,s:s['trackBindings'].__setitem__(2,2),
+                   lambda c,s:s['source'].__setitem__('packageSHA256','0'*64),
+                   lambda c,s:s.__setitem__('modelId','other'),
+                   lambda c,s:s['bones'][1].__setitem__('parent',2),
+                   lambda c,s:c['sequences'][0]['movement']['tracks'].pop(),
+                   lambda c,s:c['sequences'][0]['movement']['tracks'][0]['positions'].append([1.,2.,3.]),
+                   lambda c,s:c['sequences'][0]['movement']['tracks'][0]['quaternions'][0].pop(),
+                   lambda c,s:c['sequences'][0]['movement']['tracks'][0]['times'].__setitem__(1,.1),
+                   lambda c,s:c['sequences'][0]['movement']['tracks'][0]['times'].__setitem__(1,float('inf')),
+                   lambda c,s:c['sequences'][0]['movement']['tracks'][0]['times'].__setitem__(1,True)]
+        for mutate in mutations:
+            c,s=runtime_fixture();mutate(c,s)
+            with self.assertRaises(ValueError):pack_animation_bundle(c,s)
+
+    def test_runtime_cli_default_write_check_exclusion_and_atomic_failure(self):
+        c,s=runtime_fixture()
+        with tempfile.TemporaryDirectory() as tmp, patch.object(exporter,'OUTPUT',Path(tmp)/'private'), \
+             patch.object(exporter,'collect',return_value={'fixture_m':c}) as collect, \
+             patch.object(exporter,'collect_skeletons',return_value={'fixture_m':s}), \
+             patch.object(exporter.pawn,'PAWNS',[('fixture_m','Fixture','Fixture')]), redirect_stdout(io.StringIO()):
+            target=exporter.OUTPUT/'runtime/fixture_m.l2anim'
+            exporter.main(['fixture_m','--runtime']);self.assertFalse(target.exists())
+            with self.assertRaises(ValueError):exporter.main(['fixture_m','--runtime','--check'])
+            exporter.main(['fixture_m','--runtime','--write']);before=target.read_bytes()
+            self.assertEqual(before,pack_animation_bundle(c,s))
+            exporter.main(['fixture_m','--runtime','--check'])
+            self.assertEqual(target.read_bytes(),before)
+            with patch.object(Path,'replace',side_effect=OSError('atomic failure')):
+                with self.assertRaises(OSError):exporter.main(['fixture_m','--runtime','--write'])
+            self.assertEqual(target.read_bytes(),before)
+            self.assertEqual(list(target.parent.iterdir()),[target])
+            target.write_bytes(before+b'bad')
+            with self.assertRaises(ValueError):exporter.main(['fixture_m','--runtime','--check'])
+            self.assertEqual(target.read_bytes(),before+b'bad')
+            collect.reset_mock()
+            with patch('sys.stderr',io.StringIO()), self.assertRaises(SystemExit):
+                exporter.main(['--runtime','--skeletons'])
+            collect.assert_not_called()
+
+    def test_later_runtime_validation_failure_cannot_replace_an_earlier_file(self):
+        c,s=runtime_fixture();other,other_s=runtime_fixture('fixture_f');other_s['trackBindings'][0]=-1
+        with tempfile.TemporaryDirectory() as tmp, patch.object(exporter,'OUTPUT',Path(tmp)), \
+             patch.object(exporter,'collect',return_value={'fixture_m':c,'fixture_f':other}), \
+             patch.object(exporter,'collect_skeletons',return_value={'fixture_m':s,'fixture_f':other_s}):
+            target=Path(tmp)/'runtime/fixture_m.l2anim';target.parent.mkdir();target.write_bytes(b'KEEP')
+            with self.assertRaises(ValueError):exporter.main(['--runtime','--write'])
+            self.assertEqual(target.read_bytes(),b'KEEP');self.assertEqual(list(target.parent.iterdir()),[target])
 
 
 if __name__ == '__main__': unittest.main()

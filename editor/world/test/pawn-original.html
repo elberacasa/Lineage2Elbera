@@ -25,7 +25,7 @@ This stage and lighting are for inspection. Original-key preview uses recovered 
 <label><input id="original-enabled" type="checkbox" disabled> Preview original keys</label></p>
 <p id="original-status" role="status">Decode private source tracks with Elbera Tools to compare them with the exported animation.</p>
 <p id="original-source"></p>
-<small>Uses original face-mesh linkup, stored reference poses for unmatched bones and recovered ordinary interpolation and parent transforms. Neutral hierarchy only: root locking, bone modifiers, actor placement, mixing and full animation parity remain open. The browser skinning and hair adaptations remain in use. Sit/stand and skill replays use the existing game playback.</small>
+<small>Uses original face-mesh linkup, stored reference poses for unmatched bones and recovered ordinary interpolation and parent transforms. Neutral hierarchy only: root locking, bone modifiers, actor placement, mixing and full animation parity remain open. The browser skinning and hair adaptations remain in use. Sit/stand and skill replays use the live Character player, including admitted nonnegative source poses.</small>
 </details>
 <details id="face-controls"><summary>Original face textures</summary>
 <label>Source face index <select id="face" disabled></select></label>
@@ -36,8 +36,8 @@ This stage and lighting are for inspection. Original-key preview uses recovered 
 <p><button id="wait-sit" type="button">Sit</button> <button id="wait-stand" type="button">Stand</button>
 <label><input id="wait-audio" type="checkbox"> Play original sit/stand sounds</label></p>
 <p id="wait-status" role="status">Uses the selected model and stance. Sit plays Sit → SitWait; Stand plays Stand → Wait.</p>
-<pre id="wait-events"></pre>
-<small>Original sequences, model-specific rates, tween values and channel-zero animation-end transition. Duplicate state changes do not restart playback. Ordinary ground waiting only; floor placement, native interpolation and special/combat states remain unresolved.</small>
+<p id="wait-pose" role="status"></p><pre id="wait-events"></pre>
+<small>Original sequences, model-specific rates, tween values and channel-zero animation-end transition. Duplicate state changes do not restart playback. Ordinary ground waiting only; initial tween, floor placement and special/combat states remain unresolved.</small>
 </details>
 <details id="cast-controls"><summary>Replay an ordinary skill cast</summary>
 <form id="cast-form">
@@ -47,7 +47,7 @@ This stage and lighting are for inspection. Original-key preview uses recovered 
 <label>Server casting speed <input id="cast-speed" type="number" min="1" step="1" required></label>
 <button type="submit">Replay cast</button> <button type="button" id="cast-cancel">Cancel cast</button>
 </form><p id="cast-status" role="status">Supply the server packet timing and casting speed. This preview does not cast a skill or grant one.</p>
-<pre id="cast-schedule"></pre>
+<p id="cast-pose" role="status"></p><pre id="cast-schedule"></pre>
 <label><input type="checkbox" id="cast-audio"> Play original direct animation sounds</label>
 <label><input type="checkbox" id="agent-preview"> Preview Agent actions on this pawn</label>
 <label><input type="checkbox" id="agent-audio"> Play Agent skill sound layers and voice</label>
@@ -56,7 +56,7 @@ This stage and lighting are for inspection. Original-key preview uses recovered 
 <pre id="agent-events"></pre>
 <p id="notify-count">No animation events yet.</p><pre id="cast-events"></pre>
 <small>Uses this model and stance, exact original skill-level metadata and the game's phase player.
-The browser explicitly enables animation events. Agent preview uses the live pending-notify controller and action selector. Association simulates a received target entry; it does not fire effects. Completion fallback, native effect placement, emitter behavior and projectile motion remain incomplete. This replay still uses exported poses.</small>
+The browser explicitly enables animation events. Agent preview uses the live pending-notify controller and action selector. Association simulates a received target entry; it does not fire effects. Completion fallback, native effect placement, emitter behavior and projectile motion remain incomplete. Nonnegative frames use original keys when their runtime bundle is admitted. Initial tween remains the exported browser adaptation.</small>
 </details>
 </header><div id="stage"></div>
 <script type="module">
@@ -375,7 +375,7 @@ document.querySelector('#cast-form').addEventListener('submit',event=>{
   castOutput.textContent=`Playback rate ${schedule.rate}; tween ${schedule.tween} s; shot deadline ${schedule.shotTime} s.\n`
     +schedule.phases.map((phase,i)=>`${i+1}. ${phase.slot} → ${phase.clip}${phase.loop?' (loop)':''}; deadline ${phase.due} s`).join('\n');
   castCompleteText='Schedule complete.';
-  castStatus.textContent='Playing original phase schedule with exported poses.';castPlaying=true;
+  castStatus.textContent='Playing original phase schedule.';castPlaying=true;
 });
 document.querySelector('#cast-cancel').addEventListener('click',()=>{
   ++poseIntent;
@@ -383,6 +383,13 @@ document.querySelector('#cast-cancel').addEventListener('click',()=>{
   character?.cancelCast();playing=false;waitPlaying=false;castPlaying=!!character;
   castCompleteText='Cancelled. No pending phase can restart.';castStatus.textContent=castCompleteText;
 });
+function runtimePoseText(){
+  const pose=character?.originalPose?.status || character?.lastOriginalPose;
+  return pose?.status==='ready' && Number.isFinite(pose.frame)
+    ? `Live original pose: ${pose.sequence}; normalized frame ${pose.frame.toFixed(6)}; ${pose.mapped} mapped + ${pose.reference} reference bones.`
+    : pose?.status==='unsupported' ? `Exported browser pose; source path unavailable: ${pose.reason}.`
+      : 'Source pose channel inactive.';
+}
 function resize(){const {width,height}=stage.getBoundingClientRect();renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe(stage);resize();
 const clock=new THREE.Clock();
@@ -390,12 +397,14 @@ renderer.setAnimationLoop(()=>{
   const dt=clock.getDelta();
   if(waitPlaying&&character){
     character.update(Math.min(dt,.1),inspectionGround);
+    document.querySelector('#wait-pose').textContent=runtimePoseText();
     const phase=character.lastWaitPhase;
     waitStatus.textContent=character.lastWaitError?`Unsupported: ${character.lastWaitError.reason}.`:
       phase?`${phase.seq} → ${phase.clip}${phase.loop?' (loop)':''}; playback multiplier ${phase.rate}; clip time ${phase.sampleTime.toFixed(3)} s; ${character.waitNotifyCount} animation events.`:'Waiting for state change.';
   }
   if(castPlaying&&character){
     character.update(Math.min(dt,.1),inspectionGround);
+    document.querySelector('#cast-pose').textContent=runtimePoseText();
     const state=character.nativeCast, phase=character.lastCastPhase;
     castStatus.textContent=state?`Phase ${phase.index+1}: ${phase.clip}${phase.loop?' (loop)':''}; elapsed ${state.elapsed.toFixed(3)} s.`:(character.lastCastError?`Unsupported native event: ${character.lastCastError}.`:castCompleteText);
     const tick=skillFx.lastNativeTick;

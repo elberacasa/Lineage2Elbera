@@ -59,7 +59,7 @@ browser behavior and focused verification.
 | **Character appearance** | Original face indices, five male / seven female creation hairstyles, four source color choices, and corrected default hair mesh/material selection. | [Appearance](docs/native-face-selection-evidence.md) · [Hair pipeline](docs/hair-asset-pipeline.md) |
 | **Hair and material inspection** | All **162** base-table meshes exported with original LOD0 geometry and weights; **648** material references retain their source identities. The inspector shows rigid and soft-rig parts in a static view. | [Inspecting original hair](docs/hair-asset-pipeline.md#browser-inspection) |
 | **Native transform research** | Ordinary and dynamic hair paths distinguished; retained coordinate arithmetic checked. A separately pinned comparison copy identifies missing imports within exactly matched code blocks. | [Attachment evidence](docs/native-hair-attachment-evidence.md) · [Comparison scope](docs/supplemental-engine-evidence.md) |
-| **Original animation and skeletons** | All **1,367** player sequences and **14** original face skeletons feed the pawn inspector. Native name links, missing-bone reference poses and current-parent math produce a neutral source-pose comparison against the existing export. | [Preview guide](docs/native-track-evidence.md#browser-pose-preview) · [Linkup](docs/native-animation-linkup-evidence.md) · [Coordinate evidence](docs/native-pose-coordinate-evidence.md) |
+| **Original animation and skeletons** | All **1,367** player sequences and **14** original face skeletons have lossless runtime bundles. Live wait, sit, stand and cast schedules now sample original keys on nonnegative frames, with native name links and neutral parent math. Initial transitions remain unfinished. | [Live playback guide](docs/original-animation-runtime.md) · [Preview](docs/native-track-evidence.md#browser-pose-preview) · [Source evidence](docs/native-animation-linkup-evidence.md) |
 | **Quest progression** | *Letters of Love* completed through server interactions; the reward survived reconnect and appeared in the browser inventory. | [Quest playtest](docs/quest-completion-playtest.md) |
 | **Shops and original dialogs** | A browser purchase and potion use changed server-owned inventory and currency. Quantity and confirmation dialogs use recovered client rules. | [Shop playtest](docs/shop-playtest.md) |
 | **Recipes and shortcuts** | Recipe books, manufacture details and source-index shortcuts are connected; the live empty Common Craft book was checked. Successful crafting remains a separate test. | [Recipe evidence](docs/native-recipe-evidence.md) |
@@ -68,9 +68,10 @@ browser behavior and focused verification.
 The latest appearance milestone is [PR #5](https://github.com/elberacasa/Lineage2Elbera/pull/5).
 The newest animation comparison includes male Human Fighter's **69 matched
 bones plus one original reference pose**, without inventing a finger alias.
-It is a neutral inspector mode; existing browser skinning and hair adaptations
-remain in use. Full native playback, actor modifiers and animated hair
-attachment are still unfinished.
+The same source-pose path now drives admitted frames in the live Character
+player. Existing browser skinning and hair adaptations remain in use; initial
+transitions, actor modifiers and animated hair attachment are still unfinished.
+[See what runs today and how to reproduce it](docs/original-animation-runtime.md).
 
 ## Elbera Tools
 
@@ -103,6 +104,20 @@ Human Fighter's original missing-bone behavior is now visible in the inspector,
 with recovered parent transforms and a comparison against the existing export.
 This is a neutral source-pose view, with full gameplay animation still in progress.
 [Reproduce this view](docs/native-track-evidence.md#browser-pose-preview).
+
+</details>
+
+<details>
+<summary><strong>Live Character playback: original wait and cast poses</strong></summary>
+
+<p align="center">
+  <img src="docs/img/elbera-tools-live-animation.jpg" width="600" alt="Elbera Tools live Character replay showing original Human Fighter waiting with 69 mapped bones and one reference bone">
+</p>
+
+The sit/stand replay reaches original waiting through the game's Character
+player. The visible status reports the original sequence and normalized frame.
+Initial transitions and other native animation paths remain unfinished.
+[Reproduce this view and read the playback limits](docs/original-animation-runtime.md).
 
 </details>
 

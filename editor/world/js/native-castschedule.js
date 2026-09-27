@@ -82,7 +82,7 @@ export function planNativeCastSchedule(input) {
     if (typeof phase.clip !== 'string' || !phase.clip.trim()) return unsupported('missing-rendered-clip', { phase: i });
     const sourceRate = f32(phase.rate), sourceDuration = f32(phase.frames / sourceRate);
     if (!finite(sourceDuration) || !(sourceDuration > 0)) return unsupported('invalid-source-duration', { phase: i });
-    source.push({ clip: phase.clip, slot: slots[i], frames: phase.frames, sourceRate,
+    source.push({ clip: phase.clip, seq: phase.seq, slot: slots[i], frames: phase.frames, sourceRate,
       sourceDuration, sourceEndpoint: (phase.frames - 1) / sourceRate,
       scanDuration: i === flexIndex ? 0 : sourceDuration, loop: i === flexIndex,
       notifies: phase.notifies.map(notify => ({ ...notify })) });

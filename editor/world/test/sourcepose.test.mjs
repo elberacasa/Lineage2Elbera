@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.min.js';
-import { matchSourceBones, sourcePoseToExport, createOriginalPosePreview } from '../js/sourcepose.js';
+import { matchSourceBones, sourcePoseToExport, createOriginalPosePreview, createOriginalPoseRig } from '../js/sourcepose.js';
 
 function fixture() {
   const root = new THREE.Group();
@@ -127,4 +127,32 @@ test('display basis includes ancestor transforms exactly once and restores manua
   const expected=new THREE.Vector3(.02,.05,.03).applyMatrix4(f.root.matrixWorld);
   near(worldPosition(f.nodes[0]),expected.toArray());
   preview.restore();assert.equal(f.nodes[1].matrixAutoUpdate,false);assert.ok(f.nodes[1].matrix.equals(expectedManual));
+});
+
+test('native tween first keys stay distinct from ordinary tiny-interval frame-zero sampling',()=>{
+  for (const prepared of [false,true]) {
+    const f=fixture();
+    f.movement.duration=1;
+    f.movement.tracks[0].times=[0,.00005];
+    f.movement.tracks[0].positions=[[0,0,0],[8,0,0]];
+    const rig=createOriginalPoseRig(f.root,f.catalog,f.skeleton);
+    const source=rig.sequence('Original',{prepared});
+    assert.deepEqual(source.firstPose()[0].position,[0,0,0]);
+    assert.deepEqual(source.sample(0)[0].position,[8,0,0]);
+    const first=source.firstPose();first[0].position[0]=999;
+    assert.deepEqual(source.firstPose()[0].position,[0,0,0]);
+  }
+});
+
+test('one rig switches original sequences and shares no sampled pose arrays with callers',()=>{
+  const f=fixture(), other=structuredClone(f.sequence);other.name='Second';
+  other.movement.tracks[0].positions=[[20,0,0]];f.catalog.sequences.push(other);
+  const rig=createOriginalPoseRig(f.root,f.catalog,f.skeleton);
+  const first=rig.sequence('Original',{prepared:true}),second=rig.sequence('Second',{prepared:true});
+  const samples=first.sample(.25);rig.display(samples);
+  near(worldPosition(f.nodes[0]),[.03,.07,.05]);
+  samples[0].position[0]=999;
+  rig.display(second.sample(.25));near(worldPosition(f.nodes[0]),[.2,0,0]);
+  rig.restore();rig.display(first.sample(.25));near(worldPosition(f.nodes[0]),[.03,.07,.05]);
+  rig.restore();assert.equal(f.nodes[0].matrixAutoUpdate,true);
 });

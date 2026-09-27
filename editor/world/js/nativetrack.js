@@ -61,18 +61,17 @@ function hemisphere(candidate, reference) {
 }
 
 /**
- * Source-local pose from one ordinary sparse track and normalized frame [0,1].
- * Missing data, special flags, unsupported cardinalities and nonfinite derived
- * values throw; no reference pose or invented key is substituted. Float64/Math
- * remains a bounded approximation of original x87/CRT intermediates.
+ * Own and validate one ordinary sparse track once. The returned reader exposes
+ * no source storage; each sample/firstPose returns independent pose arrays.
+ * Float64/Math remains a bounded approximation of original x87/CRT intermediates.
  */
-export function sampleOriginalTrack(track, duration, frame) {
+export function prepareOriginalTrack(track, duration) {
   if (!track || track.flags !== 0) {
     throw new RangeError('Only explicit original ordinary track flags=0 are supported.');
   }
-  duration = f32(duration); frame = f32(frame);
-  if (duration <= 0 || frame < 0 || frame > 1 || Object.is(frame, -0)) {
-    throw new RangeError('Original track requires positive duration and normalized frame [0,1].');
+  duration = f32(duration);
+  if (duration <= 0) {
+    throw new RangeError('Original track requires positive duration.');
   }
   const times = Array.from(array(track.times, 'times'), f32);
   const quaternions = array(track.quaternions, 'quaternions');
@@ -87,29 +86,53 @@ export function sampleOriginalTrack(track, duration, frame) {
     throw new RangeError('Unsupported original track quaternion/position cardinality.');
   }
   // Validate the entire admitted record, not only this frame's selected keys.
-  const rotations = Array.from(quaternions, q => vector(q, 4, 'quaternion'));
-  const translations = Array.from(positions, p => vector(p, 3, 'position'));
-  const time = f32(duration * frame), first = previousKey(times, time);
-  const wrapped = first + 1 >= times.length;
-  const second = wrapped ? 0 : first + 1;
-  let alpha = 0, hemisphereFlipped = false;
-  if (first !== second) {
-    const denominator = wrapped ? f32(duration - times[first])
-      : Math.abs(f32(times[second] - times[first]));
-    alpha = denominator > EPSILON ? f32((time - times[first]) / denominator) : 1;
-  }
-  let quaternion = rotations[first].slice();
-  if (first !== second && alpha !== 0) {
-    let successor = rotations[second];
-    if (wrapped) {
-      const adjusted = hemisphere(successor, quaternion);
-      successor = adjusted.value; hemisphereFlipped = adjusted.flipped;
+  const rotations = Object.freeze(Array.from(quaternions,
+    q => Object.freeze(vector(q, 4, 'quaternion'))));
+  const translations = Object.freeze(Array.from(positions,
+    p => Object.freeze(vector(p, 3, 'position'))));
+  Object.freeze(times);
+  return preparedReader(times, rotations, translations, duration);
+}
+
+// Keep reader closures separate from the caller's track and array references.
+function preparedReader(times, rotations, translations, duration) {
+  return Object.freeze({
+    firstPose() {
+      return { quaternion: rotations[0].slice(), position: translations[0].slice() };
+    },
+    sample(frame) {
+      frame = f32(frame);
+      if (frame < 0 || frame > 1 || Object.is(frame, -0)) {
+        throw new RangeError('Original track requires normalized frame [0,1].');
+      }
+      const time = f32(duration * frame), first = previousKey(times, time);
+      const wrapped = first + 1 >= times.length;
+      const second = wrapped ? 0 : first + 1;
+      let alpha = 0, hemisphereFlipped = false;
+      if (first !== second) {
+        const denominator = wrapped ? f32(duration - times[first])
+          : Math.abs(f32(times[second] - times[first]));
+        alpha = denominator > EPSILON ? f32((time - times[first]) / denominator) : 1;
+      }
+      let quaternion = rotations[first].slice();
+      if (first !== second && alpha !== 0) {
+        let successor = rotations[second];
+        if (wrapped) {
+          const adjusted = hemisphere(successor, quaternion);
+          successor = adjusted.value; hemisphereFlipped = adjusted.flipped;
+        }
+        quaternion = interpolateOriginalQuaternion(quaternion, successor, alpha);
+      }
+      let position = translations[translations.length === 1 ? 0 : first].slice();
+      if (translations.length !== 1 && first !== second && alpha !== 0) {
+        position = position.map((v, i) => f32(v + f32(f32(translations[second][i] - v) * alpha)));
+      }
+      return { quaternion, position, first, second, alpha, wrapped, hemisphereFlipped };
     }
-    quaternion = interpolateOriginalQuaternion(quaternion, successor, alpha);
-  }
-  let position = translations[positions.length === 1 ? 0 : first].slice();
-  if (positions.length !== 1 && first !== second && alpha !== 0) {
-    position = position.map((v, i) => f32(v + f32(f32(translations[second][i] - v) * alpha)));
-  }
-  return { quaternion, position, first, second, alpha, wrapped, hemisphereFlipped };
+  });
+}
+
+/** Fresh validation on every call, including caller mutations since sampling. */
+export function sampleOriginalTrack(track, duration, frame) {
+  return prepareOriginalTrack(track, duration).sample(frame);
 }

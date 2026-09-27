@@ -8,8 +8,8 @@ Binding goal constraint (owner, 26 September 2026): always stay true to OFFICIAL
 game data; never invent values. Decode, decrypt and investigate original inputs
 as needed. Unknown data remains explicitly unknown. See root AGENTS.md.
 
-Public foundations began at `9f4903b`. The source-linkup checkpoint starts from
-merged PR #7 (`25d47b9`) on `codex/native-animation-linkup`. The preserved local research branch
+Public foundations began at `9f4903b`. The live-animation checkpoint starts from
+merged PR #8 (`3c0f261`) on `codex/native-animation-transitions`. The preserved local research branch
 `codex/web-port-foundations` contains private intermediate history and must not
 be merged or pushed into public ancestry.
 
@@ -1933,3 +1933,58 @@ originals, generated skeleton/track catalogs and private evidence receipts.
 Next: trace/admit native initial tween and modifier/mixing inputs, integrate
 proved pose paths into actual gameplay, then native skin/attachment and actor
 placement. Full browser client goal remains active.
+
+## Original animation in live Character playback — 27 September 2026
+
+On `codex/native-animation-transitions`, based on public PR #8 merge `3c0f261`.
+The original-key/hierarchy path now feeds actual Character wait, sit, stand and
+ordinary cast schedules at exact nonnegative channel frames. Cast plans retain
+their original sequence identities; wait segments retain their own frame even
+when AnimEnd changes the channel in the same tick. Manual matrices retire before
+mixer work, cancellation, movement, one-shots, completion and model replacement.
+Overlapping older model loads cannot replace the latest model or source rig.
+Negative-frame initial transitions stay explicitly exported/unavailable; no
+Three TRS pose is relabelled as a native cache. Other movement, attack and social
+paths remain exported. The source rig exposes raw first keys separately from
+ordinary sample(0), whose tiny-interval rule may choose the next key.
+
+Elbera Tools `export_source_tracks.py --runtime` packages all 14 original source
+catalogs and skeletons in an authored lossless ELBA container. All 1,367 sequences
+and every original key survive; private outputs total 76,603,596 bytes versus
+220,075,349 bytes of track JSON. Strict immutable browser decoding is shared per
+model; key arrays are lazy and prepared samplers avoid full validation/copying
+on every tick. Complete decoded content and fresh byte checks passed for all14.
+Private input/output files and raw receipts remain ignored.
+
+The separate negative-frame tween helper and native verifier recover incremental
+source-local cache interpolation, raw destination keys, unconditional Core
+normalization and bookkeeping. 31 anchors, five optional exact supplemental
+blocks, 510 interpreted cases/36,071 instructions and123 browser comparisons pass.
+Ordinary sampling does not update prior tween bookkeeping. Empty-cache setup
+clears previous frame to zero; conditional masked-division instruction cases
+show the reset result, but the active rendering thread's exception mask and
+complete cache lifetime are still unproved. Zero previous frame remains rejected
+by the helper; this research does not silently enable live native transitions.
+
+Validation:11 actual Character/Three fixtures (including delayed model overlap
+and real cast-plan identity),8 transport fixtures,18 exporter/codec Python tests,
+17 prepared-track tests,13 rig tests,12 tween JS and11 tween Python tests pass.
+The larger Character/cast/wait/inspector regression selection passed116 cases
+before the final two new integration cases; the focused current selection passed
+48. Original sparse-track retained-instruction check and59 browser comparisons
+still pass. Eight selected battery suites pass,135 excluded; runner checks pass.
+An independent agent diff review found no blocker.
+
+GUI: male Human Fighter Sit→SitWait and Stand→Wait report69 mapped+1 reference
+bone; ordinary cast reports its negative transition unavailable then original
+CastMid, and cancellation completes cleanly. In the actual online world, existing
+ElberaVisor loads female Human Fighter Wait_1HS_FFighter with76 source matrices
+and76 matched bones. No inspector warnings/errors; online PlaySound warnings
+remain the previously documented unsupported audio path. Curated live-player
+inspector screenshot is added alongside every earlier README/gallery image.
+Camera body measurements expose pose ownership only in existing dev tools.
+
+Next: bind native exception/cache initialization for the first transition, then
+use true cached source locals through transitions; continue native modifiers,
+skin/attachment/effect anchors and remaining gameplay/UI/world gaps. Full browser
+client goal remains active, with this playback slice only a milestone.
