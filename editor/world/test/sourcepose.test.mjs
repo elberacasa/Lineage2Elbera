@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import * as THREE from '../vendor/three.module.min.js';
 import { matchSourceBones, sourcePoseToExport, createOriginalPosePreview, createOriginalPoseRig } from '../js/sourcepose.js';
 
@@ -27,6 +28,17 @@ function fixture() {
 }
 function near(actual,expected){assert.equal(actual.length,expected.length);actual.forEach((v,i)=>assert.ok(Math.abs(v-expected[i])<1e-7,`${i}: ${v} vs ${expected[i]}`));}
 function worldPosition(node){return new THREE.Vector3().setFromMatrixPosition(node.matrixWorld).toArray();}
+function npcFixture(crossPackage=true) {
+  const f=fixture(),{catalog,skeleton}=f;
+  catalog.meshRef=skeleton.meshRef='MeshPackage.Group.Creature';
+  catalog.modelId=skeleton.modelId='npc_'+createHash('sha256').update(catalog.meshRef.toLowerCase()).digest('hex').slice(0,32);
+  catalog.animationRef=skeleton.animationRef=(crossPackage?'AnimationPackage':'MeshPackage')+'.Group.Animation';
+  skeleton.format='elbera-original-npc-skeleton-v1';
+  skeleton.source={meshPackageSHA256:(crossPackage?'c':'a').repeat(64),
+    animationPackageSHA256:catalog.source.packageSHA256,meshExportSHA256:'d'.repeat(64),
+    animationExportSHA256:catalog.source.exportSHA256};
+  return f;
+}
 
 test('export correspondence matches duplicate names by parent and preserved loader name',()=>{
   const f=fixture();assert.deepEqual(matchSourceBones(f.root,f.source),f.nodes);
@@ -92,6 +104,35 @@ test('rejects mismatched source identities, hand-edited bindings and ambiguous n
     f=>{f.skeleton.animationBones[2].parent=0;},f=>{f.skeleton.bones[1].name='left';},
     f=>{f.skeleton.bones[1].name='Böne';},f=>{f.skeleton.bones[1].orientation[0]=NaN;}]){
     const f=fixture();mutate(f);assert.throws(f.preview);
+    assert.equal(f.nodes[0].matrixAutoUpdate,true);near(worldPosition(f.nodes[0]),[0,0,0]);
+  }
+});
+
+test('NPC same-package and cross-package source rigs reuse exact native first-name links and restore matrices',()=>{
+  for(const crossPackage of [false,true]) {
+    const f=npcFixture(crossPackage), before=f.nodes.map(node=>node.matrix.clone());
+    f.skeleton.meshRef=f.skeleton.meshRef.toLowerCase();
+    f.skeleton.animationRef=f.skeleton.animationRef.toLowerCase();
+    const preview=f.preview(),result=preview.apply(.25);
+    assert.equal(preview.mappedCount,5);
+    near(worldPosition(f.nodes[0]),[.03,.07,.05]);
+    near(result.coordinates[4].slice(0,3),[9,15,21]);
+    preview.restore();
+    f.nodes.forEach((node,index)=>{assert.ok(node.matrix.equals(before[index]));assert.equal(node.matrixAutoUpdate,true);});
+  }
+});
+
+test('NPC rig identity is source refs and both fingerprint pairs, never the opaque transport token alone',()=>{
+  for(const mutate of [f=>{delete f.catalog.meshRef;},f=>{delete f.skeleton.meshRef;},
+    f=>{f.skeleton.meshRef='OtherPackage.Group.Creature';},f=>{f.catalog.meshRef=f.skeleton.meshRef='Creature';},
+    f=>{f.catalog.animationRef=f.skeleton.animationRef='Animation';},
+    f=>{f.skeleton.animationRef='OtherPackage.Group.Animation';},f=>{f.skeleton.source.animationPackageSHA256='e'.repeat(64);},
+    f=>{f.skeleton.source.animationExportSHA256='e'.repeat(64);},f=>{delete f.skeleton.source.meshPackageSHA256;},
+    f=>{delete f.skeleton.source.meshExportSHA256;},f=>{f.skeleton.source.meshExportSHA256='invalid';},
+    f=>{f.catalog.modelId=f.skeleton.modelId='npc_short';},f=>{f.skeleton.modelId='npc_'+'e'.repeat(32);},
+    f=>{f.skeleton.format='elbera-original-npc-skeleton-v2';},f=>{f.skeleton.trackBindings[4]=4;},
+    f=>{f.skeleton.animationBones[2].parent=0;}]) {
+    const f=npcFixture();mutate(f);assert.throws(f.preview,undefined,mutate.toString());
     assert.equal(f.nodes[0].matrixAutoUpdate,true);near(worldPosition(f.nodes[0]),[0,0,0]);
   }
 });

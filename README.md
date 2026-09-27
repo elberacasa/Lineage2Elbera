@@ -60,7 +60,7 @@ browser behavior and focused verification.
 | **Hair and material inspection** | All **162** base-table meshes exported with original LOD0 geometry and weights; **648** material references retain their source identities. The inspector shows rigid and soft-rig parts in a static view. | [Inspecting original hair](docs/hair-asset-pipeline.md#browser-inspection) |
 | **Native transform research** | Ordinary and dynamic hair paths distinguished; retained coordinate arithmetic checked. A separately pinned comparison copy identifies missing imports within exactly matched code blocks. | [Attachment evidence](docs/native-hair-attachment-evidence.md) · [Comparison scope](docs/supplemental-engine-evidence.md) |
 | **Original animation and skeletons** | All **1,367** player sequences and **14** original face skeletons have lossless runtime bundles. Live wait, sit, stand and cast schedules use original keys, fresh-instance initialization and transitions from evaluated source poses. | [Live playback guide](docs/original-animation-runtime.md) · [Cache evidence](docs/native-pose-cache-evidence.md) · [Fresh instances](docs/native-pose-allocation-evidence.md) |
-| **NPC animation recovery** | Gremlin and fox selectors now trace from each original NPC class to its exact animation object, sequence and timing. Shared meshes retain separate class choices; missing and unverified inputs stay explicit. Browser integration is next. | [Selector tool and limits](docs/npc-animation-variants.md#qualified-selector-recovery-without-rebuilding-models) |
+| **NPC animation recovery** | All **16** original Gremlin and Fox sequences now render in the browser inspector, including combat-wait and single-frame death-wait. Model bytes, source bones and sparse tracks are checked together; skin weights and automatic native state playback remain unfinished. | [NPC source inspector](docs/original-npc-animation-runtime.md) · [Native state evidence](docs/native-npc-animation-evidence.md) |
 | **Quest progression** | *Letters of Love* completed through server interactions; the reward survived reconnect and appeared in the browser inventory. | [Quest playtest](docs/quest-completion-playtest.md) |
 | **Shops and original dialogs** | A browser purchase and potion use changed server-owned inventory and currency. Quantity and confirmation dialogs use recovered client rules. | [Shop playtest](docs/shop-playtest.md) |
 | **Recipes and shortcuts** | Recipe books, manufacture details and source-index shortcuts are connected; the live empty Common Craft book was checked. Successful crafting remains a separate test. | [Recipe evidence](docs/native-recipe-evidence.md) |
@@ -137,6 +137,19 @@ Fresh-frame initialization and known source history are checked separately;
 unresolved audio references stay visible. This is an offline inspection of
 the gameplay component, with existing browser skinning and inspection lighting.
 [Trace the cache and initialization evidence](docs/native-pose-cache-evidence.md).
+
+</details>
+
+<details>
+<summary><strong>New: original NPC tracks, frame by frame</strong></summary>
+
+![Elbera Tools Gremlin source-track inspector showing the original combat-wait sequence and explicit skin-weight limits](docs/img/elbera-tools-npc-source.jpg)
+
+Inspect every recovered Gremlin and Young Fox sequence, play its source timeline,
+scrub normalized frames and restore the converted model. The tool keeps original
+class and animation identities visible. This is source-pose inspection; native
+NPC spawning, effects and gameplay state transitions still need integration.
+[Reproduce the view and its source checks](docs/original-npc-animation-runtime.md).
 
 </details>
 

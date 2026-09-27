@@ -32,7 +32,7 @@ inputs rather than treating another build as equivalent.
 | Original camera | `python3 tools/ui/check_camera_native.py --check` | Native draw dispatch, configured camera extent, source equations, original INI defaults and world/static trace categories. Separates active native behavior from stored script. Does not certify the browser pivot or collision geometry. [Evidence](../docs/native-camera-evidence.md). |
 | Original BSP collision arithmetic | `python3 tools/ui/check_bsp_camera_native.py --check` | Native comparisons cover primary traversal and plane clipping (108), branch/hull/bounds admission (224), final interval and explicit-metric adjustment (250), and bevel-axis admission (787). Leaf-hull framing preserves unresolved plane flags. Full sweeps, the distance metric, terrain and actor aggregation remain unported. [Evidence](../docs/native-camera-evidence.md). |
 | Engine recovery boundary | `python3 tools/ui/check_engine_recovery_native.py --check` | Independent raw-byte round trips, three further startup layers and bounded handler-payload decompression. Works in memory; no DLL execution or decrypted payload output. Exact missing call bindings remain unresolved. [Evidence](../docs/native-engine-recovery-evidence.md). |
-| NPC animation selectors and variants | `python3 tools/anim/build_npc_variants.py --selectors-only --npc 20001 20091` | Fresh qualified class inheritance, serialized mesh/animation binding and exact source sequence timing. No model rebuild; selectors are not yet consumed by the browser. `--check` compares an existing private catalog. Default mode still builds five bounded clips for four class variants. [Inputs, evidence and gaps](../docs/npc-animation-variants.md). |
+| NPC animation selectors and variants | `python3 tools/anim/build_npc_variants.py --selectors-only --npc 20001 20091` | Fresh qualified class inheritance, serialized mesh/animation binding and exact source sequence timing. No model rebuild; this collector also feeds the separate NPC runtime index for manual inspection. Automatic native state selection remains unsupported. `--check` compares an existing private catalog. Default mode still builds five bounded clips for four class variants. [Inputs, evidence and gaps](../docs/npc-animation-variants.md). |
 | Missing pawn clips | `python3 tools/anim/recover_pawn_clips.py human_fighter_m` | Dry-run recovery of six original slots, with complete skeleton and per-key checks. Explicit `--write` appends verified clips while preserving existing model data. [Evidence and limits](../docs/pawn-clip-recovery-evidence.md). |
 | Original sit/stand evidence | `python3 tools/anim/check_sitting_native.py --check --output tmp/restart-audit/sitting-animation.json` | Source wait-state branches, scalar rates, native AnimEnd handoff and snapshot timing limits. [Evidence](../docs/sitting-animation-audit.md). |
 | Original sitting sound references | `python3 tools/anim/check_sitting_sound_refs.py` | Independent original notify/import/UAX checks; ambiguous output aliases remain unplayable. Requires private inputs. |
@@ -40,6 +40,8 @@ inputs rather than treating another build as equivalent.
 | Original pawn timing | `python3 tools/anim/build_pawnanim.py --check` | Bounded original sequence traversal for 14 player models; exact frame/rate fields and ordered, class-identified notifies. Requires private source and generated timing data. [Contract and limits](../docs/pawn-animation-timing-evidence.md). |
 | Original sparse animation keys | `python3 tools/anim/export_source_tracks.py` | Read-only by default; `--write` retains private source keys and hashes, `--check` compares a fresh decode. All 14 player exports; no PSA resampling or fabricated keys. [Browser preview](../docs/native-track-evidence.md#browser-pose-preview). |
 | Original animation runtime | `python3 tools/anim/export_source_tracks.py --runtime` | Lossless private bundles for all 1,367 sequences; `--write` builds and `--check` freshly decodes. Strict immutable browser loader and prepared sampling support live wait/cast schedules. [Format, use and limits](../docs/original-animation-runtime.md). |
+| Original NPC sparse runtime inputs | `python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime` | Read-only by default; `--write` builds the private selected-set index and bundles, `--check` freshly compares them. All eight sequences each for Gremlin/fox, including one-frame corpse poses. Exact triangle geometry and bone-path checks; differing skin weights remain unverified. The entity loader admits inputs for manual inspection, not automatic native playback. [Inputs, browser route and limits](../docs/original-npc-animation-runtime.md). Excluded from Core 0.1.0. |
+| Original NPC initial-animation inputs | `python3 tools/ui/check_npc_animation_native.py --comparison-engine /path/to/pinned/engine.dll --comparison-core /path/to/pinned/Core.dll --check` | Owned originals plus explicitly supplied pinned supplemental binaries, read without executing them. Bounded initial-loop, packet, empty-equipment stance and fresh-allocation evidence; packet-tail state and spawn/event-type 2 still block live admission. Portable synthetic checks are separate. [Evidence](../docs/native-npc-animation-evidence.md). |
 | Original player skeletons | `python3 tools/anim/export_source_tracks.py --skeletons` | Read-only source face/class/chargrp/animation joins; `--write` emits matching private `.skeleton.json` sidecars and `--check` re-decodes them. All 14 source faces admitted; male Human Fighter has 69 links and one original reference fallback. [Inputs and usage](../docs/native-track-evidence.md#browser-pose-preview). |
 | Native bone association | `python3 tools/ui/check_animation_linkup_native.py --check` | First matching original FName; duplicate names retain the first animation index, missing names remain −1. Optional pinned comparison binds the erased equality call. Parent matching and serialized movement `BoneIndices` are separate. [Evidence](../docs/native-animation-linkup-evidence.md). |
 | Native local-pose fallback | `python3 tools/ui/check_pose_fallback_native.py --check` | 49 anchors and 47 instruction cases establish local copies, negative-link skips, reference selection and the root-lock gate. Optional `--comparison-engine` binds mask allocation/current composition; `--audit-assets` adds the original Fighter example. Neutral inputs only. [Evidence](../docs/native-pose-fallback-evidence.md). |
@@ -126,6 +128,11 @@ These inspections do not connect to the game server:
 - **NPC animation/materials:** actual entity renderer, original corpse/social
   clips, seven ghost material variants and original angel wing alpha; source slots and unresolved graphs
   remain inspectable without a fabricated game encounter.
+  `/test/npc-original.html?npc=20001` (Gremlin) or `?npc=20091` (fox) additionally
+  exposes all eight original sparse sequences. The manual source overlay pauses
+  the entity mixer and restores its local pose on exit. Its `frames/rate` timeline
+  is an inspection control; native state selection, skin weights, placement and
+  gameplay timing remain separate. [Generate the private inputs](../docs/original-npc-animation-runtime.md).
 - **Player faces, animation and casting:** actual Character loader with exact
   source face indices, mesh/material/texture references and explicit unsupported
   hair paths. The original-key preview combines private sparse tracks and the
@@ -200,6 +207,7 @@ must report that requirement or an explicit skip, never a false pass.
 
 ```sh
 node --test editor/world/test/questdata.test.mjs editor/world/test/quest-confirmation.test.mjs editor/world/test/npcvisual.test.mjs editor/world/test/npcanimations.test.mjs editor/world/test/picking.test.mjs
+node --test editor/world/test/npcsourceanim.test.mjs editor/world/test/npc-source-inspection.test.mjs editor/world/test/npc-entity-lifecycle.test.mjs
 node --test tools/playtest/session.test.mjs gateway/test/skill-list.test.js editor/world/test/skill-state.test.mjs
 python3 -m unittest discover -s tools/ui -p test_cast_scheduler_native.py
 python3 -m unittest discover -s tools/ui -p test_anim_terminal_native.py
@@ -218,6 +226,7 @@ node --test editor/world/test/skillvfx-binding.test.mjs
 python3 -m unittest discover -s tools/uscript -p test_extract_uscript.py
 python3 -m unittest discover -s tools/xdat -p test_parse_xdat.py
 python3 -m unittest discover -s tools/anim -p test_build_npc_variants.py
+python3 -S -m unittest discover -s tools/ui -p test_npc_animation_native.py
 python3 -m unittest discover -s tools/anim -p test_recover_pawn_clips.py
 python3 -m unittest discover -s tools/anim -p test_pawnanim_source.py
 python3 -m unittest discover -s tools/anim -p test_export_source_tracks.py

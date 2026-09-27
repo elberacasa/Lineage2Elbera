@@ -43,14 +43,29 @@ export function matchSourceBones(root, sourceBones) {
 
 function sourceLinkup(catalog, skeleton) {
   const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
-  if (skeleton?.format !== 'elbera-original-player-skeleton-v1'
+  const npc = skeleton?.format === 'elbera-original-npc-skeleton-v1';
+  if ((!npc && skeleton?.format !== 'elbera-original-player-skeleton-v1')
       || typeof catalog.modelId !== 'string' || skeleton.modelId !== catalog.modelId
       || typeof catalog.animationRef !== 'string'
       || skeleton.animationRef?.toLowerCase() !== catalog.animationRef.toLowerCase()
       || !hash(catalog.source?.packageSHA256) || !hash(catalog.source?.exportSHA256)
-      || skeleton.source?.packageSHA256 !== catalog.source.packageSHA256
+      || skeleton.source?.[npc ? 'animationPackageSHA256' : 'packageSHA256'] !== catalog.source.packageSHA256
       || skeleton.source?.animationExportSHA256 !== catalog.source.exportSHA256) {
     throw new Error('Original mesh and animation source identities do not match.');
+  }
+  if (npc) {
+    const qualified = value => typeof value === 'string'
+      && /^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+$/.test(value);
+    // A shared NPC bundle token cannot substitute for its source mesh or
+    // animation. Cross-package Animation references retain distinct hashes.
+    if (!/^npc_[a-f0-9]{32}$/.test(catalog.modelId)
+        || !qualified(catalog.meshRef) || !qualified(skeleton.meshRef)
+        || catalog.meshRef.toLowerCase() !== skeleton.meshRef.toLowerCase()
+        || !qualified(catalog.animationRef)
+        || !qualified(skeleton.animationRef)
+        || !hash(skeleton.source?.meshPackageSHA256) || !hash(skeleton.source?.meshExportSHA256)) {
+      throw new Error('Original NPC mesh and animation source identities do not match.');
+    }
   }
   if (!Array.isArray(catalog.bones) || !catalog.bones.length
       || !Array.isArray(skeleton.animationBones) || skeleton.animationBones.length !== catalog.bones.length

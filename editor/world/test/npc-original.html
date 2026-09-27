@@ -8,6 +8,11 @@ canvas{display:block}select,button{font:inherit;max-width:100%}a{color:#e7c887}
 details{margin-top:8px}summary{cursor:pointer}table{border-collapse:collapse;width:100%;font-size:12px}
 td,th{text-align:left;vertical-align:top;padding:5px 8px;border-bottom:1px solid #46515c;overflow-wrap:anywhere}
 code{overflow-wrap:anywhere}small{color:#c3cbd2}.gap{color:#ffd18b}
+#workspace{display:flex;flex:1;min-height:0}#track-panel{width:310px;flex:none;padding:20px;box-sizing:border-box;background:#20262e;overflow:auto;border-left:1px solid #46515c}
+#track-panel h1{font-size:18px;margin:0 0 4px}#track-panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:#d6b980;margin:24px 0 10px}
+#track-panel select,#track-panel input{width:100%;box-sizing:border-box}#track-panel button{margin:10px 6px 4px 0}#track-panel label{display:block;margin:18px 0 6px}
+#track-readout{font:12px/1.8 ui-monospace,monospace;white-space:pre-wrap;color:#d8e4ec}#track-limit{font-size:12px;line-height:1.6}
+@media(max-width:700px){#workspace{flex-direction:column}#track-panel{width:auto;max-height:42vh;border-left:0;border-top:1px solid #46515c}}
 </style>
 <script type="importmap">{"imports":{"three":"../vendor/three.module.min.js","three/addons/":"../vendor/addons/"}}</script>
 <header>
@@ -18,13 +23,24 @@ code{overflow-wrap:anywhere}small{color:#c3cbd2}.gap{color:#ffd18b}
 <small>Drag to orbit; scroll to zoom. This neutral inspection stage is not an original game map. Its lighting is for inspection; original lighting/color parity is unresolved.</small>
 <details id="sources"><summary>Material bindings and original sources</summary><div id="source-content"></div></details>
 </header>
-<div id="stage"></div>
+<div id="workspace"><div id="stage"></div><aside id="track-panel">
+<h1>Original source tracks</h1><small>INTERLUDE · ELBERA TOOLS</small>
+<p id="track-status">Waiting for the source bundle…</p>
+<label for="sequence">Sequence</label><select id="sequence" disabled></select>
+<button id="play-track" disabled>Play source timeline</button><button id="restore-track" disabled>Restore model</button>
+<label for="source-frame">Normalized source frame</label><input id="source-frame" type="range" min="0" max="1" step="0.0001" value="0" disabled>
+<output id="track-readout"></output>
+<h2>Evidence and limits</h2><p id="track-limit" class="gap">Source track inspection is separate from native NPC state selection and gameplay timing.</p>
+<details><summary>Qualified source identity</summary><p id="track-identity"></p></details>
+</aside></div>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EntityManager } from '../js/entities.js';
 import { Skin } from '../js/ui/skin.js';
 import { Font } from '../js/ui/font.js';
+import { fetchNpcSourceIndex } from '../js/npcsourceanim.js';
+import { createNpcSourceInspection } from '../js/npc-source-inspection.js';
 const stage = document.querySelector('#stage');
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(devicePixelRatio); stage.appendChild(renderer.domElement);
@@ -37,12 +53,13 @@ const manager = new EntityManager(scene,[]), status = document.querySelector('#s
 const materialStatus = document.querySelector('#material-status');
 const sourceContent = document.querySelector('#source-content');
 async function data(url){const r=await fetch(url,{cache:'no-cache'});if(!r.ok)throw new Error(`${url}: HTTP ${r.status}`);return r.json();}
-const [catalog,materials,names] = await Promise.all([
-  data('/gamedata/npcanimations.json'),data('/gamedata/npcmaterials.json'),data('/gamedata/npcname.json')]);
+const [catalog,materials,names,sourceIndex] = await Promise.all([
+  data('/gamedata/npcanimations.json'),data('/gamedata/npcmaterials.json'),data('/gamedata/npcname.json'),fetchNpcSourceIndex()]);
 await Promise.all([Skin.load(),Font.load()]);
 const select = document.querySelector('#npc');
 function npcName(id){const source=names[String(id)];return (Array.isArray(source)?source[0]:source)||'';}
 for(const [label,records] of [
+  ['Original sparse animation tracks',Object.entries(sourceIndex?.npcs||{})],
   ['Original class animations',Object.entries(catalog.npcs)],
   ['Original ghost materials',Object.entries(materials.npcs).filter(([,r])=>r.status==='diffuse-slot-and-brighten-verified')],
   ['Unresolved original materials',Object.entries(materials.npcs).filter(([,r])=>r.status==='unresolved')]]) {
@@ -55,9 +72,55 @@ for(const [label,records] of [
 }
 const requested=new URL(location.href).searchParams.get('npc');
 if([...select.options].some(option=>option.value===requested))select.value=requested;
-let current=null, framing=true, generation=0;
+let current=null, framing=true, generation=0, inspection=null, playing=false, overlay=false, frame=0;
+const sequenceSelect=document.querySelector('#sequence'), frameInput=document.querySelector('#source-frame');
+const playButton=document.querySelector('#play-track'), restoreButton=document.querySelector('#restore-track');
+const trackStatus=document.querySelector('#track-status'), trackReadout=document.querySelector('#track-readout');
+function stopInspection(){inspection?.dispose();inspection=null;playing=false;overlay=false;frame=0;
+  sequenceSelect.replaceChildren();frameInput.value='0';trackReadout.textContent='';playButton.textContent='Play source timeline';
+  for(const control of [sequenceSelect,frameInput,playButton,restoreButton])control.disabled=true;
+  trackStatus.textContent='Waiting for the source bundle…';document.querySelector('#track-identity').textContent='';
+  document.querySelector('#track-limit').textContent='Source track inspection is separate from native NPC state selection and gameplay timing.';
+}
+function failInspection(result){
+  playing=false;overlay=false;playButton.textContent='Play source timeline';
+  trackReadout.textContent='';trackStatus.textContent=`Source inspection unavailable: ${result.reason}`;
+  document.querySelector('#social').disabled=!current?.actions?.social;
+}
+function displayFrame(){
+  if(!inspection)return;
+  const result=inspection.applyFrame(frame);overlay=result.status==='ready';
+  if(!overlay){failInspection(result);return;}
+  const seq=inspection.sequences.find(row=>row.name===sequenceSelect.value);
+  frameInput.value=String(frame);
+  trackStatus.textContent=`Original sparse keys · ${seq.name}`;
+  trackReadout.textContent=`${seq.frames} source frame${seq.frames===1?'':'s'} · ${seq.rate} fps\nFrame ${frame.toFixed(4)} · ${(frame*seq.duration).toFixed(3)} s\n${current.originalSource.skeleton.bones.length} original bones`;
+  document.querySelector('#social').disabled=true;
+}
+function selectSequence(){
+  if(!inspection)return;playing=false;playButton.textContent='Play source timeline';frame=0;
+  const result=inspection.select(sequenceSelect.value);
+  if(result.status==='unsupported'){failInspection(result);return;}
+  displayFrame();
+}
+function showTracks(){
+  if(!current.originalSource){trackStatus.textContent='No original sparse bundle for this NPC.';return;}
+  try{inspection=createNpcSourceInspection(current.monsterRoot,current.originalSource);}catch(error){trackStatus.textContent=error.message;return;}
+  for(const row of inspection.sequences){const option=document.createElement('option');option.value=row.name;option.textContent=`${row.name} · ${row.frames} frame${row.frames===1?'':'s'}`;sequenceSelect.appendChild(option);}
+  for(const control of [sequenceSelect,frameInput,playButton,restoreButton])control.disabled=false;
+  const {npc,model}=current.originalSource.record;
+  document.querySelector('#track-identity').textContent=`${npc.className} → ${model.meshRef} → ${model.animationRef}. Original animation export SHA-256: ${model.source.animationExportSHA256}`;
+  document.querySelector('#track-limit').textContent=`Geometry and original bone identities checked. Skin weights remain unverified: ${model.built.skinProof.differentInfluenceVertices} vertices differ from source influences. This manual timeline does not execute native state selection, notifies, effects or sounds. Model placement and lighting remain provisional.`;
+  const wait=npc.selectors.WaitAnimName?.['0']?.sequence;
+  if(inspection.sequences.some(row=>row.name===wait))sequenceSelect.value=wait;
+  selectSequence();
+}
+sequenceSelect.addEventListener('change',selectSequence);
+frameInput.addEventListener('input',()=>{playing=false;playButton.textContent='Play source timeline';frame=Number(frameInput.value);displayFrame();});
+playButton.addEventListener('click',()=>{if(!inspection)return;playing=!playing;playButton.textContent=playing?'Pause source timeline':'Play source timeline';displayFrame();});
+restoreButton.addEventListener('click',()=>{if(!inspection)return;playing=false;overlay=false;inspection.restore();playButton.textContent='Play source timeline';trackStatus.textContent='Restored converted model animation; original overlay is off.';trackReadout.textContent='';document.querySelector('#social').disabled=!current.actions.social;});
 function show(){
-  manager.clear(); current=null; framing=true; generation++;
+  stopInspection();manager.clear(); current=null; framing=true; generation++;
   const npcId=Number(select.value);
   const url=new URL(location.href);url.searchParams.set('npc',String(npcId));history.replaceState(null,'',url);
   manager.addNpc({id:generation,npcId,name:npcName(npcId),x:0,y:0,z:0},null);
@@ -122,7 +185,13 @@ function resize(){const {width,height}=stage.getBoundingClientRect();renderer.se
 new ResizeObserver(resize).observe(stage);resize();show();
 const clock=new THREE.Clock();
 renderer.setAnimationLoop(()=>{
-  const dt=clock.getDelta(); current?.update(dt,null);
+  const dt=clock.getDelta(); if(!overlay)current?.update(dt,null);
+  if(playing&&inspection){const seq=inspection.sequences.find(row=>row.name===sequenceSelect.value);frame=(frame+dt/seq.duration)%1;displayFrame();}
+  if(current?.modelLoadError&&framing){
+    framing=false;status.textContent=`NPC model unavailable: ${current.modelLoadError}`;
+    trackStatus.textContent='Source inspection unavailable; see the model error above.';
+    materialStatus.textContent='Model admission failed.';
+  }
   if(current?.pickResourcesReady&&framing){
     const box=new THREE.Box3().setFromObject(current.group), size=box.getSize(new THREE.Vector3());
     const center=box.getCenter(new THREE.Vector3()), radius=Math.max(size.x,size.y,size.z,.1);
@@ -130,8 +199,11 @@ renderer.setAnimationLoop(()=>{
     framing=false;
     status.textContent=`NPC ${current.npcId} • idle: ${current.actions.idle?.getClip().name} • social: ${current.actions.social?.getClip().name||'unavailable'}`;
     document.querySelector('#social').disabled=!current.actions.social;
-    showMaterials();
+    showMaterials();showTracks();
   }
   controls.update();renderer.render(scene,camera);
 });
+window.render_game_to_text=()=>JSON.stringify({npcId:current?.npcId,ready:!!current?.pickResourcesReady,
+  source:inspection?.status||null,overlay,playing,frame,sequence:sequenceSelect.value,
+  scope:'manual-source-inspection',nativeNpcPlayback:false});
 </script></html>

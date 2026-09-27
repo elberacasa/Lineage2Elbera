@@ -8,8 +8,11 @@ class for a mesh makes corpse NPCs play a living guard or merchant's idle.
 `tools/anim/build_npc_variants.py` has two separate modes. Its default mode
 builds the bounded clip supplements below. `--selectors-only` recovers the
 qualified per-NPC source fields and sequence timing without changing model
-assets; that catalog is not yet consumed by the browser. Values are decoded
-afresh on each build, rather than supplied by these documentation tables.
+assets. The same fresh collector now supplies the separate
+[NPC sparse-source transport and manual inspector](original-npc-animation-runtime.md)
+for Gremlin and fox. Automatic native NPC playback remains off; transporting
+selectors does not establish state/event admission. Values are decoded afresh
+on each build, rather than supplied by these documentation tables.
 
 | Original class | Original field | Sequence in the mesh's bound animation set |
 | --- | --- | --- |
@@ -172,8 +175,11 @@ selector exporter verifies the data chain above, not these native bodies.
 
 Movement rates also have source rate arrays and native modifiers. Sequence
 `rate` is the original clip rate, not a substitute for those runtime values.
-The smallest next runtime work is to admit exact source selectors only with
-proven stance/state inputs and renderable, independently verified clip data;
+The source transport now retains every Gremlin/fox sequence and verifies the
+existing models' triangle geometry and bone identities for manual inspection.
+Their differing skin influences remain explicitly unverified. Automatic live
+source playback still requires proven stance/state inputs: original packet-tail
+interpretation and summon/event-type 2 admission are unresolved. In particular,
 initial dead NPCs need the original corpse-wait selector rather than an
 immediate death transition. Native attack choice, playback/blend clocks and
 the current authored corpse fade remain separate gaps.

@@ -105,6 +105,144 @@ test('CharInfo preserves sex and the original wait-state byte through the bridge
   }
 });
 
+test('NpcInfo preserves original wait/combat bytes and all three equipment fields, including explicit zero', () => {
+  const widths = { d: 4, h: 2, c: 1, Q: 8, f: 8, S: 2 };
+  const offset = field => 1 + [...formats.npc.slice(0, field)].reduce((n, type) => n + widths[type], 0);
+  assert.equal(formats.npc[27], 'c'); // nameAbove, running, combat
+  for (const combat of [0, 1, 7]) for (const waitType of [0, 1, 4]) {
+    const ws = new EventEmitter(), messages = [];
+    ws.readyState = 1; ws.send = raw => messages.push(JSON.parse(raw));
+    const bridge = new Bridge(ws, {}, () => {}), game = new GameSession();
+    bridge.game = game; bridge._wireGame(game, {}, true); game.state = 'IN_GAME';
+    game.crypt.decrypt = () => {}; // Already-decrypted synthetic wire bodies.
+    const errors = []; game.on('parseError', error => errors.push(error));
+    let decoded; game.on('npcInfo', record => { decoded = record; });
+    for (const equipment of [[101, 202, 303], [0, 0, 0]]) {
+      const bytes = packet(0x16, formats.npc);
+      equipment.forEach((item, index) => bytes.writeInt32LE(item, offset(22 + index)));
+      bytes[offset(25)] = waitType;
+      bytes[offset(27)] = combat;
+      game._onPacket(bytes);
+      const message = messages.filter(row => row.op === 'addNpc').at(-1);
+      assert.ok(message);
+      for (const row of [decoded, message]) {
+        assert.equal(row.combat, combat, 'raw byte, not an inferred stance');
+        assert.equal(row.waitType, waitType, 'original first byte remains independent of combat');
+        assert.deepEqual([row.rhand, row.chest, row.lhand], equipment);
+        assert.equal(row.speedMul, 1.125, 'source rate input remains separate');
+      }
+    }
+    assert.deepEqual(errors, []);
+  }
+});
+
+// Independent field-by-field fixture for the original NpcInfo prefix and
+// second dddddccffdd reader. Nonempty strings exercise the tail boundary.
+function npcRawFixture(summonAnimationRaw, tail) {
+  const chunks = [Buffer.from([0x16])];
+  const d = value => { const b = Buffer.alloc(4); b.writeInt32LE(value); chunks.push(b); };
+  const f = value => { const b = Buffer.alloc(8); b.writeDoubleLE(value); chunks.push(b); };
+  [17, 1000009, 1, -7, 8, -9, 10, 0, 11, 12,
+    13, 14, 15, 16, 17, 18, 19, 20].forEach(d);
+  [1.25, 1.5, 12.75, 28.125].forEach(f);
+  [21, 22, 23].forEach(d);
+  chunks.push(Buffer.from([1, 0, 7, 0, summonAnimationRaw]));
+  chunks.push(Buffer.from('Source NPC\0Title\0', 'utf16le'));
+  const prefix = Buffer.concat(chunks);
+  chunks.length = 0;
+  tail.prefix.forEach(d);
+  tail.extension.dwords.forEach(d);
+  chunks.push(Buffer.from(tail.extension.bytes));
+  tail.extension.doubles.forEach(f);
+  tail.extension.finalDwords.forEach(d);
+  return { prefix, tail: Buffer.concat(chunks) };
+}
+
+function npcWireHarness() {
+  const ws = new EventEmitter(), messages = [], decoded = [], errors = [];
+  ws.readyState = 1; ws.send = raw => messages.push(JSON.parse(raw));
+  const bridge = new Bridge(ws, {}, () => {}), game = new GameSession();
+  bridge.game = game; bridge._wireGame(game, {}, true); game.state = 'IN_GAME';
+  game.crypt.decrypt = () => {};
+  game.on('npcInfo', row => decoded.push(row));
+  game.on('parseError', error => errors.push(error));
+  return { bridge, game, decoded, messages, errors };
+}
+
+test('NpcInfo retains the creation byte and complete raw extension without guessing neutral effect values', () => {
+  const values = [
+    { prefix: [1, -2, 3], extension: { dwords: [-2147483648, 2147483647, -1, 7, 0],
+      bytes: [128, 255], doubles: [-3.5, 28.125], finalDwords: [-2147483648, 1] } },
+    { prefix: [0, 0, 0], extension: { dwords: [0, 0, 0, 0, 0],
+      bytes: [0, 0], doubles: [0, 0], finalDwords: [0, 0] } },
+  ];
+  for (const summon of [0, 2, 255]) for (const expected of values) {
+    const h = npcWireHarness(), fixture = npcRawFixture(summon, expected);
+    assert.equal(fixture.tail.length, 58);
+    h.game._onPacket(Buffer.concat([fixture.prefix, fixture.tail]));
+    assert.deepEqual(h.errors, []); assert.equal(h.decoded.length, 1);
+    for (const row of [h.decoded[0], h.messages.find(message => message.op === 'addNpc')]) {
+      assert.equal(row.summonAnimationRaw, summon);
+      assert.deepEqual(row.npcInfoTail, expected);
+      assert.equal(row.name, 'Source NPC');
+      assert.equal(row.npcId, 9);
+    }
+  }
+});
+
+test('every incomplete NpcInfo tail remains absent, including a complete three-word prefix', () => {
+  const expected = { prefix: [1, 2, 3], extension: { dwords: [4, 5, 6, 7, 8],
+    bytes: [9, 10], doubles: [11.25, 12.5], finalDwords: [13, 14] } };
+  const fixture = npcRawFixture(2, expected), h = npcWireHarness();
+  for (let length = 0; length < fixture.tail.length; length++) {
+    h.game._onPacket(Buffer.concat([fixture.prefix, fixture.tail.subarray(0, length)]));
+    for (const row of [h.decoded.at(-1), h.messages.filter(message => message.op === 'addNpc').at(-1)]) {
+      assert.equal(row.summonAnimationRaw, 2);
+      assert.equal(Object.hasOwn(row, 'npcInfoTail'), false, `tail length ${length}`);
+    }
+  }
+  assert.deepEqual(h.errors, []); assert.equal(h.decoded.length, 58);
+});
+
+test('complete NpcInfo tails cannot silently convert non-finite wire doubles to JSON null', () => {
+  for (const value of [NaN, Infinity, -Infinity]) {
+    const h = npcWireHarness(), fixture = npcRawFixture(2, { prefix: [0, 0, 0],
+      extension: { dwords: [0, 0, 0, 0, 0], bytes: [0, 0], doubles: [value, 1], finalDwords: [0, 0] } });
+    h.game._onPacket(Buffer.concat([fixture.prefix, fixture.tail]));
+    assert.equal(h.errors.length, 1); assert.match(h.errors[0].error.message, /non-finite wire double/);
+    assert.equal(h.decoded.length, 0); assert.equal(h.messages.some(row => row.op === 'addNpc'), false);
+  }
+});
+
+test('NpcInfo from replaced or closed game sessions cannot publish actors or alter attack state', () => {
+  const h = npcWireHarness(), tail = { prefix: [0, 0, 0],
+    extension: { dwords: [0, 0, 0, 0, 0], bytes: [0, 0], doubles: [12, 28], finalDwords: [0, 0] } };
+  const fixture = npcRawFixture(2, tail), body = Buffer.concat([fixture.prefix, fixture.tail]);
+  h.game._onPacket(body);
+  assert.equal(h.messages.filter(row => row.op === 'addNpc').length, 1);
+  assert.deepEqual(h.bridge.atkById.get(17), { pAtkSpd: 12, rhand: 21 });
+  const replacement = new GameSession(); replacement.state = 'IN_GAME'; replacement.crypt.decrypt = () => {};
+  h.bridge.game = replacement; h.bridge._wireGame(replacement, {}, true);
+  const stale = Buffer.from(body); stale.writeInt32LE(999, 1 + 9 * 4);
+  h.game._onPacket(stale);
+  assert.equal(h.decoded.length, 2, 'late old packet was actually decoded and emitted');
+  assert.equal(h.messages.filter(row => row.op === 'addNpc').length, 1);
+  assert.deepEqual(h.bridge.atkById.get(17), { pAtkSpd: 12, rhand: 21 });
+  const active = Buffer.from(body); active.writeInt32LE(600, 1 + 9 * 4);
+  replacement._onPacket(active);
+  assert.equal(h.messages.filter(row => row.op === 'addNpc').length, 2);
+  assert.equal(h.messages.at(-1).pAtkSpd, 600);
+  assert.deepEqual(h.bridge.atkById.get(17), { pAtkSpd: 600, rhand: 21 });
+  h.bridge.closed = true;
+  replacement._onPacket(stale);
+  const differentId = Buffer.from(stale); differentId.writeInt32LE(18, 1);
+  replacement._onPacket(differentId);
+  assert.equal(h.messages.filter(row => row.op === 'addNpc').length, 2);
+  assert.deepEqual(h.bridge.atkById.get(17), { pAtkSpd: 600, rhand: 21 });
+  assert.equal(h.bridge.atkById.has(18), false);
+  assert.deepEqual(h.errors, []);
+});
+
 test('ChangeWaitType keeps original signed coordinates, including repeated state updates',()=>{
   const ws=new EventEmitter(),messages=[];ws.readyState=1;ws.send=raw=>messages.push(JSON.parse(raw));
   const bridge=new Bridge(ws,{},()=>{}),game=new GameSession();

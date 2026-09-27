@@ -910,6 +910,7 @@ class Bridge {
     });
 
     game.on('npcInfo', (n) => {
+      if (this.closed || this.game !== game) return;
       this.atkById.set(n.id, { pAtkSpd: n.pAtkSpd, rhand: n.rhand || 0 });
       this.send({
         op: 'addNpc',
@@ -927,14 +928,16 @@ class Bridge {
         // same as UserInfo — every Creature carries FuncMoveSpeed, so a mob's
         // multiplier is not 1 either.
         runSpeed: n.runSpeed, walkSpeed: n.walkSpeed, speedMul: n.speedMul,
-        running: n.running,
+        running: n.running, waitType: n.waitType, combat: n.combat,
+        summonAnimationRaw: n.summonAnimationRaw,
+        ...(n.npcInfoTail ? { npcInfoTail: n.npcInfoTail } : {}),
         // attack cadence / swing rate, same fields and same meaning as on
         // charSheet (NpcInfo carries them per creature)
         pAtkSpd: n.pAtkSpd, mAtkSpd: n.mAtkSpd, atkSpdMul: n.atkSpdMul,
         collisionRadius: n.collisionRadius, collisionHeight: n.collisionHeight, dead: n.dead,
         // right-hand item id: the client resolves the aCis WeaponType from it
         // (itemtypes.json) to pick the CreatureAttack branch for hit timing
-        rhand: n.rhand, lhand: n.lhand,
+        rhand: n.rhand, chest: n.chest, lhand: n.lhand,
       });
     });
 
