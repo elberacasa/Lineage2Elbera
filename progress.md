@@ -1796,14 +1796,14 @@ animated hair selection are still unverified.
 The original hair exporter no longer requires converted player models. Optional
 `--compare-built` retains the separate geometry comparison; ordinary export and
 the static inspector run from original inputs alone. Fresh export and read-only
-check pass for all162 meshes/876 material graph nodes. Browser checks displayed
+check pass for all 162 meshes/876 material graph nodes. Browser checks displayed
 rigid Dwarf and static soft-rig Dark Elf hair without errors.
 
 The character builder now selects base style/color zero from decoded hair
 records instead of deriving filenames from face names. Exact qualified texture
 children are freshly decoded with unchanged RGBA; hair no longer uses library
 siblings, mesh-slot substitutions or missing-texture drops. All14 source
-defaults resolve to22 present parts and6 explicit absences. An isolated Human
+defaults resolve to 22 present parts and 6 explicit absences. An isolated Human
 Fighter female build produced7 parts/100 clips; both hair images match source
 pixels and both triangle position/UV/winding multisets match original LOD0.
 Ten active model/manifest/image files remained byte-identical. The existing
@@ -1811,10 +1811,10 @@ assembler still rewrites skin influences; that is not attachment parity.
 The scale audit's caller now handles explicit source absence and exact mesh
 identity, and freshly checks14 models/92 parts with zero local-scale difference.
 
-A new Elbera Tools verifier distinguishes148 ordinary and14 dynamic hair
+A new Elbera Tools verifier distinguishes148 ordinary and 14 dynamic hair
 meshes from the original saved dispatch word, reads14 pawn class defaults and
 checks retained quaternion/master-coordinate arithmetic. Two hundred synthetic
-composition cases and150 original dynamic reference bones pass their bounded
+composition cases and 150 original dynamic reference bones pass their bounded
 instruction comparisons. Both native paths select a master head record; raw
 weight differences alone cannot prove visually incorrect browser attachment.
 
@@ -1836,9 +1836,9 @@ Review found and fixed a false-success exit in the character builder. Failed
 requested builds now return nonzero; all-failed runs preserve the existing
 manifest. Partial successes merge but still return failure. Existing late
 output writes are not transactional and remain a separate pipeline limitation.
-Final focused validation:14 exporter,11 default-builder,17 attachment and8
-synthetic PE/comparison cases pass; all4 selected battery suites pass, with127
+Final focused validation:14 exporter,11 default-builder,17 attachment and 8
+synthetic PE/comparison cases pass; all 4 selected battery suites pass, with 127
 excluded. The battery-runner check and owned/supplemental source checks pass.
-The PE comparison fixtures use Capstone5.0.7; the other three suites also pass
+The PE comparison fixtures use Capstone 5.0.7; the other three suites also pass
 without site packages. A curated actual soft-hair inspector screenshot is
 included in the public guide, with its static-view limitation stated.

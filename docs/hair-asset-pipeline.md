@@ -101,7 +101,7 @@ they do not substitute for a visual or native animation comparison.
 
 The [attachment verifier](native-hair-attachment-evidence.md) independently
 decodes the saved dispatch word after each complete skeletal export. Of the162
-meshes,148 select ordinary rendering and14 select dynamic hair. Both original
+meshes,148 select ordinary rendering and 14 select dynamic hair. Both original
 paths explicitly select a master head record, with different subsequent
 transforms. Source weight differences alone therefore cannot justify changing
 the current head binding.
@@ -140,7 +140,7 @@ contains a separate soft-rig hair part.
 ![Elbera Tools showing the original Dark Elf female hair parts](img/elbera-tools-hair-soft.jpg)
 
 Actual browser inspection of Dark Elf female style0/color0: one rigid part and
-one part with13 source bind bones, both using the decoded alpha reference150.
+one part with 13 source bind bones, both using the decoded alpha reference150.
 The soft-rig part is displayed statically; this screenshot does not show hair
 simulation or character attachment.
 
