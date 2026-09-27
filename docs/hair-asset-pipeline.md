@@ -6,8 +6,8 @@ does not use the old character assembler's head-region or rigid-hair rewrites.
 The source selector and material state evidence are described in
 [native-hair-selection-evidence.md](native-hair-selection-evidence.md).
 
-Run from the repository root with the privately owned client and current player
-models present:
+Run from the repository root with the privately owned client. Converted player
+models are not required:
 
 ```sh
 python3 tools/dat/build_hair.py
@@ -24,6 +24,12 @@ synthetic fixtures. `--source-only --output tmp/restart-audit/hair-raw.json`
 provides an embedded raw-data diagnostic without writing image/mesh sidecars.
 Original client paths are rejected as output locations. No generated file is
 part of the public source release.
+
+The optional `--compare-built` flag adds a comparison against the existing
+player manifest, glTF files and buffers. Use the same flag when checking a
+catalog generated with that option. A missing or incompatible converted model
+fails the requested comparison before writing any output. Source extraction
+and the static inspector do not depend on that older conversion pipeline.
 
 ## What is exported and checked
 
@@ -70,7 +76,8 @@ overrides and complete D3D lighting remain outside the material-state proof.
 
 ## Existing browser geometry is a separate boundary
 
-Every current default hair part is matched by exact node and mesh identity.
+When `--compare-built` is requested, every current default hair part is matched
+by exact node and mesh identity.
 The full triangle multiset—including positions, UVs and winding—matches the
 original LOD0. Its original material slot must select texture zero without
 PolyFlags overrides, and its browser material must not be shared with another

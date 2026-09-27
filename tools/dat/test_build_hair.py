@@ -1,5 +1,8 @@
 """Elbera Tools portable hair decoder/binding tests; no client files required."""
 import copy
+import contextlib
+import io
+import json
 from pathlib import Path
 import struct
 import tempfile
@@ -9,7 +12,7 @@ from unittest.mock import patch
 
 from build_hair import (accessor, built_binding, read_material_properties, source_lod0,
                        source_vertex_key, typed_properties, validate_lod0, write_verified,
-                       output_path, ROOT)
+                       output_path, main, ROOT)
 from l2lib.ue2package import Reader, L2Error, encode_compact
 
 
@@ -200,6 +203,33 @@ class HairSourceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             link = Path(temp) / 'original'; link.symlink_to(ROOT / 'assets/interlude', target_is_directory=True)
             with self.assertRaises(ValueError): output_path(link / 'hair.json')
+
+    def test_source_export_does_not_require_converted_models(self):
+        # The decoder must run before the character assembler exists. Check both
+        # catalog modes, including the full inspector export with asset sidecars.
+        for source_only in (False, True):
+            with self.subTest(source_only=source_only), tempfile.TemporaryDirectory() as temp:
+                output = Path(temp) / 'hair.json'
+                catalog = {'models': {}, 'meshes': {}, 'materials': {}}
+                with patch('build_hair.collect', return_value=(catalog, object())), \
+                     patch('build_hair.add_built_bindings', side_effect=AssertionError('converted models read')), \
+                     patch('build_hair.write_assets') as assets, contextlib.redirect_stdout(io.StringIO()):
+                    main(['--output', str(output), '--assets', str(Path(temp) / 'assets')]
+                         + (['--source-only'] if source_only else []))
+                self.assertEqual(json.loads(output.read_text()), catalog)
+                self.assertEqual(assets.call_count, 0 if source_only else 1)
+
+    def test_requested_built_comparison_fails_before_writing_on_missing_models(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / 'hair.json'
+            output.write_bytes(b'previous catalog')
+            with patch('build_hair.collect', return_value=({'models': {}, 'meshes': {}, 'materials': {}}, object())), \
+                 patch('build_hair.add_built_bindings', side_effect=FileNotFoundError('missing model')), \
+                 patch('build_hair.write_assets') as assets:
+                with self.assertRaises(FileNotFoundError):
+                    main(['--output', str(output), '--compare-built'])
+            assets.assert_not_called()
+            self.assertEqual(output.read_bytes(), b'previous catalog')
 
 
 if __name__ == '__main__':
