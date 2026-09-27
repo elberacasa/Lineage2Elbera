@@ -54,10 +54,15 @@ def collect_receipt():
         receipt['packages'][str(package_path.relative_to(ROOT))] = sha(package_path.read_bytes())
         parts = []
         for suffix, binding in bindings[cid].items():
-            export = package.find_export(binding['mesh'])
-            if export is None:
-                if binding.get('optional'):
+            if suffix in ('_ah', '_bh'):
+                if binding.get('sourceStatus') == 'source-absent':
+                    builder.required_hair_mesh(binding, package, [])  # Reject conflicting absence metadata.
                     continue
+                export = builder.source_hair_export(package, binding['sourceMesh'],
+                    'SkeletalMesh', binding['meshExportSHA256'])
+            else:
+                export = package.find_export(binding['mesh'])
+            if export is None:
                 raise ValueError(f'missing required source mesh {pkgname}.{binding["mesh"]}')
             scale, version, offset = original_mesh_scale(package, export)
             parts.append({
