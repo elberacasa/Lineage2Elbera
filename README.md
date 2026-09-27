@@ -131,17 +131,19 @@ inputs; deployment helpers still depend on a configured private server.
 ```mermaid
 flowchart TB
     subgraph Build["Asset preparation · offline"]
+        direction LR
         Original["Original Interlude files<br/>private inputs"] --> Tools["Elbera Tools"]
         Tools --> Assets["Web assets and metadata<br/>generated locally"]
     end
     subgraph Play["Game session"]
+        direction LR
         Client["ElberaClient<br/>Three.js + DOM interface"]
         Gateway["ElberaGate<br/>Node.js"]
         Server["aCis server + database"]
         Client <-->|WebSocket| Gateway
         Gateway <-->|Interlude TCP protocol| Server
     end
-    Assets -->|HTTP| Client
+    Build -->|Web assets over HTTP| Play
 ```
 
 The browser renders the game and sends player intentions. The server owns
