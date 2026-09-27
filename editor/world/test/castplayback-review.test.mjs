@@ -9,7 +9,7 @@ import { directNotifySound } from '../js/animnotify-clock.js';
 
 const THREE = await import('../vendor/three.module.min.js');
 const source = fs.readFileSync(new URL('../js/character.js', import.meta.url), 'utf8');
-const start = source.indexOf('  cancelCast() {');
+const start = source.indexOf('  cancelCast(');
 const end = source.indexOf('  /**\n   * One attack swing', start);
 assert.ok(start >= 0 && end > start, 'actual Character cast-method boundary');
 const methods = audio => vm.runInNewContext(`class ReviewedCharacter {${source.slice(start, end)}}; ReviewedCharacter.prototype`, {

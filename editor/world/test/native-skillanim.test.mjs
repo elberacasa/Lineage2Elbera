@@ -113,7 +113,7 @@ const warmStart = entitiesSource.indexOf('let _playerCastMetadata =');
 const warmEnd = entitiesSource.indexOf('\nconst FALLBACK_MODEL', warmStart);
 assert.ok(warmStart >= 0 && warmEnd > warmStart, 'actual metadata warmup boundary');
 const characterSource = fs.readFileSync(new URL('../js/character.js', import.meta.url), 'utf8');
-const cancelStart = characterSource.indexOf('  cancelCast() {');
+const cancelStart = characterSource.indexOf('  cancelCast(');
 const cancelEnd = characterSource.indexOf('\n  /** Play every verified', cancelStart);
 assert.ok(cancelStart >= 0 && cancelEnd > cancelStart, 'actual cancellation method boundary');
 function caller(table, entry, metadata) {

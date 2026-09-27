@@ -510,8 +510,8 @@ export class Character {
   // Drop an active or pending cast and release the body to idle/sit on the
   // next update. This body transition remains a browser adaptation; native
   // cancellation poses and notify delivery are separate fidelity gaps.
-  cancelCast() {
-    this.originalPose?.stop();
+  cancelCast({preserveOriginalCache=false}={}) {
+    this.originalPose?.stop({preserveCache:preserveOriginalCache});
     this.castGeneration = (this.castGeneration || 0) + 1;
     this.nativeCast?.hooks?.cancel?.();
     const had = !!(this.nativeCast || this.emoteUntil > performance.now());
@@ -523,8 +523,8 @@ export class Character {
   }
 
   /** Play every verified ordinary source phase. Unsupported/missing inputs
-   *  never fall back to stretching the first animation. Exported poses and
-   *  Initial tween and additional native modifiers remain fidelity gaps. */
+   *  never fall back to stretching the first animation. Fresh/evaluated source
+   *  transitions are admitted; unknown history and native modifiers remain gaps. */
   startCastSchedule(schedule, hooks = null) {
     // Browser cast channels explicitly enable notifies. Native EnableChannelNotify
     // is recovered; the original newly allocated channel default is unresolved.
@@ -549,7 +549,7 @@ export class Character {
       }
       actions.push(action);
     }
-    this.cancelCast();
+    this.cancelCast({preserveOriginalCache:true});
     state.actions = actions;
     state.hooks = hooks;
     state.generation = this.castGeneration;
@@ -650,7 +650,8 @@ export class Character {
   _applyCastTween() { this._applySourceTween(this.nativeCast); }
 
   _applyOriginalPose(state) {
-    if (this.originalPose && state) this.lastOriginalPose=this.originalPose.apply(state.originalFrame);
+    if (this.originalPose && state) this.lastOriginalPose=this.originalPose.apply(
+      state.originalFrame,{epoch:this.sourcePoseEpoch});
   }
 
   // Ordinary ground sit/stand only. Collision adjustment, combat waiting,
@@ -683,7 +684,7 @@ export class Character {
       if (admitted.status !== 'ready') return this.lastWaitError = admitted;
       actions.set(item.clip, admitted.action);
     }
-    this.cancelCast();
+    this.cancelCast({preserveOriginalCache:true});
     this.nativeWait = { channel, successor, actions, changed:true, generation:this.castGeneration };
     this.lastWaitError = null; this.waitNotifyCount = 0; this.lastWaitNotify = null;
     return { status:'ready' };
@@ -728,10 +729,11 @@ export class Character {
       if (this.nativeWait !== state) return;
       if (step.changed) this._beginSourcePose(state, state.actions.get(step.plan.clip), step.plan.tween, step.plan);
       this._sampleSourcePose(state, step);
-      // AnimEnd can install its successor during this same tick. Its tween
-      // must start from the endpoint just displayed, not last tick's pose.
+      // These exported mixer poses are compatibility behavior. Native
+      // UpdateAnimation advances channels and dispatches AnimEnd separately
+      // from GetFrame: do not manufacture a source-cache evaluation for each
+      // segment. The final channel is evaluated once below in update().
       this.mixer.update(0); this._applySourceTween(state);
-      this._applyOriginalPose(state);
       for (const event of step.events) {
         if (this.nativeWait !== state) return;
         const notify = step.plan.notifies[event.index];
@@ -776,6 +778,7 @@ export class Character {
   // moveDir: normalized THREE.Vector3 in world XZ (from WASD), or null
   update(dt, terrain, moveDir = null) {
     if (!this.mixer) return;
+    this.sourcePoseEpoch=(this.sourcePoseEpoch || 0)+1;
     this.originalPose?.restore();
     let vx = 0, vz = 0, running = false, moving = false;
 

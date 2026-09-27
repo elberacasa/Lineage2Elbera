@@ -57,6 +57,14 @@ class PoseTween(unittest.TestCase):
         fraction,state = tween_state(-.2,-.1,10,1,1,.25)
         self.assertEqual(fraction,0);self.assertEqual(state['accumulated'],0)
 
+    def test_normal_win32_masking_admits_signed_zero_reset_explicitly(self):
+        for previous in [0.,-0.]:
+            for old in [1,2]:
+                fraction,state=tween_state(-.05,previous,10,old,1,.2,masked=True)
+                self.assertEqual(fraction,0)
+                self.assertEqual(state,dict(previousFrame=f32(-.1),previousSequenceId=1,accumulated=0))
+        self.assertEqual(tween_state(-3e38,-1e-38,10,1,1,.2,masked=True)[0],0)
+
     def test_fraction_ratio_is_not_stored_before_subtraction(self):
         current,previous = f32(-.032034233),f32(-.09333421)
         fraction,_ = tween_state(current,previous,30,1,1,0)

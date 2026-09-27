@@ -8,8 +8,9 @@ the development story, while the new images illustrate specific current tools.
 
 These direct browser captures use the page's normal viewport, without
 compositing or replacement artwork. The first four captures use 1280 × 720;
-the animation previews use 771 × 760. The `.png` files below retain their original
-published names; their encoded image format is JPEG.
+the earlier animation previews use 771 × 760 and the cached-transition capture
+uses 1280 × 720. The faces and recipes `.png` files retain their original
+published names; those two files' encoded image format is JPEG.
 
 | Image | What was actually running | Limits |
 | --- | --- | --- |
@@ -18,6 +19,7 @@ published names; their encoded image format is JPEG.
 | `elbera-tools-hair.jpg` | Original hair geometry and color inspector, displaying separate part identities and source material states. | Static original LOD0 view; animation, body attachment and native sampling remain unverified. |
 | `elbera-tools-hair-soft.jpg` | Dark Elf female style 0 / color 0, including a separate original soft-rig hair part with its source bones and weights. | The soft rig is shown statically. This does not demonstrate dynamic hair simulation. |
 | `elbera-tools-live-animation.jpg` | Male Human Fighter after Sit → Stand → Wait in the pawn inspector, using the live Character player and private lossless runtime bundle. The visible status reports Wait_Hand_MFighter, 69 original links and one reference bone. | Offline replay of the gameplay component. Nonnegative source poses are admitted; initial tween, modifiers, native skinning and actor placement remain unfinished. Manual clip controls above the replay remain a separate export comparison. |
+| `elbera-tools-cached-transition.jpg` | Male Human Fighter after a fresh Sit → Stand → Wait replay. The current pose reports 69 mapped bones and one reference; the visible historical receipt retains the actual last evaluated Wait transition's frame and increment. | Direct offline capture with normal viewport and zoom controls. The receipt describes an earlier transition, not the current positive frame. Browser skinning, inspection lighting and an unresolved original audio reference remain visible; this is not full native rendering parity. |
 | `elbera-tools-source-hierarchy.jpg` | Male Human Fighter, original CastMid at 0.677 seconds, using the original face skeleton, 69 native animation links, one source reference bone and recovered neutral parent transforms. | Existing browser skinning and per-part binds remain in use. This does not establish actor modifiers, world placement, native deformation or full gameplay animation parity. |
 | `elbera-tools-animation-keys.jpg` | Female Human Fighter, original CastMid sequence at 0.677 seconds, rendered from decoded sparse tracks with recovered ordinary interpolation. The same inspector reports differences from the existing export. | Historical local-key preview before source-face hierarchy integration. Inspection camera/lighting; initial tweening, root modifiers and dynamic hair remain unfinished. |
 

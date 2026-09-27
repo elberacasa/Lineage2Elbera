@@ -69,6 +69,20 @@ test('channel state is shared once across bones, not consumed once per bone', ()
   assert.equal(second.fraction, 0.5); assert.deepEqual(second.position, [20, 25, 30]);
 });
 
+test('explicit normal Win32 masking resets both signed-zero previous frames before interpolation', () => {
+  for (const previousFrame of [0,-0]) for (const previousSequenceId of [7,2]) {
+    const result=tweenOriginalLocalPose(input({previousFrame,previousSequenceId,
+      cached:pose([0,0,0,2],[3,4,5]),floatingPointEnvironment:'win32-default'}));
+    assert.equal(result.status,'ready'); assert.equal(result.fraction,0);
+    assert.deepEqual(result.state,{previousFrame:f(-.1),previousSequenceId:7,accumulated:0});
+    assert.deepEqual(result.position,[3,4,5]);
+    assert.deepEqual(result.quaternion,[0,0,0,1]);
+  }
+  const overflow=tweenOriginalLocalPose(input({frame:-3e38,previousFrame:-1e-38,
+    floatingPointEnvironment:'win32-default'}));
+  assert.equal(overflow.status,'ready'); assert.equal(overflow.fraction,0);
+});
+
 test('cache-invalid branch requires ordinary frame-zero sampling, not raw first keys', () => {
   const track = prepareOriginalTrack({ flags: 0, times: [0, 0.00005, 1],
     quaternions: [[0, 0, 0, 0.8], [0, 0, 1, 0], [0, 0, 0, 1]],
