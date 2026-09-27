@@ -1,7 +1,8 @@
 # Browser port: path to a small test server
 
-Updated 27 September 2026. Public foundations are on `main`; current appearance
-work continues on `codex/native-hair-materials`. The older local research branch
+Updated 27 September 2026. Public foundations and the original hair inspector
+are on `main`; current attachment and source-build work continues on
+`codex/native-hair-attachment`. The older local research branch
 is preserved separately and is not a publication branch.
 
 ## Product and scope
@@ -71,7 +72,7 @@ Float32 renderer coordinates. At Giran `(78400,163712)`, visible Z is
 Native streaming/loading transitions, lighting, prop collision and all gameplay
 routes still require their own proof. Source inputs remain private and intact.
 
-The journal reads 2,050 original records for342 quests, including decoded
+The journal reads 2,050 original records for 342 quests, including decoded
 native stage-history and completion rules. The configured server's “Letters
 of Love” journey has since completed through ordinary interactions; its reward
 survived reconnect and appeared in the browser inventory. No quest-state
@@ -89,15 +90,26 @@ work. The [coverage inventory](PORT-COVERAGE.md) is the current system-by-system
 record; hair, full native gauges/effects, complete camera collision and many
 gameplay journeys remain unfinished.
 
-The next appearance checkpoint now exports all162 referenced source hair meshes
+The next appearance checkpoint now exports all 162 referenced source hair meshes
 without changing their weights, plus648 exact material references. Creation
 uses the original five male/seven female styles, four colors and three faces;
 unsupported hair previews are labeled and the old RGB tint is removed. The
-source/built comparison found differing skin influences in all22 default hair
+source/built comparison found differing skin influences in all 22 default hair
 parts. That is a reason to recover native master-instance attachment, not proof
 that changing texture alone finishes hair fidelity. Original material pass
 state and raw geometry can be inspected independently while attachment remains
 open. See [hair-asset-pipeline.md](hair-asset-pipeline.md).
+
+Source extraction now runs independently of existing converted characters.
+The character builder selects default hair and its exact texture graph from
+decoded source records, with explicit absent parts and no guessed sibling
+images. A fresh native census separates 148 ordinary and 14 dynamic hair meshes
+and checks retained coordinate arithmetic. A separately pinned archive copy
+also identifies four previously unknown imports in exactly matched surrounding
+blocks. Its provenance and the protected copy's runtime restoration remain
+unverified; this evidence guides the next transform comparison rather than
+claiming finished attachment. See
+[native-hair-attachment-evidence.md](native-hair-attachment-evidence.md).
 
 Offline review is available at
 `/?dev=1&inspect=1&checkpoint=giran-border`. The **Previous terrain repairs**

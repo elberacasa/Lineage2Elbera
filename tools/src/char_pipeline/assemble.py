@@ -21,10 +21,12 @@ Full-skeleton, zero-remap architecture:
   the hands (and the old cross-side face stripping then cut holes trying
   to hide it). Name+parent+pose matching resolves this deterministically.
 
-  Meshes whose whole skeleton is a separate hair rig (female _bh meshes
-  with bones Hair01-13 only, e.g. FElf/FDarkElf) contain no body bones at
-  all; their vertices are in the same pawn space, so they are bound
-  rigidly to the head bone (the hair rig is not animated by the .psa).
+  Compatibility limitation: separate hair rigs (for example FElf/FDarkElf
+  Hair01-13) are currently rebound rigidly to the head. The original client
+  has a separate dynamic-hair path; absence of matching .psa tracks does not
+  justify removing that simulation. The head-region rewrite below is also
+  provisional. See docs/native-hair-attachment-evidence.md before changing
+  these weights or claiming native attachment equivalence.
 
 Coordinate conversion (measured against the umodel binary's own glTF
 export; see the note above _xf_pos — the vendored ExportGLTF.cpp source
@@ -589,15 +591,12 @@ def merge_parts(parts, out_path):
         points, wedges, faces = data['points'], data['wedges'], data['faces']
         weights = data['weights']
         hair = perm is None
-        # head-region part (face / front / back hair): source data often
-        # weights these meshes 100% to the ROOT bone, so the face/hair
-        # shell pivots around the pelvis while the body neck follows the
-        # spine chain -> the head detaches under any pose that leans the
-        # spine (verified: 23 of 34 face/hair parts fully root-weighted;
-        # FFighter/FMagic/MMagic faces are head-weighted in the source,
-        # i.e. anchoring to the head is what the artists intended).
-        # Re-anchor root-weighted verts near the head to the head bone.
-        # Bind pose is bit-identical either way (identity skinning).
+        # Existing browser workaround: rebind root influences within an
+        # authored 15-unit head radius. Neither that radius nor this rewrite
+        # has native evidence. Original hair rendering explicitly selects a
+        # master head transform, so source weights alone cannot determine
+        # its attachment. Keep this limitation visible until that complete
+        # transform is ported; bind-pose agreement is not animation parity.
         lname = p['name'].lower()
         head_part = lname.endswith(('_f', '_ah', '_bh'))
         if (hair or head_part) and head_ci is None:

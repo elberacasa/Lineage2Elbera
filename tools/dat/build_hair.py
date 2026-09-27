@@ -629,16 +629,19 @@ def write_assets(catalog, sources, asset_path, check):
             'format': mesh['format']}
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=OUTPUT)
     parser.add_argument('--check', action='store_true')
     parser.add_argument('--assets', type=Path, default=ASSETS)
     parser.add_argument('--source-only', action='store_true', help='diagnostic raw catalog; do not create image/mesh sidecars')
-    args = parser.parse_args()
+    parser.add_argument('--compare-built', action='store_true',
+                        help='also compare existing converted player models; requires their manifest, glTF and buffers')
+    args = parser.parse_args(argv)
     args.output, args.assets = output_path(args.output), output_path(args.assets)
     catalog, sources = collect()
-    add_built_bindings(catalog)
+    if args.compare_built:
+        add_built_bindings(catalog)
     if not args.source_only:
         write_assets(catalog, sources, args.assets, args.check)
     data = encode(catalog)

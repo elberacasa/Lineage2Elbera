@@ -14,13 +14,15 @@ For each race/gender combo:
      injects animations
   5. results land in editor/characters/models/, manifest.json is updated
 
-chargrp.dat (editor/characters/charcreate-data.json -> creationAssets) is
-used ONLY to decide WHICH meshes form the creation outfit (body meshes,
-face mesh, whether hair style m000 has attached meshes). Textures come
-from each mesh's OWN material slots — never from naming conventions.
+chargrp.dat (editor/characters/charcreate-data.json -> creationAssets) selects
+the creation body and face. Hair style/color zero comes from the freshly decoded
+original hair table and native selectors, with explicit absent parts and exact
+material-to-Texture references. This selection correction does not establish
+native attachment or change the assembler's existing material render state.
 
 Usage: /usr/bin/python3 tools/src/char_pipeline/build_characters.py [only_id ...]
 """
+import hashlib
 import json
 import os
 import re
@@ -78,9 +80,86 @@ CREATION_KEY = {
     'dwarf_f':         ('dwarf', 'female', 'fighter'),
 }
 
-# body-part suffixes, in chargrp bodyMeshes order, plus face and the two
-# hair meshes (_ah front hair, _bh back hair)
+# Body-part output suffixes plus the two original hair part slots.
 PARTS = ['_u', '_l', '_g', '_b', '_f', '_ah', '_bh']
+
+
+def default_hair_bindings(catalog, model_packages):
+    """Select base style/color zero from source records, never asset existence.
+
+    Pure admission helper. ``collect`` supplies freshly decoded source tables
+    and exact material graph identities, without built glTFs or image sidecars.
+    Empty parts remain records; missing required source data raises an error.
+    """
+    if catalog.get('format') != 'l2-interlude-player-hair-v1':
+        raise ValueError('unsupported original hair catalog')
+    result = {}
+    for model, expected_package in model_packages.items():
+        slots = [row for row in catalog.get('models', {}).get(model, {}).get('slots', []) if row.get('index') == 0]
+        if len(slots) != 1:
+            raise ValueError('missing or ambiguous default source hair style: ' + model)
+        parts = slots[0].get('parts', [])
+        if len(parts) != 2 or {part.get('part') for part in parts} != {1, 2}:
+            raise ValueError('missing or ambiguous source hair parts: ' + model)
+        entry = {}
+        for part in parts:
+            number = part['part']
+            if part.get('nativeSlot') != (5 if number == 1 else 4):
+                raise ValueError('source hair native slot mismatch: ' + model)
+            suffix = '_ah' if number == 1 else '_bh'
+            status = part.get('status')
+            if status == 'source-absent':
+                entry[suffix] = {'sourceStatus': status, 'mesh': None, 'tex': None}
+                continue
+            if status != 'source-present':
+                raise ValueError('unresolved source hair part: ' + model)
+            mesh_ref = part.get('mesh', '')
+            mesh_fields = mesh_ref.split('.')
+            mesh = catalog.get('meshes', {}).get(mesh_ref)
+            if len(mesh_fields) != 2 or mesh_fields[0].casefold() != expected_package.casefold() or not mesh:
+                raise ValueError('missing or incompatible source hair mesh: ' + model)
+            material_slots = mesh.get('materialSlots')
+            if not isinstance(material_slots, list) or len(material_slots) != 1 or \
+                    material_slots[0].get('textureIndex') != 0 or material_slots[0].get('polyFlags') != 0:
+                raise ValueError('unsupported original hair material slots: ' + mesh_ref)
+            colors = [color for color in part.get('colors', []) if color.get('index') == 0]
+            if len(colors) != 1:
+                raise ValueError('missing or ambiguous default hair color: ' + model)
+            material_ref = colors[0].get('material')
+            texture_ref = material_ref
+            seen = set()
+            while True:
+                if not isinstance(texture_ref, str) or texture_ref in seen:
+                    raise ValueError('missing or cyclic original hair material')
+                seen.add(texture_ref)
+                node = catalog.get('materials', {}).get(texture_ref)
+                if not node:
+                    raise ValueError('missing original hair material: ' + texture_ref)
+                if node.get('class') == 'Texture':
+                    break
+                if node.get('class') != 'FinalBlend':
+                    raise ValueError('unsupported original hair material: ' + texture_ref)
+                texture_ref = node.get('properties', {}).get('Material', {}).get('reference')
+            if any(not re.fullmatch(r'[a-f0-9]{64}', value or '') for value in
+                   (mesh.get('sourceExportSHA256'), node.get('sourceExportSHA256'))):
+                raise ValueError('missing original hair export fingerprint')
+            package, separator, _name = texture_ref.partition('.')
+            if not separator or not _name:
+                raise ValueError('unqualified original hair texture')
+            material_package, _, material_name = material_ref.partition('.')
+            entry[suffix] = {'sourceStatus': status, 'mesh': mesh_fields[1],
+                'sourceMesh': mesh_ref, 'meshExportSHA256': mesh['sourceExportSHA256'],
+                'tex': (material_package, material_name), 'sourceMaterial': material_ref,
+                'sourceTexture': texture_ref, 'textureExportSHA256': node['sourceExportSHA256']}
+        result[model] = entry
+    return result
+
+
+def load_default_hair_bindings():
+    sys.path[:0] = [os.path.join(ROOT, 'tools/dat'), os.path.join(ROOT, 'tools/ui')]
+    from build_hair import collect
+    catalog, _sources = collect()
+    return default_hair_bindings(catalog, {combo[0]: combo[4] for combo in COMBOS})
 
 
 def load_creation_bindings():
@@ -89,15 +168,16 @@ def load_creation_bindings():
     meshes form the creation outfit.  Also keeps chargrp's own texture
     references as the FALLBACK for meshes whose .ukx material slots are
     null (the game binds those textures at runtime through chargrp; many
-    meshes — most female and hair meshes — carry no in-package reference,
+    meshes carry no in-package reference,
     their psk MATT chunk then just says 'material_0').
 
-    -> {combo_id: {suffix: {'mesh': str, 'tex': (utx_pkg, obj)|None,
-                            'optional': bool}}}
+    Hair uses the separate freshly decoded original base style/color-zero
+    bindings. Explicit source absence is distinct from missing source assets.
     """
     path = os.path.join(OUT, 'charcreate-data.json')
     data = json.load(open(path))
     races = {r['id']: r for r in data['races']}
+    hair = load_default_hair_bindings()
     table = {}
     for cid, (race_id, gender, cls) in CREATION_KEY.items():
         race = races[race_id]
@@ -109,24 +189,7 @@ def load_creation_bindings():
                                       ca['bodyMeshes'], ca['bodyTextures']):
             tp, tn = tref.split('.')
             entry[suffix] = {'mesh': mref.split('.')[-1], 'tex': (tp, tn)}
-        # hair meshes (optional): offered whenever the package carries
-        # them; existence-checked per combo in build_combo.  chargrp's
-        # appearanceDetail.attachedMesh lists only the TINTABLE attached
-        # styles — paintedOnly styles (all orc styles, darkelf/dwarf male
-        # m000) still get their hair-cap meshes on the creation screen
-        # (verified against official NCSoft hairstyle captures and
-        # umodel renders of the caps: they are what closes the skull on
-        # the mask-like _f face meshes).
-        mprefix = face_mesh[:-2]           # e.g. MFighter_m000
-        tprefix = face_tex[1][:-2]         # e.g. MFighter_m000_t00
-        for hs in ('_ah', '_bh'):
-            entry[hs] = {
-                'mesh': '%s_m00%s' % (mprefix, hs),
-                # hair textures are not in chargrp either; the client's
-                # own naming is <faceTexPrefix>_m00_ah/_bh — used only
-                # after an existence check in the .utx
-                'tex': (face_tex[0], '%s_m00%s' % (tprefix, hs)),
-                'optional': True}
+        entry.update(hair[cid])
         table[cid] = entry
     return table
 
@@ -174,6 +237,65 @@ def load_utx(texpkg):
         p, _proto = up.load_package(os.path.join(CLIENT, find_utx(texpkg)))
         UTX_CACHE[key] = p
     return UTX_CACHE[key]
+
+
+def source_hair_export(package, reference, kind, expected_sha):
+    """Resolve and fingerprint the exact qualified export, including its group."""
+    sys.path.insert(0, os.path.join(ROOT, 'tools/dat'))
+    from build_hair import qualified
+    if not isinstance(reference, str) or '.' not in reference or \
+            not re.fullmatch(r'[a-f0-9]{64}', expected_sha or ''):
+        raise ValueError('missing original hair export identity')
+    package_name = reference.split('.', 1)[0]
+    matches = [e for e in package.exports if package.class_name_of(e) == kind
+               and qualified(package, e, package_name).casefold() == reference.casefold()]
+    if len(matches) != 1:
+        raise ValueError('missing or ambiguous original hair export: ' + reference)
+    export = matches[0]
+    start, end = export.serial_offset, export.serial_offset + export.serial_size
+    if not 0 <= start < end <= len(package.data) or \
+            hashlib.sha256(package.data[start:end]).hexdigest() != expected_sha:
+        raise ValueError('original hair export fingerprint differs: ' + reference)
+    return export
+
+
+def required_hair_mesh(binding, package, listed_meshes):
+    """Explicit source absence skips a part; every present part must export."""
+    if not binding or binding.get('sourceStatus') not in ('source-absent', 'source-present'):
+        raise ValueError('missing original hair part binding')
+    if binding['sourceStatus'] == 'source-absent':
+        if binding.get('mesh') is not None or binding.get('tex') is not None:
+            raise ValueError('conflicting absent original hair part')
+        return None
+    export = source_hair_export(package, binding.get('sourceMesh'), 'SkeletalMesh',
+                                binding.get('meshExportSHA256'))
+    name = package.export_name(export)
+    matches = [m for m in listed_meshes if m.casefold() == name.casefold()]
+    if len(matches) != 1 or not isinstance(binding.get('mesh'), str) or binding['mesh'].casefold() != name.casefold():
+        raise ValueError('required original hair mesh unavailable to exporter: ' + name)
+    return matches[0]
+
+
+def choose_source_hair_texture(binding, tmp_dir):
+    """Decode the selected original Texture's RGBA; no library/sibling fallback.
+
+    The exact source graph was resolved when reading the hair table. This only
+    preserves its mip-zero pixels; the existing assembler's material state and
+    hair attachment are separate, unresolved parts of that pipeline.
+    """
+    if binding.get('sourceStatus') != 'source-present':
+        raise ValueError('no present original hair texture binding')
+    reference = binding.get('sourceTexture')
+    if not isinstance(reference, str) or '.' not in reference:
+        raise ValueError('missing original hair texture identity')
+    package = load_utx(reference.split('.', 1)[0])
+    export = source_hair_export(package, reference, 'Texture', binding.get('textureExportSHA256'))
+    sys.path.insert(0, os.path.join(ROOT, 'tools'))
+    from l2lib import textures as tx
+    width, height, rgba, _info = tx.extract_texture_rgba(package, export)
+    path = os.path.join(tmp_dir, 'hair-' + binding['textureExportSHA256'] + '.png')
+    tx.write_png(path, width, height, rgba)
+    return ('hairgrp', binding['tex'], reference, path, [])
 
 
 def mesh_section_materials(ukx_pkg, mesh_name):
@@ -354,16 +476,14 @@ def choose_texture(candidates, tmp_dir):
     candidate's material to its diffuse Texture and returns
     (source, ref, texname, png_path, notes).
 
-    Rules (owner directive):
+    Legacy non-hair rules (hair bypasses this resolver):
     - the retail chargrp binding wins; the mesh slot is only a fallback.
     - a resolved name ending in _sp is used only through its RGB channel
       (l2lib decode): never the library's *_sp export (that is the alpha
       specular mask, near-black/white — not diffuse).  If the non-_sp
       sibling exists in the library it is preferred.
-    - a resolved name ending in _ori is the 'original' bitmap used by
-      FinalBlend hair materials: prefer the non-suffixed sibling when
-      exported, else accept the library _ori (it IS the diffuse there,
-      alpha needed for hair strands).
+    - the historical _ori sibling substitution below is an unverified
+      non-hair compatibility rule. Source-selected hair never uses it.
     """
     for source, ref in candidates:
         if not ref or not ref[0]:
@@ -549,16 +669,22 @@ def build_combo(cid, race, gender, cname, pkg, prefix, texpkg, bindings):
     print('== %s (%s %s) ==' % (cid, race, gender))
 
     meshes = list_objects(ukx).get('SkeletalMesh', [])
+    bind = bindings[cid]
+    ukx_pkg = load_ukx(pkg)
+    hair_meshes = {suffix: required_hair_mesh(bind.get(suffix), ukx_pkg, meshes)
+                   for suffix in ('_ah', '_bh')}
     stage = os.path.join(STAGE, cid)
     if os.path.isdir(stage):
         shutil.rmtree(stage)
     parts = []
-    bind = bindings[cid]
     for suffix in PARTS:
+        is_hair = suffix in hair_meshes
+        if is_hair and hair_meshes[suffix] is None:
+            continue  # Native table explicitly omits this part.
         if suffix not in bind:
-            continue  # optional part dropped (e.g. painted-only hair style)
+            continue
         want = bind[suffix]['mesh']
-        mesh_name = want and find_ci(meshes, want)
+        mesh_name = hair_meshes[suffix] if is_hair else want and find_ci(meshes, want)
         if not mesh_name:
             if suffix in ('_u', '_l', '_f'):
                 print('  SKIP: required part %s (%s) missing' % (suffix, want))
@@ -567,35 +693,27 @@ def build_combo(cid, race, gender, cname, pkg, prefix, texpkg, bindings):
         export_one(ukx, mesh_name, [], stage)
         psk = find_exported(stage, mesh_name, '.psk')
         if not psk:
+            if is_hair:
+                raise ValueError('required original hair mesh produced no PSK: ' + mesh_name)
             print('  SKIP: export of %s produced nothing' % mesh_name)
             return None
         parts.append({'suffix': suffix, 'mesh': mesh_name, 'psk': psk})
 
-    # textures: chargrp.dat creation bindings are AUTHORITATIVE (the
-    # retail creation-screen look: t00 face, t02 body sets); each mesh's
-    # own .ukx material slot is only a fallback for parts chargrp does
-    # not cover.  Specular (_sp) resolutions are rejected outright —
-    # never a baseColor; _ori only when it is the material's only
-    # export (hair FinalBlends).  PNGs come from the verified exports in
-    # assets/library/<Package>/.
-    ukx_pkg = load_ukx(pkg)
+    # Body/face keep the existing chargrp/slot resolver. Hair must decode the
+    # exact source graph's Texture even when a similarly named library PNG
+    # exists. An unavailable required hair asset fails the build.
     tex_stage = os.path.join(stage, 'tex')
     os.makedirs(tex_stage, exist_ok=True)
     outdir = os.path.join(OUT, 'models')
     os.makedirs(outdir, exist_ok=True)
-    kept = []
     for p in parts:
         data = assemble.parse_psk(p['psk'])
         sec_names = data['materials'] or ['material_0']
+        if p['suffix'] in hair_meshes and len(sec_names) != 1:
+            raise ValueError('source hair single material slot differs from exported PSK: ' + p['mesh'])
         slots = mesh_section_materials(ukx_pkg, p['mesh'])
         grp_tex = bind[p['suffix']].get('tex')
-        if grp_tex and p['suffix'] in ('_ah', '_bh') and \
-                load_utx(grp_tex[0]).find_export(grp_tex[1]) is None and \
-                library_png(grp_tex[0], grp_tex[1]) is None and \
-                library_png(grp_tex[0], grp_tex[1] + '_ori') is None:
-            grp_tex = None
         sections = []
-        dropped = False
         for si, sname in enumerate(sec_names):
             slot_ref = None
             if len(sec_names) == 1 and slots:
@@ -608,8 +726,9 @@ def build_combo(cid, race, gender, cname, pkg, prefix, texpkg, bindings):
                         break
                 if slot_ref is None and si < len(slots):
                     slot_ref = slots[si]
-            chosen = choose_texture([('chargrp', grp_tex),
-                                     ('slot', slot_ref)], tex_stage)
+            chosen = (choose_source_hair_texture(bind[p['suffix']], tex_stage)
+                      if p['suffix'] in hair_meshes else
+                      choose_texture([('chargrp', grp_tex), ('slot', slot_ref)], tex_stage))
             tex_uri = None
             if chosen:
                 source, ref, resolved, png, notes = chosen
@@ -630,14 +749,6 @@ def build_combo(cid, race, gender, cname, pkg, prefix, texpkg, bindings):
                 print('  part %-28s %-7s %s.%s -> tex %s (lum %s)'
                       % (p['mesh'], source, ref[0], ref[1], resolved,
                          lum_s))
-            elif p['suffix'] in ('_ah', '_bh'):
-                # hair part with no texture anywhere (painted styles carry
-                # only the _bh cap; the retail client shows no front-hair
-                # piece there) — drop the mesh rather than show a gray blob
-                print('  part %-28s dropped (no hair texture exists for '
-                      'this style)' % p['mesh'])
-                dropped = True
-                break
             else:
                 print('  WARNING: %s section %d (%s): no diffuse texture '
                       'found (chargrp %s, slot %s) — neutral material'
@@ -646,12 +757,8 @@ def build_combo(cid, race, gender, cname, pkg, prefix, texpkg, bindings):
                 'texture': tex_uri,
                 'alpha_mode': 'MASK' if p['suffix'] in ('_ah', '_bh')
                 else None})
-        if dropped:
-            continue
-        kept.append(p)
         p['name'] = p['mesh']
         p['sections'] = sections
-    parts = kept
 
     # animations
     anim_obj = find_ci(list_objects(ukx).get('MeshAnimation', []), '%s_anim' % prefix)
@@ -764,10 +871,14 @@ def main():
     existing = {}
     if os.path.isfile(manifest_path):
         try:
-            for m in json.load(open(manifest_path)).get('models', []):
+            with open(manifest_path) as source:
+                previous_models = json.load(source).get('models', [])
+            for m in previous_models:
                 existing[m['id']] = m
         except Exception:
             pass
+    succeeded = 0
+    failed = 0
     for combo in COMBOS:
         if only and combo[0] not in only:
             continue
@@ -780,6 +891,14 @@ def main():
             # merge, don't replace: keys a rebuild doesn't produce (e.g. an
             # earlier measure_scale.py enrichment) must survive
             existing[m['id']] = {**existing.get(m['id'], {}), **m}
+            succeeded += 1
+        else:
+            failed += 1
+    # Keep the previous manifest byte-for-byte when nothing was rebuilt. A
+    # missing required source part is a failed request, even if an older model
+    # is available. Partial successes are retained, but still report failure.
+    if not succeeded:
+        return 1 if failed else 0
     order = [c[0] for c in COMBOS]
     models = ([existing[k] for k in order if k in existing] +
               [v for k, v in existing.items() if k not in order])
@@ -788,7 +907,8 @@ def main():
     with open(manifest_path, 'w') as f:
         json.dump(manifest, f, indent=2)
     print('\nmanifest: %d models -> %s' % (len(models), manifest_path))
+    return 1 if failed else 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
