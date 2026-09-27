@@ -167,7 +167,7 @@ animation remains the live playback backend.
 
 ## Manual browser inspection
 
-![Elbera Tools showing the original Gremlin pose and decoded event metadata; manual inspection without native event dispatch](img/elbera-tools-npc-notifies.png)
+![Elbera Tools showing the original Gremlin pose and decoded event metadata; manual inspection without native event dispatch](img/elbera-tools-npc-notifies.jpg)
 
 With the matching private assets prepared, start the existing local asset server:
 
