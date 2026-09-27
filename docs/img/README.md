@@ -6,8 +6,9 @@ the development story, while the new images illustrate specific current tools.
 
 ## Elbera Tools · September 26–27, 2026
 
-These direct browser captures use the page's normal 1280 × 720 viewport, without
-compositing or replacement artwork. The `.png` files below retain their original
+These direct browser captures use the page's normal viewport, without
+compositing or replacement artwork. The first four captures use 1280 × 720;
+the animation-key preview uses 771 × 760. The `.png` files below retain their original
 published names; their encoded image format is JPEG.
 
 | Image | What was actually running | Limits |
@@ -16,6 +17,7 @@ published names; their encoded image format is JPEG.
 | `elbera-tools-recipes.png` | The existing recipe inspector with supplied Wooden Arrow packet/inventory fixtures, manufacture details, expanded ingredient tree and independently selected shortcut drawers. Windows were positioned using their normal drag controls. | No server connection, recipe ownership, successful craft or shortcut persistence is demonstrated. The screenshot retains the tool's explicit replay notice and renderer gaps. |
 | `elbera-tools-hair.jpg` | Original hair geometry and color inspector, displaying separate part identities and source material states. | Static original LOD0 view; animation, body attachment and native sampling remain unverified. |
 | `elbera-tools-hair-soft.jpg` | Dark Elf female style 0 / color 0, including a separate original soft-rig hair part with its source bones and weights. | The soft rig is shown statically. This does not demonstrate dynamic hair simulation. |
+| `elbera-tools-animation-keys.jpg` | Female Human Fighter, original CastMid sequence at 0.677 seconds, rendered from decoded sparse tracks with recovered ordinary interpolation. The same inspector reports differences from the existing export. | Experimental source-key preview on the browser skeleton, with inspection camera/lighting. Native hierarchy, initial tweening, root modifiers and dynamic hair remain unfinished. |
 
 Original client files and generated assets used to render these views are not
 part of the public source or Elbera Tools Core archive. The screenshots are

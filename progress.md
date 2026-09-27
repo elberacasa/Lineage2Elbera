@@ -1842,3 +1842,53 @@ excluded. The battery-runner check and owned/supplemental source checks pass.
 The PE comparison fixtures use Capstone 5.0.7; the other three suites also pass
 without site packages. A curated actual soft-hair inspector screenshot is
 included in the public guide, with its static-view limitation stated.
+
+
+## Original sparse animation poses — 27 September 2026
+
+Elbera Tools now retains every original sparse quaternion, translation and time
+key from all 14 player exports: 1,367 sequences and 110,512 ordinary tracks.
+Timing/notify consumers keep the existing API and freshly match the private
+pawn catalog. A separate read-only-by-default exporter writes only ignored
+source-key JSON when explicitly requested; no PSA resampling, normalization or
+fabricated keys enters this path.
+
+Recovered ordinary quaternion interpolation preserves its original branch
+thresholds and Float32 stores. Source-key search, closing-pair hemisphere choice
+and translation use retained original instructions. The named quaternion math
+imports remain comparative evidence from the explicitly pinned supplemental
+copy; host trigonometry and x87 precision are bounded approximations, not native
+bit-parity claims. Native checks pass 210 quaternion instruction cases and 687
+track-operation cases, with 59 source/browser differential cases.
+
+The existing pawn inspector now offers an opt-in original-key preview. It
+compares against an isolated exported pose, including the closing interval,
+and visibly rejects missing/ambiguous binding records. Thirteen skeletons match
+by exact source name plus parent identity. Male Human Fighter needs explicit
+binding metadata for a source/export finger-name difference; two additional
+index swaps are explained by a private original-part reconstruction. The tool
+never patches that discrepancy with a guessed alias. Fifteen original empty
+sequence maps stay unsupported.
+
+Review fixed stale loads overriding newer playback and retired Three mixer
+state before every comparison, including unchanged/constant tracks. Original
+sequence period remains distinct from movement key-time duration. Focused
+portable fixtures cover these failures and the actual browser math; original
+checks confirm all 14 freshly exported JSONs and unchanged timing/notify output.
+The browser displayed Human Fighter female and Dark Elf female source-key
+casting, restored exported playback when toggled off, and visibly rejected the
+Human Fighter male mismatch. A curated actual screenshot and usage guide are
+published with explicit inspection-only limits.
+
+The rich README hero and original gallery restored in PR #6 are retained. Game
+playback still uses its existing exported poses; native mesh linkup, current
+hierarchy, initial tweening, modifiers, mixing, skill effects and animated hair
+remain part of the active full-port goal. No original client payloads, generated
+key catalogs or raw evidence receipts are included in public changes.
+
+Final focused validation: all 7 selected battery suites passed, with 129 unrelated
+suites excluded; the battery runner's argument/exit checks also passed. The
+source parser/exporter suites passed 25 cases, and the source-free quaternion
+suite passed 10. Fresh all 14 JSON byte checks, the original timing/notify check,
+and both retained-instruction verifiers passed. These results establish the
+bounded decoder, arithmetic and inspection behavior described above.

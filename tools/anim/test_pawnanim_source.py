@@ -56,6 +56,40 @@ def fixture(notifies=(.9, .1), extra_sequence=False):
 
 
 class SyntheticSourceTests(unittest.TestCase):
+    def test_pose_retention_keeps_original_records_and_leaves_timing_api_unchanged(self):
+        pkg, exp, _, _ = fixture()
+        plain = pawn.original_sequences(pkg, exp)
+        retained = pawn.original_animation(pkg, exp, include_tracks=True)
+        self.assertEqual(retained['bones'], [{'name': 'Bone', 'flags': 0, 'parent': 0}])
+        sequence = dict(retained['sequences'][0])
+        movement = sequence.pop('movement')
+        self.assertEqual(sequence, plain[0])
+        self.assertEqual(movement['boneIndices'], ())
+        self.assertEqual(movement['tracks'][0]['quaternions'], [(0., 0., 0., 1.)])
+        self.assertEqual(movement['tracks'][0]['positions'], [(0., 0., 0.)])
+        self.assertEqual(movement['tracks'][0]['times'], (0.,))
+        self.assertEqual(movement['rootTrack']['quaternions'], [])
+        for entry in [movement, movement['tracks'][0], movement['rootTrack']]:
+            source = entry['source']
+            raw = pkg.data[source['offset']:source['offset'] + source['size']]
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), source['SHA256'])
+
+    def test_pose_retention_preserves_nonunit_quaternions_and_rejects_nonfinite(self):
+        pkg, exp, _, _ = fixture()
+        pose = pawn.original_animation(pkg, exp, include_tracks=True)['sequences'][0]['movement']['tracks'][0]
+        # Track header is flags + compact quaternion-count. This fixture's
+        # authored nonunit and signed values must not be silently normalized.
+        offset = pose['source']['offset'] + 5
+        data = bytearray(pkg.data)
+        struct.pack_into('<4f', data, offset, -2, 3, 0, .5)
+        pkg.data = bytes(data)
+        actual = pawn.original_animation(pkg, exp, include_tracks=True)
+        self.assertEqual(actual['sequences'][0]['movement']['tracks'][0]['quaternions'], [(-2, 3, 0, .5)])
+        struct.pack_into('<f', data, offset, math.nan)
+        pkg.data = bytes(data)
+        with self.assertRaisesRegex(pawn.L2Error, 'nonfinite source pose'):
+            pawn.original_animation(pkg, exp, include_tracks=True)
+
     def test_localized_wait_rates_are_scalars_not_stance_arrays(self):
         table = pawn.parse_warrior_int('[Fixture]\nSitAnimName[0]=Sit_Fixture\n'
                                       'sitanimrate=1.27451\nStandAnimRate=1.01307\n')
