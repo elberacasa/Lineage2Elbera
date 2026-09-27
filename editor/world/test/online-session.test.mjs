@@ -201,7 +201,8 @@ test('same-model entry applies explicit appearance and absent values are never s
   assert.equal(h.jobs.length, 0);
   assert.deepEqual(h.old.appearanceCalls.at(-1), { face: 2 });
   h.handlers.charSheet({ paperdoll: clubPaperdoll });
-  assert.deepEqual(h.old.appearanceCalls.at(-1), { face: 2 }, 'unrelated sheet does not choose face0 or hair');
+  assert.deepEqual(JSON.parse(JSON.stringify(h.old.appearanceCalls.at(-1))),
+    { face: 2, paperdoll: clubPaperdoll }, 'equipment context does not choose face0 or hair indices');
 });
 
 test('disconnect clears remembered appearance and retires pending textures on the visible actor', async () => {
@@ -246,6 +247,23 @@ test('paperdoll received with no character is replayed from the latest sheet aft
   assert.equal(h.context.character.wantArmor, clubPaperdoll);
   assert.deepEqual(h.context.gameSound.weapons, [2370]);
   assert.deepEqual(h.context.gameSound.equips, []);
+});
+
+test('current native presence bank survives loading without borrowing template IDs', async () => {
+  const h = harness(); h.context.character = null;
+  const load = h.context.runLoad('b');
+  const first = { head: 0, hair: 41, face: 0 }, latest = { head: 0, hair: 0, face: 42 };
+  h.handlers.charSheet({ face: 2, hairStyle: 0, hairColor: 1, paperdoll: clubPaperdoll,
+    appearanceItems: first });
+  h.handlers.charSheet({ appearanceItems: latest });
+  latest.face = 999;
+  h.jobs[0].work.resolve(); assert.equal(await load, true);
+  const result = h.context.character.appearanceCalls.at(-1);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.appearanceItems)), { head: 0, hair: 0, face: 42 });
+  assert.deepEqual(JSON.parse(JSON.stringify(result.paperdoll)), clubPaperdoll);
+  assert.equal(result.hairColor, 1);
+  h.context.runOnline(false);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.context.selfAppearance)), {});
 });
 
 test('late adoption uses a newer authoritative unequip rather than the earlier club', async () => {

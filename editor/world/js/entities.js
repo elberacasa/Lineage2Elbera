@@ -550,7 +550,10 @@ export class EntityManager {
     const id = msg.id;
     const existing = this.entities.get(id);
     if (existing) {
-      if (existing.kind === 'player') existing.setAppearance(msg);
+      if (existing.kind === 'player') {
+        existing.setAppearance(msg);
+        this._applyPlayerEquipment(existing, msg.paperdoll);
+      }
       existing.collisionRadius = msg.collisionRadius;
       existing.collisionHeight = msg.collisionHeight;
       if (msg.dead != null) existing.dead = !!msg.dead;
@@ -607,9 +610,7 @@ export class EntityManager {
       this.scene.add(ch.group);
       adopted = true;
       ch.setAppearance(token.appearance);
-      if (msg.paperdoll?.rhand) ch.setWeapon(msg.paperdoll.rhand);
-      if (msg.paperdoll?.lhand) ch.setOffhand(msg.paperdoll.lhand);
-      if (msg.paperdoll) ch.setArmor(msg.paperdoll);
+      this._applyPlayerEquipment(ch, token.appearance.paperdoll);
       if (msg.waitType != null) ch.setWaitType(msg.waitType, { snapshot:true });
       this._applyDeferred(ch);
     } catch (e) {
@@ -629,7 +630,21 @@ export class EntityManager {
     for (const key of ['face', 'hairStyle', 'hairColor']) {
       if (Object.prototype.hasOwnProperty.call(msg, key)) appearance[key] = msg[key];
     }
+    for (const key of ['paperdoll', 'appearanceItems']) {
+      if (Object.prototype.hasOwnProperty.call(msg, key)) {
+        appearance[key] = msg[key] ? { ...msg[key] } : msg[key];
+      }
+    }
     return appearance;
+  }
+
+  _applyPlayerEquipment(ch, paperdoll) {
+    if (!paperdoll) return;
+    // Explicit zero removes an item. Missing fields are not an unequip, and a
+    // snapshot received while the base model loads supersedes its earlier one.
+    if (Object.prototype.hasOwnProperty.call(paperdoll, 'rhand')) ch.setWeapon(paperdoll.rhand);
+    if (Object.prototype.hasOwnProperty.call(paperdoll, 'lhand')) ch.setOffhand(paperdoll.lhand);
+    ch.setArmor(paperdoll);
   }
 
   // Fresh base Character only: addPlayer has not started shared equipment or
