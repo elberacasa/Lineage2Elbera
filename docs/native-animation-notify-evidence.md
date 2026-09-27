@@ -78,7 +78,7 @@ The named `EnableChannelNotify(channel, enable)` method (`0x3b4380`) stores
 `channel.+0x44 = !enable`. The later
 [pose-cache allocation check](native-pose-cache-evidence.md#channel-state-and-mesh-replacement)
 closes the allocator identity under its explicit supplemental correspondence:
-the checked 78-byte allocation block calls named Core `AddZeroed` for each new 0x70-byte
+the complete 80-byte allocation helper calls named Core `AddZeroed` for each new 0x70-byte
 record, then `Shrink`. The owned Core body explicitly zero-fills those bytes.
 Therefore **a newly appended channel's notify-disable DWORD at +0x44 starts
 zero** under that qualified allocation path. The former blanket statement

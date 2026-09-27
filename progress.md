@@ -2196,3 +2196,13 @@ can queue asynchronously. These are explicit integration dependencies, not
 reasons to infer a neutral live actor. Automatic original NPC playback remains
 off while those finite joins are verified. No new gameplay parity is claimed
 for this evidence correction, and the full browser-client goal remains active.
+
+## Complete native method boundaries — 27 September 2026
+
+The channel allocator comparison now covers its complete 80-byte body, including
+all bytes of `ret 4`; SetMesh likewise covers 144 bytes through its return.
+Earlier ends cut through those instructions. The cache and standalone tween
+checks now reject partial instruction ranges. Independent review reproduced the
+full comparisons, deliberately restored the truncated endpoints in memory and
+confirmed rejection, and reran 20 portable cases plus native cache/tween checks.
+This strengthens evidence framing without changing browser behavior.

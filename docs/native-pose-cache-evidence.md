@@ -80,7 +80,7 @@ not establish whether an `AnimEnd` callback evaluates the old endpoint.
 `PlayAnim` calls channel helper `0x106b2700` through thunk `0x1031379b` at
 `0x106b3017`. The helper returns an existing channel unchanged when count is
 already greater than the requested index. Otherwise it appends 0x70-byte
-records. Its checked 78-byte allocation block matches the supplemental block at VA minus
+records. Its complete 80-byte body matches the supplemental body at VA minus
 `0x40`, with only two declared six-byte import replacements: Core
 `FArray::AddZeroed` and `FArray::Shrink`. The owned named `AddZeroed` body at
 `0x10109110` explicitly zeroes the appended bytes (`rep stosd` / `rep stosb`).
@@ -96,7 +96,7 @@ When GetFrame finds the q array empty, its retained loop
 `0x106d9e27..0x106d9e4d` resets **only previous frame** for every existing
 channel; accumulator and previous FName remain untouched.
 
-Named `SetMesh` (`0x106c4ae0..0x106c4b6e`) clears the q/p and current-coordinate
+Named `SetMesh` (`0x106c4ae0..0x106c4b70`, exclusive end) clears the q/p and current-coordinate
 arrays through seven independently matched `FArray::Empty` calls. It does not
 directly clear `+0x1fc`. Its vtable `+0x15c` callback is named
 `ActualizeAnimLinkups` (`0x106ba200..0x106ba281`), which updates mesh/animation
