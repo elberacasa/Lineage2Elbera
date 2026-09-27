@@ -99,6 +99,9 @@ def native_evidence():
         (0x3baded, 'cmp', 'dword ptr [edi + 0x44], 0'),
         (0x3badf1, 'jne', '0x106bae0e'),
         (0x3badfd, 'fstp', 'dword ptr [edi + 0xc]'),
+        (0x3bae04, 'mov', 'eax, dword ptr [edx + 0x8c]'),
+        (0x3bae0a, 'call', 'eax'),
+        (0x3bae0c, 'jmp', '0x106bae77'),
         (0x3bae82, 'mov', 'edx, dword ptr [edx + 0x170]'),
         (0x3bae88, 'call', 'edx'),
         (0x3bae8c, 'jmp', '0x106baa7c'),
@@ -179,6 +182,11 @@ def native_evidence():
         '?PlayAnim@APawn@@UAEHHVFName@@MMHH@Z')
     assert image.u32(image.exported('??_7APawn@@6B@') + 0x170) == image.exported(
         '?NotifyAnimEnd@APawn@@UAEXH@Z')
+    assert image.u32(image.exported('??_7USkeletalMeshInstance@@6B@') + 0x8c) == image.exported(
+        '?GetActor@ULodMeshInstance@@UAEPAVAActor@@XZ')
+    assert image.exported('?GetActor@ULodMeshInstance@@UAEPAVAActor@@XZ', True) == 0x10360d80
+    image.instruction(0x10360d80, 'mov', 'eax, dword ptr [ecx + 0x64]')
+    image.instruction(0x10360d83, 'ret', '')
     assert image.u32(image.exported('??_7UGameEngine@@6BUObject@@@') + 0x124) == image.exported(
         '?OnUserInfo@UGameEngine@@UAEHPAUUser@@VFVector@@HHHDD@Z')
     tween = struct.unpack_from('<f', image.data, image.offset(0x1089df54))[0]
@@ -224,6 +232,7 @@ def native_evidence():
     return {'engineSHA256': image.sha, 'instructionAnchors': len(anchors), 'methods': methods,
             'waitChangeSHA256': sha(image.data[0x19bbc0:0x19bf4c]), 'transitionTween': tween,
             'terminalSHA256': sha(image.data[0x3badcf:0x3bae99]), 'terminalArithmeticCases': cases,
+            'endpointPoseEvaluation': 'The retained ordinary endpoint branch stores the clock endpoint, obtains the actor and calls NotifyAnimEnd; it does not itself call GetFrame. Callbacks may explicitly query bones, so this is not a universal once-per-tick rendering rule.',
             'nativeIdleTween': idle_tween,
             'snapshotOrder': 'initial GetCurWaitAnimName/loop before incoming Controller.WaitType store',
             'nativeIdleRate': 'Float32(first CharInfo/UserInfo f64 multiplier), via User+0x1c4 to Pawn+0x6b4; distinct from script callback literal 1',

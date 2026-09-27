@@ -41,7 +41,8 @@ site packages.
   previousFrame, accumulated,             // original channel bookkeeping
   cached: { quaternion, position },       // prior displayed SOURCE LOCAL pose
   firstKey: { quaternion, position },     // raw first original q/p, for valid cache
-  frameZeroPose: { quaternion, position } // ordinary sample(0), for invalid cache
+  frameZeroPose: { quaternion, position }, // ordinary sample(0), for invalid cache
+  floatingPointEnvironment: 'win32-default' // optional explicit masked policy
 }
 ```
 
@@ -183,11 +184,14 @@ to initialize it to `-1/NumFrames`. The checker additionally interprets four
 conditional cases with an explicitly masked x87 divide-by-zero. Negative
 current divided by `+0` or `-0` yields signed infinity; the retained name/range
 branches then reset to fraction zero, previous frame `F(-1/N)`, new name and
-zero accumulator. This proves the result **if the divide is masked**. The
-active rendering thread's exception mask has not been established. A retained
-Core `FNINIT` was located, but not linked to this call's active control word.
-The browser helper therefore rejects zero previous frame and does not claim
-the first cached transition is admitted.
+zero accumulator. This proves the result **if the divide is masked**. The separate
+[floating-point environment evidence](native-animation-fpu-evidence.md) now binds
+this case to documented normal Windows/CRT defaults and owned mask-preserving
+startup/renderer paths. Callers explicitly supplying
+`floatingPointEnvironment: 'win32-default'` admit the reset; the library still
+rejects zero previous frame when that policy is absent. The unreferenced Core
+`FNINIT` is not asserted to run. Modified or unknown process environments remain
+outside the admission contract.
 
 The existing [animation clock evidence](native-animation-terminal-evidence.md)
 separately covers initial negative frame, tween rate, crossing zero with leftover
@@ -198,16 +202,18 @@ a later native tween is to use them.
 
 ## Measured checks and remaining work
 
-The checkpoint passes 12 browser-helper tests and 11 portable Python tests.
+The checkpoint passes 13 browser-helper tests and 12 portable Python tests.
 The source checker verifies 31 instruction anchors, six owned range hashes,
 three named Core bodies and, with the explicit supplement, five exact blocks.
 It interprets **510 cases / 36,071 instructions**, including separate source
 endpoint sentinels, quaternion branches, hemisphere ties, reset boundaries,
 position store order, cache allocation and four conditional masked-zero cases.
-There are 123 JS/Python comparisons: state/position results match exactly;
+There are 127 JS/Python comparisons: state/position results match exactly;
 quaternion comparison allows `2e-6` for host math implementation differences.
 
 Missing linkups, root lock, special modes, multichannel mixing, actor modifiers,
-native exception state, complete cache lifetime and gameplay admission remain
-separate. This helper is a reusable source-backed component, not a declaration
-that current browser transitions or exported skinning are native-exact.
+altered native exception state and complete cache lifetime remain separate.
+The [live browser adapter](original-animation-runtime.md) now uses this helper
+for transitions from known evaluated source locals and separately proved fresh
+frame-zero initialization. Unknown playback history remains gated;
+this does not declare the whole browser animation or exported skinning native-exact.

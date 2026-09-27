@@ -90,8 +90,14 @@ export function tweenOriginalLocalPose(input) {
         state: { previousFrame, previousSequenceId, accumulated } };
     }
     const first = pose(input.firstKey), cached = pose(input.cached);
-    if (previousFrame === 0) throw new RangeError('zero previous frame requires unproved native exception policy');
-    const increment = f32(1 - frame / previousFrame);
+    // The normal Win32/CRT environment masks floating-point exceptions. Keep
+    // that source/platform contract explicit for callers: the library also
+    // serves evidence tests with an unknown or externally changed control word.
+    const masked = input.floatingPointEnvironment === 'win32-default';
+    if (previousFrame === 0 && !masked) throw new RangeError('zero previous frame requires explicit masked exception policy');
+    const rawIncrement = 1 - frame / previousFrame;
+    const increment = masked ? Math.fround(rawIncrement) : f32(rawIncrement);
+    if (Number.isNaN(increment)) throw new RangeError('invalid tween fraction');
     const reset = previousSequenceId !== sequenceId || increment < 0 || increment > 1;
     const fraction = reset ? 0 : increment;
     const state = reset

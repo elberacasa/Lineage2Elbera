@@ -54,7 +54,8 @@ test('terminal sample uses actual source endpoint and unsupported successor stay
  assert.equal(out.segments[0].sampleTime,p.sourceEndpoint);
 });
 const source=fs.readFileSync(new URL('../js/character.js',import.meta.url),'utf8');
-const begin=source.indexOf('  cancelCast() {'),end=source.indexOf('  /**\n   * One attack swing',begin);
+const begin=source.indexOf('  cancelCast('),end=source.indexOf('  /**\n   * One attack swing',begin);
+assert.ok(begin>=0 && end>begin,'actual Character wait-method boundary');
 function harness() {
  const sounds=[],model=new THREE.Group(),bone=new THREE.Bone();bone.name='sourceBone';model.add(bone);
  const mixer=new THREE.AnimationMixer(model),t=table(),actions={};

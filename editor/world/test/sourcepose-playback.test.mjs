@@ -105,15 +105,18 @@ test('actual cast passes source identity and exact phase frame through the produ
   assert.ok(h.bone.position.x > 50, 'source overlay must not write mixer TRS');
 });
 
-test('negative wait interval stays exported and resumes original sampling only at a nonnegative frame', () => {
+test('fresh negative wait samples ordinary frame zero before a valid local cache exists', () => {
   const h = fixture();
   assert.equal(h.ch.setWaitType(0, { snapshot: true }).status, 'ready');
   h.tick(.05);
   assert.ok(h.ch.nativeWait.channel.frame < 0);
-  assert.equal(h.ch.lastOriginalPose.status, 'unsupported');
-  assert.equal(h.ch.lastOriginalPose.reason, 'native-transition-cache-not-yet-admitted');
-  assert.equal(h.bone.matrixAutoUpdate, true);
-  near(h.bone.matrix.elements[12], h.bone.position.x);
+  assert.equal(h.ch.lastOriginalPose.status, 'ready');
+  assert.equal(h.ch.lastOriginalPose.mode, 'native-frame-zero');
+  assert.equal(h.bone.matrixAutoUpdate, false);
+  near(h.bone.matrix.elements[12], h.expectedX('sitWait',0));
+  h.tick(.025);
+  assert.equal(h.ch.lastOriginalPose.mode,'native-cached-tween');
+  assert.equal(h.ch.lastOriginalPose.fraction,0,'frame-zero sampling did not change fresh tween bookkeeping');
   h.tick(.3);
   const frame = h.ch.nativeWait.channel.frame;
   assert.ok(frame >= 0); assert.equal(h.ch.lastOriginalPose.status, 'ready');
@@ -165,25 +168,185 @@ test('normal cast completion retires matrices before ordinary idle resumes', () 
   near(h.bone.matrix.elements[12], h.bone.position.x);
 });
 
-test('same-tick wait successor uses each segment identity/frame and restores for its unresolved tween', () => {
+test('same-tick AnimEnd successor does not manufacture an old endpoint source-cache evaluation', () => {
   const h = fixture(), observed = [];
   const apply = h.ch.originalPose.apply.bind(h.ch.originalPose);
-  h.ch.originalPose.apply = frame => {
-    const result = apply(frame);
+  h.ch.originalPose.apply = (frame,options) => {
+    const result = apply(frame,options);
     observed.push({ ...result, inputFrame: frame, x: h.bone.matrix.elements[12], auto: h.bone.matrixAutoUpdate });
     return result;
   };
   h.ch.setWaitType(0); h.tick(1.2);
   assert.equal(h.ch.lastWaitPhase.clip, 'sitWait');
-  const ending = observed.find(row => row.sequence === 'Original_sitDown' && row.status === 'ready');
-  assert.ok(ending, 'old segment must sample before successor');
-  near(ending.x, h.expectedX('sitDown', ending.inputFrame));
-  assert.equal(ending.inputFrame, f(1 - 1 / 6));
+  assert.equal(observed.length, 1, 'only the final channel is evaluated by this update');
+  assert.equal(observed.some(row => row.sequence === 'Original_sitDown'), false);
   const successor = observed.find(row => row.sequence === 'Original_sitWait');
   assert.ok(successor.inputFrame < 0);
-  assert.equal(successor.reason, 'native-transition-cache-not-yet-admitted');
-  assert.equal(successor.auto, true);
-  assert.equal(h.bone.matrixAutoUpdate, true);
+  assert.equal(successor.mode, 'native-frame-zero');
+  near(successor.x,h.expectedX('sitWait',0));
+  assert.equal(successor.auto, false);
+  assert.equal(h.bone.matrixAutoUpdate, false);
+});
+
+test('actual wait transition blends evaluated source locals, preserving cache across schedule changes', () => {
+  const h=fixture(); readyWait(h);
+  const previousX=h.bone.matrix.elements[12];
+  h.ch.setWaitType(0); h.tick(.025);
+  assert.equal(h.ch.lastOriginalPose.mode,'native-cached-tween');
+  assert.equal(h.ch.lastOriginalPose.fraction,0,'fresh zero previous frame resets');
+  near(h.bone.matrix.elements[12],previousX);
+  h.tick(.025);
+  const frame=h.ch.nativeWait.channel.frame, fraction=f(1-frame/f(-1/6));
+  assert.equal(h.ch.lastOriginalPose.fraction,fraction);
+  const first=h.sourceByClip.get('sitDown').movement.tracks[0].positions[0][0];
+  const expected=f(previousX*100 + f(f(first-previousX*100)*fraction))*.01;
+  near(h.bone.matrix.elements[12],expected);
+  assert.notEqual(h.bone.matrix.elements[12],h.bone.position.x,'export TRS cannot seed native cache');
+});
+
+test('same-tick successor starts from last evaluated source locals, not skipped old endpoint', () => {
+  const h=fixture(); readyWait(h);
+  const before=h.bone.matrix.elements[12];
+  h.ch.setWaitType(0); h.tick(1.2);
+  assert.equal(h.ch.lastOriginalPose.sequence,'Original_sitWait');
+  assert.equal(h.ch.lastOriginalPose.mode,'native-cached-tween');
+  assert.equal(h.ch.lastOriginalPose.fraction,0);
+  near(h.bone.matrix.elements[12],before);
+  assert.notEqual(before,h.expectedX('sitDown',f(1-1/6)));
+});
+
+test('an exported gap invalidates history; later positive source poses cannot restore tween bookkeeping', () => {
+  const h=fixture(); readyWait(h);
+  h.ch.play('run',0);
+  h.ch.setWaitType(0); h.tick(.025);
+  assert.equal(h.ch.lastOriginalPose.status,'unsupported');
+  assert.equal(h.ch.lastOriginalPose.reason,'native-transition-needs-known-channel-history');
+  assert.equal(h.bone.matrixAutoUpdate,true);
+  h.tick(.3);
+  assert.equal(h.ch.lastOriginalPose.status,'ready');
+  assert.equal(h.ch.lastOriginalPose.mode,'ordinary-source-keys');
+  assert.equal(h.ch.lastOriginalPose.history,'unknown');
+  h.ch.setWaitType(1); h.tick(.025);
+  assert.equal(h.ch.lastOriginalPose.reason,'native-transition-needs-known-channel-history');
+});
+
+test('mapped bones share one tween increment while an unmatched reference bone bypasses tween normalization', () => {
+  const h=fixture(), child=new THREE.Bone(), reference=new THREE.Bone();
+  child.name=child.userData.name='Child'; reference.name=reference.userData.name='Unmatched';
+  h.bone.add(child,reference);
+  h.catalog.bones.push({name:'Child',parent:0});
+  h.skeleton.bones.push({name:'Child',parent:0,position:[0,0,0],orientation:[0,0,0,1]},
+    {name:'Unmatched',parent:0,position:[7,8,9],orientation:[0,0,f(.3),f(.8)]});
+  h.skeleton.trackBindings.push(1,-1);
+  for (const source of h.catalog.sequences) {
+    const track=structuredClone(source.movement.tracks[0]);
+    track.positions=track.positions.map(p=>[p[0]*2,0,0]);
+    source.movement.tracks.push(track);
+  }
+  h.ch.originalPose=createOriginalPosePlayback(h.model,{catalog:h.catalog,skeleton:h.skeleton});
+  readyWait(h);
+  const before=h.bone.matrix.elements[12], referenceMatrix=reference.matrix.clone();
+  h.ch.setWaitType(0); h.tick(.025); h.tick(.025);
+  assert.equal(h.ch.lastOriginalPose.mapped,2); assert.equal(h.ch.lastOriginalPose.reference,1);
+  const fraction=h.ch.lastOriginalPose.fraction;
+  const parentLocal=f(before*100+f(f(200-before*100)*fraction));
+  const childLocal=f(before*200+f(f(400-before*200)*fraction));
+  near(h.bone.matrix.elements[12],parentLocal*.01);
+  // Native hierarchy stores the composed origin in Float32 before the display
+  // adapter derives the child's local matrix from the two global matrices.
+  near(child.matrix.elements[12],f(parentLocal+childLocal)*.01-parentLocal*.01);
+  for (const i of [0,1,2,4,5,6,8,9,10]) near(reference.matrix.elements[i],referenceMatrix.elements[i]);
+});
+
+test('ordinary sampling and sequence selection preserve prior tween bookkeeping', () => {
+  const h=fixture(), playback=h.ch.originalPose;
+  let epoch=0; const apply=frame=>playback.apply(frame,{epoch:++epoch});
+  playback.select(h.plan('idle')); apply(.25);
+  assert.equal(apply(-.1).fraction,0);
+  assert.equal(apply(f(-1/12)).fraction,.5);
+  apply(.4); // native ordinary branch must not store a positive previous frame
+  playback.select(h.plan('idle'));
+  assert.equal(apply(f(-1/24)).fraction,.5);
+});
+
+test('repeat evaluation uses epoch and frame, including sequence changes within that same key', () => {
+  const h=fixture(), playback=h.ch.originalPose;
+  playback.select(h.plan('idle')); playback.apply(.25,{epoch:1});
+  const first=playback.apply(-.1,{epoch:2}), pose=h.bone.matrix.clone();
+  assert.equal(first.fraction,0);
+  const duplicate=playback.apply(-.1,{epoch:2});
+  assert.equal(duplicate.reused,true); assert.equal(duplicate.fraction,0);
+  assert.deepEqual(h.bone.matrix.elements,pose.elements);
+  playback.select(h.plan('cast'));
+  const renamed=playback.apply(-.1,{epoch:2});
+  assert.equal(renamed.reused,true);
+  assert.equal(renamed.sequence,'Original_idle');
+  assert.equal(renamed.requestedSequence,'Original_cast');
+  assert.deepEqual(h.bone.matrix.elements,pose.elements);
+  const advanced=playback.apply(-.05,{epoch:2});
+  assert.equal(advanced.reused,false,'different frame can evaluate within one epoch');
+  assert.equal(advanced.sequence,'Original_cast');
+  const nextEpoch=playback.apply(-.05,{epoch:3});
+  assert.equal(nextEpoch.reused,false,'same frame can evaluate in a new epoch');
+  assert.ok(nextEpoch.fraction>0);
+});
+
+test('pose evaluation requires an explicit valid epoch and cache invalidation clears reuse', () => {
+  const h=fixture(), playback=h.ch.originalPose;
+  playback.select(h.plan('idle'));
+  assert.equal(playback.apply(.25).reason,'explicit-source-pose-evaluation-epoch-required');
+  for (const epoch of [-1,NaN,Infinity,'1',1.1]) {
+    assert.equal(playback.apply(.25,{epoch}).status,'unsupported');
+  }
+  assert.equal(playback.apply(.25,{epoch:1}).status,'ready');
+  playback.stop(); playback.select(h.plan('cast'));
+  const result=playback.apply(.25,{epoch:1});
+  assert.equal(result.reused,false); assert.equal(result.sequence,'Original_cast');
+});
+
+test('failed complete-pose display invalidates both local cache and channel-history admission', () => {
+  const h=fixture(), playback=h.ch.originalPose;
+  let epoch=0; const apply=frame=>playback.apply(frame,{epoch:++epoch});
+  playback.select(h.plan('idle')); apply(.25); apply(-.1);
+  h.model.scale.set(0,0,0);
+  assert.equal(apply(f(-1/12)).status,'unsupported');
+  assert.equal(h.bone.matrixAutoUpdate,true);
+  h.model.scale.set(1,1,1);
+  assert.equal(apply(f(-1/24)).reason,'native-transition-needs-known-channel-history');
+  apply(.25);
+  assert.equal(apply(f(-1/24)).reason,'native-transition-needs-known-channel-history');
+});
+
+test('fresh frame-zero path uses ordinary tiny-interval sampling rather than raw first keys', () => {
+  const h=fixture(), source=h.sourceByClip.get('idle');
+  source.movement.duration=1;
+  source.movement.tracks[0]={flags:0,times:[0,.00005],
+    quaternions:[[0,0,0,1],[0,0,0,.8]],positions:[[100,0,0],[800,0,0]]};
+  const playback=h.ch.originalPose;
+  playback.select(h.plan('idle'));
+  const first=playback.apply(-.1,{epoch:1});
+  assert.equal(first.mode,'native-frame-zero'); near(h.bone.matrix.elements[12],8);
+  const second=playback.apply(-.08,{epoch:2});
+  assert.equal(second.mode,'native-cached-tween'); assert.equal(second.fraction,0);
+  near(h.bone.matrix.elements[12],8);
+});
+
+test('same-name transition after omitted Run history cannot consume pre-gap Idle bookkeeping', () => {
+  const h=fixture(), playback=h.ch.originalPose;
+  playback.select(h.plan('idle')); playback.apply(.25,{epoch:1});
+  playback.apply(-.1,{epoch:2}); playback.apply(f(-1/12),{epoch:3});
+  h.ch.play('run',0); // unsupported native history may have changed name/frame
+  playback.select(h.plan('idle')); playback.apply(.25,{epoch:4});
+  assert.equal(playback.apply(f(-1/24),{epoch:5}).reason,'native-transition-needs-known-channel-history');
+});
+
+test('cast replacement retains only the previously evaluated source pose for its first native tween', () => {
+  const h=fixture(); readyWait(h);
+  const before=h.bone.matrix.elements[12];
+  h.ch.startCastSchedule({...h.cast(),tween:.2}); h.tick(.01);
+  assert.equal(h.ch.lastOriginalPose.sequence,'Original_cast');
+  assert.equal(h.ch.lastOriginalPose.mode,'native-cached-tween');
+  assert.equal(h.ch.lastOriginalPose.fraction,0); near(h.bone.matrix.elements[12],before);
 });
 
 test('wait observer cancellation prevents a later segment or final update from restoring stale source matrices', () => {
@@ -199,7 +362,9 @@ test('wait observer cancellation prevents a later segment or final update from r
   assert.equal(h.ch.nativeWait, null);
   assert.equal(h.ch.originalPose.status.status, 'idle');
   assert.equal(h.bone.matrixAutoUpdate, true);
-  h.tick(.1); assert.equal(h.bone.matrixAutoUpdate, true);
+  h.tick(.1);
+  assert.equal(h.ch.lastOriginalPose.sequence,'Original_sitWait','next tick may start a new ordinary seated channel');
+  assert.notEqual(h.ch.nativeWait.channel.plan.seq,'Original_sitDown');
 });
 
 test('actual model replacement waits for its paired source result and retires old matrix ownership', async () => {

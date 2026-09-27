@@ -51,13 +51,20 @@ def normalize(value):
     return [f32(v*factor) for v in value], False
 
 
-def tween_state(current, previous, frames, old_name, new_name, accumulated):
+def tween_state(current, previous, frames, old_name, new_name, accumulated, *, masked=False):
     current, previous, accumulated = f32(current), f32(previous), f32(accumulated)
     if type(frames) is not int or not 0 < frames <= 0x7fffffff:
         raise ValueError('positive source NumFrames required')
     if previous == 0:
-        raise ValueError('zero previous frame requires unproved native exception policy')
-    fraction = f32(1-current/previous)
+        if not masked or current == 0:
+            raise ValueError('zero previous frame requires explicit masked exception policy')
+        fraction = -math.copysign(math.inf, current) * math.copysign(1., previous)
+    else:
+        raw = 1-current/previous
+        try: fraction = f32(raw)
+        except (ValueError, OverflowError):
+            if not masked: raise
+            fraction = math.copysign(math.inf, raw)
     if old_name != new_name or not 0 <= fraction <= 1:
         return 0., {'previousFrame':f32(-1/frames),'previousSequenceId':new_name,'accumulated':0.}
     return fraction, {'previousFrame':current,'previousSequenceId':old_name,
@@ -97,7 +104,8 @@ def tween_local_pose(value):
                         state=dict(previousFrame=previous,previousSequenceId=old,accumulated=accumulated))
         firstq,firstp = pose(value['firstKey'])
         cachedq,cachedp = pose(value['cached'])
-        fraction,state = tween_state(frame,previous,frames,old,new,accumulated)
+        fraction,state = tween_state(frame,previous,frames,old,new,accumulated,
+                                    masked=value.get('floatingPointEnvironment') == 'win32-default')
         adjusted,flipped = hemisphere(firstq,cachedq)
         q,branch = tween_quaternion(cachedq,adjusted,fraction)
         q,tiny = normalize(q)
@@ -300,8 +308,8 @@ def verify(comparison_engine=None, check_js=False):
           (-.05,-.075,1,2,.25),(-.1,-.1,1,1,.5),(0.,-.1,1,1,.5),(-.2,-.1,1,1,.5),(.01,-.1,1,1,.5)]:
             bookkeeping(current,previous,10,old,new,acc)
     # Conditional source result only: this explicitly models a MASKED x87
-    # zero divide. It does not establish the active render-thread control word,
-    # and the browser's default API deliberately continues to reject zero.
+    # zero divide. The separate FPU verifier binds the normal Win32/CRT policy;
+    # callers with unknown or externally changed environments still reject zero.
     masked_zero_cases=0
     if P:
         for zero in (0.,-0.):
@@ -312,7 +320,13 @@ def verify(comparison_engine=None, check_js=False):
                 m=Slice(mem,{'esp':sp,'ebx':ch,'ecx':seq},rows('candidate',0x106da751,0x106da7c9),masked_zero=True)
                 n=m.execute(0x106da751,0x106da7c9)
                 assert (m.memory[sp+0x10],m.memory[ch+0x68],m.memory[ch+0x6c],m.memory[ch+0x60])==(0.,f32(-.1),new_name,0.)
+                fraction,state=tween_state(-.08,zero,10,old_name,new_name,.7,masked=True)
+                assert (fraction,state['previousFrame'],state['previousSequenceId'],state['accumulated']) == (
+                    m.memory[sp+0x10],m.memory[ch+0x68],m.memory[ch+0x6c],m.memory[ch+0x60])
                 note('conditionalMaskedZeroDivideReset',n);masked_zero_cases+=1
+                cases.append({**cases[0], 'frame':f32(-.08),'previousFrame':zero,
+                              'frames':10,'previousSequenceId':old_name,'sequenceId':new_name,
+                              'accumulated':f32(.7),'floatingPointEnvironment':'win32-default'})
     # Actual cache-array initialization clears prior tween frames, not names or
     # accumulated values. It is not permission to seed a negative prior frame.
     for count in (0,1,2,7):
@@ -345,7 +359,7 @@ def verify(comparison_engine=None, check_js=False):
                 cases=counts,javascriptCases=js_cases,ownedRanges=ranges,conditionalMaskedZeroCases=masked_zero_cases,
                 limits=['comparison archive authenticity and owned import restoration unverified',
                         'Float64/trigonometric approximations establish bounded compatibility, not x87/CRT equivalence',
-                        'zero previous frame, native exceptions, cache invalidation and full channel lifecycle remain unadmitted',
+                        'zero previous frame requires explicit normal Win32/CRT masking; altered environments and full channel lifecycle remain outside scope',
                         'neutral mapped bones, channel zero, special mode zero; no root lock, scale blend or later modifiers'])
 
 
