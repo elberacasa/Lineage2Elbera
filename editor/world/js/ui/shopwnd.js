@@ -1,52 +1,23 @@
-// Phase C.11 — ShopWnd, the retail NPC shop window.
+// Original Interlude ShopWnd: Interface.u ShopWnd.uc + Interface.xdat.
+// Server lists open buy/sell mode, and their item prices/Adena are authoritative.
+// Confirm packs every cart row; results arrive through ItemList/InventoryUpdate.
+// No assumed success, no extra purchase confirmation, no local pricing.
+// Source records/provenance and retained limits: docs/shop-playtest.md.
 //
-// Structure and behaviour come from the client, not from guesswork:
-//
-//   Interface.xdat   ShopWnd 256x401, dual pane: TopList 239x139 at
-//                    (9,48) (the list you pick FROM) and BottomList
-//                    239x104 at (9,215) (the cart), both 32px cells at
-//                    the standard 37x35 pitch (decoded grid params).
-//                    Up/Down buttons (112,194)/(130,194), OK (51,372),
-//                    Cancel (131,372), TopText (11,32), BottomText
-//                    (11,198), PriceConstText/PriceText (100,332)/(158,332),
-//                    AdenaConstText/AdenaText (100,351)/(158,351).
-//   ShopWnd.uc       NOT tabs — two modes: ShopBuy (top = merchant's
-//                    items, bottom = what you will buy) and ShopSell (top
-//                    = your inventory, bottom = what you will sell).
-//                    Double-click (uc:91) or the Up/Down buttons (uc:70)
-//                    move items between the lists; STACKABLES ask the
-//                    amount with DIALOG_NumberPad (uc:130-141), everything
-//                    else moves 1 (buy mode always moves exactly 1,
-//                    uc:164). The cart stacks by class id (uc:243-245).
-//                    Price total accumulates price x count (uc:174/216)
-//                    and renders via MakeCostString (uc:356/425 — the
-//                    retail thousand-separator formatting; the tooltip
-//                    spells the number out). OK packs the cart into
-//                    RequestBuyItem/RequestSellItem and HIDES (uc:430-501);
-//                    Cancel just hides (uc:86-87).
-//   aCis             has NO buy-cancel packet (checked
-//                    clientpackets/) — closing sends nothing.
-//
-// Contract (frozen ops): buyList{items:[{itemId,count,price}]} opens buy
-// mode, sellList{items:[{objectId,itemId,count,price}]} opens sell mode
-// (prices are server truth — never computed client-side). OK sends
-// buy{items:[{itemId,count}]} / sell{items:[{objectId,count}]}. Results
-// arrive ONLY via invUpdate (server truth; failures come back as sysMsg
-// in chat — the window never assumes success).
-//
-// Gaps marked AUTHORED: the amount prompt stands in for DIALOG_NumberPad
-// (the port has no dialog framework); pane labels/title ('Shop',
-// 'Merchant'/'Inventory', 'Cart', 'Price:', 'Adena:') are English —
-// retail uses system strings 136-143, not extracted. Stackability comes
-// from the list count (itemmeta carries no flag): count != 1 prompts,
-// count == 1 moves without one. InvenWeight is skipped (no weight data
-// in the contract).
+// Source transfer rules: ConsumeType1/2/3, NumberPad72, limited stock1338.
+// The two original transfer paths differ: direct buy appends a row; quantity
+// confirmation merges the first class match. Never infer this from stock.
+// Remaining parity gaps: preview, native drag/AllItemCount, weight preview,
+// original item tooltips, exact INT64 price/overflow semantics, badge painting,
+// focus/key behavior and native button state art. See docs/shop-playtest.md.
 
 import { Skin } from './skin.js';
 import { Font } from './font.js';
 import { Layout } from './layout.js';
 import { L2Window } from './window.js';
-import { itemMeta, itemInfo } from '../gamedata.js';
+import { itemMeta, itemInfo, sysStringMeta, sysMsgMeta, renderSysMsg } from '../gamedata.js';
+import { sharedDialogBox } from './dialogbox.js';
+import { defaultWindowPosition, windowCornerInside } from './windowposition.js';
 
 const WND = 'ShopWnd';
 // Text colour is never typed here. Every label and value resolves through
@@ -64,13 +35,19 @@ function costString(n) {
 }
 
 export class ShopWnd {
-  constructor(parent = document.body, { onBuy, onSell, getAdena } = {}) {
+  constructor(parent = document.body, { onBuy, onSell, loadMetadata = () => Promise.all([itemMeta(), sysStringMeta(), sysMsgMeta()]) } = {}) {
     this.onBuy = onBuy || (() => {});
     this.onSell = onSell || (() => {});
-    this.getAdena = getAdena || (() => 0);
+    this.loadMetadata = loadMetadata;
+    this.dialog = sharedDialogBox(parent);
+    this.revision = 0;
+    this.rowSerial = 0;
+    this.pending = null;
+    this.money = 0;
+    this.currentPrice = 0;
     this.mode = null;          // 'buy' | 'sell'
     this.topItems = [];        // server list (buy list or sell list)
-    this.cart = new Map();     // key -> {itemId, objectId, count, price, name, icon}
+    this.cart = new Map();     // row identity; repeated nonstackable classes stay separate
     this.selected = null;      // {pane, key}
 
     const def = Layout.windowSize(WND);
@@ -78,13 +55,14 @@ export class ShopWnd {
     this.h = def.h;
 
     const win = new L2Window({
-      title: 'Shop', width: this.w, height: this.h, closable: true,
-      winName: WND,
+      title: '', width: this.w, height: this.h, closable: true,
+      winName: WND, nativeBounds: true, back: 'none',
     });
     win.root.id = 'l2-shopwnd';
     win.onClose = () => this.hide();   // no cancel packet exists (aCis)
     this.win = win;
     this.root = win.root;
+    this._paintBackdrop();
 
     this.panes = {};
     for (const [key, ctrl] of [['top', 'TopList'], ['bottom', 'BottomList']]) {
@@ -124,14 +102,39 @@ export class ShopWnd {
     // footer: price + adena lines at their mined rects, then OK/Cancel
     this.priceEl = this._footerText('PriceText', 'PriceConstText', 'Price:');
     this.adenaEl = this._footerText('AdenaText', 'AdenaConstText', 'Adena:');
-    this._ctrlBtn('OKButton', () => this._ok(), 'OK');
-    this._ctrlBtn('CancelButton', () => this.hide(), 'Cancel');
+    this.okButton = this._ctrlBtn('OKButton', () => this._ok());
+    this.cancelButton = this._ctrlBtn('CancelButton', () => this.hide());
 
     parent.appendChild(win.root);
-    // AUTHORED dock (WindowsInfo.ini not mined for this window); same
-    // family spot as the other toggle windows.
-    this.defaultPlace = { right: 12, top: 60 };
-    this._buildAmountPrompt(parent);
+    this.defaultPositionRule = Layout.windowDefault(WND);
+    const p = Layout.window(WND)?.position;
+    // This window's common source anchor references the parent, with matching
+    // self/target anchors. Reuse the proven anchor arithmetic for that case.
+    if (p && !p.target && p.selfAnchor === p.targetAnchor) {
+      const creation = defaultWindowPosition({ anchor: p.selfAnchor, anchored: true,
+        offsetX: p.offsetX, offsetY: p.offsetY }, { x: 0, y: 0, width: this.w, height: this.h }, this._parentRect());
+      if (creation) this.place({ left: creation.x, top: creation.y });
+    }
+
+  }
+
+  _paintBackdrop() {
+    const record = Layout.find(WND, 'BackTexture');
+    const size = record?.relativeSize, p = record?.position;
+    if (!size || size.reference || !p || p.target || p.selfAnchor !== 1 || p.targetAnchor !== 1) return;
+    // Original ShopWnd frame direction3 subtracts the20px title strip before
+    // relative child height resolves. Texture type0 with zero source size
+    // samples the control's own dimensions at1:1; it is not a nine-slice.
+    // The title art and original native frame constant agree (source check).
+    const w = this.w * size.widthRate + size.widthOffset;
+    const h = (this.h - this.win.barH) * size.heightRate + size.heightOffset;
+    if (![w, h, p.offsetX, p.offsetY].every(Number.isFinite) || w <= 0 || h <= 0) return;
+    const texture = Layout.tex0(WND, 'BackTexture');
+    if (!texture || !Skin.sprite(texture)) return;
+    const el = this.win.backdrop;
+    Skin.apply(el, texture, { content: { w, h } });
+    Object.assign(el.style, { left: `${Skin.px(p.offsetX)}px`, top: `${Skin.px(p.offsetY)}px`,
+      width: `${Skin.px(w)}px`, height: `${Skin.px(h)}px`, right: 'auto', bottom: 'auto' });
   }
 
   _ctrlBtn(ctrl, onClick, label = null) {
@@ -149,7 +152,10 @@ export class ShopWnd {
     if (tex[0]) Skin.apply(b, tex[0], { stretch: true });
     // Button labels carry no colour in the xdat (352 Button records, none
     // coloured); NCButton picks it per draw. SOURCED NWindow.dll 0x100035a8.
-    if (label) Font.set(b, label, { color: Layout.native('buttonLabel') });
+    if (label) {
+      Font.set(b, label, { color: Layout.native('buttonLabel') });
+      b.setAttribute('role', 'button'); b.setAttribute('aria-label', label);
+    }
     b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
     this.win.body.appendChild(b);
     return b;
@@ -159,12 +165,16 @@ export class ShopWnd {
     const lp = Layout.pos(WND, labelCtrl);
     if (lp) {
       const l = document.createElement('div');
+      const size = Layout.sizeOf(WND, labelCtrl);
+      const align = Layout.find(WND, labelCtrl)?.align;
       l.style.cssText = 'position:absolute;pointer-events:none;'
-        + `left:${Skin.px(lp.x)}px;top:${Skin.px(lp.y)}px;`;
+        + `left:${Skin.px(lp.x)}px;top:${Skin.px(lp.y)}px;width:${Skin.px(size.w)}px;`
+        + `text-align:${align || 'left'};`;
       // the label's own record governs its colour (ShopWnd/PriceConstText,
       // ShopWnd/AdenaConstText -- both #DCDCDC in Interface.xdat)
       Font.set(l, label, { color: Layout.textColor(WND, labelCtrl) });
       this.win.body.appendChild(l);
+      this.labels[labelCtrl] = l;
     }
     const vp = Layout.pos(WND, valueCtrl);
     const vSize = Layout.sizeOf(WND, valueCtrl);
@@ -178,180 +188,150 @@ export class ShopWnd {
 
   // -- open modes ------------------------------------------------------------
 
-  openBuy(items) {
-    this.mode = 'buy';
-    this.topItems = items || [];
-    this.cart.clear();
-    this.selected = null;
-    this._renderLabels();
-    this._render();
-    this.show();
-  }
+  openBuy(items, money) { return this._open('buy', items, money); }
+  openSell(items, money) { return this._open('sell', items, money); }
 
-  openSell(items) {
-    this.mode = 'sell';
-    this.topItems = items || [];
-    this.cart.clear();
-    this.selected = null;
-    this._renderLabels();
-    this._render();
-    this.show();
+  async _open(mode, items, money) {
+    this.resetSession();
+    const revision = this.revision;
+    // Clone packet rows: moving a sell item must not mutate a network snapshot.
+    const rows = (items || []).map(item => ({ ...item }));
+    try {
+      const [meta, strings, messages] = await this.loadMetadata();
+      if (revision !== this.revision) return;
+      const labels = new Map((strings || []).map(row => [row.id, row.string]));
+      if (!meta || !messages || [134, 136, 137, 138, 139, 140, 141, 142, 143].some(id => !labels.get(id))
+          || !Number.isSafeInteger(money) || money < 0) {
+        throw new Error('Original shop data or packet money unavailable');
+      }
+      this.meta = meta; this.strings = labels; this.messages = messages;
+      this.mode = mode; this.money = money; this.topItems = rows;
+      this._renderLabels(); this._render(); this.show();
+    } catch (error) {
+      if (revision === this.revision) console.warn('[ShopWnd]', error.message);
+    }
   }
 
   _renderLabels() {
-    // AUTHORED English (retail: system strings 136-143, not extracted)
-    if (this.labels.top) {
-      Font.set(this.labels.top, this.mode === 'buy' ? 'Merchant' : 'Inventory',
-               { color: Layout.textColor(WND, 'TopText') });
+    const text = (element, id, control) => {
+      if (element) Font.set(element, this.strings.get(id), { color: Layout.textColor(WND, control) });
+    };
+    text(this.labels.top, this.mode === 'buy' ? 137 : 138, 'TopText');
+    text(this.labels.bottom, this.mode === 'buy' ? 139 : 137, 'BottomText');
+    text(this.labels.PriceConstText, this.mode === 'buy' ? 142 : 143, 'PriceConstText');
+    text(this.labels.AdenaConstText, 134, 'AdenaConstText');
+    for (const [button, id] of [[this.okButton, 140], [this.cancelButton, 141]]) {
+      if (!button) continue;
+      const label = this.strings.get(id);
+      Font.set(button, label, { color: Layout.native('buttonLabel') });
+      button.setAttribute('role', 'button'); button.setAttribute('aria-label', label);
     }
-    if (this.labels.bottom) {
-      Font.set(this.labels.bottom, 'Cart',
-               { color: Layout.textColor(WND, 'BottomText') });
-    }
-    this.win.setTitle('Shop');
+    this.win.setTitle(this.strings.get(136));
   }
 
   // -- the cart ---------------------------------------------------------------
 
-  _key(t) { return this.mode === 'sell' ? `o${t.objectId}` : `i${t.itemId}`; }
+  _key(entry) { return entry.rowKey ?? (this.mode === 'sell' ? `o${entry.objectId}` : `i${entry.itemId}`); }
+  _stackable(entry) { return [1, 2, 3].includes(this.meta?.[entry.itemId]?.consumeType); }
+  _has(entry, pane) { return pane === 'top' ? this.topItems.includes(entry) : this.cart.get(entry.rowKey) === entry; }
 
-  _moveToCart(item, count) {
-    const key = this._key(item);
-    const existing = this.cart.get(key);
-    const add = Math.min(count, this.mode === 'sell' ? item.count : count);
-    if (add <= 0) return;
+  _moveToCart(item, count, fromDialog = false) {
+    if (!this._has(item, 'top') || !Number.isSafeInteger(count) || count <= 0 || count > 0x7fffffff) return;
+    const add = this.mode === 'sell' ? Math.min(count, item.count) : count;
+    const merge = fromDialog || (this.mode === 'sell' && this._stackable(item));
+    const existing = merge && [...this.cart.values()].find(row => row.itemId === item.itemId);
+    // Native signed-overflow conversion is unresolved. Refuse that range;
+    // never silently wrap a purchase count into a different quantity.
+    if (add <= 0 || (existing && existing.count + add > 0x7fffffff)) return;
     if (existing) existing.count += add;
     else {
-      this.cart.set(key, {
-        itemId: item.itemId, objectId: item.objectId,
-        count: add, price: item.price, name: item.name, icon: item.icon,
-      });
+      const rowKey = ++this.rowSerial;
+      this.cart.set(rowKey, { ...item, rowKey, count: add });
     }
     if (this.mode === 'sell') {
       item.count -= add;
       if (item.count <= 0) this.topItems.splice(this.topItems.indexOf(item), 1);
     }
-    this.selected = null;
-    this._render();
+    this._addPrice(add * (existing && fromDialog ? existing.price : item.price));
+    this.selected = null; this._render();
   }
 
-  _moveBack(entry, count) {
-    const key = this._key(entry);
-    const add = Math.min(count, entry.count);
-    if (add <= 0) return;
-    entry.count -= add;
-    if (entry.count <= 0) this.cart.delete(key);
+  _moveBack(entry, count, fromDialog = false) {
+    if (!this._has(entry, 'bottom') || !Number.isSafeInteger(count) || count <= 0 || count > 0x7fffffff) return;
+    const back = this.mode === 'sell' && this.topItems.find(row => fromDialog
+      ? row.itemId === entry.itemId : row.objectId === entry.objectId);
+    // ShopWnd.HandleDialogOK restores the requested sell quantity even for
+    // overshoot. When it creates a top row, it also rewrites local ItemNum
+    // before the price correction. Preserve this observable source asymmetry;
+    // the server still validates actual ownership.
+    const restore = fromDialog ? count : entry.count;
+    if (back && back.count + restore > 0x7fffffff) return;
+    const oldCount = entry.count;
+    entry.count -= count;
+    if (entry.count <= 0) this.cart.delete(entry.rowKey);
     if (this.mode === 'sell') {
-      const back = this.topItems.find(t => t.objectId === entry.objectId);
-      if (back) back.count += add;
+      if (back) back.count += restore;
       else {
-        this.topItems.push({
-          objectId: entry.objectId, itemId: entry.itemId,
-          count: add, price: entry.price, name: entry.name, icon: entry.icon,
-        });
+        const { rowKey, ...item } = entry;
+        this.topItems.push({ ...item, count: restore });
       }
     }
-    this.selected = null;
-    this._render();
+    const removed = fromDialog && this.mode === 'sell' && !back ? count : Math.min(count, oldCount);
+    this._addPrice(-removed * entry.price);
+    this.selected = null; this._render();
+  }
+
+  _addPrice(delta) {
+    // Small exact-number domain. Original INT64 high/low signed-word and
+    // overflow behavior remains a separate native parity boundary.
+    this.currentPrice = Math.max(0, this.currentPrice + delta);
   }
 
   _moveSelected(pane) {
     if (!this.selected || this.selected.pane !== pane) return;
     const pool = pane === 'top' ? this.topItems : [...this.cart.values()];
     const entry = pool[this.selected.index];
-    if (entry) this._offerMove(entry, pane);
+    if (entry) return this._offerMove(entry, pane);
   }
 
-  /** Double-click / button entry point: stackables ask the amount
-   *  (DIALOG_NumberPad in the .uc — our prompt stands in), the rest
-   *  move 1 (buy mode moves exactly 1, uc:164). */
-  _offerMove(entry, pane) {
+  async _offerMove(entry, pane) {
+    if (!this.visible || this.pending || !this._has(entry, pane)) return;
+    const meta = this.meta?.[entry.itemId];
+    if (!Number.isInteger(meta?.consumeType) || !meta.name) return;
     const toCart = pane === 'top';
-    const stackable = entry.count !== 1;   // itemmeta carries no flag
-    if (stackable) {
-      this._askAmount(
-        // buy from the merchant is unbounded by the list (count is stock,
-        // uc:164 ignores it) — the adena line bounds it honestly
-        toCart && this.mode === 'buy' ? Infinity : entry.count,
-        (n) => { toCart ? this._moveToCart(entry, n) : this._moveBack(entry, n); });
-    } else {
-      toCart ? this._moveToCart(entry, 1) : this._moveBack(entry, 1);
-    }
-  }
-
-  // -- amount prompt (AUTHORED — stands in for DIALOG_NumberPad) ---------------
-
-  _buildAmountPrompt(parent) {
-    const win = new L2Window({
-      title: 'Amount', width: 180, height: 70, closable: false,
-    });
-    win.root.id = 'l2-shop-amount';
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.min = '1';
-    input.value = '1';
-    // AUTHORED prompt layout (there is no dialog framework to mirror)
-    input.style.cssText = `position:absolute;left:${Skin.px(10)}px;`
-      + `top:${Skin.px(10)}px;width:${Skin.px(160)}px;`
-      + 'background:#10131a;border:1px solid #5a5344;color:#e8e0d0;'
-      + 'font:12px sans-serif;';
-    win.body.appendChild(input);
-    const ok = document.createElement('div');
-    ok.style.cssText = `position:absolute;left:${Skin.px(10)}px;`
-      + `top:${Skin.px(38)}px;width:${Skin.px(76)}px;height:${Skin.px(23)}px;`
-      + 'cursor:pointer;display:flex;align-items:center;justify-content:center;';
-    Skin.apply(ok, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-    Font.set(ok, 'OK', { color: Layout.native('buttonLabel') });
-    win.body.appendChild(ok);
-    // AUTHORED (same prompt layout as above — the cancel mirrors OK)
-    const cancel = document.createElement('div');
-    cancel.style.cssText = ok.style.cssText.replace(
-      /left:\s*\d+(?:\.\d+)?px/, 'left:' + Skin.px(94) + 'px');
-    Skin.apply(cancel, 'L2UI_CH3.BUTTON.Btn1_normal', { stretch: true });
-    Font.set(cancel, 'Cancel', { color: Layout.native('buttonLabel') });
-    win.body.appendChild(cancel);
-    parent.appendChild(win.root);
-    this.amountWin = win;
-    this.amountInput = input;
-    ok.addEventListener('click', () => {
-      const max = this.amountMax;
-      const n = Math.max(1, Math.min(max, parseInt(input.value, 10) || 1));
-      win.hide();
-      const cb = this.amountCb;
-      this.amountCb = null;
-      if (cb) cb(n);
-    });
-    cancel.addEventListener('click', () => {
-      win.hide();
-      this.amountCb = null;
-    });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') ok.click();
-      e.stopPropagation();
-    });
-  }
-
-  _askAmount(max, cb) {
-    this.amountMax = max;
-    this.amountCb = cb;
-    this.amountInput.value = '1';
-    // AUTHORED centering (the prompt is the port's own, nothing to mine)
-    this.amountWin.place({
-      left: window.innerWidth / 2 - Skin.px(90), top: window.innerHeight / 2 - Skin.px(35),
-    });
-    this.amountWin.show();
-    this.amountInput.focus();
-    this.amountInput.select();
+    if (this._stackable(entry) && (!toCart || entry.count !== 1)) {
+      const token = { entry, pane, revision: this.revision };
+      const message = renderSysMsg(this.messages, 72, [meta.name]);
+      if (!message || /^sysmsg /.test(message)) return;
+      this.pending = token;
+      try {
+        const result = await this.dialog.request({ type: 'number', message, context: token, owner: this,
+          parameter: toCart && this.mode === 'buy' ? -1 : entry.count });
+        if (!result.accepted || this.pending !== token || token.revision !== this.revision
+            || !this._has(entry, pane) || typeof result.value !== 'string' || !/^\d*$/.test(result.value)) return;
+        const count = Number(result.value);
+        if (!Number.isSafeInteger(count) || count <= 0 || count > 0x7fffffff) return;
+        // DialogSetReservedInt stores ClassID, so acceptance resolves the
+        // first current class row, including duplicate direct-buy rows.
+        const pool = toCart ? this.topItems : [...this.cart.values()];
+        const selected = pool.find(row => row.itemId === entry.itemId);
+        if (selected && toCart) this._moveToCart(selected, count, true);
+        else if (selected) this._moveBack(selected, count, true);
+      } finally { if (this.pending === token) this.pending = null; }
+    } else if (toCart) this._moveToCart(entry, this.mode === 'sell' ? entry.count : 1);
+    else this._moveBack(entry, entry.count);
   }
 
   // -- rendering ----------------------------------------------------------------
 
-  async _cell(entry, pane, index) {
-    const meta = await itemMeta();
-    const info = itemInfo(meta, entry.itemId);
+  _cell(entry, pane, index) {
+    const info = itemInfo(this.meta, entry.itemId);
     const cell = document.createElement('div');
     cell.className = 'l2-shop-cell';
     cell.dataset.key = this._key(entry);
+    cell.dataset.itemId = entry.itemId;
+    cell.setAttribute('role', 'button');
+    cell.setAttribute('aria-label', `${info.name} (${entry.count})`);
     cell.style.cssText = 'position:relative;display:inline-block;overflow:hidden;'
       + `width:${Skin.px(this.panes[pane].pitch.x)}px;`
       + `height:${Skin.px(this.panes[pane].pitch.y)}px;`
@@ -429,43 +409,51 @@ export class ShopWnd {
     }
   }
 
-  async _render() {
+  _render() {
     const top = this.panes.top.el;
     const bottom = this.panes.bottom.el;
     top.replaceChildren();
     bottom.replaceChildren();
     for (let i = 0; i < this.topItems.length; i++) {
-      top.appendChild(await this._cell(this.topItems[i], 'top', i));
+      top.appendChild(this._cell(this.topItems[i], 'top', i));
     }
     const cartItems = [...this.cart.values()];
     for (let i = 0; i < cartItems.length; i++) {
-      bottom.appendChild(await this._cell(cartItems[i], 'bottom', i));
+      bottom.appendChild(this._cell(cartItems[i], 'bottom', i));
     }
     // price total: accumulated price x count (uc:174/216), MakeCostString
-    const total = cartItems.reduce((s, e) => s + e.price * e.count, 0);
+    const total = this.currentPrice;
     Font.set(this.priceEl, costString(total),
              { color: Layout.textColor(WND, 'PriceText') });
     this.priceEl.title = String(total);   // ConvertNumToText stand-in
     this._renderAdena();
   }
 
-  /** Adena line follows the inventory (server truth via invUpdate). */
+  /** ShopWnd.HandleOpenWindow uses the supplied list Adena snapshot. */
   _renderAdena() {
-    const adena = this.getAdena();
+    const adena = this.money;
     Font.set(this.adenaEl, costString(adena),
              { color: Layout.textColor(WND, 'AdenaText') });
     this.adenaEl.title = String(adena);
   }
 
-  onInvUpdate() {
-    if (this.visible) this._renderAdena();
-  }
+  onInvUpdate() {} // No such source ShopWnd event; list money is authoritative.
 
   // -- OK / Cancel ---------------------------------------------------------------
 
-  _ok() {
+  async _ok() {
+    if (!this.visible || this.pending || !['buy', 'sell'].includes(this.mode)) return;
     const items = [...this.cart.values()];
-    if (!items.length) return;
+    if (this.mode === 'buy' && this.topItems.some(top => top.count > 0
+        && items.filter(row => row.itemId === top.itemId).reduce((sum, row) => sum + row.count, 0) > top.count)) {
+      const message = renderSysMsg(this.messages, 1338, []);
+      if (!message || /^sysmsg /.test(message)) return;
+      const token = { revision: this.revision };
+      this.pending = token;
+      try { await this.dialog.request({ type: 'warning', message, context: token, owner: this }); }
+      finally { if (this.pending === token) this.pending = null; }
+      return; // A warning acceptance never purchases the invalid cart.
+    }
     if (this.mode === 'buy') {
       this.onBuy(items.map(e => ({ itemId: e.itemId, count: e.count })));
     } else {
@@ -476,13 +464,39 @@ export class ShopWnd {
     this.hide();
   }
 
-  place(o = {}) { this.win.place(o); return this; }
+  _parentRect() {
+    return { x: 0, y: 0, width: window.innerWidth / Skin.scale, height: window.innerHeight / Skin.scale };
+  }
+  _positionRect() {
+    const r = this.root.getBoundingClientRect();
+    const x = parseFloat(this.root.style.left), y = parseFloat(this.root.style.top);
+    return { x: (Number.isFinite(x) ? x : r.left) / Skin.scale,
+      y: (Number.isFinite(y) ? y : r.top) / Skin.scale, width: this.w, height: this.h };
+  }
+  place(o) {
+    if (o) this.win.place(o);
+    else {
+      const reset = defaultWindowPosition(this.defaultPositionRule, this._positionRect(), this._parentRect());
+      if (reset) this.win.place({ left: reset.x, top: reset.y });
+    }
+    return this;
+  }
+  repairPosition() {
+    if (!windowCornerInside(this._positionRect(), this._parentRect())) this.place();
+  }
   show() { this.win.show(); this._renderAdena(); return this; }
-  hide() { this.win.hide(); if (this.amountWin) this.amountWin.hide(); return this; }
+  resetSession() {
+    ++this.revision;
+    this.pending = null; this.dialog.reset(this);
+    this.mode = null; this.money = 0; this.currentPrice = 0; this.topItems = []; this.cart.clear(); this.selected = null;
+    this.win.hide();
+    for (const pane of Object.values(this.panes)) pane.el.replaceChildren();
+  }
+  hide() { this.resetSession(); return this; }
   get visible() { return this.win.visible; }
-  toggle(force) { this.win.toggle(force); return this; }
+  toggle(force) { if (force === false || this.visible) this.hide(); else if (this.mode) this.show(); return this; }
 
   onDefaultPosition() {
-    this.place(this.defaultPlace);
+    this.place();
   }
 }

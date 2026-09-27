@@ -13,17 +13,24 @@ import { makeLabel } from './labels.js';
 // NWindow.dll. nameplates.js carries the evidence and the instruction sites.
 import { NAME_COLOR } from './nameplates.js';
 import { skillAnimMeta, skillAnimInfo } from './gamedata.js';
-import { clipForSkill, lastSkillMsg } from './skillfx_anim.js';
-import { pawnAnim, castPlan } from './castanim.js';
-import { activeSkillFx } from './skills.js';
+import { pawnAnim, castPlan, castSchedule } from './castanim.js';
+import { vfxIndex } from './skillvfx.js';
+import { skillAgentBinding } from './skillvfx-binding.js';
+import { npcVisualMeta, npcVisualScale } from './npcvisual.js';
+import { loadNpcAnimationModel } from './npcanimations.js';
+import { applyOriginalNpcMaterials } from './npcmaterials.js';
 
-const _headPos = new THREE.Vector3();
+let _playerCastMetadata = null;
+let _playerCastMetadataPending = null;
 
-// the skillCast/skillLaunch message currently being handled (NetClient logs
-// before emitting, so it is the tail of the net ring during the handler)
-function skillMsgFor(casterId) {
-  const w = typeof window !== 'undefined' && window.__world;
-  return w ? lastSkillMsg(w.net.log, { casterId }) : null;
+/** Prewarm the original cast inputs together. Once resolved, cast receipt can
+ *  adopt synchronously without adding another metadata wait to its clock. */
+export function warmPlayerCastMetadata() {
+  if (!_playerCastMetadataPending) {
+    _playerCastMetadataPending = Promise.all([skillAnimMeta(), pawnAnim(), vfxIndex()])
+      .then(bundle => { _playerCastMetadata = bundle; return bundle; });
+  }
+  return _playerCastMetadataPending;
 }
 
 const FALLBACK_MODEL = 'human_fighter_m';
@@ -34,7 +41,6 @@ const NPC_SPEED = 1.6;          // m/s, matches Character.WALK_SPEED
 //   PLAYER_LABEL '#c9a959' — a gold retail never uses anywhere.
 //   NPC_LABEL    '#9ce8a9' — a REAL client colour, but it is npcname.dat's
 //                            TITLE colour, not a name colour. See titleFor().
-const MONSTER_HEIGHT = 1.2;     // m — npcgrp carries no scale; plausible default
 
 // label text scale relative to a 1.85 m human, clamped for readability
 const labelScale = H => Math.min(1, Math.max(0.25, (H || 1.85) / 1.85));
@@ -231,7 +237,7 @@ class DropEntity {
 
 class NpcEntity {
   constructor({ id, npcId, name, level, runSpeed, walkSpeed, speedMul, running,
-                pAtkSpd, atkSpdMul }) {
+                pAtkSpd, atkSpdMul, collisionRadius, collisionHeight, dead }) {
     this.id = id;
     this.kind = 'npc';
     this.npcId = npcId;
@@ -243,6 +249,9 @@ class NpcEntity {
     // clip's own length for every creature in the game.
     this.pAtkSpd = pAtkSpd > 0 ? pAtkSpd : 0;
     this.atkSpdMul = atkSpdMul > 0 ? atkSpdMul : 1;
+    this.collisionRadius = collisionRadius;
+    this.collisionHeight = collisionHeight;
+    this.pickResourcesReady = false;
     // NpcInfo speeds in L2 units/s -> m/s; absent for entities that predate the
     // gateway forwarding them, and Entity.update falls back in that case.
     // AbstractNpcInfo writes the BASE speeds (getBaseRunSpeed/getBaseWalkSpeed)
@@ -257,7 +266,7 @@ class NpcEntity {
     this.walkSpeed = walkSpeed > 0 ? walkSpeed * this.speedMul * L2_TO_M : 0;
     if (running != null) this.running = !!running;
     this.target = null;
-    this.dead = false;
+    this.dead = !!dead;
     this.mixer = null;
     this.actions = null;          // {idle,walk,run,attack,die} after model upgrade
     this.current = null;
@@ -331,28 +340,17 @@ class NpcEntity {
       || manifest.find(m => m.id.toLowerCase() === String(meshName).toLowerCase());
     if (!entry) return;                        // no model for this npcId: keep capsule
     try {
-      const gltf = await new GLTFLoader()
-        .loadAsync(`/characters/monsters/${entry.gltf}`);
+      const visualScale = npcVisualScale(await npcVisualMeta(), this.npcId, entry.id);
+      if (!visualScale) throw new Error(`original visual scale unresolved for NPC ${this.npcId}`);
+      const { gltf, overrides: animationOverrides } = await loadNpcAnimationModel(
+        this.npcId, entry, new GLTFLoader());
+      await applyOriginalNpcMaterials(this.npcId, entry, gltf, THREE);
       const root = gltf.scene;
-      // nativeHeight (L2 units) is authoritative when the manifest carries
-      // it; otherwise normalize to a plausible monster height (npcgrp has
-      // no scale info)
-      const box = new THREE.Box3().setFromObject(root);
-      const size = box.getSize(new THREE.Vector3());
-      if (size.y > 0.001) {
-        if (entry.nativeHeight && grp.height) {
-          // docs/npc-visual-data.md §4: server height is a HALF-height (aCis
-          // GeoEngine doubles it for full height), so per npcId:
-          // renderScale = (2 x npcgrp height) / mesh.nativeHeight — 32% of
-          // meshes are reused at different sizes, per npcId, not per mesh.
-          root.scale.setScalar((2 * grp.height * L2_TO_M) / size.y);
-        } else if (entry.nativeHeight) {
-          root.scale.setScalar((entry.nativeHeight * L2_TO_M) / size.y);
-        } else {
-          const k = MONSTER_HEIGHT / size.y;
-          if (k < 0.3 || k > 4) root.scale.setScalar(k);
-        }
-      }
+      // assemble.py preserves source points as (X,Z,-Y)*0.01. Apply the
+      // native per-axis visual scale once; collision dimensions do not size
+      // a rendered mesh. The existing foot/center placement below is still
+      // provisional until native mesh-origin/actor-placement parity lands.
+      root.scale.set(visualScale.x, visualScale.y, visualScale.z);
       const box2 = new THREE.Box3().setFromObject(root);
       const center = box2.getCenter(new THREE.Vector3());
       root.position.x -= center.x;
@@ -362,21 +360,10 @@ class NpcEntity {
       if (this.label) this.setLabel(this.name);   // re-anchor to true height
       root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
 
-      // invisible pick proxy: skinned meshes raycast against bind pose,
-      // so clicks target a plain cylinder around the model instead
-      const proxy = new THREE.Mesh(
-        new THREE.CylinderGeometry(
-          Math.max(0.12, this.heightM * 0.3), Math.max(0.14, this.heightM * 0.35),
-          this.heightM, 8),
-        new THREE.MeshBasicMaterial({ visible: false }),
-      );
-      proxy.position.y = this.heightM / 2;
-      proxy.name = 'pick-proxy';
-      this.group.add(proxy);
-
       for (const m of this.capsuleMeshes) this.group.remove(m);
       this.capsuleMeshes = [];
       this.group.add(root);
+      this.pickResourcesReady = true;
       this.mixer = new THREE.AnimationMixer(root);
       const raw = {};
       for (const clip of gltf.animations) raw[clip.name] = this.mixer.clipAction(clip);
@@ -389,6 +376,12 @@ class NpcEntity {
       // do here anyway — the pipeline emits the clip under the exact name
       // 'social' when clips.social exists, and nothing when it does not.
       this.actions.social = raw.social || null;
+      // Same mesh, distinct original NPC class: use the exact source-bound
+      // sequence after its glTF and geometry buffer have passed hash checks.
+      for (const [slot, clip] of Object.entries(animationOverrides)) {
+        if (!raw[clip]) throw new Error(`original NPC animation missing: ${clip}`);
+        this.actions[slot] = raw[clip];
+      }
       this._play(this.dead ? 'die' : 'idle', 0);
       if (this.dead) this._finishDeath();      // died while loading
     } catch (e) {
@@ -511,7 +504,7 @@ class NpcEntity {
     // of travel (see character.js MOVE_TICK_S), then snap to the destination.
     if (d <= speed * MOVE_TICK_S) {
       pos.x = this.target.x; pos.z = this.target.z;
-      pos.y = terrain.heightAtWorld(pos.x, pos.z, pos.y);
+      pos.y = terrain.heightAtWorld(pos.x, pos.z, pos.y) ?? pos.y;
       this.target = null;
       if (this.actions) this._play('idle');
       return;
@@ -524,7 +517,7 @@ class NpcEntity {
     const step = Math.min(speed * dt, d);
     pos.x += dx / d * step;
     pos.z += dz / d * step;
-    pos.y = terrain.heightAtWorld(pos.x, pos.z, pos.y);
+    pos.y = terrain.heightAtWorld(pos.x, pos.z, pos.y) ?? pos.y;
     this.group.rotation.y = Math.atan2(dx, dz);
   }
 }
@@ -534,7 +527,7 @@ export class EntityManager {
     this.scene = scene;
     this.manifest = manifest;
     this.entities = new Map();    // id -> Character (players) | NpcEntity
-    this.pending = new Set();     // ids with an async spawn in flight
+    this.pending = new Map();     // id -> identity of the current async spawn
   }
 
   has(id) { return this.entities.has(id) || this.pending.has(id); }
@@ -547,38 +540,47 @@ export class EntityManager {
   // (real geodata) is the floor — take the max.
   _groundY(x, z, serverZm, terrain) {
     if (terrain && terrain.geodata && serverZm != null) {
-      return terrain.heightAtWorld(x, z, serverZm);
+      return terrain.heightAtWorld(x, z, serverZm) ?? serverZm;
     }
     const t = terrain ? terrain.heightAtWorld(x, z, serverZm ?? null) : -Infinity;
-    return Math.max(t, serverZm ?? -Infinity);
+    return Math.max(t ?? -Infinity, serverZm ?? -Infinity);
   }
 
   async addPlayer(msg, terrain) {
     const id = msg.id;
-    if (this.has(id)) return;
-    this.pending.add(id);
+    const existing = this.entities.get(id);
+    if (existing) {
+      if (existing.kind === 'player') existing.setAppearance(msg);
+      existing.collisionRadius = msg.collisionRadius;
+      existing.collisionHeight = msg.collisionHeight;
+      if (msg.dead != null) existing.dead = !!msg.dead;
+      if (!existing.dead && existing.kind === 'player' && msg.waitType != null) existing.setWaitType(msg.waitType, { snapshot:true });
+      return;
+    }
+    if (this.pending.has(id)) {
+      const token = this.pending.get(id);
+      token.appearance = this._appearanceSnapshot(msg, token.appearance);
+      return;
+    }
+    const token = { appearance: this._appearanceSnapshot(msg) };
+    this.pending.set(id, token);
+    let ch = null, adopted = false;
     try {
-      // sex rides the new pickModelId signature but is undefined in the
-      // addPlayer contract today (follow-up: extend addPlayer with sex) —
-      // until then remote players keep the male preference
+      // Preserve the original CharInfo sex byte when selecting the model.
       const modelId = pickModelId(this.manifest, msg.race, msg.classId, msg.sex);
       const entry = this.manifest.find(m => m.id === modelId) || this.manifest[0];
-      const ch = new Character();
-      // Tell it what it is holding BEFORE the model loads: load() re-hangs the
-      // remembered weapon once the sockets exist, so this avoids a second pass
-      // and the frame or two of empty-handedness it would cause.
-      if (msg.paperdoll && msg.paperdoll.rhand) ch.wantWeapon = msg.paperdoll.rhand;
-      if (msg.paperdoll && msg.paperdoll.lhand) ch.wantOffhand = msg.paperdoll.lhand;
-      // Armor rides the same CharInfo paperdoll (gloves/chest/legs/feet are
-      // indices 4/5/6/7 of the 12-slot CharInfo layout, decoded by the gateway
-      // since the inventory wave). Set BEFORE load for the same reason the
-      // weapon is: load() re-applies it once the skeleton exists, so a remote
-      // player never appears in their underwear for a frame.
-      if (msg.paperdoll) ch.wantArmor = msg.paperdoll;
-      await ch.load(`/characters/${entry.gltf}`, entry.nativeHeight || null);
-      if (this.entities.has(id)) return;   // raced with a duplicate add
+      ch = new Character();
+      // Keep unadmitted candidates free of cached equipment/armor resources;
+      // a cancelled base load can then be disposed without harming wearers
+      // that share those templates. Attach the paperdoll after admission.
+      await ch.load(`/characters/${entry.gltf}`);
+      if (this.pending.get(id) !== token || this.entities.has(id)) return;
       ch.id = id;
       ch.kind = 'player';
+      ch.collisionRadius = msg.collisionRadius;
+      ch.collisionHeight = msg.collisionHeight;
+      ch.dead = !!msg.dead;
+      ch.pickResourcesReady = true;
       // CharInfo carries this player's attack cadence and walk/run stance;
       // same fields, same meaning, as the self charSheet (character.js).
       ch.setSpeeds(msg);
@@ -602,18 +604,65 @@ export class EntityManager {
       ch.group.add(label);
       ch.heightM = ch.heightM || 1.75;
       this.entities.set(id, ch);
-      this._applyDeferred(ch);
       this.scene.add(ch.group);
+      adopted = true;
+      ch.setAppearance(token.appearance);
+      if (msg.paperdoll?.rhand) ch.setWeapon(msg.paperdoll.rhand);
+      if (msg.paperdoll?.lhand) ch.setOffhand(msg.paperdoll.lhand);
+      if (msg.paperdoll) ch.setArmor(msg.paperdoll);
+      if (msg.waitType != null) ch.setWaitType(msg.waitType, { snapshot:true });
+      this._applyDeferred(ch);
     } catch (e) {
-      console.error(`addPlayer ${id} (${msg.name}):`, e);
+      if (this.pending.get(id) === token) console.error(`addPlayer ${id} (${msg.name}):`, e);
     } finally {
-      this.pending.delete(id);
+      if (this.pending.get(id) === token) {
+        this.pending.delete(id);
+        this._waitState?.delete(id);
+        this._moveState?.delete(id);
+      }
+      if (ch && !adopted) this._disposeUnadoptedPlayer(ch);
     }
+  }
+
+  _appearanceSnapshot(msg, previous = {}) {
+    const appearance = { ...previous };
+    for (const key of ['face', 'hairStyle', 'hairColor']) {
+      if (Object.prototype.hasOwnProperty.call(msg, key)) appearance[key] = msg[key];
+    }
+    return appearance;
+  }
+
+  // Fresh base Character only: addPlayer has not started shared equipment or
+  // armor requests. As with main's unadopted self model, do not close cached
+  // ImageBitmaps; dispose each candidate-owned GPU resource once.
+  _disposeUnadoptedPlayer(ch) {
+    ch.cancelCast();
+    ch.mixer?.stopAllAction();
+    if (ch.model) ch.mixer?.uncacheRoot(ch.model);
+    const geometries = new Set(), materials = new Set(), textures = new Set();
+    ch.group.traverse(node => {
+      if (node.geometry) geometries.add(node.geometry);
+      for (const material of (Array.isArray(node.material) ? node.material : [node.material])) {
+        if (!material) continue;
+        materials.add(material);
+        for (const value of Object.values(material)) if (value?.isTexture) textures.add(value);
+      }
+    });
+    for (const geometry of geometries) geometry.dispose();
+    for (const material of materials) material.dispose();
+    for (const texture of textures) texture.dispose();
   }
 
   addNpc(msg, terrain) {
     const id = msg.id;
-    if (this.has(id)) return;
+    const existing = this.entities.get(id);
+    if (existing) {
+      existing.collisionRadius = msg.collisionRadius;
+      existing.collisionHeight = msg.collisionHeight;
+      if (msg.dead != null) existing.dead = !!msg.dead;
+      return;
+    }
+    if (this.pending.has(id)) return;
     const npc = new NpcEntity(msg);
     // type (Monster/Folk) resolves with the async npcgrp fetch
     npcMeshes().then(map => {
@@ -677,93 +726,67 @@ export class EntityManager {
     }
   }
 
-  skillFlash(id) {
-    const msg = skillMsgFor(id);
+  skillFlash(id, msg, castHooks = null) {
     const e = this.entities.get(id);
     if (e && !e.dead) {
       if (e.kind === 'npc') { e.skillFlash(); return; }
-      this._playerCastGesture(e, msg);
+      this._playerCastGesture(e, msg, castHooks);
       return;
     }
     // the local player is NOT in the EntityManager (main.js keeps it as a
     // separate Character) — self casts gesture on that model too
     const w = typeof window !== 'undefined' && window.__world;
     if (w && w.net.selfId === id && w.character) {
-      this._playerCastGesture(w.character, msg);
-      // main.js's skillLaunch flash resolves the TARGET through the
-      // EntityManager only, so SELF-target launches (Self Heal & co.)
-      // produce no effect there — spawn it here instead
-      if (msg && msg.op === 'skillLaunch' && msg.targetId === id) {
-        const fx = activeSkillFx();
-        if (fx) {
-          _headPos.copy(w.character.group.position);
-          _headPos.y += (w.character.heightM || 1.75) * 1.1;
-          fx.flash(_headPos);
-        }
-      }
+      this._playerCastGesture(w.character, msg, castHooks);
     }
   }
 
-  // Per-skill cast gesture from skillanim.json (skillgrp animation code +
-  // the skillCast hitTime -> glTF clip, js/skillfx_anim.js): dances play
-  // 'dance' (exact), physical skills 'spAtk01/02', magic casts
-  // 'castShort/Mid/Long' by duration. Pre-rebuild models lack those clips —
-  // the documented 'attack' fallback keeps a gesture until they land.
-  // Without skill context the legacy generic swing remains.
-  // ... and the gesture lasts exactly hitTime, because hitTime IS the cast
-  // duration the server told the client to display: CreatureCast.doCast
-  // computes it as Formulas.calcAtkSpd(skillTime * 333 / mAtkSpd), sends it in
-  // MagicSkillUse, and drives its own SetupGauge(BLUE, hitTime) with the same
-  // number. Playing the clip at its authored length instead made every cast
-  // gesture disagree with its own cast bar — a 1.5 s animation over a 400 ms
-  // Wind Strike, or a stubby one over a slow chant.
-  //
-  // skillLaunch re-enters this path at hitTime-400 (CreatureCast.onMagicLaunch);
-  // the second gesture is deliberately NOT restarted mid-swing.
-  _playerCastGesture(ch, msg) {
-    // No skill context at all: play nothing. This used to swing 'attack',
-    // which is a weapon strike animation and never a cast.
+  // Ordinary player phase playback uses exact original metadata. NPC/type13
+  // and degenerate schedules remain explicit gaps, without first-clip stretch.
+  _playerCastGesture(ch, msg, castHooks = null) {
     if (!msg) { this.lastCastClip = null; return; }
-    if (msg.op === 'skillLaunch' && ch.emoteUntil > performance.now()) return;
-    Promise.all([skillAnimMeta(), pawnAnim()]).then(([meta, pa]) => {
-      const entry = skillAnimInfo(meta, msg.skillId, msg.level || 1);
-      // The clip now comes from the CLIENT'S OWN stance-indexed slot table
-      // (lineagewarrior.int -> /characters/pawnanim.json), not from pasting
-      // '_<stance>' onto a logical name. Ten of the 84 (pawn, stance) pairs
-      // disagreed; see js/castanim.js for the list.
-      const plan = (pa && ch.modelId)
-        ? castPlan(pa, ch.modelId, ch.stance, entry, msg.hitTime)
-        : null;
-      // Fallback path: no table loaded (offline mock, model not yet known).
-      // Keeps the previous logical-name behaviour rather than going silent.
-      const clip = (plan && plan.cast) || clipForSkill(entry, msg.hitTime);
-      // null = the skill genuinely has NO cast gesture (empty skillgrp
-      // animation code — every TOGGLE in the data, checked: 32/32). The old
-      // `|| 'attack'` turned each of those into a full weapon swing, so
-      // toggling Vicious Stance on made the character attack the air.
-      this.lastCastClip = clip;   // verification hook (name logic picked)
-      this.lastCastPlan = plan;   // verification hook (slot + phase times)
-      if (!clip || !(ch.actions && ch.actions[clip])) return;
-
-      // Phase keyframes: retail marks the launch instant with an
-      // AnimNotify_AttackShot INSIDE the clip, so the effect fires from the
-      // clip's own playback time. Stretching the clip to the server's
-      // hitTime carries the phase with it — which is what the client's
-      // Get<Slot>AnimRate exports do. Nothing fires when the clip carries no
-      // AttackShot (retail's CastShort/Mid/Long carry none on 13 of 14
-      // pawns: their launch is the separate MagicThrow clip).
-      const phases = [];
-      const u = plan && plan.castShotU;
-      if (u != null) {
-        phases.push({ u, fn: () => { this.lastCastShot = { skillId: msg.skillId, u }; } });
+    if (msg.op !== 'skillCast' || ch.dead) {castHooks?.reject?.('inactive-caster');return;}
+    const receivedAt = performance.now();
+    const { skillId, level, hitTime } = msg;
+    ch.cancelCast();
+    const generation = ch.castGeneration;
+    const modelId = ch.modelId, actions = ch.actions, stance = ch.stance;
+    const speedRate = ch.skillSpeedRate;
+    const adopt = ([meta, pa, effects]) => {
+      if (ch.castGeneration !== generation || ch.dead ||
+          ch.modelId !== modelId || ch.actions !== actions) {castHooks?.reject?.('retired-caster');return;}
+      const entry = skillAnimInfo(meta, skillId, level);
+      const plan = castPlan(pa, modelId, stance, entry);
+      const schedule = castSchedule(pa, modelId, stance, entry, {
+        hitTimeMs: hitTime, speedRate,
+        agent: skillAgentBinding(effects, skillId, level),
+      });
+      this.lastCastClip = plan.cast;
+      this.lastCastPlan = plan;
+      this.lastCastSchedule = schedule;
+      if (schedule.status !== 'ready') { castHooks?.reject?.(schedule.reason); return; }
+      const metadataDelayMs = performance.now() - receivedAt;
+      const finalDeadlineMs = schedule.phases.at(-1).due * 1000;
+      this.lastCastMetadataDelayMs = metadataDelayMs;
+      // Browser admission guard: do not start an expired cast after an asset
+      // wait. Use its verified final deadline, not packet hitTime (a physical
+      // recovery can continue after the shot). Equality is not native expiry.
+      if (metadataDelayMs > finalDeadlineMs) {
+        castHooks?.reject?.('expired-before-metadata');
+        this.lastCastPlayback = { status: 'unsupported', reason: 'expired-before-metadata',
+          metadataDelayMs, finalDeadlineMs };
+        return;
       }
-      // hitTime 0 (toggles, instant skills) means "no cast time": let the clip
-      // run at its own length rather than dividing by zero's worth of stretch.
-      const opts = msg.hitTime > 0 ? { durationMs: msg.hitTime } : {};
-      if (phases.length) opts.phases = phases;
-      if (plan && plan.cast === clip) ch.oneShotExact(clip, 0.1, opts);
-      else ch.oneShot(clip, 0.1, opts);
-    });
+      // Shorter cold-load latency is still a limitation: start at phase zero,
+      // without inventing missed tween/notify evaluation or a seek policy.
+      castHooks?.configure?.({schedule,modelSource:pa?.models?.[modelId]?.source});
+      this.lastCastPlayback = ch.startCastSchedule(schedule,castHooks);
+      if (this.lastCastPlayback.status !== 'ready') castHooks?.reject?.(this.lastCastPlayback.reason);
+    };
+    const failed = error => {castHooks?.reject?.('cast-metadata-error');console.warn('Cast animation:', error);};
+    if (_playerCastMetadata) {
+      try { adopt(_playerCastMetadata); } catch (error) { failed(error); }
+    } else warmPlayerCastMetadata().then(adopt).catch(failed);
   }
 
   // Social emote broadcast (SocialAction packet).
@@ -788,11 +811,12 @@ export class EntityManager {
 
   // ChangeWaitType broadcast: waitType 0 = sitting, 1 = standing (aCis
   // ChangeWaitType — validated live: sit click -> 0, stand -> 1). Remote
-  // players hold the 'sit' clip via Character.sitting. Monsters have no
+  // players play their source sit/stand sequences. Monsters have no
   // sit clips (mapAnimations maps no sit state) — documented no-op.
   // Broadcasts can race the async model load: state for a pending id is
   // deferred and applied when the spawn lands.
   setWaitType(id, waitType) {
+    if (waitType !== 0 && waitType !== 1) return; // special wait types unported
     const e = this.entities.get(id);
     if (!e) {
       if (this.pending.has(id)) {
@@ -801,7 +825,7 @@ export class EntityManager {
       return;
     }
     if (e.dead || e.kind !== 'player') return;
-    e.sitting = waitType === 0;
+    e.setWaitType(waitType);
   }
 
   // ChangeMoveType broadcast: authoritative walk/run override. Players
@@ -836,7 +860,7 @@ export class EntityManager {
   // apply broadcast state that arrived while the model was still loading
   _applyDeferred(ch) {
     if (this._waitState && this._waitState.has(ch.id)) {
-      ch.sitting = this._waitState.get(ch.id) === 0;
+      ch.setWaitType(this._waitState.get(ch.id));
       this._waitState.delete(ch.id);
     }
     if (this._moveState && this._moveState.has(ch.id)) {
@@ -861,23 +885,37 @@ export class EntityManager {
     return null;
   }
 
-  die(id) {
+  die(id, message = null) {
     // Death mid-cast is an interruption too, and it arrives as its own packet
     // rather than as a skillCancel. Without this the corpse kept playing the
     // stretched cast clip and still fired its launch phase.
     this.cancelCast(id);
     const e = this.entities.get(id);
+    // This is received corpse metadata, not a native glow or a permission to
+    // sweep. Keep it on the actual incarnation; absent input stays unknown
+    // and no ID-keyed cache can attach it to a later same-ID spawn.
+    const raw = message?.sweepableRaw;
+    const sweepableRaw = Number.isInteger(raw) && raw >= -0x80000000 && raw <= 0x7fffffff ? raw : null;
+    const corpse = { sweepableRaw, sweepable: sweepableRaw === null ? null : sweepableRaw !== 0 };
     if (!e) {
       // the local player is not in the EntityManager — same self fallback
       // as attackFlash/skillFlash (no corpse fade on the own model)
       const w = typeof window !== 'undefined' && window.__world;
       if (w && w.net.selfId === id && w.character) {
+        Object.assign(w.character, corpse);
         w.character.dead = true;
         playDeathClip(w.character);
       }
       return;
     }
-    if (e.kind === 'npc') { e.die(); return; }
+    Object.assign(e, corpse);
+    if (e.kind === 'npc') {
+      // Repeated death packets must not leave an older fade callback alive
+      // after revive clears the current one. Existing presentation unchanged.
+      clearTimeout(e._fadeTimer);
+      e.die();
+      return;
+    }
     e.dead = true;
     e.clearTarget();
     // rebuilt models carry a 'die' clip (held on the last frame); without
@@ -896,12 +934,16 @@ export class EntityManager {
     if (!e) {
       const w = typeof window !== 'undefined' && window.__world;
       if (w && w.net.selfId === id && w.character) {
+        w.character.sweepableRaw = null;
+        w.character.sweepable = null;
         w.character.dead = false;
         w.character.emoteUntil = 0;   // release a held 'die' clip
         w.character.play('idle');
       }
       return;
     }
+    e.sweepableRaw = null;
+    e.sweepable = null;
     if (e.kind === 'npc') { e.revive(); return; }
     e.dead = false;
     e.emoteUntil = 0;   // release a held 'die' clip
@@ -958,13 +1000,23 @@ export class EntityManager {
   }
 
   remove(id) {
+    this.pending.delete(id);
+    this._waitState?.delete(id);
+    this._moveState?.delete(id);
     const e = this.entities.get(id);
     if (!e) return;
+    if (e.kind === 'player') {
+      e.cancelCast();
+      e.cancelAppearance();
+    }
     this.scene.remove(e.group);
     this.entities.delete(id);
   }
 
   clear() {
+    this.pending.clear();
+    this._waitState?.clear();
+    this._moveState?.clear();
     for (const id of [...this.entities.keys()]) this.remove(id);
   }
 

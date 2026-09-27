@@ -1,3 +1,14 @@
+// ARCHIVED: this suite treats Skill.usk leaf names as skill IDs, including its
+// --check mode. Retaining a diagnostic legacy table does not validate that join.
+// Exit before reading generated data or starting browser/game sessions.
+console.error('UNSUPPORTED: verify_skillphase uses retired skill-ID effect aliases. '
+  + 'Original skill 1177 level 1 has no Agent; its same-ID Skill.usk object is not its binding. '
+  + 'Use tools/ui/check_cast_agent_native.py --check and '
+  + 'node --test editor/world/test/skillvfx-binding.test.mjs for the exact binding checks. '
+  + 'Those checks do not certify visual rendering or phase timing.');
+process.exit(2);
+
+// Historical implementation below; not an active verification suite.
 // Skill EFFECT + SOUND phase verification.
 //
 // This suite exists because of a defect the older suites could not see: the
@@ -287,6 +298,7 @@ const meta = readJson(path.join(GAMEDATA, 'skillmeta.json'));
 const totalSkills = Object.keys(meta).length;
 let fullyDrawn = 0, partial = 0;
 for (const e of Object.values(vfx.skill)) {
+  if (e.b !== 1) continue; // heuristic records are diagnostic, never dispatched
   const acts = actionsOf(e);
   const drawn = acts.filter(a => vfx.fx[a.f].e.length);
   if (drawn.length === acts.length) fullyDrawn++;
@@ -296,13 +308,13 @@ const withCast = [...soundById.values()].filter(r => r.spell_sounds[0]).length;
 const coverage = {
   skillsInClient: totalSkills,
   effect: {
-    bound: Object.keys(vfx.skill).length,
+    bound: Object.values(vfx.skill).filter(e => e.b === 1).length,
     explicit: Object.values(vfx.skill).filter(e => e.b === 1).length,
-    nameConvention: Object.values(vfx.skill).filter(e => e.b === 2).length,
+    excludedNameConvention: Object.values(vfx.skill).filter(e => e.b === 2).length,
     everyActionDrawable: fullyDrawn,
     someActionUndrawable: partial,
-    noEffectAtAll: totalSkills - Object.keys(vfx.skill).length,
-    emittersRendered: emitters.length,
+    noExplicitBinding: totalSkills - Object.values(vfx.skill).filter(e => e.b === 1).length,
+    emitterDefinitions: emitters.length, // data inventory, not rendering proof
     emittersDropped: vfx.fx.reduce(
       (n, f) => n + Object.values(f.skip || {}).reduce((a, b) => a + b, 0), 0),
   },

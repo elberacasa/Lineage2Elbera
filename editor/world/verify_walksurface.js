@@ -90,6 +90,7 @@
 // Output: verify_shots/walksurface_*.png + PASS/FAIL lines.
 
 'use strict';
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require(
@@ -150,8 +151,7 @@ async function remeasureFromServer() {
   const GW = path.join(__dirname, '..', '..', 'gateway', 'src');
   const { login } = require(path.join(GW, 'loginclient.js'));
   const { GameSession } = require(path.join(GW, 'gameclient.js'));
-  const DB = ['-u', 'l2j', '-pl2jpass', 'l2jdb'];
-  const sql = (q) => execFileSync('mariadb', [...DB, '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
+  const sql = (q) => execFileSync('mariadb', [...dbArgs(), '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
   const dev = 'verify-walksurface-fixture-1';
   const h1 = crypto.createHash('sha256').update('l2vzla-account:' + dev).digest('hex');
   const h2 = crypto.createHash('sha256').update('l2vzla-pass:' + dev).digest('hex');

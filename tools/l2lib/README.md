@@ -1,16 +1,18 @@
 # l2lib — unified parser core for Lineage 2 Interlude file formats
 
-Canonical Python 3 (stdlib-only) library for every L2 Interlude file format
-reverse-engineered in this project. It consolidates the knowledge that was
+Python 3 library for supported L2 Interlude package, texture and record
+formats. Its readers use the standard library; some encrypted inputs need
+the external decoder described below. It consolidates knowledge that was
 previously duplicated across `tools/utx/utxedit.py`,
 `tools/src/char_pipeline/extract_materials.py` and `tools/dat/l2dat.py`
 into one tested package. Those tools are untouched; future code should use
 l2lib instead.
 
-Everything here is verified against the real client files in
-`assets/interlude/` and cross-checked against the reference native tools
-(`tools/bin/umodel`, a UEViewer build; `tools/bin/l2encdec`). See
-`tests/run_tests.py`.
+The full repository's integration tests compare selected original files in
+`assets/interlude/` with reference-tool output (`tools/bin/umodel` and
+`tools/bin/l2encdec`). Those private inputs and third-party executables are
+not distributed. Coverage is bounded by the supported versions and tests;
+this is not a claim that every client format or behavior is recovered.
 
 ## Modules
 
@@ -47,7 +49,16 @@ s    = r.ascf()          # ASCF string
 n    = r.compact_int()   # FCompactIndex variant
 ```
 
-Running the tests:
+In the standalone Elbera Tools Core archive, run the portable synthetic suite
+from the archive root:
+
+```sh
+python3 tools/release/smoke_core.py
+```
+
+The larger integration suite below is available only in the full repository
+and requires local original files and reference tools; it is not included in
+the Core archive:
 
 ```
 python3 tools/l2lib/tests/run_tests.py        # add -v for per-test output
@@ -230,7 +241,11 @@ chargrp/hairgrp/classinfo schemas are field-verified in
 l2lib's readers against it record-by-record on the real
 `assets/interlude/system/chargrp.dat` (15 records incl. zero padding).
 
-## Test coverage (latest run)
+## Historical integration sample
+
+The original integration report recorded the following corpus. These are not
+current Core release test counts or a bundled corpus; rerun the full repository
+suite with your own inputs to obtain current results.
 
 - 24 tests, all passing: `python3 tools/l2lib/tests/run_tests.py`
 - 8 packages parsed (121/111/413-encrypted, v117 + v123/28 + v123/30)

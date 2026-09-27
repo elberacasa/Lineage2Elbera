@@ -113,6 +113,7 @@ class Bridge {
     this.chars = [];
     this.pendingCreate = null;
     this.closed = false;
+    this.loginPending = false;
     // M3 combat state: merged attribute view per object id, and self stats.
     this.statusById = new Map(); // id -> {hp, maxHp, mp, maxMp}
     // Attack timing inputs per object id: {pAtkSpd, rhand}. UserInfo, CharInfo
@@ -133,13 +134,17 @@ class Bridge {
     this.pendingSkillList = null;
     this.pendingItemList = null;
     this.pendingQuestList = null;
+    this.pendingShortcutInit = null;
+    this.pendingShortcutChanges = new Map(); // latest pre-entry change per position
+    this.pendingHennaInfo = null; // full server snapshot; EnterWorld sends it before UserInfo
+    this.pendingStorageMaxCount = null; // capacity snapshot also precedes UserInfo
     // M9 party state: full snapshot rebuilt on every composition packet;
     // status updates flow as their own op (see README §M9 for the choice).
     this.party = { leaderId: 0, lootRule: 0, members: new Map() }; // id -> member
     this.selfInfo = null; // {id, name, classId, level, race} from UserInfo
     // M11 shop state: last merchant list id + inventory (objectId -> itemId)
     // to resolve RequestSellItem entries.
-    this.lastBuyListId = 0;
+    this.lastBuyListId = null; // no merchant list has been received
     this.inventory = new Map();
     // M12 trade state: visible players id -> name (CharInfo). aCis
     // TradeRequest is objectId-based; the contract op is name-based, and
@@ -159,7 +164,7 @@ class Bridge {
     // (PledgeShowMemberListDelete is name-based, and these packets never
     // carry an offline member's objectId). Like M9 party: FULL snapshot
     // re-emitted on every change, no incremental ops.
-    this.clan = null; // {id, name, leaderName, level, crestId, allyId, allyName}
+    this.clan = null; // {id, name, leaderName, level, reputation, crestId, allyId, allyName}
     this.clanMembers = new Map(); // name -> {id, name, level, classId, online}
     this.pendingClanInfo = null; // queued until after enterWorld (EnterWorld
     this.pendingClanMembers = null; // sends the clan packets BEFORE UserInfo)
@@ -270,6 +275,48 @@ class Bridge {
           // AttackRequest (0x0a): ctrl+click — force attack.
           if (this.game) this.game.attackRequest(msg.id | 0);
           break;
+        case 'acquireSkillInfo':
+          if (this.game?.state === 'IN_GAME')
+            this.game.requestAcquireSkillInfo(msg.id, msg.level, msg.type);
+          break;
+        case 'acquireSkill':
+          if (this.game?.state === 'IN_GAME')
+            this.game.requestAcquireSkill(msg.id, msg.level, msg.type);
+          break;
+        case 'shortcutRegister':
+          if (this.game?.state === 'IN_GAME' && this.entered)
+            this.game.requestShortcutRegister(msg);
+          break;
+        case 'recipeBookOpen':
+          if (!this.closed && this.game?.state === 'IN_GAME' && this.entered)
+            this.game.requestRecipeBookOpen(msg.bookType);
+          break;
+        case 'recipeBookDestroy':
+        case 'recipeMakeInfo':
+        case 'recipeMakeSelf': {
+          const method = { recipeBookDestroy: 'requestRecipeBookDestroy',
+            recipeMakeInfo: 'requestRecipeMakeInfo', recipeMakeSelf: 'requestRecipeMakeSelf' }[msg.op];
+          if (!this.closed && this.game?.state === 'IN_GAME' && this.entered) this.game[method](msg.recipeId);
+          break;
+        }
+        case 'hennaEquipList':
+        case 'hennaUnequipList':
+          if (!this.closed && this.game?.state === 'IN_GAME' && this.entered)
+            this.game[msg.op === 'hennaEquipList' ? 'requestHennaEquipList' : 'requestHennaUnequipList'](msg.unknown);
+          break;
+        case 'hennaItemInfo':
+        case 'hennaEquip':
+        case 'hennaUnequipInfo':
+        case 'hennaUnequip': {
+          const method = { hennaItemInfo: 'requestHennaItemInfo', hennaEquip: 'requestHennaEquip',
+            hennaUnequipInfo: 'requestHennaUnequipInfo', hennaUnequip: 'requestHennaUnequip' }[msg.op];
+          if (!this.closed && this.game?.state === 'IN_GAME' && this.entered) this.game[method](msg.symbolId);
+          break;
+        }
+        case 'shortcutDelete':
+          if (this.game?.state === 'IN_GAME' && this.entered)
+            this.game.requestShortcutDelete(msg);
+          break;
         case 'useSkill':
           // RequestMagicSkillUse. Optional targetId presets the target first.
           if (this.game) {
@@ -309,9 +356,8 @@ class Bridge {
           break;
         case 'bypass':
           // RequestBypassToServer(0x21) with the raw bypass command string.
-          // EXCEPTION: TE* commands come from tutorial pages (originally
-          // action="link TE.." — the bridge rewrites them to bypass links so
-          // the client dialog renders them clickable). aCis routes them via
+          // Legacy browsers rewrote tutorial links to bypasses. Keep that
+          // compatibility route; current browsers use tutorialLink. aCis uses
           // RequestTutorialLinkHtml(0x7b), NOT 0x21 (its bypass switch has
           // no TE branch — clientpackets/RequestBypassToServer.java).
           if (this.game) {
@@ -325,6 +371,13 @@ class Bridge {
           // tutorialQuestionMark op (aCis notifies the Tutorial script
           // "QM<markId>").
           if (this.game) this.game.tutorialQuestionMark(msg.markId | 0);
+          break;
+        case 'tutorialLink':
+          // Transport bound, not a game value: fit opcode + UTF-16 string +
+          // terminator in the protocol's uint16 packet length. Reject rather
+          // than silently truncate an original link into a different action.
+          if (this.game && typeof msg.command === 'string' && msg.command.length <= 32765
+              && !msg.command.includes('\0')) this.game.tutorialLink(msg.command);
           break;
         case 'tutorialEvent':
           // RequestTutorialClientEvent(0x7e): D eventId — reports a UI event
@@ -409,19 +462,24 @@ class Bridge {
         case 'buy':
           // RequestBuyItem(0x1f) with the last BuyList's listId. Requires the
           // merchant as current target (client sends target{id} first).
-          if (this.game && Array.isArray(msg.items)) {
-            this.game.requestBuyItem(this.lastBuyListId, msg.items.slice(0, 50));
+          if (!this.closed && this.entered && this.game?.state === 'IN_GAME'
+              && !this.game.closed && this.lastBuyListId !== null) {
+            this.game.requestBuyItem(this.lastBuyListId, msg.items);
           }
           break;
         case 'sell':
           // RequestSellItem(0x1e, listId 0). itemId resolved from the
           // inventory map (RequestSellItem carries objectId+itemId+count).
-          if (this.game && Array.isArray(msg.items)) {
-            const items = msg.items.slice(0, 50).map((it) => ({
-              objectId: it.objectId | 0,
-              itemId: this.inventory.get(it.objectId | 0) || 0,
-              count: it.count | 0,
-            })).filter((it) => it.itemId > 0);
+          if (!this.closed && this.entered && this.game?.state === 'IN_GAME'
+              && !this.game.closed && Array.isArray(msg.items)) {
+            // Preserve every row. The packet writer rejects the whole request
+            // if an object is unknown or any value is invalid; filtering or
+            // truncating would silently sell a different selection.
+            const items = msg.items.map((it) => ({
+              objectId: it?.objectId,
+              itemId: this.inventory.get(it?.objectId),
+              count: it?.count,
+            }));
             this.game.requestSellItem(0, items);
           }
           break;
@@ -453,11 +511,15 @@ class Bridge {
           break;
         case 'destroyItem':
           // inventory TrashButton (aCis RequestDestroyItem)
-          if (this.game) this.game.destroyItem(msg.objectId | 0, msg.count | 0 || 1);
+          if (this.game && Number.isInteger(msg.count) && msg.count >= 0 && msg.count <= 0x7fffffff) {
+            this.game.destroyItem(msg.objectId | 0, msg.count);
+          }
           break;
         case 'crystallizeItem':
           // inventory CrystallizeButton (aCis RequestCrystallizeItem)
-          if (this.game) this.game.crystallizeItem(msg.objectId | 0, msg.count | 0 || 1);
+          if (this.game && Number.isInteger(msg.count) && msg.count >= 0 && msg.count <= 0x7fffffff) {
+            this.game.crystallizeItem(msg.objectId | 0, msg.count);
+          }
           break;
         // ---------------------------------------------------- M12: trade
         case 'tradeRequest': {
@@ -596,25 +658,33 @@ class Bridge {
   }
 
   async _login(deviceId, noAutoCreate = false) {
-    if (this.game) return; // already logged in
+    // WebSocket message handlers overlap while awaiting authentication. Claim
+    // this connection before the first await, including the retry backoff.
+    if (this.closed || this.loginPending || this.game) return;
+    this.loginPending = true;
     const creds = deriveCredentials(deviceId);
-    this.log(`login: device=${deviceId} account=${creds.account}`);
+    this.log(`login: account=${creds.account}`);
 
     // Retry the whole login+game-connect flow. The servers' hardcoded
     // IPv4Filter bans fast reconnects for 300s and every attempt refreshes
     // the ban — so keep retries few and let it expire instead of hammering.
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        await this._loginOnce(creds, noAutoCreate);
-        return;
-      } catch (e) {
-        this.log(`login attempt ${attempt} failed: ${e.message}`);
-        if (this.game) {
-          this.game.close();
-          this.game = null;
+    try {
+      for (let attempt = 1; attempt <= 2 && !this.closed; attempt++) {
+        try {
+          await this._loginOnce(creds, noAutoCreate);
+          return;
+        } catch (e) {
+          if (this.closed) return;
+          this.log(`login attempt ${attempt} failed: ${e.message}`);
+          if (this.game) {
+            this.game.close();
+            this.game = null;
+          }
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 4000));
         }
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 4000));
       }
+    } finally {
+      this.loginPending = false;
     }
   }
 
@@ -623,6 +693,9 @@ class Bridge {
       this.config.loginHost, this.config.loginPort,
       creds.account, creds.password, this.config.serverId
     );
+    // Authentication can finish after the browser has disconnected. Never
+    // attach a new game session to a bridge whose cleanup already ran.
+    if (this.closed) return;
     this.log(`login ok: server [${server.id}] ${server.host}:${server.port}`);
 
     const game = new GameSession();
@@ -646,6 +719,13 @@ class Bridge {
   }
 
   _wireGame(game, creds, noAutoCreate = false) {
+    this.lastBuyListId = null;
+    this.inventory.clear();
+    this.pendingItemList = null;
+    this.pendingShortcutInit = null;
+    this.pendingShortcutChanges.clear();
+    this.pendingHennaInfo = null;
+    this.pendingStorageMaxCount = null;
     game.on('error', (e) => this.log(`game socket error: ${e.message}`));
     game.on('debug', (m) => this.log(`game: ${m}`));
     game.on('parseError', ({ op, error }) => this.log(`parse error op=0x${op.toString(16)}: ${error.message}`));
@@ -697,6 +777,8 @@ class Bridge {
     });
 
     game.on('userInfo', (u) => {
+      // A retired connection must not flush a replacement's queued snapshots.
+      if (this.closed || this.game !== game) return;
       this.selfId = u.id;
       this.selfInfo = { id: u.id, name: u.name, classId: u.classId, level: u.level, race: u.race };
       // Seed/refresh self stats; UserInfo re-sends (level up, stat changes)
@@ -707,16 +789,13 @@ class Bridge {
       };
       if (!this.entered) {
         this.entered = true;
-        // sex/hairStyle/hairColor/face are NOT in UserInfo (it discards
-        // them) — source them from the selected char's CharSelectInfo entry
-        // (this.chars, parsed with those fields and refreshed after creates).
-        const sel = (this.chars || []).find(c => c.charId === u.id || c.name === u.name) || {};
+        // UserInfo is the current server appearance. CharSelectInfo remains
+        // the earlier selection snapshot and must not override this packet.
         this.send({
           op: 'enterWorld',
           char: {
             id: u.id, name: u.name, race: u.race, classId: u.classId,
-            sex: sel.sex ?? u.sex ?? 0,
-            hairStyle: sel.hairStyle ?? 0, hairColor: sel.hairColor ?? 0, face: sel.face ?? 0,
+            sex: u.sex, hairStyle: u.hairStyle, hairColor: u.hairColor, face: u.face,
             x: u.x, y: u.y, z: u.z, heading: u.heading,
           },
         });
@@ -732,6 +811,20 @@ class Bridge {
         if (this.pendingQuestList) {
           this.send({ op: 'questList', quests: this.pendingQuestList });
           this.pendingQuestList = null;
+        }
+        if (this.pendingShortcutInit !== null) {
+          this.send({ op: 'shortcutInit', shortcuts: this.pendingShortcutInit });
+          this.pendingShortcutInit = null;
+        }
+        for (const event of this.pendingShortcutChanges.values()) this.send(event);
+        this.pendingShortcutChanges.clear();
+        if (this.pendingHennaInfo !== null) {
+          this.send({ op: 'hennaInfo', ...this.pendingHennaInfo });
+          this.pendingHennaInfo = null;
+        }
+        if (this.pendingStorageMaxCount !== null) {
+          this.send({ op: 'storageMaxCount', ...this.pendingStorageMaxCount });
+          this.pendingStorageMaxCount = null;
         }
         if (this.pendingClanInfo) {
           // EnterWorld sends PledgeShowMemberListAll BEFORE UserInfo
@@ -766,6 +859,8 @@ class Bridge {
       // every UserInfo re-send (stat changes).
       this.send({
         op: 'charSheet',
+        classId: u.currentClassId,
+        sex: u.sex, hairStyle: u.hairStyle, hairColor: u.hairColor, face: u.face,
         str: u.str, dex: u.dex, con: u.con, int: u.int, wit: u.wit, men: u.men,
         pAtk: u.pAtk, pDef: u.pDef, mAtk: u.mAtk, mDef: u.mDef,
         accuracy: u.accuracy, evasion: u.evasion, critical: u.critical,
@@ -784,6 +879,7 @@ class Bridge {
         // documents as the value "used by client to set correct
         // character/object attack speed".
         atkSpdMul: u.atkSpdMul,
+        collisionRadius: u.collisionRadius, collisionHeight: u.collisionHeight,
         // walk/run stance (UserInfo isRunning byte). setRunning(true) at world
         // entry never broadcasts ChangeMoveType, so without this the client has
         // to guess the stance.
@@ -796,6 +892,8 @@ class Bridge {
         // equipped item ids (UserInfo's 17-slot layout) — what the client
         // renders in the hand and on the body
         paperdoll: u.paperdoll,
+        paperdollObjectIds: u.paperdollObjectIds,
+        crystallizeAbility: u.crystallizeAbility,
       });
     });
 
@@ -828,6 +926,7 @@ class Bridge {
         // attack cadence / swing rate, same fields and same meaning as on
         // charSheet (NpcInfo carries them per creature)
         pAtkSpd: n.pAtkSpd, mAtkSpd: n.mAtkSpd, atkSpdMul: n.atkSpdMul,
+        collisionRadius: n.collisionRadius, collisionHeight: n.collisionHeight, dead: n.dead,
         // right-hand item id: the client resolves the aCis WeaponType from it
         // (itemtypes.json) to pick the CreatureAttack branch for hit timing
         rhand: n.rhand, lhand: n.lhand,
@@ -835,7 +934,7 @@ class Bridge {
     });
 
     game.on('charInfo', (c) => {
-      if (c.id === this.selfId) return;
+      if (this.closed || this.game !== game || c.id === this.selfId) return;
       this.playersByName.set(c.id, c.name);
       this.atkById.set(c.id, {
         pAtkSpd: c.pAtkSpd,
@@ -846,6 +945,8 @@ class Bridge {
         id: c.id,
         name: c.name,
         race: c.race,
+        sex: c.sex,
+        hairStyle: c.hairStyle, hairColor: c.hairColor, face: c.face,
         classId: c.classId,
         // aCis 409 CharInfo carries no level field; unavailable in-protocol.
         level: null,
@@ -856,7 +957,8 @@ class Bridge {
         // attack cadence / swing rate / walk-run stance, same fields and same
         // meaning as on charSheet (CharInfo carries them per player)
         pAtkSpd: c.pAtkSpd, mAtkSpd: c.mAtkSpd, atkSpdMul: c.atkSpdMul,
-        running: c.running,
+        collisionRadius: c.collisionRadius, collisionHeight: c.collisionHeight, dead: c.dead,
+        running: c.running, waitType: c.waitType,
         // locomotion, same three fields as charSheet: CharInfo writes the base
         // run/walk speeds and the multiplier separately (CharInfo.java:89-103)
         runSpeed: c.runSpeed, walkSpeed: c.walkSpeed, speedMul: c.speedMul,
@@ -987,21 +1089,26 @@ class Bridge {
     });
 
     // Die(0x06) now carries the parsed respawn options (gameclient.js).
-    // Contract: non-self deaths stay `die{id}`; a SELF death adds
+    // Retain the configured server's corpse field without fabricating a
+    // visual effect or client-side skill eligibility. A SELF death adds
     // `canRespawn` (aCis always allows "to village" — the flag is its
     // toVillage dword) so the client can show the Respawn button.
     game.on('die', (d) => {
+      if (this.closed || game.closed || this.game !== game) return;
+      const corpse = Number.isInteger(d.sweepableRaw) && d.sweepableRaw >= -0x80000000 && d.sweepableRaw <= 0x7fffffff
+        ? { sweepableRaw: d.sweepableRaw, sweepable: d.sweepableRaw !== 0 } : {};
       if (d.id === this.selfId) {
         this.dead = true;
-        this.send({ op: 'die', id: d.id, canRespawn: d.toVillage });
+        this.send({ op: 'die', id: d.id, ...corpse, canRespawn: d.toVillage });
       } else {
-        this.send({ op: 'die', id: d.id });
+        this.send({ op: 'die', id: d.id, ...corpse });
       }
     });
     // Revive(0x07): clears the dead state for self (respawn accepted,
     // skill res, GM res). The respawn teleport itself arrives as the
     // regular move op (TeleportToLocation handler above).
     game.on('revive', (id) => {
+      if (this.closed || game.closed || this.game !== game) return;
       if (id === this.selfId) this.dead = false;
       this.send({ op: 'revive', id });
     });
@@ -1013,10 +1120,55 @@ class Bridge {
     });
 
     game.on('systemMessage', (sm) => {
-      this.send({ op: 'sysMsg', id: sm.id, params: sm.params.map((p) => p.value) });
+      this.send({ op: 'sysMsg', id: sm.id,
+        // Preserve the existing flat contract, including numeric skill IDs.
+        // New consumers use typedParams instead of guessing types by message ID.
+        params: sm.params.map(p => p.type === 4 ? p.value.id : p.value),
+        typedParams: sm.params,
+      });
     });
 
     // ------------------------------------------------------ M4: skills & items
+
+    game.on('acquireSkillList', data => this.send({ op: 'acquireSkillList', ...data }));
+    game.on('shortcutInit', ({ shortcuts }) => {
+      if (this.closed || this.game !== game) return;
+      if (this.entered) this.send({ op: 'shortcutInit', shortcuts });
+      else {
+        this.pendingShortcutInit = shortcuts;
+        this.pendingShortcutChanges.clear(); // Full snapshot replaces earlier changes.
+      }
+    });
+    for (const op of ['shortcutRegister', 'shortcutDelete']) game.on(op, data => {
+      if (this.closed || this.game !== game) return;
+      const event = { op, ...data }, row = data.shortcut || data;
+      if (this.entered) this.send(event);
+      else this.pendingShortcutChanges.set(row.page * 12 + row.slot, event);
+    });
+    game.on('acquireSkillInfo', data => this.send({ op: 'acquireSkillInfo', ...data }));
+    game.on('acquireSkillDone', () => this.send({ op: 'acquireSkillDone' }));
+
+    game.on('storageMaxCount', data => {
+      if (this.closed || game.closed || this.game !== game) return;
+      if (this.entered) this.send({ op: 'storageMaxCount', ...data });
+      else this.pendingStorageMaxCount = data;
+    });
+    for (const op of ['recipeBook', 'recipeMakeInfo']) game.on(op, data => {
+      if (this.closed || game.closed || this.game !== game || !this.entered) return;
+      this.send({ op, ...data });
+    });
+
+    game.on('hennaInfo', data => {
+      if (this.closed || this.game !== game) return;
+      if (this.entered) this.send({ op: 'hennaInfo', ...data });
+      else this.pendingHennaInfo = data; // full replacement, including zero symbols
+    });
+    for (const op of ['hennaEquipList', 'hennaItemInfo', 'hennaUnequipList', 'hennaUnequipInfo']) {
+      game.on(op, data => {
+        if (this.closed || this.game !== game) return;
+        this.send({ op, ...data });
+      });
+    }
 
     game.on('skillList', (skills) => {
       // SkillList (0x58) carries per skill: passive flag, level, id, disabled
@@ -1066,6 +1218,8 @@ class Bridge {
     }));
 
     game.on('itemList', (items) => {
+      if (this.closed || this.game !== game) return;
+      this.inventory.clear();
       for (const it of items) this.inventory.set(it.objectId, it.itemId);
       if (this.entered) this.send({ op: 'itemList', items });
       else this.pendingItemList = items;
@@ -1074,6 +1228,7 @@ class Bridge {
     // ItemState ordinals (enums/items/ItemState.java): 0 UNCHANGED,
     // 1 ADDED, 2 MODIFIED, 3 REMOVED.
     game.on('invUpdate', (updated) => {
+      if (this.closed || this.game !== game) return;
       for (const it of updated) {
         if (it.change === 3) this.inventory.delete(it.objectId);
         else this.inventory.set(it.objectId, it.itemId);
@@ -1098,10 +1253,12 @@ class Bridge {
 
     // Merchant shops: BuyList (store it for RequestBuyItem) and SellList.
     game.on('buyList', (b) => {
+      if (this.closed || this.game !== game || !this.entered) return;
       this.lastBuyListId = b.listId;
       this.send({ op: 'buyList', listId: b.listId, money: b.money, items: b.items });
     });
     game.on('sellList', (s) => {
+      if (this.closed || this.game !== game || !this.entered) return;
       this.send({ op: 'sellList', money: s.money, items: s.items });
     });
 
@@ -1138,6 +1295,14 @@ class Bridge {
       const mapped = quests.map((q) => ({ id: q.id, name: questName(q.id), progress: q.flags }));
       if (this.entered) this.send({ op: 'questList', quests: mapped });
       else this.pendingQuestList = mapped;
+    });
+
+    // A sound is transient, not a state snapshot. The original handler needs
+    // the current viewport/pawn. Do not replay pre-entry feedback later, or
+    // forward an event from a replaced/closed game session.
+    game.on('playSound', data => {
+      if (this.closed || this.game !== game || !this.entered) return;
+      this.send({ op: 'playSound', ...data });
     });
 
     // ------------------------------------------------------------ M9 party
@@ -1195,7 +1360,7 @@ class Bridge {
       if (p.pledgeType !== 0) return;
       this.clan = {
         id: p.clanId, name: p.name, leaderName: p.leaderName, level: p.level,
-        crestId: p.crestId, allyId: p.allyId, allyName: p.allyName,
+        reputation: p.reputation, crestId: p.crestId, allyId: p.allyId, allyName: p.allyName,
       };
       this.clanMembers = new Map(p.members.map((m) => [m.name, pledgeMemberView(m)]));
       this._sendClanInfo();
@@ -1235,7 +1400,8 @@ class Bridge {
     // members. Carries NO clan name / leader name — merge into local state.
     game.on('clanInfoUpdate', (u) => {
       if (!this.clan || this.clan.id !== u.clanId) return;
-      Object.assign(this.clan, { crestId: u.crestId, level: u.level, allyId: u.allyId, allyName: u.allyName });
+      Object.assign(this.clan, { crestId: u.crestId, level: u.level, reputation: u.reputation,
+        allyId: u.allyId, allyName: u.allyName });
       this._sendClanInfo();
     });
 
@@ -1368,15 +1534,11 @@ class Bridge {
     });
 
     // ------------------------------------------------------ M17: tutorial
-    // TutorialShowHtml (0xa0): the new-char tutorial pages. Forwarded through
-    // the EXISTING npcHtml op (the client dialog window already renders it),
-    // with `action="link TE.."` rewritten to `action="bypass -h TE.."`: the
-    // client dialog only makes bypass links clickable (npcdialog.js), and
-    // the bypass op routes TE* back to RequestTutorialLinkHtml(0x7b).
+    // TutorialShowHtml belongs to the original TutorialViewerWnd, separate
+    // from NPC dialogs. Preserve the server's HTML and its `link` actions.
     game.on('tutorialHtml', (html) => {
-      const rewritten = html.replace(/action="link (TE\d*)"/g, 'action="bypass -h $1"');
-      this.send({ op: 'npcHtml', html: rewritten });
-      this.log(`npcHtml (tutorial, ${rewritten.length} chars) >>>${rewritten.replace(/\s+/g, ' ')}<<<`);
+      this.send({ op: 'tutorialHtml', html });
+      this.log(`tutorialHtml (${html.length} chars)`);
     });
 
     // TutorialCloseHtml (0xa3) — close the dialog window (new small op:
@@ -1386,6 +1548,11 @@ class Bridge {
     // TutorialShowQuestionMark (0xa1) — blink the tutorial "?" icon (new
     // small op: no existing op carries it).
     game.on('tutorialQuestionMark', (markId) => this.send({ op: 'tutorialQuestionMark', markId }));
+    // Original FE/1A marker is client UI state; clicking it sends no bypass.
+    game.on('questMark', (msg) => {
+      if (this.closed || this.game !== game || !this.entered) return;
+      this.send({ op: 'questMark', questId: msg.questId });
+    });
 
     // TutorialEnableClientEvent (0xa2) — server arms reporting of a client
     // UI event (answered with the tutorialEvent op -> 0x7e).
@@ -1454,7 +1621,11 @@ class Bridge {
 
     // Action broadcasts (additive): social emotes, sit/stand, walk/run.
     game.on('socialAction', (s) => this.send({ op: 'socialAction', id: s.id, actionId: s.actionId }));
-    game.on('changeWait', (c) => this.send({ op: 'changeWait', id: c.id, waitType: c.waitType }));
+    // Original remote placement consumes these coordinates before duplicate
+    // wait-state suppression. The browser's native correction is still open;
+    // retain wire inputs without substituting a guessed local-player snap.
+    game.on('changeWait', (c) => this.send({ op: 'changeWait', id: c.id, waitType: c.waitType,
+      x: c.x, y: c.y, z: c.z }));
     game.on('changeMove', (c) => this.send({ op: 'changeMove', id: c.id, running: c.running }));
   }
 
@@ -1500,6 +1671,7 @@ class Bridge {
     const info = c
       ? {
           op: 'clanInfo', id: c.id, name: c.name, leaderName: c.leaderName, level: c.level,
+          reputation: c.reputation,
           ...(c.crestId ? { crestId: c.crestId } : {}),
           ...(c.allyId ? { allyId: c.allyId, allyName: c.allyName } : {}),
         }
@@ -1517,6 +1689,8 @@ class Bridge {
   _shutdown() {
     if (this.closed) return;
     this.closed = true;
+    this.pendingHennaInfo = null;
+    this.pendingStorageMaxCount = null;
     if (this.game) {
       this.game.close();
       this.game = null;

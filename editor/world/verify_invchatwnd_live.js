@@ -15,6 +15,7 @@
 //   node verify_invchatwnd_live.js --check  # same, plus exit 1 on any FAIL
 // Output: verify_shots/invchat_*.png + JSON summary on stdout.
 
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -27,7 +28,6 @@ const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const BASE = 'http://127.0.0.1:8083/';        // default ws -> ws://127.0.0.1:8090
 const GATEWAY = 'ws://127.0.0.1:8090';
 const OUT = path.join(__dirname, 'verify_shots');
-const DB = ['-u', 'l2j', '-pl2jpass', 'l2jdb'];
 const DEVICE_ID = 'verify-invchat-fixture-1';
 const CHECK = process.argv.includes('--check');
 const TAG = process.argv.includes('--after') ? 'after' : 'before';
@@ -72,7 +72,7 @@ const derive = (d) => {
   const h1 = crypto.createHash('sha256').update('l2vzla-account:' + d).digest('hex');
   return { charName: 'W' + h1.slice(12, 23) };
 };
-const sql = (q) => execFileSync('mariadb', [...DB, '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
+const sql = (q) => execFileSync('mariadb', [...dbArgs(), '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const results = [];

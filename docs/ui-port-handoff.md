@@ -3,6 +3,13 @@
 Continue the retail-UI port from zero context. Describes the repository as of
 **2026-07-26**, macOS arm64, python3, node, OpenJDK 21.
 
+**September2026 correction:** this is a historical handoff. Comment-based
+“zero unjustified” audits do not prove native behavior. The original DLL
+serializer now disproves older layout assumptions; follow `AGENTS.md`,
+[the current native evidence](native-layout-evidence.md) and
+[full-port coverage](PORT-COVERAGE.md). Emulator data is an interoperability
+contract, not proof of official client behavior.
+
 This document covers **only the UI port** (Phase A/B/C below). For the project
 as a whole read [HANDOFF.md](HANDOFF.md) first, then this.
 
@@ -52,7 +59,7 @@ each is derived or carries a marker: `SOURCED` (tier 2), `MEASURED` (tier 3),
 | `tools/ui/build_font.py` | `editor/world/ui/font/` + `font.json` | SmallFont lineHeight 13, LargeFont 14, both 1024×128, chars 32–126 |
 | `tools/ui/mine_atlas.py` | `editor/world/ui/atlas/<tex>/` | guillotine-splits an atlas into islands + montage |
 | `tools/ui/audit_guesses.py` | report | 15 literals, 0 unjustified |
-| `tools/uscript/extract_uscript.py` | `assets/uscript/` | **142** Interface + **91** NWindow classes, ~1.3 MB of original source |
+| `tools/uscript/extract_uscript.py` | `assets/uscript/` | **142** Interface + **87** NWindow source classes (the old91 count included4 look-ahead duplicates), ~1.3 MB of original source |
 | `tools/dat/export_playerlevels.py` | `assets/gamedata/playerlevels.json` | levels 1–81 |
 | `tools/dat/export_skilltypes.py` | `assets/gamedata/skilltypes.json` | 2,654 skills: **1820 ACTIVE / 32 TOGGLE / 802 PASSIVE** |
 | `tools/dev/seed_test_char.py` | DB writes + backup | seeds level/skills/gear for testing |

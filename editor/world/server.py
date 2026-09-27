@@ -225,7 +225,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
-        if ext in (".js", ".css", ".html"):
+        # Unversioned local manifests and model buffers must reflect newly
+        # decoded assets. Mixing a fresh glTF with an hour-old buffer can
+        # hide appended clips or read beyond the old buffer's bounds.
+        if ext in (".js", ".css", ".html", ".json", ".gltf", ".glb", ".bin"):
             self.send_header("Cache-Control", "no-store")
         else:
             self.send_header("Cache-Control", "public, max-age=3600")

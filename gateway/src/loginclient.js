@@ -34,6 +34,7 @@ function login(host, port, account, password, serverId, timeoutMs = 15000) {
     const fail = (err) => {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
       sock.destroy();
       reject(err);
     };
@@ -120,7 +121,7 @@ function login(host, port, account, password, serverId, timeoutMs = 15000) {
       } catch (e) {
         fail(e);
       }
-    });
+    }, fail);
 
     const sock = net.connect(port, host);
     sock.on('connect', () => {});

@@ -47,18 +47,31 @@ class PacketReader {
 // Splits a TCP stream into L2 packets: 2-byte LE length header, inclusive of
 // the header itself (mmocore SelectorThread, HEADER_SIZE = 2).
 class PacketFramer {
-  constructor(onPacket) {
+  constructor(onPacket, onError = error => { throw error; }) {
     this.buf = Buffer.alloc(0);
     this.onPacket = onPacket;
+    this.onError = onError;
+    this.failed = false;
   }
   push(data) {
+    if (this.failed) return;
     this.buf = this.buf.length ? Buffer.concat([this.buf, data]) : data;
     for (;;) {
       if (this.buf.length < 2) return;
       const total = this.buf.readUInt16LE(0);
+      // The length includes its two-byte header and every L2 packet has an
+      // opcode. A zero header previously replayed an empty body forever;
+      // one/two-byte lengths likewise cannot delimit a valid packet.
+      if (total < 3) {
+        this.failed = true;
+        this.buf = Buffer.alloc(0);
+        this.onError(new RangeError(`invalid L2 packet length ${total}`));
+        return;
+      }
       if (this.buf.length < total) return;
-      this.onPacket(this.buf.subarray(2, total));
-      this.buf = this.buf.subarray(total);
+      const body = this.buf.subarray(2, total);
+      this.buf = this.buf.length === total ? Buffer.alloc(0) : this.buf.subarray(total);
+      this.onPacket(body);
     }
   }
 }

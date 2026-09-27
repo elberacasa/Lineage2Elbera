@@ -21,6 +21,11 @@ const { EventEmitter } = require('events');
 const { PacketWriter, PacketReader, PacketFramer, frame } = require('./l2io.js');
 const { GameCrypt } = require('./crypt.js');
 const { gatedConnect } = require('./governor.js');
+const { readAcquireSkillList, readAcquireSkillInfo, validSkillTrainingRequest } = require('./skilltraining.js');
+const { readHennaInfo, readHennaList, readHennaItemInfo,
+  validHennaWord, validHennaSymbolId } = require('./henna.js');
+const { readRecipeBook, readRecipeMakeInfo, readStorageMaxCount,
+  validRecipeId, validRecipeBookType } = require('./recipes.js');
 
 const PROTOCOL_VERSION = 746;
 
@@ -29,19 +34,31 @@ class GameSession extends EventEmitter {
     super();
     this.crypt = new GameCrypt();
     this.state = 'INIT';
+    this.closed = false;
     this.pos = { x: 0, y: 0, z: 0, heading: 0 }; // last known own position
     this.packetLog = new Map(); // opcode -> count, for debugging unknown packets
   }
 
   connect(host, port, account, sessionKey) {
+    if (this.closed) return;
     this.account = account;
     this.sessionKey = sessionKey;
-    this.framer = new PacketFramer((body) => this._onPacket(body));
+    this.framer = new PacketFramer((body) => this._onPacket(body), error => {
+      this.close();
+      this.emit('error', error);
+    });
     gatedConnect(() => new Promise((resolve, reject) => {
+      // The governor may still be pacing this connection when close() runs.
+      if (this.closed) { resolve(); return; }
       this.sock = net.connect(port, host);
       this.sock.on('data', (d) => this.framer.push(d));
       this.sock.on('error', (e) => this.emit('error', e));
-      this.sock.on('close', () => this.emit('close'));
+      this.sock.on('close', () => {
+        this.closed = true;
+        this.emit('close');
+        // A close before TCP connect must release the governor's lock too.
+        resolve();
+      });
       this.sock.on('connect', () => {
         // SendProtocolVersion (plaintext)
         this._send(new PacketWriter().writeC(0x00).writeD(PROTOCOL_VERSION).build());
@@ -54,7 +71,10 @@ class GameSession extends EventEmitter {
   }
 
   close() {
-    try { this.sock && this.sock.destroy(); } catch (_) { /* ignore */ }
+    if (this.closed) return;
+    this.closed = true;
+    if (this.sock) this.sock.destroy();
+    else this.emit('close');
   }
 
   // ---------------------------------------------------------------- sends
@@ -210,6 +230,65 @@ class GameSession extends EventEmitter {
     );
   }
 
+  // Trainer requests carry the selected skill ID, level and acquisition type.
+  // The server validates trainer proximity, class, level and SP/item costs.
+  requestAcquireSkillInfo(id, level, type) {
+    if (!validSkillTrainingRequest({ id, level, type })) return;
+    this._send(new PacketWriter().writeC(0x6b).writeD(id).writeD(level).writeD(type).build());
+  }
+
+  requestAcquireSkill(id, level, type) {
+    if (!validSkillTrainingRequest({ id, level, type })) return;
+    this._send(new PacketWriter().writeC(0x6c).writeD(id).writeD(level).writeD(type).build());
+  }
+
+  // Configured aCis GamePacketHandler BA..BF and RequestHenna*.readImpl.
+  // List readers consume an unknown DWORD; the caller must supply it rather
+  // than silently inventing a default. Success arrives as HennaInfo/UserInfo.
+  _requestHenna(opcode, value, isSymbol) {
+    if (this.closed || this.state !== 'IN_GAME'
+        || !(isSymbol ? validHennaSymbolId(value) : validHennaWord(value))) return;
+    this._send(new PacketWriter().writeC(opcode).writeD(value).build());
+  }
+  requestHennaEquipList(unknown) { this._requestHenna(0xba, unknown, false); }
+  requestHennaItemInfo(symbolId) { this._requestHenna(0xbb, symbolId, true); }
+  requestHennaEquip(symbolId) { this._requestHenna(0xbc, symbolId, true); }
+  requestHennaUnequipList(unknown) { this._requestHenna(0xbd, unknown, false); }
+  requestHennaUnequipInfo(symbolId) { this._requestHenna(0xbe, symbolId, true); }
+  requestHennaUnequip(symbolId) { this._requestHenna(0xbf, symbolId, true); }
+
+  // Installed GamePacketHandler AC..AF. Each consumes one DWORD, with a
+  // recipe-table ID (not item ID or book row ordinal) for the three actions.
+  // The response remains authoritative; sending never synthesizes success.
+  _requestRecipe(opcode, value, isBookType) {
+    if (this.closed || this.state !== 'IN_GAME'
+        || !(isBookType ? validRecipeBookType(value) : validRecipeId(value))) return;
+    this._send(new PacketWriter().writeC(opcode).writeD(value).build());
+  }
+  requestRecipeBookOpen(bookType) { this._requestRecipe(0xac, bookType, true); }
+  requestRecipeBookDestroy(recipeId) { this._requestRecipe(0xad, recipeId, false); }
+  requestRecipeMakeInfo(recipeId) { this._requestRecipe(0xae, recipeId, false); }
+  requestRecipeMakeSelf(recipeId) { this._requestRecipe(0xaf, recipeId, false); }
+
+  // Original RequestShortCutReg: C 0x33, D type, D flattened slot,
+  // D object/skill/action id or recipe index, D UserShortCut. Level comes back from the server.
+  // Ordinary item/skill/drag controls send UserShortCut=1; verified by
+  // tools/ui/check_shortcut_native.py and check_recipe_native.py (RecipeItem).
+  // Other owners remain read-only here.
+  requestShortcutRegister({ page, slot, type, id, characterType }) {
+    const kind = SHORTCUT_TYPES.indexOf(type);
+    if (!validShortcutPosition(page, slot) || ![1, 2, 3, 5].includes(kind)
+        || !Number.isInteger(id) || id < (kind === 3 ? 0 : 1) || id > 0x7fffffff
+        || characterType !== 1) return;
+    this._send(new PacketWriter().writeC(0x33).writeD(kind).writeD(page * 12 + slot)
+      .writeD(id).writeD(characterType).build());
+  }
+
+  requestShortcutDelete({ page, slot }) {
+    if (!validShortcutPosition(page, slot)) return;
+    this._send(new PacketWriter().writeC(0x35).writeD(page * 12 + slot).build());
+  }
+
   // RequestDestroyItem (0x59): D objectId, D count
   // (aCis clientpackets/RequestDestroyItem.java readImpl).
   destroyItem(objectId, count) {
@@ -309,16 +388,18 @@ class GameSession extends EventEmitter {
 
   // RequestBuyItem (0x1f): D listId, D count, per item D itemId, D count.
   requestBuyItem(listId, items) {
-    const w = new PacketWriter().writeC(0x1f).writeD(listId | 0).writeD(items.length);
-    for (const it of items) w.writeD(it.itemId | 0).writeD(it.count | 0);
+    if (!validShopRequest(listId, items, false)) return;
+    const w = new PacketWriter().writeC(0x1f).writeD(listId).writeD(items.length);
+    for (const it of items) w.writeD(it.itemId).writeD(it.count);
     this._send(w.build());
   }
 
   // RequestSellItem (0x1e): D listId, D count, per item D objectId,
   // D itemId, D count.
   requestSellItem(listId, items) {
-    const w = new PacketWriter().writeC(0x1e).writeD(listId | 0).writeD(items.length);
-    for (const it of items) w.writeD(it.objectId | 0).writeD(it.itemId | 0).writeD(it.count | 0);
+    if (!validShopRequest(listId, items, true)) return;
+    const w = new PacketWriter().writeC(0x1e).writeD(listId).writeD(items.length);
+    for (const it of items) w.writeD(it.objectId).writeD(it.itemId).writeD(it.count);
     this._send(w.build());
   }
 
@@ -660,17 +741,24 @@ class GameSession extends EventEmitter {
       case 0x06: { // Die: D objectId, then respawn options (serverpackets/
         // Die.java): D toVillage (always 1), D toClanHall, D toCastle,
         // D toSiegeHQ, D sweepable (blue glow, Monster only), D fixedRes
-        // (GM allowFixedRes). Emitted as an object — the bridge attaches
+        // (GM allowFixedRes). Preserve the exact fifth post-ID DWORD: the
+        // configured server calls it sweepable. The original OnDie has a
+        // nonzero effect branch, but its protected ParamStack binding remains
+        // a separate source gap (native-nexttarget-evidence.md).
+        // Emitted as an object — the bridge attaches
         // canRespawn for SELF deaths (contract `die` op).
-        this.emit('die', {
+        const death = {
           id: r.readD(),
           toVillage: r.readD() === 1,
           toClanHall: r.readD() === 1,
           toCastle: r.readD() === 1,
           toSiegeHQ: r.readD() === 1,
-          sweepable: r.readD() === 1,
+          sweepableRaw: r.readD(),
           fixedRes: r.readD() === 1,
-        });
+        };
+        if (r.remaining() !== 0) throw new RangeError('invalid Die packet length');
+        death.sweepable = death.sweepableRaw !== 0;
+        this.emit('die', death);
         break;
       }
       case 0x07: { // Revive
@@ -687,17 +775,48 @@ class GameSession extends EventEmitter {
       }
       case 0xa6: { // MyTargetSelected: D objectId, H color
         const objectId = r.readD();
-        const color = r.readH();
+        // Native MyTargetSelected sign-extends this word before the UI
+        // callback (Engine 0x104276b6); readH is otherwise unsigned.
+        const color = (r.readH() << 16) >> 16;
         this.emit('myTarget', { id: objectId, color });
         break;
       }
-      case 0x64: { // SystemMessage: shallow typed decode
+      case 0x64: { // SystemMessage: retain wire types and skill levels
         this.emit('systemMessage', parseSystemMessage(r));
+        break;
+      }
+      case 0x45: { // ShortCutInit: complete replacement, heterogeneous rows.
+        const count = r.readD();
+        if (count < 0 || count > 120 || count * 16 > r.remaining())
+          throw new RangeError('invalid ShortCutInit row count');
+        const shortcuts = [], seen = new Set();
+        for (let i = 0; i < count; i++) {
+          const row = readShortcut(r), position = row.page * 12 + row.slot;
+          if (seen.has(position)) throw new RangeError('duplicate ShortCutInit position');
+          seen.add(position); shortcuts.push(row);
+        }
+        if (r.remaining() !== 0) throw new RangeError('invalid ShortCutInit packet length');
+        this.emit('shortcutInit', { shortcuts });
+        break;
+      }
+      case 0x44: { // ShortCutRegister: one server-accepted row/update.
+        const shortcut = readShortcut(r);
+        if (r.remaining() !== 0) throw new RangeError('invalid ShortCutRegister packet length');
+        this.emit('shortcutRegister', { shortcut });
+        break;
+      }
+      case 0x46: { // Configured server adds an uninterpreted D after the slot.
+        const position = readShortcutPosition(r.readD()), unknown = r.readD();
+        if (r.remaining() !== 0) throw new RangeError('invalid ShortCutDelete packet length');
+        this.emit('shortcutDelete', { ...position, unknown });
         break;
       }
       // --------------------------------------------------------- M4: skills & items
       case 0x58: { // SkillList: D count, per skill D passive, D level, D id, C disabled
         const count = r.readD();
+        if (count < 0 || count * 13 !== r.remaining()) {
+          throw new RangeError('invalid SkillList packet length');
+        }
         const skills = [];
         for (let i = 0; i < count; i++) {
           const passive = r.readD();
@@ -709,6 +828,37 @@ class GameSession extends EventEmitter {
         this.emit('skillList', skills);
         break;
       }
+      case 0x8a: // AcquireSkillList, distinct from the already learned SkillList.
+        this.emit('acquireSkillList', readAcquireSkillList(r));
+        break;
+      case 0x8b: // AcquireSkillInfo, including every server item requirement.
+        this.emit('acquireSkillInfo', readAcquireSkillInfo(r));
+        break;
+      case 0x8e: // AcquireSkillDone has no payload in this protocol.
+        if (r.remaining() !== 0) throw new RangeError('invalid AcquireSkillDone packet length');
+        this.emit('acquireSkillDone');
+        break;
+      case 0xd6:
+        this.emit('recipeBook', readRecipeBook(r));
+        break;
+      case 0xd7:
+        this.emit('recipeMakeInfo', readRecipeMakeInfo(r));
+        break;
+      case 0xe2:
+        this.emit('hennaEquipList', readHennaList(r, false));
+        break;
+      case 0xe3:
+        this.emit('hennaItemInfo', readHennaItemInfo(r));
+        break;
+      case 0xe4:
+        this.emit('hennaInfo', readHennaInfo(r));
+        break;
+      case 0xe5:
+        this.emit('hennaUnequipList', readHennaList(r, true));
+        break;
+      case 0xe6:
+        this.emit('hennaUnequipInfo', readHennaItemInfo(r));
+        break;
       case 0x48: { // MagicSkillUse (cast start)
         const casterId = r.readD();
         const targetId = r.readD();
@@ -930,6 +1080,18 @@ class GameSession extends EventEmitter {
         this.emit('questList', quests);
         break;
       }
+      case 0x98: { // PlaySound: original dSdddddd (including the final delay).
+        // Preserve every wire field. Original mode 0 uses the local pawn;
+        // mode 1/2 are separate music/voice paths, not generic UI sounds.
+        const soundType = r.readD();
+        const sound = r.readS();
+        const objectFlag = r.readD(); const objectId = r.readD();
+        const x = r.readD(); const y = r.readD(); const z = r.readD();
+        const delay = r.readD();
+        if (r.remaining() !== 0) throw new RangeError('invalid PlaySound packet length');
+        this.emit('playSound', { soundType, sound, objectFlag, objectId, x, y, z, delay });
+        break;
+      }
       // ------------------------------------------------------ M9: party
       case 0x39: { // AskJoinParty (invite prompt): S requestorName, D lootRule
         const from = r.readS();
@@ -1004,18 +1166,26 @@ class GameSession extends EventEmitter {
         const leaderName = r.readS();
         const crestId = r.readD();
         const level = r.readD();
-        r.readD(); r.readD(); r.readD(); r.readD(); r.readD(); r.readD(); // castle, hall, rank, rep, dissolution, 0
+        r.readD(); r.readD(); r.readD(); // castle, hall, rank
+        const reputation = r.readD(); // original PledgeInfo+0x74 / ClanNameValue
+        r.readD(); r.readD(); // dissolution, 0
         const allyId = r.readD();
         const allyName = r.readS();
         r.readD(); // allyCrestId
         r.readD(); // atWar
         const count = r.readD();
+        // Every member needs at least an empty UTF-16 name (2 bytes) plus
+        // six int32 fields. Bound by this packet, not a gameplay clan cap.
+        if (count < 0 || count * 26 > r.remaining())
+          throw new RangeError('invalid PledgeShowMemberListAll member count');
         const members = [];
         for (let i = 0; i < count; i++) {
           members.push(parsePledgeMember(r));
           r.readD(); // hasSponsor
         }
-        this.emit('clanAll', { clanId, pledgeType, name, leaderName, crestId, level, allyId, allyName, members });
+        if (r.remaining() !== 0)
+          throw new RangeError('invalid PledgeShowMemberListAll packet length');
+        this.emit('clanAll', { clanId, pledgeType, name, leaderName, crestId, level, reputation, allyId, allyName, members });
         break;
       }
       case 0x54: { // PledgeShowMemberListUpdate (member login/status
@@ -1057,12 +1227,16 @@ class GameSession extends EventEmitter {
         const clanId = r.readD();
         const crestId = r.readD();
         const level = r.readD();
-        r.readD(); r.readD(); r.readD(); r.readD(); r.readD(); r.readD(); // castle, hall, rank, rep, dissolution, 0
+        r.readD(); r.readD(); r.readD(); // castle, hall, rank
+        const reputation = r.readD(); // original seventh int32 / ClanNameValue
+        r.readD(); r.readD(); // dissolution, 0
         const allyId = r.readD();
         const allyName = r.readS();
         r.readD(); // allyCrestId
         r.readD(); // atWar
-        this.emit('clanInfoUpdate', { clanId, crestId, level, allyId, allyName });
+        if (r.remaining() !== 0)
+          throw new RangeError('invalid PledgeShowInfoUpdate packet length');
+        this.emit('clanInfoUpdate', { clanId, crestId, level, reputation, allyId, allyName });
         break;
       }
       case 0x6c: { // PledgeCrest: D crestId, D length, B data (raw DDS —
@@ -1360,6 +1534,14 @@ class GameSession extends EventEmitter {
       case 0xfe: {
         const sub = r.readH();
         switch (sub) {
+          case 0x2e:
+            this.emit('storageMaxCount', readStorageMaxCount(r));
+            break;
+          case 0x1a: { // ExShowQuestMark: original signed D questId.
+            if (r.remaining() !== 4) throw new RangeError('invalid ExShowQuestMark length');
+            this.emit('questMark', { questId: r.readD() });
+            break;
+          }
           case 0x12: {   // ExAutoSoulShot: D itemId, D type (1 on / 0 off)
             const itemId = r.readD();
             const enabled = r.readD() === 1;
@@ -1404,6 +1586,8 @@ class GameSession extends EventEmitter {
 // which is exactly the kind of bug that survives review — hence two tables.
 const PAPERDOLL_USER = { RHAND: 7, LHAND: 8, GLOVES: 9, CHEST: 10, LEGS: 11, FEET: 12, RHAND2: 14 };
 const PAPERDOLL_CHAR = { RHAND: 2, LHAND: 3, GLOVES: 4, CHEST: 5, LEGS: 6, FEET: 7, RHAND2: 9 };
+const PAPERDOLL_OBJECT_SLOTS = ['hairall', 'rear', 'lear', 'neck', 'rfinger', 'lfinger',
+  'head', 'rhand', 'lhand', 'gloves', 'chest', 'legs', 'feet', 'cloak', 'rhand2', 'hair', 'face'];
 
 function readPaperdollItems(r, count = 17, map = PAPERDOLL_USER) {
   const slots = [];
@@ -1488,14 +1672,21 @@ function parseCharInfo(r) {
   // template basePAtkSpd. This is the swing-animation rate, and it was being
   // read and thrown away here.
   const atkSpdMul = r.readF();
-  r.readF(); r.readF(); // collision radius/height
-  r.readD(); r.readD(); r.readD(); // hairStyle, hairColor, face
+  // Original Engine.dll stores these doubles into User +0x1cc/+0x1d0,
+  // then OnCharInfo passes them to AActor::SetCollisionSize.
+  const collisionRadius = r.readF();
+  const collisionHeight = r.readF();
+  const hairStyle = r.readD();
+  const hairColor = r.readD();
+  const face = r.readD();
   r.readS(); // title
   r.readD(); r.readD(); r.readD(); r.readD(); // clan, clan crest, ally, ally crest
   r.readD(); // 0
-  r.readC();                          // sitting
+  const waitType = r.readC();          // original 0 = sitting, 1 = standing
   const running = r.readC() === 1;    // CharInfo.java: isRunning()
-  r.readC(); r.readC(); r.readC();    // combat, alikeDead, invisible
+  r.readC();                         // combat
+  const dead = r.readC() !== 0;     // alikeDead
+  r.readC();                         // invisible
   r.readC(); r.readC(); // mountType, operateType
   const cubics = r.readH();
   for (let j = 0; j < cubics; j++) r.readH();
@@ -1514,8 +1705,9 @@ function parseCharInfo(r) {
   r.readD(); // name color
   const heading = r.readD();
   // pledgeClass, pledgeType, titleColor, cursed weapon stage follow; not needed
-  return { id: objectId, name, race, sex, classId, x, y, z, heading, paperdoll,
-           runSpeed, walkSpeed, pAtkSpd, mAtkSpd, speedMul, atkSpdMul, running };
+  return { id: objectId, name, race, sex, classId, hairStyle, hairColor, face, x, y, z, heading, paperdoll,
+           runSpeed, walkSpeed, pAtkSpd, mAtkSpd, speedMul, atkSpdMul, running,
+           collisionRadius, collisionHeight, dead, waitType };
 }
 
 function parseNpcInfo(r) {
@@ -1547,11 +1739,14 @@ function parseNpcInfo(r) {
   // documented in aCis as the value "used by client to set correct
   // character/object attack speed" (see parseCharInfo).
   const atkSpdMul = r.readF();
-  r.readF(); r.readF(); // collision
+  const collisionRadius = r.readF();
+  const collisionHeight = r.readF();
   const rhand = r.readD(); const chest = r.readD(); const lhand = r.readD();
   r.readC(); // name above
   const running = r.readC();
-  r.readC(); r.readC(); r.readC(); // combat, alikeDead, summon anim
+  r.readC(); // combat
+  const dead = r.readC() !== 0; // alikeDead
+  r.readC(); // summon anim
   const name = r.readS();
   const title = r.readS();
   // aCis 409 NpcInfo has NO level field; when Config.ShowNpcLevel is on the
@@ -1561,7 +1756,7 @@ function parseNpcInfo(r) {
   if (lvlMatch) level = Number(lvlMatch[1]);
   return { id: objectId, npcId, isAttackable, name, title, level, x, y, z, heading,
            runSpeed, walkSpeed, speedMul, running, rhand, chest, lhand,
-           pAtkSpd, mAtkSpd, atkSpdMul };
+           pAtkSpd, mAtkSpd, atkSpdMul, collisionRadius, collisionHeight, dead };
 }
 
 // Full UserInfo layout (serverpackets/UserInfo.java). Remember: writeF is an
@@ -1573,6 +1768,8 @@ function parseUserInfo(r) {
   const name = r.readS();
   const race = r.readD();
   const sex = r.readD();
+  // The installed writer sends the base class here when a subclass is active.
+  // Keep this existing appearance field separate from the current class below.
   const classId = r.readD();
   const level = r.readD();
   const exp = Number(r.readQ());
@@ -1590,7 +1787,9 @@ function parseUserInfo(r) {
   const currentWeight = r.readD();
   const maxLoad = r.readD(); // weight limit
   r.readD(); // weapon timer
-  for (let j = 0; j < 17; j++) r.readD(); // paperdoll object ids
+  // Template bodyPart permits both ears/fingers; only these object identities
+  // distinguish which copy is actually worn on each side (UserInfo.java).
+  const paperdollObjectIds = Object.fromEntries(PAPERDOLL_OBJECT_SLOTS.map(key => [key, r.readD()]));
   const paperdoll = readPaperdollItems(r);
   for (let j = 0; j < 14; j++) r.readH();
   r.readD(); // rhand augmentation
@@ -1627,15 +1826,18 @@ function parseUserInfo(r) {
   // and dropping it made the browser draw movement permanently slow.
   const speedMul = r.readF();
   const atkSpdMul = r.readF();  // attack speed multiplier (see parseCharInfo)
-  r.readF(); r.readF(); // collision radius/height
-  r.readD(); r.readD(); r.readD(); // hairStyle, hairColor, face
+  const collisionRadius = r.readF();
+  const collisionHeight = r.readF();
+  const hairStyle = r.readD();
+  const hairColor = r.readD();
+  const face = r.readD();
   r.readD(); // isGM
   r.readS(); // title
   r.readD(); r.readD(); r.readD(); r.readD(); // clan, clan crest, ally, ally crest
   r.readD(); // relation
   r.readC(); // mountType
   const operateType = r.readC(); // OperateType id (0 NONE, 1 SELL, 2 SELL_MANAGE, 3 BUY, 4 BUY_MANAGE, 8 PACKAGE_SELL)
-  r.readC(); // crystallize
+  const crystallizeAbility = r.readC(); // native HasCrystallizeAbility reads this byte
   r.readD(); r.readD(); // pk, pvp kills
   const cubics = r.readH();
   for (let j = 0; j < cubics; j++) r.readH();
@@ -1646,7 +1848,7 @@ function parseUserInfo(r) {
   r.readH(); r.readH(); // recom left/have
   r.readD(); // mount npc id
   r.readH(); // inventory limit
-  r.readD(); // class id (again)
+  const currentClassId = r.readD(); // UserInfo.java: getClassId().getId(), also on subclasses
   r.readD(); // 0
   const maxCp = r.readD();
   const cp = r.readD();
@@ -1671,21 +1873,54 @@ function parseUserInfo(r) {
   }
   // pledgeClass, pledgeType, titleColor, cursed stage follow; not needed.
   return {
-    id: objectId, name, race, sex, classId, level, exp, sp, hp, maxHp, mp, maxMp, cp, maxCp, x, y, z, heading,
+    id: objectId, name, race, sex, classId, currentClassId, level, exp, sp, hp, maxHp, mp, maxMp, cp, maxCp, x, y, z, heading,
     str, dex, con, int, wit, men, currentWeight, maxLoad,
     pAtk, pAtkSpd, pDef, evasion, accuracy, critical, mAtk, mAtkSpd, mDef,
-    runSpeed, walkSpeed, speedMul, atkSpdMul, running, operateType, paperdoll,
+    runSpeed, walkSpeed, speedMul, atkSpdMul, running, operateType, crystallizeAbility, paperdoll, paperdollObjectIds,
+    collisionRadius, collisionHeight, hairStyle, hairColor, face,
   };
 }
 
-// Shallow SystemMessage decode (serverpackets/SystemMessage.java):
+const SHORTCUT_TYPES = [null, 'item', 'skill', 'action', 'macro', 'recipe'];
+function validShortcutPosition(page, slot) {
+  // Original ShortcutWnd.MAX_Page=10 and MAX_ShortcutPerPage=12.
+  return Number.isInteger(page) && page >= 0 && page < 10
+    && Number.isInteger(slot) && slot >= 0 && slot < 12;
+}
+
+function readShortcutPosition(index) {
+  if (!Number.isInteger(index) || index < 0 || index >= 120)
+    throw new RangeError('invalid shortcut position');
+  return { page: Math.floor(index / 12), slot: index % 12 };
+}
+
+function readShortcut(r) {
+  const kind = r.readD(), position = readShortcutPosition(r.readD());
+  if (kind < 1 || kind >= SHORTCUT_TYPES.length) throw new RangeError('unsupported shortcut type');
+  const row = { ...position, type: SHORTCUT_TYPES[kind], id: r.readD() };
+  if (row.id < (kind === 3 ? 0 : 1)) throw new RangeError('invalid shortcut id');
+  if (kind === 2) { row.level = r.readD(); row.skillFlag = r.readC(); }
+  row.characterType = r.readD();
+  if (kind === 1) {
+    row.sharedReuseGroup = r.readD();
+    row.remainingReuseSeconds = r.readD(); row.totalReuseSeconds = r.readD();
+    // The server writes one augmentation D; native reads its two H halves.
+    row.augmentationId = r.readD() >>> 0;
+  }
+  return row;
+}
+
+// Configured-server SystemMessage decode (serverpackets/SystemMessage.java):
 // D smId, D paramCount, per param D type + payload.
+// Original Interlude also reads type 4 as two DWORDs; see
+// tools/ui/check_sysmsg_native.py. Type 6 here follows aCis's D writer,
+// whereas the original client reads Q: this is not a universal retail codec.
 const SM_TYPES = {
   0: (r) => r.readS(), // TEXT
   1: (r) => r.readD(), // NUMBER
   2: (r) => r.readD(), // NPC_NAME
   3: (r) => r.readD(), // ITEM_NAME
-  4: (r) => { const id = r.readD(); r.readD(); return id; }, // SKILL_NAME (id, level)
+  4: (r) => ({ id: r.readD(), level: r.readD() }), // SKILL_NAME
   5: (r) => r.readD(), // CASTLE_NAME
   6: (r) => r.readD(), // ITEM_NUMBER
   7: (r) => { const x = r.readD(); const y = r.readD(); const z = r.readD(); return [x, y, z]; }, // ZONE_NAME (loc)
@@ -1694,15 +1929,14 @@ const SM_TYPES = {
 function parseSystemMessage(r) {
   const smId = r.readD();
   const count = r.readD();
+  if (count < 0 || count * 4 > r.remaining()) throw new RangeError('invalid SystemMessage parameter count');
   const params = [];
-  for (let i = 0; i < count && r.remaining() >= 4; i++) {
+  for (let i = 0; i < count; i++) {
     const type = r.readD();
-    try {
-      params.push({ type, value: SM_TYPES[type] ? SM_TYPES[type](r) : r.readD() });
-    } catch (_) {
-      break; // best-effort; leave the rest unparsed
-    }
+    if (!Object.hasOwn(SM_TYPES, type)) throw new RangeError('unsupported SystemMessage parameter type');
+    params.push({ type, value: SM_TYPES[type](r) });
   }
+  if (r.remaining() !== 0) throw new RangeError('invalid SystemMessage packet length');
   return { id: smId, params };
 }
 
@@ -1806,6 +2040,23 @@ function parsePledgeMember(r) {
   const race = r.readD();
   const onlineId = r.readD();
   return { name, level, classId, sex, race, onlineId, online: onlineId !== 0 };
+}
+
+// Preserve original ShopWnd request rows, including an empty cart and repeated
+// nonstackable class IDs. Exact positive signed DWORD row values match the
+// configured RequestBuyItem/RequestSellItem readers; never coerce a different
+// quantity onto the wire. The size bound is transport capacity, not a retail
+// cart limit: uint16 frame length includes header + opcode + two DWORDs.
+// Configured server inventory/batch limits remain server decisions.
+function validShopRequest(listId, items, sell) {
+  if (!Number.isInteger(listId) || listId < 0 || listId > 0x7fffffff
+      || !Array.isArray(items) || 11 + items.length * (sell ? 12 : 8) > 0xffff) return false;
+  const positiveDword = value => Number.isInteger(value) && value > 0 && value <= 0x7fffffff;
+  for (const item of items) {
+    if (!item || !positiveDword(item.itemId) || !positiveDword(item.count)
+        || (sell && !positiveDword(item.objectId))) return false;
+  }
+  return true;
 }
 
 module.exports = { GameSession };

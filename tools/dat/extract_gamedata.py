@@ -55,6 +55,48 @@ def open_dat(data: bytes, label: str) -> Reader:
     return Reader(data[:-len(TRAILER)], label)
 
 
+class SkillReader(Reader):
+    """Elbera Tools: strict text and record boundaries for skill metadata."""
+
+    def ustr(self):
+        size = self.i32()
+        if size < 0 or size % 2:
+            raise ValueError(f'{self.path}: invalid Unicode byte length {size}')
+        return self._take(size).decode('utf-16-le')
+
+    def ascf(self):
+        length = self.compact_int()
+        if length == 0:
+            return ''
+        width = 1 if length > 0 else 2
+        raw = self._take(abs(length) * width)
+        if not raw.endswith(b'\0' * width):
+            raise ValueError(f'{self.path}: unterminated ASCF string')
+        return raw[:-width].decode('cp1252' if width == 1 else 'utf-16-le')
+
+
+def skill_reader(data, label, minimum_record_bytes):
+    if not data.endswith(TRAILER):
+        raise ValueError(f'{label}: missing SafePackage trailer')
+    reader = SkillReader(data[:-len(TRAILER)], label)
+    count = reader.u32()
+    if count > (len(reader.data) - reader.pos) // minimum_record_bytes:
+        raise ValueError(f'{label}: record count exceeds payload boundary')
+    return reader, count
+
+
+def finish_skill_records(reader, records):
+    if not reader.done():
+        raise ValueError(f'{reader.path}: unconsumed payload at {reader.pos}')
+    keys = set()
+    for row in records:
+        key = row['skill_id'], row['skill_level']
+        if not all(value > 0 for value in key) or key in keys:
+            raise ValueError(f'{reader.path}: invalid or duplicate skill key {key}')
+        keys.add(key)
+    return records
+
+
 def read_mtx(r: Reader):
     """MTX definition: INT mesh count + UNICODE meshes, INT tex count +
     UNICODE textures (L2ClientDat dist/data/definitions.xml)."""
@@ -297,9 +339,9 @@ def parse_itemname(data: bytes):
 
 
 def parse_skillgrp(data: bytes):
-    r = open_dat(data, "skillgrp.dat")
+    r, count = skill_reader(data, 'skillgrp.dat', 68)
     records = []
-    for _ in range(r.u32()):
+    for _ in range(count):
         records.append({
             "skill_id": r.u32(),
             "skill_level": r.u32(),
@@ -310,7 +352,7 @@ def parse_skillgrp(data: bytes):
             "hit_time": r.f32(),
             "is_magic": r.u32(),
             "animation": r.ustr(),
-            "description": r.ustr(),
+            "skill_visual_effect": r.ustr(),
             "icon": r.ustr(),
             "extra_eff": r.u32(),
             "is_enchanted": r.u32(),
@@ -319,14 +361,17 @@ def parse_skillgrp(data: bytes):
             "rumble_self": r.u32(),
             "rumble_target": r.u32(),
         })
-    assert r.done()
-    return records
+    # Compatibility for older diagnostic consumers. Native record +0x44 is
+    # skill_visual_effect, not prose; new source consumers use the correct key.
+    for record in records:
+        record["description"] = record["skill_visual_effect"]
+    return finish_skill_records(r, records)
 
 
 def parse_skillname(data: bytes):
-    r = open_dat(data, "skillname-e.dat")
+    r, count = skill_reader(data, 'skillname-e.dat', 12)
     records = []
-    for _ in range(r.u32()):
+    for _ in range(count):
         records.append({
             "skill_id": r.u32(),
             "skill_level": r.u32(),
@@ -335,8 +380,7 @@ def parse_skillname(data: bytes):
             "enchant_name": r.ascf(),
             "enchant_desc": r.ascf(),
         })
-    assert r.done()
-    return records
+    return finish_skill_records(r, records)
 
 
 def parse_actionname(data: bytes):

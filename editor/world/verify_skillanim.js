@@ -1,17 +1,22 @@
+// ARCHIVED: the VFX assertions in this combined suite select effects by skill
+// ID, contradicting the exact original skill-level Agent field. Stop before
+// importing browser tools or starting any game session; do not report a pass
+// from unrelated animation checks while the effect oracle remains invalid.
+console.error('UNSUPPORTED: verify_skillanim contains retired skill-ID VFX expectations. '
+  + 'Original skill 1177 level 1 has no Agent; its same-ID Skill.usk object is not its binding. '
+  + 'Use tools/ui/check_skillanim_native.py --check, '
+  + 'tools/ui/check_cast_agent_native.py --check and '
+  + 'node --test editor/world/test/native-skillanim.test.mjs editor/world/test/skillvfx-binding.test.mjs. '
+  + 'Those checks do not certify the combined visual journey or phase timing.');
+process.exit(2);
+
+// Historical implementation below; not an active verification suite.
 // Per-skill cast ANIMATION + EFFECT verification against the MOCK gateway.
-// Three skill families (data-driven, assets/gamedata/skillanim.json):
-//   melee strike      3 Power Strike  (anim 'S', magic 0, range 40)
-//                     -> 'spAtk01'/'spAtk02' clip (physical skills alternate
-//                     the two; only the plain attack op still plays 'attack')
-//                     + amber slash arc at the target
-//   magic projectile  1177 Wind Strike (anim 'E', magic 1, range 600,
-//                     wind_strike_explotion hit sound)
-//                     -> 'castShort'/'castMid'/'castLong' clip by hitTime
-//                     + cyan bolt caster->target + hit flash
-//   self buff/heal    1216 Self Heal  (anim 'D', magic 1, range -1)
-//                     -> cast clip + green aura ring at self
-// plus the exact clip mapping: 271 Dance of the Warrior (anim 'N')
-//                     -> 'dance' clip (retail Social_dance).
+// Sample skills use the original selector slots recovered independently by
+// Elbera Tools: tools/ui/check_skillanim_native.py. Power Strike S -> spAtk01;
+// Wind Strike E / Self Heal D -> castMid; Dance of the Warrior N -> spAtk27.
+// That last slot may be absent at the current stance. VFX presence checks
+// establish objects carrying source metadata only, not native rendering/timing.
 //
 // Usage: node verify_skillanim.js   (mock gateway on 8085, server on 8083)
 // Output: verify_shots/skillanim_*.png + JSON summary on stdout.
@@ -72,6 +77,15 @@ function check(summary, name, ok, detail) {
       const c = window.__world.character;
       return c && c.current ? c.current.getClip().name : null;
     });
+    const expectedSlot = slot => page.evaluate(async name => {
+      const c = window.__world.character;
+      const table = await fetch('/characters/pawnanim.json').then(r => r.json());
+      return table.models[c.modelId]?.slots[name]?.[c.stance || 'hand']?.clip ?? null;
+    }, slot);
+    const selectedCast = () => page.evaluate(() => ({
+      clip: window.__world.entities.lastCastClip,
+      slot: window.__world.entities.lastCastPlan?.phases?.[0]?.slot,
+    }));
     // `userData.skillFx` is now stamped by THREE different producers, and only
     // one of them is what this suite asserts on:
     //   js/skills.js:333       { kind, skillId, source:'authored-pop' }  MeshBasicMaterial
@@ -120,21 +134,20 @@ function check(summary, name, ok, detail) {
       { timeout: 8000 });
     await sleep(350);   // mid-cast: gesture must be playing
     const meleeClip = await clipName();
-    // physical skills gesture with the rebuilt SpAtk clips (skillfx_anim.js
-    // clipForSkill: is_magic 0 -> 'spAtk01'/'spAtk02', alternating); the
-    // 'attack' clip is now reserved for the plain melee attack op
-    check(summary, 'melee_clip_spatk',
-      meleeClip === 'spAtk01' || meleeClip === 'spAtk02', `clip=${meleeClip}`);
+    const expectedMelee = await expectedSlot('spAtk01');
+    const chosenMelee = await selectedCast();
+    check(summary, 'melee_clip_original_slot',
+      chosenMelee.slot === 'spAtk01' && chosenMelee.clip === expectedMelee
+      && (expectedMelee === null || meleeClip === expectedMelee),
+      JSON.stringify({ selected: chosenMelee, playing: meleeClip, expected: expectedMelee }));
     await page.waitForFunction(
       `window.__world.net.log.some(m => m.op === 'skillLaunch' && m.skillId === 3)`,
       { timeout: 8000 });
     await sleep(180);
     let fx = await fxNow();
-    // skillvfx.json binds skill 3 (`{"b":2,"c":[{"f":234}]}`), so the strike
-    // must draw a SOURCED effect. The old pair of checks demanded a
-    // `kind:'slash'` sprite coloured #ffc060 -- an invented colour that no
-    // retail table produces, and which js/skills.js no longer draws at all.
-    check(summary, 'melee_fx_is_sourced', sourced(fx).length > 0,
+    // Skill 3 has only a b:2 name-convention guess. Original effect assets
+    // do not establish that guessed binding; the runtime must exclude it.
+    check(summary, 'melee_heuristic_effect_is_excluded', sourced(fx).length === 0,
       JSON.stringify(fx));
     check(summary, 'melee_fx_not_invented', authored(fx).length === 0,
       `authored-pop objects: ${JSON.stringify(authored(fx))}`);
@@ -205,14 +218,19 @@ function check(summary, name, ok, detail) {
       + JSON.stringify(authored(fx)));
     await sleep(2000);
 
-    // ---- 4. dance: exact clip mapping ('N' -> 'dance') --------------------
+    // ---- 4. dance: N selects spAtk27 at the current weapon stance --------
     await castVia(271, GREMLIN);
     await page.waitForFunction(
       `window.__world.net.log.some(m => m.op === 'skillCast' && m.skillId === 271)`,
       { timeout: 8000 });
     await sleep(500);
     const danceClip = await clipName();
-    check(summary, 'dance_clip_exact', danceClip === 'dance', `clip=${danceClip}`);
+    const expectedDance = await expectedSlot('spAtk27');
+    const chosenDance = await selectedCast();
+    check(summary, 'dance_clip_original_slot',
+      chosenDance.slot === 'spAtk27' && chosenDance.clip === expectedDance
+      && (expectedDance === null || danceClip === expectedDance),
+      JSON.stringify({ selected: chosenDance, playing: danceClip, expected: expectedDance }));
     await page.screenshot({ path: path.join(OUT, 'skillanim_4_dance.png') });
 
     summary.pageErrors = summary.consoleLogs.filter(l => l.startsWith('PAGEERROR'));

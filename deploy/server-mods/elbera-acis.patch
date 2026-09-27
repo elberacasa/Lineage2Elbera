@@ -280,7 +280,7 @@ index 1ea08657..a57f861c 100644
 -Login = root
 -Password = 
 +Login = l2j
-+Password = l2jpass
++Password =
  
  # Usable values: "true" - "false", use this option to choose whether accounts will be created automatically or not.
  AutoCreateAccounts = True
@@ -392,7 +392,7 @@ index 9e42da43..fe57a925 100644
 -Login = root
 -Password = 
 +Login = l2j
-+Password = l2jpass
++Password =
  
  # ================================================================
  #                             serverList

@@ -22,6 +22,7 @@
 //                                                          # client depends on
 'use strict';
 
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -29,7 +30,6 @@ const path = require('path');
 const WebSocket = require('ws');
 
 const GATEWAY = process.env.GATEWAY_URL || 'ws://127.0.0.1:8095';
-const DB = ['-u', 'l2j', '-pl2jpass', 'l2jdb'];
 const DEVICE_ID = process.env.CAPTURE_DEVICE || 'capture-skills-fixture-1';
 const CHECK = process.argv.includes('--check');
 const OUT = path.join(__dirname, 'capture-skills.json');
@@ -64,7 +64,7 @@ const derive = (d) => {
   const h1 = crypto.createHash('sha256').update('l2vzla-account:' + d).digest('hex');
   return { account: 'w' + h1.slice(0, 12), charName: 'W' + h1.slice(12, 23) };
 };
-const sql = (q) => execFileSync('mariadb', [...DB, '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
+const sql = (q) => execFileSync('mariadb', [...dbArgs(), '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function connect() {

@@ -5,15 +5,15 @@
 // (constants at ShortcutWnd.uc:3-4, so both numbers are sourced).
 // Layout spec: docs/ui-mined-values.md §3 (horizontal: 504x46 container,
 // Shortcut1 36x36 at (32,5), F1Tex 16x16 at (32,4), PageNumTextBox 20x10 at
-// (10,0), NextBtn/PrevBtn 14x14 at (13,1)/(13,31), Expand/Reduce (1,8),
+// CenterLeft offset (10,0), NextBtn/PrevBtn 14x14 at (13,1)/(13,31), Expand/Reduce (1,8),
 // Joypad/Rotate/Lock 15x15 at left edge x=0-1; vertical: 46x504, slot at
 // (5,32)). Option.ini defaults: horizontal, not expanded, not locked.
 //
 // Slot types: EShortCutItemType {NONE, ITEM, SKILL, ACTION, MACRO, RECIPE}.
-// ITEM, SKILL and ACTION are wired (useItem/useSkill/action). MACRO/RECIPE
-// are recognized but dropping them is rejected — AUTHORED: nothing in the
-// web port produces those types yet, so the slots exist in the type model
-// only.
+// ITEM, SKILL, ACTION and RECIPE are wired; RECIPE opens make-info (AE).
+// MACRO and other-owner records are retained but remain inert. Assignments
+// and removals use server requests; localStorage is not
+// a source of game bindings.
 //
 // WHAT WAS WRONG (measured 2026-08-08, before/after shots in the report):
 // the bar painted NO background in its default orientation, so the twelve
@@ -45,6 +45,7 @@ import { Layout } from './layout.js';
 import { Skin } from './skin.js';
 import { Font } from './font.js';
 import { WndMgr } from './wndmgr.js';
+import { defaultWindowPosition, windowCornerInside } from './windowposition.js';
 import { skillMeta, skillInfo, itemMeta, itemInfo, actionMeta, actionInfo }
   from '../gamedata.js';
 import { skillType } from './skillwnd.js';
@@ -87,7 +88,18 @@ const SLOTS_PER_PAGE = 12;    // ShortcutWnd.uc:4
 // missing the bar draws no slots and says so, rather than laying them out
 // from a copy nobody re-derived.
 
-const ALLOWED_TYPES = new Set(['skill', 'item', 'action']);
+const ALLOWED_TYPES = new Set(['skill', 'item', 'action', 'recipe']);
+// Original NWindow skill/item registration callers supply literal1 for the
+// player (see docs/native-shortcut-evidence.md). Pet dispatch is still separate.
+const PLAYER_CHARACTER_TYPE = 1;
+const RECEIVED_TYPES = new Set([...ALLOWED_TYPES, 'macro']);
+const positionValid = (page, slot) => Number.isInteger(page) && page >= 0 && page < MAX_PAGE
+  && Number.isInteger(slot) && slot >= 0 && slot < SLOTS_PER_PAGE;
+const receivedValid = s => s && positionValid(s.page, s.slot) && RECEIVED_TYPES.has(s.type)
+  && Number.isInteger(s.id) && s.id >= (s.type === 'action' ? 0 : 1) && Number.isInteger(s.characterType);
+// Browser request bookkeeping only, not a game timing value. A silent rejection
+// must not reserve an empty slot forever; no game state is changed on expiry.
+const REQUEST_RESERVATION_MS = 10000;
 
 // Page-number colour: the client's own, read off PageNumTextBox's record
 // (all eight ShortcutWnd sub-windows store #DCDCDC — the same default grey
@@ -100,8 +112,9 @@ const PAGE_COLOR_FALLBACK = '#DCDCDC';
 // entry point (MagicSkillWnd.uc keeps them in a separate pane for exactly
 // this reason; the old invented hotbar enforced the same rule). Actions
 // carry no such restriction (ActionWnd.uc hands every cell to DoAction).
-const acceptable = (s) => s && ALLOWED_TYPES.has(s.type)
-  && !(s.type === 'skill' && skillType(s.id) === 'PASSIVE');
+// Availability is checked against the received SkillList inside assign();
+// a static classification must not override a current server-active row.
+const acceptable = s => s && ALLOWED_TYPES.has(s.type);
 
 // WndMgr makes the WHOLE bar the drag handle; an unclaimed pointerdown on
 // a slot/button would capture the pointer and retarget the click to the
@@ -112,17 +125,27 @@ const acceptable = (s) => s && ALLOWED_TYPES.has(s.type)
 const claimPress = (e) => e.stopPropagation();
 
 export class ShortcutWnd {
-  constructor(parent = document.body, { onUseSkill, onUseItem, onUseAction, onNote } = {}) {
+  constructor(parent = document.body, { onUseSkill, onUseItem, onUseAction, onUseRecipe,
+    getRecipe, canAssignRecipe, onRegister, onDelete, onNote } = {}) {
     this.onUseSkill = onUseSkill || (() => {});
     this.onUseItem = onUseItem || (() => {});
     this.onUseAction = onUseAction || (() => {});
+    this.onUseRecipe = onUseRecipe || (() => false);
+    this.getRecipe = getRecipe || (() => null);
+    this.canAssignRecipe = canAssignRecipe || (() => false);
     this.onNote = onNote || (() => {});
+    this.onRegister = onRegister || (() => false);
+    this.onDelete = onDelete || (() => false);
     this.page = 0;
-    this.expanded = false;    // Option.ini default
+    this.page2 = 1;          // independent CurrentShortcutPage2/3, InitShortPageNum
+    this.page3 = 2;
+    this.expanded = 0;        // extra pages: original Reduce / Expand1 / Expand2
     this.vertical = false;    // Option.ini default
     this.locked = false;      // Option.ini default (not locked)
-    this.charName = 'default';
-    this.data = {};           // page -> slotIndex -> {type, id}
+    this.ready = false;       // only the server's ShortCutInit opens assignment
+    this._pendingSlots = new Map();
+    this.data = {};           // page -> slot -> complete received record
+    this._skills = new Map(); // current server SkillList; never persisted
     this._activeToggles = new Set();   // skill ids with a live toggle buff
     this._weaponGate = null;           // WeaponGate (js/weapongate.js)
 
@@ -132,115 +155,115 @@ export class ShortcutWnd {
     this.w = def.w; this.h = def.h;
     const vdef = Layout.sizeOf(H, 'ShortcutWndVertical');
     this.vw = vdef.w; this.vh = vdef.h;
+    this.defaultPositionRule = Layout.windowDefault('ShortcutWnd.ShortcutWndVertical');
     // Background placement per orientation, MEASURED from the art
     // (tools/ui/mine_shortcutslots.py — see the header). Null when the
     // harvest is missing: the bar then falls back to the constants above and
     // paints no plate rather than guessing where one would go.
     this.artH = Layout.shortcutArt('ShortcutWndHorizontal');
     this.artV = Layout.shortcutArt('ShortcutWndVertical');
-    // F-key badge art enumerates f01..f12 (a control ref is interleaved —
-    // filter to sprites that actually resolve)
-    this.fArts = Layout.tex(H, 'F1Tex').filter(r => Skin.sprite(r));
-
     const root = document.createElement('div');
     root.id = 'l2-shortcutwnd';
     root.style.cssText = 'position:fixed;z-index:12;pointer-events:auto;';
     this.root = root;
     parent.appendChild(root);
 
+    this.render();
+    this._initialPosition();
+    // WndMgr restores the player's position after source creation/saved INI
+    // placement, then checks it against the current viewport.
     WndMgr.register('ShortcutWnd', this);
-    this.render();
-    this.onDefaultPosition();
+    this._arrangePosition();
   }
 
-  // -- persistence ---------------------------------------------------------
+  // -- server snapshots -----------------------------------------------------
 
-  _key() { return `l2vzla.hotbar.${this.charName}`; }
-
-  load(charName) {
-    this.charName = charName || 'default';
-    this.data = {};
-    try {
-      const raw = localStorage.getItem(this._key());
-      const parsed = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(parsed)) {
-        // migrate the invented 10-slot hotbar: entries become page 0
-        parsed.forEach((s, i) => {
-          if (s && ALLOWED_TYPES.has(s.type)) this.data[i] = s;
-        });
-      } else if (parsed && typeof parsed === 'object') {
-        // MEASURED 2026-08-08 (before/after in verify_soulshot.js): this loop
-        // used to read EVERY top-level key as a page, and save() writes page 0
-        // FLAT — `{"0": {type:"item", id:...}}` is slot 0 of page 0, not page
-        // 0. Parsed as a page, its "slots" are the entries of the slot object
-        // ("type" -> "item", "id" -> 268530204), every one of which fails the
-        // ALLOWED_TYPES test, so the whole of page 0 was dropped. Page 0 is
-        // where assignFirstFree() puts everything, so in practice the ENTIRE
-        // bar was wiped on the next load() — which runs at the end of the
-        // enterWorld handler, i.e. on every relog. That is why a soulshot
-        // dragged to the bar was simply gone after relogging.
-        //
-        // The two forms are told apart by the VALUE, not the key: a slot
-        // carries a `type` STRING, a page is a map of slot index -> slot.
-        for (const [key, val] of Object.entries(parsed)) {
-          if (!val || typeof val !== 'object') continue;
-          if (typeof val.type === 'string') {              // flat page-0 slot
-            if (ALLOWED_TYPES.has(val.type) && +key >= 0 && +key < SLOTS_PER_PAGE) {
-              if (!this.data[0]) this.data[0] = {};
-              this.data[0][key] = val;
-            }
-            continue;
-          }
-          if ((+key >= 0) && +key < MAX_PAGE) {            // page -> slots
-            if (!this.data[key]) this.data[key] = {};
-            for (const [i, s] of Object.entries(val)) {
-              if (s && ALLOWED_TYPES.has(s.type) && +i >= 0 && +i < SLOTS_PER_PAGE) {
-                this.data[key][i] = s;
-              }
-            }
-          }
-        }
-      }
-    } catch { /* fresh bar */ }
-    this.render();
-  }
-
-  save() {
-    // Always the NESTED form, page -> {slot -> slot}. The old writer flattened
-    // page 0 into the top level, which is not just unreadable by load() (see
-    // there) but LOSSY on its own terms: page 1's entry and page 0's slot 1
-    // both want the top-level key "1", and the later `out[page] = slots`
-    // overwrote the flat slot. load() still accepts the flat form so a bar
-    // saved by the old writer migrates instead of vanishing.
-    const out = {};
-    for (const [page, slots] of Object.entries(this.data)) {
-      if (slots && Object.keys(slots).length) out[page] = slots;
+  setShortcuts(shortcuts) {
+    if (!Array.isArray(shortcuts) || !shortcuts.every(receivedValid)) return false;
+    const data = {};
+    for (const s of shortcuts) {
+      if (data[s.page]?.[s.slot]) return false;
+      (data[s.page] ||= {})[s.slot] = { ...s };
     }
-    try { localStorage.setItem(this._key(), JSON.stringify(out)); } catch {}
+    this.data = data;
+    this.ready = true;
+    this._pendingSlots.clear();
+    this.render();
+    return true;
+  }
+
+  registerShortcut(shortcut) {
+    if (!receivedValid(shortcut)) return false;
+    const { page, slot } = shortcut;
+    (this.data[page] ||= {})[slot] = { ...shortcut };
+    this._pendingSlots.delete(page * SLOTS_PER_PAGE + slot);
+    this.render();
+    return true;
+  }
+
+  deleteShortcut(page, slot) {
+    if (!positionValid(page, slot)) return false;
+    if (this.data[page]) delete this.data[page][slot];
+    this._pendingSlots.delete(page * SLOTS_PER_PAGE + slot);
+    this.render();
+    return true;
+  }
+
+  refreshItems() { this.render(); }
+
+  /** SkillList is a complete snapshot, including removals and disabled rows.
+   *  Saved shortcuts retain their IDs; level and availability come only
+   *  from this session's server snapshot. */
+  setSkills(skills) {
+    this._skills = new Map(skills.map(s => [s.id, s]));
+    this.render();
+  }
+
+  reset() {
+    this.data = {};
+    this._skills.clear();
+    this._activeToggles.clear();
+    this._activeShots = new Set();
+    this._activeShotItems = new Set();
+    this.ready = false;
+    this._pendingSlots.clear();
+    this.render();
   }
 
   // -- slot model ------------------------------------------------------------
 
+  _pending(page, index) {
+    const key = page * SLOTS_PER_PAGE + index;
+    if ((this._pendingSlots.get(key) || 0) > performance.now()) return true;
+    this._pendingSlots.delete(key);
+    return false;
+  }
+
   assign(page, index, slot) {
-    if (!this.data[page]) this.data[page] = {};
-    if (slot) this.data[page][index] = slot;
-    else delete this.data[page][index];
-    this.save();
-    this.render();
+    if (!this.ready || !positionValid(page, index) || this._pending(page, index)) return false;
+    if (slot) {
+      if (!acceptable(slot) || !Number.isInteger(slot.id) || slot.id < (slot.type === 'action' ? 0 : 1)) return false;
+      const learned = slot.type === 'skill' ? this._skills.get(slot.id) : null;
+      if (slot.type === 'skill' && (!learned || learned.passive || learned.disabled)) return false;
+      if (slot.type === 'item' && itemIdOf(slot.id) == null) return false;
+      if (slot.type === 'recipe' && (!this.getRecipe(slot.id) || !this.canAssignRecipe(slot.id))) return false;
+      if (this.onRegister({ page, slot: index, type: slot.type, id: slot.id, characterType: PLAYER_CHARACTER_TYPE }) === false) return false;
+    } else {
+      // The configured server does not acknowledge deletion of an empty slot.
+      if (!this.data[page]?.[index] || this.onDelete({ page, slot: index }) === false) return false;
+    }
+    this._pendingSlots.set(page * SLOTS_PER_PAGE + index, performance.now() + REQUEST_RESERVATION_MS);
+    // Only ShortCutRegister/Delete changes the displayed binding. Do not copy
+    // browser-local records into the server's per-character/class snapshot.
+    return true;
   }
 
   assignFirstFree(slot) {
-    if (!acceptable(slot)) {
-      // MACRO/RECIPE slots render but reject drops (see header note);
-      // passives are not usable and never reach the bar
-      this.onNote(`shortcut: ${slot.type} slots are not supported yet`);
-      return -1;
-    }
+    if (!this.ready || !acceptable(slot)) return -1;
     for (let p = 0; p < MAX_PAGE; p++) {
       for (let i = 0; i < SLOTS_PER_PAGE; i++) {
-        if (!(this.data[p] && this.data[p][i])) {
-          this.assign(p, i, slot);
-          return p * SLOTS_PER_PAGE + i;
+        if (!this.data[p]?.[i] && !this._pending(p, i)) {
+          return this.assign(p, i, slot) ? p * SLOTS_PER_PAGE + i : -1;
         }
       }
     }
@@ -249,7 +272,12 @@ export class ShortcutWnd {
 
   trigger(page, index) {
     const s = this.data[page] && this.data[page][index];
-    if (!s) return;
+    if (!this.ready || !s || s.characterType !== PLAYER_CHARACTER_TYPE || !ALLOWED_TYPES.has(s.type)) return;
+    if (s.type === 'item' && itemIdOf(s.id) == null) return;
+    if (s.type === 'skill') {
+      const learned = this._skills.get(s.id);
+      if (!learned || learned.disabled || skillType(s.id, learned.passive) === 'PASSIVE') return;
+    }
     // weapon condition (aCis weaponsAllowed): a mismatching skill is inert —
     // the click is swallowed client-side, nothing is sent (retail behavior;
     // the server would reject it anyway)
@@ -260,6 +288,7 @@ export class ShortcutWnd {
     if (s.type === 'skill') this.onUseSkill(s.id);
     else if (s.type === 'item') this.onUseItem(s.id);
     else if (s.type === 'action') this.onUseAction(s.id);
+    else if (s.type === 'recipe' && this.getRecipe(s.id)) this.onUseRecipe(s.id);
   }
 
   triggerF(i) {
@@ -267,19 +296,25 @@ export class ShortcutWnd {
     if (i >= 0 && i < SLOTS_PER_PAGE) this.trigger(this.page, i);
   }
 
-  flipPage(d) {
-    this.page = Math.max(0, Math.min(MAX_PAGE - 1, this.page + d));
+  flipPage(d, row = 0) {
+    // Each original Prev/Next pair wraps its own selected page. Duplicates
+    // are permitted: received bindings update every view of the same page.
+    if (![0, 1, 2].includes(row)) return;
+    const key = ['page', 'page2', 'page3'][row];
+    this[key] = (this[key] + d + MAX_PAGE) % MAX_PAGE;
     this.render();
   }
 
-  toggleExpand() { this.expanded = !this.expanded; this.render(); }
+  toggleExpand() { this.expanded = (this.expanded + 1) % 3; this.render(); }
   toggleRotate() {
+    const old = this._positionRect();
     this.vertical = !this.vertical;
-    // re-dock to the orientation's SOURCED WindowsInfo.ini spot: keeping
-    // the horizontal dock (347,722) parks the 504px-tall vertical bar
-    // off the bottom of the screen
-    this.onDefaultPosition();
     this.render();
+    // ShortcutWnd.OnRotateBtn attaches the newly active bar's BottomRight
+    // to the old bar's BottomRight, then clears that active anchor.
+    const current = this._positionRect();
+    this._setSourcePosition(old.x + old.width - current.width,
+      old.y + old.height - current.height);
   }
   toggleLock() { this.locked = !this.locked; this.render(); }
 
@@ -288,22 +323,29 @@ export class ShortcutWnd {
   // xdat name collisions: PrevBtn/NextBtn/LockBtn/JoypadBtn/ExpandButton
   // are declared PER sub-window (horizontal, vertical, joypad variants).
   // Layout's flat index is last-wins (the joypad record) — the slash-path
-  // lookup (Layout.pos with 'Sub/Control') reaches the record inside OUR
+  // lookup ('Sub/Control') reaches the record inside OUR
   // orientation's sub-window instead.
   _ctrlPos(subName, ctrlName) {
-    return Layout.pos(this.H, `${subName}/${ctrlName}`)
-      || Layout.pos(this.H, ctrlName);   // flat last-wins as last resort
+    const node = Layout.find(this.H, `${subName}/${ctrlName}`);
+    const parent = Layout.find(this.H, subName), p = node?.position;
+    if (!parent || !p || p.target || ![p.selfAnchor, p.targetAnchor].every(a => a >= 1 && a <= 9)) return null;
+    // Original common anchors: PageNumTextBox is CenterLeft horizontally,
+    // TopCenter vertically. Raw XDAT offsets alone are not its position.
+    const own = p.selfAnchor - 1, target = p.targetAnchor - 1;
+    return {
+      x: Math.trunc(parent.width * (target % 3) / 2)
+        - Math.trunc(node.width * (own % 3) / 2) + p.offsetX,
+      y: Math.trunc(parent.height * Math.floor(target / 3) / 2)
+        - Math.trunc(node.height * Math.floor(own / 3) / 2) + p.offsetY,
+    };
   }
 
   /** Same last-wins hazard as _ctrlPos, for the size and texture lookups:
    *  ExpandButton exists in BOTH orientations with DIFFERENT art
    *  (shortcut_expand vs shortcut_expandv), and the flat index returns
-   *  whichever record the file happens to hold last. Resolve by path first. */
+   *  whichever record the file happens to hold last. Resolve only by path. */
   _ctrl(subName, ctrlName, fn) {
-    const hit = subName ? fn(this.H, `${subName}/${ctrlName}`) : null;
-    // Layout.tex returns [] (truthy) for a miss, so emptiness is the test
-    if (hit && !(Array.isArray(hit) && hit.length === 0)) return hit;
-    return fn(this.H, ctrlName);
+    return fn(this.H, subName ? `${subName}/${ctrlName}` : ctrlName);
   }
 
   _btn(ctrlName, onClick, subName) {
@@ -315,6 +357,7 @@ export class ShortcutWnd {
     if (!size || !pos || !tex[0]) return null;
     const el = document.createElement('div');
     el.className = 'shortcut-btn';
+    el.dataset.control = ctrlName;
     el.style.cssText = `position:absolute;left:${Skin.px(pos.x)}px;`
       + `top:${Skin.px(pos.y)}px;width:${Skin.px(size.w)}px;`
       + `height:${Skin.px(size.h)}px;cursor:pointer;`;
@@ -329,6 +372,17 @@ export class ShortcutWnd {
   }
 
   async _slotContent(el, s) {
+    if (!ALLOWED_TYPES.has(s.type) || s.characterType !== PLAYER_CHARACTER_TYPE) {
+      el.title = `${s.type} #${s.id} — unavailable`;
+      return;
+    }
+    if (s.type === 'recipe') {
+      const info = this.getRecipe(s.id);
+      if (!info) { el.title = `Recipe #${s.id} — original metadata unavailable`; return; }
+      el.title = info.name;
+      const img = document.createElement('img'); img.src = info.icon; img.alt = '';
+      el.appendChild(img); return;
+    }
     if (s.type === 'action') {
       const am = await actionMeta();
       const info = actionInfo(am, s.id);
@@ -366,7 +420,8 @@ export class ShortcutWnd {
     // object id through the inventory first (itemIdOf); with no inventory yet
     // there is genuinely no answer, and the "?" fallback stands.
     const itemId = s.type === 'item' ? itemIdOf(s.id) : null;
-    const info = s.type === 'skill' ? skillInfo(sm, s.id)
+    const learned = s.type === 'skill' ? this._skills.get(s.id) : null;
+    const info = s.type === 'skill' ? skillInfo(sm, s.id, learned?.level ?? null)
       : (itemId != null ? itemInfo(im, itemId) : { name: `Item #${s.id}`, icon: null });
     el.title = info.name;
     el.innerHTML = (info.icon ? `<img src="${info.icon}" alt="">`
@@ -391,9 +446,12 @@ export class ShortcutWnd {
     // art gives the same number for both, which is why one field covers both.
     const short = art.slotShort;
     const table = art.slotOrigins;
+    const fArts = this._ctrl(subName, 'F1Tex', Layout.tex).filter(r => Skin.sprite(r));
     for (let i = 0; i < SLOTS_PER_PAGE; i++) {
       const el = document.createElement('div');
       el.className = 'shortcut-slot' + (slots[i] ? '' : ' empty');
+      el.dataset.page = page;
+      el.dataset.slot = i;
       if (slots[i]) { el.dataset.stype = slots[i].type; el.dataset.sid = slots[i].id; }
       const x = vertical ? short : table[i];
       const y = vertical ? table[i] : short;
@@ -406,7 +464,7 @@ export class ShortcutWnd {
       // slot rect on the bar's SHORT axis and flush with it on the long one.
       // The badge is a child of the icon box, which is itself inset into the
       // slot rect, so the delta carries that inset back out.
-      const fArt = this.fArts[i];
+      const fArt = fArts[i];
       const fSize = this._ctrl(subName, 'F1Tex', Layout.size);
       const fPos = this._ctrlPos(subName, 'F1Tex');
       const sPos = this._ctrlPos(subName, 'Shortcut1');
@@ -439,7 +497,14 @@ export class ShortcutWnd {
         e.preventDefault();
         this.assign(page, i, null);   // right-click clears (retail)
       });
-      el.addEventListener('dragover', (e) => e.preventDefault());
+      const acceptBindingDrag = e => {
+        e.preventDefault();
+        // This operation copies a binding; it does not remove the source
+        // item, learned skill/action, or recipe from its window.
+        e.dataTransfer.dropEffect = 'copy';
+      };
+      el.addEventListener('dragenter', acceptBindingDrag);
+      el.addEventListener('dragover', acceptBindingDrag);
       el.addEventListener('drop', (e) => {
         e.preventDefault();
         try {
@@ -487,50 +552,55 @@ export class ShortcutWnd {
     return back;
   }
 
-  _renderBar({ vertical, page, x = 0, y = 0, backRefs, main }) {
+  _renderBar({ vertical, page, row = 0, subName, x = 0, y = 0, backRefs }) {
     const bar = document.createElement('div');
+    bar.className = 'shortcut-page';
+    bar.dataset.row = row;
+    bar.dataset.page = page;
     bar.style.cssText = `position:absolute;left:${Skin.px(x)}px;top:${Skin.px(y)}px;`
       + `width:${Skin.px(vertical ? this.vw : this.w)}px;`
       + `height:${Skin.px(vertical ? this.vh : this.h)}px;overflow:hidden;`;
     bar.appendChild(this._plate(backRefs, vertical));
 
-    const subName = vertical ? 'ShortcutWndVertical' : 'ShortcutWndHorizontal';
     this._renderRow(bar, page, vertical, subName);
 
-    if (main) {
-      // page number on PageNumTextBox's own rect. The lookup MUST be by path:
-      // five sub-windows declare a PageNumTextBox and the flat index is
-      // last-wins (the joypad record, 10,0), which is not the vertical bar's
-      // (0,16). Both rects are the xdat's; neither is padded by hand.
+    {
+      // Page labels use their own source anchor, dimensions and alignment.
+      // Raw offsets (10,0)/(0,16) are not their final parent-local positions.
       const ppos = this._ctrlPos(subName, 'PageNumTextBox');
-      const pSize = this._ctrl(subName, 'PageNumTextBox', Layout.size)
-        || { w: 20, h: 10 };
-      if (ppos) {
+      const pSize = this._ctrl(subName, 'PageNumTextBox', Layout.size);
+      if (ppos && pSize) {
         const pnum = document.createElement('div');
+        pnum.dataset.control = 'PageNumTextBox';
+        pnum.setAttribute('aria-label', String(page + 1));
         pnum.style.cssText = 'position:absolute;pointer-events:none;'
           + `left:${Skin.px(ppos.x)}px;top:${Skin.px(ppos.y)}px;`
           + `width:${Skin.px(pSize.w)}px;height:${Skin.px(pSize.h)}px;`;
-        Font.set(pnum, `${this.page + 1}/${MAX_PAGE}`, {
+        pnum.style.textAlign = Layout.find(this.H, `${subName}/PageNumTextBox`)?.align || '';
+        Font.set(pnum, String(page + 1), {
           color: Layout.color(this.H, `${subName}/PageNumTextBox`)
             || PAGE_COLOR_FALLBACK,
         });
         bar.appendChild(pnum);
       }
 
-      for (const [ctrl, fn] of [
-        ['NextBtn', () => this.flipPage(1)],
-        ['PrevBtn', () => this.flipPage(-1)],
-        [this.expanded ? 'ReduceButton' : 'ExpandButton', () => this.toggleExpand()],
+      const suffix = row ? String(row + 1) : '';
+      const controls = [
+        [`NextBtn${suffix}`, () => this.flipPage(1, row)],
+        [`PrevBtn${suffix}`, () => this.flipPage(-1, row)],
+      ];
+      if (row === 0) controls.push(
+        [this.expanded === 2 ? 'ReduceButton' : 'ExpandButton', () => this.toggleExpand()],
         ['RotateBtn', () => this.toggleRotate()],
-        [this.locked ? 'UnlockBtn' : 'LockBtn', () => this.toggleLock()],
-      ]) {
+        [this.locked ? 'LockBtn' : 'UnlockBtn', () => this.toggleLock()],
+      );
+      for (const [ctrl, fn] of controls) {
         const b = this._btn(ctrl, fn, subName);
         if (b) bar.appendChild(b);
       }
-      // JoypadBtn exists in the layout but is disabled — AUTHORED: the
-      // joypad bar modes are not wired (no joypad input in a browser).
-      const j = this._btn('JoypadBtn', () => {}, subName);
-      if (j) { j.classList.add('disabled'); j.title = 'Joypad mode: not supported'; bar.appendChild(j); }
+      // Original ArrangeWnd hides JoypadBtn until EV_ShortcutJoypad enables
+      // it. That separate controller lifecycle is not ported; an authored
+      // disabled icon must not cover the ordinary expansion control.
     }
     return bar;
   }
@@ -540,36 +610,38 @@ export class ShortcutWnd {
     const vertical = this.vertical;
     const sub = vertical ? 'ShortcutWndVertical' : 'ShortcutWndHorizontal';
     const bar = this._renderBar({
-      vertical, page: this.page, backRefs: Layout.tex(this.H, sub), main: true,
+      vertical, page: this.page, subName: sub, backRefs: Layout.tex(this.H, sub),
     });
     this.root.appendChild(bar);
 
-    // expanded: two more rows above, because ShortcutWndHorizontal_1 and _2
-    // are the only expanded-row sub-windows Interface.xdat declares --
-    // and WindowsInfo.ini agrees, carrying _1/_2 and nothing beyond.
-    if (this.expanded && !vertical) {
-      for (let r = 2; r >= 1; r--) {
+    // Original fixed-direction drawers attach to the preceding window.
+    // This uses their completed positions; the native slide transition is
+    // still a parity gap. No guessed vertical or horizontal spacing.
+    let x = 0, y = 0, owner = sub;
+    if (this.expanded) {
+      for (let r = 1; r <= this.expanded; r++) {
+        const subName = `${sub}_${r}`, source = Layout.find(this.H, subName);
+        const drawer = source?.drawer;
+        if (drawer?.owner !== owner || drawer.fixed !== 1
+            || ![1, 3].includes(drawer.direction) || !Number.isFinite(drawer.offset)) break;
+        if (drawer.direction === 1) { x -= Math.trunc(source.width); y += drawer.offset; }
+        else { x += drawer.offset; y -= Math.trunc(source.height); }
         const row = this._renderBar({
-          vertical: false, page: Math.min(MAX_PAGE - 1, this.page + r),
-          y: -this.h * r,
-          backRefs: Layout.tex(this.H, `ShortcutWndHorizontal_${r}`),
-          main: false,
+          vertical, page: r === 1 ? this.page2 : this.page3, row: r, subName, x, y,
+          backRefs: Layout.tex(this.H, subName),
         });
         this.root.appendChild(row);
+        owner = subName;
       }
     }
 
     const totalW = vertical ? this.vw : this.w;
-    // 3 rows = the main bar plus the two the xdat declares (see render()).
-    const totalH = vertical ? this.vh : this.h * (this.expanded ? 3 : 1);
+    const totalH = vertical ? this.vh : this.h;
     this.root.style.width = `${Skin.px(totalW)}px`;
     this.root.style.height = `${Skin.px(totalH)}px`;
-    if (this.expanded && !vertical) {
-      // keep the main row in place: shift the root up by the extra rows
-      this.root.style.marginTop = `${Skin.px(-this.h * 2)}px`;
-    } else {
-      this.root.style.marginTop = '0';
-    }
+    // Original Expand1/Expand2/Reduce show/hide other windows; they do not
+    // move the main bar. Extra browser rows have their own local positions.
+    this.root.style.marginTop = '0';
     this._applyToggleMarks();
   }
 
@@ -643,9 +715,11 @@ export class ShortcutWnd {
   _applyWeaponMarks() {
     const gate = this._weaponGate;
     for (const el of this.root.querySelectorAll('.shortcut-slot[data-stype="skill"]')) {
-      const blocked = !!(gate && !gate.allows(+el.dataset.sid));
+      const id = +el.dataset.sid, learned = this._skills.get(id);
+      const blocked = !!(gate && !gate.allows(id));
+      const unavailable = !learned || learned.disabled || skillType(id, learned.passive) === 'PASSIVE';
       el.classList.toggle('l2-weapon-mismatch', blocked);
-      el.style.opacity = blocked ? '0.4' : '';
+      el.style.opacity = blocked || unavailable ? '0.4' : '';
     }
   }
 
@@ -669,20 +743,73 @@ export class ShortcutWnd {
     }
   }
 
-  /** WndMgr reset: the dock is READ from the client's own WindowsInfo.ini
-   *  ([ShortcutWndHorizontal] / [ShortcutWndVertical]) through Layout.dock(),
-   *  in absolute retail px at 1024x768 — Skin.px applies the uiScale, and
-   *  retail does not scale its UI with resolution. If the harvest is missing
-   *  the bar keeps its current spot rather than jumping to a typed one. */
+  _positionRect() {
+    const x = parseFloat(this.root.style.left) / Skin.scale;
+    const y = parseFloat(this.root.style.top) / Skin.scale;
+    const rendered = this.root.getBoundingClientRect();
+    // The native test is against the active main bar, not its extra pages.
+    return { x: Number.isFinite(x) ? x : rendered.left / Skin.scale,
+      y: Number.isFinite(y) ? y : rendered.top / Skin.scale,
+      width: this.vertical ? this.vw : this.w, height: this.vertical ? this.vh : this.h };
+  }
+
+  _parentRect() {
+    return { x: 0, y: 0, width: window.innerWidth / Skin.scale,
+      height: window.innerHeight / Skin.scale };
+  }
+
+  _setSourcePosition(x, y) {
+    this.root.style.right = 'auto';
+    this.root.style.bottom = 'auto';
+    this.root.style.left = `${Skin.px(x)}px`;
+    this.root.style.top = `${Skin.px(y)}px`;
+  }
+
+  _arrangePosition() {
+    // Ordinary (non-joypad) ShortcutWnd.ArrangeWnd corrects only this axis.
+    const rect = this._positionRect();
+    if (this.vertical && rect.y < 0) this._setSourcePosition(rect.x, 0);
+    else if (!this.vertical && rect.x < 0) this._setSourcePosition(0, rect.y);
+  }
+
+  _initialPosition() {
+    // WindowsInfo contains saved absolute positions, not reset defaults.
+    const saved = Layout.dock(this.vertical ? 'ShortcutWndVertical' : 'ShortcutWndHorizontal');
+    if (saved && [saved.x, saved.y].every(Number.isFinite)) {
+      this._setSourcePosition(saved.x, saved.y);
+      return;
+    }
+    // Original XDAT creates Vertical at CenterRight and Horizontal at the
+    // Vertical bar's BottomRight. The qualified reset record has that same
+    // vertical anchor; no numeric screen coordinates are substituted.
+    const vertical = defaultWindowPosition(this.defaultPositionRule,
+      { x: 0, y: 0, width: this.vw, height: this.vh }, this._parentRect());
+    if (!vertical) return;
+    this._setSourcePosition(this.vertical ? vertical.x : vertical.x + this.vw - this.w,
+      this.vertical ? vertical.y : vertical.y + this.vh - this.h);
+  }
+
+  /** Original full reset: collapse, select Vertical and reset page numbers.
+   *  The browser merges native sub-windows, so offscreen repair explicitly
+   *  invokes this script reset. This does not claim the native Horizontal
+   *  missing-default fallback (see docs/native-shortcut-evidence.md). */
   onDefaultPosition() {
-    const el = this.root;
-    const d = Layout.dock(this.vertical
-      ? 'ShortcutWndVertical' : 'ShortcutWndHorizontal');
-    if (!d) return;
-    el.style.right = 'auto';
-    el.style.bottom = 'auto';
-    el.style.left = `${Skin.px(d.x)}px`;
-    el.style.top = `${Skin.px(d.y)}px`;
+    this.expanded = 0;
+    this.vertical = true;
+    this.page = 0;
+    this.page2 = 1;
+    this.page3 = 2;
+    this.render();
+    const resolved = defaultWindowPosition(this.defaultPositionRule,
+      this._positionRect(), this._parentRect());
+    if (resolved) this._setSourcePosition(resolved.x, resolved.y);
+    this._arrangePosition();
+  }
+
+  repairPosition() {
+    if (this.defaultPositionRule && !windowCornerInside(this._positionRect(), this._parentRect())) {
+      this.onDefaultPosition();
+    }
   }
 
   place(o = {}) {

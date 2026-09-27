@@ -178,7 +178,8 @@ export class Geodata {
    *
    *  maxUp (L2 units, optional): walking rule — a walker may only GAIN
    *  maxUp in one step (capped at MAX_STEP_UP, the aCis per-cell limit);
-   *  layers above z + step are walls, not floors.
+   *  layers at or above z + step are walls, not floors (aCis getIndexBelow
+   *  uses a strict inequality).
    *  Among the remaining candidates the HIGHEST is the floor. When NO
    *  layer is within reach (walking into a wall/cliff face) the walker is
    *  blocked: the result is z itself, so height never snaps up mid-walk.
@@ -192,7 +193,7 @@ export class Geodata {
       const step = Math.min(maxUp, MAX_STEP_UP);
       let floor = null;
       for (const l of layers) {
-        if (l.height <= z + step && (floor == null || l.height > floor)) {
+        if (l.height < z + step && (floor == null || l.height > floor)) {
           floor = l.height;
         }
       }
@@ -202,7 +203,10 @@ export class Geodata {
     let best = layers[0].height, bestD = Math.abs(layers[0].height - z);
     for (let i = 1; i < layers.length; i++) {
       const d = Math.abs(layers[i].height - z);
-      if (d < bestD) { bestD = d; best = layers[i].height; }
+      // aCis BlockMultilayer.getIndexNearest resolves a midpoint downward.
+      if (d < bestD || (d === bestD && layers[i].height < best)) {
+        bestD = d; best = layers[i].height;
+      }
     }
     return best;
   }
@@ -283,8 +287,11 @@ export class Geodata {
   /** NSWE passage check between ADJACENT cells (consumed by the NavGrid
    *  edge tests below — the aCis canMove from-cell check, `nswe & dir`,
    *  GeoEngine.java:892). A bit in the FROM cell's nswe flags allows
-   *  moving OUT of the cell that way. */
-  passable(fromX, fromY, toX, toY) {
+   *  moving OUT of the cell that way. z is in the raw geodata frame, not
+   *  the rendered/anchored foot height. Omit it to use the lowest floor,
+   *  matching heightAt's z-less lookup. Diagonal callers must check each
+   *  crossed edge; NavGrid walks the cells in server order below. */
+  passable(fromX, fromY, toX, toY, z = null) {
     const layers = this._layersAt(fromX, fromY);
     if (!layers || !layers.length) return false;
     const fx = Math.floor((fromX - this.origin[0]) / this.cellSize + CELL_EPS);
@@ -297,7 +304,9 @@ export class Geodata {
     else if (dy > 0) flag = 0x4;   // S
     else if (dy < 0) flag = 0x8;   // N
     else return true;              // same cell
-    return (layers[0].nswe & flag) !== 0;
+    const height = this.heightAt(fromX, fromY, z);
+    const layer = layers.find(l => l.height === height);
+    return !!layer && (layer.nswe & flag) !== 0;
   }
 
   /** Decoded-block count and rough bytes held (perf reporting). */
@@ -332,13 +341,11 @@ function decodeWord(w) {
 // geodata has loaded); points without geodata are blocked, so a path never
 // leaves loaded ground and the caller re-paths when more of it lands.
 //
-// An edge between nav cells is walkable when the underlying geodata allows
-// the walk, mirroring aCis canMove (GeoEngine.java:892-913):
-//   * nswe: the FROM cell's exit flag across the shared boundary, sampled
-//     between the two geodata cells straddling the boundary midpoint;
-//   * height: the walking rule (heightAt with maxUp = MAX_STEP_UP) against
-//     the path's CURRENT z — layers above z + step are walls, descents are
-//     unbounded, and bridges/underpasses resolve exactly like walking does.
+// An edge between nav cells visits the underlying geodata cells, mirroring
+// aCis canMove (GeoEngine.java:892-913): the current FLOOR supplies each
+// from-cell exit flag, and the next floor must be below z + MAX_STEP_UP.
+// Descents are unbounded; the floor is part of each A* state, so a bridge
+// and its underpass can both be visited at the same horizontal coordinates.
 //   Diagonals additionally require both orthogonal edges (no cutting wall
 //   corners).
 //
@@ -353,6 +360,7 @@ export const NAV_CELL = 128;          // L2 units per nav cell
 const NAV_MAX_EXPANSIONS = 60000;     // A* work caps per click
 const NAV_TIME_MS = 150;
 const NAV_SMOOTH_MS = 300;            // separate cap for string pulling
+const NAV_FINE_EXTENT = 1024;          // operational local-search bound, not a movement rule
 const NAV_GOAL_SNAP_RINGS = 4;        // click on a wall -> walk next to it
 
 export class NavGrid {
@@ -369,78 +377,107 @@ export class NavGrid {
     const geo = this.geoAt(x, y);
     if (!geo) return null;
     const lowest = geo.heightAt(x, y);              // z-less: lowest layer
-    if (lowest == null || lowest > z + MAX_STEP_UP) return null;
+    if (lowest == null || lowest >= z + MAX_STEP_UP) return null;
     return geo.heightAt(x, y, z, MAX_STEP_UP);
-  }
-
-  // nswe across one axis of a nav-cell boundary: sampled between the
-  // geodata cells straddling the boundary midpoint (NAV_CELL/2 from the
-  // from-cell center, half a geodata cell to each side).
-  _exitOpen(cx, cy, dx, dy) {
-    const mx = cx + dx * NAV_CELL / 2, my = cy + dy * NAV_CELL / 2;
-    const fx = mx - dx * 8, fy = my - dy * 8;
-    const geo = this.geoAt(fx, fy);
-    return geo != null && geo.passable(fx, fy, mx + dx * 8, my + dy * 8);
   }
 
   // Edge from nav cell (ix, iy) toward (dx, dy) (each in {-1,0,1}, not
   // both 0), walked at height z: the target cell's floor z, or null.
-  _trans(ix, iy, z, dx, dy) {
-    const cx = ix * NAV_CELL + NAV_CELL / 2;
-    const cy = iy * NAV_CELL + NAV_CELL / 2;
-    if (!this._exitOpen(cx, cy, dx, 0)) return null;
-    if (!this._exitOpen(cx, cy, 0, dy)) return null;
+  _trans(ix, iy, z, dx, dy, cellSize = NAV_CELL) {
+    const cx = ix * cellSize + cellSize / 2;
+    const cy = iy * cellSize + cellSize / 2;
+    const from = { x: cx, y: cy, z };
     if (dx && dy) {
-      // corner-cut guard: both orthogonal neighbors must be floors too
-      if (this._floorAt(cx + dx * NAV_CELL, cy, z) == null) return null;
-      if (this._floorAt(cx, cy + dy * NAV_CELL, z) == null) return null;
+      // Preserve the corner-cut guard, including each floor's exit flags.
+      if (this._lineOk(from, { x: cx + dx * cellSize, y: cy }) == null) return null;
+      if (this._lineOk(from, { x: cx, y: cy + dy * cellSize }) == null) return null;
     }
-    return this._floorAt(cx + dx * NAV_CELL, cy + dy * NAV_CELL, z);
+    // Check the intervening 16-unit cells too. A staircase can gain more
+    // than 48 over a nav cell while each individual step remains legal.
+    return this._lineOk(from, { x: cx + dx * cellSize, y: cy + dy * cellSize });
   }
 
   // Straight-line walkability between world points a{x,y,z} and b{x,y},
-  // checked at GEODATA resolution (16u steps) — the exact rule the walker
-  // (and aCis canMove) applies per crossed cell: from-cell nswe + the
-  // walking-rule layer pick. This is what makes the emitted legs honest:
-  // the coarse edge tests are only samples, so every line the character
-  // will actually walk is re-validated here. Returns the floor z reached
-  // at b, or null when the line is blocked.
+  // Visit crossed cells in aCis GeoEngine.canMove order (integer world
+  // coordinates, positive cell border at +15). Distance-based sampling can
+  // skip an orthogonal cell at a diagonal corner, missing its wall flags.
+  // With b.z supplied, arriving below/above its requested floor is failure.
   _lineOk(a, b) {
-    const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 16));
-    let z = a.z, px = a.x, py = a.y;
-    for (let i = 1; i <= n; i++) {
-      const x = a.x + (b.x - a.x) * i / n;
-      const y = a.y + (b.y - a.y) * i / n;
+    const ox = Math.round(a.x), oy = Math.round(a.y);
+    const tx = Math.round(b.x), ty = Math.round(b.y);
+    let cx = Math.floor(ox / 16), cy = Math.floor(oy / 16);
+    const gx = Math.floor(tx / 16), gy = Math.floor(ty / 16);
+    const sx = Math.sign(gx - cx), sy = Math.sign(gy - cy);
+    const slope = (ty - oy) / (tx - ox);
+    let z = this.geoAt(ox, oy)?.heightAt(ox, oy, a.z);
+    if (z == null) return null;
+    while (cx !== gx || cy !== gy) {
+      const px = cx * 16 + 8, py = cy * 16 + 8;
+      const checkX = cx * 16 + (sx >= 0 ? 15 : 0);
+      const checkY = Math.trunc(oy + slope * (checkX - ox));
+      if (cx !== gx && sx && Math.floor(checkY / 16) === cy) cx += sx;
+      else if (cy !== gy) cy += sy;
+      else cx += sx;
+      const x = cx * 16 + 8, y = cy * 16 + 8;
       const geo = this.geoAt(px, py);
-      if (!geo || !geo.passable(px, py, x, y)) return null;
+      if (!geo || !geo.passable(px, py, x, y, z)) return null;
       z = this._floorAt(x, y, z);
       if (z == null) return null;
-      px = x; py = y;
     }
+    if (b.z != null && z !== this.geoAt(tx, ty)?.heightAt(tx, ty, b.z)) return null;
     return z;
   }
 
   // A* from (sx, sy, sz) to (gx, gy, gz), world L2 coords. Returns
   // {points: [{x, y, z}], complete, expansions, ms} (points smoothed by
-  // string pulling, first = exact start, last = exact goal when complete),
+  // string pulling on coarse routes; fine fallback retains source-cell turns.
+  // First = exact start, last = exact goal when complete),
   // or null when there is no route at all.
   findPath(sx, sy, sz, gx, gy, gz) {
-    const t0 = performance.now();
-    const six = Math.floor(sx / NAV_CELL), siy = Math.floor(sy / NAV_CELL);
-    // start must stand on loaded, walkable ground
-    if (this._floorAt(sx, sy, sz) == null) return null;
+    const started = performance.now();
+    const coarse = this._findPath(sx, sy, sz, gx, gy, gz);
+    if (coarse?.complete) return coarse;
+    // A coarse center can miss a real narrow staircase. Retry only the local
+    // unfinished tail at the configured geodata's 16-unit resolution. Keep the
+    // existing unloaded-goal policy and coarse partial path if this bounded
+    // search fails; this is a route-planner choice, not native-client parity.
+    const targetX = Math.round(gx), targetY = Math.round(gy);
+    if (this.geoAt(targetX, targetY)?.heightAt(targetX, targetY, gz) == null) return coarse;
+    const tail = coarse?.points.at(-1) || { x: sx, y: sy, z: sz };
+    if (Math.abs(gx - tail.x) > NAV_FINE_EXTENT || Math.abs(gy - tail.y) > NAV_FINE_EXTENT) return coarse;
+    const fine = this._findPath(tail.x, tail.y, tail.z, gx, gy, gz, 16);
+    if (!fine?.complete) return coarse;
+    return {
+      ...fine, points: [...(coarse?.points.slice(0, -1) || []), ...fine.points],
+      expansions: (coarse?.expansions || 0) + fine.expansions,
+      ms: performance.now() - started, fineFallback: true,
+    };
+  }
 
-    // goal snap: a click ON a wall aims at the nearest walkable cell
-    let gix = Math.floor(gx / NAV_CELL), giy = Math.floor(gy / NAV_CELL);
-    if (this._floorAt(gx, gy, gz) == null) {
+  _findPath(sx, sy, sz, gx, gy, gz, cellSize = NAV_CELL) {
+    const t0 = performance.now();
+    // Use the same integer world coordinates as _lineOk. Browser coordinate
+    // round trips can land just below a source-cell border; flooring that
+    // noise would seed an adjacent wall even though the line checker rounds.
+    const ox = Math.round(sx), oy = Math.round(sy), tx = Math.round(gx), ty = Math.round(gy);
+    const six = Math.floor(ox / cellSize), siy = Math.floor(oy / cellSize);
+    // Match Java canMove's initial getHeightNearest. The caller may supply
+    // rendered feet ~30 units below a layer; path state stays in raw geodata.
+    sz = this.geoAt(ox, oy)?.heightAt(ox, oy, sz);
+    if (sz == null) return null;
+
+    // A click beyond loaded geodata aims at the nearest loaded walkable cell.
+    let gix = Math.floor(tx / cellSize), giy = Math.floor(ty / cellSize);
+    const goalHeight = this.geoAt(tx, ty)?.heightAt(tx, ty, gz);
+    if (goalHeight == null) {
       let found = null;
       for (let r = 1; r <= NAV_GOAL_SNAP_RINGS && !found; r++) {
         for (let dy = -r; dy <= r && !found; dy++) {
           for (let dx = -r; dx <= r && !found; dx++) {
             if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
             const nx = gix + dx, ny = giy + dy;
-            if (this._floorAt(nx * NAV_CELL + NAV_CELL / 2,
-                              ny * NAV_CELL + NAV_CELL / 2, gz) != null) {
+            if (this._floorAt(nx * cellSize + cellSize / 2,
+                              ny * cellSize + cellSize / 2, gz) != null) {
               found = [nx, ny];
             }
           }
@@ -448,18 +485,30 @@ export class NavGrid {
       }
       if (!found) return null;
       [gix, giy] = found;
+      gx = gix * cellSize + cellSize / 2;
+      gy = giy * cellSize + cellSize / 2;
+      gz = this._floorAt(gx, gy, gz);
+    } else {
+      gz = goalHeight;
     }
 
-    const key = (ix, iy) => (ix + 8192) * 32768 + (iy + 8192);
+    const start = { x: sx, y: sy, z: sz }, goal = { x: gx, y: gy, z: gz };
+    if (six === gix && siy === giy && this._lineOk(start, goal) != null) {
+      return { points: [start, goal], complete: true, expansions: 0, ms: performance.now() - t0 };
+    }
+    // A bridge and its underpass share x/y but are different graph states.
+    const key = (ix, iy, z) => `${ix},${iy},${z}`;
+    // The actual start is a separate graph endpoint. A coarse cell's center
+    // may be behind a wall, or on another floor, even inside the same cell.
+    const startKey = 'start';
     const hOct = (ix, iy) => {
       const dx = Math.abs(ix - gix), dy = Math.abs(iy - giy);
       return Math.max(dx, dy) + 0.4142 * Math.min(dx, dy);
     };
-    const gScore = new Map([[key(six, siy), 0]]);
+    const gScore = new Map();
     const cameFrom = new Map();
-    const zAt = new Map([[key(six, siy), sz]]);
     const closed = new Set();
-    const heap = [[hOct(six, siy), key(six, siy)]];   // [f, key] binary heap
+    const heap = [];   // [f, key] binary heap
     const push = (item) => {
       heap.push(item);
       for (let i = heap.length - 1; i > 0;) {
@@ -486,8 +535,27 @@ export class NavGrid {
       return top;
     };
 
-    const GOAL = key(gix, giy);
-    let bestKey = key(six, siy), bestH = hOct(six, siy);
+    // Connect only centers reachable from the actual position. Checking the
+    // surrounding cells allows an off-center walker to leave through an open
+    // side when its own center is obstructed. No endpoint is silently moved.
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        // Fine search starts at its own source-cell center, so no initial
+        // diagonal connector can erase a required cardinal turn.
+        if (cellSize === 16 && (dx || dy)) continue;
+        const ix = six + dx, iy = siy + dy;
+        const x = ix * cellSize + cellSize / 2;
+        const y = iy * cellSize + cellSize / 2;
+        const z = this._lineOk(start, { x, y });
+        if (z == null) continue;
+        const k = key(ix, iy, z), cost = Math.hypot(x - sx, y - sy) / cellSize;
+        gScore.set(k, cost);
+        cameFrom.set(k, startKey);
+        push([cost + hOct(ix, iy), k]);
+      }
+    }
+
+    let bestKey = startKey, bestH = hOct(six, siy);
     let expansions = 0, complete = false;
     while (heap.length) {
       const [, ck] = pop();
@@ -495,44 +563,59 @@ export class NavGrid {
       closed.add(ck);
       if (++expansions > NAV_MAX_EXPANSIONS) break;
       if ((expansions & 1023) === 0 && performance.now() - t0 > NAV_TIME_MS) break;
-      if (ck === GOAL) { complete = true; bestKey = ck; break; }
-      const cix = Math.floor(ck / 32768) - 8192, ciy = ck % 32768 - 8192;
+      const [cix, ciy, cz] = ck.split(',').map(Number);
+      if (cix === gix && ciy === giy && this._lineOk({
+        x: cix * cellSize + cellSize / 2, y: ciy * cellSize + cellSize / 2, z: cz,
+      }, goal) != null) { complete = true; bestKey = ck; break; }
       const ch = hOct(cix, ciy);
       if (ch < bestH) { bestH = ch; bestKey = ck; }
-      const cz = zAt.get(ck), cg = gScore.get(ck);
+      const cg = gScore.get(ck);
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           if (!dx && !dy) continue;
-          const nz = this._trans(cix, ciy, cz, dx, dy);
+          if (cellSize === 16 && dx && dy) continue; // preserve fine-cell cardinal turns
+          const x = (cix + dx) * cellSize + cellSize / 2;
+          const y = (ciy + dy) * cellSize + cellSize / 2;
+          if (cellSize === 16 && (Math.abs(x - sx) > NAV_FINE_EXTENT
+              || Math.abs(y - sy) > NAV_FINE_EXTENT)) continue;
+          const nz = this._trans(cix, ciy, cz, dx, dy, cellSize);
           if (nz == null) continue;
-          const nk = key(cix + dx, ciy + dy);
+          const nk = key(cix + dx, ciy + dy, nz);
           if (closed.has(nk)) continue;
           const ng = cg + (dx && dy ? 1.4142 : 1);
           if (ng < (gScore.get(nk) ?? Infinity)) {
             gScore.set(nk, ng);
             cameFrom.set(nk, ck);
-            zAt.set(nk, nz);
             push([ng + hOct(cix + dx, ciy + dy), nk]);
           }
         }
       }
     }
 
-    if (!complete && bestKey === key(six, siy)) return null;   // zero progress
+    if (!complete && bestKey === startKey) return null;   // zero progress
 
     // reconstruct (world points at cell centers, z = path floor per node)
     const cells = [];
-    for (let ck = bestKey; ck != null; ck = cameFrom.get(ck)) {
-      const cix = Math.floor(ck / 32768) - 8192, ciy = ck % 32768 - 8192;
+    for (let ck = bestKey; ck != null && ck !== startKey; ck = cameFrom.get(ck)) {
+      const [cix, ciy, z] = ck.split(',').map(Number);
       cells.push({
-        x: cix * NAV_CELL + NAV_CELL / 2,
-        y: ciy * NAV_CELL + NAV_CELL / 2,
-        z: zAt.get(ck),
+        x: cix * cellSize + cellSize / 2,
+        y: ciy * cellSize + cellSize / 2,
+        z,
       });
     }
     cells.reverse();
-    cells[0] = { x: sx, y: sy, z: sz };
-    if (complete) cells[cells.length - 1] = { x: gx, y: gy, z: gz };
+    cells.unshift(start);
+    // The final center-to-click turn is a checked edge too; replacing the
+    // center can create a blocked shortcut, or erase start on a one-node path.
+    if (complete) cells.push(goal);
+
+    // Fine fallback retains every source-cell turn. Static long-line validity
+    // does not imply validity of the server's rounded incremental positions.
+    if (cellSize === 16) return {
+      points: cells.filter((p, i) => !i || p.x !== cells[i-1].x || p.y !== cells[i-1].y || p.z !== cells[i-1].z),
+      complete, expansions, ms: performance.now() - t0,
+    };
 
     // string pulling: drop every waypoint the walker can skip in a
     // straight line — every emitted segment is re-validated at geodata

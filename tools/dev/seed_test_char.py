@@ -5,7 +5,8 @@ The browser client's windows are only meaningful with a populated character:
 an EXP bar needs a level, the skill window needs skills, the inventory needs
 items of several types, and the status window needs real HP/MP/CP.
 
-Everything written here comes from the SERVER'S OWN DATA, never invented:
+This deliberately artificial fixture uses configured server tables for identifiers
+and level/skill lookups; kit quantities and GM state do not prove normal progression:
 
   level -> exp      data/xml/playerLevels.xml   (requiredExpToLevelUp)
   skills            data/xml/classes/<class>.xml (<skill id lvl minLvl>)
@@ -23,10 +24,14 @@ Two safety rules, both learned from how aCis works:
      later be handed out twice. This script allocates above the current
      maximum and tells you to restart.
 
+Configuration (required, no defaults):
+  L2_DB_DEFAULTS_FILE: absolute path to a private MariaDB [client] option file
+  L2_DB_NAME: explicit target database name
+
 Usage:
-  python3 tools/dev/seed_test_char.py W4b2ab13b8ff              # dry run
-  python3 tools/dev/seed_test_char.py W4b2ab13b8ff --apply
-  python3 tools/dev/seed_test_char.py W4b2ab13b8ff --level 40 --gm --apply
+  python3 tools/dev/seed_test_char.py YOUR_EXISTING_TEST_CHARACTER              # dry run
+  python3 tools/dev/seed_test_char.py YOUR_EXISTING_TEST_CHARACTER --apply
+  python3 tools/dev/seed_test_char.py YOUR_EXISTING_TEST_CHARACTER --level 40 --gm --apply
 """
 
 import argparse
@@ -42,7 +47,6 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 DATA = os.path.join(REPO, "server/aCis_gameserver/build/dist/gameserver/data/xml")
 ITEMNAMES = os.path.join(REPO, "assets/gamedata/itemname.json")
 BACKUPS = os.path.join(REPO, "server/seed-backups")
-DB = ["-u", "l2j", "-pl2jpass", "l2jdb"]
 
 # A deliberately broad kit: several item TYPES so the inventory's tabs,
 # weight bar, adena row and stack counts all have something to show.
@@ -62,11 +66,28 @@ KIT = [
 ]
 
 
+def db_args(environ=None):
+    """Validate explicit local connection settings without reading credentials."""
+    env = os.environ if environ is None else environ
+    values = {}
+    for name in ("L2_DB_DEFAULTS_FILE", "L2_DB_NAME"):
+        value = env.get(name)
+        if not isinstance(value, str) or not value.strip() or "\0" in value:
+            sys.exit(f"Set {name} explicitly before using this database helper")
+        values[name] = value
+    path = values["L2_DB_DEFAULTS_FILE"]
+    if not os.path.isabs(path):
+        sys.exit("L2_DB_DEFAULTS_FILE must be an absolute private option-file path")
+    if not os.path.isfile(path) or not os.access(path, os.R_OK):
+        sys.exit("L2_DB_DEFAULTS_FILE must name a readable private option file")
+    return [f"--defaults-file={path}", f"--database={values['L2_DB_NAME']}"]
+
+
 def sql(query, tabular=False):
-    args = ["mariadb"] + DB + (["-e", query] if tabular else ["-N", "-B", "-e", query])
+    args = ["mariadb"] + db_args() + (["-e", query] if tabular else ["-N", "-B", "-e", query])
     r = subprocess.run(args, capture_output=True, text=True)
     if r.returncode:
-        sys.exit(f"mariadb failed: {r.stderr.strip()}")
+        sys.exit(f"mariadb failed (exit {r.returncode}); check the private connection configuration")
     return r.stdout.strip()
 
 
@@ -171,8 +192,9 @@ def main():
     os.makedirs(BACKUPS, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
     backup = os.path.join(BACKUPS, f"{args.char_name}-{stamp}.sql")
+    dump_config = db_args()
     subprocess.run(
-        ["mysqldump"] + DB[:-1] + ["l2jdb", "characters", "character_skills", "items",
+        ["mysqldump", dump_config[0], dump_config[1].split("=", 1)[1], "characters", "character_skills", "items",
                                    "--where", f"1 LIMIT 0"],
         stdout=open(os.devnull, "w"), stderr=subprocess.DEVNULL)
     with open(backup, "w") as f:

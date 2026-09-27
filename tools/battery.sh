@@ -39,7 +39,10 @@ PASS=0; FAIL=0; SKIP=0
 FAILED=(); RETRIED=(); TIMEDOUT=(); SKIPPED=()
 
 # ---------------------------------------------------------------------------
-# THE SUITE TABLE.  section|name|dir|timeout_s|script|args...
+# THE SUITE TABLE.  section|name|dir|timeout_s|script|arg1|arg2|...
+# Each argument gets its own field. Fields are passed literally, never split
+# as shell commands. A positional value may contain spaces; option fields
+# must not bundle flags or their values together with whitespace.
 #
 # section: mock  needs the shared mock gateways on 8085/8086/8087
 #          solo  needs only the dev server on 8083 (or nothing at all)
@@ -72,7 +75,7 @@ SUITES=(
 "mock|verify_skillanim|editor/world|360|verify_skillanim.js"
 "mock|verify_skilldepth|editor/world|360|verify_skilldepth.js"
 "mock|verify_skillvfx|editor/world|300|verify_skillvfx.js"
-"mock|verify_skillphase|editor/world|360|verify_skillphase.js|--check --browser"
+"mock|verify_skillphase|editor/world|360|verify_skillphase.js|--check|--browser"
 "mock|verify_clanwnd|editor/world|300|verify_clanwnd.js"
 "mock|verify_shopwnd|editor/world|300|verify_shopwnd.js"
 "mock|verify_storewnd|editor/world|300|verify_storewnd.js"
@@ -109,6 +112,96 @@ SUITES=(
 # this one harness defect. Keep this row FIRST in `solo`: it is 0.1 s and it
 # tells you the live section is worth running at all.
 "solo|verify_livefixture|editor/world|60|live_fixture.js|--check"
+# Isolated runner fixtures: no dev server, shared mocks, or database.
+"solo|verify_battery_runner|tools|60|test_battery.js|--check"
+"solo|verify_tools_release|tools/release|60|test_build_core.mjs"
+"solo|verify_explicit_db_config|tools/dev|60|db_cli.test.cjs"
+"solo|verify_deployment_password_config|deploy|60|test/password-config.test.cjs"
+"solo|verify_world_foundations|editor/world|60|test/terrain-surface.test.mjs"
+"solo|verify_world_geometry_inspection|editor/world|60|test/world-inspection.test.mjs"
+"solo|verify_floor_navigation|editor/world|60|test/geodata.test.mjs"
+"solo|verify_navigation_follower|editor/world|60|test/navfollower.test.mjs"
+"solo|verify_navigation_integration|editor/world|60|test/main-navfollower.test.mjs"
+"solo|verify_surface_integration|tools/world|90|test_surface_integration.mjs"
+"solo|verify_login_lifecycle|gateway|60|test/login-lifecycle.test.js"
+"solo|verify_net_lifecycle|editor/world|60|test/net-lifecycle.test.mjs"
+"solo|verify_tutorial_routing|gateway|60|test/tutorial-routing.test.js"
+"solo|verify_packet_framing|gateway|60|test/packet-framing.test.js"
+"solo|verify_tutorial_window|editor/world|60|test/tutorialwnd.test.mjs"
+"solo|verify_world_loading|tools/world|60|test_world_loading.mjs"
+"solo|verify_scene_loading|editor/world|60|test/scene-loading.test.mjs"
+"solo|verify_quest_data|editor/world|60|test/questdata.test.mjs"
+"solo|verify_camera_input|editor/world|60|test/camera-input.test.mjs"
+"solo|verify_camera_inspection|editor/world|60|test/camera-inspection.test.mjs"
+"solo|verify_combat_approach|editor/world|60|test/combat-approach.test.mjs"
+"solo|verify_camera_native|tools/ui|60|test_camera_native.mjs"
+"solo|verify_bsp_primary|editor/world|60|test/bsp-collision.test.mjs"
+"solo|verify_bsp_source|tools/world|60|test_bsp_collision.mjs"
+"solo|verify_collision_packets|gateway|60|test/collision-packets.test.js"
+"solo|verify_appearance_packets|gateway|60|test/appearance-packets.test.js"
+"solo|verify_player_appearance|editor/world|60|test/appearance.test.mjs"
+"solo|verify_charcreate_appearance|editor/charcreate|60|test/appearance.test.mjs"
+"solo|verify_appearance_export|tools/dat|60|test_build_appearance.mjs"
+"solo|verify_hair_source_tables|tools/ui|60|test_hair_selection_native.mjs"
+"solo|verify_corpse_packets|gateway|60|test/corpse-state.test.js"
+"solo|verify_corpse_state|editor/world|60|test/corpse-state.test.mjs"
+"solo|verify_pawn_appearance_inspection|editor/world|60|test/pawn-appearance-inspection.test.mjs"
+# Original-source proofs, no browser/server: requires the owner's pinned
+# Engine.dll/Engine.u and Capstone. Separate from portable appearance fixtures.
+"solo|verify_appearance_native|tools/ui|60|verify_appearance_native.mjs"
+"solo|verify_picking|editor/world|60|test/picking.test.mjs"
+"solo|verify_static_collision_source|tools/world|60|test_static_collision.mjs"
+"solo|verify_npc_visual|editor/world|60|test/npcvisual.test.mjs"
+"solo|verify_dialogbox|editor/world|60|test/dialogbox.test.mjs"
+"solo|verify_window_pointer|editor/world|60|test/window-pointer.test.mjs"
+"solo|verify_inventory_placement|editor/world|60|test/inventory-placement.test.mjs"
+"solo|verify_inventory_native|tools/ui|60|test_inventory_native.mjs"
+"solo|verify_inventory_action_packets|gateway|60|test/inventory-actions.test.js"
+"solo|verify_henna|editor/world|60|test/henna.test.mjs"
+"solo|verify_henna_ui|editor/world|60|test/henna-ui.test.mjs"
+"solo|verify_henna_packets|gateway|60|test/henna-packets.test.js"
+"solo|verify_henna_data|tools/ui|60|test_henna_data.mjs"
+"solo|verify_recipes|editor/world|60|test/recipes.test.mjs"
+"solo|verify_recipe_ui|editor/world|60|test/recipe-ui.test.mjs"
+"solo|verify_recipe_packets|gateway|60|test/recipe-packets.test.js"
+"solo|verify_recipe_data|tools/ui|60|test_recipe_data.mjs"
+"solo|verify_shop_transfers|editor/world|60|test/shop-transfers.test.mjs"
+"solo|verify_gamedata_cache|editor/world|60|test/gamedata-cache.test.mjs"
+"solo|verify_shop_packets|gateway|60|test/shop-packets.test.js"
+"solo|verify_prop_identity|tools/world|60|test_prop_identity.mjs"
+"solo|verify_numberpad_native|tools/ui|60|test_numberpad_native.mjs"
+"solo|verify_window_position|editor/world|60|test/windowposition.test.mjs"
+"solo|verify_layout_native|tools/ui|60|test_layout_native.mjs"
+"solo|verify_layout_window_roots|editor/world|60|test/layout-window-roots.test.mjs"
+"solo|verify_online_session|editor/world|60|test/online-session.test.mjs"
+"solo|verify_character_selection|editor/world|60|test/character-selection.test.mjs"
+"solo|verify_quest_confirmation|editor/world|60|test/quest-confirmation.test.mjs"
+"solo|verify_quest_marker|editor/world|60|test/questmark.test.mjs"
+"solo|verify_quest_marker_packets|gateway|60|test/questmark-packets.test.js"
+"solo|verify_play_sound_packets|gateway|60|test/playsound-packets.test.js"
+"solo|verify_npc_animation_variants|editor/world|60|test/npcanimations.test.mjs"
+"solo|verify_native_skillanim|editor/world|60|test/native-skillanim.test.mjs"
+"solo|verify_skillvfx_binding|editor/world|60|test/skillvfx-binding.test.mjs"
+"solo|verify_pawn_skill_lifecycle|editor/world|60|test/pawnskill.test.mjs"
+"solo|verify_live_skill_lifecycle|editor/world|60|test/skillfx-native.test.mjs"
+"solo|verify_original_wait_animation|editor/world|60|test/waitanim.test.mjs"
+"solo|verify_player_visual_scale|editor/world|60|test/player-transform.test.mjs"
+"solo|verify_cast_phase_playback|editor/world|60|test/castplayback.test.mjs"
+"solo|verify_game_sound_lifecycle|editor/world|60|test/gamesound.test.mjs"
+"solo|verify_npc_materials|editor/world|60|test/npcmaterials.test.mjs"
+"solo|verify_skill_text|editor/world|60|test/skilltext.test.mjs"
+"solo|verify_skill_training|editor/world|60|test/skilltraining.test.mjs"
+"solo|verify_skill_training_layout|editor/world|60|test/skilltraining-layout.test.mjs"
+"solo|verify_skill_training_packets|gateway|60|test/skilltraining-packets.test.js"
+"solo|verify_clan_reputation|gateway|60|test/clan-reputation.test.js"
+"solo|verify_skill_list|gateway|60|test/skill-list.test.js"
+"solo|verify_system_message_packets|gateway|60|test/system-message.test.js"
+"solo|verify_shortcut_packets|gateway|60|test/shortcut-packets.test.js"
+"solo|verify_shortcut_state|editor/world|60|test/shortcut-state.test.mjs"
+"solo|verify_shortcut_position|editor/world|60|test/shortcut-position.test.mjs"
+"solo|verify_skill_state|editor/world|60|test/skill-state.test.mjs"
+"solo|verify_system_message_text|editor/world|60|test/system-message.test.mjs"
+"solo|verify_entity_admission|editor/world|60|test/entity-admission.test.mjs"
 # Pure-node data audits: no browser, no server. --check is REQUIRED on these
 # three — without it they print a report and exit 0 no matter what they found.
 "solo|verify_text|editor/world|120|verify_text.js|--check"
@@ -128,6 +221,9 @@ SUITES=(
 "solo|verify_audio|editor/world|300|verify_audio.js"
 "solo|verify_bsp|editor/world|600|verify_bsp.js"
 "solo|verify_camera|editor/world|900|verify_camera.js"
+# Reads the original client data, then clicks the offline world on :8083.
+# Its "live" section means a browser render, not a connection to aCis.
+"solo|verify_markprojector|editor/world|300|verify_markprojector.js|--check"
 "solo|verify_equipment|editor/world|300|verify_equipment.js"
 "solo|verify_shield|editor/world|300|verify_shield.js|--check"
 "solo|verify_feet|editor/world|1500|verify_feet.js|--check"
@@ -168,7 +264,7 @@ SUITES=(
 # --check rides along because gate (d) below requires it whenever a
 # suite's failure exit mentions it; both flags set the same exit path.
 # Measured 2026-08-09: 17 s wall.
-"solo|verify_tooltip|editor/world|300|verify_tooltip.js|--check --selftest"
+"solo|verify_tooltip|editor/world|300|verify_tooltip.js|--check|--selftest"
 
 # --- gateway/test, real aCis ----------------------------------------------
 "gw|verify-one|gateway|300|test/verify-one.js"
@@ -214,6 +310,8 @@ SUITES=(
 # its nonzero exit on it. MEASURED standalone 2026-08-09: 86 s.
 "live|verify_ghostnpc|editor/world|300|verify_ghostnpc.js|--check"
 "live|verify_live|editor/world|900|verify_live.js"
+# Uses live_fixture and the real gateway/aCis to inspect actual NPC plates.
+"live|verify_nameplate_color|editor/world|300|verify_nameplate_color.js|--check"
 "live|verify_equipswap|editor/world|600|verify_equipswap.js"
 "live|verify_soulshot|editor/world|900|verify_soulshot.js|--check"
 "live|verify_abnormal_live|editor/world|900|verify_abnormal_live.js"
@@ -248,6 +346,22 @@ EXCLUDED=(
 "verify_hd_closeup|A/B screenshot generator for the HD-texture pilot; needs WORLD_BASE=?hd=1 and a human eye"
 "verify_skillcast|needs a SECOND gateway on :8096 (GATEWAY_PORT=8096 node gateway/src/server.js); no auto-spawn yet"
 )
+
+# Parse once per use so validation, listing, and execution agree on argv.
+read_suite_row() {
+  IFS='|' read -r -a SUITE_FIELDS <<<"$1"
+  local field
+  if [ "${#SUITE_FIELDS[@]}" -lt 5 ] || [[ "$1" == *'||'* || "$1" == '|'* || "$1" == *'|' ]]; then
+    echo "INVALID SUITE ROW: expected section|name|dir|timeout|script followed by one field per argument: $1" >&2
+    return 1
+  fi
+  for field in "${SUITE_FIELDS[@]:5}"; do
+    if [[ "$field" == -* && "$field" == *[[:space:]]* ]]; then
+      echo "INVALID ARGUMENT: ${SUITE_FIELDS[1]} has '$field'; put each flag or value in a separate | field" >&2
+      return 1
+    fi
+  done
+}
 
 # ---------------------------------------------------------------------------
 # Watchdog runner. Returns 0 pass, 1 fail, 124 timeout.
@@ -286,7 +400,7 @@ run_once() { # dir timeout log script args...
   return $?
 }
 
-run() { # section name dir timeout script args...
+run() { # name dir timeout script args...
   local name="$1" dir="$2" limit="${BATTERY_TIMEOUT:-$3}"; shift 3
   local log="$LOGDIR/$name.log" t0 t1 rc
   t0=$(date +%s)
@@ -399,11 +513,20 @@ check_mocks() {
 # ---------------------------------------------------------------------------
 # --list / --selftest
 # ---------------------------------------------------------------------------
+# Fail before any processes are started, including for --list. Otherwise a
+# bundled '--check --selftest' can look correct in the table but run no gates.
+for row in "${SUITES[@]}"; do
+  read_suite_row "$row" || exit 2
+done
+
 if [ "${1:-}" = "--list" ]; then
   printf '%-6s %-30s %5s  %s\n' SECTION SUITE LIMIT SCRIPT
   for row in "${SUITES[@]}"; do
-    IFS='|' read -r sec name dir lim script rest <<<"$row"
-    printf '%-6s %-30s %5s  %s/%s %s\n' "$sec" "$name" "$lim" "$dir" "$script" "${rest:-}"
+    read_suite_row "$row"
+    printf '%-6s %-30s %5s  %s/%s' "${SUITE_FIELDS[0]}" "${SUITE_FIELDS[1]}" \
+      "${SUITE_FIELDS[3]}" "${SUITE_FIELDS[2]}" "${SUITE_FIELDS[4]}"
+    if [ "${#SUITE_FIELDS[@]}" -gt 5 ]; then printf ' %q' "${SUITE_FIELDS[@]:5}"; fi
+    printf '\n'
   done
   echo
   echo "EXCLUDED (deliberate):"
@@ -419,7 +542,9 @@ if [ "${1:-}" = "--list" ]; then
   # an ACCIDENT, which is how 57 suites went unrun.
   missing=0
   for row in "${SUITES[@]}"; do
-    IFS='|' read -r sec name dir lim script rest <<<"$row"
+    read_suite_row "$row"
+    sec="${SUITE_FIELDS[0]}"; name="${SUITE_FIELDS[1]}"
+    dir="${SUITE_FIELDS[2]}"; script="${SUITE_FIELDS[4]}"
     [ -f "$dir/$script" ] || { echo "MISSING SCRIPT: $name -> $dir/$script"; missing=$((missing+1)); }
     # (c) A suite that opens ws://127.0.0.1:808{5,6,7} must be in the `mock`
     # section — the mocks are stopped before `solo` runs. verify_scale and
@@ -430,12 +555,16 @@ if [ "${1:-}" = "--list" ]; then
     fi
     # (d) A suite whose failure path is gated on --check must be given --check,
     # or it reports and exits 0 forever. Six were (2026-08-08).
-    case "$rest" in *--check*) ;; *)
+    has_check=0
+    for arg in "${SUITE_FIELDS[@]:5}"; do
+      [ "$arg" = "--check" ] && has_check=1
+    done
+    if [ "$has_check" -eq 0 ]; then
       if grep -qE "includes\('--check'\)|includes\(\"--check\"\)" "$dir/$script" 2>/dev/null; then
         echo "NEEDS --check: $name ($dir/$script gates its failure exit on it)"
         missing=$((missing+1))
-      fi ;;
-    esac
+      fi
+    fi
   done
   for f in editor/world/verify_*.js editor/world/test/verify-*.js; do
     b=$(basename "$f" .js)
@@ -603,14 +732,13 @@ for sec in mock solo gw live; do
   [ "$sec" = "mock" ] && start_mocks
   header=0
   for row in "${SUITES[@]}"; do
-    IFS='|' read -r rsec name dir lim script a1 a2 <<<"$row"
+    read_suite_row "$row"
+    rsec="${SUITE_FIELDS[0]}"; name="${SUITE_FIELDS[1]}"
     [ "$rsec" = "$sec" ] || continue
     if ! selected "$name"; then SKIP=$((SKIP+1)); SKIPPED+=("$name"); continue; fi
     if [ "$header" -eq 0 ]; then echo "== $sec =="; header=1; fi
     [ "$sec" = "mock" ] && check_mocks
-    if [ -n "${a2:-}" ]; then run "$name" "$dir" "$lim" "$script" "$a1" "$a2"
-    elif [ -n "${a1:-}" ]; then run "$name" "$dir" "$lim" "$script" "$a1"
-    else run "$name" "$dir" "$lim" "$script"; fi
+    run "${SUITE_FIELDS[@]:1}"
   done
   [ "$sec" = "mock" ] && stop_mocks
 done

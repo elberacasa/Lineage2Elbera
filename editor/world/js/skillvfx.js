@@ -2,9 +2,10 @@
 //
 // DATA: /gamedata/skillvfx.json (tools/dat/build_skillvfx.py), a join of the
 // decoded Skill.usk binding table with the LineageEffect.u emitter definitions.
-// Every number this module uses comes out of that file; there is no authored
-// colour, size or timing anywhere below. Skills the retail data does not bind
-// render NOTHING — that is deliberate (a documented gap beats a plausible guess).
+// Only exact skill-level source paths may select an Agent. The old leaf-ID
+// and name-convention tables remain diagnostics and cannot authorize rendering.
+// Source emitter parameters and art do not by themselves prove the renderer:
+// phase timing, placement, particle limits and blend behavior still have gaps.
 //
 // WHAT IS REPRODUCED
 //   SpriteEmitter: camera-facing textured quads with the retail texture,
@@ -34,17 +35,13 @@
 //    default Texture is "S_Emitter", the UnrealEd editor billboard. Verified
 //    with tools/dat/dump_emitter_classes.py --defaults, 2026-08-09.)
 //
-// WHERE AN EFFECT ATTACHES (added 2026-08-09; every effect used to hang off
-// the actor's collision centre and track it for life). Skill.usk's AttachOn is
-// EAttachMethod and 443 of the 524 actions carry one:
-//   EAM_Trail (401)  attached to the actor and follows it -- the cast auras
-//   EAM_None   (79)  NOT attached: spawned once and left where it was. Every
-//                    `_fl` flying class and the impact bursts are in here.
-//   EAM_RH/LH  (23)  the weapon hand / the shield hand. `at_shield_slam_ca`
-//                    and `at_shield_stun_ca` are the two LH cases and both
-//                    are shield skills; the RH set is swords and daggers.
-//   3 / 4      (22)  a named AttachBoneName / alias (e_bone, soulshot1,
-//                    Bip01 R Finger1, Bone09, ...).
+// ATTACHMENT ADMISSION: original LocateEffect destroys an effect if its
+// AttachToBone call fails; unresolved explicit bones cannot fall back to the
+// actor centre. AliasSpecified uses a separate original alias-to-bone/coords
+// table, not a literal node name, and remains unsupported here. None/Trail
+// and resolved RH/LH/BoneSpecified use the current provisional placement.
+// Full offsets, actor origins and attachment transforms remain unverified;
+// see docs/native-locate-effect-evidence.md.
 //
 // BLENDING comes from the data and the textures, not from taste. EParticleDrawStyle
 // ordinals are read from Engine.u's Enum export and its CLASS DEFAULT is
@@ -67,6 +64,7 @@
 // with Y up. Conversion is coords.js's L2_TO_M and the same (x, z, -y) axis map.
 
 import * as THREE from 'three';
+import { skillAgentBinding, skillAgentFlyingTime } from './skillvfx-binding.js';
 import { L2_TO_M } from './coords.js';
 import { meshIndex, meshParts } from './skillmesh.js';
 
@@ -97,18 +95,26 @@ const EAM_BONE = 3, EAM_ALIAS = 4, EAM_TRAIL = 5;
 // GetLHandBoneName and present on all 14 shipped character glTFs.
 // EAM_RF / EAM_LF (6, 7) are deliberately absent: no action in the whole
 // 524-action table uses them, so there is nothing to check a foot-bone name
-// against and a guess would be worse than the fallback.
+// against. They remain unsupported, without a replacement attachment.
 const HAND_SOCKET = { [EAM_RH]: 'Weapon_R_Bone', [EAM_LH]: 'Weapon_L_Bone' };
 
 let _index = null;                     // the parsed skillvfx.json
 let _indexPromise = null;
 const _texCache = new Map();
 
-/** Skill.usk FlyingTime in seconds, 0 when the skill has none. Exported for
- *  js/gamesound.js, whose explosion sound lands with the projectile. */
-export function flyingTime(skillId) {
-  const e = _index && _index.skill[String(skillId)];
-  return (e && e.f) || 0;
+function explicitSkill(skillId, level) {
+  return skillAgentBinding(_index, skillId, level).entry;
+}
+
+/** Source presence is independent of whether supported particles can draw. */
+export function castAgentInfo(skillId, level) {
+  return skillAgentBinding(_index, skillId, level);
+}
+
+/** Exact source Agent FlyingTime; null without a resolved Agent. A resolved
+ *  object's verified zero default is distinct from having no Agent. */
+export function flyingTime(skillId, level) {
+  return skillAgentFlyingTime(_index, skillId, level);
 }
 
 /** The Object3D an anchor's position belongs to, so a bone can be found under
@@ -648,26 +654,33 @@ function makeEmitter(def, index) {
 // one spawned effect class, anchored to a caster / target / travelling point
 // --------------------------------------------------------------------------
 
+function resolveActionAttachment(anchor, action = {}) {
+  const method = Object.hasOwn(action, 'at') ? action.at : EAM_NONE;
+  if (!Number.isInteger(method) || ![EAM_NONE,EAM_RH,EAM_LH,EAM_BONE,EAM_ALIAS,EAM_TRAIL].includes(method))
+    return { status:'unsupported', reason:'unimplemented-attachment-method', method };
+  if (method === EAM_ALIAS)
+    return { status:'unsupported', reason:'missing-original-alias-coordinates', method };
+  if (method === EAM_NONE || method === EAM_TRAIL)
+    return { status:'ready', method, bone:null, boneName:null };
+  const boneName = method === EAM_RH || method === EAM_LH ? HAND_SOCKET[method] : action.b;
+  const bone = typeof boneName === 'string' && boneName.length ? anchorNode(anchor, boneName) : null;
+  if (!bone?.isBone)
+    return { status:'unsupported', reason:'missing-exported-attachment-bone', method, boneName:boneName || null };
+  return { status:'ready', method, bone, boneName };
+}
+
 class Instance {
-  constructor(fx, index, scene, anchor, action) {
+  constructor(fx, index, scene, anchor, action, attachment) {
     this.group = new THREE.Group();
     this.anchor = anchor;                 // {pos(): Vector3, scale?: number}
     this.action = action || {};
     this.emitters = fx.e.map(def => makeEmitter(def, index)).filter(Boolean);
     for (const e of this.emitters) for (const o of e.objects) this.group.add(o);
     this.done = false;
-    // AttachOn (EAttachMethod). Absent = 0 = EAM_None, the class default.
-    this.attach = this.action.at || EAM_NONE;
-    // The bone/alias node for EAM_RH/LH/BoneSpecified/AliasSpecified, resolved
-    // once. null when the actor or the bone is not found -- in that case the
-    // effect keeps the cylinder-centre placement, which is what every effect
-    // used to get unconditionally.
-    const boneName = this.attach === EAM_RH || this.attach === EAM_LH
-      ? HAND_SOCKET[this.attach]
-      : (this.attach === EAM_BONE || this.attach === EAM_ALIAS
-         ? this.action.b : null);
-    this.bone = boneName ? anchorNode(anchor, boneName) : null;
-    this.boneName = boneName || null;
+    // Admission occurs before constructing any emitter/scene resources.
+    this.attach = attachment.method;
+    this.bone = attachment.bone;
+    this.boneName = attachment.boneName;
     scene.add(this.group);
     this.scene = scene;
     this._place();
@@ -694,9 +707,8 @@ class Instance {
     const p = this.anchor.pos();
     if (!p) return;
     const a = this.action;
-    // Attached to a bone: the bone's WORLD position replaces the whole
-    // cylinder-centre construction below -- UE parents the effect to the bone,
-    // so there is no half-height to add and no feet-vs-centre correction.
+    // Provisional pose attachment. Original AttachToBone relative transforms,
+    // source actor origin and offset coordinate helper are separate gaps.
     if (this.bone) {
       this.bone.getWorldPosition(this.group.position);
       const rotB = this.travelYaw !== undefined ? this.travelYaw
@@ -704,9 +716,9 @@ class Instance {
            ? this.anchor.yaw() - Math.PI / 2 : null);
       if (rotB !== null) this.group.rotation.y = rotB;
       if (a.o) {
-        // bRelativeToCylinder is still the actor's cylinder even when the
-        // effect hangs off a bone -- it is a property of the ACTION, and the
-        // half-height is the actor's, so the same rule applies.
+        // Legacy approximation retained pending complete source placement.
+        // Native relative X uses radius, Y stays raw, and Z uses either
+        // CollisionHeight or MeshOrigin.Z*DrawScale; uniform half is not parity.
         const half = (this.anchor.half || 0.85);
         const tmp = new THREE.Vector3();
         if ((a.g || 0) & 32) ueToThree(a.o, tmp);
@@ -716,9 +728,9 @@ class Instance {
       }
       return;
     }
-    // An UE Actor's Location is the CENTRE of its collision cylinder, but the
-    // client's entity/character groups sit at the FEET. Every offset below is
-    // measured from that centre, so lift to it first.
+    // Legacy browser baseline. The original callback adds processed offset
+    // directly to native Actor.Location; group feet + visual half-height has
+    // not been established as that Location and remains provisional.
     const half = (this.anchor.half || 0.85);
     this.group.position.set(p.x, p.y + half, p.z);
     // bUseCharacterRotation (flag 8): the effect is spawned in the ACTOR's
@@ -734,16 +746,14 @@ class Instance {
          ? this.anchor.yaw() - Math.PI / 2 : null);
     if (rot !== null) this.group.rotation.y = rot;
     if (a.o) {
-      // bRelativeToCylinder defaults TRUE — it is serialised only as false, on
-      // exactly the 30 actions carrying large world-unit offsets — so a plain
-      // offset is a FRACTION of the collision half-height. That is why the
-      // commonest offset in the whole table, (0, 0, -1) on 201 cast auras,
-      // means "one half-height down from centre" = exactly at the feet.
+      // bRelativeToCylinder defaults true, but the uniform scaling below is
+      // provisional and contradicts the compiled per-component rule above.
       const worldUnits = (a.g || 0) & 32;
       const tmp = new THREE.Vector3();
       if (worldUnits) ueToThree(a.o, tmp);
       else tmp.set(a.o[0] * half, a.o[2] * half, -a.o[1] * half);
-      // the offset is in the SAME frame the effect was spawned in
+      // Native raw offsets bypass the transform; the source-relative rotation
+      // helper remains unbound. Do not treat this provisional rotation as proof.
       if (rot !== null) tmp.applyAxisAngle(AX_Y, rot);
       this.group.position.add(tmp);
     }
@@ -776,9 +786,40 @@ export class SkillVfx {
     vfxIndex();
   }
 
-  /** Does the retail data bind this skill at all? */
-  has(skillId) {
-    return !!(_index && _index.skill[String(skillId)]);
+  /** Does this exact original skill level resolve to a source Agent object? */
+  has(skillId, level) {
+    return !!explicitSkill(skillId, level);
+  }
+
+  _makeInstance(fx, anchor, action) {
+    const attachment=resolveActionAttachment(anchor, action);
+    const {status,reason,method,boneName}=attachment;
+    this.lastAttachmentStatus={status,reason,method,boneName};
+    if (status!=='ready') return null;
+    return new Instance(fx,_index,this.scene,anchor,action,attachment);
+  }
+
+  /** Execute verified callback selection through the existing emitter
+   *  renderer. This does not certify native placement/emitter lifetime or
+   *  projectile motion. No packet flight/impact timer is created here. */
+  dispatchActions(plan, anchorFor, isCurrent) {
+    if (plan?.status==='native-no-op') return true;
+    if (plan?.status!=='ready') return false;
+    for (const call of plan.calls) {
+      const action=call.action,fx=_index?.fx?.[action.f];
+      if (!fx?.e?.length) continue;
+      const anchor=anchorFor((action.g || 0)&1 ? call.target : call.caster);
+      if (!anchor?.pos()) continue;
+      const make=()=>{
+        if (isCurrent() && anchor.pos()) {
+          const instance=this._makeInstance(fx,anchor,action);
+          if (instance) this.live.push(instance);
+        }
+      };
+      if (action.d>0) this.pending.push({at:performance.now()+action.d*1000,fn:make});
+      else make();
+    }
+    return true;
   }
 
   /** Spawn one phase. anchors: {caster, target} each {pos(): Vector3|null}. */
@@ -792,18 +833,26 @@ export class SkillVfx {
       const anchor = onTarget ? anchors.target : anchors.caster;
       if (!anchor || !anchor.pos()) continue;
       const wait = delay + (a.d || 0);               // + SkillAction SpawnDelay
-      const make = () => this.live.push(new Instance(fx, _index, this.scene, anchor, a));
+      const make = () => {
+        if (anchor.pos()) {
+          const instance=this._makeInstance(fx,anchor,a);
+          if (instance) this.live.push(instance);
+        }
+      };
       if (wait > 0) this.pending.push({ at: performance.now() + wait * 1000, fn: make });
       else make();
     }
   }
 
-  /** Cast start (gateway skillCast): the CastingActions phase, on the caster. */
-  cast(skillId, anchors) {
-    const e = _index && _index.skill[String(skillId)];
+  /** Current packet-driven cast presentation: CastingActions only.
+   *  Packed `h` is ChannelingActions, which native MagicProcess dispatches
+   *  only after a Channeling animation notify. That event path is not wired
+   *  here yet. Native Agent TriggerPreshot is separately a no-op; `h` must
+   *  not stand in for it. See docs/native-pawn-notify-evidence.md. */
+  cast(skillId, anchors, level) {
+    const e = explicitSkill(skillId, level);
     if (!e) return false;
     this._phase(e, 'c', anchors);
-    this._phase(e, 'h', anchors);
     return true;
   }
 
@@ -811,8 +860,8 @@ export class SkillVfx {
    *  FlyingTime. A shot action that is NOT bSpawnOnTarget on a skill with a
    *  FlyingTime is the travelling projectile — it is lerped caster -> target
    *  over exactly that many seconds. */
-  launch(skillId, anchors) {
-    const e = _index && _index.skill[String(skillId)];
+  launch(skillId, anchors, level) {
+    const e = explicitSkill(skillId, level);
     if (!e) return false;
     const fly = e.f || 0;
     const shots = e.s || [];
@@ -826,7 +875,8 @@ export class SkillVfx {
         const t0 = performance.now();
         const cur = from.clone();
         const moving = { pos: () => cur };
-        const inst = new Instance(fx, _index, this.scene, moving, a);
+        const inst = this._makeInstance(fx, moving, a);
+        if (!inst) continue;
         // The projectile actor's own rotation is native (no data field states
         // it), but the direction is not in doubt: the effect's local forward is
         // UE +X and the bolt has to point where it is going. Rotating +X onto
@@ -851,8 +901,12 @@ export class SkillVfx {
         const anchor = onTarget ? anchors.target : anchors.caster;
         if (!anchor || !anchor.pos()) continue;
         const wait = a.d || 0;
-        const make = () => this.live.push(
-          new Instance(fx, _index, this.scene, anchor, a));
+        const make = () => {
+          if (anchor.pos()) {
+            const instance=this._makeInstance(fx,anchor,a);
+            if (instance) this.live.push(instance);
+          }
+        };
         if (wait > 0) this.pending.push({ at: performance.now() + wait * 1000, fn: make });
         else make();
       }
@@ -866,9 +920,12 @@ export class SkillVfx {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
 
-    for (let i = this.pending.length - 1; i >= 0; i--) {
-      if (now >= this.pending[i].at) { this.pending[i].fn(); this.pending.splice(i, 1); }
-    }
+    // Preserve source insertion order for equal deadlines. A retired owner
+    // is checked by its callback before any delayed instance is constructed.
+    const due=this.pending.filter(work=>now>=work.at);
+    this.pending=this.pending.filter(work=>now<work.at);
+    due.sort((a,b)=>a.at-b.at);
+    for (const work of due) work.fn();
     for (let i = this.live.length - 1; i >= 0; i--) {
       const inst = this.live[i];
       if (inst.travel) inst.travel();

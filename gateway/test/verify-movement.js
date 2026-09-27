@@ -31,6 +31,7 @@
 // Usage:  node gateway/test/verify-movement.js [--check] [deviceId]
 'use strict';
 
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
@@ -42,13 +43,12 @@ const { GameSession } = require(path.join(GW, 'gameclient.js'));
 const LOGIN_HOST = process.env.L2_LOGIN_HOST || '127.0.0.1';
 const LOGIN_PORT = Number(process.env.L2_LOGIN_PORT || 2106);
 const SERVER_ID = Number(process.env.L2_SERVER_ID || 1);
-const DB = ['-u', 'l2j', '-pl2jpass', 'l2jdb'];
 
 const args = process.argv.slice(2).filter((a) => a !== '--check');
 const DEVICE_ID = args[0] || 'verify-movement-fixture-1';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const sql = (q) => execFileSync('mariadb', [...DB, '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
+const sql = (q) => execFileSync('mariadb', [...dbArgs(), '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
 
 function deriveCredentials(deviceId) {
   const id = String(deviceId || 'anonymous');

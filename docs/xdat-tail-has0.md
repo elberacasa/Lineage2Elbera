@@ -1,5 +1,12 @@
 # xdat `hasSize == 0` tail — decoded
 
+**Historical interpretation superseded.** The original native serializer now
+proves that the alleged flag bytes are empty strings, the three integers
+include a position-presence flag plus two anchor enums, and the size floats
+are rates rather than toggles. See [native-layout-evidence.md](native-layout-evidence.md)
+for the current format and migration boundary. All 200 relative-size records
+now decode; the analysis below records the earlier, incomplete interpretation.
+
 **Status: decoded, implemented in `tools/xdat/parse_xdat.py` (guarded).**
 177 of 200 records decode; the three consumer windows (StatusWnd,
 TargetStatusWnd, ChatWnd) decode in full. Companion docs:

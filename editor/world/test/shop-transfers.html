@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Elbera Tools — Original shop transfers</title>
+<style>
+body{margin:24px;background:#272727;color:#eee;font:14px/1.5 system-ui}a{color:#e7c887}
+label{display:inline-block;margin:0 12px 8px 0}input[type=number]{width:90px}
+.l2-window{position:fixed}#receipt{white-space:pre-wrap;overflow-wrap:anywhere;max-width:740px}
+</style>
+<p><a href="index.html">Elbera Tools</a> · Original shop controls, item metadata and quantity dialogs.<br>
+This is an offline replay. Stock, prices, Adena and object IDs are simulated; Confirm records a request without contacting a server.</p>
+<label>Mode <select id="mode"><option value="buy">Buy</option><option value="sell">Sell</option></select></label>
+<label>Original item ID <input id="item" type="number" value="1060"></label>
+<label>Simulated stock <input id="count" type="number" value="0"></label>
+<label>Simulated price <input id="price" type="number" value="100"></label>
+<label>Simulated Adena <input id="money" type="number" value="1234"></label>
+<p><button id="load">Open shop</button> <button id="reset">Reset session</button></p>
+<p id="status" role="status">Loading original data…</p>
+<pre id="receipt" aria-label="Replay request">No replay request.</pre>
+<script type="module">
+import { Skin } from '../js/ui/skin.js';
+import { Font } from '../js/ui/font.js';
+import { Layout } from '../js/ui/layout.js';
+import { itemMeta } from '../js/gamedata.js';
+import { ShopWnd } from '../js/ui/shopwnd.js';
+await Promise.all([Skin.load(), Font.load(), Layout.load()]);
+const meta = await itemMeta(), field = id => document.getElementById(id);
+const record = (operation, items) => { field('receipt').textContent = JSON.stringify({ replayOnly: true, operation, items }); };
+const shop = new ShopWnd(document.body, { onBuy: items => record('buy', items), onSell: items => record('sell', items) });
+async function open() {
+  const itemId = Number(field('item').value), count = Number(field('count').value);
+  const price = Number(field('price').value), money = Number(field('money').value), mode = field('mode').value;
+  if (!meta[itemId] || [count, price, money].some(n => !Number.isSafeInteger(n) || n < 0 || n > 0x7fffffff)
+      || (mode === 'sell' && count === 0)) {
+    field('status').textContent = 'Choose an original item and nonnegative signed DWORD replay values. Sell requires positive stock.'; return;
+  }
+  shop.place({ left:24, top:280 });
+  await shop[mode === 'buy' ? 'openBuy' : 'openSell']([{ itemId, objectId:1, count, price }], money);
+  field('receipt').textContent = 'No replay request.';
+  field('status').textContent = `${meta[itemId].name} · original ConsumeType ${meta[itemId].consumeType}. Double-click items or use the original arrows to transfer.`;
+}
+field('load').addEventListener('click', open);
+field('reset').addEventListener('click', () => { shop.resetSession(); field('status').textContent = 'Shop session retired.'; });
+await open();
+</script></html>

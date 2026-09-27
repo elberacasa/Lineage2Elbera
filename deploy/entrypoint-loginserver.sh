@@ -9,14 +9,15 @@ cd /opt/l2/login
 : "${DB_PORT:=3306}"
 : "${DB_NAME:=l2jdb}"
 : "${DB_USER:=l2j}"
-: "${DB_PASS:=l2jpass}"
+: "${DB_PASS:?Set DB_PASS explicitly in the private deployment environment}"
 : "${LS_XMX:=64m}"
 
 CFG=config/loginserver.properties
 
+export DB_PASS
+sh /usr/local/lib/elbera/write-db-password.sh "$CFG"
 sed -i "s|^URL = .*|URL = jdbc:mariadb://${DB_HOST}:${DB_PORT}/${DB_NAME}|" "$CFG"
 sed -i "s|^Login = .*|Login = ${DB_USER}|" "$CFG"
-sed -i "s|^Password = .*|Password = ${DB_PASS}|" "$CFG"
 
 echo "[entrypoint] LoginServer -> DB jdbc:mariadb://${DB_HOST}:${DB_PORT}/${DB_NAME} (user ${DB_USER})"
 

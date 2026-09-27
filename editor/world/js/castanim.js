@@ -44,15 +44,13 @@
 //     spAtk15 at Dual is the shield bash; spAtk05 is the dance at every
 //     stance; spAtk28 is social_atk).
 //
-// NOT SETTLED — which spAtk SLOT a given skill uses. skillgrp.dat's
-// `animation` code ('S', 't', 'V', 'Mix01' …) is the per-skill selector and
-// nothing in the shipped client maps it to a slot number: engine.dll is
-// Themida-packed (its exports prove GetSpAtk01..28AnimName exist, no data
-// string survives), no .u name table holds a SpAtk name, and
-// MobSkillAnimgrp.dat's 5463 rows are authored per NPC and correlate with
-// the letter not at all. So PHYS_SLOT below stays at ONE slot for every
-// physical skill and says so out loud. Spreading a guess over ~500 skills
-// would look like progress and be unfalsifiable.
+// The animation-code selector is now independently recovered from the original
+// APawn::SetSkillAnim. It selects pawn slots by skillgrp.animation, regardless
+// of the server's hitTime, is_magic or cast_range. The ordinary scheduler now
+// consumes the exact source inputs below; native pose/effect parity is separate.
+
+import { nativeSkillSlots } from './native-skillanim.js';
+import { planNativeCastSchedule } from './native-castschedule.js';
 
 const PAWNANIM_URL = '/characters/pawnanim.json';
 
@@ -113,90 +111,49 @@ export function notifyTimes(table, modelId, clip, kind) {
   return info.notifies.filter(n => n.kind === kind).map(n => n.u);
 }
 
-// The one physical slot the runtime uses, and the reason it is one.
-// slot 1 = the first SpAtk the client's table defines for a stance. This is
-// a documented FLOOR, not a decode: see the header. Change it only with the
-// letter->slot table in hand.
-export const PHYS_SLOT = 'spAtk01';
-
-// The dance slot is not a floor — the client's table names Social_dance as
-// spAtk05 at all six stances on all 14 pawns, so a dance/song skill resolves
-// through the same slot lookup as any other physical skill.
-export const DANCE_SLOT = 'spAtk05';
-
 /**
- * The whole cast, as retail structures it: a wind-up clip, a launch clip,
- * and a recovery clip, each with the phase keyframes its own sequence
- * carries.
- *
- *   entry    the skillanim.json row (anim code, magic, range)
- *   hitTime  MagicSkillUse cast duration in ms (0 = none: toggles)
- *
- * Returns { cast, launch, end, castShotU, launchShotU, source } where the
- * three clip fields may be null. `source` names which rule produced `cast`
- * so callers and suites can tell a decoded answer from the documented floor.
- *
- * The MAGIC branch:
- *   wind-up   castShort | castMid | castLong
- *   launch    magicThrow (a target) | magicNoTarget (self / no target)
- *   recovery  castEnd
- * Those five slot names, and their stance-invariance, are the client's.
- * WHICH of the three wind-ups a duration selects is NOT: the three clip
- * lengths are known exactly (0.833 s / ~1.833 s / 3.833 s) but the threshold
- * lives in packed native code, so `castClipForDuration` keeps the port's
- * existing cut-offs and flags itself `unsourced` in `source`.
- *
- * The PHYSICAL branch: one slot lookup, PHYS_SLOT, resolved per stance.
+ * Resolve SetSkillAnim's original phase slots through this pawn's stance table.
+ * `phases` preserves all source phases and missing clips in order. The ordinary
+ * schedule below consumes original timing independently of these compatibility fields.
+ * `launch` and `end` are compatibility fields for the original magic slot names.
+ * In particular castEnd is an intermediate native phase, not a proven recovery.
+ * hitTime remains accepted for callers but never changes slot selection.
  */
 export function castPlan(table, modelId, stance, entry, hitTime) {
-  const out = { cast: null, launch: null, end: null,
+  const out = { cast: null, launch: null, end: null, phases: [],
                 castShotU: null, launchShotU: null, source: 'none' };
-  if (!table || !entry || !entry.anim) return out;      // passive/toggle
+  if (!table || !entry) return out;
+  const slots = nativeSkillSlots(entry.anim);
+  if (!slots) return out;
   const st = stance || 'hand';
-
-  if (entry.magic === 3 || entry.anim === 'N' || entry.anim === 'W') {
-    // dances (is_magic 3 / code N) and songs (code W): the client's own
-    // spAtk05 row is Social_dance on every pawn and stance.
-    out.cast = slotClip(table, modelId, DANCE_SLOT, st);
-    out.source = 'slot:' + DANCE_SLOT;
-  } else if (entry.magic === 0) {
-    out.cast = slotClip(table, modelId, PHYS_SLOT, st);
-    out.source = 'slot:' + PHYS_SLOT + ' (floor — letter->slot undecoded)';
-  } else {
-    const slot = castClipForDuration(hitTime);
-    out.cast = slotClip(table, modelId, slot, st);
-    out.source = 'slot:' + slot + ' (duration thresholds unsourced)';
-    out.launch = slotClip(table, modelId,
-                          entry.range === -1 || entry.range === 0
-                            ? 'magicNoTarget' : 'magicThrow', st);
-    out.end = slotClip(table, modelId, 'castEnd', st);
-  }
-
-  if (out.cast) {
-    const s = notifyTimes(table, modelId, out.cast, 'AttackShot');
-    if (s.length) out.castShotU = s[0];
-  }
-  if (out.launch) {
-    const s = notifyTimes(table, modelId, out.launch, 'AttackShot');
-    if (s.length) out.launchShotU = s[0];
-  }
+  out.source = 'native:SetSkillAnim:' + entry.anim.toUpperCase();
+  out.phases = slots.map(slot => {
+    const clip = slotClip(table, modelId, slot, st);
+    return { slot, clip, shotU: clip ? notifyTimes(table, modelId, clip, 'AttackShot') : [] };
+  });
+  out.cast = out.phases[0].clip;
+  out.castShotU = out.phases[0].shotU[0] ?? null;
+  const launch = out.phases.find(p => ['magicNoTarget', 'magicShot', 'magicThrow'].includes(p.slot));
+  out.launch = launch?.clip ?? null;
+  out.launchShotU = launch?.shotU[0] ?? null;
+  out.end = out.phases.find(p => p.slot === 'castEnd')?.clip ?? null;
   return out;
 }
 
-/**
- * hitTime (ms) -> which of the three magic wind-up slots.
- *
- * UNSOURCED, deliberately unchanged from js/skillfx_anim.js's cut-offs so
- * this refactor does not smuggle in a new guess. What IS now measured is the
- * three clips' real lengths — castShort 0.833 s, castMid 1.833 s (2.333 s on
- * FOrc, 1.700 s on MShaman), castLong 3.833 s — which is what a future
- * decode has to be checked against.
- */
-export function castClipForDuration(hitTime) {
-  const s = hitTime != null ? hitTime / 1000 : 2;   // unknown: mid
-  if (s < 1) return 'castShort';
-  if (s < 5) return 'castMid';
-  return 'castLong';
+/** Join only verified original timing to the ordinary native planner. */
+export function castSchedule(table, modelId, stance, entry, { hitTimeMs, speedRate, agent } = {}) {
+  if (table?.format !== 'l2-interlude-pawn-animation-v2' || !entry) {
+    return { status: 'unsupported', reason: 'missing-original-timing' };
+  }
+  const plan = castPlan(table, modelId, stance, entry);
+  const phases = [];
+  for (const phase of plan.phases) {
+    const info = clipInfo(table, modelId, phase.clip);
+    if (!info?.originalTiming) return { status: 'unsupported', reason: 'missing-original-sequence', clip: phase.clip };
+    phases.push({ ...phase, frames: info.frames, rate: info.rate, notifies: info.notifies });
+  }
+  return planNativeCastSchedule({ animation: entry.anim, style: entry.style,
+    hitTimeMs, speedRate, agent, phases });
 }
 
 // aCis broadcasts MagicSkillLaunched this many ms BEFORE the cast ends.

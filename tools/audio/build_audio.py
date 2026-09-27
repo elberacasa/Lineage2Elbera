@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ElberaSound — the retail audio pipeline.
+"""Elbera Tools / ElberaSound — the original audio pipeline.
 
 Turns the Interlude client's audio into web-native assets:
 
@@ -13,10 +13,11 @@ Turns the Interlude client's audio into web-native assets:
   sfx     assets/interlude/sounds/*.uax   -> assets/audio/sfx/<pkg>/<name>.ogg
           25 encrypted UE2 sound packages. umodel decrypts and exports them as
           22.05 kHz PCM WAV (5,128 objects, ~537 MB); we transcode to Opus.
-          Downmixed to MONO on purpose: the Web Audio PannerNode only
-          spatializes mono sources, and every world sound in this game is
-          positional (npcgrp/skillsoundgrp carry per-sound volume + radius).
-          Stereo would silently defeat 3D audio.
+          This historical browser pipeline downmixes SFX to mono. That changes
+          original stereo sources and is not evidence of native audio parity:
+          original multichannel sounds have different spatialization behavior.
+          export_quest_sounds.py separately preserves four quest WAVs unchanged;
+          native playback gain/lifecycle still requires independent evidence.
 
 The emitted manifest is keyed by the game's own reference syntax --
 "ItemSound.sword_small_1", "MonSound.gremlin_dmg_1",
@@ -36,6 +37,7 @@ Requires: tools/bin/umodel (vendored), ffmpeg with libopus.
 
 import argparse
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -165,58 +167,49 @@ def convert_sfx(workdir=None, jobs=None, verbose=True):
 # manifest
 # --------------------------------------------------------------------------
 
+SKILL_VOICE_SLOTS = ('mfighter', 'ffighter', 'mdarkelf', 'fdarkelf', 'mdwarf', 'fdwarf',
+                     'melf', 'felf', 'mmagic', 'fmagic', 'morc', 'forc',
+                     'mshaman', 'fshaman', 'RESERVED')
+
+
+def skill_sound_rows(records, intern):
+    """Preserve every ordered original row; no level merge, rounding or defaults.
+
+    Native DAT loading proves three layers, each with cast/shot/explosion
+    slots. Legacy parser spell/shot/exp labels each identify a whole layer.
+    Empty and repeated rows matter to native lookup; source volume/radius zero
+    is preserved as zero. This exporter does not choose duplicate precedence.
+    """
+    result = {}
+    for record in records:
+        skill, level = record['skill_id'], record['skill_level']
+        if any(type(value) is not int or not 0 <= value <= 0xffffffff for value in (skill, level)):
+            raise ValueError('invalid original skill sound identity')
+        row = {'level': level, 'layers': []}
+        for group in ('spell', 'shot', 'exp'):
+            names, volumes, radii = (record[group + suffix] for suffix in ('_sounds', '_vols', '_rads'))
+            if any(len(values) != 3 for values in (names, volumes, radii)):
+                raise ValueError('incomplete original sound bank')
+            row['layers'].append([[intern(name), volume, radius]
+                                  for name, volume, radius in zip(names, volumes, radii)])
+            if any(not math.isfinite(value) for values in (volumes, radii) for value in values):
+                raise ValueError('nonfinite original sound gain')
+        for field, key in (('voice_cast', 'castVoice'), ('voice_throw', 'throwVoice')):
+            row[key] = [intern(record[field][slot]) for slot in SKILL_VOICE_SLOTS]
+        row['voiceVolume'], row['voiceRadius'] = record['sound_vol'], record['sound_rad']
+        if not all(math.isfinite(row[key]) for key in ('voiceVolume', 'voiceRadius')):
+            raise ValueError('nonfinite original voice gain')
+        result.setdefault(str(skill), []).append(row)
+    return result
+
+
 def build_bindings(verbose=True):
-    """assets/audio/bindings.json — who plays what, indexed for the browser.
+    """Elbera Tools: compact source sound references, without losing skill rows.
 
-    npcgrp + skillsoundgrp + weapongrp are 9.5 MB of JSON and the client needs a
-    few fields from each, so we join them here instead of shipping the tables.
-    Sound names repeat heavily (three gremlin damage sounds are shared by every
-    gremlin variant), so names go into one string table and every record holds
-    indices into it -- that alone is most of the size saving.
-
-      {"names": ["itemsound.sword_small_1", ...],
-       "npc":    {"20001": {"a":[..], "d":[..], "m":[..], "v":50, "r":250}},
-       "skill":  {"1": {"c":[idx,vol,rad], "s":[idx,vol,rad], "x":[..], "u":[..]}},
-       "weapon": {"1": {"h":[..], "e":idx, "d":idx}}}
-
-    Keys are terse because they repeat thousands of times: a/d/m = attack /
-    defense / damage, c/s/x = cast / shot / explosion, h/e/d = hit / equip /
-    drop, v/r = volume / radius. Skills are keyed by id alone: levels of one
-    skill share their sounds in every record checked, and keying by id+level
-    would multiply the table ~10x for nothing.
-
-    SKILL SOUNDS ARE PHASES, NOT A BANK OF ALTERNATIVES (fixed 2026-08-09).
-    Until this date the three `spell_sounds` strings were interned into ONE
-    list and `gamesound.cast()` picked among them with `playOneOf`, i.e. at
-    random. They are not alternatives: skillsoundgrp.dat's slots are
-    cast / shot / explosion (tools/dat/parse_skillsoundgrp.py, validated by
-    two independent third-party .ddf/.xml definitions AND by the retail
-    names -- 990 of the 1092 populated slot-1 strings end in `_shot` and 113
-    of the 145 populated slot-2 strings end in `_explotion`/`_explosion`).
-    So Power Strike used to have a 50/50 chance of playing its IMPACT sound
-    at the moment the gesture began, and 1092 skills could never play their
-    shot sound at the right time at all.
-
-    Each phase now carries its OWN volume and radius, which the same fix
-    recovered: the six floats per group are three (volume, radius) pairs,
-    not vols[3] + rads[3]. Under the old blocked reading 951 shot sounds had
-    a radius of 0 (= silent under js/audio.js's linear falloff) and 6 rows
-    claimed a volume of 800, which is impossible for a ByteProperty.
-
-    The record-level `v`/`r` are GONE for skills: skillsoundgrp's trailing
-    sound_vol/sound_rad are 250.0/50.0 in all 1398 records and carry no
-    per-skill information, and using them meant every skill sound played at
-    a radius of 50 when the table states 40 (cast/shot) and 80 (explosion).
-
-    `u` is the `shot_sounds` and `exp_sounds` GROUPS -- 111 and 4 records --
-    whose semantics are NOT recovered. In most rows they duplicate a string
-    already in `spell_sounds` at the SAME slot index (skill 30: spell[1] and
-    shot[1] are both `SkillSound4.fatal_strike_shot`), but some bring a name
-    of their own (skill 260 shot[0] is `SkillSound3.fatal_strike_cast` while
-    spell[0] is `SkillSound3.shieldstun_cast`). Nothing in the client tells
-    us WHEN they play, so they are carried and left unplayed rather than
-    guessed onto a phase. Falsifier: a decoded client path that reads either
-    group.
+    NPC/weapon references share an interned table. Skills retain every original
+    ordered ID/level row, three layers by three phases, gains and both voice
+    arrays. Native loading/lookup/playback proof: check_cast_sound_native.py.
+    No first-level collapse, guessed gain fallback or filename categorization.
     """
     names, index = [], {}
 
@@ -252,37 +245,6 @@ def build_bindings(verbose=True):
         rec["r"] = round(r.get("sound_radius") or 0)
         npc[str(r["npc_id"])] = rec
 
-    # spell_sounds slot -> phase key. The slot index IS the phase; see the
-    # docstring and tools/dat/parse_skillsoundgrp.py.
-    PHASE = ("c", "s", "x")               # cast / shot / explosion
-
-    skill = {}
-    for r in load("skillsoundgrp.json"):
-        sid = str(r["skill_id"])
-        if sid in skill:
-            continue                      # first level wins; see docstring
-        rec = {}
-        for i, key in enumerate(PHASE):
-            idx = intern(r["spell_sounds"][i])
-            if idx is None:
-                continue
-            # the slot's OWN gain pair. 22 retail rows carry a sound with no
-            # pair or a pair with no sound (named in parse_skillsoundgrp.py);
-            # where the pair is missing the phase falls back to the record's
-            # trailing sound_vol/sound_rad, which is what the driver has left.
-            vol = r["spell_vols"][i] or r.get("sound_vol") or 0
-            rad = r["spell_rads"][i] or r.get("sound_rad") or 0
-            rec[key] = [idx, round(vol), round(rad)]
-        # the shot_/exp_ GROUPS: carried, never played -- semantics unrecovered
-        extra = [i for i in (intern_list(r.get("shot_sounds"))
-                             + intern_list(r.get("exp_sounds")))
-                 if i not in {rec[k][0] for k in rec}]
-        if extra:
-            rec["u"] = sorted(set(extra))
-        if not rec:
-            continue
-        skill[sid] = rec
-
     weapon = {}
     for r in load("weapongrp.json"):
         h = intern_list(r.get("item_sound"))
@@ -296,14 +258,16 @@ def build_bindings(verbose=True):
         if d is not None: rec["d"] = d
         weapon[str(r["object_id"])] = rec
 
-    out = {"names": names, "npc": npc, "skill": skill, "weapon": weapon}
+    sound_rows = skill_sound_rows(load('skillsoundgrp.json'), intern)
+    out = {"names": names, "npc": npc, "weapon": weapon,
+           "skillSoundFormat": "l2-interlude-skill-sound-v1", "skillSoundRows": sound_rows}
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, "bindings.json")
     with open(path, "w") as fh:
         json.dump(out, fh, separators=(",", ":"))
     if verbose:
-        print("bindings: %d names, %d npc, %d skill, %d weapon -> %.1f KB"
-              % (len(names), len(npc), len(skill), len(weapon),
+        print("bindings: %d names, %d npc, %d skill rows, %d weapon -> %.1f KB"
+              % (len(names), len(npc), sum(map(len, sound_rows.values())), len(weapon),
                  os.path.getsize(path) / 1024.0))
     return out
 
@@ -312,8 +276,8 @@ def build_manifest(verbose=True):
     """{"sfx": {"itemsound.sword_small_1": "itemsound/sword_small_1.ogg"},
         "music": ["b01_f.ogg", ...]}
 
-    Keys are lowercased "package.name" -- the tables reference sounds in mixed
-    case and the client lowercases before lookup.
+    Existing flat keys remain; original UAX group paths are added only after
+    exact, unique source-export/output-name matching. No audio is transcoded.
     """
     sfx = {}
     if os.path.isdir(OUT_SFX):
@@ -325,11 +289,18 @@ def build_manifest(verbose=True):
                 if fn.endswith(".ogg"):
                     sfx["%s.%s" % (pkg.lower(), fn[:-4].lower())] = "%s/%s" % (pkg, fn)
 
+    from sound_reference_aliases import build_aliases, manifest_summary
+    aliases, sound_references = build_aliases(SOUND_SRC, OUT_SFX)
+    for reference, output in aliases.items():
+        if reference in sfx and sfx[reference] != output:
+            raise ValueError('verified original sound reference conflicts with existing output: ' + reference)
+        sfx[reference] = output
+
     music = []
     if os.path.isdir(OUT_MUSIC):
         music = sorted(n for n in os.listdir(OUT_MUSIC) if n.endswith(".ogg"))
 
-    manifest = {"sfx": sfx, "music": music}
+    manifest = {"sfx": sfx, "music": music, 'soundReferences': manifest_summary(sound_references)}
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, "manifest.json")
     with open(path, "w") as fh:

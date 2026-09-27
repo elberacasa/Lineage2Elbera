@@ -19,6 +19,7 @@
 //  5. clanCrestRequest{id:0} -> clanCrest{id:0,data:null} (decode path only).
 'use strict';
 
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -94,7 +95,7 @@ const snippet = (h, n = 120) => h.replace(/\s+/g, ' ').slice(0, n);
 
   const levelsXml = fs.readFileSync(path.join(__dirname, '../../server/aCis_gameserver/build/dist/gameserver/data/xml/playerLevels.xml'), 'utf8');
   const exp = Number(/<playerLevel level="20"[^>]*requiredExpToLevelUp="(\d+)"/.exec(levelsXml)[1]);
-  execFileSync('mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-e',
+  execFileSync('mariadb', [...dbArgs(), '-e',
     `UPDATE characters SET level=20, exp=${exp}, accesslevel=7 WHERE char_name='${aName}' AND online=0;`]);
   console.log(`   seeded ${aName}: level 20 (exp ${exp}), accesslevel 7 (admin_teleport for travel)`);
 

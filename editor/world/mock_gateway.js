@@ -323,6 +323,7 @@ wss.on('connection', (ws) => {
   const SELL_PRICES = { 1147: 60, 2509: 400, 2369: 750, 1060: 120, 1835: 30, 734: 220 };
   const sendSellList = () => {
     send('sellList', {
+      money: items.find(it => it.itemId === 57)?.count ?? 0,
       items: items.filter(it => it.itemId !== 57).map(it => ({
         objectId: it.objectId, itemId: it.itemId, count: it.count,
         price: SELL_PRICES[it.itemId] || 10,
@@ -958,7 +959,8 @@ wss.on('connection', (ws) => {
           { itemId: 2509, count: -1, price: 1000 },
           { itemId: 2369, count: 1, price: 1500 },
         ];
-        send('buyList', { items: shopStock });
+        // Synthetic fixture money is the mock's current inventory snapshot.
+        send('buyList', { money: items.find(it => it.itemId === 57)?.count ?? 0, items: shopStock });
       } else if (cmd === 'npc_sell') {
         sendSellList();
       } else if (cmd === 'npc_multisell') {

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Elbera Tools — Original NPCs</title>
+<style>
+body{margin:0;background:#293036;color:#fff;font:14px system-ui;height:100vh;display:flex;flex-direction:column}
+header{padding:12px 16px;background:#20262e;flex:none}p{margin:6px 0}
+canvas{display:block}select,button{font:inherit;max-width:100%}a{color:#e7c887}
+#stage{flex:1;min-height:140px;overflow:hidden}#sources{max-height:38vh;overflow:auto}
+details{margin-top:8px}summary{cursor:pointer}table{border-collapse:collapse;width:100%;font-size:12px}
+td,th{text-align:left;vertical-align:top;padding:5px 8px;border-bottom:1px solid #46515c;overflow-wrap:anywhere}
+code{overflow-wrap:anywhere}small{color:#c3cbd2}.gap{color:#ffd18b}
+</style>
+<script type="importmap">{"imports":{"three":"../vendor/three.module.min.js","three/addons/":"../vendor/addons/"}}</script>
+<header>
+<p><a href="index.html">Elbera Tools</a> · Original NPC animations and materials through the game renderer. No game-server connection.</p>
+<label for="npc">NPC</label> <select id="npc"></select> <button id="social">Play bound social</button>
+<p id="status">Loading source data…</p>
+<p id="material-status">Waiting for the model…</p>
+<small>Drag to orbit; scroll to zoom. This neutral inspection stage is not an original game map. Its lighting is for inspection; original lighting/color parity is unresolved.</small>
+<details id="sources"><summary>Material bindings and original sources</summary><div id="source-content"></div></details>
+</header>
+<div id="stage"></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EntityManager } from '../js/entities.js';
+import { Skin } from '../js/ui/skin.js';
+import { Font } from '../js/ui/font.js';
+const stage = document.querySelector('#stage');
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(devicePixelRatio); stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#293036');
+const camera = new THREE.PerspectiveCamera(40,1,.01,100);
+const controls = new OrbitControls(camera,renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x7a8390,2));
+const light = new THREE.DirectionalLight(0xffffff,2); light.position.set(3,5,4); scene.add(light);
+const manager = new EntityManager(scene,[]), status = document.querySelector('#status');
+const materialStatus = document.querySelector('#material-status');
+const sourceContent = document.querySelector('#source-content');
+async function data(url){const r=await fetch(url,{cache:'no-cache'});if(!r.ok)throw new Error(`${url}: HTTP ${r.status}`);return r.json();}
+const [catalog,materials,names] = await Promise.all([
+  data('/gamedata/npcanimations.json'),data('/gamedata/npcmaterials.json'),data('/gamedata/npcname.json')]);
+await Promise.all([Skin.load(),Font.load()]);
+const select = document.querySelector('#npc');
+function npcName(id){const source=names[String(id)];return (Array.isArray(source)?source[0]:source)||'';}
+for(const [label,records] of [
+  ['Original class animations',Object.entries(catalog.npcs)],
+  ['Original ghost materials',Object.entries(materials.npcs).filter(([,r])=>r.status==='diffuse-slot-and-brighten-verified')],
+  ['Unresolved original materials',Object.entries(materials.npcs).filter(([,r])=>r.status==='unresolved')]]) {
+  const group=document.createElement('optgroup');group.label=label;
+  for(const [id,record] of records){
+    const option=document.createElement('option');option.value=id;
+    option.textContent=`${id}: ${npcName(id)} · ${record.className}`;group.appendChild(option);
+  }
+  select.appendChild(group);
+}
+const requested=new URL(location.href).searchParams.get('npc');
+if([...select.options].some(option=>option.value===requested))select.value=requested;
+let current=null, framing=true, generation=0;
+function show(){
+  manager.clear(); current=null; framing=true; generation++;
+  const npcId=Number(select.value);
+  const url=new URL(location.href);url.searchParams.set('npc',String(npcId));history.replaceState(null,'',url);
+  manager.addNpc({id:generation,npcId,name:npcName(npcId),x:0,y:0,z:0},null);
+  current=manager.entities.get(generation);
+  status.textContent=`Loading original NPC ${npcId}…`;
+  materialStatus.textContent='Waiting for the model…';materialStatus.className='';sourceContent.replaceChildren();
+  document.querySelector('#social').disabled=true;
+}
+function paragraph(text,container=sourceContent){const p=document.createElement('p');p.textContent=text;container.appendChild(p);}
+function showMaterials(){
+  const record=materials.npcs[String(current.npcId)];
+  let active=null,gap=null,limitations=[];
+  const live=[];
+  current.group.traverse(object=>{
+    if(object.userData.originalMaterialStatus)active=object.userData.originalMaterialStatus;
+    if(object.userData.originalMaterialGap)gap=object.userData.originalMaterialGap;
+    if(object.userData.originalMaterialLimitations)limitations=object.userData.originalMaterialLimitations;
+    if(object.isSkinnedMesh)for(const material of [object.material].flat())live.push({object,material});
+  });
+  const verified=record&&active===record.status&&active==='diffuse-slot-and-brighten-verified';
+  const partial=record&&active===record.status&&active==='wing-alpha-and-blend-verified-partial';
+  materialStatus.textContent=verified?'Active: original texture slots and native brighten blend/depth/cull settings verified.'
+    :partial?'Partial correction active: original wing opacity, alpha > 160/255, blend/depth/cull state. Specular remains unresolved.'
+    :gap?`Unresolved: ${gap.join('; ')}. Existing model material remains active.`
+    :record?'Original material override is not active. See the runtime warning for the source validation failure.'
+    :'Existing model materials active; this inspector has no verified per-NPC material correction for this actor.';
+  materialStatus.className=verified?'':'gap';
+  paragraph(materialStatus.textContent);
+  for(const limit of limitations)paragraph(limit);
+  if(record){
+    paragraph(`Original class: ${record.className}. Mesh: ${record.meshName}.`);
+    const table=document.createElement('table');
+    const head=table.insertRow();for(const title of ['Source section → primitive / material','Original Shader → Diffuse Texture','State']){const cell=document.createElement('th');cell.textContent=title;head.appendChild(cell);}
+    const model=materials.models[record.meshId];
+    for(const binding of model.bindings){
+      const root=materials.materials[record.materials[binding.textureIndex]];
+      const shader=root.class==='FinalBlend'?materials.materials[root.properties.Material?.reference]:root;
+      const diffuse=materials.materials[shader?.properties.Diffuse?.reference];
+      const row=table.insertRow();
+      const values=[`${binding.sourceSection} → ${binding.meshIndex}:${binding.primitiveIndex} / ${binding.materialIndex}`,
+        `${root.package}.${root.object}${root!==shader?` → ${shader.package}.${shader.object}`:''} → ${diffuse?`${diffuse.package}.${diffuse.object}`:'unresolved'}`,
+        verified?'Applied after model, buffer and texture SHA-256 checks'
+          :partial&&record.corrections.some(c=>c.textureIndex===binding.textureIndex)?'Partial: verified diffuse/opacity + FinalBlend state; specular unresolved'
+          :'Unchanged model material; full original graph unresolved'];
+      for(const value of values)row.insertCell().textContent=value;
+    }
+    sourceContent.appendChild(table);
+    paragraph(`Model SHA-256: ${model.gltfSHA256}`);
+    paragraph(`Original package: ${model.sourcePackage}; SHA-256: ${model.sourcePackageSHA256}`);
+    paragraph(record.remainingRendererGap);
+  }
+  paragraph(`Loaded render materials (${live.length}):`);
+  for(const {object,material} of live)paragraph(`${object.name} / ${material.name}: ${material.map?.image?.width||0}×${material.map?.image?.height||0}; blend ${material.blending}, source ${material.blendSrc}, destination ${material.blendDst}; alpha test ${material.alphaTest}; depth write ${material.depthWrite}; side ${material.side}.`);
+  const link=document.createElement('a');link.href='/gamedata/npcmaterials.json';link.textContent='Open full local material provenance';link.target='_blank';link.rel='noopener';sourceContent.appendChild(link);
+}
+select.addEventListener('change',show);
+document.querySelector('#social').addEventListener('click',()=>{
+  const played=current?.socialFlash();
+  status.textContent=played?`Playing ${current.actions.social.getClip().name}`:'This model has no bound social action.';
+});
+function resize(){const {width,height}=stage.getBoundingClientRect();renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(stage);resize();show();
+const clock=new THREE.Clock();
+renderer.setAnimationLoop(()=>{
+  const dt=clock.getDelta(); current?.update(dt,null);
+  if(current?.pickResourcesReady&&framing){
+    const box=new THREE.Box3().setFromObject(current.group), size=box.getSize(new THREE.Vector3());
+    const center=box.getCenter(new THREE.Vector3()), radius=Math.max(size.x,size.y,size.z,.1);
+    controls.target.copy(center); camera.position.copy(center).add(new THREE.Vector3(radius*1.2,radius*.65,radius*2.6));
+    framing=false;
+    status.textContent=`NPC ${current.npcId} • idle: ${current.actions.idle?.getClip().name} • social: ${current.actions.social?.getClip().name||'unavailable'}`;
+    document.querySelector('#social').disabled=!current.actions.social;
+    showMaterials();
+  }
+  controls.update();renderer.render(scene,camera);
+});
+</script></html>

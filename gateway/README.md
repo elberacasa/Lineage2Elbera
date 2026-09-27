@@ -1,8 +1,8 @@
 # L2Vzla M2 — WebSocket Gateway
 
-Protocol bridge between browser WebSocket clients and the real aCis (rev 409,
-Interlude) login/game servers. Each browser WS connection gets its own L2
-session: account auto-created from a persistent `deviceId`, then a live
+Protocol bridge between browser WebSocket clients and the configured aCis
+(rev 409, Interlude) emulator login/game servers. Each browser WS connection gets
+its own L2 session: account auto-created from a persistent `deviceId`, then a live
 two-way stream of world state and actions. Characters are created by the
 client via the `createChar` op; a legacy auto-create (Human Fighter on first
 login) stays ON by default for older scripts — `GATEWAY_AUTOCREATE=0`
@@ -44,7 +44,11 @@ node test/verify-respawn.js [port]   # respawn: Die-packet unit test + mock e2e 
 node test/verify-tutorial.js [deviceId] # tutorial: fresh char -> tutorial npcHtml + TE link + close
 ```
 
-All suites PASS against the live server (see task report for log excerpts).
+These legacy scenario runners are not a current certification of every flow.
+Some create test identities or change game state and require private fixtures.
+For controlled use of an existing character, see the
+[Elbera playtest client](../tools/playtest/README.md); current verified scenarios
+and remaining gaps are recorded in [port coverage](../docs/PORT-COVERAGE.md).
 Note: the movement destination the server broadcasts can differ a few units
 from the requested target (server-side pathing adjustment); verify-two
 allows ±30.
@@ -101,11 +105,68 @@ Also: `enterWorld.char` now includes `id` (own objectId, for self-reconcile).
 `enterWorld` fires exactly once per session; later UserInfo re-sends
 (level up etc.) only update `selfStatus`.
 
-SystemMessage(0x64) is shallow-decoded into the contract op
-`{"op":"sysMsg","id":N,"params":[...]}` (param types: 0 TEXT, 1 NUMBER,
+SystemMessage(0x64) is decoded into the contract op
+`{"op":"sysMsg","id":N,"params":[...],"typedParams":[{"type":T,"value":V},...]}` (param types: 0 TEXT, 1 NUMBER,
 2 NPC_NAME, 3 ITEM_NAME, 4 SKILL_NAME, 5 CASTLE_NAME, 6 ITEM_NUMBER,
-7 ZONE_NAME-loc). Example: `{"op":"sysMsg","id":95,"params":[145,10]}` =
-"You have earned 145 exp and 10 SP".
+7 ZONE_NAME-loc). `params` retains the legacy flat values. `typedParams`
+preserves their order and types; type 4 uses `value:{id,level}`, while its
+legacy value remains the numeric skill ID. The configured server's type 6
+is a DWORD, unlike the original client's QWORD. Unsupported types or
+incomplete messages produce a parser error, not guessed/partial values.
+See [native system-message evidence](../docs/native-system-message-evidence.md).
+
+## Server shortcuts
+
+The server's saved hotbar is authoritative. `ShortCutInit` (`0x45`) replaces
+all bindings, `ShortCutRegister` (`0x44`) changes one, and `ShortCutDelete`
+(`0x46`) removes one. Pre-entry full snapshots replace older queued changes;
+subsequent changes are retained per position and published after `enterWorld`.
+
+- Server → browser: `shortcutInit {shortcuts:[row,...]}`,
+  `shortcutRegister {shortcut:row}`, `shortcutDelete {page,slot,unknown}`.
+- Rows contain `page` (0–9), `slot` (0–11), `type`
+  (`item|skill|action|macro|recipe`), `id`, and raw `characterType`.
+  Skills also carry `level,skillFlag`. Items carry `sharedReuseGroup`,
+  `remainingReuseSeconds`, `totalReuseSeconds`, and unsigned `augmentationId`.
+- Browser → server: `shortcutRegister {page,slot,type,id,characterType:1}`
+  supports item, skill, action and recipe; `shortcutDelete {page,slot}` removes a
+  binding. Requests use original `0x33`/`0x35`. Skill/item/recipe IDs must be
+  positive; action ID 0 is valid. Recipe IDs are original catalog indices, not
+  recipe-item or product IDs. Skill levels are determined by the server.
+
+Only incoming server packets change the published binding state. Empty-slot
+deletion has no server echo. A register echo can precede the server's item
+integrity/storage checks, so reconnect restoration is the persistence proof.
+The extra delete DWORD is retained as `unknown`, not labeled as an owner.
+Macro and other-owner records are preserved but cannot be newly registered
+by this gateway. Native shortcut-use `0x34` is a DummyPacket in
+this server; item/skill/action dispatch and recipe-detail requests remain in use.
+See [original shortcut evidence](../docs/native-shortcut-evidence.md).
+
+## Original recipe self-crafting
+
+The gateway now preserves `RecipeBookItemList` (D6), `RecipeItemMakeInfo`
+(D7) and all seven `ExStorageMaxCount` (FE/2E) capacities. Latest complete
+pre-entry capacities flush after the matching character enters; obsolete
+sessions cannot reopen recipe windows or replace their limits.
+
+- `recipeBook {bookType,maxMp,recipes:[{recipeId,index}]}` retains both row
+  words. `recipeId` is the original catalog index; `index` is the configured
+  writer's row ordinal. Neither is the recipe inventory-item ID or output ID.
+- `recipeMakeInfo {recipeId,bookType,mp,maxMp,status}` preserves raw values.
+- `recipeBookOpen {bookType}` sends AC; `recipeBookDestroy {recipeId}` sends
+  AD; `recipeMakeInfo {recipeId}` sends AE; `recipeMakeSelf {recipeId}` sends
+  AF. All consume one DWORD. Book types are0/1; IDs must be positive int32.
+
+The installed server sends maximum MP in D6's second header word; the original
+client names it CurrentMP, and its book script does not consume it. D7 carries
+both actual current and maximum MP. Sending a request does not synthesize
+success, material consumption, a learned recipe or an inventory change.
+Recipe shortcut registration is supported with type 5, the original catalog
+index and `characterType:1`; restored recipe rows open the existing AE detail
+request path. Successful live crafting and recipe shortcut persistence still
+require separate verification. Private manufacture shops remain unported.
+See [original recipe evidence](../docs/native-recipe-evidence.md).
 
 ## M16: warehouse protocol (added 2026-07-28)
 
@@ -265,7 +326,7 @@ Client -> server:
 - `{"op":"clanCrestRequest","id":N}` -> RequestPledgeCrest(0x68): `D crestId`.
 
 Server -> client:
-- `{"op":"clanInfo","id":N,"name":"..","leaderName":"..","level":N,"crestId":N?,"allyId":N?,"allyName":".."?}`
+- `{"op":"clanInfo","id":N,"name":"..","leaderName":"..","level":N,"reputation":N,"crestId":N?,"allyId":N?,"allyName":".."?}`
   — clan identity, built from the PledgeShowMemberListAll(0x53) header
   merged with PledgeShowInfoUpdate(0x88, carries crest/level/ally but NO
   name/leader). crestId/allyId/allyName are omitted when 0. Emitted on
@@ -601,6 +662,7 @@ kick (both empty) -> re-invite + leave (both empty).
 ## M8: quest protocol / QuestWnd (added 2026-07-26)
 
 Server -> client:
+
 - `{"op":"questList","quests":[{"id":N,"name":"..","progress":N}]}` —
   QuestList(0x80): `H count`, per quest `D questId, D flags`. Sent after
   enterWorld (queued with skillList/itemList) and on every server re-send
@@ -612,13 +674,31 @@ Server -> client:
   `flags = ((1 << cond) - 1) | 0x80000000` — bit31 = started/active, low
   bits = cond mask. Live evidence: accept → `-2147483647` (0x80000001,
   cond 1); advance → `-2147483645` (0x80000003, cond 2).
-- There is NO separate quest-update packet in this rev — QuestList re-send
-  covers updates. `questUpdate` therefore does not exist (documented).
+- QuestList re-sends carry the quest-state snapshot; no `questUpdate` delta
+  operation is invented. `{"op":"questMark","questId":N}` separately
+  preserves ExShowQuestMark(0xFE/0x001A), exactly one signed D quest ID. It
+  requests the original quest-update icon; its click locally opens/focuses
+  that quest's journal chapter and sends no server request. Pre-entry,
+  closed and replaced-session markers are discarded, never replayed.
+- `{"op":"playSound","soundType":N,"sound":"Bank.Reference","objectFlag":N,
+  "objectId":N,"x":N,"y":N,"z":N,"delay":N}` preserves the exact original
+  PlaySound(0x98) `dSdddddd` fields, including the final delay. Unknown modes
+  remain uninterpreted. These transient events require the current entered
+  session and are not queued. Original mode0 quest-sound data is stereo;
+  packet support does not claim browser playback or complete driver parity.
 
 Client -> server:
 - `{"op":"questAbort","id":N}` -> RequestQuestAbort(0x64): `D questId`.
 
 Notes:
+
+- Non-repeatable completed quests can remain in the server snapshot with
+  progress0. The original journal emits no chapters for that value; the
+  browser excludes that row from its visible journal and accepted count.
+  This differs from a completed chapter within an active quest. Native
+  stage/bitmap rules, marker evidence and the Q1 delivery/reconnect check
+  are in `docs/quest-data.md`, `docs/native-quest-marker-evidence.md` and
+  `docs/quest-completion-playtest.md` at the repository root.
 - The Tutorial chain does NOT appear in questList: it is quest id -1, a
   "feature" script, filtered out by `QuestList.getAllQuests` via
   `isRealQuest()` (id > 0). Fresh chars get an EMPTY questList — expected.
@@ -733,33 +813,38 @@ aCis findings (rev 409 sources):
   ride 0x7b, not 0x21.
 
 Bridge mapping (contract, additive):
-- TutorialShowHtml -> the EXISTING `npcHtml` op (the client dialog window
-  renders it as-is), with `action="link TE##"` rewritten to
-  `action="bypass -h TE##"` — npcdialog.js only makes bypass links
-  clickable, and the bypass op routes TE* back to 0x7b (round-trip).
-- `{"op":"bypass","command":"TE.."}` -> RequestTutorialLinkHtml(0x7b)
-  instead of RequestBypassToServer(0x21).
+- TutorialShowHtml -> `{"op":"tutorialHtml","html":"..."}`. Preserve the
+  original HTML and link targets; the browser uses TutorialViewerWnd,
+  independently of its NPC HTML window.
+- `{"op":"tutorialLink","command":"TE.."}` -> RequestTutorialLinkHtml(0x7b),
+  with the exact string after `link `. Legacy `bypass` TE commands remain
+  supported for older callers. New clients must use the separate operation.
 - New S->C ops: `{"op":"tutorialHtmlClose"}` (0xa3 — close the dialog
   window), `{"op":"tutorialQuestionMark","markId":N}` (0xa1),
   `{"op":"tutorialEvent","eventId":N}` (0xa2).
 - New C->S ops: `{"op":"tutorialQuestionMark","markId":N}` -> 0x7d,
   `{"op":"tutorialEvent","eventId":N}` -> 0x7e.
+- TutorialEnableClientEvent arms a replaceable bitmask. Receiving it sends
+  nothing back. Original NWindow.dll checks an occurring event against the
+  mask, sends an enabled event once and clears that bit. Numeric input
+  mappings require separate original-client evidence.
 
-Newbie Helper "dead-end" (verified authentic, NOT a bypass-routing gap):
+Newbie Helper flow observed in the emulator (not proof of official rules):
 the mission dialog (`newbiehelper_fig_01.htm` / `newbiehelper_mage_01.htm`,
 NewbieHelper.onFirstTalk for npcIds 30009/30019/30131/30400/30530/30575 at
-`step` 0) is genuinely link-less datapack content — retail intends the flow
-to continue through gameplay: kill a training-hall Gremlin (18342) -> 25%
+`step` 0) is link-less datapack content. That server advances the flow
+through gameplay: kill a training-hall Gremlin (18342) -> 25%
 Blue Gemstone drop (NewbieHelper.onMyDying) -> tutorial question mark 3 ->
 return to the Helper with the gemstone -> reward page + recommendation
 item. Roien's `30008-01.htm` and the default `30009.htm` DO carry
 `bypass -h npc_%objectId%_Quest` links, which already ride the existing
 bypass op (0x21 `npc_` branch). No links invented, nothing to fix.
 
-Verified live (test/verify-tutorial.js): fresh deviceId -> auto-created
-Human Fighter -> tutorial page arrives as npcHtml ~10s after enterWorld
-with the TE02 link rewritten -> `bypass{TE02}` -> Movement page ->
-`bypass{TE00}` -> tutorialHtmlClose.
+The previous live test used rewritten NPC HTML. The current deterministic
+`test/tutorial-routing.test.js` checks original HTML preservation, separate
+operations, actual outgoing wire bytes and malformed link rejection. Browser
+verification must also open the question mark, follow an original link and
+observe the server closing TutorialViewerWnd.
 
 ## M5: chat channels & character sheet (added to the frozen contract)
 
@@ -840,10 +925,12 @@ id 1 with a TEXT param).
 ## M4: skills & items ops (added to the frozen contract)
 
 Server -> client:
-- `{"op":"skillList","skills":[{"id":N,"level":N}]}` — SkillList(0x58), sent
-  once right after enterWorld (server sends it BEFORE UserInfo during
-  EnterWorld; the bridge queues and flushes after enterWorld to keep the
-  contract order).
+- `{"op":"skillList","skills":[{"id":N,"level":N,"passive":false,"disabled":false}]}`
+  — complete SkillList(0x58) snapshot, including an empty list. The bridge
+  queues pre-entry snapshots and flushes the latest after enterWorld, then
+  forwards every server re-send (including level-up/auto-learning updates).
+  Malformed row counts/lengths never publish a partial snapshot. See
+  [native skill-state evidence](../docs/native-skill-state-evidence.md).
 - `{"op":"skillCast","casterId":N,"targetId":N,"skillId":N,"level":N,"hitTime":N}`
   — MagicSkillUse(0x48), cast start (hitTime in ms).
 - `{"op":"skillLaunch","casterId":N,"targetId":N,"skillId":N,"level":N}` —
@@ -856,7 +943,7 @@ Server -> client:
   (0 UNCHANGED, 1 ADDED, 2 MODIFIED, 3 REMOVED).
 - `{"op":"addDrop","id":N,"itemId":N,"count":N,"x":N,"y":N,"z":N}` —
   SpawnItem(0x0b) / DropItem(0x0c): a lootable item on the ground.
-- `{"op":"sysMsg","id":N,"params":[...]}` — SystemMessage(0x64), see above.
+- `{"op":"sysMsg","id":N,"params":[...],"typedParams":[{"type":T,"value":V},...]}` — SystemMessage(0x64), see above.
 
 Client -> server:
 - `{"op":"useSkill","skillId":N,"targetId":N?}` — RequestMagicSkillUse(0x2f),

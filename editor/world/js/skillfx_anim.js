@@ -1,81 +1,8 @@
-// Per-skill cast ANIMATION + visual-effect presentation logic.
-//
-// Data (assets/gamedata/skillanim.json, tools/dat/build_skillanim.py — a
-// join of skillgrp.dat + skillsoundgrp.dat, both decoded from the retail
-// Interlude client):
-//   anim   skillgrp.animation code: the retail cast-animation selector.
-//          Single letters are native-code categories; Mix01-Mix09 / MS01
-//          are literal animation names. '' = passive (no cast animation).
-//   magic  is_magic (0 physical, 1 magical, 2 static, 3 dance/song)
-//   range  cast_range (-1 = 0xFFFFFFFF, self/no-range)
-//   style  cast_style (raw; semantics unknown, kept for reference)
-//   snd    skillsoundgrp spell sounds {cast, shot, exp(losion=hit)}
-//
-// What the codes mean (correlation evidence, full table in the handoff):
-//   S melee weapon strike (3 Power Strike, 100 Stun Attack)
-//   t dagger/bow precision attack (16 Mortal Blow, 19 Double Shot)
-//   V dagger critical blow (263 Deadly Blow, 344 Lethal Blow, 96 Bleed)
-//   U sonic/AoE physical (9 Sonic Buster, 452 Shock Stomp)
-//   Y shield attack (92 Shield Stun)      M polearm sweep (42 Sweeper)
-//   Mix01-09 combo physical (1 Triple Slash, 5 Double Sonic Slash,
-//     81 Punch of Doom, 7 Sonic Storm, 54 Force Blaster)
-//   D beneficial magic (1216 Self Heal, 1040 Shield, 1068 Might)
-//   E elemental nuke (1177 Wind Strike, 1148 Death Spike)
-//   C debuff magic (1201 Dryad Root, 1069 Sleep)
-//   A/G/j/K/H/f/B other magic families (War Chant, Recharge, Battle Heal,
-//     Aura Burn, Inferno, Drain Health, Holy Strike)
-//   X instant self-buff/stance (4 Dash, 78 War Cry, 410 Mortal Strike)
-//   L self-centered taunt/aura (28 Aggression, 18 Aura of Hate)
-//   i summons + raid specials (1111 Summon Kat the Cat; the Antharas-shock
-//     L2FileEdit guide writes 'i')
-//   N dances / W songs (is_magic 3)       MS01 Frintezza's Melody (unique)
-//
-// Retail target animations (Engine/Pawn.uc recovered source +
-// animations/*.ukx clip names): physical skills play SpAtk01-28 / Atk01-03
-// per weapon type; magic casts play CastShort/CastMid/CastLong chosen by
-// cast duration (<1s / 2-5s / 5s+, per the Pawn.uc Korean comments) and
-// MagicThrow/Magicshot at launch. The rebuilt character glTFs ship a
-// compact retail set — castShort/castMid/castLong, magicThrow, spAtk01,
-// spAtk02, die, damage — on top of the original idle/walk/run/sit/dance/
-// attack (docs/character-pipeline.md §4). Clip mapping:
-//   'N' dances / is_magic 3 (songs)   -> 'dance'  EXACT (Social_dance IS
-//                                                   the dance-skill anim)
-//   physical (is_magic 0: S/t/V/U/Y/M/Mix01-09) -> 'spAtk01'/'spAtk02',
-//                                                   alternating
-//   magic (is_magic 1/2)  -> 'castShort'/'castMid'/'castLong' by hitTime
-// Callers fall back gracefully while pre-rebuild models are in place.
-
-// skillgrp.animation -> glTF clip for PLAYER characters. hitTime is the
-// MagicSkillUse cast duration in ms (the gateway skillCast op carries it).
-// null = play NOTHING, which is a real answer: an empty skillgrp animation
-// code means the skill has no cast gesture. Every TOGGLE in the shipped data
-// is coded '' (226 Relax, 312 Vicious Stance, ... checked over
-// assets/gamedata/skillanim.json against the aCis operateType TOGGLE list),
-// and aCis backs that up on the wire — a toggle's MagicSkillUse carries
-// hitTime 0 and no SetupGauge follows (gateway/test/capture-skills.json).
-//
-// UNSOURCED, and deliberately left that way (see the report):
-//   * WHICH SpAtk the animation code selects. skillgrp ships 30-odd distinct
-//     codes (S t V U Y M Mix01-09 ...) and each model ships spatk01..spatk22
-//     per stance, but nothing in this repo maps one to the other. The code
-//     used to alternate spAtk01/spAtk02 on a module-global counter, so the
-//     SAME skill played a different gesture every other cast — invented, and
-//     wrong in an obvious way. One deterministic clip is the honest floor
-//     until the native table is decoded.
-//   * the castShort/castMid/castLong duration thresholds below. They are
-//     cited to an "Engine/Pawn.uc recovered source" that is not in this
-//     repository, and the code's own cut-offs (<1 s, <5 s) do not even match
-//     the comment they were justified with ("<1s / 2-5s / 5s+").
-export function clipForSkill(entry, hitTime = null) {
-  if (!entry || !entry.anim) return null;              // passive/toggle: no anim
-  if (entry.anim === 'N' || entry.magic === 3) return 'dance';  // exact
-  if (entry.magic === 0) return 'spAtk01';             // physical, deterministic
-  // magic cast: picked by cast duration (thresholds unsourced, see above)
-  const s = hitTime != null ? hitTime / 1000 : 2;      // unknown: mid
-  if (s < 1) return 'castShort';
-  if (s < 5) return 'castMid';
-  return 'castLong';
-}
+// Skill metadata helpers. Player animation selection lives in castanim.js:
+// skillgrp.animation -> original APawn::SetSkillAnim slots -> pawn stance table.
+// See native-skillanim.js and docs/native-skill-animation-evidence.md.
+// The old clipForSkill fallback guessed physical slots and magic duration
+// thresholds. It was removed after the original selector disproved those rules.
 
 // Beneficial ONE-target magic by anim code — main.js auto-targets self
 // when such a skill is cast with no current target (retail behavior).

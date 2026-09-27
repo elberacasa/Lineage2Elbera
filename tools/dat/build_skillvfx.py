@@ -3,14 +3,24 @@
 
 WHY THIS EXISTS
 ---------------
-The three source tables are 14 MB of JSON and describe far more than a web
+The effect source tables are 14 MB of JSON and describe far more than a web
 client can draw: lineageeffect.json (864 effect classes / 3709 UE2 emitters),
 skillvisualeffect.json (the Skill.usk skill -> effect binding) and skillfx.json
-(the name-convention fallback bindings). This tool joins them, throws away
-everything the renderer cannot faithfully reproduce, and interns every repeated
-string -- exactly the shape tools/audio/build_audio.py emits for its sound
+(legacy name-convention diagnostics). This tool joins supported emitter
+fields, preserves source Agent identity separately, and interns repeated
+strings -- exactly the shape tools/audio/build_audio.py emits for its sound
 bindings, and for the same reason: effect-class names and texture paths repeat
 across hundreds of skills, so names live in one table and records hold indices.
+
+EXACT AGENT BINDING
+-------------------
+The v2 runtime contract uses objects keyed by full qualified source path and
+bindings keyed by skill ID with explicit known levels plus differing paths.
+Build/check freshly decrypt skillgrp.dat and parse Skill.usk. The old `skill`
+leaf/heuristic map remains diagnostic compatibility data only. No runtime
+Agent selection may use it. Objects are retained even if no emitter is drawn.
+All transported numeric fields preserve decoded Float32 values (no decimal rounding).
+Action arrays retain original order, stage, identity and non-drawable entries.
 
 WHAT IT KEEPS AND WHY
 ---------------------
@@ -93,6 +103,7 @@ Usage:
 """
 
 import argparse
+import hashlib
 import json
 import os
 import struct
@@ -102,11 +113,17 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 GAMEDATA = os.path.join(ROOT, "assets", "gamedata")
 LIBRARY = os.path.join(ROOT, "assets", "library")
 OUT = os.path.join(GAMEDATA, "skillvfx.json")
+from skill_bindings import original_skillgrp, build_bindings
+from parse_skillfx import parse_skill_usk, load_package, SKILL_USK
+
+SKILL_SOURCE_SHA = '30b9a60d2a27c12d7fb9826a38772b3932c4ad66ab5f0638e8128813898463f5'
+ENGINE_DEFAULTS_SHA = '9b04ff5cb4258e84dfa8efbdd85d9121f3bdcb5822a9a21ca69d200d05a69761'
+
 
 # Phase -> short key. The phase is the Skill.usk ARRAY the action sat in
 # (CastingActions/ShotActions/...), never the effect name's suffix: wh_heal_ta
 # is in ShotActions while el_wind_strike_ta is in ExplosionActions.
-PHASE_KEY = {"casting": "c", "shot": "s", "explosion": "x", "channeling": "h"}
+PHASE_KEY = {"casting": "c", "shot": "s", "explosion": "x", "channeling": "h", "preshot": "p"}
 
 # SkillAction_LocateEffect booleans, packed into one bitmask.
 FLAG_ON_TARGET = 1        # bSpawnOnTarget: spawn at the target, not the caster
@@ -167,13 +184,6 @@ ATTACH_BONE = (3, 4)
 def load(name):
     with open(os.path.join(GAMEDATA, name)) as fh:
         return json.load(fh)
-
-
-def r3(x):
-    """Round a float for transport; keeps the file small without visible loss."""
-    if x is None:
-        return None
-    return round(float(x), 3)
 
 
 class Interner:
@@ -270,9 +280,9 @@ def pack_emitter(em, tex, msh=None):
     if em.get("maxParticles"):
         out["n"] = em["maxParticles"]
     if em.get("particlesPerSecond"):
-        out["pps"] = r3(em["particlesPerSecond"])
+        out["pps"] = em["particlesPerSecond"]
     if em.get("lifetime"):
-        out["l"] = [r3(v) for v in em["lifetime"]]
+        out["l"] = list(em["lifetime"])
 
     # StartSizeRange is a RangeVector; UniformSize (default false, only ever
     # serialised true) means the engine uses X for all axes. The 474 sprites
@@ -282,11 +292,11 @@ def pack_emitter(em, tex, msh=None):
     # there too and is carried as `zz`.
     ss = em.get("startSize")
     if isinstance(ss, dict) and "X" in ss:
-        out["z"] = [r3(ss["X"]["Min"]), r3(ss["X"]["Max"])]
+        out["z"] = [ss["X"]["Min"], ss["X"]["Max"]]
         if not em.get("uniformSize") and "Y" in ss:
-            out["zy"] = [r3(ss["Y"]["Min"]), r3(ss["Y"]["Max"])]
+            out["zy"] = [ss["Y"]["Min"], ss["Y"]["Max"]]
         if is_mesh and not em.get("uniformSize") and "Z" in ss:
-            out["zz"] = [r3(ss["Z"]["Min"]), r3(ss["Z"]["Max"])]
+            out["zz"] = [ss["Z"]["Min"], ss["Z"]["Max"]]
 
     # SizeScale: the size-over-life curve, gated by UseSizeScale exactly as the
     # colour ramp is gated by UseColorScale. Decoded for the first time in this
@@ -296,16 +306,16 @@ def pack_emitter(em, tex, msh=None):
     # life. UseRegularSizeScale defaults TRUE and is serialised false on the
     # emitters that carry an authored curve, i.e. "honour these RelativeTimes".
     if em.get("useSizeScale") and em.get("sizeScale"):
-        curve = [[r3(s["t"]), r3(s["s"])] for s in em["sizeScale"]
+        curve = [[s["t"], s["s"]] for s in em["sizeScale"]
                  if s.get("t") is not None and s.get("s") is not None]
         if curve and any(abs(c[1] - 1.0) > 1e-3 for c in curve):
             curve.sort(key=lambda s: s[0])
             out["zs"] = curve
             if em.get("sizeScaleRepeats"):
-                out["zr"] = r3(em["sizeScaleRepeats"])
+                out["zr"] = em["sizeScaleRepeats"]
 
     if em.get("opacity") is not None:
-        out["o"] = r3(em["opacity"])
+        out["o"] = em["opacity"]
 
     # SpinParticles + StartSpinRange / SpinsPerSecondRange, both in REVOLUTIONS
     # (SpinsPerSecondRange is 5.0 at most across the whole table and clusters at
@@ -318,12 +328,12 @@ def pack_emitter(em, tex, msh=None):
         for key, field in (("q0", "startSpin"), ("qs", "spinsPerSecond")):
             v = em.get(field)
             if isinstance(v, dict) and "X" in v:
-                vv = [[r3(v[a]["Min"]), r3(v[a]["Max"])] for a in "XYZ"]
+                vv = [[v[a]["Min"], v[a]["Max"]] for a in "XYZ"]
                 if any(x for pair in vv for x in pair):
                     out[key] = vv
         cw = em.get("spinCCWorCW")
-        if cw and [r3(x) for x in cw] != [0.5, 0.5, 0.5]:
-            out["qw"] = [r3(x) for x in cw]
+        if cw and list(cw) != [0.5, 0.5, 0.5]:
+            out["qw"] = list(cw)
 
     # the UseColorScale gate -- see the module docstring. On a MeshEmitter the
     # tint is additionally gated by UseParticleColor (false on 408 of the 413
@@ -337,34 +347,34 @@ def pack_emitter(em, tex, msh=None):
             h = (c.get("c") or "#ffffffff").lstrip("#")
             if len(h) != 8 or c.get("t") is None:
                 continue
-            ramp.append([r3(c["t"]), int(h[:6], 16), int(h[6:8], 16)])
+            ramp.append([c["t"], int(h[:6], 16), int(h[6:8], 16)])
         if ramp:
             ramp.sort(key=lambda s: s[0])
             out["r"] = ramp
             if em.get("colorScaleRepeats"):
-                out["rr"] = r3(em["colorScaleRepeats"])
+                out["rr"] = em["colorScaleRepeats"]
     # colorMultiplier / startLocation / velocity arrive already collapsed to
     # {X: [min, max], ...} by parse_skillfx.py; only startSize stays nested.
     cm = em.get("colorMultiplier")
     if tinted and isinstance(cm, dict) and "X" in cm:
-        mult = [r3(cm[a][0]) for a in "XYZ"]
+        mult = [cm[a][0] for a in "XYZ"]
         if mult != [1.0, 1.0, 1.0]:
             out["m"] = mult
 
     v = em.get("velocity")
     if isinstance(v, dict) and "X" in v:
-        vv = [[r3(v[a][0]), r3(v[a][1])] for a in "XYZ"]
+        vv = [[v[a][0], v[a][1]] for a in "XYZ"]
         if any(x for pair in vv for x in pair):
             out["v"] = vv
     if em.get("acceleration") and any(em["acceleration"]):
-        out["a"] = [r3(x) for x in em["acceleration"]]
+        out["a"] = list(em["acceleration"])
 
     if em.get("drawStyle"):
         out["d"] = em["drawStyle"]
     if em.get("fadeIn") and em.get("fadeInEnd") is not None:
-        out["fi"] = r3(em["fadeInEnd"])
+        out["fi"] = em["fadeInEnd"]
     if em.get("fadeOut") and em.get("fadeOutStart") is not None:
-        out["fo"] = r3(em["fadeOutStart"])
+        out["fo"] = em["fadeOutStart"]
     if em.get("texU") or em.get("texV"):
         out["u"] = [em.get("texU") or 1, em.get("texV") or 1]
         if em.get("randomSubdivision"):
@@ -381,22 +391,78 @@ def pack_emitter(em, tex, msh=None):
     if em.get("startShape") is not None:
         out["sh"] = em["startShape"]
     if em.get("sphereRadius"):
-        out["sr"] = [r3(x) for x in em["sphereRadius"]]
+        out["sr"] = list(em["sphereRadius"])
     sl = em.get("startLocation")
     if isinstance(sl, dict) and "X" in sl:
-        ll = [[r3(sl[a][0]), r3(sl[a][1])] for a in "XYZ"]
+        ll = [[sl[a][0], sl[a][1]] for a in "XYZ"]
         if any(x for pair in ll for x in pair):
             out["sl"] = ll
     if em.get("startOffset") and any(em["startOffset"]):
-        out["so"] = [r3(x) for x in em["startOffset"]]
+        out["so"] = list(em["startOffset"])
     if em.get("initialDelay") and any(em["initialDelay"]):
-        out["dl"] = [r3(x) for x in em["initialDelay"]]
+        out["dl"] = list(em["initialDelay"])
     return out
 
 
+def pack_action(a, effect_id):
+    cls = (a.get("effect") or "").split(".", 1)[-1]
+    fi = effect_id(cls) if cls else None
+    rec = {}
+    if fi is not None:
+        rec["f"] = fi
+    for key in ("sourceIndex", "actionRef", "actionPath", "actionStatus", "stage", "stageSerialized"):
+        if key in a:
+            rec[key] = a[key]
+    if a.get("effect") is not None:
+        rec["effectPath"] = a["effect"]
+    # Source actions without a supported renderer still affect array order
+    # and stage selection. A missing EffectClass is not a null Action.
+    if not rec:
+        return None
+    flags = 0
+    if a.get("onTarget"):
+        flags |= FLAG_ON_TARGET
+    if a.get("onMultiTarget"):
+        flags |= FLAG_MULTI
+    if a.get("sizeScale"):
+        flags |= FLAG_SIZE_SCALE
+    if a.get("useCharRotation"):
+        flags |= FLAG_CHAR_ROT
+    if a.get("absolute"):
+        flags |= FLAG_ABSOLUTE
+    if a.get("relativeToCylinder") is False:
+        flags |= FLAG_WORLD_OFFSET
+    if flags:
+        rec["g"] = flags
+    if a.get("offset") and any(a["offset"]):
+        rec["o"] = list(a["offset"])
+    if a.get("spawnDelay"):
+        rec["d"] = a["spawnDelay"]
+    # AttachOn (EAttachMethod). Carried for the first time 2026-08-09:
+    # before this the renderer glued EVERY effect to the actor's collision
+    # centre and made every one of them track the actor for life, which is
+    # wrong twice over -- 44 actions name a hand or a bone, and 79 are
+    # EAM_None, i.e. they must stay where they were spawned.
+    # Omitted when 0 (the class default, EAM_None) to keep the file small.
+    if a.get("attachOn"):
+        rec["at"] = a["attachOn"]
+    if a.get("bone"):
+        rec["b"] = a["bone"]
+    return rec
+
 def build(verbose=True):
     effects = load("lineageeffect.json")
-    binds = load("skillvisualeffect.json")
+    with open(SKILL_USK, "rb") as source_file:
+        source_sha = hashlib.sha256(source_file.read()).hexdigest()
+    if source_sha != SKILL_SOURCE_SHA:
+        raise ValueError("skill Agent schema requires the verified original Skill.usk build")
+    with open(os.path.join(ROOT, "assets/interlude/system/Engine.u"), "rb") as source_file:
+        defaults_sha = hashlib.sha256(source_file.read()).hexdigest()
+    if defaults_sha != ENGINE_DEFAULTS_SHA:
+        raise ValueError("FlyingTime default requires the verified original Engine.u build")
+    binds, _ = parse_skill_usk(load_package(SKILL_USK)[0])
+    skill_rows, skill_source = original_skillgrp()
+    exact_bindings = build_bindings(skill_rows)
     sfx = load("skillfx.json")
 
     tex = Interner()
@@ -434,63 +500,33 @@ def build(verbose=True):
         fx_list.append(entry)
         return fx_index[cls]
 
-    def pack_action(a):
-        cls = (a.get("effect") or "").split(".", 1)[-1]
-        fi = effect_id(cls) if cls else None
-        if fi is None:
-            return None
-        rec = {"f": fi}
-        flags = 0
-        if a.get("onTarget"):
-            flags |= FLAG_ON_TARGET
-        if a.get("onMultiTarget"):
-            flags |= FLAG_MULTI
-        if a.get("sizeScale"):
-            flags |= FLAG_SIZE_SCALE
-        if a.get("useCharRotation"):
-            flags |= FLAG_CHAR_ROT
-        if a.get("absolute"):
-            flags |= FLAG_ABSOLUTE
-        if a.get("relativeToCylinder") is False:
-            flags |= FLAG_WORLD_OFFSET
-        if flags:
-            rec["g"] = flags
-        if a.get("offset") and any(a["offset"]):
-            rec["o"] = [r3(x) for x in a["offset"]]
-        if a.get("spawnDelay"):
-            rec["d"] = r3(a["spawnDelay"])
-        # AttachOn (EAttachMethod). Carried for the first time 2026-08-09:
-        # before this the renderer glued EVERY effect to the actor's collision
-        # centre and made every one of them track the actor for life, which is
-        # wrong twice over -- 44 actions name a hand or a bone, and 79 are
-        # EAM_None, i.e. they must stay where they were spawned.
-        # Omitted when 0 (the class default, EAM_None) to keep the file small.
-        if a.get("attachOn"):
-            rec["at"] = a["attachOn"]
-        if a.get("bone"):
-            rec["b"] = a["bone"]
-        return rec
-
-    skills = {}
-    # 1. explicit Skill.usk bindings (the only per-skill effect table the
-    #    client actually ships). Variant names ("4641_a", "1217_sec") are kept
-    #    verbatim -- the client matches the plain id and ignores the rest.
+    skills, objects = {}, {}
+    # Qualified source objects are separate from exact skill-level bindings.
+    # Keep the old leaf/heuristic table only for existing diagnostic tools;
+    # the runtime must never select a source Agent through that table.
     for sid, rec in binds.items():
-        entry = {"b": 1}
-        if rec.get("flyingTime"):
-            entry["f"] = r3(rec["flyingTime"])
+        entry = {"b": 1, "f": rec["flyingTime"], "path": rec["path"], "source": rec["source"],
+                 "actionFormat": "l2-skill-action-records-v1",
+                 **{key: [] for key in PHASE_KEY.values()}}
         any_phase = False
         for phase, acts in (rec.get("phases") or {}).items():
-            packed = [p for p in (pack_action(a) for a in acts) if p]
-            if packed:
-                entry[PHASE_KEY[phase]] = packed
-                any_phase = True
+            packed = [pack_action(a, effect_id) for a in acts]
+            if any(p is None for p in packed):
+                raise ValueError("lost original action record")
+            entry[PHASE_KEY[phase]] = packed
+            any_phase |= bool(packed)
+        key = rec["path"].lower()
+        if key in objects:
+            raise ValueError("duplicate qualified source SkillVisualEffect: " + rec["path"])
+        # An object with no supported drawable action is still an Agent.
+        objects[key] = entry
         if any_phase:
             skills[sid] = entry
 
     # 2. name-convention bindings from skillfx.json. The MATCH RULE is a
     #    heuristic (the retail fallback is native code with no data presence),
-    #    so these are tagged b:2 and the client can weigh them differently.
+    #    retained as b:2 diagnostics only; they are excluded from objects and
+    #    exact bindings and cannot authorize runtime effects.
     #    Their effect classes and every parameter inside are still retail.
     for sid, rec in sfx.items():
         eff = rec.get("effects") or {}
@@ -498,7 +534,7 @@ def build(verbose=True):
             continue
         entry, any_phase = {"b": 2}, False
         for phase, classes in (eff.get("phases") or {}).items():
-            packed = [p for p in (pack_action({"effect": c}) for c in classes) if p]
+            packed = [p for p in (pack_action({"effect": c}, effect_id) for c in classes) if p]
             if packed:
                 entry[PHASE_KEY[phase]] = packed
                 any_phase = True
@@ -510,7 +546,10 @@ def build(verbose=True):
     # bright everywhere and the SHAPE lives entirely in alpha (0.0% of pixels
     # have a dark RGB, 60-90% have alpha < 8), so treating luminance as coverage
     # there paints a solid rectangle. 33 of the sprite textures are RGBA.
-    out = {"tex": tex.items,
+    out = {"format": "l2-interlude-skill-vfx-v2", "objects": objects, "bindings": exact_bindings,
+           "source": {"skillgrp": skill_source, "skillObjects": {"file": "Skill.usk", "SHA256": source_sha},
+                      "agentDefaults": {"file": "Engine.u", "SHA256": defaults_sha}},
+           "tex": tex.items,
            "texa": [1 if png_has_alpha_channel(p) else 0 for p in tex.items],
            "msh": msh.items, "fxn": fx_names, "fx": fx_list, "skill": skills}
     if verbose:
@@ -518,7 +557,7 @@ def build(verbose=True):
         n_mesh = sum(1 for f in fx_list for e in f["e"] if e.get("k") == 1)
         n_skip = sum(sum(f.get("skip", {}).values()) for f in fx_list)
         expl = sum(1 for s in skills.values() if s["b"] == 1)
-        print("skillvfx: %d skills (%d explicit, %d name-convention), "
+        print("skillvfx diagnostics: %d leaves (%d source objects, %d excluded heuristics), "
               "%d effect classes, %d emitters kept (%d sprite + %d mesh), "
               "%d dropped, %d textures, %d meshes"
               % (len(skills), expl, len(skills) - expl, len(fx_list),
@@ -544,18 +583,24 @@ def check():
         print("CHECK FAIL: %d texture(s) not staged: %s" % (len(missing), missing[:5]))
         return 1
 
-    # anchors whose retail appearance is documented in docs/skillfx-data.md
+    # Validate original object actions, independently of which skill levels
+    # actually select those objects. The legacy `skill` table is diagnostic.
+    assert fresh["bindings"]["21"]["path"].lower() == "skill.wh.1012"
+    assert fresh["bindings"]["1177"]["path"] == ""
+    assert "skill.wh.1012" in fresh["objects"]
+    assert len(fresh["objects"]) == 244
+    # anchors whose source object appearance is documented in docs/skillfx-data.md
     for sid, phase, cls in (("1177", "s", "el_wind_strike_fl"),
                             ("1177", "x", "el_wind_strike_ta"),
                             ("1011", "c", "wh_heal_ca"),
                             ("1011", "s", "wh_heal_ta"),
                             ("1040", "s", "wh_shield_ta")):
         acts = fresh["skill"].get(sid, {}).get(phase, [])
-        got = [fresh["fxn"][a["f"]] for a in acts]
+        got = [fresh["fxn"][a["f"]] for a in acts if "f" in a]
         if cls not in got:
             print("CHECK FAIL: skill %s phase %s lost %s (has %s)" % (sid, phase, cls, got))
             return 1
-    if fresh["skill"]["1177"].get("f") != 0.4:
+    if fresh["skill"]["1177"].get("f") != struct.unpack("<f", struct.pack("<f", 0.4))[0]:
         print("CHECK FAIL: Wind Strike flyingTime != 0.4")
         return 1
 
@@ -566,7 +611,7 @@ def check():
     # projectile classes staying EAM_None so they do not follow their caster.
     def action(sid, phase, cls):
         for a in fresh["skill"].get(sid, {}).get(phase, []):
-            if fresh["fxn"][a["f"]] == cls:
+            if "f" in a and fresh["fxn"][a["f"]] == cls:
                 return a
         return None
     for sid, phase, cls, want in (("92", "c", "at_shield_stun_ca", ATTACH_LH),
@@ -628,7 +673,7 @@ def check():
     for f in fresh["fx"]:
         for k, v in f.get("skip", {}).items():
             skipped[k] = skipped.get(k, 0) + v
-    print("CHECK PASS: %d skills (%d explicit / %d convention), %d effect classes, "
+    print("CHECK PASS: %d diagnostic leaves (%d source objects / %d excluded heuristics), %d effect classes, "
           "%d emitters (%d sprite + %d mesh), dropped %s, %d textures all staged, "
           "%.0f KB"
           % (len(fresh["skill"]), expl, len(fresh["skill"]) - expl,

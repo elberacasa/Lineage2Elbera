@@ -284,3 +284,54 @@ inherits the character's scale through the socket.
 - Bows are shipped static.  `Bow_anim` in the package animates the
   *character's* arms, not the bow; no weapon mesh in this roster has a
   matching MeshAnimation.
+
+## 7. Equipment retained across player-model loading
+
+The missing Guild Member's Club on a newly entered male Dwarf was reproduced
+as a browser state-adoption defect. `enterWorld` can await the scene and dwarf
+glTF while the following `charSheet` packet equips the previous visible model.
+The new `Character` then replaced that model and replayed speeds, but not the
+authoritative paperdoll. An equipped inventory row did not repair that loss.
+
+`main.js` now shares `applySelfEquipment` between the packet handler and
+successful model adoption. Adoption uses the latest `charSheetData.paperdoll`
+after the existing session/generation guard, before wait-pose initialization.
+It applies the right hand, left hand and armor without repeating an equip sound.
+Zero item IDs remain authoritative unequips; no inventory-derived fallback or
+new attachment transform was added.
+
+The bounded original-source check for item **2370** freshly decrypted
+`weapongrp.dat` (SHA256
+`eea267ac21afa5f2e148349d5aaab9670dbc67cde3878f1a8db5aba2364550b9`), rather than
+trusting its generated JSON. Its exact row names
+`LineageWeapons.club_m00_wp` / `LineageWeaponsTex.club_t00_wp`, handness 1,
+weapon_type 2 and body_part 7. That mesh is already in the weapon manifest;
+its glTF, buffer and image all exist. The original mesh's saved scale is
+`(1,1,1)`, origin `(0,0,0)` and rotation origin `(0,0,0)`.
+
+The original `LineageWarrior.MDwarf` class defaults name RightHandBone
+`Weapon_R_Bone`; that exact node is present in the current `dwarf_m.gltf`.
+The uniquely validated class default stream begins 87 bytes into its 216-byte
+export and has SHA256
+`fc3f239af2b1c53e26cc10d655ec149181a8afa5a75fa264123a9b57bc2a591c`.
+Source package hashes are
+`747b1e7c3045c748c08b03b54893dc2d29cf7103379f19804ccbeb7764224558`
+(`LineageWarrior.u`) and
+`b97f44a3a0ba917c0fed80d3492e56bc94f751aff698995fa3351b59321d548c`
+(`LineageWeapons.ukx`). These checks exclude a missing model/socket as the
+cause; they do not independently certify every existing native grip rule.
+
+The actual-main regressions in `editor/world/test/online-session.test.mjs`
+exercise a packet arriving on the old model, no visible model, a newer unequip
+during loading, and a disconnected session. The three adoption cases failed
+before the fix. Run them without originals or services:
+
+```sh
+node --test editor/world/test/online-session.test.mjs
+```
+
+The subsequent browser disconnect/reload/reconnect visibly showed the starter
+club on the male Dwarf. Its equipped inventory row was retained, and ordinary
+Gremlin combat through F1 completed with a level increase. This confirms the
+missing-equipment regression in the live path; exact native grip, combat motion
+and every armor variant remain separate parity checks.

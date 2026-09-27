@@ -11,6 +11,9 @@ For each map tile <tx>_<ty> this reads
 and writes
     assets/world/<tile>/scene.json             (FROZEN contract, see README.md)
     assets/world/<tile>/heightmap.u16          (raw little-endian 256x256 u16)
+    assets/world/<tile>/terrain-topology.json (lossless native bitmap arrays;
+                                               per-map visibility evidence)
+    assets/world/<tile>/terrain-edges.json    (adjacent original G16 edge samples)
     assets/world/<tile>/heightmap.png          (min-max normalized preview)
     assets/world/<tile>/basecolor.png          (splat-blended preview, simplified)
     assets/world/<tile>/textures/*.png         (layer diffuses + splat maps)
@@ -25,8 +28,12 @@ Usage:
     python3 tools/world/convert.py 17_23 [19_22 ...]   # convert tiles
     python3 tools/world/convert.py --check 17_23 ...   # validate scene.json
     python3 tools/world/convert.py --water-only T ...  # repatch water only
+    python3 tools/world/convert.py --topology-only T   # preserve terrain masks
+    python3 tools/world/convert.py --edges-only T      # source adjacent edge samples
     python3 tools/world/convert.py --materials-only T  # re-apply the retail
                                                        # prop material state
+    python3 tools/world/convert.py --repair-prop-identities T --mesh Package.Group.Mesh
+        # Elbera Tools: stage selected qualified props; --emit backs up/adopts
 
 Everything is stdlib Python + l2lib (tools/l2lib) + tools/bin/umodel.
 Format lore: docs/map-format.md. See tools/world/README.md for what is exact
@@ -34,9 +41,13 @@ vs simplified.
 """
 
 import array
+import argparse
+from collections import Counter
+import hashlib
 import json
 import math
 import os
+from pathlib import Path
 import shutil
 import struct
 import subprocess
@@ -53,6 +64,8 @@ from l2lib import (L2Error, Reader, TEXF_DXT1, load_package,  # noqa: E402
                    resolve_material, write_png)
 import geodata  # noqa: E402  (tools/world sibling module)
 import light_extract  # noqa: E402  (tools/world sibling module)
+import terrain_topology  # noqa: E402  (tools/world sibling module)
+import terrain_edges  # noqa: E402  (tools/world sibling module)
 
 CLIENT = os.path.join(ROOT, "assets", "interlude")
 LIBRARY = os.path.join(ROOT, "assets", "library")
@@ -208,14 +221,33 @@ def find_prop_start(pkg, exp, want_first=None, max_start=25):
     return best[1] if best else None
 
 
+def qualified_objref(pkg, reference):
+    """Full source identity, including groups; reject broken/cyclic outers."""
+    parts, seen, last_import = [], set(), False
+    while reference:
+        if reference in seen:
+            raise L2Error("cyclic object outer chain")
+        seen.add(reference)
+        obj = pkg.resolve_ref(reference)
+        last_import = reference < 0
+        parts.append(pkg.import_name(obj) if last_import else pkg.export_name(obj))
+        reference = obj.package_index
+    if not parts:
+        return None
+    if not last_import:
+        parts.append(Path(pkg.path).stem)
+    return ".".join(reversed(parts))
+
+
 def prop_objref(pkg, raw):
-    """Decode an ObjectProperty value -> {'package','class','name'} | None."""
+    """Decode an ObjectProperty; retain legacy fields plus qualified identity."""
     ci = Reader(raw).compact()
     if ci == 0:
         return None
     if ci > 0:
         return {"package": None, "class": None,
-                "name": pkg.export_name(pkg.exports[ci - 1])}
+                "name": pkg.export_name(pkg.exports[ci - 1]),
+                "qualified": qualified_objref(pkg, ci)}
     imp = pkg.imports[-ci - 1]
     # walk to the outermost package import
     pkg_name = None
@@ -230,7 +262,7 @@ def prop_objref(pkg, raw):
         pkg_name = pkg.name(imp.class_package) if imp.class_package >= 0 \
             else None
     return {"package": pkg_name, "class": pkg.name(imp.class_name),
-            "name": pkg.name(imp.object_name)}
+            "name": pkg.name(imp.object_name), "qualified": qualified_objref(pkg, ci)}
 
 
 def prop_float(raw):
@@ -332,6 +364,7 @@ def read_terrain_info(pkg):
         elif p["name"] == "TerrainScale" and p["type"] == 10:
             info["scale"] = prop_vector(p["raw"])
     info["layers"].sort(key=lambda l: l["index"])
+    info["topology"] = terrain_topology.read_bitmaps(props, GRID)
     return info
 
 
@@ -834,16 +867,20 @@ def find_usx(package):
 
 
 def umodel_export_package(usx_path, out_dir):
-    """Export a whole .usx package to glTF+PNG with umodel.
+    """Export a whole .usx package preserving original object groups.
     Returns True on success."""
-    argv = [UMODEL, "-export", "-gltf", "-png", "-game=l2",
+    argv = [UMODEL, "-export", "-gltf", "-png", "-groups", "-game=l2",
             "-path=" + CLIENT, "-out=" + out_dir, usx_path]
     proc = subprocess.run(argv, capture_output=True, text=True)
     return proc.returncode == 0
 
 
 def index_export_tree(out_dir):
-    """Map lowercase basename -> full path for everything umodel wrote."""
+    """Legacy texture/material basename index; NEVER use for geometry.
+
+    Material/texture group ambiguity remains separate work. Mesh export
+    resolution uses _repair_group_index and exact original source identities.
+    """
     idx = {}
     for dirpath, _dirs, files in os.walk(out_dir):
         for f in files:
@@ -1413,67 +1450,96 @@ def patch_gltf_textures(gltf_path, tex_out_dir, rel_prefix, resolver,
     return n_wired
 
 
-def convert_props(tile, actors, out_dir):
-    """-> (props list for scene.json, stats dict)."""
+def _qualified_prop_sources(actors):
+    """Resolve each requested identity in its own original StaticMesh package.
+
+    A map may use only one of a package's duplicate leaves. Validate against
+    ALL package exports, then select by the entire case-insensitive UE path.
+    Unknown references fail rather than substituting another group/package.
+    """
+    requested, sources = {}, {}
+    for actor in actors:
+        mesh = actor.get("mesh")
+        qualified = mesh.get("qualified") if mesh else None
+        parts = qualified.split(".") if isinstance(qualified, str) else []
+        if len(parts) < 2 or any(not p or any(c in p for c in "/\\:%?#\0") for p in parts) \
+                or not mesh.get("package") \
+                or parts[0].casefold() != mesh["package"].casefold() \
+                or parts[-1].casefold() != mesh["name"].casefold():
+            raise L2Error("missing/invalid qualified prop reference for " + actor["name"])
+        requested.setdefault(parts[0].casefold(), {}).setdefault(qualified.casefold(), qualified)
+    for package, identities in sorted(requested.items()):
+        path = find_usx(package)
+        if not path:
+            raise L2Error("missing original StaticMesh package " + package)
+        pkg = load_package(path)[0]
+        exports = {}
+        for exp in pkg.exports:
+            if pkg.class_name_of(exp) == "StaticMesh":
+                key = qualified_objref(pkg, exp.index + 1).casefold()
+                exports.setdefault(key, []).append(exp)
+        for key, qualified in identities.items():
+            matches = exports.get(key, [])
+            if len(matches) != 1:
+                raise L2Error("missing/ambiguous qualified StaticMesh source " + qualified)
+            exp = matches[0]
+            sources[key] = {"qualified": qualified, "package": package, "path": path,
+                "exportSHA256": hashlib.sha256(pkg.data[exp.serial_offset:
+                    exp.serial_offset + exp.serial_size]).hexdigest()}
+    return sources
+
+
+def convert_props(tile, actors, out_dir, sources=None):
+    """Qualified source geometry; legacy material/texture resolution unchanged.
+
+    -> (props list for scene.json, stats dict). This is a full props conversion
+    and prunes unused top-level meshes; selective live repairs use the separate
+    --repair-prop-identities staging/adoption path.
+    """
+    sources = _qualified_prop_sources(actors) if sources is None else sources
     props_dir = os.path.join(out_dir, "props")
     tex_dir = os.path.join(props_dir, "textures")
-    needed = {}  # package -> set(mesh names)
-    for a in actors:
-        m = a["mesh"]
-        if m and m.get("package"):
-            needed.setdefault(m["package"], set()).add(m["name"])
+    needed = {}  # canonical package -> exact qualified source records
+    for key, source in sources.items():
+        needed.setdefault(source["package"], {})[key] = source
     # export one umodel pass per available package
-    export_index = {}       # global fallback: lowercase basename -> path
-    pkg_indices = {}        # package -> per-package index (preferred)
+    resolved = {}           # qualified identity -> exact grouped export path
     resolver = PropTextureResolver()
     tex_stats = {}
-    converted = {}  # (package, mesh) -> gltf relative path | None
+    converted = {}  # qualified identity -> gltf relative path
     tmp = tempfile.mkdtemp(prefix="world_umodel_")
     copied_tex = set()
-    used_names = {}
     try:
         for package in sorted(needed):
-            usx = find_usx(package)
-            if not usx:
-                continue
+            usx = next(iter(needed[package].values()))["path"]
             pdir = os.path.join(tmp, package)
             os.makedirs(pdir)
             if not umodel_export_package(usx, pdir):
-                continue
-            idx = index_export_tree(pdir)
-            pkg_indices[package.lower()] = idx
-            for k, v in idx.items():
-                export_index.setdefault(k, v)
+                raise L2Error("grouped StaticMesh export failed: " + package)
+            idx = _repair_group_index(pdir, ".gltf")
+            for key, source in needed[package].items():
+                relative = key.replace(".", "/") + ".gltf"
+                if relative not in idx:
+                    raise L2Error("missing exact grouped mesh export " + source["qualified"])
+                # Validate the glTF's actual sibling buffer before output is
+                # copied; a same-leaf file in another directory cannot supply it.
+                _repair_buffer(idx[relative])
+                resolved[key] = idx[relative]
             resolver.add_export_tree(pdir)
-        for package in sorted(needed):
-            pindex = pkg_indices.get(package.lower(), {})
-            for mesh in sorted(needed[package]):
-                src = pindex.get((mesh + ".gltf").lower()) or \
-                    export_index.get((mesh + ".gltf").lower())
-                if not src:
-                    converted[(package, mesh)] = None
-                    continue
-                os.makedirs(props_dir, exist_ok=True)
-                os.makedirs(tex_dir, exist_ok=True)
-                base = mesh
-                if base.lower() in used_names and \
-                        used_names[base.lower()] != package.lower():
-                    base = package + "." + mesh
-                used_names[base.lower()] = package.lower()
-                dst = os.path.join(props_dir, base + ".gltf")
-                shutil.copyfile(src, dst)
-                binsrc = pindex.get((mesh + ".bin").lower()) or \
-                    export_index.get((mesh + ".bin").lower())
-                if binsrc:
-                    shutil.copyfile(binsrc,
-                                    os.path.join(props_dir, base + ".bin"))
-                # umodel writes the reflected (det -1) basis; the client
-                # places props with l2ToThree, which is det +1 (see
-                # gltf_to_proper_basis)
-                gltf_to_proper_basis(dst)
-                patch_gltf_textures(dst, tex_dir, "textures/",
-                                    resolver, copied_tex, tex_stats)
-                converted[(package, mesh)] = "props/" + base + ".gltf"
+        for key, source in sorted(sources.items()):
+            os.makedirs(tex_dir, exist_ok=True)
+            relative = "props/" + source["qualified"] + ".gltf"
+            dst = os.path.join(out_dir, relative)
+            _repair_copy_mesh(resolved[key], dst)
+            patch_gltf_textures(dst, tex_dir, "textures/",
+                                resolver, copied_tex, tex_stats)
+            with open(dst) as f:
+                gltf = json.load(f)
+            gltf.setdefault("asset", {}).setdefault("extras", {}).update(
+                sourceMesh=source["qualified"], sourceExportSHA256=source["exportSHA256"])
+            with open(dst, "w") as f:
+                json.dump(gltf, f)
+            converted[key] = relative
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     # drop meshes left behind by an earlier conversion of this tile: they are
@@ -1493,7 +1559,7 @@ def convert_props(tile, actors, out_dir):
     n_ok = 0
     for a in actors:
         m = a["mesh"]
-        key = (m["package"], m["name"])
+        key = m["qualified"].casefold()
         gltf = converted.get(key)
         if gltf:
             n_ok += 1
@@ -1501,6 +1567,7 @@ def convert_props(tile, actors, out_dir):
         d3 = a["draw_scale3d"]
         props.append({
             "mesh": "%s.%s" % (m["package"], m["name"]),
+            "sourceMesh": sources[key]["qualified"],
             "gltf": gltf,
             "position": a["location"],
             "rotation": a["rotation"],
@@ -1509,11 +1576,351 @@ def convert_props(tile, actors, out_dir):
     stats = {"actors": len(actors),
              "unique_meshes": sum(len(v) for v in needed.values()),
              "converted": n_ok,
-             "packages_found": sum(1 for p in needed if find_usx(p)),
+             "packages_found": len(needed),
              "packages_total": len(needed),
+             "geometry_identity": "original-qualified-export",
+             "material_identity": "legacy-leaf-resolution-not-certified-by-geometry-check",
              "missing_textures": sorted(tex_stats.get("missing", ())),
              "unsourced_state": sorted(tex_stats.get("unsourced_state", ()))}
     return props, stats
+
+
+# ---------------------------------------------------------------------------
+# Elbera Tools: bounded qualified-prop repair (separate from full conversion)
+# ---------------------------------------------------------------------------
+
+def _repair_require(ok, message):
+    if not ok:
+        raise L2Error("prop identity repair: " + message)
+
+
+def _repair_hash(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _repair_count(reader, limit=1000000):
+    n = reader.compact()
+    _repair_require(0 <= n <= limit, "invalid source array length")
+    return n
+
+
+def _repair_mesh_source(pkg, exp):
+    """Independent render prefix for the audited V_Obj_S version 123/23.
+
+    UEViewer UnMesh2.h FStaticMeshSection is <i5H>; ConvertMesh binds section
+    i to Materials[i]. The >=17 lazy collision arrays FOLLOW these render
+    streams and are deliberately not decoded. No collision faces substituted.
+    """
+    _repair_require((pkg.file_version, pkg.licensee_version) == (123, 23),
+                    "render source version outside audited V_Obj_S 123/23 layout")
+    r = pkg.body_reader(exp)
+    props = read_properties(pkg, r)
+    mr = Reader(props["Materials"])
+    materials = [qualified_objref(pkg, Reader(read_properties(pkg, mr)["Material"]).compact())
+                 for _ in range(_repair_count(mr))]
+    _repair_require(mr.pos == len(mr.data), "trailing source material bytes")
+    r.bytes(41)
+    sections = [struct.unpack("<i5H", r.bytes(14)) for _ in range(_repair_count(r))]
+    r.bytes(25)
+    vertices = [struct.unpack("<6f", r.bytes(24))[:3] for _ in range(_repair_count(r))]
+    r.i32()
+    for _ in range(2):
+        r.bytes(_repair_count(r) * 4); r.i32()
+    for _ in range(_repair_count(r, 16)):
+        r.bytes(_repair_count(r) * 8); r.i32(); r.i32()
+    indices = struct.unpack("<%dH" % (n := _repair_count(r)), r.bytes(n * 2))
+    _repair_require(vertices and len(sections) == len(materials)
+                    and all(math.isfinite(x) for p in vertices for x in p),
+                    "invalid source vertices/sections/materials")
+    triangles = []
+    for section in sections:
+        first, faces = section[1], section[5]
+        ids = indices[first:first + faces * 3]
+        _repair_require(len(ids) == faces * 3 and all(i < len(vertices) for i in ids),
+                        "source section index outside stream")
+        triangles.append([tuple(vertices[i] for i in ids[t:t+3]) for t in range(0, len(ids), 3)])
+    return {"materials": materials, "triangles": triangles,
+            "exportSHA256": hashlib.sha256(pkg.data[exp.serial_offset:
+                exp.serial_offset + exp.serial_size]).hexdigest()}
+
+
+def _repair_group_index(root, suffix):
+    """Exact exporter relative path -> file; never first basename wins."""
+    root = Path(root)
+    result = {}
+    for path in sorted(root.rglob("*" + suffix)):
+        key = path.relative_to(root).as_posix().casefold()
+        _repair_require(key not in result, "ambiguous grouped export " + key)
+        _repair_require(not path.is_symlink(), "symlink in export tree")
+        result[key] = path
+    return result
+
+
+def _repair_buffer(gltf_path):
+    g = json.loads(Path(gltf_path).read_text())
+    buffers = g.get("buffers", [])
+    _repair_require(len(buffers) == 1, "expected one external glTF buffer")
+    uri = buffers[0].get("uri")
+    _repair_require(isinstance(uri, str) and uri.endswith(".bin")
+                    and Path(uri).name == uri and not any(c in uri for c in "\\:%?#"),
+                    "buffer must be the glTF's own sibling .bin")
+    path = Path(gltf_path).parent / uri
+    _repair_require(path.is_file() and not path.is_symlink(), "missing/linked sibling buffer")
+    data = path.read_bytes()
+    _repair_require(len(data) == buffers[0].get("byteLength"), "buffer length mismatch")
+    return g, data
+
+
+def _repair_verify_geometry(gltf_path, source, proper=False):
+    """Compare per-material triangle positions exactly after exporter f32 scale.
+
+    This checks exported pose/identity, not native collision or shader parity.
+    UEViewer ExportGltf TransformPosition swaps Y/Z then scales by 0.01f.
+    Existing basis correction also negates the exported Z component.
+    """
+    g, data = _repair_buffer(gltf_path)
+    _repair_require(len(g.get("meshes", [])) == 1, "expected one exported mesh")
+    primitives = g["meshes"][0].get("primitives", [])
+    _repair_require(len(primitives) == len(source["triangles"]), "section count differs")
+    f32 = lambda v: struct.unpack("<f", struct.pack("<f", v))[0]
+    scale = f32(.01)
+    for i, primitive in enumerate(primitives):
+        _repair_require(primitive.get("mode", 4) == 4, "non-triangle primitive")
+        material = g["materials"][primitive["material"]]["name"]
+        _repair_require(material == source["materials"][i].split(".")[-1],
+                        "source material section differs")
+        def values(index, expected_type, allowed_components):
+            a = g["accessors"][index]
+            _repair_require(a["type"] == expected_type and a["componentType"] in allowed_components,
+                            "unsupported geometry accessor")
+            _repair_require(g["bufferViews"][a["bufferView"]].get("buffer", 0) == 0,
+                            "foreign accessor buffer")
+            off, stride, count, width, components = _accessor_bytes(g, index)
+            fmt = "<" + {5123: "H", 5125: "I", 5126: "f"}[a["componentType"]] * components
+            _repair_require(off >= 0 and stride >= width * components
+                            and (count == 0 or off + (count-1)*stride + width*components <= len(data)),
+                            "accessor outside sibling buffer")
+            return [struct.unpack_from(fmt, data, off + n*stride) for n in range(count)]
+        points = values(primitive["attributes"]["POSITION"], "VEC3", (5126,))
+        indices = [x[0] for x in values(primitive["indices"], "SCALAR", (5123, 5125))]
+        _repair_require(len(indices) % 3 == 0 and all(n < len(points) for n in indices),
+                        "invalid exported triangle indices")
+        actual = Counter(tuple(sorted(points[n] for n in indices[t:t+3]))
+                         for t in range(0, len(indices), 3))
+        def transformed(p):
+            return (f32(p[0]*scale), f32(p[2]*scale), f32(p[1]*scale) * (-1 if proper else 1))
+        expected = Counter(tuple(sorted(transformed(p) for p in triangle))
+                           for triangle in source["triangles"][i])
+        _repair_require(actual == expected, "exported positions differ from qualified source section %d" % i)
+
+
+def _repair_copy_mesh(src, dst):
+    g, buffer = _repair_buffer(src)
+    dst = Path(dst); dst.parent.mkdir(parents=True, exist_ok=True)
+    g["buffers"][0]["uri"] = dst.with_suffix(".bin").name
+    dst.with_suffix(".bin").write_bytes(buffer)
+    dst.write_text(json.dumps(g))
+    gltf_to_proper_basis(str(dst))
+
+
+def _repair_scene(scene, actors, selected):
+    """Match immutable original placement, not a fragile scene array index."""
+    result = json.loads(json.dumps(scene))
+    matched, used = [], set()
+    for actor in actors:
+        mesh = actor["mesh"]
+        qualified = mesh.get("qualified")
+        if qualified not in selected:
+            continue
+        expected = {"mesh": "%s.%s" % (mesh["package"], mesh["name"]),
+                    "position": actor["location"], "rotation": actor["rotation"],
+                    "scale": [actor["draw_scale"] * n for n in actor["draw_scale3d"]]}
+        matches = [i for i, row in enumerate(scene["props"])
+                   if all(row.get(k) == value for k, value in expected.items())]
+        _repair_require(len(matches) == 1 and matches[0] not in used,
+                        "missing/ambiguous unchanged actor " + actor["name"])
+        index = matches[0]; used.add(index)
+        _repair_require(scene["props"][index].get("sourceMesh", qualified) == qualified,
+                        "conflicting existing sourceMesh for " + actor["name"])
+        result["props"][index].update(sourceMesh=qualified, gltf="props/" + qualified + ".gltf")
+        matched.append({"actor": actor["name"], "sourceMesh": qualified, "sceneIndex": index})
+    _repair_require({row["sourceMesh"] for row in matched} == set(selected),
+                    "every selected identity must have an unchanged scene placement")
+    return result, matched
+
+
+def _repair_adoption_plan(live, staged):
+    """No mutation: preflight every generated path and refuse byte conflicts."""
+    live, staged = Path(live).resolve(), Path(staged).resolve()
+    plan = []
+    for source in sorted((staged / "props").rglob("*")):
+        if not source.is_file():
+            continue
+        relative = source.relative_to(staged)
+        target = live / relative
+        _repair_require(not any(p.is_symlink() for p in [source, *source.parents] if p.is_relative_to(staged))
+                        and not any(p.is_symlink() for p in [target, *target.parents] if p.is_relative_to(live)),
+                        "symlink in adoption path")
+        if target.exists():
+            _repair_require(source.read_bytes() == target.read_bytes(),
+                            "existing asset byte conflict: " + relative.as_posix())
+        plan.append((source, target))
+    return plan
+
+
+def _repair_adopt(live, staged, backup, original_scene, source_hashes):
+    """New unique files first, atomic scene replacement last; rollback on error."""
+    live, staged, backup = Path(live).resolve(), Path(staged).resolve(), Path(backup).resolve()
+    plan = _repair_adoption_plan(live, staged)
+    scene = live / "scene.json"
+    _repair_require(scene.read_bytes() == original_scene, "scene changed during staging")
+    for path, digest in source_hashes.items():
+        _repair_require(_repair_hash(path) == digest, "source changed during staging: " + str(path))
+    backup.mkdir(parents=True, exist_ok=False)
+    (backup / "scene.json").write_bytes(original_scene)
+    # Old, now-unreferenced leaf meshes remain in place. No cleanup of a subset.
+    manifest = {"sceneSHA256": hashlib.sha256(original_scene).hexdigest(),
+                "newFiles": [str(t.relative_to(live)) for _, t in plan if not t.exists()]}
+    (backup / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    created = []
+    pending_scene = None
+    try:
+        for source, target in plan:
+            if target.exists():
+                _repair_require(source.read_bytes() == target.read_bytes(), "asset changed during adoption")
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with target.open("xb") as out:
+                created.append(target); out.write(source.read_bytes())
+        validate_scene(json.loads((staged / "scene.json").read_text()), str(live))
+        _repair_require(scene.read_bytes() == original_scene, "scene changed before adoption")
+        with tempfile.NamedTemporaryFile(dir=live, prefix=".prop-repair-", delete=False) as out:
+            pending_scene = Path(out.name); out.write((staged / "scene.json").read_bytes())
+        os.replace(pending_scene, scene)
+        pending_scene = None
+    except BaseException:
+        if pending_scene is not None:
+            pending_scene.unlink(missing_ok=True)
+        for path in reversed(created):
+            path.unlink(missing_ok=True)
+        raise
+
+
+def repair_prop_identities(tile, selected, emit=False, stage=None):
+    """Stage exactly selected qualified meshes; current material domain V_Obj_T.
+
+    This deliberately does not invoke convert_tile/convert_props, regenerate
+    terrain, prune live props, or claim complete native material parity.
+    """
+    _repair_require(len(tile.split("_")) == 2 and all(p.isdigit() for p in tile.split("_")), "invalid tile")
+    _repair_require(selected and len(selected) == len(set(selected)), "empty/duplicate selection")
+    for name in selected:
+        _repair_require(len(name.split(".")) >= 3 and all(part and all(c.isascii() and (c.isalnum() or c == "_")
+                        for c in part) for part in name.split(".")), "invalid qualified mesh " + name)
+        _repair_require(name.split(".")[0] == "V_Obj_S", "only audited V_Obj_S inputs supported")
+    live = Path(OUT_ROOT) / tile
+    original_scene = (live / "scene.json").read_bytes()
+    scene = json.loads(original_scene)
+    validate_scene(scene, str(live))
+    map_path = Path(CLIENT) / "maps" / (tile + ".unr")
+    map_pkg = load_package(str(map_path))[0]
+    candidate, actors = _repair_scene(scene, read_static_mesh_actors(map_pkg), selected)
+    mesh_file = find_usx("V_Obj_S")
+    _repair_require(mesh_file is not None, "missing original V_Obj_S package")
+    mesh_path = Path(mesh_file)
+    texture_path = Path(CLIENT) / "textures" / "V_Obj_T.utx"
+    mesh_pkg, texture_pkg = load_package(str(mesh_path))[0], load_package(str(texture_path))[0]
+    source_hashes = {str(p): _repair_hash(p) for p in (map_path, mesh_path, texture_path, Path(UMODEL))}
+    meshes, textures = {}, {}
+    for name in selected:
+        matches = [e for e in mesh_pkg.exports if mesh_pkg.class_name_of(e) == "StaticMesh"
+                   and qualified_objref(mesh_pkg, e.index+1).casefold() == name.casefold()]
+        _repair_require(len(matches) == 1, "missing/ambiguous original mesh " + name)
+        meshes[name] = _repair_mesh_source(mesh_pkg, matches[0])
+        for material in meshes[name]["materials"]:
+            _repair_require(material and material.split(".")[0] == "V_Obj_T", "material outside V_Obj_T")
+            leaf = material.split(".")[-1]
+            matches = [e for e in texture_pkg.exports if texture_pkg.export_name(e).casefold() == leaf.casefold()]
+            _repair_require(len(matches) == 1 and qualified_objref(texture_pkg, matches[0].index+1) == material
+                            and texture_pkg.class_name_of(matches[0]) == "Texture",
+                            "material must resolve uniquely to an original V_Obj_T Texture: " + material)
+            textures[material] = matches[0]
+    private = Path(ROOT) / "tmp" / "restart-audit"
+    private.mkdir(parents=True, exist_ok=True)
+    if stage is None:
+        stage = Path(tempfile.mkdtemp(prefix="prop-identity-" + tile + "-", dir=private))
+    else:
+        stage = Path(stage).resolve()
+        _repair_require(stage.is_relative_to(private.resolve()) and stage != private.resolve(),
+                        "staging must stay under ignored tmp/restart-audit")
+        stage.mkdir(parents=True, exist_ok=False)
+    raw, staged = stage / "raw", stage / "candidate"
+    raw.mkdir(); (staged / "props" / "textures").mkdir(parents=True)
+    argv = [UMODEL, "-export", "-gltf", "-png", "-groups", "-game=l2",
+            "-path=" + CLIENT, "-out=" + str(raw)]
+    for package, names, log_name in (
+            (mesh_path, selected, "export.log"),
+            (texture_path, textures, "texture-export.log")):
+        args = argv + ["-obj=" + leaf for leaf in sorted({s.split(".")[-1] for s in names})]
+        proc = subprocess.run(args + [str(package)], capture_output=True, text=True)
+        (stage / log_name).write_text(proc.stdout + proc.stderr)
+        _repair_require(proc.returncode == 0, "grouped export failed; see " + str(stage / log_name))
+    mesh_index, png_index = _repair_group_index(raw, ".gltf"), _repair_group_index(raw, ".png")
+    state_decoder = RetailMaterialIndex()
+    texture_files = {}
+    for material, exp in textures.items():
+        key = material.replace(".", "/").casefold() + ".png"
+        _repair_require(key in png_index, "missing qualified texture export " + material)
+        destination = staged / "props" / "textures" / (texture_pkg.export_name(exp) + ".png")
+        shutil.copyfile(png_index[key], destination)
+        texture_files[material] = destination.name
+    for name, source in meshes.items():
+        key = name.replace(".", "/").casefold() + ".gltf"
+        _repair_require(key in mesh_index, "missing qualified mesh export " + name)
+        src, dst = mesh_index[key], staged / "props" / (name + ".gltf")
+        _repair_verify_geometry(src, source)
+        _repair_copy_mesh(src, dst)
+        _repair_verify_geometry(dst, source, proper=True)
+        g = json.loads(dst.read_text())
+        g.setdefault("asset", {}).setdefault("extras", {}).update(
+            sourceMesh=name, sourceExportSHA256=source["exportSHA256"])
+        g["images"], g["textures"], g["samplers"] = [], [], [{}]
+        for i, material in enumerate(source["materials"]):
+            g["images"].append({"uri": "textures/" + texture_files[material]})
+            g["textures"].append({"source": i, "sampler": 0})
+            m = g["materials"][g["meshes"][0]["primitives"][i]["material"]]
+            pbr = m.setdefault("pbrMetallicRoughness", {})
+            pbr["baseColorTexture"] = {"index": i}; pbr.pop("baseColorFactor", None)
+            state = state_decoder._decode(texture_pkg, textures[material].index)
+            _repair_require(state is not None, "unresolved original material state " + material)
+            m["alphaMode"], cutoff, m["doubleSided"] = state
+            m.pop("alphaCutoff", None)
+            if cutoff is not None: m["alphaCutoff"] = round(cutoff, 6)
+        dst.write_text(json.dumps(g))
+    (staged / "scene.json").write_text(json.dumps(candidate, indent=1))
+    _repair_adoption_plan(live, staged)
+    # Original scene was validated before staging. Its only changed fields
+    # are checked new glTF paths/source IDs; full validation also runs before
+    # atomic adoption with both old and new files present.
+    for name in selected:
+        g, _ = _repair_buffer(staged / "props" / (name + ".gltf"))
+        for entry in g["images"]:
+            _repair_require((staged / "props" / entry["uri"]).is_file(), "missing staged texture")
+    for path, digest in source_hashes.items():
+        _repair_require(_repair_hash(path) == digest, "source changed during staging: " + path)
+    report = {"tool": "Elbera Tools", "operation": "qualified-prop-repair", "tile": tile,
+              "emitted": False, "stage": str(stage), "sources": source_hashes,
+              "originalSceneSHA256": hashlib.sha256(original_scene).hexdigest(),
+              "selected": list(selected), "actors": actors,
+              "meshes": {name: {"exportSHA256": source["exportSHA256"],
+                  "triangles": sum(map(len, source["triangles"])), "materials": source["materials"]}
+                  for name, source in meshes.items()},
+              "files": {str(p.relative_to(staged)): _repair_hash(p) for p in staged.rglob("*") if p.is_file()}}
+    if emit:
+        _repair_adopt(live, staged, stage / "backup", original_scene, source_hashes)
+        report["emitted"] = True
+    (stage / "receipt.json").write_text(json.dumps(report, indent=2))
+    return report
 
 
 # ---------------------------------------------------------------------------
@@ -1563,6 +1970,28 @@ def validate_scene(scene, out_dir):
              "water %d texture" % i)
     need("interior" not in scene or scene["interior"] is True,
          "interior must be exactly true when present")
+    if "topology" in scene:
+        need(scene["topology"] == terrain_topology.FILENAME,
+             "terrain topology pointer")
+        topology_path = os.path.join(out_dir, terrain_topology.FILENAME)
+        if need(os.path.exists(topology_path), "missing terrain-topology.json"):
+            try:
+                with open(topology_path) as f:
+                    topology = json.load(f)
+                terrain_topology.validate(topology, scene.get("gridSize"))
+            except (OSError, ValueError, L2Error) as exc:
+                need(False, "invalid terrain topology: %s" % exc)
+    if "terrainEdges" in scene:
+        need(scene["terrainEdges"] == terrain_edges.FILENAME,
+             "terrain edges pointer")
+        edges_path = os.path.join(out_dir, terrain_edges.FILENAME)
+        if need(os.path.exists(edges_path), "missing terrain-edges.json"):
+            try:
+                with open(edges_path) as f:
+                    edges = json.load(f)
+                terrain_edges.validate(edges, scene)
+            except (OSError, ValueError, L2Error) as exc:
+                need(False, "invalid terrain edges: %s" % exc)
     # optional geodata pointer (FROZEN contract, tools/world/README.md)
     if "geodata" in scene:
         need(scene["geodata"] == "geodata.json", "geodata pointer")
@@ -1641,13 +2070,19 @@ def validate_scene(scene, out_dir):
 
 def convert_tile(tile, with_props=True):
     tx, ty = (int(v) for v in tile.split("_"))
+    map_path = os.path.join(CLIENT, "maps", tile + ".unr")
+    mpkg, _ = load_package(map_path)
+    actors, prop_sources = [], None
+    if with_props:
+        # Before ANY output mutation, including terrain: a full conversion
+        # must bind each reference to the exact original group and package.
+        actors = read_static_mesh_actors(mpkg)
+        prop_sources = _qualified_prop_sources(actors)
     out_dir = os.path.join(OUT_ROOT, tile)
     os.makedirs(out_dir, exist_ok=True)
     tex_out = os.path.join(out_dir, "textures")
     os.makedirs(tex_out, exist_ok=True)
 
-    map_path = os.path.join(CLIENT, "maps", tile + ".unr")
-    mpkg, _ = load_package(map_path)
     tinfo = read_terrain_info(mpkg)
     locz = tinfo["location"][2]
     scale = tinfo["scale"]
@@ -1724,8 +2159,7 @@ def convert_tile(tile, with_props=True):
               "packages_total": 0, "unique_meshes": 0,
               "missing_textures": [], "unsourced_state": []}
     if with_props:
-        actors = read_static_mesh_actors(mpkg)
-        props, pstats = convert_props(tile, actors, out_dir)
+        props, pstats = convert_props(tile, actors, out_dir, prop_sources)
 
     # water volumes (WaterVolume brush tops; null when the tile has none)
     water = read_water_volumes(mpkg)
@@ -1763,6 +2197,12 @@ def convert_tile(tile, with_props=True):
     # before scene.json so validate_scene can check the files exist
     if geodata.write_tile_geodata(tile, out_dir) is not None:
         scene["geodata"] = "geodata.json"
+    terrain_topology.write(tinfo["topology"], GRID, map_path,
+                           "assets/interlude/maps/%s.unr" % tile, out_dir,
+                           source_package=mpkg)
+    scene["topology"] = terrain_topology.FILENAME
+    terrain_edges.write(tile, out_dir, scene)
+    scene["terrainEdges"] = terrain_edges.FILENAME
     validate_scene(scene, out_dir)
     with open(os.path.join(out_dir, "scene.json"), "w") as f:
         json.dump(scene, f, indent=1)
@@ -1784,6 +2224,63 @@ def check_tile(tile):
     validate_scene(scene, out_dir)
     print("%s: scene.json OK (%d layers, %d props)" %
           (tile, len(scene["layers"]), len(scene["props"])))
+
+
+def update_tile_topology(tile):
+    """Preserve source masks in an existing scene without regenerating assets.
+
+    Only terrain-topology.json and its scene.json pointer are written. Raw
+    heightmaps, corrected runtime heights, props and textures are untouched.
+    Complete, matching native sector evidence marks ordinary-quad visibility
+    as verified for this map; otherwise its interpretation stays unverified.
+    Native diagonal and boundary rules remain unknown in either case.
+    """
+    out_dir = os.path.join(OUT_ROOT, tile)
+    scene_path = os.path.join(out_dir, "scene.json")
+    with open(scene_path) as f:
+        scene = json.load(f)
+    if scene.get("tile") != tile:
+        raise L2Error("scene tile does not match requested source map: " + tile)
+    # A missing/outdated topology sidecar is precisely what this operation
+    # repairs. Validate every other scene reference before replacing it.
+    prior_scene = dict(scene)
+    prior_scene.pop("topology", None)
+    validate_scene(prior_scene, out_dir)
+    map_path = os.path.join(CLIENT, "maps", tile + ".unr")
+    mpkg, _ = load_package(map_path)
+    tinfo = read_terrain_info(mpkg)
+    record = terrain_topology.write(
+        tinfo["topology"], scene["gridSize"], map_path,
+        "assets/interlude/maps/%s.unr" % tile, out_dir,
+        source_package=mpkg)
+    scene["topology"] = terrain_topology.FILENAME
+    validate_scene(scene, out_dir)
+    terrain_topology.write_json(scene_path, scene)
+    return record
+
+
+def update_tile_edges(tile):
+    """Add adjacent native edge samples without regenerating other assets."""
+    out_dir = os.path.join(OUT_ROOT, tile)
+    scene_path = os.path.join(out_dir, "scene.json")
+    with open(scene_path) as f:
+        scene = json.load(f)
+    if scene.get("tile") != tile:
+        raise L2Error("scene tile does not match requested source map: " + tile)
+    prior_scene = dict(scene)
+    prior_scene.pop("terrainEdges", None)
+    validate_scene(prior_scene, out_dir)
+    record = terrain_edges.build(tile)
+    terrain_edges.validate(record, scene)
+    with open(os.path.join(out_dir, scene["heightmap"]), "rb") as f:
+        current_hash = hashlib.sha256(f.read()).hexdigest()
+    if current_hash != record["provenance"]["center"]["extractedHeightSHA256"]:
+        raise L2Error("scene heightmap differs from original source: " + tile)
+    terrain_topology.write_json(os.path.join(out_dir, terrain_edges.FILENAME), record)
+    scene["terrainEdges"] = terrain_edges.FILENAME
+    validate_scene(scene, out_dir)
+    terrain_topology.write_json(scene_path, scene)
+    return record
 
 
 def update_tile_materials(tile):
@@ -1860,6 +2357,34 @@ def main(argv):
     if args[0] == "--check":
         for tile in args[1:]:
             check_tile(tile)
+        return 0
+    if args[0] == "--repair-prop-identities":
+        parser = argparse.ArgumentParser(description="Elbera Tools: stage selected qualified props; no full conversion")
+        parser.add_argument("tile")
+        parser.add_argument("--mesh", action="append", required=True, help="exact Package.Group.Mesh (repeatable)")
+        parser.add_argument("--stage", help="new directory under ignored tmp/restart-audit")
+        parser.add_argument("--emit", action="store_true", help="back up and adopt validated files and scene")
+        options = parser.parse_args(args[1:])
+        report = repair_prop_identities(options.tile, options.mesh, options.emit, options.stage)
+        print("%s: %d qualified meshes, %d actors, %s; receipt %s/receipt.json" % (
+            options.tile, len(report["selected"]), len(report["actors"]),
+            "adopted with backup" if report["emitted"] else "staged only", report["stage"]))
+        return 0
+    if args[0] == "--edges-only":
+        if len(args) == 1:
+            raise L2Error("--edges-only requires at least one tile")
+        for tile in args[1:]:
+            record = update_tile_edges(tile)
+            print("%s: native edge sources %s" % (tile, ", ".join(
+                key for key in terrain_edges.DIRECTIONS if record[key] is not None)))
+        return 0
+    if args[0] == "--topology-only":
+        if len(args) == 1:
+            raise L2Error("--topology-only requires at least one tile")
+        for tile in args[1:]:
+            record = update_tile_topology(tile)
+            print("%s: preserved %d topology arrays; %s"
+                  % (tile, len(record["bitmaps"]), record["conventions"]["status"]))
         return 0
     if args[0] == "--materials-only":
         # re-apply the retail material render state to already-converted

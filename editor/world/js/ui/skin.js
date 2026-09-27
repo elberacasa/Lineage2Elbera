@@ -36,7 +36,7 @@ export const Skin = {
 
   async load() {
     if (_sprites) return Skin;
-    const doc = await fetch(MANIFEST).then(r => r.json());
+    const doc = await fetch(MANIFEST, { cache: 'no-cache' }).then(r => r.json());
     _sprites = doc.sprites || {};
     _srcScale = doc.scale || 1;
     return Skin;

@@ -280,10 +280,10 @@ const EMPTY = [];
 export function drawnGroundL2(bspFloor, geodata, xL2, yL2, terrainZ, hintZ) {
   if (!bspFloor || !geodata) return terrainZ;
   const walk = bspFloor.walkLayersAtWorld(xL2, yL2);
-  const z = hintZ ?? terrainZ;
+  const z = hintZ ?? terrainZ ?? geodata.heightAt(xL2, yL2);
   if (walk == null) {                       // section 1 only
     const b = bspFloor.nearestAtWorld(xL2, yL2, z);
-    if (b == null || b <= terrainZ) return terrainZ;
+    if (b == null || (terrainZ != null && b <= terrainZ)) return terrainZ;
     const g = geodata.heightAt(xL2, yL2, b);
     if (g == null || Math.abs(g - b) > GEO_ANCHOR_MAX) return terrainZ;
     return b;
@@ -307,7 +307,7 @@ export function drawnGroundL2(bspFloor, geodata, xL2, yL2, terrainZ, hintZ) {
       best = s; bestD = d; bestScore = score; bestBand = inBand; bestG = g;
     }
   };
-  consider(terrainZ);
-  for (const s of walk) if (s > terrainZ) consider(s);
+  if (terrainZ != null) consider(terrainZ);
+  for (const s of walk) if (terrainZ == null || s > terrainZ) consider(s);
   return best === null ? terrainZ : best;
 }

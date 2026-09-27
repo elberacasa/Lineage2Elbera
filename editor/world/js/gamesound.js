@@ -1,45 +1,13 @@
-// Game events -> retail sounds.
-//
-// The audio engine (audio.js) knows how to play a sound at a point in the
-// world. This module knows WHICH sound: it owns `assets/audio/bindings.json`,
-// the compact join of npcgrp + skillsoundgrp + weapongrp produced by
-// tools/audio/build_audio.py, and maps each gateway event onto the entries the
-// game itself specifies. Nothing here is authored — every sound name, volume
-// and radius comes out of the client's own tables.
-//
-// What the npcgrp fields mean, since the names mislead:
-//   defense_sound  the impact — what a blow landing on this creature sounds
-//                  like (its hide, armour, bone). Plays on every hit.
-//   damage_sound   the creature's own voice reacting to the hit. Plays on
-//                  every hit too; together they make one blow.
-//   attack_sound   the swing/whoosh the creature makes when IT attacks.
-// Each is a bank of alternatives (a gremlin has three of each) and the game
-// picks at random, which is the only reason repeated hits don't sound like a
-// loop. `sound_vol` and `sound_radius` are per-creature.
-//
-// Skills carry three banks: the cast (`c`, spell_sounds — plays at the caster
-// as the animation starts), the shot (`s`, shot_sounds — a projectile leaving)
-// and the explosion (`x`, exp_sounds — the impact on the target). Weapons
-// carry four impact sounds (`h`) plus an equip (`e`) and a drop (`d`).
-//
-// CORRECTION (2026-08-08). The line above used to read "Nothing here is
-// authored -- every sound name, volume and radius comes out of the client's
-// own tables." The first half is true; the second was not:
-//   * npcgrp and skillsoundgrp DO carry per-record volume and radius, and
-//     assets/audio/bindings.json ships them for all 6,495 npc and 1,368
-//     skill records -- 0 missing. Those paths are fully table-driven and the
-//     `|| <number>` fallbacks that used to guard them were unreachable. They
-//     are gone.
-//   * weapongrp does NOT. bindings.json carries no `v` or `r` for any of the
-//     1,311 weapon records, so the weapon hit and drop calls below were
-//     playing at typed values. Marked AUTHORED at the site.
-//   * weapongrp.json DOES carry a `drop_radius` per weapon (7 on the first
-//     record), and tools/audio/build_audio.py never reads it -- see the drop()
-//     handover below. That file has another owner; the value is on disk.
+// Browser combat sound presentation. Bindings preserve original references
+// and skill row/layer/gain data; native skill sound selection is verified by
+// tools/ui/check_cast_sound_native.py. Event timing, spatial audio, NPC bank
+// policy and weapon gain assumptions are separate parity gaps (see callsites).
+// Packet-triggered skill shot/impact sounds below are still provisional.
 
 import { audio } from './audio.js';
-// FlyingTime per skill, out of Skill.usk via skillvfx.json. The explosion
-// sound lands with the projectile, not with the shot leaving.
+import { skillSoundPhase, skillSoundVoice } from './skillsound-binding.js';
+// Exact authored FlyingTime is retained; its packet-relative timer below is
+// provisional and does not reproduce native projectile collision timing.
 import { flyingTime } from './skillvfx.js';
 
 const BINDINGS_URL = '/audio/bindings.json';
@@ -48,13 +16,15 @@ export class GameSound {
   constructor() {
     this.names = null;
     this.npc = null;
-    this.skill = null;
+    this.skillSoundIndex = null;
     this.weapon = null;
     this.ready = false;
     // npcId per entity id, so a hit on entity 268435 can find its creature's
     // sound bank — the attack event only carries entity ids.
     this._npcOf = new Map();
     this._weaponId = 0;      // our own equipped weapon, for our own hit sounds
+    this._generation = 0;
+    this._timers = new Set();
   }
 
   async load() {
@@ -64,7 +34,7 @@ export class GameSound {
       const b = await res.json();
       this.names = b.names;
       this.npc = b.npc;
-      this.skill = b.skill;
+      this.skillSoundIndex = b;
       this.weapon = b.weapon;
       this.ready = true;
     } catch (err) {
@@ -97,7 +67,20 @@ export class GameSound {
   }
 
   forget(entityId) { this._npcOf.delete(entityId); }
-  clear() { this._npcOf.clear(); }
+  clear() {
+    this._generation++;
+    for (const timer of this._timers) clearTimeout(timer);
+    this._timers.clear();
+    this._npcOf.clear();
+  }
+
+  // Retire pending positional audio decoding when the world/session changes.
+  // This neither stops audio already playing nor implements per-caster
+  // cancellation or native StopSpellSound.
+  _sessionGuard() {
+    const generation = this._generation;
+    return () => generation === this._generation;
+  }
 
   setWeapon(itemId) {
     this._weaponId = itemId || 0;
@@ -117,7 +100,7 @@ export class GameSound {
     const npcId = this._npcOf.get(msg.targetId);
     const rec = npcId != null ? this.npc[String(npcId)] : null;
     if (rec) {
-      const opts = { volume: rec.v, radius: rec.r };   // npcgrp's own
+      const opts = { volume: rec.v, radius: rec.r, isCurrent: this._sessionGuard() }; // npcgrp's own
       audio.playOneOf(this._refs(rec.d), pos, opts);   // impact on the hide
       audio.playOneOf(this._refs(rec.m), pos, opts);   // the creature's cry
     }
@@ -127,31 +110,15 @@ export class GameSound {
       // AUTHORED volume and radius: weapongrp gives item_sound its four
       // impact names but no volume and no radius for them, and bindings.json
       // therefore ships none. Nothing decoded fixes these two numbers.
-      if (w) audio.playOneOf(this._refs(w.h), pos, { volume: 250, radius: 40 });
+      if (w) audio.playOneOf(this._refs(w.h), pos,
+        { volume: 250, radius: 40, isCurrent: this._sessionGuard() });
     }
   }
 
-  // A soulshot firing — now SILENT, and that is the sourced answer.
-  //
-  // This used to play InterfaceSound.sc_shot_01 on every hit carrying the
-  // Attack packet's HITFLAG_SS. Two things are wrong with that and both were
-  // checked (2026-08-08):
-  //   1. WRONG SOUND. sc_shot_01 has no binding anywhere in the decoded client
-  //      data (grep assets/gamedata) and it lives in interfacesound.uax next
-  //      to click_01 / inventory_open_01 — it is a UI sound, picked by hand.
-  //      The retail shot sounds are SkillSound.soul_shot_cast (soulshots) and
-  //      SkillSound.spirits_shot_cast (spirit/blessed), which skillsoundgrp.dat
-  //      binds to the shot SKILLS 2039/2047/2061 and 2150..2164.
-  //   2. WRONG MOMENT. Retail's sound rides the shot's own MagicSkillUse, not
-  //      the hit: aCis SoulShots.useItem charges the weapon, then broadcasts
-  //      MagicSkillUse(player, player, <item_skill>, 1, 0, 0). That reaches the
-  //      client as skillCast, and main.js's skillCast handler already calls
-  //      cast() below, which already finds those exact sounds in
-  //      assets/audio/bindings.json. The path was complete; this method was
-  //      simply a second, invented sound layered on top of it.
-  // Kept as a no-op so main.js's call site (js/main.js:1339, another worker's
-  // file) stays valid.
-  shot(_pos, _isSelf) { /* retail plays the shot sound on skillCast, see above */ }
+  // No extra sound is selected from the combat soulshot hit flag. Skill
+  // sound rows are handled separately by cast/launch. Their current packet
+  // timing does not prove the original client's notify-driven sound timing.
+  shot(_pos, _isSelf) {}
 
   // The attacker's swing. Separate from attack() because a miss still swings.
   swing(entityId, pos) {
@@ -160,70 +127,78 @@ export class GameSound {
     const rec = npcId != null ? this.npc[String(npcId)] : null;
     if (rec) {
       audio.playOneOf(this._refs(rec.a), pos,
-                      { volume: rec.v, radius: rec.r });   // npcgrp's own
+                      { volume: rec.v, radius: rec.r, isCurrent: this._sessionGuard() }); // npcgrp's own
     }
   }
 
-  // Death reuses the creature's damage bank: Interlude gives monsters no
-  // dedicated death sound, the final cry is one of the same three.
+  // Existing death presentation reuses the creature's damage bank. Its
+  // native selection policy and timing still need source call-site proof.
   die(entityId, pos) {
     if (!this.ready || !pos) return;
     const npcId = this._npcOf.get(entityId);
     const rec = npcId != null ? this.npc[String(npcId)] : null;
     if (rec) {
       audio.playOneOf(this._refs(rec.m), pos,
-                      { volume: rec.v, radius: rec.r });   // npcgrp's own
+                      { volume: rec.v, radius: rec.r, isCurrent: this._sessionGuard() }); // npcgrp's own
     }
     this.forget(entityId);
   }
 
   // ---- skills -----------------------------------------------------------
 
-  // ---- skills: THREE PHASES, NOT A BANK ---------------------------------
-  //
-  // CORRECTED 2026-08-09. `rec.c` used to be the whole of skillsoundgrp's
-  // `spell_sounds` array and this method played `playOneOf` over it — a
-  // RANDOM PICK among what are in fact the cast, shot and explosion sounds
-  // of three different moments. Power Strike therefore had a 50/50 chance
-  // of playing `power_strike_shot` as the gesture began, and the 1092
-  // skills whose slot 1 is populated could never play it at the right time.
-  // The slots are phases (tools/dat/parse_skillsoundgrp.py; 990 of the 1092
-  // populated slot-1 names end in `_shot`, 113 of the 145 slot-2 names in
-  // `_explotion`/`_explosion`), and each now carries its own volume and
-  // radius out of the same record.
-  _play(phase, skillId, pos) {
+  // Native PlaySkillSound visits all three source layers of the requested
+  // phase, in order. The DAT loader transposes what the old parser calls
+  // spell/shot/exp groups: each group is one complete three-phase layer.
+  // Sound row selection has original last-exact / first-level-one precedence;
+  // visual Agent lookup remains a separate exact-level rule.
+  // Source selection is now native-backed; packet-driven launch placement and
+  // FlyingTime scheduling below remain provisional presentation, not notify
+  // or projectile parity. Ordinary voice identity must be supplied explicitly.
+  _play(phase, skillId, pos, level, meshType, ownerCurrent = null) {
     if (!this.ready || !pos) return false;
-    const rec = this.skill[String(skillId)];
-    const p = rec && rec[phase];
-    if (!p) return false;
-    // [nameIndex, volume, radius] — every number is skillsoundgrp's own.
-    audio.playAt(this.names[p[0]], pos, { volume: p[1], radius: p[2] });
-    return true;
+    const type = { c: 1, s: 2, x: 3 }[phase];
+    const sounds = skillSoundPhase(this.skillSoundIndex, skillId, level, type);
+    if (sounds === null) return false;
+    const sessionCurrent = this._sessionGuard();
+    const isCurrent=()=>sessionCurrent() && (!ownerCurrent || ownerCurrent());
+    for (const sound of sounds) audio.playAt(sound.ref, pos,
+      { volume: sound.volume, radius: sound.radius, isCurrent });
+    const voice = skillSoundVoice(this.skillSoundIndex, skillId, level, type, meshType);
+    if (voice) audio.playAt(voice.ref, pos,
+      { volume: voice.volume, radius: voice.radius, isCurrent });
+    return sounds.length > 0 || voice !== null;
   }
 
-  /** MagicSkillUse: the caster begins the gesture. spell_sounds[0]. */
-  cast(skillId, pos) { return this._play('c', skillId, pos); }
+  /** Source Agent sound tails: caller owns the native event and receiver.
+   *  This deliberately creates no FlyingTime impact timer. */
+  nativePhase(type,skillId,level,pos,meshType,isCurrent) {
+    if (![1,2].includes(type) || typeof isCurrent!=='function' || !isCurrent()) return false;
+    return this._play(type===1?'c':'s',skillId,pos,level,meshType,isCurrent);
+  }
 
-  /** MagicSkillLaunched: the shot leaves (spell_sounds[1]) and, after the
-   *  skill's FlyingTime, the explosion lands on the target
-   *  (spell_sounds[2]). The two are separate sounds at separate moments in
-   *  the retail table and 145 skills carry both.
-   *
-   *  `pos` is the TARGET's position — that is all main.js:954 passes, and
-   *  main.js is another worker's file. HANDOVER: retail spawns the shot at
-   *  the caster (Skill.usk puts the un-flagged ShotActions on the caster),
-   *  so the accurate call is
-   *      gameSound.launch(msg.skillId, pos, entityHeadPos(msg.casterId));
-   *  the optional third argument below is already wired for it. Until then
-   *  the shot plays at the target, which at the table's own radius of 40
-   *  (= 20 m under js/audio.js's falloff) is inaudible only for the 16
-   *  skills that actually have a FlyingTime. */
-  launch(skillId, pos, casterPos = null) {
+  /** Current cast presentation, using all native sound layers and lookup rules. */
+  cast(skillId, pos, level, meshType) { return this._play('c', skillId, pos, level, meshType); }
+
+  /** Current launch sound presentation. Exact Agent FlyingTime comes from
+   *  the source ID/level binding; absent or unresolved Agents cannot provide
+   *  a guessed explosion delay. Native legacy and notify timing remain pending. */
+  launch(skillId, pos, casterPos = null, skillLevel, meshType) {
     if (!this.ready || !pos) return;
-    this._play('s', skillId, casterPos || pos);
-    const fly = flyingTime(skillId);          // seconds, Skill.usk FlyingTime
-    if (fly > 0) setTimeout(() => this._play('x', skillId, pos), fly * 1000);
-    else this._play('x', skillId, pos);
+    this._play('s', skillId, casterPos || pos, skillLevel, meshType);
+    const fly = flyingTime(skillId, skillLevel); // exact source value; unknown is not zero
+    if (fly === null) return;
+    if (fly > 0) {
+      // Callers reuse scratch vectors. Capture this launch's position before
+      // the timer and subsequent audio decoding, not when either completes.
+      const impactPos = { x: pos.x, y: pos.y, z: pos.z };
+      const isCurrent = this._sessionGuard();
+      const timer = setTimeout(() => {
+        if (!isCurrent()) return;
+        this._timers.delete(timer);
+        this._play('x', skillId, impactPos, skillLevel);
+      }, fly * 1000);
+      this._timers.add(timer);
+    } else this._play('x', skillId, pos, skillLevel);
   }
 
   // ---- items ------------------------------------------------------------
@@ -244,35 +219,29 @@ export class GameSound {
       // `r` to use here. HANDOVER to that file's owner: emit drop_radius as
       // the weapon record's `r` and this call becomes `radius: rec.r`.
       // The volume has no source in weapongrp at all.
-      audio.playAt(this.names[rec.d], pos, { volume: 250, radius: 30 });
+      audio.playAt(this.names[rec.d], pos,
+        { volume: 250, radius: 30, isCurrent: this._sessionGuard() });
     }
   }
 }
 
 export const gameSound = new GameSound();
 
-// Interface sounds are not table-driven — the xdat carries no sound bindings —
-// so the mapping is the bank's own file names, which are explicit about the
-// window each one was recorded for. The whole bank is 11 sounds; these are all
-// of them, so nothing here is a guess and nothing is unused. Windows without a
-// dedicated pair (skills, quest journal, shop, party...) fall back to the
-// system pair, which is what the retail client does with them too.
+// Existing interface filename mappings are retained for compatibility.
+// Original assets establish these names, but filenames alone do not prove
+// native UI event bindings or the default-window sound policy below.
 export const UI_SOUND = {
   click:          'interfacesound.click_01',
   questAccept:    'interfacesound.quest_accept_01',
-  // UNBOUND. The bank ships sc_shot_01 and nothing in the decoded client data
-  // says what plays it — the old `soulshot` name was a guess and the shot path
-  // no longer uses it (see GameSound.shot). Listed so the bank stays complete.
+  // Retained asset reference; this module has no verified event binding for it.
   scShot01:       'interfacesound.sc_shot_01',
   open:           'interfacesound.system_open_01',
   close:          'interfacesound.system_close_01',
 };
 
-// Window -> its [open, close] pair. Keyed by the SAME winName the geometry is
-// mined under, so the key set is the xdat's, not one invented here. The bank
-// ships a dedicated pair for exactly three windows plus the system pair;
-// everything else falls back to system, which is what retail does with the
-// windows it gave no sound of their own.
+// Window -> existing [open, close] pair. These filename-based assignments and
+// inherited fallback require native UI call-site verification. They are not
+// covered by the native skill-sound row/layer proof.
 export const UI_WINDOW_SOUND = {
   _default:      ['interfacesound.system_open_01',     'interfacesound.system_close_01'],
   InventoryWnd:  ['interfacesound.inventory_open_01',  'interfacesound.inventory_close_01'],

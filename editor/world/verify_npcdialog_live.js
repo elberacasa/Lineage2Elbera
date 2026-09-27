@@ -59,6 +59,7 @@
 // those four. L8 still proves the transport on every run.
 //
 // COST: one login, no walking. ~60 s.
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -126,7 +127,7 @@ function artUrl(ref) {
 }
 
 const db = (q) => execFileSync(
-  'mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-N', '-B', '-e', q],
+  'mariadb', [...dbArgs(), '-N', '-B', '-e', q],
   { encoding: 'utf8' }).trim();
 
 function charName(deviceId) {

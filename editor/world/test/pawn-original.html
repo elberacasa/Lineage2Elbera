@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Elbera Tools — Original pawn appearance and animations</title>
+<style>
+body{margin:0;background:#293036;color:#fff;font:14px system-ui;height:100vh;display:flex;flex-direction:column}
+header{padding:12px 16px;background:#20262e;flex:none;max-height:58vh;overflow-y:auto}p{margin:6px 0}a{color:#e7c887}
+select,button,input{font:inherit;max-width:100%}label{display:inline-block;margin:4px 10px 4px 0}
+#stage{flex:1;min-height:140px;overflow:hidden}canvas{display:block}small{color:#c3cbd2}
+#source,#face-source{overflow-wrap:anywhere}details{margin-top:8px}#cast-form input{width:90px}#cast-schedule{white-space:pre-wrap}#position{width:180px}#cast-events,#wait-events{max-height:100px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.gap{color:#ffd18b}
+</style>
+<script type="importmap">{"imports":{"three":"../vendor/three.module.min.js","three/addons/":"../vendor/addons/"}}</script>
+<header>
+<p><a href="index.html">Elbera Tools</a> · Original pawn slots through the game's Character loader. No game-server connection.</p>
+<label>Model <select id="model"></select></label>
+<label>Slot <select id="slot"></select></label>
+<label>Stance <select id="stance"></select></label>
+<p><button id="play" disabled>Play once</button> <button id="pause" disabled>Pause</button>
+<label>Clip time <input id="position" type="range" min="0" max="1" step="0.001" value="0" disabled></label>
+<output id="time"></output></p>
+<p id="status" role="status">Loading original slot data…</p><p id="source"></p>
+<small>Drag to orbit; scroll to zoom. Scrubbing samples exported tracks without blending.
+This inspection stage and lighting are not original game presentation. Ordinary phase timing and loop closure now use recovered source rules. Exact compressed-track interpolation, notify effects and remaining native paths are separate work.</small>
+<details id="face-controls"><summary>Original face textures</summary>
+<label>Source face index <select id="face" disabled></select></label>
+<p id="face-status" role="status">Loading original face catalog…</p><p id="face-source"></p>
+<small>Uses the game's Character.setAppearance and exact source face choices for this model. Hair style, hair color, face-item overrides and transformed pawns remain unsupported here. The camera and lighting are inspection controls.</small>
+</details>
+<details id="wait-controls"><summary>Replay original sit and stand</summary>
+<p><button id="wait-sit" type="button">Sit</button> <button id="wait-stand" type="button">Stand</button>
+<label><input id="wait-audio" type="checkbox"> Play original sit/stand sounds</label></p>
+<p id="wait-status" role="status">Uses the selected model and stance. Sit plays Sit → SitWait; Stand plays Stand → Wait.</p>
+<pre id="wait-events"></pre>
+<small>Original sequences, model-specific rates, tween values and channel-zero animation-end transition. Duplicate state changes do not restart playback. Ordinary ground waiting only; floor placement, native interpolation and special/combat states remain unresolved.</small>
+</details>
+<details id="cast-controls"><summary>Replay an ordinary skill cast</summary>
+<form id="cast-form">
+<label>Skill ID <input id="cast-skill" type="number" min="1" step="1" value="1177" required></label>
+<label>Level <input id="cast-level" type="number" min="1" step="1" value="1" required></label>
+<label>Packet hit time (ms) <input id="cast-hit" type="number" min="1" step="1" required></label>
+<label>Server casting speed <input id="cast-speed" type="number" min="1" step="1" required></label>
+<button type="submit">Replay cast</button> <button type="button" id="cast-cancel">Cancel cast</button>
+</form><p id="cast-status" role="status">Supply the server packet timing and casting speed. This preview does not cast a skill or grant one.</p>
+<pre id="cast-schedule"></pre>
+<label><input type="checkbox" id="cast-audio"> Play original direct animation sounds</label>
+<label><input type="checkbox" id="agent-preview"> Preview Agent actions on this pawn</label>
+<label><input type="checkbox" id="agent-audio"> Play Agent skill sound layers and voice</label>
+<p id="agent-status">Agent preview disabled. Its main target is this pawn for inspection only.</p>
+<button type="button" id="associate-target">Associate preview target</button>
+<pre id="agent-events"></pre>
+<p id="notify-count">No animation events yet.</p><pre id="cast-events"></pre>
+<small>Uses this model and stance, exact original skill-level metadata and the game's phase player.
+The browser explicitly enables animation events. Agent preview uses the live pending-notify controller and action selector. Association simulates a received target entry; it does not fire effects. Completion fallback, native effect placement, emitter behavior and projectile motion remain incomplete. Exact quaternion interpolation remains unfinished.</small>
+</details>
+</header><div id="stage"></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { audio } from '../js/audio.js';
+import { Character } from '../js/character.js';
+import { castSchedule } from '../js/castanim.js';
+import { skillAnimMeta, skillAnimInfo } from '../js/gamedata.js';
+import { skillAgentBinding } from '../js/skillvfx-binding.js';
+import { SkillFx } from '../js/skills.js';
+import { GameSound } from '../js/gamesound.js';
+import { ordinaryPlayerVoiceMeshType } from '../js/skillsound-binding.js';
+
+const stage=document.querySelector('#stage'), status=document.querySelector('#status');
+const source=document.querySelector('#source'), time=document.querySelector('#time');
+const model=document.querySelector('#model'), slot=document.querySelector('#slot'), stance=document.querySelector('#stance');
+const play=document.querySelector('#play'), pause=document.querySelector('#pause'), position=document.querySelector('#position');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(devicePixelRatio);stage.appendChild(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#293036');
+scene.add(new THREE.HemisphereLight(0xffffff,0x7a8390,2));
+const light=new THREE.DirectionalLight(0xffffff,2);light.position.set(3,5,4);scene.add(light);
+const camera=new THREE.PerspectiveCamera(40,1,.001,100);
+const orbit=new OrbitControls(camera,renderer.domElement);
+let manifest, pawn, effects, animationMeta, character=null, action=null, playing=false, castPlaying=false, waitPlaying=false, generation=0;
+let appearance=null, faceCatalogError=null, faceGeneration=0;
+const face=document.querySelector('#face'),faceStatus=document.querySelector('#face-status'),faceSource=document.querySelector('#face-source');
+let castCompleteText='Schedule complete.';
+const inspectionGround={heightAtWorld:()=>null};
+const castStatus=document.querySelector('#cast-status'), castOutput=document.querySelector('#cast-schedule');
+const castSkill=document.querySelector('#cast-skill'),castLevel=document.querySelector('#cast-level');
+const castHit=document.querySelector('#cast-hit'),castSpeed=document.querySelector('#cast-speed');
+const castAudio=document.querySelector('#cast-audio'),castEvents=document.querySelector('#cast-events');
+const notifyCount=document.querySelector('#notify-count');
+const waitStatus=document.querySelector('#wait-status'),waitAudio=document.querySelector('#wait-audio'),waitEvents=document.querySelector('#wait-events');
+let waitLines=[];
+const agentPreview=document.querySelector('#agent-preview'),agentAudio=document.querySelector('#agent-audio');
+const agentStatus=document.querySelector('#agent-status'),agentEvents=document.querySelector('#agent-events');
+const gameSound=new GameSound();
+const skillFx=new SkillFx(scene,{getEntity:id=>id===1?character:null,
+  onNativeSound:({type,skillId,level,caster,isCurrent})=>{
+    if(agentAudio.checked)gameSound.nativePhase(type,skillId,level,caster.group.position,
+      ordinaryPlayerVoiceMeshType(caster.modelId),isCurrent);
+  }});
+let agentLines=[],lastAgentTick=null,previewCast=null;
+agentAudio.addEventListener('change',()=>{if(agentAudio.checked)audio.resume();});
+document.querySelector('#associate-target').addEventListener('click',()=>{
+  if(!previewCast || !skillFx.associate({...previewCast,op:'skillLaunch'})){
+    agentStatus.textContent='No active Agent preview.';return;
+  }
+  const state=skillFx.nativeContexts.get(1)?.state;
+  agentStatus.textContent=`Stored associated targets: ${state?.associatedActors?.length||0}. Association never triggers an effect.`;
+});
+let eventLines=[];
+castAudio.addEventListener('change',()=>{
+  if(character)character.castSoundEnabled=castAudio.checked;
+  if(castAudio.checked)audio.resume();
+});
+
+function choices(select, rows, selected) {
+  select.replaceChildren();
+  for(const [value,label] of rows){const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option);}
+  if(rows.some(([value])=>value===selected))select.value=selected;
+}
+function sourceFaces(modelId){
+  if(appearance?.format!=='l2-interlude-player-appearance-v1')return null;
+  const row=appearance.models?.[modelId];
+  if(!row || !Array.isArray(row.faces) || !row.faces.length)return null;
+  if(!['faceMesh','nodeName','materialName'].every(key=>typeof row[key]==='string'&&row[key]))return null;
+  const indices=new Set();
+  for(const entry of row.faces){
+    if(!Number.isInteger(entry.index)||entry.index<0||indices.has(entry.index)||
+      typeof entry.texture!=='string'||!entry.texture||typeof entry.url!=='string'||!entry.url)return null;
+    indices.add(entry.index);
+  }
+  return row;
+}
+function faceChoices(modelId){
+  face.disabled=true;faceSource.textContent='';
+  const row=sourceFaces(modelId);
+  choices(face,[['','Choose a source face'],...(row?.faces||[]).map(entry=>[String(entry.index),`${entry.index} · ${entry.texture}`])],'');
+  if(!row){faceStatus.textContent=`Unavailable: ${faceCatalogError||'no verified face catalog for this model'}.`;return;}
+  faceStatus.textContent='No face change requested.';
+  faceSource.textContent=`Original mesh: ${row.faceMesh}; built node: ${row.nodeName}; material: ${row.materialName}.`;
+}
+async function applyFace(){
+  const actor=character, modelId=model.value, row=sourceFaces(modelId);
+  const entry=row?.faces.find(entry=>String(entry.index)===face.value);
+  if(!actor||!entry)return;
+  const request=++faceGeneration, modelRequest=generation;
+  faceStatus.textContent=`pending: source face ${entry.index}.`;
+  faceSource.textContent=`Original mesh: ${row.faceMesh}; material: ${row.materialName}; texture: ${entry.texture}; file: ${entry.url}.`;
+  if(typeof actor.setAppearance!=='function'){
+    faceStatus.textContent='unsupported: Character appearance loader is unavailable.';return;
+  }
+  try{
+    const result=await actor.setAppearance({face:entry.index});
+    if(character!==actor||generation!==modelRequest||faceGeneration!==request||model.value!==modelId)return;
+    const current=actor.lastAppearance||result;
+    const state=current?.status||'unsupported';
+    faceStatus.textContent=`${state}: source face ${entry.index}${current?.reason?` · ${current.reason}`:''}${current?.texture?` · ${current.texture}`:''}.`;
+  }catch(error){
+    if(character===actor&&generation===modelRequest&&faceGeneration===request&&model.value===modelId)
+      faceStatus.textContent=`error: ${error.message}`;
+  }
+}
+face.addEventListener('change',applyFace);
+function controls(enabled){for(const element of [play,pause,position])element.disabled=!enabled;}
+function clockText(){time.textContent=action?`${action.time.toFixed(3)} / ${action.getClip().duration.toFixed(3)} s`:'';}
+function sample(seconds){
+  if(!action)return;
+  action.reset().setLoop(THREE.LoopOnce,1).setEffectiveWeight(1).setEffectiveTimeScale(1).play();
+  action.clampWhenFinished=true;action.time=seconds;
+  character.mixer.update(0);clockText();
+}
+function selectSlot(){
+  skillFx.clear();previewCast=null;
+  playing=false;castPlaying=false;waitPlaying=false;character?.cancelCast();action=null;controls(false);position.value='0';time.textContent='';
+  if(!character)return;
+  character.mixer.stopAllAction();
+  character.stance=stance.value;
+  character.waitType=1;character.sitting=false;
+  const binding=pawn.models[model.value]?.slots?.[slot.value]?.[stance.value];
+  const clip=binding?.clip, data=clip&&pawn.clips[model.value]?.[clip];
+  action=clip&&character.actions[clip]||null;
+  source.textContent=binding?`Original sequence: ${binding.seq}; exported clip: ${clip||'absent'}.`
+    :'The original slot table has no entry for this combination.';
+  if(data){
+    source.textContent+=` Source: ${data.frames} frames at AnimRate ${data.rate}; ${data.notifies.length} decoded notifies.`;
+    if(data.frames>0&&data.rate>0)source.textContent+=` Native sequence period: ${(data.frames/data.rate).toFixed(6)} s; last-frame time: ${((data.frames-1)/data.rate).toFixed(6)} s. Loops include the final interval back to frame zero; this viewer plays the exported one-shot.`;
+  }
+  status.className=action?'':'gap';
+  status.textContent=action?`Loaded original slot binding: ${clip}. Exported poses; no fallback selected.`
+    :`Unavailable: ${slot.value} / ${stance.value}. No fallback animation is played.`;
+  const url=new URL(location.href);url.searchParams.set('model',model.value);url.searchParams.set('slot',slot.value);url.searchParams.set('stance',stance.value);history.replaceState(null,'',url);
+  if(action){position.max=String(action.getClip().duration);sample(0);controls(true);}
+}
+function release(pawnCharacter){
+  if(!pawnCharacter)return;
+  pawnCharacter.cancelAppearance?.();
+  pawnCharacter.cancelCast();
+  scene.remove(pawnCharacter.group);pawnCharacter.mixer?.stopAllAction();
+  const geometries=new Set(), materials=new Set(), textures=new Set();
+  pawnCharacter.group.traverse(object=>{
+    if(object.geometry)geometries.add(object.geometry);
+    for(const material of [object.material].flat().filter(Boolean)){
+      materials.add(material);for(const value of Object.values(material))if(value?.isTexture)textures.add(value);
+    }
+  });
+  for(const resource of [...geometries,...materials,...textures])resource.dispose();
+  pawnCharacter.mixer?.uncacheRoot(pawnCharacter.model);
+}
+async function selectModel(){
+  const ticket=++generation, entry=manifest.models.find(row=>row.id===model.value);
+  ++faceGeneration;faceChoices(entry.id);
+  playing=false;castPlaying=false;waitPlaying=false;action=null;controls(false);source.textContent='';time.textContent='';
+  release(character);character=null;
+  const selected=slot.value||new URL(location.href).searchParams.get('slot')||'castEnd';
+  choices(slot,Object.keys(pawn.models[entry.id].slots).map(value=>[value,value]),selected);
+  status.textContent=`Loading ${entry.className} (${entry.gender})…`;
+  const candidate=new Character();
+  try{
+    await candidate.load(`/characters/${entry.gltf}`);
+    if(ticket!==generation){release(candidate);return;}
+    character=candidate;scene.add(character.group);
+    face.disabled=!sourceFaces(entry.id);
+    character.castSoundEnabled=castAudio.checked;
+    character.waitSoundEnabled=waitAudio.checked;
+    character.onWaitNotify=event=>{
+      const ref=event.notify.sound;
+      const sound=ref?` · ${ref}${audio.manifest?.sfx?.[ref.toLowerCase()]?'':' [unresolved source audio reference]'}`:'';
+      waitLines.push(`${event.clip} [${event.index}] · ${event.notify.classPath||'null'}${sound}`);
+      waitEvents.textContent=waitLines.slice(-12).join('\n');
+    };
+    character.onCastNotify=event=>{
+      const n=event.notify, sound=n.sound ? ` · ${n.sound}${audio.manifest?.sfx?.[n.sound.toLowerCase()]?'':' [unresolved source audio reference]'}` : '';
+      eventLines.push(`${event.elapsed.toFixed(3)} s · ${event.clip} [${event.index}] · ${n.classPath||'null'}${sound}`);
+      castEvents.textContent=eventLines.slice(-12).join('\n');
+      notifyCount.textContent=`${character.castNotifyCount} original animation events delivered (latest 12 shown).`;
+    };
+    const box=new THREE.Box3().setFromObject(character.group), size=box.getSize(new THREE.Vector3());
+    const center=box.getCenter(new THREE.Vector3()), radius=Math.max(size.x,size.y,size.z);
+    orbit.target.copy(center);camera.position.copy(center).add(new THREE.Vector3(radius*1.2,radius*.5,radius*2.6));
+    selectSlot();
+  }catch(error){release(candidate);if(ticket===generation){status.textContent=error.message;status.className='gap';}}
+}
+model.addEventListener('change',selectModel);slot.addEventListener('change',selectSlot);stance.addEventListener('change',selectSlot);
+play.addEventListener('click',()=>{character?.cancelCast();castPlaying=false;waitPlaying=false;sample(0);playing=true;});
+pause.addEventListener('click',()=>{playing=false;castPlaying=false;waitPlaying=false;});
+position.addEventListener('input',()=>{playing=false;castPlaying=false;waitPlaying=false;character?.cancelCast();sample(Number(position.value));});
+waitAudio.addEventListener('change',()=>{
+  if(character)character.waitSoundEnabled=waitAudio.checked;
+  if(waitAudio.checked)audio.resume();
+});
+for(const [id,type] of [['wait-sit',0],['wait-stand',1]])document.querySelector('#'+id).addEventListener('click',()=>{
+  if(!character)return;
+  skillFx.clear();previewCast=null;playing=false;castPlaying=false;
+  character.stance=stance.value;
+  const result=character.setWaitType(type);
+  if(result.status==='unsupported'){waitStatus.textContent=`Unsupported: ${result.reason}.`;return;}
+  waitPlaying=true;
+  if(result.status==='ready'){waitLines=[];waitEvents.textContent='';}
+});
+document.querySelector('#cast-form').addEventListener('submit',event=>{
+  event.preventDefault();if(!character)return;
+  playing=false;castPlaying=false;waitPlaying=false;character.cancelCast();
+  skillFx.clear();previewCast=null;agentLines=[];lastAgentTick=null;agentEvents.textContent='';
+  const id=Number(castSkill.value),level=Number(castLevel.value);
+  const schedule=castSchedule(pawn,model.value,stance.value,skillAnimInfo(animationMeta,id,level),{
+    hitTimeMs:Number(castHit.value),speedRate:Math.fround(Number(castSpeed.value)/333),
+    agent:skillAgentBinding(effects,id,level),
+  });
+  castOutput.textContent='';castEvents.textContent='';eventLines=[];notifyCount.textContent='No animation events yet.';
+  if(schedule.status!=='ready'){castStatus.textContent=`Unsupported: ${schedule.reason}. No fallback animation.`;return;}
+  let hooks=null;
+  if(agentPreview.checked){
+    previewCast={op:'skillCast',casterId:1,targetId:1,skillId:id,level,hitTime:Number(castHit.value)};
+    hooks=skillFx.prepareCast(previewCast);
+    hooks?.configure({schedule,modelSource:pawn.models[model.value].source});
+    const context=skillFx.nativeContexts.get(1);
+    agentStatus.textContent=hooks?(context?.retired?`Unsupported Agent preview: ${context.reason}.`:
+      'Agent preview ready; main target is this pawn. Effect rendering remains provisional.'):
+      'No supported source Agent for this replay. Phase animation only.';
+  }else agentStatus.textContent='Agent preview disabled.';
+  const result=character.startCastSchedule(schedule,hooks);
+  if(result.status!=='ready'){castStatus.textContent=`Unsupported: ${result.reason} (${result.clip||''}).`;return;}
+  castOutput.textContent=`Playback rate ${schedule.rate}; tween ${schedule.tween} s; shot deadline ${schedule.shotTime} s.\n`
+    +schedule.phases.map((phase,i)=>`${i+1}. ${phase.slot} → ${phase.clip}${phase.loop?' (loop)':''}; deadline ${phase.due} s`).join('\n');
+  castCompleteText='Schedule complete.';
+  castStatus.textContent='Playing original phase schedule with exported poses.';castPlaying=true;
+});
+document.querySelector('#cast-cancel').addEventListener('click',()=>{
+  skillFx.cancel(1);
+  character?.cancelCast();playing=false;waitPlaying=false;castPlaying=!!character;
+  castCompleteText='Cancelled. No pending phase can restart.';castStatus.textContent=castCompleteText;
+});
+function resize(){const {width,height}=stage.getBoundingClientRect();renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(stage);resize();
+const clock=new THREE.Clock();
+renderer.setAnimationLoop(()=>{
+  const dt=clock.getDelta();
+  if(waitPlaying&&character){
+    character.update(Math.min(dt,.1),inspectionGround);
+    const phase=character.lastWaitPhase;
+    waitStatus.textContent=character.lastWaitError?`Unsupported: ${character.lastWaitError.reason}.`:
+      phase?`${phase.seq} → ${phase.clip}${phase.loop?' (loop)':''}; playback multiplier ${phase.rate}; clip time ${phase.sampleTime.toFixed(3)} s; ${character.waitNotifyCount} animation events.`:'Waiting for state change.';
+  }
+  if(castPlaying&&character){
+    character.update(Math.min(dt,.1),inspectionGround);
+    const state=character.nativeCast, phase=character.lastCastPhase;
+    castStatus.textContent=state?`Phase ${phase.index+1}: ${phase.clip}${phase.loop?' (loop)':''}; elapsed ${state.elapsed.toFixed(3)} s.`:(character.lastCastError?`Unsupported native event: ${character.lastCastError}.`:castCompleteText);
+    const tick=skillFx.lastNativeTick;
+    if(tick&&tick!==lastAgentTick){
+      lastAgentTick=tick;
+      for(const d of tick.dispatches||[])agentLines.push(`${d.phase}: ${d.plan.calls.length} source callbacks · shot stage ${d.stageShot} · pending ${d.pending}${d.soundType?` · sound phase ${d.soundType}`:''}`);
+      if(tick.completion)agentLines.push(`Unresolved: ${tick.completion}. No guessed completion shot.`);
+      if(tick.status!=='ready')agentLines.push(`Unsupported: ${tick.reason}`);
+      agentEvents.textContent=agentLines.slice(-12).join('\n');
+    }
+  }
+  if(castPlaying)skillFx.update();
+  if(playing&&action){character.mixer.update(dt);position.value=String(action.time);clockText();if(action.paused)playing=false;}
+  orbit.update();audio.setListener(camera);renderer.render(scene,camera);
+});
+try{
+  await Promise.all([audio.init(),gameSound.load(),skillFx.ready]);
+  async function data(url){const response=await fetch(url,{cache:'no-cache'});if(!response.ok)throw new Error(`${url}: HTTP ${response.status}`);return response.json();}
+  [manifest,pawn,effects,animationMeta,appearance]=await Promise.all([data('/characters/manifest.json'),data('/characters/pawnanim.json'),data('/gamedata/skillvfx.json'),skillAnimMeta(),
+    data('/gamedata/appearance.json').catch(error=>{faceCatalogError=error.message;return null;})]);
+  const params=new URL(location.href).searchParams;
+  choices(model,manifest.models.filter(row=>pawn.models[row.id]).map(row=>[row.id,`${row.className} (${row.gender})`]),params.get('model')||'human_fighter_m');
+  choices(stance,pawn.stanceIndex.map(value=>[value,value]),params.get('stance')||'hand');
+  await selectModel();
+}catch(error){status.textContent=error.message;status.className='gap';}
+</script></html>

@@ -10,9 +10,11 @@
 // `weapongrp.json`, `npcgrp.json` and `skillsoundgrp.json` already contain, so
 // a caller plays a sound by handing over the reference it is already holding.
 //
-// Mono on purpose: a Web Audio PannerNode only spatializes mono input. A stereo
-// buffer plays at full volume in both ears no matter where its emitter is, so
-// stereo effects would silently defeat 3D audio.
+// The existing general conversion downmixes all effects. That is a fidelity
+// gap: original quest feedback includes stereo PCM, and the native driver
+// preserves its channels. tools/audio/export_quest_sounds.py preserves those
+// originals separately. Do not substitute the mono files for their native
+// playback path; manual driver attenuation is still under investigation.
 //
 // Distance model. The data tables carry a volume and a radius per sound
 // (`sound_vol`/`sound_radius` in npcgrp, `spell_vols`/`spell_rads` in
@@ -59,10 +61,11 @@
 // an AmbientSoundObject that omits SoundRadius; that was a guess when it was
 // written and it happens to be right.
 //
-// Still NOT settled: VOLUME_SCALE. ALAudio has a second gain path that scales
-// a byte field by 0.04 (=1/25) and another that runs it through a log curve,
-// and I could not prove which field is SoundVolume. 1/255 is left in place as
-// the pre-existing assumption rather than replaced by a different guess.
+// Skill callers are now pinned independently: PlaySkillSound and the direct
+// AnimNotify_Sound branch divide their authored volume by255 before the audio
+// subsystem call (tools/ui/check_cast_sound_native.py). That does not settle
+// NPC/weapon/UI caller gains, bus controls, or every later audio-driver path.
+// The existing shared scale remains provisional for those other callers.
 //
 // Autoplay. Browsers refuse to start an AudioContext without a user gesture, so
 // the context is created suspended and resumed on the first click or keypress.
@@ -84,7 +87,7 @@ export const RADIUS_UNIT = 50;
 // GAudioDefaultRadius from Core.dll (.data, 80.0f): what the driver uses when
 // a source carries no radius of its own.
 export const DEFAULT_RADIUS = 80;
-const VOLUME_SCALE = 1 / 255;      // table volumes are a 0..255 byte
+const VOLUME_SCALE = 1 / 255;      // Proven for the supported skill/direct-notify callers.
 
 // There is no separate cull distance, and there must not be one.
 //
@@ -301,7 +304,7 @@ export class AudioEngine {
   }
 
   // One-shot at a world position. `volume` and `radius` are the raw table
-  // values (0..255 byte, Unreal radius units); pass them straight through.
+  // values (authored gain, Unreal radius units); pass them straight through.
   //
   // The radius default is Core.dll's GAudioDefaultRadius (80.0f) -- the
   // driver's own answer for a source that carries no radius. It used to be
@@ -310,8 +313,8 @@ export class AudioEngine {
   // exports a per-source default volume, and the only tables that would
   // supply one (npcgrp, skillsoundgrp) always carry their own.
   playAt(ref, position,
-         { volume = 250, radius = DEFAULT_RADIUS, bus = 'sfx', pitch = 1 } = {}) {
-    if (!this.ready || !this.unlocked || !ref || !position) return;
+         { volume = 250, radius = DEFAULT_RADIUS, bus = 'sfx', pitch = 1, isCurrent = null } = {}) {
+    if (!this.ready || !this.unlocked || !ref || !position || (isCurrent && !isCurrent())) return;
 
     // Callers hand us shared scratch vectors (main.js reuses one for every
     // entityHeadPos call), and the buffer may not resolve for several frames.
@@ -329,7 +332,10 @@ export class AudioEngine {
     }
 
     this._buffer(ref).then(buf => {
-      if (!buf || !this.unlocked) return;
+      // Browser decoding is asynchronous. A retired cast must not start a
+      // newly decoded sound; this does not impose a native stop policy on
+      // sounds already playing.
+      if (!buf || !this.unlocked || (isCurrent && !isCurrent())) return;
       const panner = this._panner(px, py, pz, maxDistance);
 
       const gain = this.ctx.createGain();

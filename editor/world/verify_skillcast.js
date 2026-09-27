@@ -23,6 +23,7 @@
 // Usage: node verify_skillcast.js [--ws ws://127.0.0.1:8096]
 // Output: verify_shots/skillcast_*.png + a JSON summary on stdout.
 
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -37,7 +38,6 @@ const WS = wsArg > 0 ? process.argv[wsArg + 1] : 'ws://127.0.0.1:8096';
 // character-creation overlay forever — which is what a first run here did.
 const BASE = `http://127.0.0.1:8083/?ws=${encodeURIComponent(WS)}&cc=0`;
 const OUT = path.join(__dirname, 'verify_shots');
-const DB = ['-u', 'l2j', '-pl2jpass', 'l2jdb'];
 const DEVICE_ID = 'verify-skillcast-fixture-1';
 
 const NUKE = 1177;      // Wind Strike  — magic, castRange 600, hitTime 4000
@@ -46,7 +46,7 @@ const PHYS = 3;         // Power Strike — physical, SWORD, hitTime 1080
 const TOGGLE = 312;     // Vicious Stance — operateType TOGGLE, anim ''
 const SEEDED = [NUKE, HEAL, PHYS, TOGGLE, 226];
 
-const sql = (q) => execFileSync('mariadb', [...DB, '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
+const sql = (q) => execFileSync('mariadb', [...dbArgs(), '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const fails = [];
@@ -283,7 +283,6 @@ async function launch() {
       inject({ op: 'actionFailed' });
       await window.__sleep(200);
       out.afterActionFailed = window.__barUp();
-      out.abortEvidence = w.skillBar._serverAbortEvidence();
       // MagicSkillLaunched lands 400 ms BEFORE the cast ends: not the end
       inject({ op: 'skillLaunch', casterId: self, targetId: self, skillId: id, level: 1 });
       await window.__sleep(200);
@@ -304,7 +303,7 @@ async function launch() {
     summary.lifecycle = life;
     check('replay: MagicSkillUse raises the bar', life.afterCast === true, String(life.afterCast));
     check('replay: a bare ActionFailed does NOT cancel it',
-      life.afterActionFailed === true && life.abortEvidence === false, JSON.stringify(life));
+      life.afterActionFailed === true, JSON.stringify(life));
     check('replay: MagicSkillLaunched does NOT end the bar (it is 400 ms early)',
       life.afterLaunch === true, String(life.afterLaunch));
     check('replay: the reuse sweep survives the launch',

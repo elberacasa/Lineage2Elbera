@@ -14,6 +14,8 @@ Routes:
                                package and file names resolved case-insensitively)
   GET /characters/<path>    -> static files under editor/characters/
                                (glTF/bin/textures referenced by the manifest)
+  GET /js/appearance.js     -> shared source-bound face controller
+  GET /gamedata/appearance.json -> private original face catalog
   GET /<path>               -> the app itself, served from this directory
 
 All filesystem access is confined to its root (path-traversal safe).
@@ -29,6 +31,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CHARACTERS_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "characters"))
 LIBRARY_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "assets", "library"))
 PORT = 8082
+APPEARANCE_MODULE = os.path.normpath(os.path.join(BASE_DIR, '..', 'world', 'js', 'appearance.js'))
+APPEARANCE_DATA = os.path.normpath(os.path.join(BASE_DIR, '..', '..', 'assets', 'gamedata', 'appearance.json'))
 
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -146,6 +150,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
+
+        # Two fixed read-only resources shared with the embedded world route.
+        # No arbitrary world-source or gamedata-directory exposure.
+        if path == '/js/appearance.js':
+            self._send_file(APPEARANCE_MODULE)
+            return
+        if path == '/gamedata/appearance.json':
+            self._send_api_file(APPEARANCE_DATA)
+            return
 
         if path == "/api/manifest":
             full = os.path.join(CHARACTERS_DIR, "manifest.json")

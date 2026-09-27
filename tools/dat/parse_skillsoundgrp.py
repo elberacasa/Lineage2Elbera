@@ -1,89 +1,27 @@
 #!/usr/bin/env python3
-"""Decode assets/interlude/system/skillsoundgrp.dat -> assets/gamedata/skillsoundgrp.json.
+"""Elbera Tools: decode original Interlude skillsoundgrp.dat sound records.
 
-skillsoundgrp.dat is the retail per-skill SOUND presentation table: for each
-(skill_id, skill_level) it carries the cast/shot/explosion sound references,
-their volumes/radii, and the per race/gender character VOICE sounds played
-during the cast and at the shot. It carries NO animation names and NO effect
-texture references (verified: every string parses as a SkillSound.*/chrsound.*
-sound ref; the cast ANIMATION selector is skillgrp.dat's `animation` field —
-see docs/dat-format-notes.md §16 and the client Engine.Pawn anim sets).
+Protocol413 RSA wrapper, record count, fixed-layout records, SafePackage
+trailer; assert full byte consumption. Native serializer at Engine.dll14ec30
+proves THREE LAYERS, each containing cast/shot/explosion names and interleaved
+(volume,radius) pairs. Existing spell/shot/exp JSON group names are retained for
+compatibility: they identify layers0/1/2, not sound phases or alternatives.
 
-Protocol 413 RSA wrapper (removed by tools/bin/l2encdec), then:
-  UINT record count (1398), fixed-layout records, `\x0cSafePackage\x00` trailer.
-The parser asserts exact byte consumption, like extract_gamedata.py.
+Then two 15-name voice arrays (cast,throw), followed by voice volume/radius.
+Native GetMeshType maps ordinary playable models to slots0..13; slot14 is
+preserved, not discarded. Native playback loops all populated phase layers
+and then the corresponding voice. There is no per-phase gain fallback to the
+voice pair. Zero gains and all duplicate/empty skill-ID/level rows are source.
 
-Record layout (ScionsOfDestiny block — L2Miko/L2FileEdit
-DAT_defs/Interlude/skillsoundgrp.ddf and majestic-world/L2ClientDat
-dats/skillsoundgrp.xml agree; both validated byte-exact against our file):
-
-  skill_id        UINT
-  skill_level     UINT
-  spell_sounds    UNICODE x3   cast / shot(launch) / explosion(hit) sound refs
-  spell gains     FLOAT x6     THREE (volume, radius) PAIRS, one per slot
-  shot_sounds     UNICODE x3   rarely used (111/1398 records)
-  shot gains      FLOAT x6     same three (volume, radius) pairs
-  exp_sounds      UNICODE x3   rarely used (4/1398 records)
-  exp gains       FLOAT x6     same three (volume, radius) pairs
-
-THE SIX FLOATS ARE INTERLEAVED (volume, radius) PAIRS, NOT two blocked
-arrays (CORRECTED 2026-08-09).  Until this date the parser read them as
-`vols[3]` then `rads[3]`, which is what the third-party .ddf/.xml field
-NAMES suggest.  Three independent measurements say otherwise:
-
-  1. CORRELATION.  A populated sound slot should carry a nonzero volume
-     and radius and an empty one should carry zeros.  Over all 1398
-     records x 3 groups x 3 slots (4194 slots):
-        blocked  vols[3]+rads[3]      2940 agree / 1254 disagree
-        paired   (v,r)(v,r)(v,r)      4173 agree /   21 disagree
-     and on the `shot` and `exp` groups the paired reading is 4194/4194
-     with ZERO disagreements.
-  2. THE BYTE RULE.  `SoundVolume` is a **ByteProperty** and `SoundRadius`
-     a **FloatProperty** — read straight out of Engine.u's exports for
-     `AmbientSound` / `AmbientSoundObject` (they sit at export 5536/5563
-     and 10507/10508), and quoted in tools/world/audio_extract.py from the
-     same class declarations.  So a volume cannot exceed 255.
-        paired:  volume domain {0, 150, 220, 250, 254}  — all byte-legal
-                 radius domain {0, 20, 30, 40, 60, 80, 100, 200, 600, 800}
-        blocked: "volume" domain includes 600 and 800 — impossible
-     The paired reading is the only one whose first element is a byte.
-  3. SELF-CONSISTENCY.  The trailing scalars are (sound_vol 250,
-     sound_rad 50) in every one of the 1398 records, and 250 is exactly
-     the modal per-slot FIRST element (2319 of the populated spell slots
-     are (250, 40)).  Under the swapped reading the record would claim a
-     global volume of 250 and a per-slot volume of 40.
-
-  Concretely, Wind Strike (1177) reads 250,40 | 250,40 | 250,80: cast and
-  shot at volume 250 / radius 40, the explosion at volume 250 / radius 80
-  — and 80 is GAudioDefaultRadius from Core.dll (see js/audio.js).  The
-  old reading gave the shot volume 40 and radius 250, and gave 951 shot
-  sounds a radius of ZERO.
-
-  WHAT WOULD FALSIFY THIS: a record whose first element of a pair exceeds
-  255, or a populated slot whose pair is (0, 0) beyond the 22 exceptions
-  asserted in sanity() below.  Both are checked on every run.
-  voice_cast[15]  UNICODE      per race/gender cast voice (chrsound.* theme:
-                               white/black/element/type_a/b/c/sub/call)
-  voice_throw[15] UNICODE      per race/gender shot voice (chrsound.*_throw /
-                               *_shot / *_notarget)
-  sound_vol       FLOAT        250.0 in all 1398 records
-  sound_rad       FLOAT        50.0 in all 1398 records
-
-voice order (chargrp record order, same as ITEM_RACE_SLOTS in
-extract_gamedata.py): mfighter ffighter mdarkelf fdarkelf mdwarf fdwarf
-melf felf mmagic fmagic morc forc mshaman fshaman + a trailing RESERVED
-slot (always empty).
-
-Verified anchors (skillname.json + aCis agree on the ids):
-  (3,1)    Power Strike  -> SkillSound.power_strike_cast / _shot
-  (1216,1) Self Heal     -> SkillSound.heal_cast / heal_shot, voice theme
-                            "white" (holy magic), shot voice "*_notarget"
-  (1177,1) Wind Strike   -> wind_strike_cast / _shot / _explotion, voice
-                            theme "element"
+Proof: tools/ui/check_cast_sound_native.py freshly decrypts and decodes the
+DAT independently and verifies original loader, lookup, playback instructions,
+all28 named voice stores, and the source model-index access. Historical
+filename/statistical/emulator comparisons below are sanity checks, not proof
+of dispatch or timing. See docs/native-cast-sound-evidence.md for limits.
 
 Usage:
-  /usr/bin/python3 tools/dat/parse_skillsoundgrp.py           # write JSON
-  /usr/bin/python3 tools/dat/parse_skillsoundgrp.py --check   # verify only
+  python3 tools/dat/parse_skillsoundgrp.py          # write private JSON
+  python3 tools/dat/parse_skillsoundgrp.py --check  # verify private JSON
 """
 
 import argparse
@@ -120,8 +58,7 @@ def parse_skillsoundgrp(data: bytes):
         for grp in ("spell", "shot", "exp"):
             rec[grp + "_sounds"] = [r.ustr() for _ in range(3)]
             # SIX floats = THREE (volume, radius) pairs, one per sound slot.
-            # See the module docstring for the three measurements that settle
-            # this against the blocked vols[3]+rads[3] reading.
+            # Native serializer14ec30 confirms the interleaved gain stores.
             gains = [r.f32() for _ in range(6)]
             rec[grp + "_vols"] = gains[0::2]
             rec[grp + "_rads"] = gains[1::2]

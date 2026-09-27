@@ -7,6 +7,7 @@ into a self-contained web scene under `assets/world/<tile>/`:
 assets/world/<tile>/
 ├── scene.json          # FROZEN contract (below) — the web client codes against this
 ├── heightmap.u16       # raw little-endian u16, 256x256, row-major (y rows, x cols)
+├── terrain-topology.json # native bitmap words; interpretation explicitly unverified
 ├── heightmap.png       # min-max normalized grayscale preview of the same data
 ├── basecolor.png       # simplified splat-blended color preview (NOT exact, see below)
 ├── textures/           # layer diffuse textures + per-layer splat (weight) maps
@@ -18,6 +19,7 @@ Run:
 ```
 python3 tools/world/convert.py 17_23 [19_22 21_16 ...]   # convert
 python3 tools/world/convert.py --check 17_23 ...         # validate scene.json
+python3 tools/world/convert.py --topology-only 17_25 22_22 24_18  # preserve masks only
 ```
 
 Dependencies: stdlib Python 3, `tools/l2lib` (canonical format library),
@@ -41,6 +43,7 @@ Format lore: `docs/map-format.md`.
              "rect": [x0, y0, x1, y1],
              "texture": "textures/water01.png"}] | null,
   "geodata": "geodata.json",          // optional, see geodata contract below
+  "topology": "terrain-topology.json", // optional, preservation contract below
   "interior": true,                   // optional, dungeon tiles only (below)
   "props": [{"mesh": "<package>.<name>",
              "gltf": "props/<name>.gltf"|null,
@@ -127,6 +130,108 @@ world Z = z0 + (h - 32768) * heightScale        (heightScale = 76/256 = 0.296875
   TerrainLayer `UScale`/`VScale` tiling factors are parsed by the converter
   (used for the basecolor preview) but deliberately omitted from scene.json
   to keep the frozen contract shape.
+
+### Terrain topology preservation (2026-09-26)
+
+`terrain-topology.json` retains `QuadVisibilityBitmap`, `EdgeTurnBitmap`,
+`QuadVisibilityBitmapOrig` and `EdgeTurnBitmapOrig` from the source map. The
+first two are required; the `Orig` fields are retained when present. The format
+is `ue2-terrain-topology-v1`, with the scene's `gridSize`, and `bitmaps` keyed
+by `visibility`, `edgeTurn`, `visibilityOrig`, `edgeTurnOrig`. Each record has
+`sourceProperty`, `wordCount`, `words` (unsigned 32-bit integers in original
+array order), and `sourcePropertySHA256` of the serialized property payload,
+including its compact count. `provenance.sourceMap` is the relative source
+path; `provenance.sourceSHA256` hashes the original on-disk map file.
+
+Without a source package, `conventions.status` is **`unverified`**, and all
+interpretation fields are `null`. With the original map supplied, the exporter
+checks its separately serialized native `TerrainSector` per-quad table.
+Only complete, unique coverage of every `(gridSize-1)^2` ordinary quad and zero
+disagreements in both visibility variants promote the status to
+**`visibility-verified`**: `indexOrder: "row-major"`, `visibleBit: 1`,
+`bitmapVariant: "visibility"`. The bit at `(x,y)` is
+`(words[(y*gridSize+x)//32] >> ((y*gridSize+x)%32)) & 1`.
+`bitSetDiagonal` and `boundary` remain **`null`**. Runtime code must not
+interpret the edge-turn words or unverified visibility records.
+
+This check is performed for each map, rather than promoting every map from
+three samples. `verification` records the source digest, complete coverage,
+duplicate/missing/mismatched quad counts, hidden quad count, native table
+digest and bitmap digests. A changed bitmap cannot reuse an earlier proof.
+Malformed, incomplete or disagreeing sources retain the original words and
+unverified conventions with diagnostic evidence.
+
+The independent source measurement found **zero mismatches over 195,075
+ordinary quads** across 768 sectors on TI (`17_25`), Giran (`22_22`) and Aden
+(`24_18`). Native per-quad table zeros match exactly 0, 3,814 and 6,511
+invisible quads. Current and `Orig` visibility arrays are byte-identical on
+these maps. Transposing the global bitmap instead gives 2,180 mismatches on
+Giran and 12,636 on Aden; using most-significant-bit-first gives 2,760 and
+3,458. The tail is a compact count of **256** followed by **256 uint16 quad
+values**, with 64 preceding bytes whose purpose is not established. The older
+`docs/map-format.md` description of one 289-entry int16 vertex array has been
+corrected to reflect this framing.
+These are saved-sector observations, not a recovered native runtime algorithm.
+An additional read-only audit of all 100 converted source maps found current
+visibility matching all 6,502,500 ordinary quad-table entries. The stricter
+two-variant gate passed 99 maps: `22_19` differs at 430 `Orig` bits despite its
+current bitmap matching the table. That map intentionally remains unverified;
+the exporter does not guess which runtime variant should win.
+[Epic's UE2 terrain documentation](https://docs.unrealengine.com/udk/Two/EditingTerrainMaps.html)
+confirms that visibility controls missing, non-solid terrain and edge turns
+change triangle diagonals. The documentation supplies their purpose; the
+independent serialized sector table supplies the visibility indexing evidence.
+
+The local `engine.dll` exports `GetQuadVisibilityBitmap`, `GetEdgeTurnBitmap`,
+their `Orig` counterparts, and `SetHoriEdge`/`SetVertiEdge`/`SetEndVertexZ`, but
+its method bodies are packed with Themida; those symbol names alone do not
+prove the algorithms. An independent browser port is a useful comparison,
+not a native correctness oracle.
+
+Fresh source measurements of `17_25`, `22_22`, and `24_18` found all four
+arrays at 2048 words (65536 bits). Their serialized `TerrainSector` records
+at offset 240 use **15** quads on the outer axis, not 16. For example, TI's
+last-X sector spans X `-67584..-65664` (1920 = 15×128), while its nominal tile
+edge is `-65536`. Giran ends at X `98176` versus tile edge `98304`; Aden ends
+at Y `32640` versus tile edge `32768`. This proves that the saved ordinary
+terrain ends at sample 255. The native runtime's handling of the remaining
+128-unit border and adjacent maps is still unverified. Any browser stretch
+to the full 32768-unit tile width is a compatibility workaround, not a source
+coordinate transformation established by these records.
+
+`--topology-only` replaces only this sidecar and the `scene.json` pointer;
+raw heights, props, textures and geodata are unchanged. It is deterministic
+and does not need umodel or a full world conversion. Tests use synthetic
+bitmaps; an additional optional test round-trips the four source payloads
+from the three private maps when those files are installed:
+
+```
+python3 -m unittest discover -s tools/world -p 'test_terrain_topology.py'
+```
+
+## Adjacent source terrain samples
+
+`python3 tools/world/convert.py --edges-only 17_25 22_22 24_18` writes
+`terrain-edges.json` and its `scene.json.terrainEdges` pointer. The updater
+requires the existing heightmap bytes to match the original G16 extraction.
+It preserves sample 255 at its original coordinate and supplies separate
+samples at coordinate 256 from the east/south neighbors, using each neighbor's
+own origin Z and scale. The southeast sample comes from that map's first
+vertex. Missing sources remain null; no heights are extrapolated.
+
+The `l2-terrain-edges-v1` record contains `tile`, `gridSize`, `origin`,
+`spacing`, `east`, `south`, `southeast`, and `provenance`. Every present source
+records its tile, transform, original map hash and extracted height hash.
+Each present edge also records `edgeValuesSHA256`: SHA-256 of its world-Z
+values encoded as little-endian IEEE-754 float64 in array order (one value
+for southeast). The exporter and browser reject mismatched adjacent source
+coordinates, missing metadata and changed payloads.
+
+The browser's source path uses these original positions and decoded heights
+without the legacy geodata height repair. Verified visibility removes ordinary
+hidden quads from both drawing and terrain queries. Boundary joins still use
+the provisional browser triangulation; adjacent source points do not establish
+the native seam algorithm or edge-turn diagonal semantics.
 
 ## What is EXACT
 

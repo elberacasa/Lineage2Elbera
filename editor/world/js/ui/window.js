@@ -40,7 +40,9 @@ export class L2Window {
    * @param {object} o
    * @param {string} o.title      titlebar text (retail bitmap font)
    * @param {number} o.width      retail px
-   * @param {number} o.height     retail px, body only (titlebar is extra)
+   * @param {number} o.height     retail px (legacy callers use body height)
+   * @param {boolean} o.nativeBounds total original rectangle; children use
+   *                                its origin, including the title strip
    * @param {boolean} o.closable  show the close button
    * @param {boolean} o.draggable drag by the titlebar
    * @param {string}  o.back      body background override: a texture ref, or
@@ -51,7 +53,7 @@ export class L2Window {
    */
   constructor({ title = '', width = 200, height = 120,
                 closable = true, draggable = true, winName = null,
-                back } = {}) {
+                back, nativeBounds = false } = {}) {
     this.title = title;
     this.width = width;
     this.height = height;
@@ -66,6 +68,14 @@ export class L2Window {
     root.style.position = 'fixed';
     root.style.width = `${Skin.px(width)}px`;
     root.style.display = 'none';
+    // NCWnd::SetWindowSize stores the source height unchanged; NCFrameWnd
+    // clips drawing to that rectangle. Existing callers still need a staged
+    // coordinate migration. New source-driven windows opt into this contract.
+    // tools/ui/check_layout_native.py verifies the original instructions.
+    if (nativeBounds) {
+      root.style.height = `${Skin.px(height)}px`;
+      root.style.overflow = 'hidden';
+    }
     this.root = root;
 
     // --- titlebar (3-part strip) ---
@@ -73,6 +83,11 @@ export class L2Window {
     bar.className = 'l2wnd-bar';
     bar.style.position = 'relative';
     bar.style.height = `${Skin.px(this.barH)}px`;
+    if (nativeBounds) {
+      bar.style.position = 'absolute';
+      bar.style.inset = '0 0 auto 0';
+      bar.style.zIndex = '2';
+    }
     Skin.hstrip(bar, ref('left'), ref('mid'), ref('right'));
     root.appendChild(bar);
     this.bar = bar;
@@ -103,6 +118,10 @@ export class L2Window {
       Skin.apply(btn, ref('close'));
       btn.addEventListener('mouseenter', () => Skin.apply(btn, ref('closeOn')));
       btn.addEventListener('mouseleave', () => Skin.apply(btn, ref('close')));
+      // Keep both frame and WndMgr drag handlers from capturing this pointer:
+      // capture would retarget its eventual click from the close control to
+      // the titlebar. Root capture-phase focus/raise still runs normally.
+      btn.addEventListener('pointerdown', (e) => e.stopPropagation());
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.hide();
@@ -122,6 +141,10 @@ export class L2Window {
     // given (measured: InventoryWnd 405 against a mined 401).
     body.style.boxSizing = 'border-box';
     body.style.height = `${Skin.px(height)}px`;
+    if (nativeBounds) {
+      body.style.position = 'absolute';
+      body.style.inset = '0';
+    }
     root.appendChild(body);
     this.winName = winName;
     this.body = body;
@@ -206,7 +229,7 @@ export class L2Window {
     handle.style.cursor = 'move';
     let from = null;
     handle.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || e.defaultPrevented) return;
       const r = this.root.getBoundingClientRect();
       from = { x: e.clientX - r.left, y: e.clientY - r.top };
       handle.setPointerCapture(e.pointerId);
@@ -218,7 +241,10 @@ export class L2Window {
       this.root.style.right = 'auto';
       this.root.style.bottom = 'auto';
     });
-    handle.addEventListener('pointerup', () => { from = null; });
+    const end = () => { from = null; };
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+    handle.addEventListener('lostpointercapture', end);
   }
 
   /** Position in retail pixels from a viewport edge. */

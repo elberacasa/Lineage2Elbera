@@ -5,6 +5,12 @@ Para detalles de compilación, ver `server/BUILD-NOTES.md`.
 
 ---
 
+Las herramientas locales requieren `L2_DB_DEFAULTS_FILE`: ruta absoluta a un
+archivo privado de MariaDB con sección `[client]` (host, usuario y contraseña),
+y `L2_DB_NAME`: nombre explícito de la base de datos. No hay valores por defecto.
+Mantén el archivo y sus valores fuera de Git. Estos ejemplos no autorizan
+mutaciones sobre personajes de juego durante verificaciones ordinarias.
+
 ## 1. Ficha técnica
 
 | Componente | Detalle |
@@ -12,7 +18,7 @@ Para detalles de compilación, ver `server/BUILD-NOTES.md`.
 | Pack | aCis rev 409 (Interlude/C6), paquete raíz `net.sf.l2j` |
 | Java | OpenJDK 21 — **obligatorio** `JAVA_HOME=/opt/homebrew/opt/openjdk@21` |
 | Árbol desplegable | `server/aCis_gameserver/build/dist/` → `login/` y `gameserver/` |
-| Base de datos | MariaDB en `127.0.0.1:3306`, BD `l2jdb`, usuario `l2j` / clave `l2jpass` (ver `db-credentials.txt`), 65 tablas instaladas |
+| Base de datos | MariaDB; conexión mediante el archivo privado `L2_DB_DEFAULTS_FILE` y nombre explícito `L2_DB_NAME`. No se publican credenciales. |
 | Puertos | 2106 (login, clientes) · 7777 (gameserver, clientes) · 9014 (enlace login↔game, interno) |
 | Geodata | L2OFF, 139 regiones `*_conv.dat`, instalada en `dist/gameserver/data/geodata/` (`GeoDataType = L2OFF`, `GeoDataPath = ./data/geodata/`). Copia maestra en `server/geodata-staging/geodata/` |
 | Mods propios | Tiendas offline + comandos de voz `.menu`, `.autoloot`, `.expon`/`.expoff`, `.offline` (compilados en `l2jserver.jar`) |
@@ -140,7 +146,7 @@ En aCis el acceso GM es **por personaje** (tabla `characters`, columna `accessle
 2. Desconecta el personaje y ejecuta en MariaDB:
 
 ```bash
-mariadb -u l2j -pl2jpass l2jdb \
+mariadb --defaults-file="${L2_DB_DEFAULTS_FILE:?define el archivo privado}" --database="${L2_DB_NAME:?define la base de datos}" \
   -e "UPDATE characters SET accesslevel = 8 WHERE char_name = 'TuPersonaje';"
 ```
 
@@ -172,7 +178,7 @@ Script sugerido (`~/backup-l2jdb.sh`):
 #!/bin/bash
 DEST="$HOME/backups/l2jdb"
 mkdir -p "$DEST"
-mysqldump -u l2j -pl2jpass --single-transaction --routines l2jdb \
+mysqldump --defaults-file="${L2_DB_DEFAULTS_FILE:?define el archivo privado}" --single-transaction --routines "${L2_DB_NAME:?define la base de datos}" \
   | gzip > "$DEST/l2jdb-$(date +%Y%m%d-%H%M).sql.gz"
 # Conserva solo los últimos 14 días
 find "$DEST" -name 'l2jdb-*.sql.gz' -mtime +14 -delete
@@ -185,7 +191,7 @@ find "$DEST" -name 'l2jdb-*.sql.gz' -mtime +14 -delete
 ```
 
 - `--single-transaction` evita bloquear tablas con el servidor en marcha — el backup se puede hacer en caliente.
-- Restaurar: `gunzip < archivo.sql.gz | mariadb -u l2j -pl2jpass l2jdb`.
+- Restaurar: `gunzip < archivo.sql.gz | mariadb --defaults-file="${L2_DB_DEFAULTS_FILE:?define el archivo privado}" --database="${L2_DB_NAME:?define la base de datos}"`.
 - Antes de cualquier cambio grande (migración, evento con SQL, limpieza), tira un dump manual primero.
 - Cuando el servidor esté en VPS, copia los dumps fuera de la máquina (otro disco, object storage o `scp` periódico a tu PC).
 

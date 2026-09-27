@@ -17,9 +17,11 @@ Usage:
   python3 tools/ui/build_uiskin.py            # stage 1x
   python3 tools/ui/build_uiskin.py --hd       # stage 4x HD
   python3 tools/ui/build_uiskin.py --check    # verify, write nothing
+  python3 tools/ui/build_uiskin.py --dialog-edit-only  # source-native 3-slice edit frame only
 """
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -27,6 +29,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 INTERFACE = os.path.join(REPO, "assets/gamedata/interface.json")
@@ -105,6 +108,16 @@ IMPLICIT = [
     "L2UI_CH3.BloodHoodWnd.BloodHood_Logon",
     "L2UI_CH3.BloodHoodWnd.BloodHood_Logoff",
 ]
+
+# QuestTreeWnd.uc AddQuestInfo names these dynamic tree controls/items.
+# They do not appear in the xdat because the script creates the tree nodes.
+IMPLICIT += ['L2UI_CH3.QUESTWND.' + name for name in (
+    'QuestWndPlusBtn', 'QuestWndMinusBtn', 'QuestWndPlusBtn_over', 'QuestWndMinusBtn_over',
+    'QuestWndDownBtn', 'QuestWndUpBtn', 'QuestWndDownBtn_over', 'QuestWndUpBtn_over',
+    'QuestWndInfoIcon_1', 'QuestWndInfoIcon_2', 'QuestWndInfoIcon_3',
+    'QuestWndInfoIcon_4', 'QuestWndInfoIcon_5')]
+IMPLICIT += ['L2UI_CH3.ListCtrl.TextSelect', 'L2UI_CH3.ListCtrl.TextSelect2',
+             'L2UI_CH3.Etc.menu_outline']
 
 # The 16 class icons (party_styleicon*) are native-referenced — GetClassIconName
 # is a C++ thunk, so no script or xdat ever names them. The refs are mined from
@@ -208,11 +221,71 @@ def upscale_all(sources, dest):
         )
 
 
+def stage_dialog_edit(check=False):
+    """Elbera Tools: append three exact native edit textures, decoded from UTX.
+
+    Does not delete/rebuild other skin entries. Unlike alpha-bound measurement,
+    the source crop is the native paint call's explicit 8x17 rectangle.
+    """
+    from mine_dialogbox import decode
+    sys.path.insert(0, os.path.join(REPO, 'tools'))
+    from l2lib import load_package, extract_texture_rgba, write_png
+    data = decode()
+    frame = data['controls']['DialogBoxEdit']['frame']
+    path = Path(REPO) / 'assets/interlude/systextures/L2UI_CH3.utx'
+    pkg, _ = load_package(path)
+    package_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+    manifest = json.loads(Path(MANIFEST).read_text())
+    if manifest.get('scale') != 1:
+        raise ValueError('dialog-only source extraction requires a 1x atlas')
+    sprites = manifest['sprites']
+    decoded = []
+    for side in ('left', 'middle', 'right'):
+        ref = frame[side]
+        package, group, leaf = ref.split('.')
+        matches = [e for e in pkg.exports_by_class('Texture')
+                   if pkg.export_name(e).casefold() == leaf.casefold()
+                   and e.package_index > 0
+                   and pkg.export_name(pkg.exports[e.package_index-1]).casefold() == group.casefold()]
+        if package.casefold() != path.stem.casefold() or len(matches) != 1:
+            raise ValueError(f'non-unique qualified source texture {ref}')
+        export = matches[0]
+        w, h, rgba, _ = extract_texture_rgba(pkg, export)
+        if w < frame['capWidth'] or h < frame['sourceHeight']:
+            raise ValueError(f'texture is smaller than native crop: {ref}')
+        record = {'file': staged_name(ref) + '.png', 'w': w, 'h': h, 'scale': 1,
+                  'cx': 0, 'cy': 0, 'cw': frame['capWidth'], 'ch': frame['sourceHeight'],
+                  'source': {'packageSHA256': package_hash, 'exportIndex': export.index,
+                             'rgbaSHA256': hashlib.sha256(rgba).hexdigest(),
+                             'cropEvidence': 'NWindow NCEditBox::OnPaint 0x100184aa..0x100185c8'}}
+        decoded.append((ref, record, rgba))
+    if check:
+        from mine_atlas import png_read
+        for ref, record, rgba in decoded:
+            assert sprites.get(ref) == record, f'edit frame manifest drift: {ref}'
+            w, h, pixels = png_read(os.path.join(STAGE, record['file']))
+            assert (w, h, bytes(pixels)) == (record['w'], record['h'], rgba), f'edit frame PNG drift: {ref}'
+    else:
+        os.makedirs(STAGE, exist_ok=True)
+        for ref, record, rgba in decoded:
+            write_png(os.path.join(STAGE, record['file']), record['w'], record['h'], rgba)
+            sprites[ref] = record
+        Path(MANIFEST).write_text(json.dumps(manifest, indent=1) + '\n')
+    print('Dialog edit source textures: PASS (3 qualified original textures, native 8x17 crops)')
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--hd", action="store_true", help="stage 4x upscaled sprites")
     ap.add_argument("--check", action="store_true", help="verify only, write nothing")
+    ap.add_argument("--dialog-edit-only", action="store_true", help="append/check only the 3 original NumberPad edit frame textures")
     args = ap.parse_args()
+
+    if args.dialog_edit_only:
+        if args.hd:
+            ap.error('--dialog-edit-only preserves original pixels and cannot use --hd')
+        return stage_dialog_edit(args.check)
 
     if not os.path.exists(INTERFACE):
         sys.exit("missing assets/gamedata/interface.json — run tools/xdat/parse_xdat.py")

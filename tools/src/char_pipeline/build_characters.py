@@ -434,6 +434,8 @@ ANIM_CANDIDATES = {
     'walk':   ['Walk_Hand_{P}', 'Walk_1HS_{P}'],
     'run':    ['Run_Hand_{P}', 'Run_1HS_{P}'],
     'sit':    ['SitWait_{P}'],
+    'sitDown': ['Sit_{P}'],
+    'standUp': ['Stand_{P}'],
     'dance':  ['Social_dance_{P}'],
     'attack': ['Atk01_Hand_{P}', 'Atk01_1HS_{P}'],
     'castShort':  ['CastShort_{P}'],
@@ -446,6 +448,11 @@ ANIM_CANDIDATES = {
     # FShaman ships the retail-typo'd 'damegefly_FShaman' — kept as a
     # second-chance fallback (first-hit-wins, so other races are unaffected)
     'damage': ['Damagefly_{P}', 'Damegefly_{P}'],
+    # Exact additional slots verified against original .int and PSA.
+    'castEnd':    ['CastEnd_{P}'],
+    'magicShot':  ['MagicShot_{P}'],
+    'magicNoTarget': ['MagicNoTarget_{P}'],
+    'picItem':    ['PicItem_{P}'],
 }
 
 # ---------------------------------------------------------- social emotes
@@ -736,21 +743,16 @@ def build_combo(cid, race, gender, cname, pkg, prefix, texpkg, bindings):
              # off the socialAction broadcast and looks it up here; before
              # this existed every emote played 'dance'.
              'socialActions': social_actions}
-    # true in-world height (L2 units) = glTF Y extent x 100 x MeshScale.z
-    # decoded from the .ukx (scale_util) — the client sizes the model from
-    # this, never from a hardcoded fallback
-    u_mesh = next((p['mesh'] for p in parts if p['suffix'] == '_u'), None)
-    nh = u_mesh and scale_util.native_height(
-        out_gltf, os.path.join(CLIENT, ukx), u_mesh)
-    if not nh:
-        # hard fail: a missing nativeHeight silently renders the model at
-        # the client's legacy 1.75 m fallback (3.8x oversized vs the L2
-        # world) — 2026-08-03 bug, never let it ship silently again
-        raise SystemExit('FATAL: no nativeHeight for %s (_u mesh %r) — '
-                         'refusing to write a manifest entry without it'
-                         % (cid, u_mesh))
-    entry['nativeHeight'] = nh
-    print('  nativeHeight %.1f L2 units (%s)' % (nh, u_mesh))
+    # Exact original local scale, with all actual built parts checked against
+    # source bindings and mesh fields. A rounded silhouette is a measurement,
+    # never the input from which runtime visual scale should be recovered.
+    sys.path.insert(0, os.path.join(ROOT, 'tools/dat'))
+    from export_player_visuals import player_visual_record, exact_browser_scale
+    entry['visualScale'] = player_visual_record(entry)
+    visual = entry['visualScale']
+    axes = exact_browser_scale(visual['drawScale'], visual['drawScale3D'], visual['meshScale'])
+    entry['nativeHeight'] = round(scale_util.gltf_y_extent(out_gltf) * 100 * axes[1], 1)
+    print('  original per-axis visual scale %s; measured height %.1f L2 units' % (axes, entry['nativeHeight']))
     return entry
 
 

@@ -1,18 +1,19 @@
 # Elbera — Handoff Document
 
-Read this to continue the project with zero prior context. It describes the
-repository **as it exists on 2026-07-25**, on macOS arm64 (Apple Silicon),
-python3.9, node, OpenJDK 21. Everything below was verified against the live
-repo on that date; where something was verified earlier and not re-run, the
-date says so.
+This is a historical July–August 2026 handoff, retained for implementation
+history. Its completion claims, test totals and startup instructions are not
+current authority. The goal remains the full faithful Interlude browser port.
 
-Product name: **Elbera** (development name: L2Vzla — paths, logs and older
-docs still use it). Root: `/Users/alejandroberacasa/l2vzla`.
+Start with [the owner rules](../AGENTS.md), [current coverage](PORT-COVERAGE.md),
+[the project README](../README.md), and [Elbera Tools](../tools/README.md).
+Use [the gateway contract](../gateway/README.md) for current wire behavior.
+The source-evidence documents linked by coverage supersede older inferred
+rules below. Historical fixture seeding and broad live-test commands are not
+normal gameplay proof or instructions to run them during an audit.
 
-**Read order after this file:** `README.md` (product + toolchain) →
-`docs/web-port-architecture.md` (master plan, milestones M1–M5) →
-`gateway/README.md` (protocol contract + crypto gotchas) → the per-area
-deep dives listed at the bottom.
+Local database helpers require explicit `L2_DB_DEFAULTS_FILE` (an absolute,
+private MariaDB `[client]` option file) and `L2_DB_NAME`; no credentials are
+supplied by this repository. Keep the populated option file outside Git.
 
 ---
 
@@ -23,7 +24,7 @@ scripts auto-restart the Java processes):
 
 | Component | Port | Process | Health check |
 |---|---|---|---|
-| MariaDB (Homebrew) | 3306 | `mariadbd` | `mariadb -u l2j -pl2jpass l2jdb -e "SELECT 1"` |
+| MariaDB (Homebrew) | 3306 | `mariadbd` | `mariadb --defaults-file="${L2_DB_DEFAULTS_FILE:?set private option file}" --database="${L2_DB_NAME:?set database name}" -e "SELECT 1"` |
 | aCis loginserver | 2106 (+9014 internal) | `java net.sf.l2j.loginserver.LoginServer` | `nc -z 127.0.0.1 2106` |
 | aCis gameserver | 7777 | `java net.sf.l2j.gameserver.GameServer` | `nc -z 127.0.0.1 7777`; log shows `Loaded N voiced command handlers.` |
 | ElberaGate (gateway) | 8090 | `node src/server.js` (cwd `gateway/`) | `cd gateway && node test/verify-one.js` → PASS |
@@ -33,8 +34,8 @@ scripts auto-restart the Java processes):
 | ElberaClient | 8083 | `python3 editor/world/server.py` | `curl -s http://127.0.0.1:8083/scenes` → 100 tiles |
 | (dev only) mock gateway | 8085 | `node editor/world/mock_gateway.js` | client offline-UI testing without aCis |
 
-Database: `l2jdb` on `127.0.0.1:3306`, user `l2j` / password `l2jpass`
-(also in `db-credentials.txt`), 65 tables. `AutoCreateAccounts = True`.
+Database host, user and password come from the private client option file;
+the database name is supplied explicitly through `L2_DB_NAME`. Confirm current server policy from its private configuration.
 
 Verified live on 2026-07-28: all four web apps return 200; `/scenes`
 returns 100 tiles; 100/100 tiles carry extracted geodata

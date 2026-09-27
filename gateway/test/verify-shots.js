@@ -19,12 +19,12 @@
 //
 // Usage: node test/verify-shots.js
 
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const WebSocket = require('ws');
 
 const GATEWAY = process.env.GATEWAY_URL || 'ws://127.0.0.1:8090';
-const DB = ['-u', 'l2j', '-pl2jpass', 'l2jdb'];
 
 // Fixed device id so the fixture targets one stable character across runs
 // instead of littering the DB with a new one each time.
@@ -38,7 +38,7 @@ function derive(deviceId) {
 }
 
 function sql(query) {
-  return execFileSync('mariadb', [...DB, '-N', '-B', '-e', query], { encoding: 'utf8' }).trim();
+  return execFileSync('mariadb', [...dbArgs(), '-N', '-B', '-e', query], { encoding: 'utf8' }).trim();
 }
 
 let pass = 0, fail = 0;

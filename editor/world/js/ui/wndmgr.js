@@ -60,6 +60,7 @@ export const WndMgr = {
       el.style.right = 'auto';
       el.style.bottom = 'auto';
     }
+    win.repairPosition?.();
 
     WndMgr.makeMovable(name, handle || el);
     el.addEventListener('pointerdown', () => WndMgr.raise(name), true);
@@ -72,7 +73,10 @@ export const WndMgr = {
       const d = el.style.display;
       if (d === lastDisplay) return;
       lastDisplay = d;
-      if (d !== 'none') WndMgr.raise(name);
+      if (d !== 'none') {
+        win.repairPosition?.();
+        WndMgr.raise(name);
+      }
     }).observe(el, { attributes: true, attributeFilter: ['style'] });
     return win;
   },
@@ -143,6 +147,7 @@ export const WndMgr = {
     };
     handle.addEventListener('pointerup', end);
     handle.addEventListener('pointercancel', end);
+    handle.addEventListener('lostpointercapture', end);
   },
 
   /** UIAPI_WINDOW.SetFocus / SetAlwaysOnTop — clicking a window raises it. */
@@ -193,6 +198,13 @@ export const WndMgr = {
 // re-clamp on resize so a window parked at an edge stays reachable
 window.addEventListener('resize', () => {
   for (const [, w] of _windows) {
+    // Windows migrated to decoded saved-position rules own this recovery.
+    // Reapplying on browser resize/open is lifecycle adaptation; the rule
+    // itself follows native IsOutOfRange→SetDefaultPosition, with no margin.
+    if (typeof w.win.repairPosition === 'function') {
+      w.win.repairPosition();
+      continue;
+    }
     const r = w.el.getBoundingClientRect();
     // AUTHORED 40px: the width of window edge that must stay on screen
     // after a viewport resize. Retail clamps to the desktop, which is a

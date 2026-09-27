@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Elbera Tools — Skill effect sources</title>
+<style>
+body{max-width:980px;margin:32px auto;padding:0 24px;background:#20262b;color:#eee;font:15px/1.55 system-ui}
+h1{font-size:25px;font-weight:500}a{color:#e7c887}label{display:inline-block;margin:8px 16px 8px 0}
+input,select,button{font:inherit}input{width:100px}button{padding:3px 12px}small{color:#bdc6cd}
+dl{display:grid;grid-template-columns:minmax(140px,1fr) 3fr;gap:8px 16px}dt{color:#bdc6cd}dd{margin:0;overflow-wrap:anywhere}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 12px;border-bottom:1px solid #45505a}th{color:#d8c38e;font-weight:500}td{overflow-wrap:anywhere}fieldset{border:1px solid #45505a;margin:20px 0;padding:12px}input[type=checkbox]{width:auto}#associated{width:240px}#action-status{color:#e7c887}
+code{overflow-wrap:anywhere}#status{padding:12px 16px;border-left:3px solid #e7c887;background:#2b333b}
+@media(max-width:650px){dl{grid-template-columns:1fr}dd{margin-bottom:8px}table{font-size:12px}th,td{padding:6px}}
+</style>
+<p><a href="index.html">Elbera Tools</a> · Original Interlude data · No game-server connection</p>
+<h1>Skill effect sources</h1>
+<p>Inspect the exact skill-level reference and its original <code>SkillVisualEffect</code> object.
+An empty reference means no Agent selected by this field. The original client also has a separate legacy effect path.</p>
+<form id="lookup"><label>Skill ID <input id="skill" type="number" min="1" step="1" value="21" required></label>
+<button type="submit">Look up</button> <label>Original level <select id="level" disabled></select></label></form>
+<p id="status" role="status">Loading original source index…</p>
+<dl id="details"></dl>
+<fieldset id="dispatch"><legend>Original action dispatch</legend>
+<small>Inspection inputs only. Stage is the value after native Finalize increments it. Associated targets are ordered labels; duplicates are retained. These controls do not send game commands.</small><br>
+<label>Phase <select id="phase"><option value="c">Casting</option><option value="h">Channeling</option><option value="p">Preshot</option><option value="s" selected>Shot</option></select></label>
+<label>Shot stage <input id="shot-stage" type="number" min="1" max="2147483647" step="1" value="1"></label>
+<label>Pending shot <select id="pending"><option value="2">2 · last shot</option><option value="1">1 · intermediate shot</option></select></label><br>
+<label><input id="main-target" type="checkbox" checked> Main target exists</label>
+<label>Associated targets <input id="associated" type="text" aria-label="Associated targets in source order" placeholder="Comma-separated labels"></label>
+<p id="action-status" role="status"></p>
+</fieldset>
+<table><thead><tr><th>Source index / stage</th><th>Original action / effect</th><th>Dispatch</th><th>Rendering coverage</th></tr></thead><tbody id="actions"></tbody></table>
+<p id="coverage"></p>
+<small>This inspector checks source selection, not visual fidelity. Native legacy effects, phase timing,
+particle behavior, actor placement and blending remain separate work. Nothing here grants or casts a skill.</small>
+<script type="module">
+import { skillAgentBinding } from '../js/skillvfx-binding.js';
+import { skillMeta, skillInfo } from '../js/gamedata.js';
+import { selectSkillActions } from '../js/skillaction-dispatch.js';
+const input=document.querySelector('#skill'),level=document.querySelector('#level'),status=document.querySelector('#status');
+const details=document.querySelector('#details'),actions=document.querySelector('#actions'),coverage=document.querySelector('#coverage');
+let index,meta,currentEntry;
+const names={'source-none':'No SkillVisualEffect Agent reference in this original row.',
+  'resolved-source-object':'Exact reference resolved to the original source object.',
+  'unresolved-source-path':'The original reference is present, but its object is missing from the owned package.',
+  'missing-exact-metadata':'No verified metadata for this exact skill and level.'};
+function detail(label,value){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;details.append(dt,dd);}
+function showActions(){
+  actions.replaceChildren();
+  const phase=document.querySelector('#phase').value;
+  const plan=selectSkillActions({entry:currentEntry,phase,caster:'caster',
+    mainTarget:document.querySelector('#main-target').checked?'main target':null,
+    associatedActors:document.querySelector('#associated').value.split(',').map(s=>s.trim()).filter(Boolean),
+    stageShot:Number(document.querySelector('#shot-stage').value),pending:Number(document.querySelector('#pending').value)});
+  document.querySelector('#action-status').textContent=!currentEntry?'No resolved Agent to inspect.':
+    `${plan.status}${plan.reason?': '+plan.reason:''} · ${plan.actions.length} source record${plan.actions.length===1?'':'s'} · ${plan.calls.length} action callback${plan.calls.length===1?'':'s'}.`;
+  for(const diagnostic of plan.actions){
+    const action=diagnostic.action,fx=index.fx?.[action.f],tr=document.createElement('tr');
+    const calls=plan.calls.filter(call=>call.sourceIndex===action.sourceIndex);
+    const dispatch=calls.length?calls.map(call=>`${call.caster} → ${call.target??'(null)'} (${call.targetSource})`).join('; '):diagnostic.reason||'no callback';
+    const rendering=fx?`${fx.e.length} supported emitters; omitted ${JSON.stringify(fx.skip||{})}`:'No drawable effect index';
+    const values=[`${action.sourceIndex} / ${action.stage}${action.stageSerialized?' (stored)':' (omitted zero)'}`,
+      `${action.actionPath||action.actionStatus}\n${action.effectPath||'(no EffectClass)'}`,dispatch,rendering];
+    for(const value of values){const td=document.createElement('td');td.textContent=value;tr.append(td);}actions.append(tr);
+  }
+}
+function show(){
+  details.replaceChildren();actions.replaceChildren();
+  const id=Number(input.value),lev=Number(level.value),result=skillAgentBinding(index,id,lev);
+  currentEntry=result.entry;
+  status.textContent=names[result.status];
+  detail('Skill',`${id} · ${skillInfo(meta,id,lev).name}`);
+  detail('Original level',level.value||'unavailable');
+  detail('Exact object reference',result.path===null?'unavailable':result.path||'(empty)');
+  if(result.entry){
+    detail('Source object',result.entry.path);
+    detail('FlyingTime',String(result.entry.f)+' s (original Float32 or verified class default)');
+    detail('Object fingerprint',result.entry.source?.SHA256||'unavailable');
+    detail('Source arrays',['c','h','p','s','x'].map(key=>`${key}: ${result.entry[key]?.length??'missing'}`).join(' · '));
+  }
+  showActions();
+  const url=new URL(location.href);url.searchParams.set('skill',String(id));
+  if(level.value)url.searchParams.set('level',level.value);else url.searchParams.delete('level');
+  history.replaceState(null,'',url);
+}
+function selectSkill(wanted){
+  level.replaceChildren();
+  for(const n of index.bindings?.[String(Number(input.value))]?.levels||[]){
+    const option=document.createElement('option');option.value=String(n);option.textContent=String(n);level.append(option);
+  }
+  if(wanted && Number.isInteger(Number(wanted)) && Number(wanted)>0
+      && ![...level.options].some(o=>o.value===String(wanted))){
+    const option=document.createElement('option');option.value=String(wanted);
+    option.textContent=`${wanted} (unverified)`;level.append(option);
+  }
+  if([...level.options].some(o=>o.value===String(wanted)))level.value=String(wanted);
+  level.disabled=!level.options.length;show();
+}
+document.querySelector('#lookup').addEventListener('submit',event=>{event.preventDefault();if(index)selectSkill();});
+level.addEventListener('change',show);
+document.querySelector('#dispatch').addEventListener('input',()=>{if(index)showActions();});
+try{
+  const response=await fetch('/gamedata/skillvfx.json',{cache:'no-cache'});
+  if(!response.ok)throw Error(`Original effect index: HTTP ${response.status}`);
+  [index,meta]=await Promise.all([response.json(),skillMeta()]);
+  if(index.format!=='l2-interlude-skill-vfx-v2')throw Error('Rebuild the source index with the current Elbera Tools exporter.');
+  const params=new URL(location.href).searchParams;
+  if(params.has('skill'))input.value=params.get('skill');
+  selectSkill(params.get('level'));
+  const rows=Object.values(index.bindings).reduce((n,b)=>n+b.levels.length,0);
+  coverage.textContent=`Index: ${rows.toLocaleString()} exact skill-level rows; ${Object.keys(index.objects).length} original Agent objects. Requires your locally supplied client files.`;
+}catch(error){status.textContent=error.message;level.disabled=true;}
+</script></html>

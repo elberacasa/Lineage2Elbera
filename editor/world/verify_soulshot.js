@@ -55,6 +55,7 @@
 // Usage:
 //   node verify_soulshot.js            # run, write screenshots + JSON
 //   node verify_soulshot.js --check    # same, exit 1 on any failure
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -65,7 +66,6 @@ const puppeteer = require(
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const BASE = process.env.CLIENT_URL || 'http://127.0.0.1:8083/';
 const OUT = path.join(__dirname, 'verify_shots');
-const DB = ['-u', 'l2j', '-pl2jpass', 'l2jdb'];
 
 const DEVICE_ID = 'verify-shots-fixture-1';   // same fixture as gateway/test/verify-shots.js
 const SS_NOGRADE = 1835;      // Soulshot: No Grade — item_skill 2039-1
@@ -79,7 +79,7 @@ function derive(deviceId) {
   return { account: 'w' + h1.slice(0, 12), charName: 'W' + h1.slice(12, 23) };
 }
 function sql(query) {
-  return execFileSync('mariadb', [...DB, '-N', '-B', '-e', query], { encoding: 'utf8' }).trim();
+  return execFileSync('mariadb', [...dbArgs(), '-N', '-B', '-e', query], { encoding: 'utf8' }).trim();
 }
 
 let pass = 0, fail = 0;

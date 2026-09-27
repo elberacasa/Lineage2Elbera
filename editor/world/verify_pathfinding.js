@@ -4,12 +4,12 @@
 //   node verify_pathfinding.js [tag]
 //
 //   1. unit: synthetic stub geodata — A* detours around a wall, refuses an
-//      enclosed target, honors the 48-unit step rule (48 climbs, 49 walls).
+//      enclosed target, honors the 48-unit step rule (40 climbs, 48 walls).
 //      (skipped with a note when __world.nav is absent — pre-pathfinding
 //      client, i.e. a "before" run)
 //   2. route: training-hall area (-74400,254400) -> TI village (-84141,244623)
 //      on 17_25. The planned legs are validated against the WALK RULE at
-//      16u resolution (independent re-check: passable() + heightAt(maxUp)):
+//      16u resolution (production walk-rule re-check: passable() + heightAt(maxUp)):
 //      before, the straight legs cross the aqueduct wall near (-77800,251000);
 //      after, the nav route detours through the open band (y ~ 245.5-248.3k).
 //   3. e2e solo: the character really walks the click (offline, no server)
@@ -74,7 +74,7 @@ const GOAL = { x: -84141, y: 244623 };
             const h = H(x, y);
             if (h == null) return null;
             if (z == null) return h;
-            if (maxUp != null) return h <= z + Math.min(maxUp, 48) ? h : z;
+            if (maxUp != null) return h < z + Math.min(maxUp, 48) ? h : z;
             return h;
           },
           passable(fx, fy, tx, ty) {
@@ -130,24 +130,23 @@ const GOAL = { x: -84141, y: 244623 };
         const r = nav.findPath(2 * C + 64, 2 * C + 64, 0, gx * C + 64, gy * C + 64, 0);
         out.enclosed = { refused: !r || !r.complete, complete: r ? r.complete : null };
       }
-      // (c) step rule: a full-width ramp at ix>=20, height +48 (climbs) ...
+      // (c) aCis requires a layer strictly below z+48 (8-unit heights).
       {
+        const geo40 = stub(40, (ix) => (ix >= 20 ? 40 : 0), new Set());
+        const nav40 = new w.nav.NavGrid(() => geo40);
+        const r40 = nav40.findPath(2 * C + 64, 20 * C + 64, 0, 38 * C + 64, 20 * C + 64, 40);
         const geo48 = stub(40, (ix) => (ix >= 20 ? 48 : 0), new Set());
         const nav48 = new w.nav.NavGrid(() => geo48);
         const r48 = nav48.findPath(2 * C + 64, 20 * C + 64, 0, 38 * C + 64, 20 * C + 64, 48);
-        // ... and +49 (a wall, no way around: spans every row)
-        const geo49 = stub(40, (ix) => (ix >= 20 ? 49 : 0), new Set());
-        const nav49 = new w.nav.NavGrid(() => geo49);
-        const r49 = nav49.findPath(2 * C + 64, 20 * C + 64, 0, 38 * C + 64, 20 * C + 64, 49);
         out.stepRule = {
-          climbs48: r48 ? r48.complete : false,
-          blocks49: !r49 || !r49.complete,
+          climbs40: r40 ? r40.complete : false,
+          blocks48: !r48 || !r48.complete,
         };
       }
       return out;
     });
 
-    // -- 2. planned route vs the walk rule (independent 16u validation) -----
+    // -- 2. planned route vs the walk rule (16u walk-rule validation) -----
     // place the character at START so walkToServer plans from there
     await page.evaluate(({ sx, sy }) => {
       const w = window.__world;
@@ -185,7 +184,7 @@ const GOAL = { x: -84141, y: 244623 };
         }
       }
       const from = { x: Math.round(p0.x * 100), y: Math.round(p0.z * -100) };
-      // independent walk-rule validation at 16u steps along the queued legs
+      // production walk-rule validation at 16u steps along the queued legs
       const STEP = 48;
       let z = Math.round(p0.y * 100);
       let violation = null;
@@ -197,13 +196,13 @@ const GOAL = { x: -84141, y: 244623 };
         for (let k = 1; k <= n; k++) {
           const x = a.x + (b.x - a.x) * k / n, y = a.y + (b.y - a.y) * k / n;
           const px = a.x + (b.x - a.x) * (k - 1) / n, py = a.y + (b.y - a.y) * (k - 1) / n;
-          if (!g.passable(px, py, x, y)) {
+          if (!g.passable(px, py, x, y, z)) {
             violation = { kind: 'nswe', x: Math.round(x), y: Math.round(y), z };
             break outer;
           }
           const h = g.heightAt(x, y, z, STEP);
           const lowest = g.heightAt(x, y);
-          if (lowest == null || lowest > z + STEP) {
+          if (lowest == null || lowest >= z + STEP) {
             violation = { kind: 'step', x: Math.round(x), y: Math.round(y), z, lowest };
             break outer;
           }

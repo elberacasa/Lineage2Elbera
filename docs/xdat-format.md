@@ -12,6 +12,12 @@ client's widget tree. No `l2encdec` pass is needed.
 Decoder: `tools/xdat/parse_xdat.py` → `assets/gamedata/interface.json`.
 Verify: `python3 tools/xdat/parse_xdat.py --check`.
 
+The shared position/size fields below have been superseded by direct native
+serializer evidence in [native-layout-evidence.md](native-layout-evidence.md).
+In particular, offsets are signed int32s after a string, anchors are explicit,
+and relative sizes use float rates. All 1,962 scanned positions now decode;
+generated assets and browser consumers require a separate migration.
+
 ## Format
 
 ```

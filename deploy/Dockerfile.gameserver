@@ -8,7 +8,9 @@ WORKDIR /opt/l2/gameserver
 COPY --from=dist gameserver/ /opt/l2/gameserver/
 
 COPY entrypoint-gameserver.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh && mkdir -p /opt/l2/gameserver/log
+COPY write-db-password.sh java-password.awk /usr/local/lib/elbera/
+RUN command -v awk >/dev/null && command -v mktemp >/dev/null \
+    && chmod +x /usr/local/bin/entrypoint.sh && mkdir -p /opt/l2/gameserver/log
 
 EXPOSE 7777
 

@@ -13,8 +13,8 @@
 // heightmap.u16: gridSize*gridSize Uint16 little-endian, row-major
 // (gx fastest). World position of sample (gx,gy) in L2 space:
 //   origin + [gx*spacing, gy*spacing, (h - 32768)*heightScale]
-// (the -32768 bias is the validated G16 encoding, docs/map-format.md §6;
-// without it real-tile props land ~8600 units below the surface)
+// This is the prior compatibility transform. Verified source surfaces instead
+// use their original saved FCoords and float32 vertices; see native evidence.
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -23,9 +23,14 @@ import { Geodata, GEO_ANCHOR_MAX } from './geodata.js';
 import { Bsp } from './bsp.js';
 import { BspFloor, drawnGroundL2 } from './bspfloor.js';
 import { correctHeightsWithGeodata } from './heightfix.js';
+import { gridVertexCoordinate, sampleGridHeight, gridTriangleIndices, loadSourceTerrainSurface } from './terrain-surface.js';
 
 const UE_ROT_TO_RAD = (Math.PI * 2) / 65536;
 const PROP_CLUSTER_SIZE = 48;  // meters, instanced-prop cluster grid cell
+// Bound decoding/memory pressure while overlapping independent glTF requests.
+// A tile contains hundreds of templates; serial loading waits for every
+// template's JSON -> buffers/images dependency chain before starting the next.
+const PROP_LOAD_CONCURRENCY = 4;
 // walking rule for the geodata layer pick: a walker gains at most this much
 // height in one step — taller layers are walls, not floors (L2 units). 48 =
 // aCis's per-cell climb limit (GeoStructure.CELL_IGNORE_HEIGHT =
@@ -65,7 +70,7 @@ const FIRE_LIGHT_MAX = 16;        // hard cap per tile (forward-renderer perf)
 const FIRE_LIGHT_LIFT_M = 1.2;    // flame mesh spans 0..1.06 m above origin
 
 export class Terrain {
-  constructor(sceneDef, baseUrl) {
+  constructor(sceneDef, baseUrl, { legacyStretch = false } = {}) {
     this.def = sceneDef;
     this.baseUrl = baseUrl; // e.g. /scenes/20_18/
     this.gridSize = sceneDef.gridSize || 256;
@@ -73,6 +78,8 @@ export class Terrain {
     this.heightScale = sceneDef.heightScale ?? 0.296875;
     this.origin = sceneDef.origin || [0, 0, 0];
     this.heights = null;    // Uint16Array gridSize*gridSize
+    this.surface = null;   // source-position grid plus adjacent source edges
+    this.legacyStretch = legacyStretch; // dev-only implementation comparison
     this.mesh = null;
     this.group = new THREE.Group();
     this.props = [];
@@ -108,7 +115,8 @@ export class Terrain {
     }
     const relief = (maxH - minH) * this.heightScale;
     if (relief > 5) return false;                 // real terrain: never interior
-    const plane = this.origin[2] + (minH - 32768) * this.heightScale;
+    const plane = this.surface ? this.surface.worldHeight(minH)
+      : this.origin[2] + (minH - 32768) * this.heightScale;
     let below = 0;
     for (const p of props) if (p.position[2] < plane - 500) below++;
     if (below / props.length < 0.95) return false;
@@ -130,7 +138,8 @@ export class Terrain {
     return true;
   }
 
-  async load() {
+  async load(onStage = () => {}) {
+    onStage('terrain source');
     const res = await fetch(this.baseUrl + this.def.heightmap);
     if (!res.ok) throw new Error(`heightmap fetch failed: ${res.status}`);
     const buf = await res.arrayBuffer();
@@ -138,6 +147,10 @@ export class Terrain {
     const view = new DataView(buf);
     this.heights = new Uint16Array(n);
     for (let i = 0; i < n; i++) this.heights[i] = view.getUint16(i * 2, true);
+
+    this.sourceHeights = this.heights.slice();
+    const sourceSurface = await loadSourceTerrainSurface(this.baseUrl, this.def, this.heights);
+    this.surface = this.legacyStretch ? null : sourceSurface;
 
     if (this.def.interior === true) {
       this.interior = true;
@@ -153,17 +166,22 @@ export class Terrain {
     // geodata AND the BSP floor raster BEFORE the mesh: the stale-rectangle
     // correction needs both (heightfix.js hazard 3 — a town square is a
     // stone slab over the natural ground, not a stale heightmap)
+    onStage('walkable surfaces');
     [this.geodata, this.bspFloor] = await Promise.all([
       Geodata.load(this.baseUrl, this.def).catch(() => null),  // hm fallback
       BspFloor.load(this.baseUrl).catch(() => null),
     ]);
     this._correctHeights();
 
+    onStage('terrain textures');
     if (!this.interior) await this._buildMesh();   // interiors: no terrain plane
+    onStage('water');
     await this._buildWater();                      // self-skips interior/null
     // after geodata: fire lights clamp above the local floor
     if (this.interior) this._buildFireLights();
+    onStage('world objects');
     await this._loadProps();
+    onStage('buildings');
     await this._loadBsp();
   }
 
@@ -178,7 +196,9 @@ export class Terrain {
   // Stale-rectangle correction: see heightfix.js (shared with the neighbor
   // tiles in neighbors.js and with tools/world/verify_bspfloor.mjs).
   _correctHeights() {
-    if (!this.geodata) return;
+    // With preserved source geometry, geodata chooses a walking floor; it
+    // must not rewrite official height samples into inferred terrain.
+    if (this.surface || !this.geodata) return;
     const r = correctHeightsWithGeodata(
       this.heights, this.gridSize, this.spacing, this.origin, this.heightScale,
       this.geodata, this.bspFloor);
@@ -202,14 +222,21 @@ export class Terrain {
 
   // three.js world position (meters) of grid sample (gx, gy)
   vertexPos(gx, gy, out = new THREE.Vector3()) {
+    if (this.surface) {
+      const z = this.surface.heightAtVertex(gx, gy);
+      if (z == null) throw new Error('missing source terrain vertex');
+      return l2ToThree(this.origin[0] + gx * this.spacing,
+        this.origin[1] + gy * this.spacing, z, out);
+    }
     const h = this.heights[gy * this.gridSize + gx];
-    // The 256x128 grid only reaches 32640 of the tile's 32768 units; the
+    // Compatibility workaround, not native seamless-terrain reconstruction:
+    // the 256x128 grid only reaches 32640 of the tile's 32768 units; the
     // last row/column is STRETCHED to the far edge so the mesh abuts the
     // neighbor tile's mesh instead of leaving a 128-unit crack of void.
     // Heights are unchanged (the edge sample is simply reused at the edge).
     const g = this.gridSize;
-    const lx = gx === g - 1 ? g * this.spacing : gx * this.spacing;
-    const ly = gy === g - 1 ? g * this.spacing : gy * this.spacing;
+    const lx = gridVertexCoordinate(gx, g, true) * this.spacing;
+    const ly = gridVertexCoordinate(gy, g, true) * this.spacing;
     return l2ToThree(
       this.origin[0] + lx,
       this.origin[1] + ly,
@@ -218,7 +245,7 @@ export class Terrain {
     );
   }
 
-  // bilinear height (three.js Y, meters) at three.js world (x, z);
+  // Triangle height (three.js Y, renderer units) at three.js world (x, z);
   // interior tiles have no heightfield — everything walks on the
   // estimated dungeon floor.
   // currentZ (three.js Y, meters) selects the NEAREST geodata layer —
@@ -258,10 +285,8 @@ export class Terrain {
     // feet touch what is rendered. No constant is subtracted anywhere: the
     // offset comes per-cell from the two surfaces themselves.
     //
-    // MAX_STEP_UP: a walker can only gain this much in one cell — layers above
-    // that are walls (roofs/decks), not floors. 2m matches the steepest retail
-    // stairs without letting a ground walker snap onto rooftops beside tall
-    // buildings.
+    // Geodata uses the server's strict +48 L2-unit step ceiling; the visual
+    // terrain query follows the triangles that are actually rendered.
     //
     // "The terrain the client draws" is not always the terrain MESH: where
     // the level BSP floors the world (a plaza slab, a building floor) the
@@ -271,10 +296,15 @@ export class Terrain {
     const s = L2_TO_M;
     const fx = (x / s - this.origin[0]) / this.spacing;
     const fy = (-z / s - this.origin[1]) / this.spacing;
-    const terrainY = this._sampleBilinear(fx, fy);
+    const terrainY = this._sampleSurface(fx, fy);
     if (this.geodata) {
       const drawn = this._drawnGroundL2(
-        x / s, -z / s, terrainY / s, currentZ == null ? null : currentZ / s);
+        x / s, -z / s, terrainY == null ? null : terrainY / s, currentZ == null ? null : currentZ / s);
+      if (drawn == null) {
+        const h = this.geodata.heightAt(x / s, -z / s, currentZ == null ? null : currentZ / s,
+          currentZ == null ? null : MAX_STEP_UP_L2);
+        return h == null ? null : h * s;
+      }
       const h = this.geodata.anchoredHeightAt(
         x / s, -z / s,
         currentZ == null ? null : currentZ / s,
@@ -286,18 +316,17 @@ export class Terrain {
     return terrainY;
   }
 
-  _sampleBilinear(fx, fy) {
-    const g = this.gridSize;
-    const cx = Math.min(Math.max(fx, 0), g - 1.001);
-    const cy = Math.min(Math.max(fy, 0), g - 1.001);
-    const x0 = Math.floor(cx), y0 = Math.floor(cy);
-    const tx = cx - x0, ty = cy - y0;
-    const h = (x, y) => this.heights[Math.min(y, g - 1) * g + Math.min(x, g - 1)];
-    const top = h(x0, y0) * (1 - tx) + h(x0 + 1, y0) * tx;
-    const bot = h(x0, y0 + 1) * (1 - tx) + h(x0 + 1, y0 + 1) * tx;
-    const v = top * (1 - ty) + bot * ty;
+  _sampleSurface(fx, fy) {
+    if (this.surface) {
+      const z = this.surface.sample(fx, fy);
+      return z == null ? null : z * L2_TO_M;
+    }
+    const v = sampleGridHeight(this.gridSize, fx, fy, i => this.heights[i], true);
     return (this.origin[2] + (v - 32768) * this.heightScale) * L2_TO_M;
   }
+
+  // Compatibility for existing diagnostics; the result now follows triangles.
+  _sampleBilinear(fx, fy) { return this._sampleSurface(fx, fy); }
 
   center() {
     const mid = (this.gridSize - 1) / 2;
@@ -307,6 +336,18 @@ export class Terrain {
   // -- mesh ----------------------------------------------------------------
 
   async _buildMesh() {
+    if (this.surface) {
+      const data = this.surface.meshData(), geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(data.uv, 2));
+      geo.setIndex(new THREE.BufferAttribute(data.indices, 1));
+      geo.computeVertexNormals();
+      this.mesh = new THREE.Mesh(geo, await this._buildMaterial());
+      this.mesh.receiveShadow = true;
+      this.mesh.name = 'terrain';
+      this.group.add(this.mesh);
+      return;
+    }
     const g = this.gridSize;
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(g * g * 3);
@@ -320,17 +361,7 @@ export class Terrain {
         uv[i * 2] = gx / (g - 1); uv[i * 2 + 1] = gy / (g - 1);
       }
     }
-    // winding: three.js z = -l2y flips handedness, so (A,B,C)/(B,D,C)
-    // gives upward-facing triangles (verified: cross product +Y).
-    const idx = new Uint32Array((g - 1) * (g - 1) * 6);
-    let k = 0;
-    for (let gy = 0; gy < g - 1; gy++) {
-      for (let gx = 0; gx < g - 1; gx++) {
-        const a = gy * g + gx, b = a + 1, c = a + g, d = c + 1;
-        idx[k++] = a; idx[k++] = b; idx[k++] = c;
-        idx[k++] = b; idx[k++] = d; idx[k++] = c;
-      }
-    }
+    const idx = gridTriangleIndices(g);
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     geo.setIndex(new THREE.BufferAttribute(idx, 1));
@@ -568,8 +599,15 @@ export class Terrain {
       if (t && t.isTexture && !seenTex.has(t)) { seenTex.add(t); t.dispose(); }
     };
     const seenMat = new Set();
+    const seenGeometry = new Set();
     this.group.traverse((o) => {
-      if (o.geometry) o.geometry.dispose();
+      // InstancedMesh owns GPU instance attributes separate from geometry.
+      // Geometry/material disposal alone does not release those buffers.
+      if (o.isInstancedMesh) o.dispose();
+      if (o.geometry && !seenGeometry.has(o.geometry)) {
+        seenGeometry.add(o.geometry);
+        o.geometry.dispose();
+      }
       const mats = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
       for (const m of mats) {
         if (seenMat.has(m)) continue;
@@ -579,6 +617,9 @@ export class Terrain {
         m.dispose();
       }
     });
+    this.group.clear();
+    this.props = [];
+    this.propClusters = [];
   }
 
   // 1x1 solid-color stand-in for a layer texture that failed to load
@@ -747,66 +788,71 @@ export class Terrain {
       });
 
     this.propClusters = [];
-    const propM = new THREE.Matrix4();
     const instM = new THREE.Matrix4();
     const center = new THREE.Vector3();
 
-    for (const [path, list] of byPath) {
-      let meshes;
-      try {
-        meshes = await loadTemplate(path);
-      } catch {
-        console.warn(`props: template ${path} failed (${list.length} placements)`);
-        continue;
-      }
-      // group placements of this gltf into spatial clusters
-      const cells = new Map();
-      for (const p of list) {
-        const [px, py] = p.position || [0, 0];
-        const key = `${Math.floor(px * L2_TO_M / PROP_CLUSTER_SIZE)},`
-          + `${Math.floor(-py * L2_TO_M / PROP_CLUSTER_SIZE)}`;
-        if (!cells.has(key)) cells.set(key, []);
-        cells.get(key).push(p);
-      }
-      for (const cellProps of cells.values()) {
-        const matrices = cellProps.map(p => Terrain._propMatrix(p, new THREE.Matrix4()));
-        center.set(0, 0, 0);
-        for (const m of matrices) center.add(new THREE.Vector3().setFromMatrixPosition(m));
-        center.divideScalar(matrices.length);
-        const cluster = { center: center.clone(), meshes: [], visible: true };
-        for (const mesh of meshes) {
-          // 1,849 retail placements carry a NEGATIVE-determinant scale
-          // (DrawScale3D mirrors, e.g. (1,-1,1)). Such an instance draws its
-          // triangles with reversed winding, and three.js only compensates
-          // for that on an object's own matrixWorld (WebGLRenderer's
-          // frontFaceCW test) — never per InstancedMesh instance. While
-          // every prop material was force-DoubleSided that stayed hidden;
-          // now that the retail two-sidedness is honored (F3) they would be
-          // culled inside-out. So mirrored instances go into their own
-          // InstancedMesh with the material's front face flipped.
-          // (Normals are fine: these are axis mirrors, diagonal +-1, for
-          // which the instance matrix IS its own inverse-transpose.)
-          for (const flip of [false, true]) {
-            const sel = [];
-            for (const m of matrices) {
-              instM.copy(m).multiply(mesh.matrix);
-              if ((instM.determinant() < 0) === flip) sel.push(instM.clone());
-            }
-            if (!sel.length) continue;
-            const material = flip ? Terrain._flipSide(mesh.material)
-              : mesh.material;
-            const im = new THREE.InstancedMesh(mesh.geometry, material, sel.length);
-            for (let i = 0; i < sel.length; i++) im.setMatrixAt(i, sel[i]);
-            im.instanceMatrix.needsUpdate = true;
-            im.castShadow = true;
-            im.receiveShadow = true;
-            im.computeBoundingSphere();   // per-cluster frustum culling
-            this.group.add(im);
-            this.props.push(im);
-            cluster.meshes.push(im);
-          }
+    const entries = [...byPath];
+    for (let start = 0; start < entries.length; start += PROP_LOAD_CONCURRENCY) {
+      const batch = entries.slice(start, start + PROP_LOAD_CONCURRENCY);
+      const loaded = await Promise.allSettled(batch.map(([path]) => loadTemplate(path)));
+      // Assemble in source order even when requests finish out of order.
+      // This retains draw ordering and limits decoded templates awaiting use.
+      for (let j = 0; j < batch.length; j++) {
+        const [path, list] = batch[j], result = loaded[j];
+        if (result.status === 'rejected') {
+          console.warn(`props: template ${path} failed (${list.length} placements)`);
+          continue;
         }
-        this.propClusters.push(cluster);
+        const meshes = result.value;
+        // group placements of this gltf into spatial clusters
+        const cells = new Map();
+        for (const p of list) {
+          const [px, py] = p.position || [0, 0];
+          const key = `${Math.floor(px * L2_TO_M / PROP_CLUSTER_SIZE)},`
+            + `${Math.floor(-py * L2_TO_M / PROP_CLUSTER_SIZE)}`;
+          if (!cells.has(key)) cells.set(key, []);
+          cells.get(key).push(p);
+        }
+        for (const cellProps of cells.values()) {
+          const matrices = cellProps.map(p => Terrain._propMatrix(p, new THREE.Matrix4()));
+          center.set(0, 0, 0);
+          for (const m of matrices) center.add(new THREE.Vector3().setFromMatrixPosition(m));
+          center.divideScalar(matrices.length);
+          const cluster = { center: center.clone(), meshes: [], visible: true };
+          for (const mesh of meshes) {
+            // 1,849 retail placements carry a NEGATIVE-determinant scale
+            // (DrawScale3D mirrors, e.g. (1,-1,1)). Such an instance draws its
+            // triangles with reversed winding, and three.js only compensates
+            // for that on an object's own matrixWorld (WebGLRenderer's
+            // frontFaceCW test) — never per InstancedMesh instance. While
+            // every prop material was force-DoubleSided that stayed hidden;
+            // now that the retail two-sidedness is honored (F3) they would be
+            // culled inside-out. So mirrored instances go into their own
+            // InstancedMesh with the material's front face flipped.
+            // (Normals are fine: these are axis mirrors, diagonal +-1, for
+            // which the instance matrix IS its own inverse-transpose.)
+            for (const flip of [false, true]) {
+              const sel = [];
+              for (const m of matrices) {
+                instM.copy(m).multiply(mesh.matrix);
+                if ((instM.determinant() < 0) === flip) sel.push(instM.clone());
+              }
+              if (!sel.length) continue;
+              const material = flip ? Terrain._flipSide(mesh.material)
+                : mesh.material;
+              const im = new THREE.InstancedMesh(mesh.geometry, material, sel.length);
+              for (let i = 0; i < sel.length; i++) im.setMatrixAt(i, sel[i]);
+              im.instanceMatrix.needsUpdate = true;
+              im.castShadow = true;
+              im.receiveShadow = true;
+              im.computeBoundingSphere();   // per-cluster frustum culling
+              this.group.add(im);
+              this.props.push(im);
+              cluster.meshes.push(im);
+            }
+          }
+          this.propClusters.push(cluster);
+        }
       }
     }
   }

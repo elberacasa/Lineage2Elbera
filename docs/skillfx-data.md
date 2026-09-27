@@ -1,10 +1,19 @@
 # Skill FX — decoded skill-presentation data (Interlude)
 
-Where the retail client keeps everything about how a skill **looks and
-sounds**, what we decoded from it, and what each piece maps to on disk.
-Hard rule throughout: every visual in `skillfx.json` comes from decoded
-retail data and verified files — nothing is authored. Where the data
-stops, the entry says `missing`, never a substitute.
+This records decoded original presentation data and the browser export path.
+Original asset provenance does not establish a skill binding, native playback
+or rendering parity. Earlier sections mixed these claims; the corrections
+below supersede the old ID/name-based coverage and visual oracles.
+
+**Current binding contract:** exact original skill ID/level →
+`skill_visual_effect` qualified path → `SkillVisualEffect` object. Of 29,812
+source rows, 17,576 are None, 12,094 resolve within the 244-object source table,
+and 142 retain unresolved nonempty references. The browser never fills an
+unknown level with another level. See [native Agent evidence](native-cast-agent-evidence.md).
+Agent None is not a claim that the original draws no effects: the
+[native legacy path](native-legacy-skill-effects-evidence.md) independently
+selects Wind Strike's `m_u000_*` and Power Strike's `s_u002_a`; placement,
+motion and lifecycle are not yet complete.
 
 ## Pipeline (all re-runnable, all with `--check`)
 
@@ -13,8 +22,8 @@ stops, the entry says `missing`, never a substitute.
 | `tools/dat/parse_skillsoundgrp.py` | `assets/gamedata/skillsoundgrp.json` | `system/skillsoundgrp.dat` (413) |
 | `tools/dat/parse_skillfx.py` | `assets/gamedata/lineageeffect.json`, `assets/gamedata/skillvisualeffect.json` | `system/LineageEffect.u`, `animations/Skill.usk` (both Lineage2Ver111, decoded by `tools/l2lib`) |
 | `tools/dat/build_skillfx.py` | `assets/gamedata/skillfx.json` (+ static-mesh export into `assets/library/`) | all of the above + `skillgrp.json`, `skillname.json`, `assets/library/manifest.json` |
-| `tools/dat/build_skillanim.py` (pre-existing) | `assets/gamedata/skillanim.json` | skillgrp + skillsoundgrp join for the cast-time lookup |
-| `tools/dat/build_skillvfx.py` | `assets/gamedata/skillvfx.json` (the browser index, §8) | lineageeffect + skillvisualeffect + skillfx |
+| `tools/dat/build_skillanim.py` | `assets/gamedata/skillanim.json` | Fresh pinned original skillgrp DAT + skillsoundgrp; explicit known levels and original effect path |
+| `tools/dat/build_skillvfx.py` | `assets/gamedata/skillvfx.json` (v2 browser index, §8) | Fresh pinned original skillgrp DAT and Skill.usk; lineageeffect emitters; legacy skillfx retained only as diagnostics |
 | `tools/dat/dump_emitter_classes.py` | printed (nothing on disk) — the *evidence* for §4b | `system/Engine.u`: the emitter classes' `.uc` ScriptText **and** their class-default property streams |
 | `tools/dat/build_skillmesh.py` | `assets/gamedata/skillmesh.json` + `skillmesh.bin` (§4d) | the umodel `.pskx` exports under `assets/library/<pkg>/StaticMesh/` + `LineageEffectsStaticmeshes.usx` for material packages |
 
@@ -90,36 +99,26 @@ as its one open gap.
 
 ## 2. skillgrp.dat — the cast-animation selector (29812 records)
 
-skillgrp's `animation` UNICODE field is the retail cast-anim selector:
-single letters are native-code categories (`S` melee strike, `t`
-dagger/bow precision, `V` dagger crit, `U` sonic/AoE, `Y` shield, `M`
-polearm, `D` beneficial magic, `E` elemental nuke, `C` debuff, `X`
-self-buff, `L` taunt/aura, `N` dance, `W` song, `i` summon...),
-`Mix01`–`Mix09`/`MS01` are literal names, `''` = passive. The
-letter→clip switch itself lives in native code (`APawn::SetSkillType`)
-and is **not** in any data file.
+The `animation` string selects 32 recovered branches in native
+`APawn::SetSkillAnim`. Selection uses that code and weapon stance, not duration,
+range or `is_magic`. For example, `S` selects `spAtk01`, `N` selects `spAtk27`,
+and `D`/`E` select `castMid`, then `castEnd`, then respectively `magicNoTarget`
+or `magicShot`. The old duration thresholds, `N → Social_dance`, category
+labels and generic substitutions are superseded by
+[the original selector evidence](native-skill-animation-evidence.md).
 
-What IS in data, cross-checked against `animations/Fighter.ukx`
-(MeshAnimation name table) and `Engine.u`'s embedded `Pawn.uc` source:
+The previously omitted `castEnd`, `magicShot`, `magicNoTarget` and `picItem`
+slots have been recovered from all 14 original player packages, yielding 56
+independently checked clips. Complete native phase scheduling is still not
+integrated. [Endpoint evidence](native-animation-terminal-evidence.md) proves
+the one-shot sample span `(N-1)/R` and loop period `N/R`; neither means the
+whole clip should be stretched to packet hit time. Exact native subframe
+interpolation and full pose/render parity remain open.
 
-- Physical skills play `SpAtk01`–`SpAtk28` / `Atk01`–`Atk03` per weapon
-  (`SpAtk01_1HS_MFighter` etc. — present in the ukx). Which `SpAtkNN`
-  each letter picks is native: **not recovered**.
-- Magic casts play `CastShort` / `CastMid` / `CastLong` chosen by cast
-  duration — the Pawn.uc Korean comments label them 1초미만 (<1s),
-  2-5초, 5초이상 (5s+) — then `MagicThrow`/`Magicshot` at the shot.
-  `build_skillfx.py` derives `castClip` from skillgrp `hit_time` with
-  those thresholds (raw `hitTime` included so consumers can re-derive).
-- Dances (`N`) play `Social_dance` exactly.
-- All of these clips exist in the retail ukx but are **not** in the
-  editor's shipped glTF sets (only idle/walk/run/sit/attack/dance,
-  `editor/characters/manifest.json`) — clip conversion is a character
-  pipeline matter, out of scope here.
-
-## 3. Skill.usk — the explicit skill→effect binding (244 skills)
+## 3. Skill.usk — 244 source Agent objects, not 244 skill bindings
 
 `assets/interlude/animations/Skill.usk` (UE2 package, Lineage2Ver111,
-123/28) holds 244 `SkillVisualEffect` objects **named by skill id**
+123/28) holds 244 `SkillVisualEffect` objects with often numeric leaf names
 (`"110"`, `"1177"`, plus 5 variants `"4641_a"`, `"4641_b"`,
 `"1217_sec"`, `"1031_sec"`, `"1012_sec"`) and 524
 `SkillAction_LocateEffect` objects (both classes are defined in
@@ -134,8 +133,8 @@ element** (verified byte-exact on every array).
   `ShotActions`, `ExplosionActions` — each a list of
   `SkillActionInfo {Action, SpecificStage}`.
 - `SkillAction_LocateEffect`: `EffectClass` → `LineageEffect.<class>`,
-  `AttachOn` (byte, EAttachMethod — enum values not recovered, kept
-  raw), `AttachBoneName`, `offset` (Vector), `SpawnDelay`, `bAbsolute`,
+  `AttachOn` (byte, EAttachMethod — declaration recovered in §3a),
+  `AttachBoneName`, `offset` (Vector), `SpawnDelay`, `bAbsolute`,
   `bUseCharacterRotation`, `bRelativeToCylinder`, `bSpawnOnTarget`,
   `bSizeScale`, `bOnMultiTarget`.
 
@@ -144,19 +143,21 @@ element** (verified byte-exact on every array).
 must be resolved by index, never by name. (Getting this wrong silently
 scrambles every binding; the parser asserts plausible anchors.)
 
-Coverage: 239 numeric ids + 5 variants. Of the 2694 skills in
-skillname: 236 explicit (129 of them "active" skills with a cast
-animation; the rest passive/stance-type rows that still carry an
-effect). This is the ONLY explicit per-skill effect table in the
-client — `MobSkillAnimgrp.dat` (5463 records: npc id, skill id, anim
-name like `spatk02`, mob name) covers mob cast animations, not effects;
-`variationeffectgrp-e.dat` is augmentation (weapon variation) FX.
+The 239 numeric leaf names and 5 variants are object identities, not a valid
+skill-ID join. Native `GetMSData` selects an exact ID/level row and
+`SetMagicInfo` uses its qualified `skill_visual_effect` path. Across the
+original DAT, 7,930 rows spanning 758 skill IDs name a different leaf. Five
+IDs have level-dependent paths. An object can be shared by multiple skills,
+and a same-ID object can exist while that skill's source Agent is None.
+`MobSkillAnimgrp.dat` covers NPC animation selection; it does not replace
+this Agent join or the separately recovered native legacy-effect dispatch.
 
 ### 3a. Field semantics — how each one was CONFIRMED (2026-08-07)
 
-The earlier pass recorded these fields but left their meaning open
-("EAttachMethod enum not recovered", offsets kept raw). All of the
-following is now pinned to evidence, not inference from names.
+The earlier pass left the enum and offsets open. Original declarations and
+class-default streams now establish the enum/default fields below. Historical
+placement interpretations and appearance comparisons are retained as such;
+they do not prove the complete native transform or browser rendering.
 
 **The default-omission rule.** UE1/2 packed property streams omit any
 value equal to the class default. So a boolean that appears with only
@@ -266,20 +267,19 @@ sits in `ShotActions` while `el_wind_strike_ta` sits in
 `PreshotActions` is empty across all 244 objects; the live arrays are
 casting 241, shot 159, explosion 17, channeling 3.
 
-**Anchor skills, confirmed end to end** (each matches its well-known
-retail appearance):
+**Source object contents, not end-to-end skill assertions.** The following
+rows identify qualified objects. Their phase arrays do not establish which
+skill/level selects them, or prove placement and timing in the browser.
 
-| Skill | Casting | Shot | Explosion | Reading |
+| Source object | Casting | Shot | Explosion | Data interpretation |
 |---|---|---|---|---|
-| 1177 Wind Strike | `el_wind_strike_ca` at the feet + `el_wind_strike_pr` (`bUseCharacterRotation`) | `el_wind_strike_fl`, `FlyingTime` 0.4 s | `el_wind_strike_ta` `bSpawnOnTarget` | cast aura, charge held in front, bolt flies 0.4 s, burst on the target |
-| 1011 Heal | `wh_heal_ca` at the feet | `wh_heal_ta` `bSpawnOnTarget`+`bOnMultiTarget` | — | aura under the caster, burst on the healed target, no projectile |
-| 1040 Shield (self-buff) | `wh_heal_ca` — the SHARED white-magic cast aura | `wh_shield_ta` on target | — | same cast aura as Heal, different target effect: the tables really do reuse `_ca` classes across a family |
-| 1085 Acumen | `su_empower_ca` | `su_acumen_ta` | — | support-family aura + target effect |
+| `Skill.el.1177` | `el_wind_strike_ca` + `el_wind_strike_pr` (`bUseCharacterRotation`) | `el_wind_strike_fl`, Float32 FlyingTime ≈ 0.4 s | `el_wind_strike_ta` `bSpawnOnTarget` | Wind Strike 1177 level 1 does not select this object |
+| `Skill.wh.1011` | `wh_heal_ca` | `wh_heal_ta` `bSpawnOnTarget`+`bOnMultiTarget` | — | Selected by Heal 1011 and Self Heal 1216 at level 1 |
+| `Skill.wh.1040` | `wh_heal_ca` | `wh_shield_ta` | — | Shield 1040 level 1 has source None despite this object's existence |
+| `Skill.su.1085` | `su_empower_ca` | `su_acumen_ta` | — | Selected by Acumen 1085 level 1 |
 
-The Shield/Heal pair is the useful confirmation: two different skills
-sharing one `_ca` class but differing in `_ta` is exactly the retail
-behaviour (every white-magic buff opens with the same aura), and it
-rules out any "one effect per skill" misreading.
+Shared effect classes establish asset reuse. They do not establish a skill
+binding or a universal white-magic presentation rule.
 
 **Two decoder bugs found and fixed while confirming the above:**
 - `ColorScale` elements are `{RelativeTime, Color}`; the parser read
@@ -307,8 +307,8 @@ Naming convention: `<prefix>_<family>_<suffix>` — prefix = magic family
 support, `mo` motion/self, `ph` song/dance, `sp` special, `dw` dwarf,
 `it` item, `mb`/`mu`/`bo` monster, ...), suffix = presentation slot
 (`ca` cast aura, `cs` cast shot, `co` channeling, `fl`/`pr`/`ra`/`sp`
-projectile, `ta`/`to`/`tc` target). Suffix→phase mapping verified
-against the Skill.usk explicit bindings.
+projectile, `ta`/`to`/`tc` target). These are historical naming observations;
+only actual source arrays or compiled dispatch establish a phase.
 
 **Fallback binding (name-convention):** 126 skills' sanitized display
 name matches an effect-class family; prefixes never collide within a
@@ -316,10 +316,12 @@ family (verified across all 864 classes), so the match is unambiguous.
 79 of the 126 also have explicit Skill.usk entries (which win). The
 remaining 47 (43 of them clan-buff duplicates like 4344 "Shield"
 reusing `wh_shield_*`, plus Power Strike → `at_power_strike_cs`) are
-emitted with `"binding": "name-convention"` so the client can weigh
-them. The native fallback code path itself is not in any data file
-(no name literals exist in the DLLs — the names are constructed at
-runtime), hence the explicit flag.
+emitted with `"binding": "name-convention"` in the legacy diagnostic table.
+This match is not native evidence and cannot authorize runtime rendering.
+The earlier blanket claim that no effect-name literals exist in the DLL is
+withdrawn: [compiled legacy dispatch](native-legacy-skill-effects-evidence.md)
+now identifies original Wind Strike and Power Strike classes. It does not
+validate the old display-name/suffix heuristic.
 
 **Unbound classes:** 630 of 864 classes (mostly the numbered
 `e_u`/`m_u`/`w_u`/`s_u` families and event effects) are referenced by
@@ -473,7 +475,13 @@ relationship `build_weapons.py` verified for the static character path.
 (The stragglers are duplicate-position wedges that the rounding key
 collapses.)
 
-## 5. skillfx.json — the consumable map (2694 skills)
+## 5. skillfx.json — superseded diagnostic map
+
+The following historical shape is retained to explain old exports. Its
+`binding: explicit` label meant a leaf-name match, not the original DAT join;
+its `castClip` could come from a duration heuristic. Neither field is a
+runtime authority. In particular, this old 1177 record is not Wind Strike
+level 1's native Agent. Use the v2 contract in §8 instead.
 
 ```jsonc
 "1177": {
@@ -528,35 +536,59 @@ exporter; see §8 "What is NOT reproduced".
 
 **Sounds — all but 3 refs resolve** (see §1).
 
-## 7. The four anchor skills, end to end
+## 7. Corrected exact-level examples
 
-| Skill | Anim | Sounds | Effect binding | Assets |
-|---|---|---|---|---|
-| 3 Power Strike | `S`, physical (SpAtkNN native) | `power_strike_cast`/`_shot` ✓ | **name-convention**: `at_power_strike_cs` (casting) | 1 texture, 2 meshes ✓ |
-| 1216 Self Heal | `D`, CastLong (hit 5.0s) | `heal_cast`/`heal_shot` ✓ | **none** — `missing: ["effect-binding"]` (`wh_heal_*` exists but no data binds it; NOT substituted) | — |
-| 1177 Wind Strike | `E`, CastMid (hit 4.0s) | `wind_strike_cast`/`_shot`/`_explotion` ✓ | **explicit** (Skill.usk): ca+pr casting, fl shot (fly 0.4s), ta explosion | 4 textures, 4 meshes ✓ |
-| 1040 Shield | `D`, magic | `shield_cast`(l1) etc. | **explicit**: casting `wh_heal_ca` (shared cast aura), shot `wh_shield_ta` | textures+meshes ✓ |
+These level 1 source records replace the earlier ID-only visual oracles. They
+establish input selection, not complete on-screen behavior.
+
+| Skill | Original animation slots | Exact Agent path | Separate evidence / remaining work |
+| --- | --- | --- | --- |
+| 3 Power Strike | `S` → `spAtk01` | None | Native legacy initialization selects `s_u002_a`; the guessed `at_power_strike_cs` match is excluded |
+| 1216 Self Heal | `D` → `castMid`, `castEnd`, `magicNoTarget` | `skill.wh.1011` | Shared Heal Agent; old “unbound” and `CastLong` claims were wrong |
+| 1177 Wind Strike | `E` → `castMid`, `castEnd`, `magicShot` | None | Native legacy initialization/shot/impact selects `m_u000_a/b/c/d`; motion, placement and lifecycle remain incomplete |
+| 1040 Shield | `D` → `castMid`, `castEnd`, `magicNoTarget` | None | Existence of `Skill.wh.1040` does not bind it to this row; remaining native presentation path needs proof |
+
+The old `verify_skillvfx.js`, `verify_skillphase.js` and combined
+`verify_skillanim.js` now exit 2 as **UNSUPPORTED** before opening a browser.
+They cannot certify v2 using the contradicted 1177 oracle. The current
+source/unit checks are listed in [Agent evidence](native-cast-agent-evidence.md);
+they do not replace a complete visual or live casting test.
 
 ## 8. skillvfx.json — the browser index, and the renderer
 
-`tools/dat/build_skillvfx.py` (`--check`) joins §3+§4 into
-`assets/gamedata/skillvfx.json`, **357 KB** — small enough to ship,
-against 14 MB of source tables. Strings are interned exactly as
-`tools/audio/build_audio.py` does for its sound bindings: one `tex`
-table of texture paths, one `fxn` table of effect-class names, and every
-record holds indices.
+`tools/dat/build_skillvfx.py` (`--check`) freshly reads the pinned original
+skillgrp DAT and Skill.usk. The v2 index separates exact skill-level bindings
+from 244 qualified Agent objects, including nondrawable objects. Unknown levels
+remain unknown; an empty override stays empty. FlyingTime retains the decoded
+Float32 value and source default 0 without decimal rounding. Source file/export
+hashes travel with the records. The emitter decomposition still comes from
+`lineageeffect.json`; this binding correction is not a new proof of the full
+particle renderer.
+
+`castAgentInfo(id, level)` distinguishes source None, a resolved object,
+an unresolved path and missing exact-level metadata. `flyingTime(id, level)`
+returns null without a resolved Agent; a resolved object's source default 0
+remains 0. Absence of an Agent cannot authorize an immediate legacy impact
+or its sound. The native scheduler separately applies the cast-style lead
+rule; it is not a direct call to this convenience accessor.
+
+Abbreviated schema; arrays and source fingerprints below are omitted for space:
 
 ```jsonc
-{"tex": ["LineageEffectsTextures/fx_m_t0000.png", ...],   // 127
+{"format": "l2-interlude-skill-vfx-v2",
+ "bindings": {"21": {"levels": [/* exact original known levels */],
+                     "path": "skill.wh.1012", "overrides": {}}},
+ "objects": {"skill.wh.1012": {"path": "Skill.wh.1012", "f": 0,
+                                "source": {/* export index and SHA-256 */},
+                                "c": [/* original actions */], "s": [/* ... */]}},
+ "source": {/* original skillgrp.dat and Skill.usk fingerprints */},
+ "tex": ["LineageEffectsTextures/fx_m_t0000.png", ...],
  "texa": [0, 1, ...],                                     // PNG has alpha?
  "msh": ["windknifeball00", ...],                         // 108 mesh names
  "fxn": ["el_wind_strike_ca", ...],                       // 237 classes
  "fx":  [{"e": [ /* packed sprite AND mesh emitters */ ],
           "skip": {"VertMeshEmitter": 1}}],               // what was dropped
- "skill": {"1177": {"b": 1,                // 1 = explicit, 2 = name-convention
-                    "f": 0.4,              // FlyingTime
-                    "c": [{"f": 61, "g": 4, "o": [0,0,-1]}],   // casting
-                    "s": [...], "x": [...], "h": [...]}}}      // shot/expl/chan
+ "skill": {/* legacy leaf/heuristic aliases: diagnostics only, never runtime lookup */}}
 ```
 Action `g` is a bitmask: 1 `bSpawnOnTarget`, 2 `bOnMultiTarget`,
 4 `bSizeScale`, 8 `bUseCharacterRotation`, 16 `bAbsolute`, 32 offset is
@@ -581,18 +613,19 @@ sprites as camera-facing **instanced quads** (not `gl_POINTS` — 1560
 emitters size X and Y independently, e.g. `el_wind_strike_fl`'s 8×80 uu
 streaks, which a square point cannot express), meshes as instanced
 copies of the static-mesh submeshes loaded by
-`editor/world/js/skillmesh.js`. It reads the ring of inbound net
-messages once per frame rather than registering a handler, because
-`NetClient` keeps one handler per op and `window.__world.net` is a
-read-only facade — so no edit to `main.js` is needed.
+`editor/world/js/skillmesh.js`. Main now dispatches actual gateway cast/launch
+events, carrying `level`, to `SkillFx.handle`. Metadata completion is guarded
+by session/cast generation and anchors retain actor identity. The old debug-log
+polling path is superseded. Phase timing, placement and particle behavior
+remain provisional rather than recovered native scheduling.
 
-**Blending and coverage are sourced, not chosen.** `DrawStyle`'s class
+**Historical renderer treatment, not a native blend proof.** `DrawStyle`'s class
 default is `PTDS_Translucent` (3), read from `ParticleEmitter`'s default
-stream (§4b), so the 812 emitters that omit it are translucent — and the
-art is glow sprites on black (`fx_m_t0000` is a 4×4 grid, exactly the
-`TextureUSubdivisions/VSubdivisions` the data states), so
-Regular/AlphaBlend/Translucent/Brighten all draw additively; only
-`PTDS_Modulated`/`PTDS_Darken` differ.
+stream (§4b). The browser groups Regular/AlphaBlend/Translucent/Brighten into
+additive rendering and handles Modulated/Darken separately. That grouping
+was based on the art and decoded labels; it is not established by the original
+D3D blend switch. Texture alpha presence and a class default alone cannot
+prove the correct native blending equation.
 
 Per-texture coverage is now read from the files rather than assumed. The
 earlier claim that "umodel exports every `LineageEffectsTextures` PNG as
@@ -611,19 +644,18 @@ shader multiplied `Opacity` into *both* terms, squaring it and dimming
 every emitter with an authored `Opacity` (813 of them) by that value a
 second time.
 
-### Coverage (honest numbers, 2026-08-08)
+### Source coverage and historical export inventory
 
-| Bucket | Count |
-|---|---|
-| Skills known to `skillfx.json` | 2695 |
-| Bound to a retail effect | **290** (244 explicit Skill.usk + 46 name-convention) |
-| …of those, actually DRAW ≥1 emitter | **290** |
-| **Render NOTHING — no binding in any retail table** | **2405** |
-| Of the 798 *active* (castable) skills: drawing | 129 |
-| Of the 798 *active* skills: no sourced effect | 665 |
+The old “290 bound skills / 2405 must render nothing” table is withdrawn.
+It combined numeric object aliases with guessed name matches. The exact join
+instead checks all 29,812 original rows: 17,576 source None, 12,094 resolved,
+142 unresolved. All 244 original objects are retained, regardless of supported
+emitters. Neither None nor an unresolved export is proof of no native effects.
+The separate legacy path and full particle rendering remain unfinished.
 
-Emitters on the 237 bound classes — **1122 of 1161 rendered, 39
-dropped**:
+The following older emitter counts describe the historical export pool,
+including heuristic classes. They are asset inventory, not skill coverage or
+native rendering parity: 237 classes, 1122 of 1161 emitted, 39 dropped.
 
 | Emitter class | On bound classes | Rendered | Dropped |
 |---|---|---|---|
@@ -638,12 +670,14 @@ dropped**:
 all** — it is absent from the packed stream, so it equals the class
 default, and `ParticleEmitter`'s default `Texture` is **`"S_Emitter"`**,
 the UnrealEd editor billboard (`dump_emitter_classes.py --defaults`).
-They are untextured in retail too. Drawing nothing is the faithful
-outcome, not a staging hole; there is nothing to go and export. The same
-reading applies to the 5 `NoMesh` cases (`s_u806_ca`,
+The exporter currently omits them. The default texture identity is evidence
+against a missing named-texture export; it alone does not prove that the
+original runtime draws nothing. The same export omission applies to the
+5 `NoMesh` cases (`s_u806_ca`,
 `mp_super_strike_a_ta`, `mp_super_strike_b_ta`, `mp_super_strike_a_co`,
-`mo_rapid_shot_ta`). So of the 39 dropped emitters, **15 are drops
-retail also makes** and only 24 (11 Beam + 13 VertMesh) are decoder gaps.
+`mo_rapid_shot_ta`). Of the 39 omitted emitters, 15 lack a serialized texture
+or mesh override and 24 use unsupported Beam/VertMesh types. The old claim
+that all 15 are proven native rendering omissions is withdrawn.
 
 (The previous pass rendered 714 and dropped 447. The six skills listed
 then as "bound but nothing drawable" — 1111, 2003, 2166, 323, 3632,
@@ -668,11 +702,10 @@ then as "bound but nothing drawable" — 1111, 2003, 2166, 323, 3632,
   (`BeamDistanceRange`, `BeamEndPoints`, `DetermineEndPointBy`,
   low/high-frequency noise, branching), but the tessellation that turns
   them into vertices is native code. Not approximated.
-- **Bone/hand attachment** — `EAM_RH/LH/BoneSpecified` is decoded, but
-  attaching to a character bone needs a skeleton lookup in
-  `character.js`, which this worker does not own. Everything anchors to
-  the actor root + offset instead. `bUseCharacterRotation` IS now
-  applied (the effect spawns in the actor's rotation frame).
+- **Bone/hand attachment** — `EAM_RH/LH/BoneSpecified` is decoded and a
+  runtime bone lookup exists. Complete source bone/alias resolution and
+  native collision-origin placement still need proof; actor-root or measured
+  model-height placement must not be presented as exact native attachment.
 - Emitter behaviour beyond the listed fields (`VelocityLossRange` — 309
   sprites / 79 meshes, `RevolutionsPerSecond`, `CoordinateSystem` other
   than the `PTCS_Relative` default — 77 emitters, subdivision animation)
@@ -685,14 +718,15 @@ then as "bound but nothing drawable" — 1111, 2003, 2166, 323, 3632,
 
 ## 9. What's portable to the web vs. what needs research
 
-Portable today (decoded, verified): cast-anim selection rules + clip
-names; full per-skill effect binding (244 explicit + 47 convention);
-effect class → texture/mesh/color/opacity/particle-count/lifetime/size;
-all 242 textures as PNG; 108 static meshes as pskx (+ props) AND as
-browser geometry (`skillmesh.bin`); all
-sounds as verified uax refs (uax → wav/ogg conversion already covered by
-the sound pipeline); projectile flight times; attach/offset/delay spawn
-parameters.
+Available as source-backed inputs: 32 native selector branches; recovered
+player clips; exact skill-level Agent paths, object fingerprints and FlyingTime;
+decoded emitter texture/mesh/color/opacity/particle-count/lifetime/size fields;
+the texture/static-mesh exports and sound references described above. Exact
+Agent input, ordinary scheduler equations and original animation endpoints
+now have separate reproducible evidence. Supported ordinary player casts execute
+all selected phases and source loop periods; see the [runtime checkpoint and
+limits](native-cast-scheduler-evidence.md#bounded-browser-integration). That does
+not certify native particle behavior, pose interpolation or full visuals.
 
 Needs particle-system research / tooling: beam/ribbon tessellation
 (parameters decodable, geometry native); a `.3d` decoder plus the
@@ -700,8 +734,10 @@ VertMesh `Scale`/`Origin` out of the `.ukx` body (7 meshes, 13
 emitters); the remaining decoded-but-unplayed emitter behaviour
 (`VelocityLossRange`, `RevolutionsPerSecond`, non-default
 `CoordinateSystem`, subdivision animation — the raw property streams are
-all in `lineageeffect.json` for exactly this work); the native
-letter→`SpAtkNN` switch and the native fallback
-effect-naming code path (both live in compiled DLL code, no data
-presence); conversion of the 630 unbound event/numbered effect classes
-if the world renderer ever needs them.
+all in `lineageeffect.json` for exactly this work). The native letter→slot
+switch is recovered. Wind Strike/Power Strike legacy class dispatch is also
+recovered, but its full lifecycle and wider native effect coverage remain
+open. Extend the bounded ordinary player scheduler to the remaining native
+paths, notify delivery and source pose evaluation with independent rendering
+checks; extend event/numbered classes
+from actual native references rather than name matching.

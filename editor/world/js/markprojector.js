@@ -117,6 +117,7 @@ export class ClickMark {
     if (!this.authored) return;          // retail: no decal
     if (!this.mesh) this.mesh = this._build();
     const y = heightAt ? heightAt(p.x, p.z, p.y) : p.y;
+    if (y == null) { this.mesh.visible = false; return; }
     this.mesh.position.set(p.x, y + AUTHORED_LIFT_M, p.z);
     this.mesh.visible = true;
     this.until = performance.now() + MARKPROJECTOR.lifetimeS * 1000;

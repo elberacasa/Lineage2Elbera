@@ -1,0 +1,129 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Elbera Tools — original recipe windows</title>
+<style>body{margin:18px;background:#17191d;color:#eee;font:14px system-ui}h1{font-size:20px}details{max-width:850px}label{display:block;margin:8px 0}textarea{display:block;width:100%;height:75px;background:#252a30;color:#fff}details>button{margin:4px}pre{max-width:850px;white-space:pre-wrap}p{max-width:850px}</style>
+<style>.shortcut-slot img{width:100%;height:100%;display:block}.shortcut-slot{cursor:pointer}</style>
+<h1>Elbera Tools — original recipe windows</h1>
+<p>Offline inspection using original client metadata. Supply explicit packet and inventory JSON; nothing is sent to a server.
+Any manually constructed rows are inspection input, not evidence of recipe ownership or crafting eligibility.
+Shortcut registration/deletion requests are echoed locally as explicit UI fixtures; no server persistence is claimed.</p>
+<details open><summary>Replay input</summary>
+<label>Recipe book JSON<textarea id="book-input" spellcheck="false"></textarea></label>
+<label>Recipe detail/result JSON<textarea id="info-input" spellcheck="false"></textarea></label>
+<label>Storage capacity JSON (optional)<textarea id="capacity-input" spellcheck="false"></textarea></label>
+<label>Inventory JSON array<textarea id="inventory-input" spellcheck="false"></textarea></label>
+<label>Shortcut snapshot JSON (optional)<textarea id="shortcuts-input" spellcheck="false"></textarea></label>
+<button id="show">Replay book</button><button id="result">Replay supplied craft result</button><button id="inventory">Replay inventory update</button><button id="reset">Reset session</button>
+<button id="shortcuts">Replay shortcut snapshot</button>
+</details>
+<p id="status" role="status">Loading original source metadata…</p><p id="provenance"></p>
+<p>Remaining renderer gaps: exact ItemWindow inset, count badge and disabled tint; grade emoticons;
+native tooltip painting, selection/button states and text measurement. No local craft timer, success or inventory change is inferred.</p>
+<pre id="requests" aria-label="Replay requests"></pre>
+<details><summary>Browser drag events</summary><pre id="drag-events" aria-label="Browser drag events"></pre></details>
+<script type="importmap">{"imports":{"three":"/vendor/three.module.min.js","three/addons/":"/vendor/addons/"}}</script>
+<script type="module">
+import { Skin } from '../js/ui/skin.js';
+import { Font } from '../js/ui/font.js';
+import { Layout } from '../js/ui/layout.js';
+import { RecipeWnd } from '../js/ui/recipewnd.js';
+import { ShortcutWnd } from '../js/ui/shortcutwnd.js';
+const status = document.querySelector('#status'), requests = [];
+const dragEvents = [];
+for (const type of ['dragstart', 'dragenter', 'dragover', 'dragend', 'drop']) document.addEventListener(type, event => {
+  const target = event.target.closest('[data-recipe-id],.shortcut-slot');
+  if (!target) return;
+  dragEvents.push({ event: type, recipeId: target?.dataset.recipeId ?? null,
+    page: target?.dataset.page ?? null, slot: target?.dataset.slot ?? null,
+    types: [...event.dataTransfer?.types || []], dropEffect: event.dataTransfer?.dropEffect ?? null });
+  if (dragEvents.length > 8) dragEvents.shift();
+  document.querySelector('#drag-events').textContent = JSON.stringify(dragEvents, null, 2);
+});
+const resetDragEvents = () => { dragEvents.length = 0; document.querySelector('#drag-events').textContent = ''; };
+let epoch = 0, recipes, shortcuts, items = [];
+const value = id => document.querySelector(id).value;
+const input = id => JSON.parse(value(id));
+const log = () => { document.querySelector('#requests').textContent = JSON.stringify(requests, null, 2); };
+function inventoryInput() {
+  const next = input('#inventory-input');
+  if (!Array.isArray(next) || next.some(row => !Number.isInteger(row.itemId) || row.itemId <= 0
+      || !Number.isSafeInteger(row.count) || row.count < 0)) throw new Error('Supply an explicit inventory array with itemId/count rows.');
+  return next;
+}
+await Promise.all([Skin.load(), Font.load(), Layout.load()]);
+recipes = new RecipeWnd(document.body, { getItems: () => items, send(op, request) {
+  requests.push({ op, ...request }); log(); status.textContent = `Replay request ${op}; nothing sent to a server.`;
+  if (op === 'recipeMakeInfo' || op === 'recipeBookOpen') {
+    try {
+      const payload = input(op === 'recipeMakeInfo' ? '#info-input' : '#book-input'), revision = epoch;
+      queueMicrotask(() => {
+        if (revision !== epoch) return;
+        const accepted = op === 'recipeMakeInfo' ? recipes.info(payload) : recipes.book(payload);
+        if (!accepted || recipes.lastError) status.textContent = recipes.lastError?.message || 'Payload does not match the current recipe request.';
+      });
+    } catch (error) { status.textContent = error.message; return false; }
+  }
+  return true;
+} });
+await recipes.ready;
+shortcuts = new ShortcutWnd(document.body, {
+  getRecipe: id => recipes.shortcutInfo(id), canAssignRecipe: id => recipes.canAssignShortcut(id),
+  onUseRecipe: id => recipes.useShortcut(id),
+  onRegister: request => {
+    requests.push({ op: 'shortcutRegister', ...request, inspection: 'local UI echo fixture' }); log();
+    const revision = epoch;
+    queueMicrotask(() => { if (epoch === revision) shortcuts.registerShortcut(request); });
+    return true;
+  },
+  onDelete: request => {
+    requests.push({ op: 'shortcutDelete', ...request, inspection: 'local UI echo fixture' }); log();
+    const revision = epoch;
+    queueMicrotask(() => { if (epoch === revision) shortcuts.deleteShortcut(request.page, request.slot); });
+    return true;
+  },
+});
+document.addEventListener('keydown', event => {
+  if (!/^F(?:[1-9]|1[0-2])$/.test(event.key)) return;
+  event.preventDefault(); shortcuts.triggerF(Number(event.key.slice(1)) - 1);
+});
+status.textContent = recipes.lastError?.message || 'Ready. Supply packet JSON to inspect the original windows.';
+document.querySelector('#show').addEventListener('click', () => {
+  try {
+    ++epoch; recipes.reset(); shortcuts.reset(); requests.length = 0; log(); resetDragEvents(); items = inventoryInput();
+    shortcuts.setShortcuts([]);
+    if (value('#capacity-input').trim() && !recipes.capacities(input('#capacity-input'))) throw new Error('Invalid capacity payload');
+    const packet = input('#book-input');
+    if (!recipes.book(packet)) throw new Error('Invalid recipe book payload');
+    if (recipes.lastError) throw recipes.lastError;
+    document.querySelector('#provenance').textContent = typeof packet.inspection === 'string' ? `Inspection note: ${packet.inspection}` : '';
+    document.querySelector('details').open = false;
+    status.textContent = 'Supplied book displayed. Double-click for details, or drag onto the shortcut bar for an offline registration echo.';
+  } catch (error) { status.textContent = error.message; }
+});
+document.querySelector('#result').addEventListener('click', () => {
+  try {
+    if (!recipes.info(input('#info-input'))) throw new Error('Result does not match the active recipe');
+    if (recipes.lastError) throw recipes.lastError;
+    status.textContent = 'Supplied result displayed. Inventory was not changed.';
+  } catch (error) { status.textContent = error.message; }
+});
+document.querySelector('#inventory').addEventListener('click', () => {
+  try { items = inventoryInput(); recipes.onInvUpdate(); status.textContent = recipes.lastError?.message || 'Supplied inventory counts displayed.'; }
+  catch (error) { status.textContent = error.message; }
+});
+document.querySelector('#reset').addEventListener('click', () => {
+  ++epoch; recipes.reset(); shortcuts.reset(); items = []; requests.length = 0; log(); resetDragEvents();
+  document.querySelector('#provenance').textContent = ''; status.textContent = 'Replay session reset.';
+});
+document.querySelector('#shortcuts').addEventListener('click', () => {
+  try {
+    ++epoch; recipes.reset(); shortcuts.reset(); items = inventoryInput(); requests.length = 0; log(); resetDragEvents();
+    if (!shortcuts.setShortcuts(input('#shortcuts-input'))) throw new Error('Invalid shortcut snapshot');
+    document.querySelector('details').open = false;
+    document.querySelector('#provenance').textContent = 'Inspection note: supplied shortcut rows; ownership and persistence are not inferred.';
+    status.textContent = 'Supplied shortcuts displayed without opening a recipe book. Click or use the corresponding F-key.';
+  } catch (error) { status.textContent = error.message; }
+});
+window.render_game_to_text = () => JSON.stringify({ bookOpen: recipes.state.bookOpen, makeOpen: recipes.state.makeOpen,
+  recipeId: recipes.state.makeData?.recipeId ?? null, tree: recipes.state.tree, shortcuts: shortcuts.data,
+  requests, error: recipes.lastError?.message ?? null });
+</script></html>

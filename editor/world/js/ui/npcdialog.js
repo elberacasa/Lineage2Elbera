@@ -99,17 +99,21 @@ function titleText(id) {
 }
 
 export class NpcDialog {
-  constructor(parent = document.body, { onBypass, onClose } = {}) {
+  constructor(parent = document.body, { onBypass, onClose, windowSpec = null,
+    windowName = 'NpcHtmlWnd', rootId = 'l2-npcdialog' } = {}) {
     this.onBypass = onBypass || (() => {});
     this.onClose = onClose || (() => {});
     this.open = false;
 
-    const spec = NpcHtml.window || NO_SPEC;
-    if (!NpcHtml.window) {
+    // Other original HTML windows share the parser and controls, but supply
+    // their own source-derived frame and independent window-manager identity.
+    const spec = windowSpec || NpcHtml.window || NO_SPEC;
+    if (!windowSpec && !NpcHtml.window) {
       console.warn('[NpcDialog] no decoded record for the NPC html window —'
         + ' painting nothing (a typed size would be an invention)');
     }
     this.spec = spec;
+    this.windowName = windowName;
 
     // The window is 401 tall INCLUDING its 20px title bar, and L2Window's
     // `height` is the body only — so the body is the mined height minus the
@@ -127,7 +131,7 @@ export class NpcDialog {
       // draws 1:1. We paint it 1:1 below instead.
       back: 'none',
     });
-    win.root.id = 'l2-npcdialog';
+    win.root.id = rootId;
     win.root.style.zIndex = '14';
     this.win = win;
     this.root = win.root;
@@ -207,7 +211,7 @@ export class NpcDialog {
     scroller.addEventListener('scroll', () => this._syncThumb());
 
     parent.appendChild(win.root);
-    WndMgr.register('NpcHtmlWnd', this, { handle: win.bar });
+    WndMgr.register(windowName, this, { handle: win.bar });
     this.onDefaultPosition();
   }
 
