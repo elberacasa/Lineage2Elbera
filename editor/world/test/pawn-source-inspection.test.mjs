@@ -32,7 +32,7 @@ function actor(){
     startCastSchedule(){this.active='cast';return {status:'ready'};}};
 }
 function harness(){
-  const requests=[],loads=[],factoryCalls=[],baselines=[],els=new Map();
+  const requests=[],sideRequests=[],loads=[],factoryCalls=[],baselines=[],els=new Map();
   const el=id=>{if(!els.has(id))els.set(id,element());return els.get(id);};
   const inspected=actor(),scene=new THREE.Scene();scene.add(inspected.group);
   const binding={slots:{castEnd:{hand:{seq:'OriginalCast',clip:'selected'}}}};
@@ -40,7 +40,7 @@ function harness(){
     THREE,AbortController,URL,encodeURIComponent,
     document:{querySelector:id=>el(id)},
     character:inspected,action:inspected.selected,generation:1,poseIntent:0,poseTime:0,
-    originalCatalog:null,originalPreview:null,originalRequest:null,
+    originalCatalog:null,originalSkeleton:null,originalPreview:null,originalRequest:null,
     originalEnabled:el('#original-enabled'),originalLoad:el('#original-load'),
     originalStatus:el('#original-status'),originalSource:el('#original-source'),
     model:el('#model'),slot:el('#slot'),stance:el('#stance'),
@@ -57,15 +57,15 @@ function harness(){
       {id:'other',className:'Other',gender:'fixture',gltf:'other.gltf'}]},
     Character:class{constructor(){const item=actor(),task=deferred();item.load=url=>{loads.push({url,item,...task});return task.promise;};return item;}},
     skillFx:{clear(){},cancel(){},nativeContexts:new Map()},
-    createOriginalPosePreview(root,data,sequence){
-      factoryCalls.push({root,data,sequence});
-      return {duration:2,boneCount:1,apply(frame){
+    createOriginalPosePreview(root,data,sequence,skeleton){
+      factoryCalls.push({root,data,sequence,skeleton});
+      return {duration:2,boneCount:1,mappedCount:1,referenceCount:0,restore(){},apply(frame){
         const bone=root.getObjectByName('Bone');baselines.push({x:bone.position.x,frame});
         bone.position.x=11;
-        return {rotationDelta:0,positionDelta:1,wrapped:0,hemisphereFlipped:0,flipped:0};
+        return {basisDelta:0,positionDelta:1,wrapped:0,hemisphereFlipped:0,flipped:0};
       }};
     },
-    fetch(url,options){const task=deferred();requests.push({url,options,...task});return task.promise;},
+    fetch(url,options){const task=deferred();(url.endsWith('.skeleton.json')?sideRequests:requests).push({url,options,...task});return task.promise;},
     waitAudio:el('#wait-audio'),waitStatus:el('#wait-status'),waitLines:[],waitEvents:el('#wait-events'),
     castAudio:el('#cast-audio'),castSkill:el('#cast-skill'),castLevel:el('#cast-level'),
     castHit:el('#cast-hit'),castSpeed:el('#cast-speed'),castOutput:el('#cast-output'),
@@ -78,8 +78,9 @@ function harness(){
   context.model.value='source';context.slot.value='castEnd';context.stance.value='hand';
   for(const [id,value] of [['#cast-skill','1'],['#cast-level','1'],['#cast-hit','1000'],['#cast-speed','333']])el(id).value=value;
   vm.runInContext(source,context);
-  const complete=(index,data=catalog())=>requests[index].resolve({ok:true,json:async()=>data});
-  return {context,inspected,requests,loads,factoryCalls,baselines,el,complete};
+  const completeSide=(index,data={modelId:'source',meshRef:'Original.Face'})=>sideRequests[index].resolve({ok:true,json:async()=>data});
+  const complete=(index,data=catalog())=>{requests[index].resolve({ok:true,json:async()=>data});completeSide(index);};
+  return {context,inspected,requests,sideRequests,loads,factoryCalls,baselines,el,complete,completeSide};
 }
 
 test('actual load callback adopts matching source keys and samples an isolated exported baseline',async()=>{
@@ -123,7 +124,7 @@ test('actual model selection aborts and discards pending source data before adop
   const h=harness();const originalWork=h.el('#original-load').fire('click');
   const body=deferred(),readingBody=deferred();
   h.requests[0].resolve({ok:true,json(){readingBody.resolve();return body.promise;}});
-  await readingBody.promise;
+  await readingBody.promise;h.completeSide(0);
   h.el('#model').value='other';const modelWork=h.el('#model').fire('change');
   assert.equal(h.requests[0].options.signal.aborted,true);
   assert.equal(h.context.originalCatalog,null);assert.equal(h.context.character,null);
@@ -197,4 +198,53 @@ test('unsupported pose application disables source mode and restores its admitte
   assert.equal(h.context.originalPreview,null);assert.equal(h.context.playing,false);
   assert.equal(h.inspected.bone.position.x,10);
   assert.match(h.el('#original-status').textContent,/Unsupported source pose: synthetic unsupported source key/);
+});
+
+
+test('keys and source skeleton are adopted together; missing sidecar leaves current data unchanged',async()=>{
+  const h=harness(),work=h.el('#original-load').fire('click');
+  assert.equal(h.sideRequests[0].url,'/gamedata/animation-tracks/source.skeleton.json');
+  assert.equal(h.sideRequests[0].options.signal,h.requests[0].options.signal);
+  h.requests[0].resolve({ok:true,json:async()=>catalog()});
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(h.context.originalCatalog,null);assert.equal(h.factoryCalls.length,0);
+  h.sideRequests[0].resolve({ok:false,status:404});await work;
+  assert.equal(h.context.originalCatalog,null);assert.equal(h.context.originalSkeleton,null);
+  assert.match(h.el('#original-status').textContent,/--skeletons --write/);
+  assert.equal(h.el('#original-load').disabled,false);
+});
+
+test('actual source matrices are restored before exported playback, errors and model disposal',async()=>{
+  const {createOriginalPosePreview}=await import('../js/sourcepose.js');
+  for(const exit of ['toggle','error','model','slot']){
+    const h=harness();h.context.createOriginalPosePreview=createOriginalPosePreview;
+    const bone={name:'Bone',parent:0};
+    const track={flags:0,times:[0],quaternions:[[0,0,0,1]],positions:[[1100,0,0]]};
+    h.context.originalCatalog={...catalog(),bones:[bone],source:{packageSHA256:'a'.repeat(64),exportSHA256:'b'.repeat(64)},
+      sequences:[{name:'OriginalCast',rate:1,frames:2,movement:{flags:0,startBone:0,duration:2,boneIndices:[],tracks:[track]}}]};
+    h.context.originalSkeleton={format:'elbera-original-player-skeleton-v1',modelId:'source',animationRef:'Original.source_anim',
+      bones:[{...bone,orientation:[0,0,0,1],position:[1000,0,0]}],animationBones:[bone],trackBindings:[0],
+      source:{packageSHA256:'a'.repeat(64),animationExportSHA256:'b'.repeat(64)}};
+    h.context.configureOriginalPreview('OriginalCast');h.el('#original-enabled').checked=true;
+    h.el('#original-enabled').fire('change');h.context.sample(.5);
+    assert.equal(h.inspected.bone.matrixAutoUpdate,false,exit);
+    assert.equal(h.inspected.bone.matrixWorld.elements[12],11,exit);
+    assert.equal(h.inspected.bone.position.x,10,'source matrices must not replace mixer TRS');
+    if(exit==='toggle'){h.el('#original-enabled').checked=false;h.el('#original-enabled').fire('change');}
+    if(exit==='error'){track.positions[0][0]=NaN;h.context.sample(.7);}
+    if(exit==='slot')h.context.selectSlot();
+    if(exit==='model'){
+      h.el('#model').value='other';const work=h.el('#model').fire('change');
+      assert.equal(h.inspected.bone.matrixAutoUpdate,true,'dispose restores original bone update mode');
+      h.loads[0].resolve();await work;continue;
+    }
+    if(exit==='slot'){
+      // Slot selection may explicitly retain source mode; restoring it must
+      // still recover an ordinary mixer pose with no manual matrix left over.
+      h.el('#original-enabled').checked=false;h.el('#original-enabled').fire('change');
+    }
+    h.inspected.model.updateMatrixWorld(true);
+    assert.equal(h.inspected.bone.matrixAutoUpdate,true,exit);
+    assert.equal(h.inspected.bone.matrixWorld.elements[12],10,exit);
+  }
 });
