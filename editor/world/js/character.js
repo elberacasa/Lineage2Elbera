@@ -13,6 +13,8 @@ import { audio } from './audio.js';
 import { playerVisualScale } from './player-transform.js';
 import { pawnAnim } from './castanim.js';
 import { waitSequence, createWaitSequence, advanceWaitPlayback } from './waitanim.js';
+import { fetchOriginalAnimationBundle } from './sourceanim-data.js';
+import { createOriginalPosePlayback } from './sourcepose-playback.js';
 
 // SOCIAL EMOTES: the actionId -> clip table is retail's, not a name match.
 //
@@ -269,6 +271,7 @@ export class Character {
   // Scale comes from original Actor/mesh fields. Placement remains a separate
   // unresolved transform; never infer scale by fitting a measured height.
   async load(url) {
+    const generation = this.loadGeneration = (this.loadGeneration || 0) + 1;
     // The pawn this body is. entities.js picks a manifest entry and hands over
     // only its `gltf` path, and steps.js needs the id to find this pawn's
     // footfall frames — the file's own basename is that id (manifest.json
@@ -277,6 +280,7 @@ export class Character {
     this.modelId = String(url).split('/').pop().replace(/\.gltf$/i, '') || null;
     // the model's own PcSocialAnimName table (see charManifest above)
     const [models, waitTable] = await Promise.all([charManifest(), pawnAnim()]);
+    if (generation !== this.loadGeneration) return this;
     this.waitTable = waitTable;
     const mEntry = models && models.find(m => m.id === this.modelId);
     const path = String(url);
@@ -289,7 +293,11 @@ export class Character {
     // asset pipeline. Revalidate both so an appended animation cannot be
     // paired with a previously cached glTF or shorter binary. GLTFLoader
     // propagates request headers to its dependent buffer loader.
-    const gltf = await new GLTFLoader().setRequestHeader({ 'Cache-Control': 'no-cache' }).loadAsync(url);
+    const [gltf, original] = await Promise.all([
+      new GLTFLoader().setRequestHeader({ 'Cache-Control': 'no-cache' }).loadAsync(url),
+      fetchOriginalAnimationBundle(this.modelId).then(data=>({data}),error=>({error})),
+    ]);
+    if (generation !== this.loadGeneration) return this;
     const root = gltf.scene;
 
     root.scale.set(scale.x, scale.y, scale.z);
@@ -322,6 +330,7 @@ export class Character {
     this.actions = {};
     this.current = null;
     this.cancelCast(); // A reused Character must retire old skeleton sound callbacks too.
+    this.originalPose = null;
     this.castLoopActions = new Map();
     this.nativeWait = null;
     this.waitLoopActions = new Map();
@@ -331,6 +340,13 @@ export class Character {
     this.mixer = new THREE.AnimationMixer(root);
     for (const clip of gltf.animations) {
       this.actions[clip.name] = this.mixer.clipAction(clip);
+    }
+    try {
+      if (original.error) throw original.error;
+      this.originalPose = createOriginalPosePlayback(root, original.data);
+      this.lastOriginalPose = {status:'ready',mode:'ordinary-source-keys'};
+    } catch (error) {
+      this.lastOriginalPose = {status:'unsupported',reason:error.message};
     }
     this.play('idle');
     // A model reload builds a new skeleton, so any weapon we were told about
@@ -395,6 +411,7 @@ export class Character {
   }
 
   play(name, fade = 0.25) {
+    this.originalPose?.stop();
     name = this._clip(name);
     const next = this.actions[name] || this.actions.idle;
     if (!next || next === this.current) return;
@@ -494,6 +511,7 @@ export class Character {
   // next update. This body transition remains a browser adaptation; native
   // cancellation poses and notify delivery are separate fidelity gaps.
   cancelCast() {
+    this.originalPose?.stop();
     this.castGeneration = (this.castGeneration || 0) + 1;
     this.nativeCast?.hooks?.cancel?.();
     const had = !!(this.nativeCast || this.emoteUntil > performance.now());
@@ -506,7 +524,7 @@ export class Character {
 
   /** Play every verified ordinary source phase. Unsupported/missing inputs
    *  never fall back to stretching the first animation. Exported poses and
-   *  Three quaternion interpolation remain separate fidelity limitations. */
+   *  Initial tween and additional native modifiers remain fidelity gaps. */
   startCastSchedule(schedule, hooks = null) {
     // Browser cast channels explicitly enable notifies. Native EnableChannelNotify
     // is recovered; the original newly allocated channel default is unresolved.
@@ -569,18 +587,21 @@ export class Character {
       events:(step.events || []).map(event=>({...event,notify:step.eventPhase.notifies[event.index]}))});
     if (this.nativeCast !== state) return;
     if (step.done) {
+      this.originalPose?.stop();
       this.lastCastError=step.unsupported || null;
       if (step.unsupported) this.castGeneration++;
       this.nativeCast = null;
       return;
     }
-    if (step.changed) this._beginSourcePose(state, state.actions[step.phaseIndex], step.tween);
+    if (step.changed) this._beginSourcePose(state, state.actions[step.phaseIndex], step.tween, step.phase);
     this._sampleSourcePose(state, step);
     this.lastCastPhase = { index: step.phaseIndex, clip: step.phase.clip, loop: step.phase.loop,
       elapsed: state.elapsed, sampleTime: step.sampleTime };
   }
 
-  _beginSourcePose(state, action, tween) {
+  _beginSourcePose(state, action, tween, plan) {
+    this.originalPose?.restore();
+    if (this.originalPose) this.lastOriginalPose=this.originalPose.select(plan);
     state.tweenBones = [];
     if (tween > 0) this.model.traverse(bone => {
       if (bone.isBone) state.tweenBones.push({ bone, fromPosition: bone.position.clone(),
@@ -602,6 +623,7 @@ export class Character {
   }
 
   _sampleSourcePose(state, step) {
+    state.originalFrame = step.frame;
     state.action.time = step.sampleTime;
     state.tweenProgress = step.tweenProgress;
     // Restore constant destination tracks before positive-time sampling;
@@ -626,6 +648,10 @@ export class Character {
   }
 
   _applyCastTween() { this._applySourceTween(this.nativeCast); }
+
+  _applyOriginalPose(state) {
+    if (this.originalPose && state) this.lastOriginalPose=this.originalPose.apply(state.originalFrame);
+  }
 
   // Ordinary ground sit/stand only. Collision adjustment, combat waiting,
   // swimming and the special wait types are separate native parity gaps.
@@ -700,11 +726,12 @@ export class Character {
     const result = advanceWaitPlayback(state, dt);
     for (const step of result.segments || []) {
       if (this.nativeWait !== state) return;
-      if (step.changed) this._beginSourcePose(state, state.actions.get(step.plan.clip), step.plan.tween);
+      if (step.changed) this._beginSourcePose(state, state.actions.get(step.plan.clip), step.plan.tween, step.plan);
       this._sampleSourcePose(state, step);
       // AnimEnd can install its successor during this same tick. Its tween
       // must start from the endpoint just displayed, not last tick's pose.
       this.mixer.update(0); this._applySourceTween(state);
+      this._applyOriginalPose(state);
       for (const event of step.events) {
         if (this.nativeWait !== state) return;
         const notify = step.plan.notifies[event.index];
@@ -749,6 +776,7 @@ export class Character {
   // moveDir: normalized THREE.Vector3 in world XZ (from WASD), or null
   update(dt, terrain, moveDir = null) {
     if (!this.mixer) return;
+    this.originalPose?.restore();
     let vx = 0, vz = 0, running = false, moving = false;
 
     if (moveDir && moveDir.lengthSq() > 0) {
@@ -806,5 +834,6 @@ export class Character {
     this.mixer.update(dt);
     this._applyCastTween();
     this._applySourceTween(this.nativeWait);
+    this._applyOriginalPose(this.nativeCast || this.nativeWait);
   }
 }

@@ -9,8 +9,10 @@ const l2 = v => v && [v[0] * 100, -v[2] * 100, v[1] * 100];
 function measureActor(actor, cameraPosition) {
   if (!actor?.group) return null;
   const group = actor.group, bounds = new THREE.Box3();
+  let sourceMatrixBones = 0;
   group.updateMatrixWorld(true);
   group.traverse(mesh => {
+    if (mesh.isBone && mesh.matrixAutoUpdate === false) sourceMatrixBones++;
     if (!mesh.isMesh) return;
     for (let parent = mesh; parent; parent = parent.parent) if (!parent.visible) return;
     mesh.skeleton?.update();
@@ -23,6 +25,7 @@ function measureActor(actor, cameraPosition) {
     meshScales: group.children.filter(child => !child.isSprite).map(child =>
       child.getWorldScale(new THREE.Vector3()).toArray()),
     clip: actor.current?.getClip?.().name || null, time: actor.current?.time ?? null,
+    pose: actor.originalPose?.status ?? actor.lastOriginalPose ?? null, sourceMatrixBones,
     cameraBoundsDistance: bounds.isEmpty() ? null : bounds.distanceToPoint(cameraPosition) };
 }
 

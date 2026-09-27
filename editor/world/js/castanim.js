@@ -150,7 +150,7 @@ export function castSchedule(table, modelId, stance, entry, { hitTimeMs, speedRa
   for (const phase of plan.phases) {
     const info = clipInfo(table, modelId, phase.clip);
     if (!info?.originalTiming) return { status: 'unsupported', reason: 'missing-original-sequence', clip: phase.clip };
-    phases.push({ ...phase, frames: info.frames, rate: info.rate, notifies: info.notifies });
+    phases.push({ ...phase, seq: info.seq, frames: info.frames, rate: info.rate, notifies: info.notifies });
   }
   return planNativeCastSchedule({ animation: entry.anim, style: entry.style,
     hitTimeMs, speedRate, agent, phases });

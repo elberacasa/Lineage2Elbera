@@ -2,7 +2,9 @@
 """Elbera Tools: retain original sparse player animation keys for inspection.
 
 No PSA/glTF sampling, quaternion normalization or synthesized keys. Default is
-a read-only audit. --write emits private JSON; --check compares existing bytes.
+a read-only audit. --write emits private data; --check compares existing bytes.
+--runtime packs complete catalog/skeleton inputs using Elbera's authored
+transport metadata and exact Float32 key arrays, not a native game file format.
 This preserves source inputs, not complete native playback or bone association.
 """
 import argparse
@@ -133,21 +135,32 @@ def collect_skeletons(model='all'):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('model', nargs='?', default='all', choices=['all'] + [r[0] for r in pawn.PAWNS])
-    parser.add_argument('--skeletons', action='store_true', help='retain source face reference bones and native track bindings')
+    content = parser.add_mutually_exclusive_group()
+    content.add_argument('--skeletons', action='store_true', help='retain source face reference bones and native track bindings')
+    content.add_argument('--runtime', action='store_true', help='pack all original sequences and source skeleton as private ELBA transport')
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument('--write', action='store_true', help='write ignored private source-key JSON')
+    mode.add_argument('--write', action='store_true', help='write ignored private source data')
     mode.add_argument('--check', action='store_true', help='freshly decode and compare private output bytes')
     args = parser.parse_args(argv)
     # Decode and encode every requested model before any output is changed.
-    collector = collect_skeletons if args.skeletons else collect
-    rows = [(model, data, encoded(data)) for model, data in collector(args.model).items()]
+    if args.runtime:
+        from pack_source_tracks import pack_animation_bundle
+        catalogs, skeletons = collect(args.model), collect_skeletons(args.model)
+        if set(catalogs) != set(skeletons):
+            raise ValueError('runtime source model sets differ')
+        rows = [(model, data, pack_animation_bundle(data, skeletons[model]))
+                for model, data in catalogs.items()]
+    else:
+        collector = collect_skeletons if args.skeletons else collect
+        rows = [(model, data, encoded(data)) for model, data in collector(args.model).items()]
+    directory = OUTPUT / 'runtime' if args.runtime else OUTPUT
     for model, data, blob in rows:
-        target = OUTPUT / (model + ('.skeleton.json' if args.skeletons else '.json'))
+        target = directory / (model + ('.l2anim' if args.runtime else '.skeleton.json' if args.skeletons else '.json'))
         if args.check and (not target.exists() or target.read_bytes() != blob):
             raise ValueError('missing or stale private source tracks: ' + model)
         if args.write:
-            OUTPUT.mkdir(parents=True, exist_ok=True)
-            with tempfile.NamedTemporaryFile(dir=OUTPUT, prefix='.' + model, delete=False) as stream:
+            directory.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(dir=directory, prefix='.' + model, delete=False) as stream:
                 staged = Path(stream.name)
                 try:
                     stream.write(blob)

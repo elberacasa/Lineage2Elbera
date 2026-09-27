@@ -37,6 +37,7 @@ test('actual Character loader applies source axes directly and rejects mismatche
  const entry={id:identity.modelId,gltf:identity.gltf,visualScale:r};
  const Character=vm.runInNewContext(text.replace(/^import .*;$/gm,'').replace(/^export /gm,'')+'\nCharacter;',{
    THREE,playerVisualScale,pawnAnim:async()=>null,L2_TO_M:.01,detachArmor:()=>{},performance:{now:()=>1},
+   fetchOriginalAnimationBundle:async()=>{throw new Error('source-free scale fixture');},
    fetch:async()=>({ok:true,json:async()=>({models:[entry]})}),
    GLTFLoader:class{setRequestHeader(){return this;}async loadAsync(url){
      loads.push(url);const scene=new THREE.Group();scene.add(new THREE.Mesh(new THREE.BoxGeometry(2,3,4),new THREE.MeshBasicMaterial()));

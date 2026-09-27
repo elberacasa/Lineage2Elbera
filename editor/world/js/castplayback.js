@@ -79,7 +79,7 @@ export function advanceCastPlayback(state, dt) {
   const sampleTime = state.frame < 0 ? 0 : !phase.loop && state.frame === endpoint
     ? phase.sourceEndpoint : Math.max(0, state.frame * phase.frames / phase.sourceRate);
   return { done:false, changed, phase, events, eventPhase, eventPhaseIndex, eventActiveTime,
-    eventElapsed:elapsed, phaseIndex:state.phaseIndex, sampleTime, tween:state.initialTween,
+    eventElapsed:elapsed, phaseIndex:state.phaseIndex, frame:state.frame, sampleTime, tween:state.initialTween,
     tweenProgress:Math.min(1, 1 + Math.min(0, state.frame) * phase.frames) };
 }
 
