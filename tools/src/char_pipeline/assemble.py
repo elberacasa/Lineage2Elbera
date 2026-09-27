@@ -118,7 +118,8 @@ def parse_psk(path):
 def parse_psa(path):
     """-> (bone_names, anims). anims: {name: {'rate', 'frames'}} with
     frames[f][b] = ((px,py,pz),(qx,qy,qz,qw))."""
-    data = open(path, 'rb').read()
+    with open(path, 'rb') as source:
+        data = source.read()
     chunks = {cid: (size, count, off) for cid, size, count, off in _chunks(data)}
 
     size, count, off = chunks['BONENAMES']

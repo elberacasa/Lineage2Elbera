@@ -2,12 +2,17 @@
 // point-click / WASD locomotion over the terrain.
 
 import * as THREE from 'three';
+import { PlayerAppearance } from './appearance.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { L2_TO_M } from './coords.js';
 import { equipWeapon, stanceFor } from './equipment.js';
 import { applyArmor, detachArmor } from './armor.js';
-
-const CHAR_HEIGHT = 1.75;      // meters — fallback normalization (~1.7 charcreate)
+import { createCastPlayback, advanceCastPlayback, closeSourceLoop } from './castplayback.js';
+import { directNotifySound } from './animnotify-clock.js';
+import { audio } from './audio.js';
+import { playerVisualScale } from './player-transform.js';
+import { pawnAnim } from './castanim.js';
+import { waitSequence, createWaitSequence, advanceWaitPlayback } from './waitanim.js';
 
 // SOCIAL EMOTES: the actionId -> clip table is retail's, not a name match.
 //
@@ -95,6 +100,15 @@ export const MOVE_TICK_S = 0.1;   // CreatureMove task period, seconds
 // 1.500 s atk01_1hs clip plays in 983 ms.
 const DEFAULT_ATK_SPD_MUL = 1;   // no scaling until the server has spoken
 
+// Cached decoded source images are shared; PlayerAppearance owns and retires
+// each actor's material/texture wrappers without disposing the shared image.
+const faceImages = new Map();
+function faceImage(url) {
+  if (!faceImages.has(url)) faceImages.set(url, new THREE.TextureLoader().loadAsync(url)
+    .catch(error => { faceImages.delete(url); throw error; }));
+  return faceImages.get(url);
+}
+
 export class Character {
   constructor() {
     this.group = new THREE.Group();   // world transform (feet at group origin)
@@ -153,6 +167,9 @@ export class Character {
     this.wantArmor = null;
     // animation stance the equipped weapon calls for; 'hand' is unarmed
     this.stance = 'hand';
+    this.waitType = 1;
+    this.sitting = false;
+    this.nativeWait = null;
   }
 
   // The four armored paperdoll slots, straight off the wire. aCis writes
@@ -186,7 +203,8 @@ export class Character {
       // standing unarmed until something else changes its state. Idle is safe
       // even while walking: update()'s moving branch calls play() every frame
       // and will correct it on the next one.
-      if (this.mixer && !this.emoteUntil) this.play('idle');
+      if (this.nativeWait) this._refreshWaitStance();
+      else if (this.mixer && !this.emoteUntil && !this.nativeCast) this.play('idle');
     }
     if (!this.model) return Promise.resolve(null);
     return equipWeapon(this.model, this.wantWeapon, this.weapon);
@@ -197,7 +215,7 @@ export class Character {
   // it must be re-applied on each charSheet, not just at login.
   // Takes the whole charSheet (self) or addPlayer (remote) payload; every field
   // is optional so a payload that carries only some of them still applies.
-  setSpeeds({ runSpeed, walkSpeed, speedMul, pAtkSpd, atkSpdMul, running }) {
+  setSpeeds({ runSpeed, walkSpeed, speedMul, pAtkSpd, mAtkSpd, atkSpdMul, running }) {
     if (runSpeed > 0) this.baseRunSpeed = runSpeed;
     if (walkSpeed > 0) this.baseWalkSpeed = walkSpeed;
     // The multiplier the base speeds are NOT scaled by — see the top of this
@@ -220,6 +238,9 @@ export class Character {
     this.runSpeed = this.baseRunSpeed * this.speedMul * L2_TO_M;
     this.walkSpeed = this.baseWalkSpeed * this.speedMul * L2_TO_M;
     if (pAtkSpd > 0) this.pAtkSpd = pAtkSpd;
+    // Original User magic-casting speed -> Pawn.SkillSpeedRate, not the
+    // physical attack multiplier. Engine.dll RVA 0x195366..0x195384.
+    if (Number.isFinite(mAtkSpd) && mAtkSpd > 0) this.skillSpeedRate = Math.fround(mAtkSpd / 333);
     if (atkSpdMul > 0) this.atkSpdMul = atkSpdMul;
     // Walk/run stance. aCis's setRunning(true) at world entry does NOT
     // broadcast ChangeMoveType, so this UserInfo/CharInfo byte is the only
@@ -245,10 +266,9 @@ export class Character {
     return this.pAtkSpd > 0 ? Math.max(100, Math.floor(500000 / this.pAtkSpd)) : null;
   }
 
-  // nativeHeight: true height in L2 world units (frozen M3 manifest
-  // contract). When present it is authoritative (exact scale, no guard);
-  // when absent, the legacy 1.75 m guarded normalization applies.
-  async load(url, nativeHeight = null) {
+  // Scale comes from original Actor/mesh fields. Placement remains a separate
+  // unresolved transform; never infer scale by fitting a measured height.
+  async load(url) {
     // The pawn this body is. entities.js picks a manifest entry and hands over
     // only its `gltf` path, and steps.js needs the id to find this pawn's
     // footfall frames — the file's own basename is that id (manifest.json
@@ -256,22 +276,23 @@ export class Character {
     // rather than added to the addPlayer contract.
     this.modelId = String(url).split('/').pop().replace(/\.gltf$/i, '') || null;
     // the model's own PcSocialAnimName table (see charManifest above)
-    const models = await charManifest();
+    const [models, waitTable] = await Promise.all([charManifest(), pawnAnim()]);
+    this.waitTable = waitTable;
     const mEntry = models && models.find(m => m.id === this.modelId);
+    const path = String(url);
+    const scale = playerVisualScale(mEntry?.visualScale, {
+      modelId: this.modelId, gltf: path.startsWith('/characters/') ? path.slice(12) : null,
+    });
+    if (!scale) throw new Error(`Missing verified player scale for ${this.modelId}`);
     this.socialActions = (mEntry && mEntry.socialActions) || null;
-    const gltf = await new GLTFLoader().loadAsync(url);
+    // These model URLs and their buffers are rebuilt in place by the local
+    // asset pipeline. Revalidate both so an appended animation cannot be
+    // paired with a previously cached glTF or shorter binary. GLTFLoader
+    // propagates request headers to its dependent buffer loader.
+    const gltf = await new GLTFLoader().setRequestHeader({ 'Cache-Control': 'no-cache' }).loadAsync(url);
     const root = gltf.scene;
 
-    const box = new THREE.Box3().setFromObject(root);
-    const size = box.getSize(new THREE.Vector3());
-    if (size.y > 0.001) {
-      if (nativeHeight) {
-        root.scale.setScalar((nativeHeight * L2_TO_M) / size.y);
-      } else {
-        const k = CHAR_HEIGHT / size.y;
-        if (k < 0.5 || k > 2.5) root.scale.setScalar(k);
-      }
-    }
+    root.scale.set(scale.x, scale.y, scale.z);
     const box2 = new THREE.Box3().setFromObject(root);
     const center = box2.getCenter(new THREE.Vector3());
     root.position.x -= center.x;
@@ -300,7 +321,11 @@ export class Character {
     if (this.mixer) this.mixer.stopAllAction();
     this.actions = {};
     this.current = null;
-    this.castPhases = null;
+    this.cancelCast(); // A reused Character must retire old skeleton sound callbacks too.
+    this.castLoopActions = new Map();
+    this.nativeWait = null;
+    this.waitLoopActions = new Map();
+    this.lastWaitError = null;
     this.model = root;
     this.group.add(root);
     this.mixer = new THREE.AnimationMixer(root);
@@ -321,7 +346,23 @@ export class Character {
     detachArmor(this.armor);
     this.armor = { pieces: [], key: null };
     if (this.wantArmor) applyArmor(this.model, this.modelId, this.wantArmor, this.armor);
+    this._appearance?.refresh();
     return this;
+  }
+
+  // Only explicit packet fields are retained. Hair is reported as pending
+  // source support; the source face index never falls back to another index.
+  setAppearance(snapshot) {
+    this._appearance ??= new PlayerAppearance({
+      getModel: () => ({ model: this.model, modelId: this.modelId }),
+      loadTexture: faceImage,
+      onResult: result => { this.lastAppearance = result; },
+    });
+    return this._appearance.set(snapshot);
+  }
+
+  cancelAppearance() {
+    return this._appearance?.cancel();
   }
 
   // Logical clip name -> the stanced clip the equipped weapon calls for.
@@ -400,9 +441,10 @@ export class Character {
   // opts.durationMs make the clip last exactly this long (casts: the server's
   //                 MagicSkillUse hitTime) — overrides rate
   //
-  // Neither is a free parameter: both are values the server computed for the
-  // client. The clip's own length only decides the animation when nothing
-  // sourced is available.
+  // The packet values are server data, but stretching a whole cast clip to
+  // hitTime is provisional browser behavior. The native scheduler computes
+  // separate phase deadlines/rates from original sequence and notify data;
+  // see docs/native-cast-scheduler-evidence.md.
   // Play a clip that the CLIENT'S OWN table already resolved (js/castanim.js
   // slotClip): no _clip() stance guessing, because the table is already
   // stance-indexed and its answer is frequently NOT '<name>_<stance>'.
@@ -412,6 +454,7 @@ export class Character {
   }
 
   oneShot(name, fade = 0.1, opts = {}) {
+    this.cancelCast();
     // resolve the stance here too, so the hold time matches the clip that
     // actually plays — a 1HS swing and the unarmed one are different lengths.
     // opts.exact skips that: the caller already holds retail's own answer.
@@ -444,58 +487,240 @@ export class Character {
     const ms = (clipSec / rate) * 1000;
     this.lastOneShot = { clip: resolved, rate, ms };
     this.emoteUntil = performance.now() + ms;
-    // Retail fires a cast's phases off the CLIP's own AnimNotify keyframes,
-    // not off a wall-clock timer (tools/anim/build_pawnanim.py). `opts.phases`
-    // is [{u, fn}] with u a fraction of this clip; each fires once, at the
-    // wall-clock instant this playback reaches that fraction — so stretching
-    // the clip to the server's hitTime moves the phase with it, exactly as
-    // AnimRate does in the client.
-    this.castPhases = null;
-    if (opts.phases && opts.phases.length) {
-      const t0 = performance.now();
-      this.castPhases = opts.phases.map(p => ({
-        u: p.u, fn: p.fn, at: t0 + p.u * ms, fired: false,
-      }));
-    }
     return this.lastOneShot;
   }
 
-  // INTERRUPTION. aCis broadcasts MagicSkillCanceled (gateway op
-  // `skillCancel`) when an in-flight cast dies — the caster is stunned, moves,
-  // runs out of MP, or is killed. js/skills.js already consumed it for the
-  // cast BAR; the animation kept running to the end of the stretched clip and
-  // its phase callbacks kept firing, so a cancelled 6-second nuke went on
-  // gesturing for six seconds and still "launched".
-  //
-  // Cancelling drops the pending phases (nothing may fire after the abort)
-  // and releases the emote hold, so update()'s own idle/sit fallback takes
-  // the body back on the next frame. It does NOT force a pose: retail's
-  // CastEnd recovery clip is not shipped by the character pipeline yet
-  // (build_pawnanim.py records castEnd for all 14 pawns and the glTFs carry
-  // none of them), and inventing one here would be a guess.
+  // Drop an active or pending cast and release the body to idle/sit on the
+  // next update. This body transition remains a browser adaptation; native
+  // cancellation poses and notify delivery are separate fidelity gaps.
   cancelCast() {
-    const had = !!(this.castPhases || this.emoteUntil > performance.now());
-    this.castPhases = null;
+    this.castGeneration = (this.castGeneration || 0) + 1;
+    this.nativeCast?.hooks?.cancel?.();
+    const had = !!(this.nativeCast || this.emoteUntil > performance.now());
+    this.nativeCast = null;
+    this.nativeWait = null;
     this.emoteUntil = 0;
     this.lastCancel = { at: performance.now(), had };   // verification hook
     return had;
   }
 
-  // Fire any clip-time phase callbacks whose keyframe this playback has
-  // reached. Called from update(); safe to call with nothing pending.
-  _runCastPhases(now) {
-    const ph = this.castPhases;
-    if (!ph) return;
-    let live = false;
-    for (const p of ph) {
-      if (p.fired) continue;
-      if (now >= p.at) {
-        p.fired = true;
-        this.lastPhase = { u: p.u, at: p.at };   // verification hook
-        try { p.fn(); } catch (e) { /* a phase must never break the frame */ }
-      } else live = true;
+  /** Play every verified ordinary source phase. Unsupported/missing inputs
+   *  never fall back to stretching the first animation. Exported poses and
+   *  Three quaternion interpolation remain separate fidelity limitations. */
+  startCastSchedule(schedule, hooks = null) {
+    // Browser cast channels explicitly enable notifies. Native EnableChannelNotify
+    // is recovered; the original newly allocated channel default is unresolved.
+    const state = createCastPlayback(schedule, { notifiesEnabled:true });
+    if (!state || !this.mixer || !this.model) return { status: 'unsupported', reason: 'missing-playback-input' };
+    const actions = [];
+    this.castLoopActions ||= new Map();
+    for (const phase of schedule.phases) {
+      const base = this.actions[phase.clip];
+      if (!base || base.getClip().duration !== Math.fround(phase.sourceEndpoint)) {
+        return { status: 'unsupported', reason: 'missing-or-mismatched-exported-clip', clip: phase.clip };
+      }
+      let action = base;
+      if (phase.loop) {
+        const key = `${phase.clip}:${phase.frames}:${phase.sourceRate}`;
+        action = this.castLoopActions.get(key);
+        if (!action) {
+          const closed = closeSourceLoop(base.getClip(), phase.frames, phase.sourceRate);
+          if (!closed) return { status: 'unsupported', reason: 'unverified-loop-samples', clip: phase.clip };
+          action = this.mixer.clipAction(closed); this.castLoopActions.set(key, action);
+        }
+      }
+      actions.push(action);
     }
-    if (!live) this.castPhases = null;
+    this.cancelCast();
+    state.actions = actions;
+    state.hooks = hooks;
+    state.generation = this.castGeneration;
+    this.nativeCast = state;
+    hooks?.start?.(state.generation);
+    this.castNotifyCount=0; this.lastCastNotify=null; this.lastCastError=null;
+    this.lastCastSchedule = schedule;
+    return { status: 'ready' };
+  }
+
+  _advanceCastSchedule(dt) {
+    const state = this.nativeCast;
+    if (!state) return;
+    const step = advanceCastPlayback(state, dt);
+    if (!step) return;
+    // Events belong to the channel that UpdateAnimation advanced before
+    // MagicProcess changes phase, including the final completion tick.
+    for (const event of step.events || []) {
+      if (this.nativeCast !== state) break;
+      const notify=step.eventPhase.notifies[event.index];
+      const detail={ ...event, notify, phaseIndex:step.eventPhaseIndex,
+        clip:step.eventPhase.clip, activeTime:step.eventActiveTime,
+        elapsed:step.eventElapsed };
+      // elapsed is an observation at the end of this tick; native callbacks
+      // see activeTime before MagicProcess adds the delta.
+      this.castNotifyCount++; this.lastCastNotify=detail;
+      const sound=event.dispatch === 'object' && directNotifySound(notify);
+      if (sound && this.castSoundEnabled !== false) audio.playAt(sound.ref, this.group.position,
+        { volume:sound.volume, radius:sound.radius, isCurrent:()=>this.castGeneration === state.generation && this.castSoundEnabled !== false });
+      this.onCastNotify?.(detail);
+    }
+    if (this.nativeCast !== state) return;
+    if (step.unsupported) state.hooks?.cancel?.();
+    else state.hooks?.tick?.({activeTime:step.eventActiveTime,complete:step.done,
+      events:(step.events || []).map(event=>({...event,notify:step.eventPhase.notifies[event.index]}))});
+    if (this.nativeCast !== state) return;
+    if (step.done) {
+      this.lastCastError=step.unsupported || null;
+      if (step.unsupported) this.castGeneration++;
+      this.nativeCast = null;
+      return;
+    }
+    if (step.changed) this._beginSourcePose(state, state.actions[step.phaseIndex], step.tween);
+    this._sampleSourcePose(state, step);
+    this.lastCastPhase = { index: step.phaseIndex, clip: step.phase.clip, loop: step.phase.loop,
+      elapsed: state.elapsed, sampleTime: step.sampleTime };
+  }
+
+  _beginSourcePose(state, action, tween) {
+    state.tweenBones = [];
+    if (tween > 0) this.model.traverse(bone => {
+      if (bone.isBone) state.tweenBones.push({ bone, fromPosition: bone.position.clone(),
+        fromQuaternion: bone.quaternion.clone(), fromScale: bone.scale.clone() });
+    });
+    this.mixer.stopAllAction();
+    state.action = action;
+    action.reset().setEffectiveWeight(1).setEffectiveTimeScale(1).play();
+    action.paused = true; action.time = 0;
+    this.current = action;
+    if (state.tweenBones.length) {
+      this.mixer.update(0);
+      for (const pose of state.tweenBones) {
+        pose.toPosition = pose.bone.position.clone();
+        pose.toQuaternion = pose.bone.quaternion.clone();
+        pose.toScale = pose.bone.scale.clone();
+      }
+    }
+  }
+
+  _sampleSourcePose(state, step) {
+    state.action.time = step.sampleTime;
+    state.tweenProgress = step.tweenProgress;
+    // Restore constant destination tracks before positive-time sampling;
+    // Three can otherwise retain the previous partial tween in its cache.
+    if (state.tweenProgress >= 1 && state.tweenBones?.length) {
+      for (const pose of state.tweenBones) {
+        pose.bone.position.copy(pose.toPosition);
+        pose.bone.quaternion.copy(pose.toQuaternion);
+        pose.bone.scale.copy(pose.toScale);
+      }
+      state.tweenBones = null;
+    }
+  }
+
+  _applySourceTween(state) {
+    if (!state?.tweenBones?.length) return;
+    for (const pose of state.tweenBones) {
+      pose.bone.position.lerpVectors(pose.fromPosition, pose.toPosition, state.tweenProgress);
+      pose.bone.quaternion.slerpQuaternions(pose.fromQuaternion, pose.toQuaternion, state.tweenProgress);
+      pose.bone.scale.lerpVectors(pose.fromScale, pose.toScale, state.tweenProgress);
+    }
+  }
+
+  _applyCastTween() { this._applySourceTween(this.nativeCast); }
+
+  // Ordinary ground sit/stand only. Collision adjustment, combat waiting,
+  // swimming and the special wait types are separate native parity gaps.
+  setWaitType(waitType, { snapshot = false, initial = false } = {}) {
+    if (waitType !== 0 && waitType !== 1) return { status:'unsupported', reason:'special-wait-type' };
+    const previous = this.waitType;
+    this.waitType = waitType;
+    this.sitting = waitType === 0;
+    if (previous === waitType && !(snapshot && !this.nativeWait && !this.nativeCast
+      && !(this.emoteUntil > performance.now()))) return { status:'unchanged' };
+    // Snapshot steady state uses Pawn's first CharInfo multiplier (speedMul).
+    // AnimEnd's script callback separately supplies literal 1. Initial self
+    // UserInfo uses zero tween; remote snapshot admission represents the
+    // later steady state, not exact native first-frame/update ordering.
+    return this._startWaitSequence(snapshot ? (this.sitting ? 'sitWait' : 'idle')
+      : this.sitting ? 'sitDown' : 'standUp', snapshot ? {loopRate:Math.fround(this.speedMul), initial:initial && waitType===1} : {});
+  }
+
+  _startWaitSequence(slot, options = {}) {
+    const plan = waitSequence(this.waitTable, this.modelId, this.stance, slot, options);
+    const successor = plan.loop ? null : waitSequence(this.waitTable, this.modelId, this.stance,
+      slot === 'sitDown' ? 'sitWait' : 'idle');
+    const channel = createWaitSequence(plan), actions = new Map();
+    if (!channel || (successor && successor.status !== 'ready') || !this.mixer || !this.model) {
+      return this.lastWaitError = { status:'unsupported', reason:'missing-original-wait-inputs' };
+    }
+    for (const item of [plan, successor].filter(Boolean)) {
+      const admitted = this._waitAction(item);
+      if (admitted.status !== 'ready') return this.lastWaitError = admitted;
+      actions.set(item.clip, admitted.action);
+    }
+    this.cancelCast();
+    this.nativeWait = { channel, successor, actions, changed:true, generation:this.castGeneration };
+    this.lastWaitError = null; this.waitNotifyCount = 0; this.lastWaitNotify = null;
+    return { status:'ready' };
+  }
+
+  _waitAction(plan) {
+    if (plan.status !== 'ready') return plan;
+    const base = this.actions[plan.clip];
+    if (!base || base.getClip().duration !== plan.sourceEndpoint)
+      return { status:'unsupported', reason:'missing-or-mismatched-wait-clip', clip:plan.clip };
+    if (!plan.loop) return { status:'ready', action:base };
+    this.waitLoopActions ||= new Map();
+    const key = `${plan.clip}:${plan.frames}:${plan.sourceRate}`;
+    let action = this.waitLoopActions.get(key);
+    if (!action) {
+      const closed = closeSourceLoop(base.getClip(), plan.frames, plan.sourceRate);
+      if (!closed) return { status:'unsupported', reason:'unverified-wait-loop-samples' };
+      action = this.mixer.clipAction(closed); this.waitLoopActions.set(key, action);
+    }
+    return { status:'ready', action };
+  }
+
+  _refreshWaitStance() {
+    const state = this.nativeWait;
+    if (!state) return;
+    // All recovered Sit/Stand source names are stance-invariant. Their
+    // AnimEnd successor must still resolve the CURRENT weapon's wait slot.
+    const prior = state.successor || state.channel.plan;
+    const next = waitSequence(this.waitTable, this.modelId, this.stance, prior.slot, {loopRate:prior.rate});
+    if (next.status === 'ready' && next.clip === prior.clip) return;
+    const admitted = this._waitAction(next);
+    if (admitted.status !== 'ready') { this.lastWaitError=admitted; this.cancelCast(); return; }
+    if (state.successor) { state.successor=next; state.actions.set(next.clip,admitted.action); }
+    else this._startWaitSequence(next.slot, {loopRate:next.rate});
+  }
+
+  _advanceWaitSchedule(dt) {
+    const state = this.nativeWait;
+    if (!state) return;
+    const result = advanceWaitPlayback(state, dt);
+    for (const step of result.segments || []) {
+      if (this.nativeWait !== state) return;
+      if (step.changed) this._beginSourcePose(state, state.actions.get(step.plan.clip), step.plan.tween);
+      this._sampleSourcePose(state, step);
+      // AnimEnd can install its successor during this same tick. Its tween
+      // must start from the endpoint just displayed, not last tick's pose.
+      this.mixer.update(0); this._applySourceTween(state);
+      for (const event of step.events) {
+        if (this.nativeWait !== state) return;
+        const notify = step.plan.notifies[event.index];
+        this.lastWaitNotify = { ...event, notify, clip:step.plan.clip };
+        this.waitNotifyCount++;
+        const sound = event.dispatch === 'object' && directNotifySound(notify);
+        if (sound && this.waitSoundEnabled !== false) audio.playAt(sound.ref, this.group.position,
+          { volume:sound.volume, radius:sound.radius,
+            isCurrent:()=>this.castGeneration === state.generation && this.waitSoundEnabled !== false });
+        this.onWaitNotify?.(this.lastWaitNotify);
+      }
+      if (this.nativeWait !== state) return;
+      this.lastWaitPhase = { clip:step.plan.clip, seq:step.plan.seq, rate:step.plan.rate,
+        sampleTime:step.sampleTime, tweenProgress:step.tweenProgress, loop:step.plan.loop };
+    }
+    if (result.status !== 'ready') { this.lastWaitError=result; this.cancelCast(); }
   }
 
   /**
@@ -542,7 +767,7 @@ export class Character {
         this.group.position.x = this.target.x;
         this.group.position.z = this.target.z;
         this.group.position.y = terrain.heightAtWorld(
-          this.group.position.x, this.group.position.z, this.group.position.y);
+          this.group.position.x, this.group.position.z, this.group.position.y) ?? this.group.position.y;
         this.target = null;
       } else {
         const step = Math.min(speed * dt, d);
@@ -553,16 +778,13 @@ export class Character {
       }
     }
 
-    // Clip-time cast phases fire regardless of what the body is doing: the
-    // launch instant is a keyframe of the clip that is playing, and a player
-    // who starts walking mid-cast still gets the server's launch.
-    this._runCastPhases(performance.now());
+    this._advanceCastSchedule(dt);
 
     if (moving) {
       const pos = this.group.position;
       pos.x += vx * dt;
       pos.z += vz * dt;
-      pos.y = terrain.heightAtWorld(pos.x, pos.z, pos.y);
+      pos.y = terrain.heightAtWorld(pos.x, pos.z, pos.y) ?? pos.y;
       // smooth turn toward heading
       const heading = Math.atan2(vx, vz);
       let dy = heading - this.group.rotation.y;
@@ -570,15 +792,19 @@ export class Character {
       while (dy < -Math.PI) dy += 2 * Math.PI;
       const maxTurn = TURN_RATE * dt;
       this.group.rotation.y += Math.abs(dy) < maxTurn ? dy : Math.sign(dy) * maxTurn;
-      this.play(running ? 'run' : 'walk');
+      if (!this.nativeCast) { if (this.nativeWait) this.cancelCast(); this.play(running ? 'run' : 'walk'); }
       this.speed = Math.hypot(vx, vz);
-    } else if (performance.now() >= (this.emoteUntil || 0)) {
-      this.play(this.sitting ? 'sit' : 'idle');
+    } else if (!this.nativeCast && performance.now() >= (this.emoteUntil || 0)) {
+      if (this.sitting && !this.nativeWait && !this.lastWaitError) this._startWaitSequence('sitWait');
+      if (this.nativeWait) this._advanceWaitSchedule(dt);
+      else if (!this.sitting) this.play('idle');
       this.speed = 0;
     } else {
       this.speed = 0;   // emoting: held by emote(), not re-idled
     }
 
     this.mixer.update(dt);
+    this._applyCastTween();
+    this._applySourceTween(this.nativeWait);
   }
 }

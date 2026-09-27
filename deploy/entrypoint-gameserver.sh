@@ -10,15 +10,16 @@ cd /opt/l2/gameserver
 : "${DB_PORT:=3306}"
 : "${DB_NAME:=l2jdb}"
 : "${DB_USER:=l2j}"
-: "${DB_PASS:=l2jpass}"
+: "${DB_PASS:?Set DB_PASS explicitly in the private deployment environment}"
 : "${LOGIN_HOST:=loginserver}"
 : "${GS_XMX:=2g}"
 
 CFG=config/server.properties
 
+export DB_PASS
+sh /usr/local/lib/elbera/write-db-password.sh "$CFG"
 sed -i "s|^URL = .*|URL = jdbc:mariadb://${DB_HOST}:${DB_PORT}/${DB_NAME}|" "$CFG"
 sed -i "s|^Login = .*|Login = ${DB_USER}|" "$CFG"
-sed -i "s|^Password = .*|Password = ${DB_PASS}|" "$CFG"
 sed -i "s|^LoginHost = .*|LoginHost = ${LOGIN_HOST}|" "$CFG"
 
 # Hostname publico que el loginserver entrega a los clientes en la lista de

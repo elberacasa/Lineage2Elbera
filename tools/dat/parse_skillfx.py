@@ -6,8 +6,9 @@ definitions (neither is a .dat; both are UE2 packages decoded with
 tools/l2lib):
 
   assets/interlude/animations/Skill.usk  (Lineage2Ver111)
-      244 SkillVisualEffect objects NAMED BY SKILL ID ("110", "1177",
-      "4641_a", "1217_sec", ...). Each carries:
+      244 SkillVisualEffect objects with qualified package/group paths.
+      Numeric leaf names are not skill-ID bindings: skillgrp.dat selects the
+      exact full path independently for each skill level. Each carries:
         Desc             NameProperty   Korean designer comment
         FlyingTime       FloatProperty  projectile flight time (seconds)
         CastingActions / ChannelingActions / PreshotActions /
@@ -44,7 +45,8 @@ docs/skillfx-data.md):
 
 Outputs:
   assets/gamedata/lineageeffect.json      effect class decomposition
-  assets/gamedata/skillvisualeffect.json  skill id -> binding table
+  assets/gamedata/skillvisualeffect.json  legacy leaf -> source object table
+                                          (each record retains full path)
 
 Usage:
   /usr/bin/python3 tools/dat/parse_skillfx.py           # write JSON
@@ -52,6 +54,7 @@ Usage:
 """
 
 import argparse
+import hashlib
 import json
 import os
 import struct
@@ -142,7 +145,7 @@ PACKED_SIZES = (1, 2, 4, 12, 16)
 # generic packed-property decoding (UE1-style tags used inside both packages)
 # --------------------------------------------------------------------------
 
-def read_packed(pkg, r):
+def read_packed(pkg, r, reject_duplicates=False):
     """One packed property stream (terminated by the 'None' name).
     Returns {name: (ptype, struct_name_or_None, raw_bytes_or_bool)}."""
     props = {}
@@ -150,6 +153,8 @@ def read_packed(pkg, r):
         name = pkg.name(r.compact())
         if name == "None":
             return props
+        if reject_duplicates and name in props:
+            raise ValueError("duplicate original property: " + name)
         info = r.u8()
         ptype, size_sel, is_array = info & 0x0F, (info >> 4) & 7, bool(info & 0x80)
         sname = pkg.name(r.compact()) if ptype == 10 else None
@@ -295,6 +300,58 @@ def parse_effect_classes(pkg):
 # Skill.usk -> skillvisualeffect.json
 # --------------------------------------------------------------------------
 
+def qualified_export_path(pkg, export, package_name="Skill"):
+    """Original package + every serialized outer + object name; no ID alias."""
+    parts, seen, ref = [pkg.export_name(export)], set(), export.package_index
+    while ref:
+        if ref in seen:
+            raise ValueError("cyclic source object outer chain")
+        seen.add(ref)
+        outer = pkg.resolve_ref(ref)
+        parts.append(pkg.export_name(outer) if ref > 0 else pkg.import_name(outer))
+        ref = outer.package_index
+    return ".".join([package_name] + list(reversed(parts)))
+
+
+def parse_action_array(pkg, raw, actions):
+    """Bounded SkillActionInfo records, including nulls and omitted zero fields."""
+    lst = []
+    r = Reader(raw)
+    count = r.compact()
+    if count < 0 or count > len(raw) - r.pos:
+        raise ValueError("invalid source SkillActionInfo count")
+    for source_index in range(count):
+        elem = read_packed(pkg, r, reject_duplicates=True)
+        item = {"sourceIndex": source_index, "actionRef": 0,
+                "actionPath": None, "actionStatus": "source-null",
+                "stage": 0, "stageSerialized": "SpecificStage" in elem}
+        if "Action" in elem:
+            if elem["Action"][0] != 5:
+                raise ValueError("SkillActionInfo.Action is not an object reference")
+            ref_reader = Reader(elem["Action"][2])
+            ci = ref_reader.compact()
+            if ref_reader.pos != len(elem["Action"][2]):
+                raise ValueError("unconsumed SkillActionInfo.Action reference")
+            item["actionRef"] = ci
+            if ci > 0 and actions.get(ci) is not None:
+                item.update(actions[ci])
+                item["actionPath"] = qualified_export_path(pkg, pkg.exports[ci - 1])
+                item["actionStatus"] = "resolved-locate-effect"
+            else:
+                item["action"] = pkg.ref_name(ci)
+                if ci:
+                    item["actionStatus"] = "unsupported-action-reference"
+        if "SpecificStage" in elem:
+            if elem["SpecificStage"][0] != 2 or len(elem["SpecificStage"][2]) != 4:
+                raise ValueError("SkillActionInfo.SpecificStage is not an int32")
+            stage = decode_value(pkg, *elem["SpecificStage"])
+            item["stage"] = stage
+        lst.append(item)
+    if r.pos != len(raw):
+        raise ValueError("SkillActionInfo array desync")
+    return lst
+
+
 def parse_skill_usk(pkg):
     # Decode every SkillAction_LocateEffect ONCE, keyed by EXPORT INDEX —
     # their object names are NOT unique (SkillAction_LocateEffect3 appears
@@ -303,7 +360,11 @@ def parse_skill_usk(pkg):
     for i, e in enumerate(pkg.exports):
         if pkg.class_name_of(e) != "SkillAction_LocateEffect":
             continue
-        props = read_packed(pkg, pkg.body_reader(e))
+        raw_action = pkg.data[e.serial_offset:e.serial_offset + e.serial_size]
+        action_reader = Reader(raw_action)
+        props = read_packed(pkg, action_reader, reject_duplicates=True)
+        if action_reader.pos != len(raw_action):
+            raise ValueError("unconsumed source SkillAction_LocateEffect export")
         act = {}
         for key, (ptype, sname, raw) in props.items():
             v = decode_value(pkg, ptype, sname, raw)
@@ -333,8 +394,15 @@ def parse_skill_usk(pkg):
 
     skills = {}
     for e in pkg.exports_by_class("SkillVisualEffect"):
-        props = read_packed(pkg, pkg.body_reader(e))
-        rec = {}
+        raw_export = pkg.data[e.serial_offset:e.serial_offset + e.serial_size]
+        reader = Reader(raw_export)
+        props = read_packed(pkg, reader, reject_duplicates=True)
+        if reader.pos != len(raw_export):
+            raise ValueError("unconsumed source SkillVisualEffect export")
+        rec = {"path": qualified_export_path(pkg, e), "flyingTime": 0.0,
+               "source": {"export": e.index, "SHA256": hashlib.sha256(raw_export).hexdigest()}}
+        # Zero is the verified Engine.SkillVisualEffect class default, not
+        # evidence that a source object is absent. See native-cast-agent-evidence.
         phases = {}
         for key, (ptype, sname, raw) in props.items():
             if key == "Desc":
@@ -344,30 +412,12 @@ def parse_skill_usk(pkg):
             else:
                 for prop_name, phase in PHASES:
                     if key == prop_name:
-                        lst = []
-                        # SkillActionInfo array: the Action field is an
-                        # object ref (compact export index) — decode it by
-                        # hand so the index survives (names collide).
-                        r = Reader(raw)
-                        for _ in range(r.compact()):
-                            elem = read_packed(pkg, r)
-                            item = {}
-                            if "Action" in elem:
-                                ci = Reader(elem["Action"][2]).compact()
-                                if ci > 0 and actions.get(ci) is not None:
-                                    item.update(actions[ci])
-                                else:
-                                    item["action"] = pkg.ref_name(ci)
-                            if "SpecificStage" in elem:
-                                stage = decode_value(pkg, *elem["SpecificStage"])
-                                if stage:
-                                    item["stage"] = stage
-                            lst.append(item)
-                        if r.pos != len(raw):
-                            raise ValueError(f"{pkg.export_name(e)}.{key}: array desync")
-                        phases[phase] = lst
+                        phases[phase] = parse_action_array(pkg, raw, actions)
         rec["phases"] = phases
-        skills[pkg.export_name(e)] = rec
+        leaf = pkg.export_name(e)
+        if leaf in skills:
+            raise ValueError("duplicate leaf name in legacy Agent diagnostic table: " + leaf)
+        skills[leaf] = rec
     return skills, actions
 
 
@@ -384,7 +434,8 @@ def sanity(effects, skills):
     for cls in ("el_wind_strike_ca", "el_wind_strike_fl", "el_wind_strike_pr",
                 "el_wind_strike_ta", "wh_shield_ta", "wh_heal_ca", "wh_heal_ta"):
         assert cls in effects, cls + " missing"
-    # binding anchors: 1177 Wind Strike / 1040 Shield / 1011 Heal are explicit
+    # Source object action anchors. Numeric object leaves do not themselves
+    # prove a skill binding; original skillgrp may select another path or None.
     b1177 = [a.get("effect") for p in skills["1177"]["phases"].values() for a in p]
     assert "LineageEffect.el_wind_strike_ta" in b1177, b1177
     b1040 = [a.get("effect") for p in skills["1040"]["phases"].values() for a in p]
@@ -423,7 +474,7 @@ def main():
                 if json.load(f) != data:
                     sys.exit(f"CHECK FAIL: {os.path.basename(path)} stale — re-run the tool")
         print(f"CHECK PASS: {len(effects)} effect classes ({n_em} emitters), "
-              f"{len(skills)} skill bindings, JSON in sync")
+              f"{len(skills)} source Agent objects, JSON in sync")
         return 0
 
     with open(OUT_EFFECT, "w") as f:
@@ -434,7 +485,7 @@ def main():
                   sort_keys=lambda k: (not k.isdigit(), int(k) if k.isdigit() else k))
         f.write("\n")
     print(f"lineageeffect.json: {len(effects)} classes, {n_em} emitters")
-    print(f"skillvisualeffect.json: {len(skills)} skill bindings")
+    print(f"skillvisualeffect.json: {len(skills)} source Agent objects")
     return 0
 
 

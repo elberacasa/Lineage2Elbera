@@ -10,6 +10,7 @@
 // Browser (A2): Alt+N window shows the real clan; Invite button arms on a
 // player target; fresh D2 accepts -> 3 rows; D2's oust mark -> back to 2.
 // Output: verify_shots/clan_live_*.png + JSON summary.
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -80,7 +81,7 @@ function rawClient(tag) {
     const levelsXml = fs.readFileSync(path.join(__dirname,
       '../../server/aCis_gameserver/build/dist/gameserver/data/xml/playerLevels.xml'), 'utf8');
     const exp = Number(/<playerLevel level="20"[^>]*requiredExpToLevelUp="(\d+)"/.exec(levelsXml)[1]);
-    execFileSync('mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-e',
+    execFileSync('mariadb', [...dbArgs(), '-e',
       `UPDATE characters SET level=20, exp=${exp}, accesslevel=7 WHERE char_name='${aName}' AND online=0;`]);
 
     const A = rawClient('leader');

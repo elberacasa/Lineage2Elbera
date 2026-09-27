@@ -15,6 +15,7 @@
 //      NEW objectId) -> stage both back -> OK -> whWithdrawItems ->
 //      invUpdate: adena 4940 (the fee is NOT refunded), item restored.
 // Output: verify_shots/wh_live_*.png + JSON summary.
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -45,7 +46,7 @@ const HOPS = JSON.parse(fs.readFileSync(
     [-83950, 242400, -3728], [-83900, 241800, -3720], [-83850, 241300, -3720]], TOWN_ROUTE);
 
 const db = (q) => execFileSync('mariadb',
-  ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
+  [...dbArgs(), '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
 
 const summary = {};
 (async () => {

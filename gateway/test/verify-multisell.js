@@ -17,6 +17,7 @@
 //     invUpdate: 875 added, 116 removed, adena -557 exactly.
 'use strict';
 
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -177,7 +178,7 @@ async function walkTo(target, label) {
   // 15s when the char is IN COMBAT (we just fought gremlins). Poll the
   // online flag instead of sleeping a fixed time; seeding earlier is
   // silently overwritten by the delayed save (in-memory state wins).
-  const db = (q) => execFileSync('mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
+  const db = (q) => execFileSync('mariadb', [...dbArgs(), '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
   let offline = false;
   for (let i = 0; i < 30 && !offline; i++) {
     await sleep(2000);
@@ -189,9 +190,9 @@ async function walkTo(target, label) {
 
   const levelsXml = fs.readFileSync(path.join(__dirname, '../../server/aCis_gameserver/build/dist/gameserver/data/xml/playerLevels.xml'), 'utf8');
   const exp6 = Number(/<playerLevel level="6"[^>]*requiredExpToLevelUp="(\d+)"/.exec(levelsXml)[1]);
-  execFileSync('mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-e',
+  execFileSync('mariadb', [...dbArgs(), '-e',
     `UPDATE characters SET level=6, exp=${exp6} WHERE obj_Id=${charId} AND online=0;`]);
-  execFileSync('mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-e',
+  execFileSync('mariadb', [...dbArgs(), '-e',
     `UPDATE items SET count=${SEED_ADENA} WHERE owner_id=${charId} AND item_id=57;`]);
   const adenaRow = db(`SELECT count FROM items WHERE owner_id=${charId} AND item_id=57;`);
   if (adenaRow !== String(SEED_ADENA)) throw new Error('adena seed failed (row: ' + adenaRow + ')');

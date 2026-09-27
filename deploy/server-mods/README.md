@@ -15,7 +15,10 @@ commit lived in exactly one place: this laptop's `server/.git`. A disk failure
 would have taken the server half of the protocol contract with it, and no
 amount of re-cloning would bring it back.
 
-`elbera-acis.patch` is that commit, exported into the tracked repo.
+`elbera-acis.patch` preserves those changes with local database passwords
+removed. Its password fields are intentionally empty templates; supply private
+connection configuration before starting the restored server. The Docker
+entrypoints require explicit environment values instead.
 
 ## Restore onto a fresh clone
 
@@ -30,14 +33,16 @@ Then build per `server/BUILD-NOTES.md` (which is itself inside the patch).
 ## Keep it current
 
 The patch is a snapshot, not a link. After any further change to `server/`,
-re-export it:
+re-export it, then remove local credential values before reviewing or committing
+the result:
 
 ```bash
 cd server && git format-patch $(cut -d' ' -f1 ../deploy/server-mods/BASE-REV)..HEAD \
   --stdout > ../deploy/server-mods/elbera-acis.patch
 ```
 
-Verify it still describes the working tree — this must print nothing:
+Compare it against the intended source state. A reverse check against private
+local configuration can differ at the deliberately sanitized password fields:
 
 ```bash
 cd server && git apply --check --reverse ../deploy/server-mods/elbera-acis.patch

@@ -90,7 +90,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; }
   font: 13px -apple-system, "Segoe UI", sans-serif;
   transition: opacity .4s;
 }
-#loading.hidden { opacity: 0; pointer-events: none; }
+#loading.hidden {
+  opacity: 0; pointer-events: none; visibility: hidden;
+  /* Finish the existing fade, then remove stale progress from visibility/AX. */
+  transition: opacity .4s, visibility 0s .4s;
+}
 .spin {
   width: 28px; height: 28px; border-radius: 50%;
   border: 3px solid #2a3140; border-top-color: #c9a959;
@@ -396,3 +400,8 @@ span.l2h-w.npc-link[data-sp]::after {
   border: 0; vertical-align: top;
 }
 select.npc-edit { background: #000; color: #DCDCDC; border: 1px solid #555; }
+/* World diagnostics must not cover character selection or creation. */
+body:has(#charcreate-overlay, #charsel-overlay) > [aria-label="Elbera Tools world picking"],
+body:has(#charcreate-overlay, #charsel-overlay) > [aria-label="Elbera Tools camera inspection"] {
+  display: none;
+}

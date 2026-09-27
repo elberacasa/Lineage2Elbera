@@ -1,40 +1,59 @@
 // M4: skill/item metadata (assets/gamedata/skillmeta.json + itemmeta.json,
 // generated in parallel). Degrades gracefully while absent: generic names
 // and a placeholder icon tile.
+import { mergeSkillText, exactSkillText, skillDisplayTypeId } from './skilltext.js';
 
 let _skillMeta = null;
-let _itemMeta = null;
-let _itemMetaData = null;   // resolved itemmeta, for sync accessors (sysMsg)
-let _sysMsgMeta = null;
 let _actionMeta = null;
-let _sysStringMeta = null;
-let _classIcons = null;
-let _skillWeapons = null;
-let _itemTypes = null;
 let _skillAnim = null;
+const _metadataRequests = new Map();
 
 function loadMeta(path) {
-  return fetch(path)
-    .then(r => (r.ok ? r.json() : null))
-    .catch(() => null);
+  if (!_metadataRequests.has(path)) {
+    // Keep successful results and share pending requests. An unavailable or
+    // invalid-JSON response stays null for its callers, but a later request
+    // may retry; no automatic retry loop or substitute data is introduced.
+    const request = Promise.resolve().then(() => fetch(path))
+      .then(r => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then(value => {
+        if (value === null) _metadataRequests.delete(path);
+        return value;
+      });
+    _metadataRequests.set(path, request);
+  }
+  return _metadataRequests.get(path);
 }
 
 export function skillMeta() {
-  if (!_skillMeta) _skillMeta = loadMeta('/gamedata/skillmeta.json');
+  if (!_skillMeta) {
+    _skillMeta = Promise.all([
+      loadMeta('/gamedata/skillmeta.json'), loadMeta('/gamedata/skilltext.json'),
+    ]).then(([legacy, exact]) => {
+      if (exact) {
+        try {
+          const merged = mergeSkillText(legacy, exact);
+          if (legacy === null) _skillMeta = null;
+          return merged;
+        } catch (error) {
+          _metadataRequests.delete('/gamedata/skilltext.json');
+          console.warn('Exact skill text unavailable:', error.message);
+        }
+      }
+      // Preserve id-only callers, but retry exact data on a later request.
+      _skillMeta = null;
+      return legacy;
+    });
+  }
   return _skillMeta;
 }
 
 export function itemMeta() {
-  if (!_itemMeta) {
-    _itemMeta = loadMeta('/gamedata/itemmeta.json')
-      .then(j => { _itemMetaData = j; return j; });
-  }
-  return _itemMeta;
+  return loadMeta('/gamedata/itemmeta.json');
 }
 
 export function sysMsgMeta() {
-  if (!_sysMsgMeta) _sysMsgMeta = loadMeta('/gamedata/systemmsg.json');
-  return _sysMsgMeta;
+  return loadMeta('/gamedata/systemmsg.json');
 }
 
 // skillweapons.json / itemtypes.json (tools/dat/export_skillweapons.py,
@@ -42,13 +61,11 @@ export function sysMsgMeta() {
 // per-item weapon type + shield flags. Degrade to "no restrictions" while
 // absent, like the rest of the metadata layer.
 export function skillWeapons() {
-  if (!_skillWeapons) _skillWeapons = loadMeta('/gamedata/skillweapons.json');
-  return _skillWeapons;
+  return loadMeta('/gamedata/skillweapons.json');
 }
 
 export function itemTypes() {
-  if (!_itemTypes) _itemTypes = loadMeta('/gamedata/itemtypes.json');
-  return _itemTypes;
+  return loadMeta('/gamedata/itemtypes.json');
 }
 
 // Shot items, mined from the datapack's default_action by
@@ -57,31 +74,33 @@ export function itemTypes() {
 // AUTOMATIC use (RequestAutoSoulShot), it does not consume one.
 // {itemId: {kind: 'soulshot'|'spiritshot', blessed, grade, name}}
 let _shots = null;
+let _shotsLoaded = null;
 export function shotMeta() {
-  if (!_shots) _shots = loadMeta('/gamedata/shots.json');
+  if (!_shots) _shots = loadMeta('/gamedata/shots.json').then(value => {
+    _shotsLoaded = value;
+    if (value === null) _shots = null;
+    return value;
+  });
   return _shots;
 }
 
-let _shotsLoaded = null;
 export function shotsReady() { return _shotsLoaded; }
 export function isShot(itemId) {
   return !!(_shotsLoaded && _shotsLoaded[String(itemId)]);
 }
-shotMeta().then(m => { _shotsLoaded = m; }).catch(() => { _shotsLoaded = {}; });
+shotMeta();
 
 // sysstring-e.dat UI strings (tools/dat extraction): {id: {id, string}}.
 // UI labels cite the retail string by ID, never a retyped translation.
 export function sysStringMeta() {
-  if (!_sysStringMeta) _sysStringMeta = loadMeta('/gamedata/sysstring.json');
-  return _sysStringMeta;
+  return loadMeta('/gamedata/sysstring.json');
 }
 
 // classicons.json (tools/ui/mine_classicons.py, tier 5 — NWindow.dll):
 // {icons: [16 texture refs], classes: {classId: iconIndex}} — the native
 // GetClassIconName table, for every member-list class glyph.
 export function classIcons() {
-  if (!_classIcons) _classIcons = loadMeta('/gamedata/classicons.json');
-  return _classIcons;
+  return loadMeta('/gamedata/classicons.json');
 }
 
 // actionname.json is a LIST (not a map): index it once by action id.
@@ -90,6 +109,7 @@ export function actionMeta() {
   if (!_actionMeta) {
     _actionMeta = loadMeta('/gamedata/actionname.json')
       .then(list => {
+        if (list === null) _actionMeta = null;
         const byId = {};
         for (const a of list || []) byId[a.id] = a;
         return { list: list || [], byId };
@@ -110,61 +130,32 @@ export function actionInfo(meta, id) {
   };
 }
 
-// sysMsg ids whose $s params are SKILL_NAME values (aCis sends 46 USE_S1
-// only from PlayerCast/CreatureCast with .addSkillName; 48 is the reuse
-// denial of the same cast path). The gateway flattens params to raw
-// values, so the skill id arrives as a bare number — resolve it to the
-// skill name when skillmeta is passed. Fallback set for while
-// sysmsg_paramtypes.json is absent; once loaded, the mined map below
-// covers these ids too (46/48 mine as skill slot 0 from the same source).
-const SKILL_PARAM_MSGS = new Set([46, 48]);
-
-// sysmsg_paramtypes.json (tools/dat/build_sysmsg_paramtypes.py — mined
-// from the aCis SystemMessage call sites): per message id, which $s slots
-// carry ITEM_NAME / SKILL_NAME values ("You have obtained $s1." etc. pass
-// item ids through the same flattening). Sync cache like skillAnim: the
-// fetch is kicked on first renderSysMsg call; until it lands the fallback
-// above reproduces the old behavior exactly.
-let _sysMsgParamTypes = null;
-let _sysMsgParamTypesData = null;
-
-function sysMsgParamTypes() {
-  if (!_sysMsgParamTypes) {
-    _sysMsgParamTypes = loadMeta('/gamedata/sysmsg_paramtypes.json')
-      .then(j => { _sysMsgParamTypesData = j; return j; });
-  }
-  return _sysMsgParamTypes;
-}
-
-// render SystemMessage text: positional substitution of $s1/$s2/$c1/$c2
-// style placeholders; graceful fallback while systemmsg.json is absent.
-// skills: optional skillmeta.json content for SKILL_NAME params (above).
-export function renderSysMsg(meta, id, params = [], skills = null) {
+// SystemMessage supplies each parameter's type on the wire. Do not infer it
+// from a mined list of message IDs: the same number can be a quantity, skill,
+// item or literal text. Skill names use the exact level carried with the ID.
+// Plain params remain supported for local dialogs that already provide text.
+export function renderSysMsg(meta, id, params = [], skills = null, typedParams = null, items = null) {
+  const values = Array.isArray(typedParams) ? typedParams.map((p, i) => {
+    if (p?.type === 4 && p.value && Number.isInteger(p.value.id)) {
+      return skillInfo(skills, p.value.id, p.value.level ?? null).name;
+    }
+    if (p?.type === 3 && Number.isInteger(p.value)) {
+      return itemInfo(items, p.value).name;
+    }
+    const value = p?.value ?? params[i];
+    return value == null ? null : String(value);
+  }) : params;
   const entry = meta && meta[String(id)];
   if (!entry || !entry.text) {
-    return `sysmsg ${id}${params.length ? ': ' + params.join(', ') : ''}`;
+    return `sysmsg ${id}${values.length ? ': ' + values.join(', ') : ''}`;
   }
-  sysMsgParamTypes();
-  const pt = _sysMsgParamTypesData && _sysMsgParamTypesData[String(id)];
-  let si = 0, ci = 0;
-  const text = entry.text.replace(/\$([sc])(\d+)/g, (m, kind) => {
-    const idx = kind === 's' ? si++ : ci++;
-    const v = params[idx];
-    if (v == null) return m;
-    if (kind === 's') {
-      if (pt && pt.item && pt.item.includes(idx)) {
-        if (!_itemMetaData) itemMeta();   // kick the fetch on first item param
-        const it = _itemMetaData && _itemMetaData[String(v)];
-        if (it && it.name) return it.name;
-      } else if (skills && (pt ? (pt.skill && pt.skill.includes(idx))
-                               : SKILL_PARAM_MSGS.has(id))) {
-        const s = skills[String(v)];
-        if (s && s.name) return s.name;
-      }
-    }
-    return String(v);
+  // Original strings can reorder or repeat numbered parameters. For example
+  // message29 uses $s2 before $s1; message1228 uses $s1 twice. Occurrence order
+  // is therefore not the parameter index, nor are $s/$c separate queues.
+  return entry.text.replace(/\$([sc])(\d+)/g, (placeholder, kind, number) => {
+    const value = values[Number(number) - 1];
+    return value == null ? placeholder : String(value);
   });
-  return text;
 }
 
 /** The sysmsg's own color from systemmsg-e.dat (tier 4), or null. */
@@ -173,11 +164,19 @@ export function sysMsgColor(meta, id) {
   return (entry && entry.color) || null;
 }
 
-export function skillInfo(meta, id) {
-  const m = meta && meta[String(id)];
+export function skillInfo(meta, id, level = undefined) {
+  const exact = level !== undefined;
+  const m = exact ? exactSkillText(meta, id, level) : meta && meta[String(id)];
   return {
     name: (m && m.name) || `Skill #${id}`,
     icon: (m && m.icon) ? `/gamedata/${m.icon}` : null,
+    desc: m?.desc ?? '', enchantName: m?.enchantName ?? '', enchantDesc: m?.enchantDesc ?? '',
+    hp: exact ? m?.hp ?? null : null, mp: exact ? m?.mp ?? null : null,
+    range: exact ? m?.range ?? null : null,
+    operateType: exact ? m?.operateType ?? null : null,
+    isMagic: exact ? m?.isMagic ?? null : null,
+    displayTypeId: exact ? skillDisplayTypeId(m) : null,
+    exactLevel: exact && !!m, hasText: exact && !!m?.hasText,
   };
 }
 
@@ -190,7 +189,11 @@ let _skillAnimData = null;   // resolved content, for sync accessors
 export function skillAnimMeta() {
   if (!_skillAnim) {
     _skillAnim = loadMeta('/gamedata/skillanim.json')
-      .then(j => { _skillAnimData = j; return j; });
+      .then(j => {
+        _skillAnimData = j;
+        if (j === null) _skillAnim = null;
+        return j;
+      });
   }
   return _skillAnim;
 }
@@ -199,8 +202,11 @@ export function skillAnimMeta() {
 export function skillAnimLoaded() { return _skillAnimData; }
 
 export function skillAnimInfo(meta, id, level = 1) {
-  if (!meta) return null;
-  return meta[`${id}_${level}`] || meta[String(id)] || null;
+  if (!meta || !Number.isInteger(level) || level <= 0) return null;
+  const base = meta[String(id)];
+  // Overrides compress equal source rows; absent levels must not inherit one.
+  if (!Array.isArray(base?.levels) || !base.levels.includes(level)) return null;
+  return Object.hasOwn(meta, `${id}_${level}`) ? meta[`${id}_${level}`] : base;
 }
 
 export function itemInfo(meta, id) {

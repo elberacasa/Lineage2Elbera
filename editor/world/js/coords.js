@@ -3,11 +3,10 @@
 // L2 world space: Z-up, units ~centimeters. A terrain tile is
 // gridSize x gridSize samples spaced `spacing` L2 units apart
 // (256 x 256 x 128 = 32768 units per tile edge).
-// three.js space: Y-up, units meters. Character pipeline models are
-// normalized to ~1.7 units tall, so we render the world at 1 unit = 1 m
-// (L2 cm -> m: x0.01) and keep the characters at their native scale.
+// three.js space: Y-up, scaled by 0.01. Player models retain source mesh
+// dimensions and exact recovered draw/mesh scales; they are not height fitted.
 //
-// Axis mapping (same convention as the character pipeline):
+// World axis mapping (player-local exported mesh axes are a separate transform):
 //   (x, y, z)_L2  ->  (x, z, -y)_three
 
 import * as THREE from 'three';

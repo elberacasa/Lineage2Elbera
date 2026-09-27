@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Elbera Tools — Henna</title>
+<style>
+body{margin:24px;background:#272727;color:#eee;font:14px system-ui}a{color:#e7c887}
+textarea{display:block;width:min(480px,90vw);height:80px;margin:8px 0}details{max-width:520px}
+.l2wnd{z-index:10}pre{white-space:pre-wrap;max-width:520px}label{display:block;margin:8px 0}
+</style>
+<p><a href="index.html">Elbera Tools</a> · Original henna windows with explicit packet replay. No server connection.</p>
+<details open><summary>Replay input</summary>
+<p>Supply captured list and matching detail payloads. No costs, stats, inventory or success packets are generated.
+Source text, icons and window records come from your local client.</p>
+<label>Mode <select id="mode"><option value="equip">Draw symbol</option><option value="unequip">Remove symbol</option></select></label>
+<label>List JSON<textarea id="list-input" spellcheck="false"></textarea></label>
+<label>Detail JSON<textarea id="detail-input" spellcheck="false"></textarea></label>
+<label>Henna state JSON (optional)<textarea id="state-input" spellcheck="false"></textarea></label>
+<label>List-request DWORD override (optional; blank uses the verified source caller value)
+<input id="list-argument" inputmode="numeric" autocomplete="off"></label>
+<button id="show">Replay list</button> <button id="snapshot">Replay supplied state</button> <button id="reset">Reset session</button>
+</details>
+<p id="status" role="status">Loading original source metadata…</p>
+<p id="provenance"></p>
+<p>Remaining parity gaps: exact native text measurement, inherited frame/button/selection rendering and browser tooltip appearance.
+Money-tooltip text uses the recovered native reading when its source metadata is available.
+Back uses the pinned original caller's extra DWORD when available in source metadata;
+an override is inspection input, and missing metadata never becomes zero.</p>
+<pre id="requests" aria-label="Replay requests"></pre>
+<script type="module">
+import { Skin } from '../js/ui/skin.js';
+import { Font } from '../js/ui/font.js';
+import { Layout } from '../js/ui/layout.js';
+import { HennaWnd } from '../js/ui/hennawnd.js';
+const status = document.querySelector('#status'), requests = [];
+let epoch = 0, henna;
+const value = id => document.querySelector(id).value;
+const input = id => JSON.parse(value(id));
+function showState() {
+  document.querySelector('#requests').textContent = JSON.stringify(requests, null, 2);
+}
+await Promise.all([Skin.load(), Font.load(), Layout.load()]);
+henna = new HennaWnd(document.body, {
+  listArgument(mode) {
+    const raw = value('#list-argument');
+    if (raw === '') {
+      const source = henna.data?.native?.listRequestExtraDword?.byMode?.[mode];
+      if (Number.isInteger(source) && source >= -0x80000000 && source <= 0x7fffffff) return source;
+      status.textContent = 'Back closed the details. The original list-request DWORD is unavailable; no request was emitted.';
+      return null;
+    }
+    if (!/^-?\d+$/.test(raw) || !Number.isInteger(Number(raw)) || Number(raw) < -0x80000000 || Number(raw) > 0x7fffffff) {
+      status.textContent = 'Back closed the details. No request: an explicit supported list DWORD is required.';
+      return null;
+    }
+    return Number(raw);
+  },
+  send(op, request) {
+    requests.push({ op, ...request }); showState();
+    status.textContent = `Replay request ${op}; nothing sent to a server.`;
+    const detail = op === 'hennaItemInfo' || op === 'hennaUnequipInfo';
+    const list = op === 'hennaEquipList' || op === 'hennaUnequipList';
+    if (detail || list) {
+      try {
+        const payload = input(detail ? '#detail-input' : '#list-input'), revision = epoch;
+        const mode = op.includes('Unequip') ? 'unequip' : 'equip';
+        queueMicrotask(() => {
+          if (revision !== epoch) return;
+          const accepted = detail ? henna.details(mode, payload) : henna.list(mode, payload);
+          if (!accepted || henna.lastError) status.textContent = henna.lastError?.message || 'Payload does not match the current request.';
+        });
+      } catch (error) { status.textContent = `Invalid replay JSON: ${error.message}`; return false; }
+    }
+    return true;
+  },
+});
+await henna.ready;
+status.textContent = henna.lastError?.message || 'Ready. Supply packet JSON to inspect the original windows.';
+document.querySelector('#show').addEventListener('click', () => {
+  try {
+    ++epoch; henna.reset(); requests.length = 0; showState();
+    const list = input('#list-input');
+    document.querySelector('#provenance').textContent = typeof list.inspection === 'string'
+      ? `Inspection note: ${list.inspection}` : '';
+    if (!henna.list(value('#mode'), list)) throw new Error('Invalid henna list payload');
+    if (henna.lastError) throw henna.lastError;
+    document.querySelector('details').open = false;
+    status.textContent = 'Supplied list displayed. Select a row to replay its supplied detail response.';
+  } catch (error) { status.textContent = error.message; }
+});
+document.querySelector('#snapshot').addEventListener('click', () => {
+  try {
+    if (!henna.update(input('#state-input'))) throw new Error('Invalid henna state payload');
+    status.textContent = 'Supplied server state retained; no local equip/removal is inferred.';
+  } catch (error) { status.textContent = error.message; }
+});
+document.querySelector('#reset').addEventListener('click', () => {
+  ++epoch; henna.reset(); requests.length = 0; showState(); status.textContent = 'Replay session reset.';
+  document.querySelector('#provenance').textContent = '';
+});
+window.render_game_to_text = () => JSON.stringify({ view: henna.state.view, mode: henna.state.mode,
+  symbols: henna.state.snapshot?.symbols ?? null, requests, error: henna.lastError?.message ?? null });
+</script></html>

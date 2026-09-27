@@ -59,26 +59,23 @@ function S(id) {
 /** The retail tooltip's own lines for one skill, in Tooltip.uc:868 order.
  *  Returns [] when neither metadata source has loaded. */
 export function skillTooltipLines(id, level, meta) {
-  const info = skillInfo(meta, id);
-  const m = meta && meta[String(id)];
+  const info = skillInfo(meta, id, level);
   const out = [];
   if (!info) return out;
   out.push(info.name);
   // uc:939 " Lv N" — the label is SysString 88, not the word "Level"
   out.push(`${S(TIP_LV)} ${level}`);
-  const disp = SkillClass.displayType(id);
+  const disp = info.displayTypeId !== null ? S(info.displayTypeId) : null;
   if (disp) out.push(disp);
   // uc:956/963/970: HP and MP print only when > 0, Range prints when >= 0.
-  const hp = SkillClass.num(id, 'hp', level);
+  const hp = info.hp;
   if (hp > 0) out.push(`${S(TIP_HP)} : ${hp}`);
-  const mp = SkillClass.num(id, 'mp', level);
+  const mp = info.mp;
   if (mp > 0) out.push(`${S(TIP_MP)} : ${mp}`);
-  const range = SkillClass.num(id, 'range', level);
+  const range = info.range;
   if (range != null && range >= 0) out.push(`${S(TIP_RANGE)} : ${range}`);
-  // KNOWN GAP: retail calls GetDescription(classID, level) and gets the
-  // PER-LEVEL text out of skillname-e.dat. skillmeta.json keeps one string
-  // per id, so the level-1 wording is shown at every level.
-  if (m && m.desc) out.push(m.desc);
+  // Exact original level text; missing records must not borrow level 1.
+  if (info.desc) out.push(info.desc);
   return out;
 }
 
@@ -104,9 +101,14 @@ export function loadSkillTypes() {
   ]).then(() => _types);
 }
 
-/** 'ACTIVE' | 'TOGGLE' | 'PASSIVE'. Falls back to the packet's passive flag. */
+/** 'ACTIVE' | 'TOGGLE' | 'PASSIVE', with live packet availability first. */
 export function skillType(id, passiveFlag) {
   const t = _types && _types[String(id)];
+  // A received SkillList owns this character's passive flag. The static
+  // category table is useful for distinguishing active/toggle and id-only
+  // callers, but cannot override a live server snapshot.
+  if (passiveFlag === true) return 'PASSIVE';
+  if (passiveFlag === false) return t === 'TOGGLE' ? t : 'ACTIVE';
   if (t) return t;
   return passiveFlag ? 'PASSIVE' : 'ACTIVE';
 }
@@ -255,7 +257,7 @@ export class SkillWnd {
     for (const s of this.skills) {
       const type = skillType(s.id, s.passive);
       const bucket = type === 'PASSIVE' ? 'passive' : 'active';
-      const info = skillInfo(meta, s.id);
+      const info = skillInfo(meta, s.id, s.level);
 
       const cell = document.createElement('div');
       cell.className = 'l2-skill-cell';

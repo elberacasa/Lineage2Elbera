@@ -92,7 +92,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       if (!v) summary.consoleLogs.push(`PLATE CHECK FAILED: ${k}`);
     }
 
-    // -- assign: right-click a skill in the SkillWnd, right-click an item ----
+    // -- assign: right-click a skill, drag an inventory item to slot 2 -------
     await page.keyboard.down('Alt'); await page.keyboard.press('k'); await page.keyboard.up('Alt');
     await sleep(600);
     await page.evaluate(() => {
@@ -101,26 +101,31 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     });
     await sleep(400);
     await page.keyboard.down('Alt'); await page.keyboard.press('k'); await page.keyboard.up('Alt');
-    await page.keyboard.press('KeyI');
+    await page.keyboard.down('Alt'); await page.keyboard.press('v'); await page.keyboard.up('Alt');
     await sleep(400);
-    await page.evaluate(() => {
-      document.querySelector('.inv-cell[data-oid="90002"]')
-        .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
-    });
+    // Inventory right-click is native UseItem, not shortcut assignment.
+    const itemCell = await page.$('.inv-cell[data-oid="90002"]');
+    const shortcutCell = await page.$('.shortcut-slot[data-page="0"][data-slot="1"]');
+    const from = await itemCell.boundingBox(), to = await shortcutCell.boundingBox();
+    if (!from || !to) throw new Error('Inventory item or shortcut target is not visible');
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+    await page.mouse.up();
     await sleep(400);
     summary.assigned = await page.evaluate(() => ({
       data: window.__world.shortcutWnd.data,
       filled: document.querySelectorAll('.shortcut-slot:not(.empty)').length,
     }));
-    await page.keyboard.press('KeyI');
+    await page.keyboard.down('Alt'); await page.keyboard.press('v'); await page.keyboard.up('Alt');
     await page.screenshot({ path: path.join(OUT, 'sw_02_assigned.png') });
 
-    // -- F1 casts the skill; Digit2 uses the item ----------------------------
+    // -- F1 casts the skill; F2 uses the item --------------------------------
     await page.keyboard.press('F1');
     await page.waitForFunction(
       `window.__world.net.log.some(m => m.dir === 'out' && m.op === 'useSkill')`,
       { timeout: 8000 });
-    await page.keyboard.press('Digit2');
+    await page.keyboard.press('F2');
     await page.waitForFunction(
       `window.__world.net.log.some(m => m.dir === 'out' && m.op === 'useItem')`,
       { timeout: 8000 });

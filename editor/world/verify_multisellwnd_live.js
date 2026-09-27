@@ -16,6 +16,7 @@
 //      prompt, equipment is non-stackable) -> invUpdate: 875 added,
 //      116 removed, adena -557 exactly
 // Output: verify_shots/multisell_live_*.png + JSON summary.
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -39,7 +40,7 @@ const HOPS = JSON.parse(fs.readFileSync(
     [-83950, 242400, -3728], [-83900, 241800, -3720], [-83850, 241300, -3720]]);
 const ARC = [[-83900, 241000], [-83900, 240850], [-83830, 240805], [SILVIA.x, SILVIA.y]];
 
-const db = (q) => execFileSync('mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-N', '-B', '-e', q],
+const db = (q) => execFileSync('mariadb', [...dbArgs(), '-N', '-B', '-e', q],
   { encoding: 'utf8' }).trim();
 
 const summary = {};
@@ -141,9 +142,9 @@ const invCount = (itemId) => page.evaluate((iid) => (
   const levelsXml = fs.readFileSync(path.join(__dirname, '..', '..', 'server',
     'aCis_gameserver', 'build', 'dist', 'gameserver', 'data', 'xml', 'playerLevels.xml'), 'utf8');
   const exp6 = Number(/<playerLevel level="6"[^>]*requiredExpToLevelUp="(\d+)"/.exec(levelsXml)[1]);
-  execFileSync('mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-e',
+  execFileSync('mariadb', [...dbArgs(), '-e',
     `UPDATE characters SET level=6, exp=${exp6} WHERE obj_Id=${summary.char.id} AND online=0;`]);
-  execFileSync('mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-e',
+  execFileSync('mariadb', [...dbArgs(), '-e',
     `UPDATE items SET count=${SEED_ADENA} WHERE owner_id=${summary.char.id} AND item_id=57;`]);
   const adenaRow = db(`SELECT count FROM items WHERE owner_id=${summary.char.id} AND item_id=57;`);
   if (adenaRow !== String(SEED_ADENA)) throw new Error('adena seed failed (row: ' + adenaRow + ')');
@@ -170,7 +171,7 @@ const invCount = (itemId) => page.evaluate((iid) => (
   // products, so step 4 buys one of each and step 6 is a genuine 1-of-1.
   // Adena and everything else are untouched.
   const RESET_IDS = [RING, NECKLACE, 875, 876, 906];
-  execFileSync('mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-e',
+  execFileSync('mariadb', [...dbArgs(), '-e',
     `DELETE FROM items WHERE owner_id=${summary.char.id} `
     + `AND item_id IN (${RESET_IDS.join(',')});`]);
   const leftovers = db(`SELECT COALESCE(SUM(count),0) FROM items `

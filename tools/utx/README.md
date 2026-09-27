@@ -2,8 +2,12 @@
 
 Pure Python 3 stdlib tool that **replaces a texture inside a Lineage 2
 Interlude `.utx` package** (UE2, package version 117, Lineage2Ver121
-encryption) and produces a package that still loads. This closes the
-"repack" gap documented in `docs/assets-tooling.md` §4.
+encryption). The sampled replacement packages below remained readable. This closes the
+bounded "repack" case documented in the full repository's
+[asset tooling notes](https://github.com/elberacasa/Lineage2Elbera/blob/main/docs/assets-tooling.md).
+The historical measurements below concern that sample, not every package.
+The standalone Core archive includes this Python tool, but excludes the
+sample package, reference source trees, executables and integration artifacts.
 
 ## Usage
 
@@ -17,12 +21,13 @@ python3 tools/utx/utxedit.py replace <package.utx> <TextureName> <image.png>
 
 - `replace` exits 0 and prints a summary on success; non-zero with a clear
   `error: ...` message on failure (texture not found, dimension/format
-  mismatch, unreadable PNG, ...). On failure the package is never touched
-  (all checks happen before the backup/write).
+  mismatch, unreadable PNG, ...). Validation precedes replacement; a backup
+  can already exist if a later encryption or file-write operation fails.
+  Keep a separate copy of valuable input.
 - Works on encrypted (Lineage2Ver121) and already-decrypted packages.
-  Encrypted inputs are re-encrypted after patching (via
-  `tools/bin/l2encdec`); the output file keeps working in the game and in
-  umodel. Protocol 121 is XOR-FILENAME: the key derives from the file's
+  Encrypted inputs, including protocol121, require a separately supplied
+  `tools/bin/l2encdec` to re-encrypt after patching; the sampled output was
+  checked with umodel. Protocol 121 is XOR-FILENAME: the key derives from the file's
   base name, so **do not rename encrypted .utx files** — `utxedit` reads
   renamed files fine (it recovers the key umodel-style) but always
   re-encrypts against the current file name, same as the game client.

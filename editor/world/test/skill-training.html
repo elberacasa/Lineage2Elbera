@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Elbera Tools — Skill training</title>
+<style>
+body{margin:24px;background:#272727;color:#eee;font:14px system-ui}a{color:#e7c887}
+textarea{display:block;width:480px;height:75px;margin:8px 0}details{max-width:520px}
+.l2wnd{z-index:10}
+</style>
+<p><a href="index.html">Elbera Tools</a> · Original skill-training windows with explicit packet replay.
+No connection to the game server.</p>
+<details open><summary>Replay input</summary>
+<p>Paste a captured <code>acquireSkillList</code> payload and matching
+<code>acquireSkillInfo</code> payload. Values come from your capture; this page
+does not create costs or grant skills. Exact level text and art come from your local client.</p>
+<label>Skill list JSON<textarea id="list-input" spellcheck="false"></textarea></label>
+<label>Skill detail JSON<textarea id="info-input" spellcheck="false"></textarea></label>
+<label>Player status JSON (optional)<textarea id="player-input" spellcheck="false"></textarea></label>
+<button id="show">Replay list</button> <button id="done">Replay completion</button> <button id="reset">Reset session</button>
+</details>
+<p id="status" role="status">Loading original client data…</p>
+<script type="module">
+import { Skin } from '../js/ui/skin.js';
+import { Font } from '../js/ui/font.js';
+import { Layout } from '../js/ui/layout.js';
+import { SkillTrainWnd } from '../js/ui/skilltrainwnd.js';
+await Promise.all([Skin.load(), Font.load(), Layout.load()]);
+const status = document.querySelector('#status');
+const trainer = new SkillTrainWnd(document.body, {
+  getPlayer() {
+    const value = document.querySelector('#player-input').value;
+    return value ? JSON.parse(value) : {};
+  },
+  send(op, request) {
+    status.textContent = `Replay request: ${op} ${JSON.stringify(request)}; nothing sent to a server.`;
+    if (op === 'acquireSkillInfo') {
+      try {
+        const info = JSON.parse(document.querySelector('#info-input').value);
+        queueMicrotask(() => {
+          if (!trainer.details(info)) status.textContent = 'Detail payload does not match the selected skill, level and type.';
+        });
+      } catch (error) { status.textContent = `Invalid detail JSON: ${error.message}`; return false; }
+    }
+    return true;
+  },
+});
+await trainer.ready;
+status.textContent = trainer.lastError?.message || 'Ready. Paste source packet data to inspect the original controls.';
+document.querySelector('#show').addEventListener('click', () => {
+  try {
+    if (!trainer.list(JSON.parse(document.querySelector('#list-input').value))) throw new Error('Invalid acquisition list');
+    if (trainer.lastError) throw trainer.lastError;
+    document.querySelector('details').open = false;
+    status.textContent = 'Replaying supplied list. No live eligibility or learning is implied.';
+  } catch (error) { status.textContent = error.message; }
+});
+document.querySelector('#reset').addEventListener('click', () => { trainer.reset(); status.textContent = 'Replay session reset.'; });
+document.querySelector('#done').addEventListener('click', () => { trainer.done(); status.textContent = 'Replayed completion: both windows hidden, no local skill or resource mutation.'; });
+</script></html>

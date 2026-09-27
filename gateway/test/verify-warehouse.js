@@ -23,6 +23,7 @@
 //  5. Re-open DepositP -> fresh whDeposit: adena and item counts confirm.
 'use strict';
 
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -204,7 +205,7 @@ async function talkAndGetLink(id, regex, label) {
   // 15s when the char is IN COMBAT (we just fought gremlins). Poll the
   // online flag instead of sleeping a fixed time; seeding earlier is
   // silently overwritten by the delayed save (in-memory state wins).
-  const db = (q) => execFileSync('mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
+  const db = (q) => execFileSync('mariadb', [...dbArgs(), '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
   let offline = false;
   for (let i = 0; i < 30 && !offline; i++) {
     await sleep(2000);
@@ -213,7 +214,7 @@ async function talkAndGetLink(id, regex, label) {
   if (!offline) throw new Error('char still online 60s after logout');
   await sleep(1000);
   console.log('   char offline (logout save done) — seeding');
-  execFileSync('mariadb', ['-u', 'l2j', '-pl2jpass', 'l2jdb', '-e',
+  execFileSync('mariadb', [...dbArgs(), '-e',
     `UPDATE items SET count=${SEED_ADENA} WHERE owner_id=${charId} AND item_id=57;`]);
   const adenaRow = db(`SELECT count FROM items WHERE owner_id=${charId} AND item_id=57;`);
   if (adenaRow !== String(SEED_ADENA)) throw new Error('adena seed failed (row: ' + adenaRow + ')');

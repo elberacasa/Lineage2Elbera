@@ -1,3 +1,15 @@
+// ARCHIVED: this ID-only visual oracle predates the exact source Agent join.
+// Keep it unavailable rather than allowing diagnostic `skill[id]` aliases to
+// certify current runtime behavior. This exits before importing browser tools,
+// opening a session or writing a receipt, including when old assets are present.
+console.error('UNSUPPORTED: verify_skillvfx uses retired skill-ID effect aliases. '
+  + 'Original skill 1177 level 1 has no Agent; its same-ID Skill.usk object is not its binding. '
+  + 'Use tools/ui/check_cast_agent_native.py --check and '
+  + 'node --test editor/world/test/skillvfx-binding.test.mjs for the exact binding checks. '
+  + 'Those checks do not certify visual rendering or phase timing.');
+process.exit(2);
+
+// Historical implementation below; not an active verification suite.
 // Retail skill-VFX verification (js/skillvfx.js + assets/gamedata/skillvfx.json).
 //
 // Drives the REAL path: net.inject() logs + dispatches the message exactly as

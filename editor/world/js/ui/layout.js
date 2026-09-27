@@ -15,6 +15,26 @@
 // substitute an invented number.
 
 const SRC = '/gamedata/interface.json';
+
+/** Preserve repeated original sibling records without losing them in a Map.
+ * Occurrence suffixes are browser layout keys, never original control names. */
+export function sourceControls(root, excludeNames = []) {
+  const entries = [], excluded = new Set(excludeNames);
+  function copy(node, path) {
+    const out = { ...node, sourceName: node.name, children: [] };
+    const children = (node.children || []).filter(child => !excluded.has(child.name));
+    const counts = new Map(), seen = new Map();
+    for (const child of children) counts.set(child.name, (counts.get(child.name) || 0) + 1);
+    for (const child of children) {
+      const occurrence = seen.get(child.name) || 0; seen.set(child.name, occurrence + 1);
+      const key = counts.get(child.name) > 1 ? `${child.name}#${occurrence}` : child.name;
+      const childPath = `${path}.${key}`, result = copy(child, childPath);
+      result.name = key; out.children.push(result); entries.push({ node: result, path: childPath });
+    }
+    return out;
+  }
+  return { root: copy(root, root.name), entries };
+}
 // Rects measured out of the shipped background art by tools/ui/mine_invslots.py
 // (tier 3) and cross-checked against the xdat anchors it does have. Needed
 // because parse_xdat.py recovers only 1 of InventoryWnd's 15 EquipItem_*
@@ -47,36 +67,67 @@ let _wells = null;
 let _shortcut = null;
 let _native = null;
 let _docks = null;
+let _loading = null;
 const _index = new Map();       // 'Window/Control' -> node (FLAT, see below)
 const _pathIndex = new Map();   // 'Window/Sub/.../Control' -> node (full path)
+const _windows = new Map();     // full source path -> Window, null if ambiguous
+const _windowAliases = new Map(); // unique Window name -> full source path
+
+function uniqueEntry(index, key, value) {
+  if (index.has(key) && index.get(key) !== value) index.set(key, null);
+  else if (!index.has(key)) index.set(key, value);
+}
+
+function windowPath(name) {
+  // A top-level name already is a full path; a nested alias must never
+  // shadow it. Otherwise only a globally unique Window name is admitted.
+  if (_windows.has(name)) return _windows.get(name) ? name : null;
+  const path = _windowAliases.get(name);
+  return path && _windows.get(path) ? path : null;
+}
+
+function collectWindows(node, path, topLevel = false) {
+  if (topLevel || node.type === 'Window') {
+    uniqueEntry(_windows, path, node);
+    uniqueEntry(_windowAliases, node.name, path);
+  }
+  for (const c of node.children || []) collectWindows(c, `${path}/${c.name}`);
+}
 
 // The xdat reuses control names across sub-windows (ShortcutWnd declares
 // PrevBtn per orientation AND per joypad variant; ChatWindow has 5 panes).
 // The FLAT index keeps only the LAST record for a bare name — documented
-// last-wins, kept for backward compatibility. The path index keeps every
-// record: find()/pos()/size()/tex()/grid() accept a slash path
+// last-wins, kept for backward compatibility. The path index rejects
+// duplicate exact paths: find()/pos()/size()/tex()/grid() accept a slash path
 // ('ShortcutWndHorizontal/PrevBtn') to reach a specific one.
 function indexTree(winName, node, path) {
   _index.set(`${winName}/${node.name}`, node);      // last wins
-  _pathIndex.set(`${winName}/${path}`, node);       // every record
+  uniqueEntry(_pathIndex, `${winName}/${path}`, node);
   for (const c of node.children || []) indexTree(winName, c, `${path}/${c.name}`);
 }
 
 export const Layout = {
   async load() {
     if (_doc) return Layout;
-    _wells = await fetch(WELLS).then(r => (r.ok ? r.json() : null)).catch(() => null);
-    _shortcut = await fetch(SHORTCUT).then(r => (r.ok ? r.json() : null)).catch(() => null);
-    _native = await fetch(NATIVE).then(r => (r.ok ? r.json() : null)).catch(() => null);
-    _docks = await fetch(DOCKS).then(r => (r.ok ? r.json() : null)).catch(() => null);
-    _doc = await fetch(SRC).then(r => (r.ok ? r.json() : null)).catch(() => null);
-    if (!_doc) { _doc = { windows: [], textures: {} }; return Layout; }
-    for (const w of _doc.windows) {
-      _index.set(`${w.name}/`, w);
-      _pathIndex.set(`${w.name}/`, w);
-      for (const c of w.children || []) indexTree(w.name, c, c.name);
-    }
-    return Layout;
+    // Index one parsed tree. Two concurrent responses contain distinct object
+    // identities and would otherwise turn valid paths into ambiguity markers.
+    if (!_loading) _loading = (async () => {
+      _wells = await fetch(WELLS).then(r => (r.ok ? r.json() : null)).catch(() => null);
+      _shortcut = await fetch(SHORTCUT).then(r => (r.ok ? r.json() : null)).catch(() => null);
+      _native = await fetch(NATIVE).then(r => (r.ok ? r.json() : null)).catch(() => null);
+      _docks = await fetch(DOCKS).then(r => (r.ok ? r.json() : null)).catch(() => null);
+      _doc = await fetch(SRC).then(r => (r.ok ? r.json() : null)).catch(() => null);
+      if (!_doc) { _doc = { windows: [], textures: {} }; return Layout; }
+      for (const w of _doc.windows) collectWindows(w, w.name, true);
+      for (const [path, w] of _windows) {
+        if (!w) continue;
+        _index.set(`${path}/`, w);
+        uniqueEntry(_pathIndex, `${path}/`, w);
+        for (const c of w.children || []) indexTree(path, c, c.name);
+      }
+      return Layout;
+    })();
+    return _loading;
   },
 
   get ready() { return _doc !== null; },
@@ -84,16 +135,19 @@ export const Layout = {
   get windowNames() { return (_doc ? _doc.windows : []).map(w => w.name); },
 
   window(name) {
-    return (_doc ? _doc.windows : []).find(w => w.name === name) || null;
+    const path = windowPath(name);
+    return path ? _windows.get(path) : null;
   },
 
   /** A control anywhere inside `winName`. A bare name uses the flat
    *  last-wins index; a slash path ('SubWindow/Control') is exact. */
   find(winName, ctrlName) {
+    const root = windowPath(winName);
+    if (!root) return null;
     if (ctrlName && ctrlName.includes('/')) {
-      return _pathIndex.get(`${winName}/${ctrlName}`) || null;
+      return _pathIndex.get(`${root}/${ctrlName}`) || null;
     }
-    return _index.get(`${winName}/${ctrlName}`) || null;
+    return _index.get(`${root}/${ctrlName}`) || null;
   },
 
   /** {w, h} in retail pixels, or null when the xdat left the size implicit
@@ -183,6 +237,12 @@ export const Layout = {
   dock(name) {
     const d = _docks && _docks.docks && _docks.docks[name];
     return (d && d.x != null && d.y != null) ? { x: d.x, y: d.y } : null;
+  },
+
+  /** Separate XMLDefaultPositionItemData reset record. This is not the
+   * common creation anchor or a WindowsInfo.ini saved coordinate. */
+  windowDefault(name) {
+    return _docks?.defaults?.[name] || null;
   },
 
   /** A colour ladder NWindow.dll walks in code: an ordered list of

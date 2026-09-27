@@ -1,25 +1,36 @@
 # Elbera root repo — ignore copyrighted assets, binaries, caches, secrets
-# Tracked: our source code (panel/, editor/ apps, gateway/src, tools/ code,
-# deploy/, docs/), manifests and JSON data catalogs (assets/gamedata/,
-# editor/characters/*.json, panel/config-*.json).
+# Tracked: our source, authored documentation, package dependency manifests,
+# and selected presentation screenshots under docs/img/. Generated game data
+# and local receipts remain on the operator's disk, not in the source release.
 
 # macOS
 .DS_Store
 
 # Secrets
 db-credentials.txt
+.env
+.env.*
+!.env.example
 
 # Logs
 *.log
 
 # Copyrighted NCSoft client assets + converted outputs (regenerable via tools/)
-# (assets/gamedata/*.json text catalogs stay tracked; icons/ are NCSoft PNGs)
+assets/gamedata/
 assets/interlude/
 assets/library/
 assets/world/
 assets/world-hd/
 assets/audio/
 assets/gamedata/icons/
+# Newly decoded original quest prose and records stay local. Regenerate with
+# tools/dat/export_quests.py; the public repository carries the decoder only.
+assets/gamedata/quests.json
+assets/gamedata/npcvisual.json
+assets/gamedata/npcanimations.json
+assets/gamedata/npcmaterials.json
+assets/gamedata/dialogbox.json
+assets/gamedata/questmark.json
 Screenshots/
 
 # aCis server — separate git repo with its own history (see server/.git)
@@ -29,16 +40,17 @@ server/
 node_modules/
 
 # Editor — regenerable model binaries, caches, verify screenshots
-# (manifests / *.json configs in editor/characters/ stay tracked)
+editor/settings.json
+editor/characters/*.json
+editor/characters/monsters/*.json
+editor/characters/armor/manifest.json
+editor/characters/weapons/
 editor/cache/
 editor/characters/models/
 editor/characters/models_lq/
 editor/characters/monsters/models/
-# Armor paperdoll build output (tools/mesh/build_armor.py): 638 geometry glTFs
-# and 3,979 diffuse PNGs, 781 MB. Weapons are small enough to track (12 MB);
-# this is not. armor/manifest.json stays tracked, like every other manifest.
+# Armor paperdoll output, including its source-derived manifest.
 editor/characters/armor/*/
-!editor/characters/armor/manifest.json
 editor/charcreate/verify_shots/
 editor/world/verify_shots/
 
@@ -57,6 +69,8 @@ tools/maps/out/
 
 # Panel — runtime backups
 panel/backups/
+panel/config-catalog.json
+panel/config-defaults.json
 
 # Temp artifacts
 tmp/
@@ -66,7 +80,8 @@ tools/src/open-l2encdec/
 
 # ElberaSkin staged UI art — NCSoft PNGs extracted from your own client
 # (regenerate: tools/ui/build_uiskin.py, tools/ui/build_font.py).
-# The manifests beside them are text catalogs and stay tracked.
+# The manifests beside them are also generated from the original client.
+editor/world/ui/*.json
 editor/world/ui/skin/
 editor/world/ui/font/
 editor/world/ui/atlas/
@@ -87,11 +102,26 @@ gateway/.governor-state
 
 # Audit/inspection screenshots — regenerable evidence, not source
 editor/world/audit_shots/
+editor/world/audit_report/
+editor/world/sky_shots/
+editor/world/ui_color_shots_before/
+editor/world/ui_color_shots_after/
 editor/world/ui_shots/
 editor/world/ui_geom_shots/
 editor/world/ui_geom_shots_before/
 editor/world/ui_geom_shots_after/
 editor/world/verify_shots/
+editor/world/verify_*.json
+gateway/test/capture-skills.json
+gateway/test/road-to-town.json
+tools/anim/*.json
+tools/audit/*_baseline.json
+!tools/audit/unsourced_baseline.json
+!tools/audit/retail_gaps_baseline.json
+tools/maps/maps/
+tools/src/char_pipeline/*_baseline.json
+tools/src/char_pipeline/f5_scale_check.png
+tools/world/batch_failures.txt
 
 # The owner's own reference screenshots — input to the work, not source
 editor/world/human_shots/
@@ -99,3 +129,9 @@ editor/world/human_shots/
 # Outreach drafts and their screenshots — the owner's own marketing material,
 # not part of the port. Kept local; regenerable via outreach/shots/capture.js.
 outreach/
+# Original-client-derived skill-training layout (Elbera Tools local output).
+assets/gamedata/skilltraining.json
+assets/gamedata/henna.json
+assets/gamedata/recipes.json
+assets/gamedata/skilltext.json
+assets/gamedata/appearance.json

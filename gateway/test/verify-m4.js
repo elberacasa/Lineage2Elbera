@@ -6,8 +6,9 @@
 //           -> nuke a Gremlin with Wind Strike -> loot the drop.
 'use strict';
 
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const WebSocket = require('ws');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const url = process.env.GATEWAY_URL || 'ws://127.0.0.1:8090';
 const deviceId = process.argv[2] || 'verify-m4-' + Date.now();
@@ -17,7 +18,7 @@ const SELF_HEAL = 1216;
 const WIND_STRIKE = 1177;
 
 function sql(q) {
-  return execSync(`mariadb -u l2j -pl2jpass l2jdb -N -e "${q}" 2>/dev/null`).toString().trim();
+  return execFileSync('mariadb', [...dbArgs(), '-N', '-e', q], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 }
 
 function connect(devId) {

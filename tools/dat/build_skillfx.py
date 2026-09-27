@@ -1,41 +1,48 @@
 #!/usr/bin/env python3
-"""Build assets/gamedata/skillfx.json — the consumable per-skill visual
-presentation map: cast animation, sounds, and the REAL retail effect
-binding with asset paths that exist on disk.
+"""Build the legacy diagnostic assets/gamedata/skillfx.json presentation map.
+
+This older ID/name-based builder is not an authoritative native effect
+selector. Runtime Agent bindings now come from build_skillvfx.py's exact-level
+skillgrp source paths; no-Agent native effects need their separate compiled
+ID dispatch (docs/native-legacy-skill-effects-evidence.md).
 
 Inputs (all decoded from the retail client, in this repo):
   assets/gamedata/skillgrp.json           skillgrp.dat — anim code, is_magic,
                                           cast_range, hit_time
   assets/gamedata/skillname.json          skillname-e.dat — display names
   assets/gamedata/skillsoundgrp.json      skillsoundgrp.dat — spell sounds
-  assets/gamedata/skillvisualeffect.json  Skill.usk — EXPLICIT per-skill
-                                          effect binding (244 skills,
+  assets/gamedata/skillvisualeffect.json  Skill.usk — legacy leaf-keyed
+                                          object index (244 objects,
                                           tools/dat/parse_skillfx.py)
   assets/gamedata/lineageeffect.json      LineageEffect.u — 864 effect
                                           classes (emitters/textures/meshes/
                                           colors, tools/dat/parse_skillfx.py)
   assets/library/manifest.json            exported texture index
 
-Effect binding resolution (docs/skillfx-data.md):
-  1. explicit     — the skill has a SkillVisualEffect object in Skill.usk.
+Legacy diagnostic resolution (not proof of original client selection):
+  1. explicit     — the old table has a same-ID SkillVisualEffect leaf.
+     This does not establish the exact skill-level's qualified Agent path.
   2. name-convention — no Skill.usk entry, but the sanitized skill name
      matches exactly ONE effect-class family in LineageEffect.u (prefixes
-     never collide per family — verified). This is the mechanism the
-     retail client falls back to; flagged so the client can weigh it.
-  3. null         — no data. NEVER substituted with an invented effect.
+     never collide per family in that index). This is an exporter heuristic,
+     not the original fallback. Native no-Agent methods contain ID switches
+     and explicit class paths, including Wind Strike's m_u000_a/b/c/d.
+  3. null         — this legacy builder has no match; it does not prove the
+     original client has no effects.
 
 Asset rules (hard): every texture/mesh path in an entry is verified to
 exist on disk (library PNGs already exported; static meshes exported by
 this tool via umodel into assets/library/<Package>/). Anything that
 cannot resolve lands in the entry's "missing" list.
 
-castClip derivation (documented, not invented): Pawn.uc (recovered source
+Legacy castClip heuristic: Pawn.uc (recovered source
 inside Engine.u) declares CastShort (<1s) / CastMid (2-5s) / CastLong
 (5s+) per the Korean comments — mapped from skillgrp hit_time. Dance
 skills (anim code N) use Social_dance exactly. Physical SpAtkNN clip
-selection per letter code is native code and NOT recovered — castClip is
-omitted there. All clip names are cross-checked against the Fighter.ukx
-name table at build time.
+selection per letter code is omitted here. It has since been recovered in
+tools/ui/check_skillanim_native.py; this older duration-based selection must
+not override that source mapping. Clip names are cross-checked against the
+Fighter.ukx name table, which proves existence, not selection behavior.
 
 Usage:
   /usr/bin/python3 tools/dat/build_skillfx.py           # write JSON + export meshes

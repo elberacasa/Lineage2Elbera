@@ -23,9 +23,8 @@ export class SkillBar {
     this.castName = castNameEl;
     this.onCast = onCast || (() => {});
     this.skills = new Map();   // skillId -> {level, cooling, timer}
-    this.cast = null;          // {skillId, t0, hitTime, raf}
+    this.cast = null;          // {skillId, t0, hitTime, raf, timer}
     this.reuse = new Map();    // skillId -> {t0, total} ms (sweep overlays)
-    this._seenCancels = new WeakSet();  // skillCancel messages already accounted for
   }
 
   /** Server-authoritative reuse (skillCoolTime op — total/left in ms
@@ -94,8 +93,7 @@ export class SkillBar {
     // and every server-side instant skill into a phantom 1-second cast bar for
     // a skill the player never pressed.
     if (!(hitTime > SkillBar.MIN_GAUGE_MS)) return;
-    this._absorbCancels();
-    this.cast = { skillId, t0: performance.now(), hitTime };
+    const cast = this.cast = { skillId, t0: performance.now(), hitTime };
     // NOTE: the cast no longer seeds `reuse`. It used to call
     // setReuse(skillId, hitTime) as a stand-in, which put a 1-second cooldown
     // sweep on toggles (reuse is genuinely 0 there) and a hitTime-long one on
@@ -103,107 +101,41 @@ export class SkillBar {
     // skillCast.reuse (MagicSkillUse) and skillCoolTime (SkillCoolTime).
     this.castName.textContent = name || `Skill #${skillId}`;
     this.castBar.classList.add('visible');
-    // Server-authoritative abort, read straight off the inbound ring: the
-    // gateway now forwards MagicSkillCanceled as `skillCancel`. Polled rather
-    // than wired with net.on() because NetClient keeps ONE handler per op and
-    // main.js owns the wiring (same constraint as SkillFx._pump below).
-    //
-    // On a TIMER, not on the animation frame. requestAnimationFrame stops in a
-    // background tab and starves under load — one headless run here went 11 s
-    // without a frame — and a cast bar whose end depends on frames outlives
-    // the cast. The fill is a visual and stays on rAF; the LIFECYCLE does not.
-    this.cast.poll = setInterval(() => {
-      if (!this.cast) return;
-      if (this._cancelledByServer()
-          || performance.now() - this.cast.t0 >= this.cast.hitTime) this.stopCastBar();
-    }, 50);
+    // main.js dispatches server cancellation directly. Expiration also has
+    // a timer because animation frames stop in background tabs. Both callbacks
+    // belong to this cast and cannot stop a newer cast if already queued.
+    cast.timer = setTimeout(() => {
+      if (this.cast === cast) this.stopCastBar();
+    }, hitTime);
     const tick = () => {
-      if (!this.cast) return;
-      const f = Math.min(1, (performance.now() - this.cast.t0) / this.cast.hitTime);
+      if (this.cast !== cast) return;
+      const f = Math.min(1, (performance.now() - cast.t0) / cast.hitTime);
       this.castFill.style.width = (f * 100).toFixed(1) + '%';
-      if (f < 1) this.cast.raf = requestAnimationFrame(tick);
+      if (f < 1) cast.raf = requestAnimationFrame(tick);
       else this.stopCastBar();
     };
     tick();
   }
 
   stopCastBar() {
-    if (this.cast && this.cast.raf) cancelAnimationFrame(this.cast.raf);
-    if (this.cast && this.cast.poll) clearInterval(this.cast.poll);
+    if (this.cast?.raf != null) cancelAnimationFrame(this.cast.raf);
+    if (this.cast?.timer != null) clearTimeout(this.cast.timer);
     this.cast = null;
     this.castBar.classList.remove('visible');
   }
 
-  /** The server aborted the in-flight cast. The authoritative signals are
-   *  MagicSkillCanceled (gateway op `skillCancel`) and sysMsg 27
-   *  CASTING_INTERRUPTED / 748 DIST_TOO_FAR_CASTING_STOPPED.
-   *
-   *  A bare ActionFailed is NOT one of them, and main.js calls this from its
-   *  actionFailed handler — hence the guard. Captured live
-   *  (capture-skills.js, MOVE-WHILE-CASTING probe): a movement click 1.5 s
-   *  into a 7816 ms Heal produced two bare ActionFailed packets while the
-   *  server cast on to completion (skillLaunch at +7446 ms, effects at
-   *  +7839 ms). aCis sends that ActionFailed from
-   *  PlayableAI.onIntentionMoveTo whenever getCast().isCastingNow(); the same
-   *  packet also answers a reuse denial and an invalid target. Cancelling on
-   *  it desynced the client from every cast the player walked during. */
+  /** Call only from an explicit cancellation event. main.js filters the
+   *  caster and retains the existing aCis system-message compatibility rule.
+   *  A bare ActionFailed carries no cancellation evidence. */
   cancelCast() {
-    if (!this._serverAbortEvidence()) return;
-    this._forceCancel();
-  }
-
-  /** Cancel with no evidence check — for callers that already know (tests,
-   *  world exit, the skillCancel op itself). */
-  _forceCancel() {
     const id = this.cast && this.cast.skillId;
     this.stopCastBar();
     if (id != null) this.finishCast(id);
   }
 
-  /** Tail of the inbound message ring, or null when there is no net client
-   *  (offline/solo and unit tests). */
-  _inboundTail(scan = 8) {
-    const w = typeof window !== 'undefined' && window.__world;
-    const log = w && w.net && w.net.log;
-    if (!log || !log.length) return null;
-    return log.slice(Math.max(0, log.length - scan)).filter(m => m.dir === 'in');
-  }
-
-  /** True when an authoritative abort is in the recent inbound tail. With no
-   *  ring available at all the caller is trusted (keeps offline callers and
-   *  the existing suites working). */
-  _serverAbortEvidence() {
-    const tail = this._inboundTail();
-    if (tail === null) return true;
-    return tail.some(m => m.op === 'skillCancel'
-      || (m.op === 'sysMsg' && (m.id === 27 || m.id === 748)));
-  }
-
-  /** A skillCancel naming our own caster id that arrived AFTER this bar
-   *  started. Ring entries are fresh objects (net.js pushes {dir, ...msg}), so
-   *  identity in a WeakSet is a safe "already accounted for" marker and ring
-   *  rotation cannot replay one — the same trick SkillFx._pump uses. */
-  _cancelledByServer() {
-    if (!this.cast) return false;
-    const tail = this._inboundTail(24);
-    if (!tail) return false;
-    const w = typeof window !== 'undefined' && window.__world;
-    const selfId = w && w.net && w.net.selfId;
-    return tail.some(m => m.op === 'skillCancel'
-      && (selfId == null || m.casterId === selfId)
-      && !this._seenCancels.has(m));
-  }
-
-  /** Everything already in the ring predates this cast: absorb it so only a
-   *  NEW MagicSkillCanceled kills the bar. */
-  _absorbCancels() {
-    for (const m of this._inboundTail(24) || []) {
-      if (m.op === 'skillCancel') this._seenCancels.add(m);
-    }
-  }
-
   clear() {
     this.skills.clear();
+    this.reuse.clear();
     this.stopCastBar();
   }
 }
@@ -215,7 +147,7 @@ export class SkillBar {
 export { SkillClass, loadSkillClass, skillClassLoaded, setSkillClassData }
   from './skillclass.js';
 
-// skill launch flash: small additive sprite that pops and fades
+// Explicitly bound original skill effects; legacy flash calls are no-ops.
 let _activeFx = null;   // the live SkillFx (registered at construction)
 
 /** The SkillFx instance main.js created — for modules that must spawn an
@@ -225,203 +157,143 @@ let _activeFx = null;   // the live SkillFx (registered at construction)
 export function activeSkillFx() { return _activeFx; }
 
 export class SkillFx {
-  constructor(scene) {
+  constructor(scene, { getEntity = () => null, onNativeSound = () => {} } = {}) {
     this.scene = scene;
-    this.fx = [];
-    this.tex = makeGlowTexture();
-    this.vfx = new SkillVfx(scene);      // the retail effect player
-    this._seen = new WeakSet();          // skill messages already turned into FX
+    this.fx = [];                       // compatibility: no authored sprites
+    this.vfx = new SkillVfx(scene);
+    this.getEntity = getEntity;
+    this.ready = vfxIndex().then(index => { this.index=index; return index; });
+    this.onNativeSound=onNativeSound;
+    this.nativeContexts=new Map();
+    this.generation = 0;
+    this.castGeneration = new Map();
     _activeFx = this;
   }
 
-  /** Drive the retail effects off the net message ring, once per frame.
-   *
-   *  The obvious hook — registering our own net.on('skillCast') — is not
-   *  available: NetClient keeps ONE handler per op (net.js `handlers[op] = fn`,
-   *  so we would displace main.js's), and window.__world.net is a read-only
-   *  facade that never exposes the handler map anyway. What it does expose is
-   *  `log`, the ring of every inbound message (capped at 200, entries pushed as
-   *  fresh objects). So we poll it: each frame, walk the tail and spawn effects
-   *  for any skillCast/skillLaunch not seen before. Identity via WeakSet means
-   *  ring rotation cannot cause a replay, and the worst-case latency is one
-   *  frame. This keeps every skill visual inside files this worker owns —
-   *  main.js needs no edit.
-   */
-  _pump() {
-    const w = typeof window !== 'undefined' && window.__world;
-    if (!w || !w.net || !w.net.log) return;
-    const log = w.net.log;
-    for (let i = Math.max(0, log.length - 24); i < log.length; i++) {
-      const m = log[i];
-      if (!m || m.dir !== 'in') continue;
-      if (m.op !== 'skillCast' && m.op !== 'skillLaunch') continue;
-      if (this._seen.has(m)) continue;
-      this._seen.add(m);
-      // half = the actor's collision half-height, which is where UE measures
-      // effect offsets from (see skillvfx.js Instance._place)
-      // yaw = the actor's facing (group.rotation.y, 0 = +Z_three per
-      // coords.l2HeadingToThreeYaw), which is what a SkillAction_LocateEffect
-      // with bUseCharacterRotation spawns its effect in.
-      const anchors = {
-        caster: { pos: () => entityPos(m.casterId), half: entityHalf(m.casterId),
-                  yaw: () => entityYaw(m.casterId) },
-        // a self-target skill names the caster; entityPos resolves the local
-        // player too, so this covers both without special-casing
-        target: { pos: () => entityPos(m.targetId) || entityPos(m.casterId),
-                  half: entityHalf(m.targetId) || entityHalf(m.casterId),
-                  yaw: () => entityYaw(m.targetId) ?? entityYaw(m.casterId) },
-      };
-      try {
-        if (m.op === 'skillCast') this.vfx.cast(m.skillId, anchors);
-        else this.vfx.launch(m.skillId, anchors);
-      } catch (e) { /* a broken visual must never stall the frame loop */ }
-    }
+  /** Reserve a native Agent cast at receipt. A cold source index remains on
+   *  the existing provisional path for this entire cast; never switch clocks
+   *  after playing an earlier packet effect or voice. */
+  prepareCast(msg) {
+    this.cancel(msg.casterId);
+    this.nativeContexts.delete(msg.casterId);
+    const agent=skillAgentBinding(this.index,msg.skillId,msg.level);
+    const caster=this.getEntity(msg.casterId);
+    if (agent.status!=='resolved-source-object' || !caster?.startCastSchedule || caster.dead || !(msg.hitTime>0)) return null;
+    const target=this.getEntity(msg.targetId) || null;
+    const context={skillId:msg.skillId,level:msg.level,
+      retired:false,state:null,associations:[],actorIds:new Map([[caster,msg.casterId]])};
+    if (target) context.actorIds.set(target,msg.targetId);
+    this.nativeContexts.set(msg.casterId,context);
+    const isCurrent=()=>!context.retired && this.nativeContexts.get(msg.casterId)===context
+      && this.getEntity(msg.casterId)===caster && caster.castGeneration===context.generation;
+    const reject=reason=>{context.retired=true;context.reason=reason;this._releaseNativeActors(context);};
+    return {
+      configure:({schedule,modelSource})=>{
+        if (context.retired || context.completed || this.nativeContexts.get(msg.casterId)!==context) return;
+        context.state=createPawnSkill({schedule,modelSource,agent,caster,mainTarget:target,
+          skillId:msg.skillId,level:msg.level});
+        if (context.state.status!=='ready') {reject(context.state.reason);return;}
+        for (const association of context.associations) associatePawnSkill(context.state,association);
+        context.associations=[];
+      },
+      start:generation=>{context.generation=generation;},
+      tick:tick=>{
+        if (!isCurrent() || context.completed || context.state?.status!=='ready') return;
+        const result=consumePawnSkillTick(context.state,{...tick,
+          actionTargetPresent:!!target && this.getEntity(msg.targetId)===target});
+        // Inspector diagnostics must not retain removed Character/GLTF graphs.
+        if (result.status!=='ready' || result.completion || result.dispatches.length)
+          this.lastNativeTick={...result,dispatches:(result.dispatches||[]).map(d=>({...d,
+            plan:{status:d.plan.status,calls:d.plan.calls.map(c=>({sourceIndex:c.sourceIndex,
+              targetSource:c.targetSource,associatedIndex:c.associatedIndex}))}}))};
+        if (result.status!=='ready') {reject(result.reason);return;}
+        for (const dispatch of result.dispatches) {
+          if (!isCurrent()) break;
+          this.vfx.dispatchActions(dispatch.plan,actor=>this._anchor(context.actorIds.get(actor),actor),isCurrent);
+          if (dispatch.soundType) this.onNativeSound({type:dispatch.soundType,skillId:msg.skillId,
+            level:msg.level,caster,isCurrent});
+        }
+        if (tick.complete) {context.completed=true;this._releaseNativeActors(context);}
+      },
+      cancel:()=>reject('cast-retired'),reject,
+    };
   }
 
-  // THE SOULSHOT GLINT IS GONE, and the colour argument is what identifies it.
-  //
-  // Two callers exist in the whole client (grep `.flash(`):
-  //   entities.js:578   fx.flash(_headPos)                  — no colour
-  //   main.js:1341      skillFx.flash(shotPos, 0xfff2a8)    — the shot glint
-  // so "a colour was passed" means "this is the soulshot glint", and that
-  // glint is INVENTED. It is `makeGlowTexture()` — the same additive sprite
-  // this class pops for anything without retail data — tinted with a literal
-  // 0xfff2a8 that appears in no client table, fired off the Attack packet's
-  // HITFLAG_SS. That is exactly the "animation that's used everywhere"
-  // complaint, and there is nothing to replace it with:
-  //
-  //   * The retail trigger for a shot is not the hit at all. aCis
-  //     SoulShots.useItem charges the weapon and broadcasts
-  //     MagicSkillUse(player, player, item.getSkills()[0].getId(), 1, 0, 0)
-  //     in radius 600 — item_skill 2039/2047/2061 and 2150..2164 in the
-  //     datapack's items XML. The gateway already forwards that as skillCast,
-  //     so _pump() below sees it like any other cast.
-  //   * skillgrp.dat gives all 18 of those skills animation "" and hit_time 0
-  //     (assets/gamedata/skillgrp.json), so retail plays NO cast gesture —
-  //     clipForSkill() already returns null for them, correctly.
-  //   * skillsoundgrp.dat gives them SkillSound.soul_shot_cast /
-  //     spirits_shot_cast, already bound in assets/audio/bindings.json and
-  //     already played by main.js's skillCast handler via gameSound.cast().
-  //   * The client's skill -> effect table (animations/Skill.usk, 244
-  //     SkillVisualEffect objects named by skill id) has NO entry for any of
-  //     the 18. The only shot effects in LineageEffect.u are
-  //     it_soul_shot_d_ca and it_spirit_shot_d_ca, and Skill.usk binds them
-  //     ONLY to the BEAST shots (skill 2033 on bones soulshot1+soulshot2,
-  //     skill 2008 on soulshot1) — bones that exist only in
-  //     LineageMonsters*.ukx, never in Fighter.ukx. Binding a pet effect to a
-  //     player would be a guess, so it is not done.
-  //   * DOCUMENTED GAP: engine.dll does carry a per-attack shot parameter —
-  //     Engine.u declares SoulshotGrade (int) and bSpirit (bool) on both
-  //     NAttackActionParam and NPrimeActionParam, and engine.dll exports
-  //     FL2GameData::SoulShotDataLoad — but no .dat in the client's system/
-  //     directory holds that table and no decodable file binds those fields
-  //     to an asset. Whatever the retail client draws on a shot-charged swing
-  //     is selected in native code we cannot read. It stays undrawn rather
-  //     than approximated.
-  //
-  // The uncoloured caller is untouched: a self-target skillLaunch that the
-  // retail tables do not bind still gets the neutral pop, and any launch
-  // already drawn from the retail tables by _pump() suppresses it.
-  flash(worldPos, color = null, size = 0.6) {
-    if (color != null) return;          // the invented shot glint: draw nothing
-    const w = typeof window !== 'undefined' && window.__world;
-    if (w && lastSkillMsg(w.net.log, { op: 'skillLaunch' })) return;
-    this._pop(worldPos, 0x80c0ff, size);
+  /** A received launch adds source-ordered associated actors; it cannot fire
+   *  or revive native Agent effects. Keep completed/cancelled contexts as
+   *  tombstones until the next cast so late packets cannot enter the old path. */
+  associate(msg) {
+    const context=this.nativeContexts.get(msg.casterId);
+    if (!context) return false;
+    if (context.retired || context.completed || context.skillId!==msg.skillId) return true;
+    const target=this.getEntity(msg.targetId);
+    if (!target) return true;
+    context.actorIds.set(target,msg.targetId);
+    const association={skillId:msg.skillId,target};
+    if (context.state) associatePawnSkill(context.state,association);
+    else context.associations.push(association);
+    return true;
   }
 
-  // Provenance tag, read by verify_soulshot.js and by anything else that has
-  // to tell an AUTHORED sprite from a sourced one. SkillVfx tags its own
-  // objects `skillvfx.json` / `skillmesh.json` (skillvfx.js) — those come out
-  // of the decoded retail tables. Anything this class pops does not, hence
-  // 'authored-pop'. The tag used to read 'soulshot-glint', which was wrong for
-  // the one caller that survives (entities.js's self-target launch) and is now
-  // wrong for the soulshot too, since that glint is gone.
-  _tag(obj, kind, skillId) {
-    obj.userData.skillFx = { kind, skillId, source: 'authored-pop' };
+  _anchor(id, actor = this.getEntity(id)) {
+    const current = () => actor && this.getEntity(id) === actor;
+    return {
+      pos: () => current() ? actor.group.position : null,
+      yaw: () => current() ? actor.group.rotation.y : null,
+      node: name => current() ? actor.group.getObjectByName(name) : null,
+      // Existing renderer uses measured model height. Native collision/origin
+      // placement is a separate unresolved rule, not established by binding.
+      half: actor?.heightM > 0 ? actor.heightM / 2 : null,
+    };
   }
 
-  _pop(worldPos, color, size = 0.6, skillId = null, kind = 'pop') {
-    const mat = new THREE.SpriteMaterial({
-      map: this.tex, color, transparent: true, opacity: 0.95,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    });
-    const s = new THREE.Sprite(mat);
-    s.position.copy(worldPos);
-    s.scale.setScalar(size * 0.4);
-    this._tag(s, kind, skillId);
-    this.scene.add(s);
-    this.fx.push({ s, t0: performance.now(), size, mode: 'pop' });
+  _releaseNativeActors(context) {
+    cancelPawnSkill(context.state);
+    // Preserve only a small late-packet tombstone. Already scheduled callbacks
+    // retain their own guarded anchors until executed or cleared.
+    context.state=context.state?{status:context.state.status,active:false}:null;
+    context.associations=[];context.actorIds.clear();
   }
 
-  update() {
-    this._pump();             // net-log -> retail effects
-    this.vfx.update();        // retail effect player
-    const now = performance.now();
-    for (const f of [...this.fx]) {
-      // only the 'pop' glint survives here (main.js's soulshot flash)
-      const t = (now - f.t0) / 450;
-      if (t >= 1) { this._remove(f); continue; }
-      f.s.scale.setScalar(f.size * (0.4 + 1.8 * t));
-      f.s.material.opacity = 0.95 * (1 - t);
-    }
+  /** Consume the actual gateway event. Debug log size and animation-frame
+   *  packet bursts cannot discard or replay effects. Metadata completion is
+   *  retired with the online session; anchors retain the same actor identity. */
+  async handle(msg) {
+    if (!msg || !['skillCast', 'skillLaunch'].includes(msg.op)) return false;
+    const generation = this.generation;
+    if (msg.op === 'skillCast') this.cancel(msg.casterId);
+    const castGeneration = this.castGeneration.get(msg.casterId);
+    const anchors = { caster: this._anchor(msg.casterId), target: this._anchor(msg.targetId) };
+    await this.ready;
+    if (generation !== this.generation || castGeneration !== this.castGeneration.get(msg.casterId)
+        || !anchors.caster.pos()) return false;
+    return msg.op === 'skillCast'
+      ? this.vfx.cast(msg.skillId, anchors, msg.level)
+      : this.vfx.launch(msg.skillId, anchors, msg.level);
   }
 
-  _remove(f) {
-    this.scene.remove(f.s);
-    f.s.material.dispose();
-    if (f.s.geometry) f.s.geometry.dispose();
-    this.fx.splice(this.fx.indexOf(f), 1);
+  // Legacy calls carry no original binding and must never create a flash.
+  flash() {}
+
+  update() { this.vfx.update(); }
+
+  cancel(casterId) {
+    const context=this.nativeContexts.get(casterId);
+    if (context) {context.retired=true;this._releaseNativeActors(context);}
+    this.castGeneration.set(casterId, (this.castGeneration.get(casterId) || 0) + 1);
   }
 
   clear() {
-    for (const f of [...this.fx]) this._remove(f);
+    this.generation++;
+    this.castGeneration.clear();
+    for (const context of this.nativeContexts.values()) {context.retired=true;this._releaseNativeActors(context);}
+    this.nativeContexts.clear();
+    this.lastNativeTick=null;
     this.vfx.clear();
   }
 }
 
-import * as THREE from 'three';
-import { SkillVfx } from './skillvfx.js';
-import { lastSkillMsg } from './skillfx_anim.js';
+import { SkillVfx, vfxIndex } from './skillvfx.js';
 
-// world position of any entity, including the local player (self is not in
-// the EntityManager — main.js keeps it as a separate Character)
-function entityPos(id) {
-  const w = typeof window !== 'undefined' && window.__world;
-  if (!w) return null;
-  if (w.net.selfId === id && w.character) return w.character.group.position;
-  const e = w.entities && w.entities.getEntity(id);
-  return e ? e.group.position : null;
-}
-
-// Half of the actor's rendered height — UE measures effect offsets from the
-// centre of the collision cylinder, the client's groups sit at the feet.
-function entityHalf(id) {
-  const w = typeof window !== 'undefined' && window.__world;
-  if (!w) return null;
-  if (w.net.selfId === id && w.character) return (w.character.heightM || 1.7) / 2;
-  const e = w.entities && w.entities.getEntity(id);
-  return e ? (e.heightM || 1.7) / 2 : null;
-}
-
-// The actor's facing, for bUseCharacterRotation. null when the actor is gone.
-function entityYaw(id) {
-  const w = typeof window !== 'undefined' && window.__world;
-  if (!w) return null;
-  if (w.net.selfId === id && w.character) return w.character.group.rotation.y;
-  const e = w.entities && w.entities.getEntity(id);
-  return e ? e.group.rotation.y : null;
-}
-
-function makeGlowTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const ctx = c.getContext('2d');
-  const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.4, 'rgba(255,255,255,.45)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 64, 64);
-  const tex = new THREE.CanvasTexture(c);
-  return tex;
-}
+import { skillAgentBinding } from './skillvfx-binding.js';
+import { createPawnSkill,associatePawnSkill,cancelPawnSkill,consumePawnSkillTick } from './pawnskill.js';

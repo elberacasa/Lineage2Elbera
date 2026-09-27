@@ -904,13 +904,15 @@ class BspNode(object):
     #                 1887/1888, 409/410) -- see tools/world/bsplight.py.
     __slots__ = ("plane", "zone_mask", "flags", "i_vert_pool", "i_surf",
                  "i_back", "i_front", "i_plane", "num_vertices", "i_zone",
-                 "i_section", "i_vert_offset", "i_light_map")
+                 "i_section", "i_vert_offset", "i_light_map",
+                 "i_collision_bound", "i_render_bound", "exclusive_sphere",
+                 "reserved", "i_leaf")
 
 
 class BspSurf(object):
     __slots__ = ("material", "flags", "p_base", "v_normal", "v_texture_u",
                  "v_texture_v", "i_brush_poly", "actor", "plane",
-                 "light_map_scale")
+                 "light_map_scale", "i_lightmap_index")
 
 
 class Poly(object):
@@ -925,7 +927,8 @@ class Model(object):
 
     __slots__ = ("export", "bounds", "vectors", "points", "nodes", "surfs",
                  "verts", "num_shared_sides", "zones", "polys",
-                 "root_outside", "linked", "lightmap_tail")
+                 "root_outside", "linked", "lightmap_tail", "bounding_sphere",
+                 "model_bounds", "leaf_hulls", "leaves", "lights", "source_spans")
 
     @property
     def is_level(self):
@@ -938,13 +941,23 @@ def _read_fplane(r):
 
 def _read_model(pkg, export, extra_field):
     end = export.serial_offset + export.serial_size
-    r = pkg.body_reader(export)
+    if not 0 <= export.serial_offset <= end <= len(pkg.data):
+        raise L2Error("%s: UModel export lies outside package" % pkg.path)
+    # A truncated record cannot borrow bytes from the next export. Absolute
+    # offsets are retained for source receipts and the existing lightmap reader.
+    r = Reader(memoryview(pkg.data)[:end], export.serial_offset, path=pkg.path)
+    spans = {}
+    start = r.pos
     read_properties(pkg, r)
+    spans["properties"] = (start, r.pos)
+    start = r.pos
     box = r.bytes(41)                      # FBox (25) + FSphere (16)
+    spans["primitive"] = (start, r.pos)
     m = Model()
     m.export = export
     m.bounds = (struct.unpack("<3f", box[0:12]),
                 struct.unpack("<3f", box[12:24]), box[24])
+    m.bounding_sphere = struct.unpack("<4f", box[25:41])
 
     def farray(n, what):
         if not 0 <= n < 4000000:
@@ -952,11 +965,16 @@ def _read_model(pkg, export, extra_field):
                           % (pkg.path, pkg.export_name(export), what, n))
         return n
 
+    start = r.pos
     n = farray(r.compact(), "Vectors")
     m.vectors = [struct.unpack("<3f", r.bytes(12)) for _ in range(n)]
+    spans["vectors"] = (start, r.pos)
+    start = r.pos
     n = farray(r.compact(), "Points")
     m.points = [struct.unpack("<3f", r.bytes(12)) for _ in range(n)]
+    spans["points"] = (start, r.pos)
 
+    start = r.pos
     n = farray(r.compact(), "Nodes")
     m.nodes = []
     for i in range(n):
@@ -974,16 +992,19 @@ def _read_model(pkg, export, extra_field):
         nd.i_back = r.compact()
         nd.i_front = r.compact()
         nd.i_plane = r.compact()
-        r.compact()                        # iCollisionBound
-        r.compact()                        # iRenderBound
-        r.bytes(32)                        # ExclusiveSphereBound + reserved
+        nd.i_collision_bound = r.compact()
+        nd.i_render_bound = r.compact()
+        nd.exclusive_sphere = struct.unpack("<4f", r.bytes(16))
+        nd.reserved = bytes(r.bytes(16))
         nd.i_zone = (r.u8(), r.u8())
         nd.num_vertices = r.u8()
-        r.bytes(8)                         # iLeaf[2]
+        nd.i_leaf = struct.unpack("<2i", r.bytes(8))
         (nd.i_section, nd.i_vert_offset,
          nd.i_light_map) = struct.unpack("<3i", r.bytes(12))
         m.nodes.append(nd)
+    spans["nodes"] = (start, r.pos)
 
+    start = r.pos
     n = farray(r.compact(), "Surfs")
     m.surfs = []
     for i in range(n):
@@ -1003,13 +1024,16 @@ def _read_model(pkg, export, extra_field):
                           "(parse desync)"
                           % (pkg.path, pkg.export_name(export), i))
         s.light_map_scale = r.f32()
-        if extra_field:
-            r.i32()                        # iLightmapIndex (licensee >= 23)
+        s.i_lightmap_index = r.i32() if extra_field else None
         m.surfs.append(s)
+    spans["surfs"] = (start, r.pos)
 
+    start = r.pos
     n = farray(r.compact(), "Verts")
     m.verts = [(r.compact(), r.compact()) for _ in range(n)]
+    spans["verts"] = (start, r.pos)
 
+    start = r.pos
     m.num_shared_sides = r.i32()
     nz = r.i32()
     if not 0 <= nz <= 64:                  # FZoneSet is a 64-bit mask
@@ -1022,15 +1046,30 @@ def _read_model(pkg, export, extra_field):
         m.zones.append((actor, conn, vis, r.f32()))
 
     m.polys = r.compact()
-    r.bytes(25 * farray(r.compact(), "Bounds"))
-    r.bytes(4 * farray(r.compact(), "LeafHulls"))
+    spans["zones_and_polys"] = (start, r.pos)
+    start = r.pos
+    m.model_bounds = [struct.unpack("<6fB", r.bytes(25))
+                      for _ in range(farray(r.compact(), "Bounds"))]
+    spans["bounds"] = (start, r.pos)
+    start = r.pos
+    m.leaf_hulls = [r.i32() for _ in range(farray(r.compact(), "LeafHulls"))]
+    spans["leaf_hulls"] = (start, r.pos)
+    start = r.pos
+    m.leaves = []
     for _ in range(farray(r.compact(), "Leaves")):
-        r.compact(); r.compact(); r.compact(); r.bytes(8)
-    for _ in range(farray(r.compact(), "Lights")):
-        r.compact()
+        m.leaves.append((r.compact(), r.compact(), r.compact(),
+                         struct.unpack("<Q", r.bytes(8))[0]))
+    spans["leaves"] = (start, r.pos)
+    start = r.pos
+    m.lights = [r.compact() for _ in range(farray(r.compact(), "Lights"))]
+    spans["lights"] = (start, r.pos)
+    start = r.pos
     m.root_outside = r.i32()
     m.linked = r.i32()
+    spans["root_outside_and_linked"] = (start, r.pos)
     m.lightmap_tail = end - r.pos
+    spans["undecoded_tail"] = (r.pos, end)
+    m.source_spans = spans
     if m.lightmap_tail < 0:
         raise L2Error("%s: %s: UModel body overran by %d bytes"
                       % (pkg.path, pkg.export_name(export), -m.lightmap_tail))

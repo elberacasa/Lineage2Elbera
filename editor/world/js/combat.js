@@ -221,12 +221,15 @@ export function installCombatFeedback(net, ctx) {
   const { combat, entities, character, selfId } = ctx;
   const state = { approachingId: null, approachDistance: 0, inCombat: new Set() };
 
-  // MoveToPawn.distance is the stop radius in L2 units; the client walks to a
-  // point that far short of the pawn. 100 L2 units = 1 m (js/coords.js).
+  // Compatibility projection of the received approach distance. The native
+  // client retains it in Pawn+0x6c4 and checks ReachedDestination before
+  // continuing movement; its complete collision/height predicate is not yet
+  // ported. See docs/native-grounding-evidence.md. 100 L2 units = 1 metre.
   const L2_TO_M = 0.01;
 
   net.on('moveToPawn', (msg) => {
     const me = selfId();
+    if (msg.id === me) ctx.onSelfMoveToPawn?.(msg);
     // face the mover at its pawn either way — MoveToPawn is also how aCis
     // rotates a creature toward what it is about to hit
     const mover = msg.id === me ? null : entities.getEntity(msg.id);
@@ -250,11 +253,20 @@ export function installCombatFeedback(net, ctx) {
     const dx = to.x - from.x, dz = to.z - from.z;
     const d = Math.hypot(dx, dz);
     const stop = Math.max(0, (msg.distance || 0) * L2_TO_M);
-    const goal = to.clone();
-    if (d > stop && d > 1e-4) {
-      goal.x = from.x + dx / d * (d - stop);
-      goal.z = from.z + dz / d * (d - stop);
+    if (d <= stop) {
+      // The visual model can already be within the received distance when
+      // this order arrives. Do not replace that reached position with the
+      // pawn's center or leave an older walk target active. This is a local
+      // presentation stop; no movement/arrival packet is sent to the server.
+      state.approachingId = null;
+      ch.clearTarget();
+      return;
     }
+    const goal = to.clone();
+    // d > stop >= 0 establishes a nonzero divisor; an authored epsilon here
+    // would send sufficiently close targets all the way to the pawn center.
+    goal.x = from.x + dx / d * (d - stop);
+    goal.z = from.z + dz / d * (d - stop);
     ch.setTarget(goal);
   });
 
@@ -280,6 +292,7 @@ export function installCombatFeedback(net, ctx) {
     if (msg.id === selfId() && ch) {
       state.approachingId = null;
       ch.clearTarget();
+      ctx.onSelfStopMove?.(msg);
     }
   });
 

@@ -1,0 +1,184 @@
+# Full browser port: feature and evidence inventory
+
+Snapshot: 2026-09-26, during the active world, quest, trainer and animation work.
+This is a code/source inventory, not a completion percentage or a
+claim of broad live gameplay validation. It includes no private binary dumps,
+credentials or account records. Paths below are repository-relative.
+
+**Owner's acceptance standard:** the browser is the full game client, including
+skills, animations/effects, mobs, progression and all dialogs/menus. Official
+Interlude appearance and interaction are required. A connected subset or
+roughly similar UI is not the final deliverable. This inventory records gaps
+against that standard; it does not waive them.
+
+The browser has substantial connected gameplay: character selection/creation,
+server-fed movement/combat/skills, inventory, NPC HTML, shops, multisell,
+warehouse, trading, private stores, party and basic clan state all have runtime
+and gateway code. That establishes implementation presence. It does not prove
+that every state, packet, asset, class or native interaction is reproduced.
+
+The distinction to preserve is:
+
+- **Implemented:** a path exists from protocol/data to browser behavior.
+- **Source-backed rule:** a specific field, action or layout has been traced to
+  the original client or authoritative server contract.
+- **Verified behavior:** a reproducible scenario actually exercises that path
+  and checks its state/result. This must name the scenario and build.
+
+A rendered window, matching label, large exported dataset or passing test count
+cannot stand in for the latter two. The aCis server is the interoperability
+target here; its rules are not by themselves evidence of original client
+animation, presentation or timing.
+
+| Area | What the browser currently does | Concrete remaining work and evidence |
+| --- | --- | --- |
+| World loading | Real terrain, BSP and props load; latest-request scene adoption and cleanup have controlled tests. Failed automatic loads stop retrying each frame and expose an explicit retry while preserving the last adopted scene. | Browser timing and repeated online transition checks remain necessary. Source SHA/mesh tests establish selected geometry, not a complete world audit. Native map streaming remains separate from browser resource recovery. |
+| Camera and NPC approach | An actual merchant close-up was traced to an already-near MoveToPawn order walking into the NPC center, followed by a walking-height camera collapse. Corrected close-range handling keeps the current visual position; repeated Online interaction retained its 2 m camera distance. A visible Elbera inspector records receipts, boom changes and actor measurements. | Full native ReachedDestination, actor pivot, camera input and collision are unported. Original Draw dispatches to the native camera override; shipped settings select a (0.1, 0.1, 5) extent sweep. The stored script's zero-extent ray cannot substitute for this branch. Rendered BSP meshes cannot substitute for its solid tree. See `docs/native-camera-evidence.md` and `docs/native-grounding-evidence.md`. |
+| BSP collision structure | All 157 local original map models pass prefix/reference/graph validation. The exporter preserves raw nodes, planes, flags, bounds and leaf records separately from render meshes. A primary zero-extent traversal, leaf-hull decoder and single-plane nonzero helper are implemented. Candidate traversal, six bounds planes, interval admission, explicit-metric time adjustment and bevel-axis admission are separately verified. The plane helper matches133 retained instructions across108 cases; branch/traversal/bounds cover224 cases and admission/adjustment250 more; bevel admission executes184 source instructions across787 comparisons. | Staged private data and reusable library only: not adopted by the world camera. Complete nonzero sweeps, flagged-plane operations, the source metric for hit adjustment, actor origin and terrain/static-object aggregation remain open. The unresolved flag affects254 of291 staged17_25 hulls;32 of the remaining37 require still-unported bevel construction. Structural validation does not prove 157 playable maps. See `docs/bsp-collision-source.md`. |
+| Terrain fidelity | 91 of100 local scenes pass original coordinate-matrix, source-height and topology gates; rows0–255 and separate adjacent samples are preserved. Native evidence establishes bit1=B–C, bit0=A–D, runtime outer visibility, +128 source-edge positions and original G16-to-float conversion. | Nine scenes remain excluded because a required source map fails saved-height checks. Nineteen absent edge directions remain absent. Native streaming transitions, lighting, layer attributes and representative gameplay routes still need verification. See `docs/native-terrain-evidence.md`; mesh coverage is not playable-world coverage. |
+| World picking | Original collision triangles participate in nearest world/pawn selection for954 audited actors in17_25 (142,897 placed triangles). All193source meshes decode. The Dwarf region23_12 now loads789 source actors/149,497 triangles; a live structure click selected original StaticMeshActor120/triangle267. The browser validator follows the recovered nonzero mouse flag contract; unknown flags still reject. | Remaining32 actors in17_25 explicitly disable collision/nonzero traces. Other maps, neighboring-level collision, native0.1-unit extent sweep, tree arithmetic and hit bias remain unported. Source hit coordinates are not exact server-arrival proof. See `docs/native-picking-evidence.md`. |
+| World prop identity | Six qualified Cart/Tank variants have separate glTF/buffer files across11placements in17_25. General conversion now validates original qualified identities and exact grouped geometry, including singleton references to duplicate package leaves, and preserves paired buffers. Fresh stages for17_25/18_21 match selected original triangle sections. | No new full-map adoption occurred. Texture/material lookup remains leaf-based/unverified; full conversion retains broader non-atomic writes/pruning. A100-map census finds23legacy collision groups on9maps/157references, not an exhaustive wrong-shape count. Normals/UVs/shaders/lighting and world validation remain separate. See `docs/native-prop-identity-evidence.md`. |
+| Merchant shops | Original ConsumeType transfer rules, shared NumberPad72, limited-stock Warning1338, source labels/Adena snapshot, distinct cart rows and session retirement are wired. Exact gateway rows survive without truncation/coercion. Source total bounds and normal backdrop drawing are corrected. One real Katerina Buy14 potion purchase/use passed through browser controls, with server money/item changes. | Preview, native drag/AllItemCount, weight, complete tooltips/text/button states and INT64 edge behavior remain. Offline replay stock/prices are explicitly simulated. No real sale/equipment/limited-stock purchase was tested. The reproduced close-up is fixed by the approach correction above; native camera collision and dark interiors remain open. See `docs/shop-playtest.md`. |
+| Menus and macros | `ui/menuwnd.js:44` visibly disables BBS, Macro, Help and Petition; `main.js` also leaves Alt+B/Alt+R unbound. | Original `assets/uscript/Interface/SystemMenuWnd.uc:12` dispatches those actions. `MacroListWnd.uc:10` subscribes to list/update events and requests the macro list on entering state. There is no corresponding browser macro workflow in the inspected UI and bridge. Port actual macro storage/edit/run behavior and help content, rather than enabling dead buttons. |
+| Next Target | The original action4 branch is now traced to a local attackable/alive candidate cycle and an ordinary target Action packet. The browser currently forwards generic RequestActionUse4, which is inert on the configured server and was reproduced live. | The native vector-to-scalar distance call is erased at0x10407dee; native object-map tie order and Actor.Location mapping remain unresolved. No guessed range metric or selector has been enabled. See `docs/native-nexttarget-evidence.md`. |
+| Session/settings semantics | System Option toggles the browser settings panel; Restart reloads the page; Quit disconnects and switches offline (`main.js`, `SystemMenuWnd` startup callback). | Native `SystemMenuWnd.uc` shows warning dialogs and calls ExecRestart/ExecQuit. Decide browser-equivalent session behavior using native request/response semantics; page reload alone does not prove restart parity. This is an explicit compatibility difference. |
+| Pets and summons | NPC rendering is generic; the bridge has generic action use and a pet-feed gauge color comment. | Original `PetWnd.uc:20` subscribes to pet info, actions and inventory; OnShow requests inventory and action lists; OnDropItem sends item transfer. Concrete current server PetInfo/PetItemList packets are not decoded by the gameclient switch. Need pet state, inventory/equipment, actions, transfer and summon lifecycle; generic NPC visibility is insufficient. |
+| Shortcut pages | Three independently selected pages work in horizontal and vertical orientations, including duplicate page views, independent wrapping, received updates and recipe use. Fixed drawer placement and centered page labels follow newly decoded original window fields/native dispatch. | Original drawer transition motion/clipping, complete locking/drag-and-swap behavior, joypad, macros, pet bindings and native option persistence remain gaps. See `docs/native-shortcut-evidence.md`. |
+| Character entry | Every nonempty account opens the existing selector, allowing a second character. Deferred selection work and both overlays retire with the session. Ordinary browser Dwarf creation, selection, entry and reconnect passed; starter-club Gremlin combat has now advanced level1 to3, retained on a fresh connection. | Selector/creator layout remains authored; original screen parity and hair selection remain unfinished. Higher-level Dwarf progression, Spoil/Sweeper and crafting remain unverified. See `docs/character-selection-audit.md`. |
+| Player appearance | Exact received sex, face, hairstyle and color now survive UserInfo/CharInfo. Current UserInfo replaces the earlier selection snapshot. Fourteen original face meshes and42 face textures bind to explicit source indices; all42 served images exactly match freshly decoded original RGBA pixels. Self, remote and creator face selection use one source-bound controller with cancellation. Ordinary female Human Fighter creation with face C, entry and fresh-page reconnect retained face2 and its exact texture, confirmed through the visible inspector. | Hair fields are retained but runtime hair selection remains unsupported. The original hair audit distinguishes separate Hair1/Hair2 indices and exact color material names; the old creator tint and painted-hair interpretation are unverified. Original UVs/weights/material parity, equipment overrides, transformed pawns, mid-session sex/class model changes and live two-player appearance changes remain open. See `docs/native-face-selection-evidence.md`, `docs/native-appearance-wire-evidence.md` and `docs/native-hair-selection-evidence.md`. |
+| Corpse state | The configured server's exact signed sweepable DWORD now reaches the actual actor incarnation. Missing stays unknown; revive/removal/session reset clear it. Duplicate NPC deaths retire older fade timers. Packet, pending-model and ID-reuse regressions pass. | This does not enable a guessed blue glow or authorize Sweeper locally. Original OnDie's effect branch is recovered, but its protected parameter binding, effect presentation and live Spoil/Sweeper progression remain unresolved. See `docs/native-nexttarget-evidence.md`. |
+| Recipe crafting | Original871-record catalog, book/manufacture/tree controls and AC–AF/D6/D7 packets are connected. Server capacities and inventory counts feed the windows; results remain server-owned. Online Common Craft opens the actual empty0/50 common book. Recipe book drag registers type5/source-index; restored shortcuts open AE details with source recipe names/product icons. Elbera Tools captures read-only queries and replays explicit recipe/shortcut data. | Successful ordinary recipe learning/crafting/deletion and recipe shortcut persistence, private manufacture shops, grade glyphs, native item-grid counts/tints, exact font/chrome and saved tree expansion remain incomplete. No live craft success or ownership is inferred from offline fixtures. See `docs/native-recipe-evidence.md`. |
+| Actor gauges | SetupGauge's three fields reach the gateway. Fresh original evidence identifies four independent countdowns, local-actor projected drawing, texture references and frame/fill order. Sixty decoded-instruction comparisons establish rectangle/UV arguments, including full-texture stretching to the decreasing width and original draw alpha128. Seven source texture records and the named material-wrapper path are verified. | There is no browser gauge handler. The fixed bottom cast bar grows from MagicSkillUse and is an approximation; it does not cover native cast, arrow, water or feed gauges. World-anchor/projection helpers, live Canvas style/draw ordering, complete effective material state, sampling/depth/visibility and session retirement remain required. See `docs/native-gauge-gap.md`. |
+| Dyes/henna | Original180-record catalog, class-step slot rules, five incoming packets and six requests now feed drawing/removal dialogs and inventory symbols. Current subclass identity survives UserInfo. Snapshots are server-owned and retire on disconnect; no local application or stat deduction is inferred. | Source layouts, labels and icons are connected, with an Elbera Tools packet replay. Live successful draw/removal, subclass transition, exact native text/frame/button/selection rendering, inventory icon inset/disabled tint and tooltip appearance remain unfinished. Money tooltip text now follows the recovered native reading. See `docs/native-henna-evidence.md`. |
+| Clan management | Main-clan membership, invite, leave, oust, name and crest state have code. | `gateway/src/bridge.js:1213` explicitly discards `pledgeType !== 0`. `ui/clanwnd.js:92` gives many buttons a null role and the window disables them. Original ClanWnd handles sub-pledges, privileges, war and related drawers. Main-clan support does not cover academies, units, permissions, war, crest editing or residence state. |
+| Party matching | A current party has member/status/invite UI and bridge messages. | `PartyMatchWnd.uc:9` registers lobby/list/room events and sends waiting-room exit. Server PartyMatchList is currently undecoded. Need lobby filters, rooms, waiting lists and join/leave flows separately from existing party membership. |
+| Siege/Olympiad/manor | Basic clan and shop paths may display related NPC HTML, but no dedicated browser subsystem was found in the inspected UI. | Original `SiegeInfoWnd.uc:56` handles siege lists/times; `OlympiadControlWnd.uc:7` calls observer end/match list; `ManorShopWnd.uc:5` handles its own open/item events. SiegeInfo and ExOlympiadUserInfo currently fall through. Enumerate packet contracts and native controls before treating generic HTML as functional support. |
+| Fishing and mounts | UserInfo/CharInfo parsers consume fields to maintain packet alignment. | `gateway/src/gameclient.js:1511,1524,1648,1659,1677` reads then discards mount/fishing state/location; ExFishingStart is undecoded. No corresponding world state machine was found in inspected `main.js`/Character. Consuming bytes is not mounted or fishing gameplay. |
+| Quest journal/tutorial | Original journal records, history/completion rules, inventory counts, Warning/Notice dialogs and separate tutorial viewer are wired. Q1 exchanges, final necklace reward and reconnect persistence passed on the configured server; the live browser shows the reward and empty0/25 journal. Source quest-update packets/icon/focus, discrete glow/blink timers and pointer artwork are wired and exercised in a labeled replay; Q154 live exchanges also advanced the marker and journal chapters. Tutorial open/link/close were checked online. | Native marker GPU composition/MainWnd container, guidance, line breaking, dialog keyboard dispatch and remaining tutorial inputs still need work. Original stereo quest sounds are preserved and PlaySound packets bridged, and dry gain is derived only for a finite nonzero radius, the same valid pawn and no EAX processing; original radius/type-query bindings and broader mixer parity remain unresolved, so playback stays unsupported. The Baulro departure exposed a reproducible rounded-step navigation boundary. A separate narrow-stair gap now has a bounded16-unit route fallback; source data was not altered. See `docs/quest-completion-playtest.md` and `docs/quest-data.md`. |
+| Item presentation | Equipment attachment, armor, inventory and tooltips have substantive code and decoded metadata. Late-loaded self models now replay the latest authoritative paperdoll; browser reconnect visibly retained the Dwarf starter club. | `ui/tooltip.js:385` omits unbridged shadow durability; at397 it always uses normal set-effect colors because worn-set condition evaluation is absent. `equipment.js:168` silently returns null for a missing mesh manifest entry. Audit actual per-item asset presence against official tables; its old “NONE+D grade” comment is not a verified coverage claim. |
+| Inventory interaction | Original use/recipe warnings, destroy Warning/NumberPad branches and crystallize admission are wired from freshly checked item fields and the server's raw capability byte. Inventory and quest share one owned DialogBox; selected quantities, including native empty→zero, survive the gateway. Original pad geometry, edit art, numeric colors/grouping and English magnitude reading have source checks and browser replays. Live reward equip, recipe Cancel and reconnect passed; paired accessories use actual object identities and saved placement survives reload. | Full drag/drop and modifier lifecycle, ground/pet transfers, native text-width/caret/selection/IME/paste behavior, overflow conversion, button states, trash audio, two-hand states and henna remain. The UI driver emitted dragstart/end but no drop; actual browser drag completion and live destruction/crystallization are unverified. Native inherited parent and complete docking/resize remain unresolved. See `docs/inventory-client-playtest.md` and `docs/native-numberpad-evidence.md`. |
+| Actors and animation | Native NPC actor/mesh scales replace collision fitting; ten NPC records now use five exact class-specific clips with verified model bytes. All14 player models now apply exact source Actor/mesh scale products per axis; the rounded-height fit and 1.75m fallback were removed. Fresh actual-loader comparison has zero scale error. All14 models now have recovered Sit/Stand transitions and exact localized rates; ordinary state changes use native AnimEnd → waiting with shared-tick remainder. Remote sex and initial wait state survive the gateway. Character and NPC state machines, weapon stances and social actions are present. | `character.js` still names an unsourced turn rate. Player origin/centering/grounding still needs a complete native trace. An on-demand mesh probe finds no upward ground gap at the measured Talking Island standing/seated checkpoint; this does not certify native pose or placement. Initial snapshot timing, special wait states and full movement/combat waiting remain incomplete; see `docs/player-transform-audit.md`. Monster clip selection still uses keywords and a first-clip fallback. Validate native selection, cancellation and placement rather than treating plausible motion as proof. |
+| Skill learning and progression | Native acquisition list/info/done packets and distinct info/learn requests are bridged. Original trainer controls, exact-level descriptions/icons/HP/MP/range and signed clan reputation are wired. The live fisherman list/detail/return flow and insufficient-Adena refusal were verified; a refreshed server list replaces the refused details. Local server auto-learn was verified through ordinary level2→5 combat, immediate browser skill refresh, newly learned Relax use, and matching levels after reconnect. | Successful paid training, all class trees and persistence across a server restart remain unverified. Class change, full fishing/clan workflows and enchantment still need coverage. Original frame states, text measurement/wrapping, inherited flags and keyboard behavior remain bounded UI gaps. See `docs/native-skilltraining-evidence.md` and `docs/auto-learn-playtest.md`. |
+| Learned skill state and shortcuts | Native 13-byte SkillList rows are validated as complete snapshots. Skill panel and shortcuts use current received levels and availability; session changes clear skills/cooldowns/casts. Original server shortcut Init/Register/Delete now replace local storage. Live skill assignment, F2 use, removal and fresh-page/reconnect persistence passed. Recipe shortcut registration/display/detail opening is connected with offline replay checks. Offscreen bars use the verified full reset; rotation/expansion preserve the main corner. All three pages select independently in both orientations, with original fixed drawer positions and the one-extra/two-extra/collapsed cycle. Signed target-level differences are preserved. | Subclass switching, macro/pet execution, recipe shortcut live persistence, item reuse/augmentation display, native drawer transition motion/clipping, drag/swap/lock/keyboard details and exact visual states remain. The browser merged-bar repair is an explicit adaptation; native horizontal missing-default fallback is unproved. Layout reset also opens chat in the current browser input dispatch. See `docs/native-skill-state-evidence.md` and `docs/native-shortcut-evidence.md`. |
+| System messages | Wire parameter types and exact skill ID/level pairs reach original text. Numbered substitutions preserve repeated/reordered parameters; live Relax abort now names the skill. | Native item-count width differs from the configured server; native type8, NPC/castle/zone naming and complete localized grammar remain open. See `docs/native-system-message-evidence.md`. |
+| Skill motion and effects | Original SetSkillAnim selects 32 code-to-slot sequences; 56 omitted clips with 115,215 raw keys were recovered. Exact skill ID/level paths distinguish 17,576 None, 12,094 resolved and 142 unresolved references within 29,812 rows; the source table contains 244 Agent objects and +0x74 is proven FlyingTime. Supported ordinary player casts now play every selected phase with original sequence inputs, cumulative deadlines, normalized frame clock and loop closing interval. Male human fighter and female dwarf Wind Strike replays showed opening, middle loop, release and idle; cancellation and unknown-level rejection were checked. Ordinary cast clocks now preserve native notify batches/order/nulls; direct source Sound events are connected. Browser channels are explicitly enabled; unresolved removal-dependent batches stop with an unsupported result. Channeling no longer starts from the cast packet. Actor tick order is now old-channel animation/events before phase selection, preserving boundary events. All 524 source action records, stored stage zeros and exact numeric fields survive conversion; A bounded live Agent controller now consumes pending notifies, preserves stage/target order and duplicate associations, and prevents launch packets from releasing effects. Elbera Tools offers both pure dispatch inspection and live-path replay. | Style 13, single-frame playback, unknown/unrenderable inputs and NPC casting remain outside the supported ordinary scheduler. Three pose interpolation/tween quaternions, completion FName comparison, returned effect-actor bookkeeping, style12 association and cold-load phase catch-up remain incomplete. Agent None does not mean no effects: native Wind Strike/Power Strike legacy dispatch is recovered, while its complete presentation remains separate work. See [Agent](native-cast-agent-evidence.md), [scheduler](native-cast-scheduler-evidence.md), [endpoints](native-animation-terminal-evidence.md) and [legacy effects](native-legacy-skill-effects-evidence.md). Exact bindings and bounded replays do not certify particle limits, lifetime, blending or full visual parity. |
+| Skill sounds | All1,398 original sound rows, including duplicates/empty entries, retain three layers per phase, original gains and voice arrays. Runtime selection follows original last-exact/first-level-one lookup; all populated layers play. Cast/shot voice slots now use the independently verified mapping of 14 original player models; unknown identities stay unavailable. Direct animation Sound entries use exact source fields with Random100 and positive radius. | Supported warm-index ordinary Agent casts now request casting/shot sound tails from pending-notify consumption, without a guessed impact timer. Other paths retain provisional packet dispatch; completion fallback and legacy effect-owner rules remain incomplete. FlyingTime is not native collision timing. Native StopSpellSound, source-mode globals, complete audio-driver behavior, surface/probabilistic notifies and AttackItem/AttackVoice are incomplete. Session/model retirement prevents newly decoded stale sounds, without claiming native stop semantics. See [sound](native-cast-sound-evidence.md) and [Pawn lifecycle](native-pawn-notify-evidence.md). |
+| NPC materials | Seven ghosts use original per-NPC slot textures and proven Brighten blend states. Two angel corpses use the original wing opacity, strict alpha comparison, blend/depth/cull states; browser checks confirm clean feather edges and isolated shared textures. | Lighting/color conversion, angel specular effects, gold pig environment mapping and teleport emitter actors remain unresolved. File counts are not material parity. |
+| Shared UI geometry | Original native common-record decoding recovers all1,962 positions, including176 previously null offsets and132 named targets. Window-specific parents, TextBox autosize/default text and Button label IDs are decoded; new trainer windows use total native dimensions without an extra title height. Nested windows now resolve by canonical path or unique alias, fixing QuestTreeWnd after fresh data regeneration; concurrent loads share one indexed tree. | Browser-wide migration is pending: existing L2Window callers retain the old body-height contract. Anchors, frame states, script changes and named-target resolution require window-by-window comparison. Ambiguous parents remain unresolved. The old zero-unjustified-pixels claim is withdrawn. See `docs/native-layout-evidence.md`. |
+| Sky/weather/time | Main has the earlier background/haze implementation and worldlight loads scene data. | `sky.js` is not imported/instantiated by main at this snapshot. Its own header lists unintegrated cloud/star/celestial layers and unresolved animation units. Inspect original material/actor/runtime rules before integrating; the module's comments about visual inference are not a substitute for native evidence. |
+
+**Concrete packet omissions checked against the current server.** These are
+interoperability facts, not assertions about every historical official server.
+The matching original UI behaviors above establish why the browser needs the
+features. `gateway/src/gameclient.js` handles ExAutoSoulShot and ExShowQuestMark
+under0xfe; other extended packets and unmatched top-level packets go to
+`packetLog`.
+
+| Server packet | Current writer | Browser switch outcome |
+| --- | --- | --- |
+| PetInfo | `server/aCis_gameserver/java/net/sf/l2j/gameserver/network/serverpackets/PetInfo.java:36`, 0xb1 | No case; counter only |
+| PetItemList | `.../PetItemList.java:24`, 0xb2 | No case; counter only |
+| RecipeBookItemList | `.../RecipeBookItemList.java:24`, 0xd6 | Decoded into source-index rows and connected to original book; empty common book checked live |
+| RecipeItemMakeInfo | `.../RecipeItemMakeInfo.java:33`, 0xd7 | Raw five-DWORD detail/result feeds manufacture; ordinary successful live craft remains open |
+| PartyMatchList | `.../PartyMatchList.java:21`, 0x96 | No case; counter only |
+| SiegeInfo | `.../SiegeInfo.java:33`, 0xc9 | No case; counter only |
+| ExOlympiadUserInfo | `.../ExOlympiadUserInfo.java:31`, 0xfe/0x29 | No extended case; counter only |
+| ExFishingStart | `.../ExFishingStart.java:25`, 0xfe/0x13 | No extended case; counter only |
+
+This list is deliberately bounded to inspected behaviors. It does not assert
+that every other omitted opcode is required in every play session, or that
+these are all omissions. Follow one native action through request, response,
+state and visible result to expand it.
+
+**Useful implementation order for the full goal.** Keep all required Interlude
+features in scope; use checkpoints to organize proof, not to redefine “full.”
+
+1. Stabilize authenticated entry, disconnect/reconnect, movement and scene
+   transitions. Check latest-request adoption, actual loading durations and
+   memory across repeated maps. Keep browser rendering source-preserving.
+2. Complete a real early-game flow through tutorial, NPC quest, combat, loot,
+   equip, shop and return/reward. Trace each result to original client data and
+   live server state. This is a regression spine, not the finished product.
+3. Add complete native subsystems such as pets, crafting, henna and macros with
+   the same request/state/UI discipline; avoid isolated window mockups.
+4. Extend social/competitive systems: clan units/permissions, party matching,
+   manor, siege and Olympiad. Check multiclient roles and opposing outcomes.
+5. Audit all maps, actors/equipment, environment and effects through an explicit
+   source-to-export-to-runtime manifest. Track missing data and unknown native
+   behavior per feature, without converting file counts into completion scores.
+
+For each task record the original input identity, the native rule examined,
+the browser behavior changed, an independent regression, and a visible/live
+scenario. Keep private game data in ignored local inputs and generated assets;
+public source, tests and evidence descriptions can remain reviewable without
+publishing the client. Implementation and verification continue in `progress.md`. The active goal is
+the full port, and none of these milestones marks that goal complete.
+
+
+## Current journal/tutorial update
+
+The current changes decode all 2,050 quest-journal records for 342 quests, and
+recover native stage-history and completion rules from the original DLLs. The
+browser now displays source titles, descriptions, item requirements and stage
+history, with inventory-fed counts. A dedicated development replay verifies
+rendering without impersonating live server progress. The live browser also
+verified the source Warning/Notice dialogs and Cancel path. The real local audit
+character then completed Q1: letter687→kerchief688→receipt1079→potion1080→
+necklace906. Fresh login retained the reward and zero-progress completion;
+the live browser showed the necklace and an empty0/25 journal. Completed rows
+now retire selections and pending abort confirmations, matching native event
+emission. Quest guidance, exact text/button behavior and the complete marker
+GPU composition/container remain unfinished. The protocol journey did not create an
+account, teleport, or edit quest state. Its recorded path failures and bounded
+recovery are detailed in [the playtest](quest-completion-playtest.md); quest
+completion does not certify every navigation step or official server rewards.
+
+Tutorial question-mark to original HTML to server-requested close has been
+exercised online. Its viewer remains independent from NPC HTML; original links
+are preserved. Camera/input reporting is being wired only for recovered native
+event mappings. The full beginner loop remains unfinished.
+
+Reusable decoders, verifiers and inspections are maintained as
+[Elbera Tools](../tools/README.md). Their public code stays separate from
+private originals and generated game data; no community release has been
+published from this work.
+
+
+## Sit/stand and effect attachment checkpoint
+
+Ordinary live sit/stand now plays recovered original transition clips before
+its source waiting loop. The source verifier distinguishes AnimEnd's literal
+loop rate1 from spawn/update waiting's first packet multiplier. All14 player
+models were recovered; Online human sit/stand and the Elbera Tools replay were
+visually exercised. Placement remains unfinished. The new world probe measures skinned
+vertices against actual mesh intersections: the measured Talking Island standing
+pose differs from terrain by about +0.0018 L2 units; its seated minimum penetrates
+about 1.66 units. A universal upward ground offset is not justified by this
+checkpoint. Original AdjustPawnLocation deliberately skips the local viewport
+player; remote correction uses a cylinder sweep, not the browser height lookup.
+ChangeWaitType XYZ now survives the bridge, without adding guessed relocation.
+Source-backed PrePivot identity and Core matrix
+arithmetic improve the evidence, while the live mesh flags and erased Engine
+matrix-call bindings still prevent applying an exact placement replacement.
+
+Original LocateEffect offset arithmetic disproves the renderer's inherited
+uniform half-height assumption. That complete placement replacement is still
+pending its coordinate-helper/actor-baseline proof. Missing explicit bones now
+reject spawning; alias attachments remain unsupported. Exact tables for all14 primary
+player meshes now bind e_bone to Bip01_head with source coordinates. They cover
+five of eleven requested alias actions; the remaining six names are absent from
+those particular tables. Native lookup predicates, runtime mutation and attachment
+following remain unresolved, so decoded names alone cannot enable the effects.
+They no longer silently become center effects. See `docs/native-locate-effect-evidence.md` and
+`docs/sitting-animation-audit.md` for reproducible scope and remaining limits.
+
+
+Three additional original Engine startup layers and a bounded VM-handler payload
+are now decoded in memory. Independent raw-file round trips show that the missing
+transform-call bytes were not deleted by our decoder. The exact call bindings
+remain unresolved; see [recovery evidence](native-engine-recovery-evidence.md).
+
+The apparently persistent “surrounding maps” text was separately traced to an
+opacity-only hidden overlay after successful loading. It now leaves visibility
+and accessibility checks after the existing fade; loading promises and failure
+handling remain intact. Actual repeated-map timing is still a separate gate.

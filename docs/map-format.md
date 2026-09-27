@@ -187,7 +187,7 @@ reports its size rather than pretending to read it.
 | TerrainScale | Vector | `(128.0, 128.0, 76.0)` everywhere observed |
 | Layers ×8..15 | struct TerrainLayer | nested tagged props, see below |
 | DecoLayers | Array | decoration layers (static mesh scatter) |
-| QuadVisibilityBitmap / EdgeTurnBitmap (+`Orig` copies) | Array | 8194 bytes each = 2-byte header + 8192 bytes = 256×256 1-bit |
+| QuadVisibilityBitmap / EdgeTurnBitmap (+`Orig` copies) | Array | compact count 2048 + 2048 little-endian uint32 words (8194 bytes total); visibility indexing verified against each map's saved sectors, diagonal interpretation unknown |
 | MapX, MapY | Int | tile grid indices (16, 10 for 16_10 ✓) |
 | GeneratedSectorCounter | Int | 256 |
 | NumIntMap | Int | 8 |
@@ -222,23 +222,49 @@ byte[262144]                   ; 65536 cells × 4 bytes; uniform 00 00 FF 00
 ## 5. TerrainSector (fully native, ~2958–3390 bytes, variable)
 
 ```
-u8, u8                       ; (0, 1) on licensee 25, (0, 61) on licensee 28
-i32 16, i32 16               ; quads per sector side
+cidx None, cidx TerrainInfo  ; property terminator name, owner object reference
+i32 quadsX, i32 quadsY       ; usually 16; outer sectors use 15 at grid offset 240
 i32 gridX, i32 gridY         ; sector origin in quads (e.g. 176, 224 = sector (11,14))
 f32 × 6                      ; FBox bounding box (min XYZ, max XYZ) — matches
                              ; corner + grid×128 in X/Y exactly (verified)
-byte[middle]                 ; variable (10..442 bytes), several small
+u8 valid                     ; FBox validity flag (1 on the measured sectors)
+byte[middle]                 ; variable, several small
                              ; cidx-counted blocks — NOT decoded
-8 × { cidx 289, byte[289] }  ; eight 17×17 per-vertex byte arrays (layer
-                             ; blend / baked-light data; values 0..255)
-i16 × 289                    ; 17×17 per-vertex i16 array. Small values
-                             ; (-2..63) plus sentinels -1, -2, 1088 (0x440).
-                             ; NOT heights (no correlation with bbox Z range);
-                             ; likely per-vertex flags/indices.
+8 × { cidx 289, byte[289] }  ; eight 17×17 per-vertex byte arrays; exact
+                             ; lighting/layer meanings not established here
+byte[64]                     ; purpose unknown; not part of the following array
+cidx 256                     ; exactly two bytes: 40 04
+u16 × 256                    ; 16×16 per-quad table in local row-major order;
+                             ; zero/nonzero matches invisible/visible source
+                             ; quads. Other value semantics remain unknown.
 ```
 
-All 256 sectors parse to the exact byte in every tile tested (4 tiles ×
-256 sectors).
+The earlier interpretation of the last 578 bytes as 289 signed vertex values
+was incorrect. The last 514 bytes are a compact count plus 256 unsigned quad
+values; the preceding 64 bytes remain opaque. Exact byte accounting in the
+original four-tile parser did not establish those field meanings.
+
+A separate source check on `17_25`, `22_22` and `24_18` matched the native
+sector XY bounds and covered all 65,025 ordinary quads per map exactly once.
+For global quad `(x,y)`, the bit at `y*256+x`, least-significant bit first,
+is 1 exactly when the saved table entry is nonzero. Current and `Orig`
+visibility agree on all 195,075 checked quads; hidden counts are respectively
+0, 3,814 and 6,511. Transposed indexing and reversed bit order disagree on
+the nonuniform maps. A further read-only check of 100 source maps matched
+current visibility on all 6,502,500 ordinary quads, but `22_19` has 430
+disagreements with its `Orig` visibility array. Therefore
+`tools/world/terrain_topology.py` verifies each map separately and leaves
+incomplete or disagreeing evidence unverified.
+
+This evidence covers only quads with `x,y` in `0..254`. It does not establish
+the bitmap's outer row/column semantics, the native cross-map boundary
+algorithm, or which diagonal an `EdgeTurnBitmap` bit selects. All four raw
+bitmap arrays are preserved without assigning those unknown meanings.
+[Epic's UE2 terrain documentation](https://docs.unrealengine.com/udk/Two/EditingTerrainMaps.html)
+confirms that visibility controls missing, non-solid terrain and edge turns
+change triangle diagonals; the saved native table supplies the independent
+visibility indexing evidence. See `tools/world/README.md` for the sidecar
+contract and verification gate.
 
 ## 6. THE HEIGHTMAP — solved (not in the .unr)
 
@@ -325,8 +351,9 @@ inspected visually and show clear terrain relief (ridges, valleys, crater).
 
 - The final 5 bytes of the actor header (§3.1) — constant-ish tail `.. 81`,
   two varying compact-looking values; no semantic assigned.
-- TerrainSector `middle` blocks and the 17×17 i16 tail (sentinels
-  -1/-2/0x440 suggest flags/indices, maybe LOD/edge/visibility).
+- TerrainSector `middle` blocks, the 64 bytes before its final array, and
+  meanings of the 256 unsigned quad-table values beyond zero/nonzero
+  visibility (§5). Native edge-turn diagonal and boundary rules remain unknown.
 - The 262144-byte per-cell block in the TerrainInfo tail.
 - ~~`Model`/`Polys` BSP geometry (buildings constructed from brushes)~~ —
   **SOLVED 2026-08-07, see §3.3** (only the lightmap tail is left).

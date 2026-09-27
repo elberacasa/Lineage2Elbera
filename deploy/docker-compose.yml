@@ -5,10 +5,10 @@ services:
     image: mariadb:11.4
     restart: unless-stopped
     environment:
-      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in the private deployment environment}"
       MARIADB_DATABASE: l2jdb
       MARIADB_USER: l2j
-      MARIADB_PASSWORD: l2jpass
+      MARIADB_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD in the private deployment environment}"
     volumes:
       - dbdata:/var/lib/mysql
       # Esquema (65 tablas) y semilla del gameserver se montan solo-lectura y el
@@ -19,7 +19,7 @@ services:
       - ./initdb:/seed:ro
     entrypoint: /bin/bash -c 'cp /schema/*.sql /seed/*.sql /docker-entrypoint-initdb.d/ && exec docker-entrypoint.sh mariadbd'
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-p$${MARIADB_ROOT_PASSWORD}", "--silent"]
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -39,7 +39,7 @@ services:
       DB_PORT: "3306"
       DB_NAME: l2jdb
       DB_USER: l2j
-      DB_PASS: l2jpass
+      DB_PASS: "${DB_PASSWORD:?Set DB_PASSWORD in the private deployment environment}"
     ports:
       - "2106:2106"   # clientes L2
     expose:
@@ -60,7 +60,7 @@ services:
       DB_PORT: "3306"
       DB_NAME: l2jdb
       DB_USER: l2j
-      DB_PASS: l2jpass
+      DB_PASS: "${DB_PASSWORD:?Set DB_PASSWORD in the private deployment environment}"
       LOGIN_HOST: loginserver
       GS_XMX: 2g
       # EXTERNAL_HOSTNAME: tu.dominio.com  # host que reciben los clientes en la lista de servidores

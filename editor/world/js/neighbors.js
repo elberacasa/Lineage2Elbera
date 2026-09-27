@@ -11,7 +11,7 @@
 //   * no props, no water, no shadows, no runtime splat blending.
 //   * geodata is LAZY: heights/geodata only load when the character gets
 //     near the boundary (preloadNear) or actually stands on the tile
-//     (heightAtWorld). Until then the heightmap bilinear answers.
+//     (heightAtWorld). Until then the rendered terrain triangles answer.
 //
 // Missing tiles (map edges — not every tx_ty exists in assets/world) are
 // skipped: the void stays there but nothing crashes.
@@ -26,6 +26,7 @@ import { L2_TO_M, l2ToThree } from './coords.js';
 import { Geodata, GEO_ANCHOR_MAX } from './geodata.js';
 import { BspFloor, drawnGroundL2 } from './bspfloor.js';
 import { correctHeightsWithGeodata } from './heightfix.js';
+import { sampleGridHeight, gridTriangleIndices, loadSourceTerrainSurface } from './terrain-surface.js';
 
 // walking rule, same constant as terrain.js: a walker gains at most this
 // much in one step — taller layers are walls, not floors (L2 units). 48 =
@@ -47,32 +48,52 @@ const MESH_RES = (() => {
 const FALLBACK_COLOR = 0x8a7a5e;
 
 export class NeighborTile {
-  constructor(tile, baseUrl) {
+  constructor(tile, baseUrl, { legacyStretch = false } = {}) {
     this.tile = tile;
     this.baseUrl = baseUrl;
     this.def = null;
     this.heights = null;        // Uint16Array 256x256 (source grid)
+    this.surface = null;
+    this.legacyStretch = legacyStretch;
     this.mesh = null;
     this.group = new THREE.Group();
     this.geodata = null;        // lazy — see ensureGeodata()
     this.bspFloor = null;       // lazy, alongside geodata (bspfloor.js)
     this._geoPromise = null;
+    this._disposed = false;
+    this._loadAbort = new AbortController();
   }
 
   async load() {
-    this.def = await (await fetch(this.baseUrl + 'scene.json')).json();
+    const options = { signal: this._loadAbort.signal };
+    const sceneResponse = await fetch(this.baseUrl + 'scene.json', options);
+    if (!sceneResponse.ok) throw new Error(`scene fetch failed: ${sceneResponse.status}`);
+    this.def = await sceneResponse.json();
+    this._checkLoading();
     const g = this.def.gridSize || 256;
-    const res = await fetch(this.baseUrl + this.def.heightmap);
+    const res = await fetch(this.baseUrl + this.def.heightmap, options);
     if (!res.ok) throw new Error(`heightmap fetch failed: ${res.status}`);
     const buf = await res.arrayBuffer();
     const view = new DataView(buf);
     this.heights = new Uint16Array(g * g);
     for (let i = 0; i < g * g; i++) this.heights[i] = view.getUint16(i * 2, true);
 
+    const sourceSurface = await loadSourceTerrainSurface(this.baseUrl, this.def, this.heights);
+    this._checkLoading();
+    this.surface = this.legacyStretch ? null : sourceSurface;
     const material = await this._buildMaterial();
+    if (this._disposed) {
+      material.map?.dispose();
+      material.dispose();
+      this._checkLoading();
+    }
     this.mesh = new THREE.Mesh(this._buildGeometry(), material);
     this.mesh.name = `neighbor-${this.tile}`;
     this.group.add(this.mesh);
+  }
+
+  _checkLoading() {
+    if (this._disposed) throw new DOMException('Neighbor no longer needed', 'AbortError');
   }
 
   // one texture, one draw call. Primary: a client-side BAKE of the tile's
@@ -120,6 +141,9 @@ export class NeighborTile {
       Promise.all(splatLayers.map(e =>
         this._loadImage(e.l.splat).catch(() => NeighborTile._solidImage(0, 0, 0)))),
     ]);
+    // Image requests may finish after this neighborhood was replaced. Avoid
+    // baking a million pixels per obsolete tile on the browser's main thread.
+    this._checkLoading();
     // decode everything to pixel arrays once (splat: R channel; diffuse: RGB)
     const read = (img) => {
       const c = document.createElement('canvas');
@@ -141,10 +165,10 @@ export class NeighborTile {
     const px = img.data;
     for (let y = 0; y < SIZE; y++) {
       const fy = y / (SIZE - 1);          // 0 = tile min-Y edge (splat row 0)
-      const qy = fy * 255;
+      const qy = fy * (this.surface ? 256 : 255);
       for (let x = 0; x < SIZE; x++) {
         const fx = x / (SIZE - 1);
-        const qx = fx * 255;
+        const qx = fx * (this.surface ? 256 : 255);
         let r = 0, g = 0, b = 0;
         for (let k = 0; k < layers.length; k++) {
           // splat weight: layer 0 is the opaque base (a = 1); further
@@ -216,9 +240,20 @@ export class NeighborTile {
   // between tiles). Vertices are built in absolute three.js world coords
   // from the tile's own origin, so no transform is needed.
   _buildGeometry() {
+    if (this.surface) {
+      // Keep source holes and edge samples exact on migrated tiles. A later
+      // LOD must preserve these boundaries before replacing this geometry.
+      const data = this.surface.meshData(), geo = new THREE.BufferGeometry();
+      const g = this.surface.size;
+      for (let i = 0; i < data.uv.length; i++) data.uv[i] *= (g - 1) / g;
+      geo.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(data.uv, 2));
+      geo.setIndex(new THREE.BufferAttribute(data.indices, 1));
+      geo.computeVertexNormals();
+      return geo;
+    }
     const def = this.def;
     const src = def.gridSize || 256;
-    const spacing = def.spacing || 128;
     const heightScale = def.heightScale ?? 0.296875;
     const origin = def.origin || [0, 0, 0];
     const n = MESH_RES;
@@ -228,11 +263,10 @@ export class NeighborTile {
     for (let gy = 0; gy < n; gy++) {
       for (let gx = 0; gx < n; gx++) {
         const i = gy * n + gx;
-        // world offset covers [0, TILE_L2]; height sample clamps to the
-        // heightmap's last real sample (255)
+        // Sample the same stretched source triangles as the center tile.
         const fx = gx / (n - 1), fy = gy / (n - 1);
-        const sx = Math.min(src - 1, fx * src);
-        const sy = Math.min(src - 1, fy * src);
+        const sx = fx * src;
+        const sy = fy * src;
         const h = this._sample(src, sx, sy);
         l2ToThree(origin[0] + fx * TILE_L2, origin[1] + fy * TILE_L2,
                   origin[2] + (h - 32768) * heightScale, v);
@@ -240,16 +274,7 @@ export class NeighborTile {
         uv[i * 2] = fx; uv[i * 2 + 1] = fy;
       }
     }
-    const idx = new Uint32Array((n - 1) * (n - 1) * 6);
-    let k = 0;
-    for (let gy = 0; gy < n - 1; gy++) {
-      for (let gx = 0; gx < n - 1; gx++) {
-        const a = gy * n + gx, b = a + 1, c = a + n, d = c + 1;
-        // same winding as terrain.js (three z = -l2y flips handedness)
-        idx[k++] = a; idx[k++] = b; idx[k++] = c;
-        idx[k++] = b; idx[k++] = d; idx[k++] = c;
-      }
-    }
+    const idx = gridTriangleIndices(n);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
@@ -258,15 +283,9 @@ export class NeighborTile {
     return geo;
   }
 
-  // bilinear sample of the source heightmap at fractional (fx, fy)
+  // Source triangles use the same temporary stretched-edge layout as Terrain.
   _sample(g, fx, fy) {
-    const x0 = Math.min(Math.floor(fx), g - 2);
-    const y0 = Math.min(Math.floor(fy), g - 2);
-    const tx = fx - x0, ty = fy - y0;
-    const h = (x, y) => this.heights[y * g + x];
-    const top = h(x0, y0) * (1 - tx) + h(x0 + 1, y0) * tx;
-    const bot = h(x0, y0 + 1) * (1 - tx) + h(x0 + 1, y0 + 1) * tx;
-    return top * (1 - ty) + bot * ty;
+    return sampleGridHeight(g, fx, fy, i => this.heights[i], true);
   }
 
   // Lazy geodata: kicked off by preloadNear (boundary approach) or by the
@@ -281,6 +300,7 @@ export class NeighborTile {
         BspFloor.load(this.baseUrl).catch(() => null),
       ])
         .then(([g, bf]) => {
+          if (this._disposed) return null;
           this.geodata = g;
           this.bspFloor = bf;
           if (g) this._applyGeodataCorrection();
@@ -300,6 +320,7 @@ export class NeighborTile {
   // place (the mesh samples this grid — see _buildGeometry), so one source
   // fix covers every mesh vertex.
   _applyGeodataCorrection() {
+    if (this.surface) return; // raw source heights are never inferred from geodata
     const def = this.def;
     const g = def.gridSize || 256;
     const heightScale = def.heightScale ?? 0.296875;
@@ -316,7 +337,7 @@ export class NeighborTile {
         const i = gy * n + gx;
         // same source-grid sampling as _buildGeometry
         const h = this._sample(
-          g, Math.min(g - 1, gx / (n - 1) * g), Math.min(g - 1, gy / (n - 1) * g));
+          g, gx / (n - 1) * g, gy / (n - 1) * g);
         pos.setY(i, (origin[2] + (h - 32768) * heightScale) * L2_TO_M);
       }
     }
@@ -326,7 +347,7 @@ export class NeighborTile {
 
   // three.js Y (meters) at three.js world (x, z) — same contract as
   // Terrain.heightAtWorld's non-interior path: geodata with the walking
-  // layer rule when loaded, heightmap bilinear otherwise (and as fallback
+  // layer rule when loaded, rendered terrain otherwise (and as fallback
   // when geodata has no answer, e.g. before the lazy load lands).
   heightAtWorld(x, z, currentZ = null) {
     // Same anchoring rule as Terrain.heightAtWorld: the geodata surface sits
@@ -335,14 +356,21 @@ export class NeighborTile {
     // up 30 units, which is what a router disagreeing with the center's would
     // do — so the neighbour meshes have to anchor identically.
     const def = this.def;
-    const g = def.gridSize || 256;
-    const spacing = def.spacing || 128;
-    const heightScale = def.heightScale ?? 0.296875;
     const origin = def.origin || [0, 0, 0];
-    const fx = Math.min(Math.max((x / L2_TO_M - origin[0]) / spacing, 0), g - 1.001);
-    const fy = Math.min(Math.max((-z / L2_TO_M - origin[1]) / spacing, 0), g - 1.001);
-    const v = this._sample(g, fx, fy);
-    const terrainZ = origin[2] + (v - 32768) * heightScale;   // L2 units
+    // Read the ACTUAL decimated mesh, including stitched edge vertices and
+    // lazy geodata corrections. Sampling the full source grid here makes
+    // feet sink into, or float above, the coarser visible triangles.
+    let terrainZ;
+    if (this.surface) {
+      terrainZ = this.surface.sample((x / L2_TO_M - origin[0]) / def.spacing,
+        (-z / L2_TO_M - origin[1]) / def.spacing);
+    } else {
+      const positions = this.mesh.geometry.attributes.position;
+      const n = Math.round(Math.sqrt(positions.count));
+      const fx = (x / L2_TO_M - origin[0]) / TILE_L2 * (n - 1);
+      const fy = (-z / L2_TO_M - origin[1]) / TILE_L2 * (n - 1);
+      terrainZ = sampleGridHeight(n, fx, fy, i => positions.getY(i)) / L2_TO_M;
+    }
     if (this.geodata) {
       // and the same drawn-surface rule as Terrain._drawnGroundL2 — literally
       // the same function, so a walker crossing the border cannot step
@@ -353,6 +381,11 @@ export class NeighborTile {
       const drawn = drawnGroundL2(
         this.bspFloor, this.geodata, xL2, yL2, terrainZ,
         currentZ == null ? null : currentZ / L2_TO_M);
+      if (drawn == null) {
+        const h = this.geodata.heightAt(xL2, yL2, currentZ == null ? null : currentZ / L2_TO_M,
+          currentZ == null ? null : MAX_STEP_UP_L2);
+        return h == null ? null : h * L2_TO_M;
+      }
       const h = this.geodata.anchoredHeightAt(
         xL2, yL2,
         currentZ == null ? null : currentZ / L2_TO_M,
@@ -361,7 +394,7 @@ export class NeighborTile {
       if (h != null) return h * L2_TO_M;
       return drawn * L2_TO_M;
     }
-    return terrainZ * L2_TO_M;
+    return terrainZ == null ? null : terrainZ * L2_TO_M;
   }
 
   // Stitch this neighbor's edge that abuts the CENTER tile to the center's
@@ -370,24 +403,20 @@ export class NeighborTile {
   // see-through crack shows at the border. dx/dy is this tile's offset from
   // the center; only cardinal neighbors share an edge with it.
   stitchTo(centerTerrain, dx, dy) {
+    if (this.surface || centerTerrain.surface) return; // never move source vertices to match a LOD
     if (Math.abs(dx) + Math.abs(dy) !== 1 || !this.mesh) return;
     const g = centerTerrain.gridSize;
     const n = Math.round(Math.sqrt(this.mesh.geometry.attributes.position.count));
-    // bilinear sample along the center tile's shared edge (256 heights)
+    // The center's final source interval is stretched; sample by physical
+    // coordinate, not by uniformly spreading 255 intervals over 256.
     const edge = (s) => {
-      const x0 = Math.min(Math.floor(s), g - 2);
-      const t = s - x0;
-      let h0, h1;
-      if (dx === 1) { h0 = centerTerrain.heights[x0 * g + (g - 1)]; h1 = centerTerrain.heights[(x0 + 1) * g + (g - 1)]; }
-      else if (dx === -1) { h0 = centerTerrain.heights[x0 * g]; h1 = centerTerrain.heights[(x0 + 1) * g]; }
-      else if (dy === 1) { h0 = centerTerrain.heights[(g - 1) * g + x0]; h1 = centerTerrain.heights[(g - 1) * g + x0 + 1]; }
-      else { h0 = centerTerrain.heights[x0]; h1 = centerTerrain.heights[x0 + 1]; }
-      return h0 * (1 - t) + h1 * t;
+      const x = dx === 1 ? g : dx === -1 ? 0 : s;
+      const y = dy === 1 ? g : dy === -1 ? 0 : s;
+      return centerTerrain._sampleSurface(x, y);
     };
     const pos = this.mesh.geometry.attributes.position;
     for (let i = 0; i < n; i++) {
-      const h = edge(i / (n - 1) * (g - 1));
-      const y = (centerTerrain.origin[2] + (h - 32768) * centerTerrain.heightScale) * L2_TO_M;
+      const y = edge(i / (n - 1) * g);
       let vi;
       if (dx === 1) vi = i * n;                 // my west column
       else if (dx === -1) vi = i * n + (n - 1); // my east column
@@ -402,6 +431,8 @@ export class NeighborTile {
   // same disposal rule as Terrain.dispose(): free geometry, materials and
   // every texture they reference (switching neighborhoods must not leak)
   dispose() {
+    this._disposed = true;
+    this._loadAbort.abort();
     const seenTex = new Set();
     const killTex = (t) => {
       if (t && t.isTexture && !seenTex.has(t)) { seenTex.add(t); t.dispose(); }
@@ -418,6 +449,8 @@ export class NeighborTile {
         m.dispose();
       }
     });
+    this.group.clear();
+    this.mesh = null;
   }
 }
 
@@ -458,24 +491,33 @@ export class NeighborTiles {
       }
     }
     await Promise.all([...want].map(async (name) => {
-      if (this.tiles.has(name)) return;
-      const entry = new NeighborTile(name, `/scenes/${encodeURIComponent(name)}/`);
+      // A retained tile may still be loading from the previous center.
+      // Join that load, rather than treating its map reservation as ready.
+      if (this.tiles.has(name)) return this.tiles.get(name)._loadPromise;
+      const entry = new NeighborTile(name, `/scenes/${encodeURIComponent(name)}/`,
+        { legacyStretch: !!centerTerrain?.legacyStretch });
       this.tiles.set(name, entry);   // reserve before awaiting (dedupe)
-      try {
-        await entry.load();
-      } catch (e) {
-        console.warn(`neighbor ${name}: load failed (${e.message})`);
-        this.tiles.delete(name);
-        return;
-      }
-      // a newer setCenter may have dropped us while loading
-      if (gen === this._gen && this.tiles.get(name) === entry) {
-        entry.group.traverse(o => { o.renderOrder = -1; });  // below the center tile
-        this.scene.add(entry.group);
-      } else {
-        entry.dispose();
-      }
+      entry._loadPromise = (async () => {
+        try {
+          await entry.load();
+          // A newer center can KEEP this exact in-flight neighbor. Identity,
+          // not the old center's generation, determines whether it is needed.
+          if (this.tiles.get(name) === entry) {
+            entry.group.traverse(o => { o.renderOrder = -1; });
+            this.scene.add(entry.group);
+          } else {
+            entry.dispose();
+          }
+        } catch (e) {
+          if (e.name !== 'AbortError') console.warn(`neighbor ${name}: load failed (${e.message})`);
+          // An obsolete failure must not delete a replacement for this tile.
+          if (this.tiles.get(name) === entry) this.tiles.delete(name);
+          entry.dispose();
+        }
+      })();
+      return entry._loadPromise;
     }));
+    if (gen !== this._gen) return;
     // close the center<->neighbor seams with the center's own edge heights
     if (centerTerrain && centerTerrain.heights) {
       const [cx, cy] = (center || '0_0').split('_').map(Number);

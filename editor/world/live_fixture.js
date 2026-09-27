@@ -43,6 +43,7 @@
 //   would log into a fresh account. Exits 1 with the offender list.
 'use strict';
 
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -50,7 +51,6 @@ const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
 const GATEWAY_URL = process.env.GATEWAY_URL || 'ws://127.0.0.1:8090';
-const DB = ['-u', 'l2j', '-pl2jpass', 'l2jdb'];
 
 // MIRRORS gateway/src/bridge.js:69-77 deriveCredentials(). If that function
 // changes, this must change with it — verified by --check below, which
@@ -67,7 +67,7 @@ function derive(deviceId) {
 }
 
 function sql(query) {
-  return execFileSync('mariadb', [...DB, '-N', '-B', '-e', query], { encoding: 'utf8' }).trim();
+  return execFileSync('mariadb', [...dbArgs(), '-N', '-B', '-e', query], { encoding: 'utf8' }).trim();
 }
 
 // obj_Id of the fixture character, or '' if the account has never had one.

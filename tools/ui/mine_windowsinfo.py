@@ -1,64 +1,35 @@
 #!/usr/bin/env python3
-"""Mine the client's own default window placements out of WindowsInfo.ini.
+"""Elbera Tools: recover saved window positions and native reset defaults.
 
-    python3 tools/ui/mine_windowsinfo.py            report
-    python3 tools/ui/mine_windowsinfo.py --emit     write assets/gamedata/windowsinfo.json
-    python3 tools/ui/mine_windowsinfo.py --check    re-parse + cross-check, exit 1 on drift
+python3 tools/ui/mine_windowsinfo.py --emit
+python3 tools/ui/mine_windowsinfo.py --check
 
-WHY THIS EXISTS
----------------
-`assets/interlude/system/WindowsInfo.ini` is a shipped client file. It holds
-the position every retail window opens at the first time a character sees it,
-in absolute 1024x768 client pixels, and for six of them the size as well.
-
-It has been sitting on disk unread. Fourteen files under
-`editor/world/js/ui/` mention it *in a comment* -- several of them next to a
-typed pair of numbers, and at least three next to the words "AUTHORED dock
-(WindowsInfo.ini not mined for this window)" while the window in question
-does have a section. This tool reads the file so those numbers can be READ
-rather than transcribed, which is the difference between a value that stays
-right and a value that was right once.
-
-WHAT IT DOES NOT CLAIM
-----------------------
-* Eight sections are named by bare number -- `[1]`..`[8]`. `[6]` is 348x187,
-  which is exactly ChatWnd's size in Interface.xdat, so the numbers are
-  plainly window ids of some kind. **Which id is which window is not decoded
-  here**, so they are emitted under their literal names and nothing maps
-  them. Do not guess: a wrong mapping would dock a window at another
-  window's corner and look deliberate.
-* A window with no section gets nothing. `Layout.dock()` returns null and the
-  caller keeps its own AUTHORED placement, marked as such at the site. The
-  goal is not to have a number for every window; it is to stop pretending we
-  decoded the ones we did not.
-* The origin is the top-left of the client area at 1024x768, the same origin
-  Interface.xdat uses -- consistent with every entry landing inside that box
-  except the three `_1`/`_2` expanded shortcut rows and `UnionDetailWnd`,
-  which are reported below rather than swept under the rug.
-
-THE CROSS-CHECK
----------------
-Six sections carry `width`/`height` as well as a position. Those six are the
-gate: each one must equal the size `parse_xdat.py` independently recovered
-from Interface.xdat for the same window name. Two unrelated client files
-agreeing on six sizes is what says the parse is reading the right fields --
-if the ini format were being misread, the sizes would not line up.
+WindowsInfo.ini contains saved absolute positions, not universal defaults.
+The separate pinned Interface.xdat default-position table supplies reset
+anchors/offsets; native ReArrangeSavedWnd resets only when no window corner
+is inside the root rectangle. See docs/native-layout-evidence.md.
+Numbered INI sections remain unmapped. The 1024x768 box below is diagnostic,
+not evidence of a native scaling/clamping rule. No original files are bundled.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
 import sys
+import struct
+from pathlib import Path
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 INI = os.path.join(REPO, 'assets/interlude/system/WindowsInfo.ini')
 XDAT_JSON = os.path.join(REPO, 'assets/gamedata/interface.json')
+XDAT = os.path.join(REPO, 'assets/interlude/system/Interface.xdat')
+XDAT_SHA = 'a7969a86d3b676d95cfd42cfd6cd0742c07d7941250dbb63a2ba6d937961c1f4'
+DEFAULT_START, DEFAULT_END = 532005, 534247
 OUT = os.path.join(REPO, 'assets/gamedata/windowsinfo.json')
 
-# The client's UI is authored at 1024x768 and is NOT rescaled with the
-# resolution (docs/ui-mined-values.md); positions are absolute pixels in that
-# box. Used below only to report which entries fall outside it.
+# Diagnostic reference box only; saved INI positions carry no source viewport.
 REF_W, REF_H = 1024, 768
 
 SECTION = re.compile(r'^\[([^\]\r\n]+)\]\s*$')
@@ -85,6 +56,65 @@ def parse(text):
             continue
         anomalies.append((n, line))
     return out, anomalies
+
+
+def decode_default_positions(data, start, end):
+    """Decode the native int32-count / FString + six-int32 table, bounded.
+
+    The pinned build supplies the table span. This is not a string-signature
+    search or a decoder for unrelated trailing Interface.xdat structures.
+    Repeated identical records retain all offsets; conflicting repeats fail
+    rather than silently choosing a different rule for a window.
+    """
+    if not 0 <= start <= end <= len(data) or end - start < 4:
+        raise ValueError('invalid default-position table span')
+    count, = struct.unpack_from('<i', data, start)
+    if not 0 <= count <= (end - start - 4) // 27:
+        raise ValueError('invalid default-position count')
+    p, out = start + 4, {}
+    for _ in range(count):
+        record_start = p
+        if p >= end:
+            raise ValueError('truncated default-position name')
+        length = data[p]
+        p += 1
+        if length < 2 or p + length + 24 > end or data[p + length - 1] != 0:
+            raise ValueError('invalid default-position FString')
+        raw_name = data[p:p + length - 1]
+        if any(c < 32 or c >= 127 for c in raw_name):
+            raise ValueError('unsupported default-position name encoding')
+        name = raw_name.decode('ascii')
+        p += length
+        anchor, x, y, anchored, width, height = struct.unpack_from('<6i', data, p)
+        p += 24
+        if not 1 <= anchor <= 9 or anchored not in (0, 1):
+            raise ValueError('unsupported default-position anchor')
+        if width < 0 and width != -9999 or height < 0 and height != -9999:
+            raise ValueError('unsupported default-position size sentinel')
+        row = {'anchor': anchor, 'offsetX': x, 'offsetY': y,
+               'anchored': bool(anchored),
+               'w': None if width == -9999 else width,
+               'h': None if height == -9999 else height}
+        if name in out:
+            if row != {k: v for k, v in out[name].items() if k != 'sourceOffsets'}:
+                raise ValueError(f'conflicting default-position records: {name}')
+            out[name]['sourceOffsets'].append(record_start)
+        else:
+            out[name] = {**row, 'sourceOffsets': [record_start]}
+    if p != end:
+        raise ValueError('default-position table boundary mismatch')
+    return out, count
+
+
+def original_defaults():
+    raw = Path(XDAT).read_bytes()
+    if hashlib.sha256(raw).hexdigest() != XDAT_SHA:
+        raise ValueError('unsupported Interface.xdat source hash')
+    defaults, count = decode_default_positions(raw, DEFAULT_START, DEFAULT_END)
+    if count != 56:
+        raise ValueError('unexpected source default-position count')
+    return defaults, {'xdatSHA256': XDAT_SHA, 'defaultTableStart': DEFAULT_START,
+                      'defaultTableEnd': DEFAULT_END, 'defaultRecordCount': count}
 
 
 def xdat_sizes():
@@ -157,7 +187,13 @@ def run():
         notes.append(f'outside the {REF_W}x{REF_H} reference box (reported, '
                      f'not corrected): {", ".join(outside)}')
 
-    return {'docks': docks, 'numeric': numeric}, fails, notes
+    try:
+        defaults, provenance = original_defaults()
+        provenance['windowsInfoSHA256'] = hashlib.sha256(Path(INI).read_bytes()).hexdigest()
+    except (OSError, ValueError) as error:
+        return None, [*fails, str(error)], notes
+    return {'docks': docks, 'numeric': numeric, 'defaults': defaults,
+            '_provenance': provenance}, fails, notes
 
 
 def main():
@@ -167,7 +203,7 @@ def main():
     a = ap.parse_args()
 
     data, fails, notes = run()
-    print('WindowsInfo.ini default window placement')
+    print('Elbera Tools: saved window positions and native reset defaults')
     if data:
         print(f'  {len(data["docks"])} named sections, '
               f'{len(data["numeric"])} numbered (unmapped, see docstring)')
@@ -181,13 +217,13 @@ def main():
     payload = {
         '_source': 'assets/interlude/system/WindowsInfo.ini',
         '_tool': 'tools/ui/mine_windowsinfo.py',
-        '_note': 'Retail default window placement, absolute pixels at '
-                 '1024x768. "numeric" holds the [1]..[8] sections, whose '
-                 'window identity is NOT decoded -- do not map them.',
+        '_note': 'docks are saved WindowsInfo.ini positions, not initial defaults. '
+                 'defaults are separate original XDAT reset records; null w/h '
+                 'means native unchanged size. numeric identities are unresolved.',
         **(data or {}),
     }
 
-    if a.emit and data:
+    if a.emit and data and not fails:
         with open(OUT, 'w') as f:
             json.dump(payload, f, indent=1, sort_keys=True)
             f.write('\n')
@@ -198,7 +234,7 @@ def main():
             fails.append(f'{os.path.relpath(OUT, REPO)} absent -- run --emit')
         elif data:
             have = json.load(open(OUT))
-            for k in ('docks', 'numeric'):
+            for k in ('docks', 'numeric', 'defaults', '_provenance'):
                 if have.get(k) != data[k]:
                     fails.append(f'{os.path.relpath(OUT, REPO)} "{k}" disagrees '
                                  f'with WindowsInfo.ini')

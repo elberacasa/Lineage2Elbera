@@ -72,17 +72,21 @@ export class NetClient {
     const ws = new WebSocket(url);
     this.ws = ws;
     ws.onopen = () => {
+      if (this.ws !== ws) return;
       this.connected = true;
       this._emit('open', {});
-      this.send('login', { deviceId: deviceId() });
+      // An open handler can disconnect or replace this connection.
+      if (this.ws === ws) this.send('login', { deviceId: deviceId() });
     };
     ws.onclose = () => {
+      if (this.ws !== ws) return;
       this.connected = false;
       this.ws = null;
       this._emit('close', {});
     };
-    ws.onerror = () => this._emit('error', {});
+    ws.onerror = () => { if (this.ws === ws) this._emit('error', {}); };
     ws.onmessage = (ev) => {
+      if (this.ws !== ws) return;
       let msg;
       try { msg = JSON.parse(ev.data); } catch { console.warn('net: bad JSON', ev.data); return; }
       if (msg && typeof msg.op === 'string') { this._log('in', msg); this._emit(msg.op, msg); }
@@ -91,12 +95,15 @@ export class NetClient {
   }
 
   disconnect() {
-    if (this.ws) {
-      this.ws.onclose = null;   // deliberate close: no 'close' event
-      this.ws.close();
-      this.ws = null;
-    }
+    const ws = this.ws;
+    this.ws = null;
     this.connected = false;
+    if (ws) {
+      // Cancelling a connecting handshake also queues an error. Retire all
+      // callbacks before close so it cannot report against a later socket.
+      ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
+      ws.close();
+    }
   }
 
   send(op, fields = {}) {

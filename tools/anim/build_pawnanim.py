@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""build_pawnanim.py — WHICH clip a player skill cast plays, and WHEN its
-phases fire.  Both answers come out of the shipped client; neither is a rule
-invented here.
+"""Elbera Tools: original pawn slots, sequence timing and notify inputs.
+
+This exports source inputs for the native scheduler, not a replacement timing
+rule or proof that the browser implements complete native playback.
 
 ---------------------------------------------------------------------------
 1. THE CLIENT SHIPS ITS OWN PAWN ANIMATION TABLE
@@ -14,7 +15,7 @@ emotes.  The values live in
     assets/interlude/system/lineagewarrior.int      (Lineage2Ver111)
 
 one section per race/sex prefix (14 of them: MFighter … FDwarf), and every
-slot is indexed by the WEAPON STANCE:
+animation-name slot is indexed by the WEAPON STANCE:
 
     [MFighter]
     CastShortAnimName[1]=CastShort_MFighter
@@ -38,6 +39,11 @@ comment calling that "the client's handness order".  It is not — Pole is 4
 and Bow is 5.  Neither file indexes by position, so nothing is broken there,
 but the comment is wrong and this file does not copy it.
 
+SitAnimName/SitWaitAnimName/StandAnimName and WaitAnimName are retained too.
+SitAnimRate and StandAnimRate are scalar localized floats, separately parsed
+and stored with original Float32 precision as rates.sit/rates.stand. See
+docs/sitting-animation-audit.md for original transition and waiting selection.
+
 Two consequences, both MEASURED here rather than reasoned from names:
 
   * the seven magic slots (CastShort/CastMid/CastLong/CastEnd/MagicShot/
@@ -51,70 +57,61 @@ Two consequences, both MEASURED here rather than reasoned from names:
 ---------------------------------------------------------------------------
 2. THE CLIPS CARRY THE PHASE KEYFRAMES
 ---------------------------------------------------------------------------
-Every sequence in `animations/<Pkg>.ukx` carries a `TArray<FMeshAnimNotify>`;
-the notify objects are exports of the same package, so their CLASS is the
-phase name.  Layout and the umodel-oracle location strategy are
-tools/audio/build_stepnotify.py's (this file imports it rather than
-re-deriving it).  The classes that appear on cast/attack sequences:
+Every original MeshAnimation is traversed to its declared end, including all
+compressed movement chunks and version-specific sequence trailers. This
+replaces PSA-guided byte scanning in the production exporter. The independent
+older reader remains a regression comparison for all 14 original exports.
 
-    AnimNotify_AttackPreShot   wind-up committed  (bow draw, cast pre-roll)
-    AnimNotify_AttackShot      THE HIT / LAUNCH INSTANT
-    AnimNotify_AttackItem      weapon-trail / item effect
-    AnimNotify_AttackVoice     the attack grunt
-    AnimNotify_Channeling      channel loop point (CastLong only)
-    AnimNotify_Sound           a literal sound ref
+Source NumFrames, Rate and normalized notify Time are preserved without
+rounding. Notify arrays retain serialized order, object/function identity and
+null objects. isAttackShot follows the original qualified class/superclass
+chain; a similarly named unrelated class cannot masquerade as AttackShot.
+The source contains two null-object Elf notifies with times above 1; those
+remain intact instead of being clamped or silently discarded.
 
-Those five phase names are the same five the retail effect table
-`Skill.usk` uses for its per-skill action lists — `CastingActions`,
-`ChannelingActions`, `PreshotActions`, `ShotActions`, `ExplosionActions`
-(docs/skillfx-data.md).  Two independent files in the client agree on the
-phase vocabulary, which is why the phases are treated as real here.
-
-`t` is retail's own normalised notify time.  `u` is the same instant as a
-fraction of the SHIPPED glTF clip, u = t*NumFrames/(NumFrames-1), for the
-reason build_stepnotify.py derives and asserts: the exporter writes key i at
-i/Rate, so the glTF clip lasts (NumFrames-1)/Rate while retail's sequence
-lasts NumFrames/Rate.
+`t` is the original Float32 normalized sequence time. The legacy diagnostic
+`u = t*NumFrames/(NumFrames-1)` describes exported one-shot sample span only;
+it is NOT the input for native scheduling. `sec` and `dur` are unrounded
+arithmetic conveniences, not independent original fields. See
+ docs/native-animation-terminal-evidence.md for endpoint/loop distinctions.
 
 ---------------------------------------------------------------------------
-3. WHAT IS STILL NOT DECODED (stated, not guessed)
+3. ORIGINAL SELECTOR PROOF AND REMAINING LIMITS
 ---------------------------------------------------------------------------
-  * `skillgrp.dat`'s `animation` code ('S', 't', 'V', 'Mix01' …) -> WHICH
-    SpAtk slot.  This file supplies slot -> clip; nothing in the client
-    supplies code -> slot.  Searched and came up empty:
-      - engine.dll is Themida-packed.  Its export names survive and prove
-        the slot count (`?GetSpAtk01AnimName@APawn@@…` through SpAtk28, plus
-        GetCastShort/Mid/Long/End, GetMagicShot/Throw/NoTarget, GetShieldAtk
-        — 28 + 8, exactly the slots lineagewarrior.int fills), but no data
-        string of the main section is readable: "SpAtk01" as a plain string
-        does not occur anywhere outside those mangled names.
-      - no .u package name table contains any SpAtk*/Cast*/Magic* name
-        (21 packages checked, 0 hits), so the construction is native.
-      - MobSkillAnimgrp.dat (5463 rows) is NOT a Rosetta stone: it is
-        authored per (npc, skill), and grouping its literal anim names by
-        the caster skill's skillgrp letter gives no consistent mapping
-        (letter 'D' -> spatk01 105x / social01 44x / spatk02 20x / atk01 2x).
-    So the runtime keeps ONE deterministic slot for physical skills and
-    says so, rather than spreading a guess over 500 skills.
-  * WHICH of CastShort/CastMid/CastLong a given cast duration selects.  The
-    three clips' true lengths are measured here (0.833 s / ~1.833 s /
-    3.833 s at 30 fps); the threshold rule is in the packed native code.
+Engine.dll's SetSkillAnim has now been statically recovered. Its original
+skillgrp animation code -> ordered pawn-slot selection is verified by
+ tools/ui/check_skillanim_native.py and docs/native-skill-animation-evidence.md.
+This exporter supplies each selected slot's exact .int sequence and original
+notify data. It does not establish the runtime's phase-transition scheduling,
+playback-rate calculation, interruption semantics or NPC overrides. The
+browser's supported ordinary phase scheduler consumes these source inputs;
+native pose interpolation and notify effects remain separate work. No duration
+threshold is claimed as an original selector rule.
 
 ---------------------------------------------------------------------------
 WHAT THIS WRITES
 ---------------------------------------------------------------------------
     editor/characters/pawnanim.json      (served at /characters/pawnanim.json)
 
-    {"source": {...},
+    {"format": "l2-interlude-pawn-animation-v2", "source": {...},
      "stanceIndex": ["hand","1hs","2hs","dual","pole","bow"],
      "magicSlots": [...], "physicalSlots": [...],
      "models": {"<id>": {
         "prefix": "MFighter",
         "slots": {"<slot>": {"<stance>": {"seq","clip"}}},
         "unshipped": {"<slot>": {"<stance>": "<retail seq with no glTF clip>"}},
+        "slotSource": {"<slot>": {"<stance>": {"seq","clip","status"}}},
         "rates": {"atk01": 0.8333, ...}}},
      "clips": {"<id>": {"<glTF clip>": {
-        "seq","frames","rate","dur","notifies":[{"kind","t","u","sec","sound"}]}}}}
+        "seq","frames","rate","dur","originalTiming":true,"source":{...},
+        "notifies":[{"index","kind","t","u","sec","function","objectRef",
+                     "classPath","isAttackShot","sound"}]}}},
+     "sequences": {"<id>": {"<original lowercase name>": {same source metadata}}}}
+
+Present originalTiming:true + notifies:[] is verified empty source, not missing
+metadata. sequences retains source even when no browser clip was exported.
+slotSource distinguishes source-none, source-sequence and missing-source-sequence.
+Missing slots remain absent; they are not invented as empty source sequences.
 
 Usage:
   python3 tools/anim/build_pawnanim.py            # write it
@@ -124,9 +121,12 @@ Usage:
 
 import argparse
 import collections
+import hashlib
 import json
+import math
 import os
 import re
+import struct
 import sys
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -135,9 +135,8 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 sys.path.insert(0, os.path.join(ROOT, "tools", "world"))
 sys.path.insert(0, os.path.join(ROOT, "tools", "audio"))
 
-from l2lib import load_package, L2Error                       # noqa: E402
-from l2lib.ue2package import decrypt_file_bytes               # noqa: E402
-from build_stepnotify import psa_seqs, read_sequences, notify_props, PSA  # noqa: E402
+from l2lib import load_package, read_properties, L2Error      # noqa: E402
+from l2lib.ue2package import decrypt_file_bytes, Reader       # noqa: E402
 
 CLIENT = os.path.join(ROOT, "assets", "interlude")
 WARRIOR_INT = os.path.join(CLIENT, "system", "lineagewarrior.int")
@@ -145,6 +144,240 @@ ANIMS = os.path.join(CLIENT, "animations")
 CHARACTERS = os.path.join(ROOT, "editor", "characters")
 MANIFEST = os.path.join(CHARACTERS, "manifest.json")
 OUT = os.path.join(CHARACTERS, "pawnanim.json")
+FORMAT = "l2-interlude-pawn-animation-v2"
+
+
+def _require(condition, message):
+    if not condition:
+        raise L2Error(message)
+
+
+def file_sha256(path):
+    with open(path, 'rb') as stream:
+        return hashlib.sha256(stream.read()).hexdigest()
+
+
+def source_ref_path(pkg, ref, package_name):
+    """Resolve the serialized outer chain without dropping its package."""
+    if not ref:
+        return None
+    parts, seen, local = [], set(), ref > 0
+    while ref:
+        _require(ref not in seen, "cyclic source object outer chain")
+        seen.add(ref)
+        obj = pkg.resolve_ref(ref)
+        parts.append(pkg.export_name(obj) if ref > 0 else pkg.import_name(obj))
+        ref = obj.package_index
+    return '.'.join(([package_name] if local else []) + list(reversed(parts)))
+
+
+def original_sequences(pkg, exp):
+    """Traverse version123/licensee28-or30 MeshAnimation1 within declared bounds.
+
+    This follows every compressed movement/sequence trailer to its endpoint;
+    there is no PSA oracle, byte search or guessed per-record padding. The
+    independent terminal verifier implements the same original serializer
+    layout separately and measures source key tails.
+    """
+    # Elf.ukx is licensee28; the six other player packages are licensee30.
+    # Both use the same >=27 Lineage FLineageUnk4 sequence trailer and >=25
+    # absolute movement endpoints (UnMesh2.h / SerializeLineageMoves).
+    _require(pkg.file_version == 123 and pkg.licensee_version in (28, 30),
+             "unsupported original MeshAnimation package version")
+    _require(pkg.class_name_of(exp) == 'MeshAnimation', "not a MeshAnimation export")
+    start, end = exp.serial_offset, exp.serial_offset + exp.serial_size
+    _require(0 <= start < end <= len(pkg.data), "invalid MeshAnimation export bounds")
+    reader = Reader(pkg.data[:end], start, path=pkg.path)
+    read_properties(pkg, reader)
+    _require(reader.i32() == 1, "unsupported MeshAnimation version")
+
+    def count(width=1):
+        value = reader.compact()
+        _require(0 <= value <= (end - reader.pos) // width, "invalid bounded array count")
+        return value
+
+    def name():
+        return pkg.name(reader.compact())
+
+    def array(width):
+        n = count(width)
+        return reader.bytes(n * width), n
+
+    def track(allow_empty=False):
+        reader.i32()
+        _, quats = array(16)
+        _, positions = array(12)
+        raw, times = array(4)
+        values = struct.unpack('<%df' % times, raw)
+        _require((values or allow_empty) and quats in (1, times) and positions in (1, times),
+                 "invalid source animation track cardinality")
+        _require(all(math.isfinite(t) and t >= 0 for t in values)
+                 and all(a <= b for a, b in zip(values, values[1:])), "invalid source key times")
+
+    bones = count(9)
+    for index in range(bones):
+        name(); reader.i32()
+        _require(0 <= reader.i32() <= index, "invalid source bone parent")
+    moves_end = reader.i32()
+    _require(reader.pos < moves_end <= end, "invalid source movement endpoint")
+    moves = []
+    for _ in range(count(28)):
+        local_end = reader.i32()
+        _require(reader.pos < local_end <= moves_end, "invalid source movement chunk endpoint")
+        reader.bytes(12)
+        duration = reader.f32()
+        _require(math.isfinite(duration) and duration > 0, "invalid source movement duration")
+        reader.i32(); reader.i32()
+        array(4)
+        ntracks = count(7)
+        _require(ntracks == bones, "source movement/bone count mismatch")
+        for _ in range(ntracks): track()
+        track(allow_empty=True)
+        _require(reader.pos == local_end, "source movement chunk not fully consumed")
+        moves.append(duration)
+    _require(reader.pos == moves_end, "source movements not fully consumed")
+    _require(count(18) == len(moves), "source sequence/movement count mismatch")
+    rows, seen = [], set()
+    for index, duration in enumerate(moves):
+        record_start = reader.pos
+        reader.f32()
+        sequence = name()
+        _require(sequence.lower() not in seen, "duplicate source sequence name")
+        seen.add(sequence.lower())
+        groups = [name() for _ in range(count())]
+        start_frame, frames = reader.i32(), reader.i32()
+        notifies = []
+        for order in range(count(6)):
+            t, function, ref = reader.f32(), name(), reader.compact()
+            _require(math.isfinite(t), "nonfinite source notify time")
+            if ref: pkg.resolve_ref(ref)
+            notifies.append({'index': order, 't': t, 'function': function, 'objectRef': ref})
+        rate = reader.f32()
+        _require(frames > 0 and math.isfinite(rate) and rate > 0, "invalid source frames/rate")
+        reader.i32(); reader.i32(); reader.i32(); reader.compact(); reader.i32(); reader.i32()
+        reader.u8(); array(8)
+        for _ in range(count(5)): reader.i32(); array(8)
+        reader.i32(); reader.i32(); array(8)
+        rows.append({'name': sequence, 'frames': frames, 'rate': rate,
+                     'startFrame': start_frame, 'groups': groups, 'movementDuration': duration,
+                     'notifies': notifies, 'source': {'index': index, 'offset': record_start,
+                         'size': reader.pos - record_start,
+                         'SHA256': hashlib.sha256(pkg.data[record_start:reader.pos]).hexdigest()}})
+    _require(reader.pos == end, "source MeshAnimation export not fully consumed")
+    return rows
+
+
+def class_parents(pkg, package_name):
+    return {source_ref_path(pkg, e.index + 1, package_name).lower():
+            source_ref_path(pkg, e.super_index, package_name)
+            for e in pkg.exports if pkg.class_name_of(e) == 'Class'}
+
+
+def is_notify_subtype(class_path, parents, target):
+    """Original IsA semantics: identity or a serialized superclass chain."""
+    seen = set()
+    while class_path:
+        key = class_path.lower()
+        _require(key not in seen, "cyclic notify class ancestry")
+        seen.add(key)
+        _require(key in parents, "unresolved notify class ancestry: " + class_path)
+        if key == target.lower(): return True
+        if key == 'engine.animnotify': return False
+        class_path = parents[key]
+    raise L2Error('notify object is not an original AnimNotify subtype')
+
+
+def is_attack_shot(class_path, parents):
+    return is_notify_subtype(class_path, parents, 'Engine.AnimNotify_AttackShot')
+
+
+def sound_class_defaults(engine):
+    """Recover the original Sound class's unique typed default stream.
+
+    Only explicit source defaults are returned. An absent Radius is not
+    converted to a guessed zero or audio-driver default.
+    """
+    sys.path.insert(0, os.path.join(ROOT, 'tools', 'dat'))
+    from export_npc_visuals import OriginalClasses, terminal_defaults
+    owners = [e for e in engine.exports_by_class('Class')
+              if engine.export_name(e) == 'AnimNotify_Sound']
+    _require(len(owners) == 1, 'missing or ambiguous original Sound notify class')
+    catalog = OriginalClasses()
+    props, evidence = terminal_defaults(engine, owners[0],
+                                        catalog.property_types('Engine.AnimNotify_Sound', set()))
+    _require(evidence['defaultsBoundary'] == 'unique-validated-candidate',
+             'ambiguous Sound notify class defaults')
+    values = {}
+    for name, kind, value in props:
+        if name not in ('Volume', 'Radius', 'Random'):
+            continue
+        _require(name not in values and kind == ('float' if name == 'Volume' else 'int')
+                 and math.isfinite(value), 'invalid Sound notify default')
+        values[name] = value
+    return {'classPath': 'Engine.AnimNotify_Sound', 'values': values, 'source': evidence}
+
+
+def sound_properties(props, defaults, class_path, sound):
+    """Preserve authored scalars and proven inherited defaults, with gaps explicit."""
+    values, sources = {}, {}
+    for field in ('Volume', 'Radius', 'Random'):
+        value, source = None, None
+        if field in props:
+            _require(len(props[field]) == 4, 'invalid Sound notify scalar width')
+            value = struct.unpack('<f' if field == 'Volume' else '<i', props[field])[0]
+            _require(math.isfinite(value), 'nonfinite Sound notify scalar')
+            source = 'object'
+        elif defaults and class_path.lower() == defaults['classPath'].lower() and field in defaults['values']:
+            value, source = defaults['values'][field], defaults['classPath']
+        values[field.lower()], sources[field.lower()] = value, source
+    resolved = (class_path.lower() == 'engine.animnotify_sound'
+                and all(v is not None for v in values.values()))
+    return dict(values, fieldSources=sources, status=(
+        'source-direct' if resolved and sound else 'source-surface' if resolved
+        else 'unresolved-source-properties'))
+
+
+def original_notify(pkg, note, package_name, parents, sound_defaults=None):
+    """Keep null/function-only entries and source order; bound object tags."""
+    row = dict(note, kind=None, classPath=None, isAttackShot=False, isBoneScale=False,
+               isSound=False, objectName=None, objectPath=None)
+    ref = note['objectRef']
+    if not ref:
+        return row
+    _require(ref > 0, "imported notify objects are not decoded")
+    exp = pkg.resolve_ref(ref)
+    class_path = source_ref_path(pkg, exp.class_index, package_name)
+    cls = pkg.class_name_of(exp)
+    row.update(kind=cls.removeprefix('AnimNotify_'), classPath=class_path,
+               isAttackShot=is_attack_shot(class_path, parents),
+               isBoneScale=is_notify_subtype(class_path, parents, 'Engine.AnimNotify_BoneScale'),
+               isSound=is_notify_subtype(class_path, parents, 'Engine.AnimNotify_Sound'),
+               objectName=pkg.export_name(exp), objectPath=source_ref_path(pkg, ref, package_name))
+    start, end = exp.serial_offset, exp.serial_offset + exp.serial_size
+    _require(0 <= start < end <= len(pkg.data), 'invalid notify export bounds')
+    reader = Reader(pkg.data[:end], start, path=pkg.path)
+    props = read_properties(pkg, reader, fmt='packed')
+    _require(reader.pos == end, 'source notify export not fully consumed')
+    if 'Sound' in props:
+        sound = Reader(props['Sound'])
+        row['sound'] = source_ref_path(pkg, sound.compact(), package_name)
+        _require(sound.pos == len(props['Sound']), 'invalid source sound reference')
+    if row['isSound']:
+        row['soundInfo'] = sound_properties(props, sound_defaults, class_path, row.get('sound'))
+    row['source'] = {'export': exp.index, 'SHA256': hashlib.sha256(pkg.data[start:end]).hexdigest()}
+    return row
+
+
+def sequence_metadata(pkg, sequence, package_name, parents, sound_defaults=None):
+    frames, rate = sequence['frames'], sequence['rate']
+    duration = frames / rate
+    scale = frames / (frames - 1.0) if frames > 1 else 1.0
+    notes = [original_notify(pkg, n, package_name, parents, sound_defaults) for n in sequence['notifies']]
+    for note in notes:
+        note.update(u=note['t'] * scale, sec=note['t'] * duration)
+    return {'seq': sequence['name'], 'frames': frames, 'rate': rate, 'dur': duration,
+            'originalTiming': True, 'movementDuration': sequence['movementDuration'],
+            'source': sequence['source'], 'notifies': notes}
 
 # (client model id, .ukx package, lineagewarrior.int section / sequence
 # prefix).  Same 14 rows as build_characters.COMBOS and
@@ -178,10 +411,13 @@ MAGIC_SLOTS = ["castShort", "castMid", "castLong", "castEnd",
 
 # lineagewarrior.int key -> the name used in the emitted table.
 KEY_SLOT = {
+    "WaitAnimName": "idle",
     "CastShortAnimName": "castShort", "CastMidAnimName": "castMid",
     "CastLongAnimName": "castLong", "CastEndAnimName": "castEnd",
     "MagicShotAnimName": "magicShot", "MagicThrowAnimName": "magicThrow",
     "MagicNoTargetAnimName": "magicNoTarget",
+    "PicItemAnimName": "picItem",
+    "SitAnimName": "sitDown", "SitWaitAnimName": "sitWait", "StandAnimName": "standUp",
     "ShieldAtkAnimName": "shieldAtk",
     "Atk01AnimName": "atk01", "Atk02AnimName": "atk02", "Atk03AnimName": "atk03",
     "AtkWaitAnimName": "atkWait",
@@ -190,11 +426,11 @@ for _i in range(1, 29):
     KEY_SLOT["SpAtk%02dAnimName" % _i] = "spAtk%02d" % _i
 
 RATE_KEYS = {"Atk01AnimRate": "atk01", "Atk02AnimRate": "atk02",
-             "Atk03AnimRate": "atk03", "sitanimrate": "sit",
-             "standanimrate": "stand"}
+             "Atk03AnimRate": "atk03"}
 
 _SECTION_RE = re.compile(r"^\[(\w+)\]$")
 _ENTRY_RE = re.compile(r"^(\w+)\[(\d+)\]=(.*)$")
+_WAIT_RATE_RE = re.compile(r"^(sitanimrate|standanimrate)\s*=(.*)$", re.I)
 
 
 # --------------------------------------------------------------------------
@@ -205,7 +441,15 @@ def read_warrior_int(path=WARRIOR_INT):
     decrypted (NOT UTF-16, unlike the .dat tables)."""
     with open(path, "rb") as fh:
         plain, _proto = decrypt_file_bytes(fh.read(), os.path.basename(path))
-    text = plain.decode("latin1")
+    return parse_warrior_int(plain.decode("latin1"))
+
+
+def parse_warrior_int(text):
+    """Keep indexed names and original scalar wait rates (index -1).
+
+    SitAnimRate/StandAnimRate are scalar localized floats in Engine.Pawn;
+    they must not be looked up as weapon-stance arrays.
+    """
     out, cur = collections.defaultdict(dict), None
     for line in text.splitlines():
         line = line.strip()
@@ -216,9 +460,29 @@ def read_warrior_int(path=WARRIOR_INT):
         m = _ENTRY_RE.match(line)
         if m and cur:
             out[cur][(m.group(1), int(m.group(2)))] = m.group(3).strip()
+            continue
+        m = _WAIT_RATE_RE.match(line)
+        if m and cur:
+            key = (m.group(1).lower(), -1)
+            _require(key not in out[cur], "duplicate source wait-animation rate")
+            out[cur][key] = m.group(2).strip()
     if not out:
-        raise L2Error("%s: parsed 0 sections" % path)
+        raise L2Error("parsed 0 animation sections")
     return out
+
+
+def source_wait_rates(section):
+    """Exact Float32 source scalars, without a missing-field/rate fallback."""
+    result = {}
+    for field, name in [('sitanimrate', 'sit'), ('standanimrate', 'stand')]:
+        _require((field, -1) in section, 'missing source scalar ' + field)
+        try:
+            value = struct.unpack('<f', struct.pack('<f', float(section[field, -1])))[0]
+        except (ValueError, OverflowError) as error:
+            raise L2Error('invalid source scalar ' + field) from error
+        _require(math.isfinite(value), 'nonfinite source scalar ' + field)
+        result[name] = value
+    return result
 
 
 def check_stance_order(tbl, stats):
@@ -257,6 +521,8 @@ ANIM_CANDIDATES = {
     'walk':   ['Walk_Hand_{P}', 'Walk_1HS_{P}'],
     'run':    ['Run_Hand_{P}', 'Run_1HS_{P}'],
     'sit':    ['SitWait_{P}'],
+    'sitDown': ['Sit_{P}'],
+    'standUp': ['Stand_{P}'],
     'dance':  ['Social_dance_{P}'],
     'attack': ['Atk01_Hand_{P}', 'Atk01_1HS_{P}'],
     'castShort':  ['CastShort_{P}'],
@@ -267,6 +533,11 @@ ANIM_CANDIDATES = {
     'spAtk02': ['SpAtk02_1HS_{P}', 'SpAtk02_Bow_{P}', 'SpAtk01_2HS_{P}'],
     'die':    ['Death_{P}'],
     'damage': ['Damagefly_{P}', 'Damegefly_{P}'],
+    # Exact additional slots verified against original .int and PSA.
+    'castEnd':    ['CastEnd_{P}'],
+    'magicShot':  ['MagicShot_{P}'],
+    'magicNoTarget': ['MagicNoTarget_{P}'],
+    'picItem':    ['PicItem_{P}'],
 }
 STANCE_ACTION_RE = re.compile(
     r'^(Wait|Walk|Run|AtkWait|ShieldAtk|Atk\d+|SpAtk\d+)_(Hand|1HS|2HS|Dual|Bow|Pole)$',
@@ -333,27 +604,36 @@ def build(stats):
     tbl = read_warrior_int()
     check_stance_order(tbl, stats)
 
-    manifest = {m["id"]: m for m in json.load(open(MANIFEST))["models"]}
+    with open(MANIFEST) as stream:
+        manifest = {m["id"]: m for m in json.load(stream)["models"]}
     if sorted(manifest) != sorted(p[0] for p in PAWNS):
         raise L2Error("PAWNS and the shipped manifest disagree: %s vs %s"
                       % (sorted(p[0] for p in PAWNS), sorted(manifest)))
 
-    models, clips = {}, {}
+    models, clips, sequences = {}, {}, {}
+    engine_path = os.path.join(CLIENT, 'system', 'Engine.u')
+    engine, _ = load_package(engine_path)
+    engine_parents = class_parents(engine, 'Engine')
+    sound_defaults = sound_class_defaults(engine)
+    package_cache = {}
     invariant_ok = invariant_tot = 0
     unshipped_magic = []
     notify_rows = 0
     for model_id, package, prefix in PAWNS:
-        pkg, _ = load_package(os.path.join(ANIMS, "%s.ukx" % package))
-        exp = [e for e in pkg.exports if pkg.export_name(e) == prefix + "_anim"]
-        if not exp:
+        source_path = os.path.join(ANIMS, "%s.ukx" % package)
+        if package not in package_cache:
+            package_cache[package] = load_package(source_path)[0]
+        pkg = package_cache[package]
+        exp = [e for e in pkg.exports if pkg.export_name(e) == prefix + "_anim"
+               and pkg.class_name_of(e) == 'MeshAnimation']
+        if len(exp) != 1:
             raise L2Error("%s: no MeshAnimation %s_anim" % (package, prefix))
-        oracle = psa_seqs(os.path.join(PSA, package, "MeshAnimation",
-                                       prefix + "_anim.psa"))
-        seqs, missing = read_sequences(pkg, exp[0], oracle)
-        if missing:
-            raise L2Error("%s: %d sequences not located: %s"
-                          % (prefix, len(missing), missing[:5]))
+        seqs = original_sequences(pkg, exp[0])
         by_seq = {s["name"]: s for s in seqs}
+        parents = dict(engine_parents, **class_parents(pkg, package))
+        sequences[model_id] = {s['name'].lower(): sequence_metadata(pkg, s, package, parents, sound_defaults)
+                               for s in seqs}
+        notify_rows += sum(len(s['notifies']) for s in seqs)
         cidx = clip_index(by_seq, prefix)
 
         shipped = {a.lower(): a for a in manifest[model_id]["animations"]}
@@ -371,7 +651,7 @@ def build(stats):
         # this instead of silently emptying the table.
         want = {c for c in shipped
                 if c.startswith(("spatk", "atk0", "atkwait", "shieldatk",
-                                 "cast", "magicthrow"))}
+                                 "cast", "magicthrow", "magicshot", "magicnotarget", "picitem"))}
         got = {c.lower() for row in cidx.values() for c in row}
         if not want <= got:
             raise L2Error("%s: shipped clips no retail sequence maps to: %s"
@@ -379,13 +659,16 @@ def build(stats):
         stats["clip_ids_mapped"] = stats.get("clip_ids_mapped", 0) + len(want)
 
         # ---- slot table
-        slots, unshipped = {}, {}
+        slots, unshipped, slot_source = {}, {}, {}
         for (key, si), value in sorted(tbl[prefix].items()):
             slot = KEY_SLOT.get(key)
             if slot is None or si >= len(STANCE_INDEX):
                 continue
             stance = STANCE_INDEX[si]
             clip = pick(cidx, value, stance)
+            status = ('source-none' if value.lower() in ('', 'none') else
+                      'source-sequence' if value.lower() in sequences[model_id] else 'missing-source-sequence')
+            slot_source.setdefault(slot, {})[stance] = {'seq': value, 'clip': clip, 'status': status}
             if clip is None:
                 unshipped.setdefault(slot, {})[stance] = value
             else:
@@ -412,9 +695,17 @@ def build(stats):
         for (key, si), value in tbl[prefix].items():
             if key in RATE_KEYS and si == 1:
                 rates[RATE_KEYS[key]] = float(value)
+        rates.update(source_wait_rates(tbl[prefix]))
 
-        models[model_id] = {"prefix": prefix, "slots": slots,
-                            "unshipped": unshipped, "rates": rates}
+        export = exp[0]
+        models[model_id] = {"prefix": prefix, "slots": slots, 'slotSource': slot_source,
+                            "unshipped": unshipped, "rates": rates,
+                            'source': {'package': package + '.ukx',
+                                'packageSHA256': file_sha256(source_path),
+                                'export': export.index, 'fileVersion': pkg.file_version,
+                                'licenseeVersion': pkg.licensee_version, 'animationVersion': 1,
+                                'exportSHA256': hashlib.sha256(pkg.data[export.serial_offset:
+                                    export.serial_offset + export.serial_size]).hexdigest()}}
 
         # ---- clip keyframes (only clips the glTF actually ships)
         cl = {}
@@ -422,27 +713,8 @@ def build(stats):
             targets = cidx.get(seq_name.lower(), [])
             if not targets:
                 continue
-            frames, rate = seq["frames"], seq["rate"]
-            dur = frames / rate if rate else 0.0
-            scale = frames / (frames - 1.0) if frames > 1 else 1.0
-            notes = []
-            for t, _fn, obj in seq["notifys"]:
-                if not obj:
-                    continue
-                cls, props = notify_props(pkg, obj)
-                kind = cls[len("AnimNotify_"):] if cls.startswith("AnimNotify_") \
-                    else cls
-                row = {"kind": kind, "t": round(t, 6),
-                       "u": round(t * scale, 6), "sec": round(t * dur, 6)}
-                snd = props.get("Sound", {})
-                if snd:
-                    row["sound"] = str(snd[sorted(snd)[0]])
-                notes.append(row)
-                notify_rows += 1
-            notes.sort(key=lambda r: r["t"])
             for clip in targets:
-                cl[clip] = {"seq": seq_name, "frames": frames, "rate": rate,
-                            "dur": round(dur, 6), "notifies": notes}
+                cl[clip] = sequences[model_id][seq_name.lower()]
         clips[model_id] = cl
 
     stats["magic_stance_invariant"] = "%d/%d" % (invariant_ok, invariant_tot)
@@ -455,7 +727,12 @@ def build(stats):
         raise L2Error("0 notify rows — the gate would be vacuous")
 
     return {
+        'format': FORMAT,
         "source": {
+            'slotTableSHA256': file_sha256(WARRIOR_INT),
+            'notifyClassPackage': {'file': 'Engine.u',
+                'SHA256': file_sha256(engine_path)},
+            'notifySoundDefaults': sound_defaults,
             "slot_table": "assets/interlude/system/lineagewarrior.int "
                           "(Lineage2Ver111) — Engine.Pawn's localized "
                           "*AnimName[stance] arrays, 14 sections",
@@ -463,20 +740,24 @@ def build(stats):
                            "0 HAND 1 1HS 2 2HS 3 DUAL 4 POLE 5 BOW, "
                            "re-confirmed against lineagewarrior.int",
             "keyframes": "assets/interlude/animations/<Pkg>.ukx "
-                         "FMeshAnimSeq.Notifys; layout per "
-                         "tools/audio/build_stepnotify.py",
+                         "FMeshAnimSeq.Notifys; bounded original traversal, "
+                         "version123/licensee28-or30/MeshAnimation1; compared with "
+                         "tools/ui/check_anim_terminal_native.py",
             "slot_count": "engine.dll exports GetSpAtk01..28AnimName + "
                           "GetCastShort/Mid/Long/End + GetMagicShot/Throw/"
                           "NoTarget + GetShieldAtk",
-            "undecoded": "skillgrp.animation code -> SpAtk slot number. "
-                         "Not present in any readable client file; see the "
-                         "module docstring for what was searched.",
+            "selector": "Original SetSkillAnim code -> ordered slots: "
+                        "tools/ui/check_skillanim_native.py; "
+                        "docs/native-skill-animation-evidence.md",
+            "limits": "Source sequence/notify inputs, not a runtime scheduler or pose parity proof. "
+                      "See native-cast-scheduler-evidence.md and native-animation-terminal-evidence.md.",
         },
         "stanceIndex": STANCE_INDEX,
         "magicSlots": MAGIC_SLOTS,
         "physicalSlots": ["spAtk%02d" % i for i in range(1, 29)],
         "models": models,
         "clips": clips,
+        'sequences': sequences,
     }
 
 
@@ -506,7 +787,8 @@ def main():
         if not os.path.exists(OUT):
             print("FAIL: %s does not exist" % OUT)
             return 1
-        have = json.load(open(OUT))
+        with open(OUT) as stream:
+            have = json.load(stream)
         if canonical(have) != canonical(out):
             print("FAIL: %s differs from a fresh derivation" % OUT)
             return 1

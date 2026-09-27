@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Elbera Tools — Inventory dialogs</title>
+<style>
+body{margin:24px;background:#272727;color:#eee;font:14px/1.5 system-ui}
+a{color:#e7c887}label{display:inline-block;margin:0 12px 8px 0}input[type=number]{width:90px}
+.l2-window{position:fixed}#receipt{white-space:pre-wrap;overflow-wrap:anywhere;max-width:720px}
+#drag-evidence{white-space:pre-wrap;color:#aaa;max-width:720px}
+</style>
+<p><a href="index.html">Elbera Tools</a> · Original inventory and dialogs with synthetic item counts and capability.
+No connection to the game server; Confirm only records a replay request.</p>
+<label>Original item ID <input id="item" type="number" value="57"></label>
+<label>Simulated count <input id="count" type="number" value="1234"></label>
+<label><input id="capability" type="checkbox"> Simulated crystallize capability</label>
+<label>Drag origin <select id="source"><option value="inventory">Inventory</option><option value="equip">Equipped</option><option value="quest">Quest</option></select></label>
+<div><button id="show">Load item</button> <button id="destroy">Replay destroy</button>
+<button id="crystallize">Replay crystallize</button> <button id="use">Replay item use</button>
+<button id="reset">Reset pending dialog</button></div>
+<p id="status" role="status">Loading original client data…</p>
+<pre id="receipt" aria-label="Replay request">No replay request.</pre>
+<pre id="drag-evidence" aria-label="Drag evidence">Drag evidence: none.</pre>
+<script type="module">
+import { Skin } from '../js/ui/skin.js';
+import { Font } from '../js/ui/font.js';
+import { Layout } from '../js/ui/layout.js';
+import { itemMeta } from '../js/gamedata.js';
+import { InventoryWnd } from '../js/ui/inventorywnd.js';
+await Promise.all([Skin.load(), Font.load(), Layout.load()]);
+const meta = await itemMeta(), status = document.querySelector('#status');
+const field = id => document.getElementById(id);
+const record = (operation, objectId, count) => {
+  field('receipt').textContent = JSON.stringify({ replayOnly: true, operation, objectId,
+    itemId: inventory.items.get(objectId)?.itemId, ...(count === undefined ? {} : { count }) });
+};
+const inventory = new InventoryWnd(document.body, {
+  onUse: id => record('useItem', id), onDestroy: (id, count) => record('destroyItem', id, count),
+  onCrystallize: (id, count) => record('crystallizeItem', id, count),
+  getCharSheet: () => ({ crystallizeAbility: field('capability').checked ? 1 : 0 }),
+});
+async function load() {
+  const itemId = Number(field('item').value), count = Number(field('count').value);
+  if (!meta[itemId] || !Number.isInteger(count) || count < 1 || count > 0x7fffffff) {
+    status.textContent = 'Choose an available original item and a positive signed 32-bit replay count.'; return;
+  }
+  inventory.resetSession();
+  const revision = inventory.sessionRevision;
+  await inventory.setItems([{ objectId: 1, itemId, count, equipped: 0 }]);
+  if (revision !== inventory.sessionRevision) return;
+  inventory.place({ left:24, top:320 }); inventory.toggle(true);
+  status.textContent = `${meta[itemId].name} · consumeType ${meta[itemId].consumeType} · crystallizable ${meta[itemId].crystallizable}. Counts and capability are simulated.`;
+  field('receipt').textContent = 'No replay request.';
+}
+field('show').addEventListener('click', load);
+field('capability').addEventListener('change', () => inventory.render());
+for (const action of ['destroy', 'crystallize']) field(action).addEventListener('click', () => {
+  field('receipt').textContent = 'Awaiting an admitted original dialog. Missing capability/source fields do not create a request.';
+  inventory.requestItemAction(action, 1, { source: field('source').value });
+});
+field('use').addEventListener('click', () => inventory.useItem(1));
+field('reset').addEventListener('click', () => {
+  inventory.resetSession(); status.textContent = 'Pending dialog retired; load an item to start another replay.';
+});
+const dragEvents = [];
+for (const type of ['dragstart', 'drop', 'dragend']) window.addEventListener(type, event => {
+  const target = event.target.closest?.('[data-ctrl],[data-oid]');
+  dragEvents.push(`${type}: ${target?.dataset.ctrl || target?.dataset.oid || event.target.tagName}`);
+  field('drag-evidence').textContent = dragEvents.slice(-6).join(' · ');
+});
+await load();
+</script></html>

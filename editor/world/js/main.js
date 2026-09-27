@@ -5,20 +5,25 @@ import { Terrain, WATER_SCROLL } from './terrain.js';
 import { NeighborTiles } from './neighbors.js';
 import { Character } from './character.js';
 import { FollowCamera, verticalFovDeg, FOV_H_DEG } from './camera.js';
+import { installCameraInspection } from './camera-inspection.js';
 import { l2ToThree, threeToL2, l2HeadingToThreeYaw } from './coords.js';
 import { NavGrid } from './geodata.js';
+import { NavFollower } from './navfollower.js';
+import { getInspectionRequest, installWorldInspection, measureWorldPlacement } from './world-inspection.js';
 import { ClickMark } from './markprojector.js';
 import { NetClient, gatewayUrl, deviceId } from './net.js';
-import { EntityManager, pickModelId } from './entities.js';
+import { EntityManager, pickModelId, warmPlayerCastMetadata } from './entities.js';
+import { pickPawn, loadStaticCollision, pickStaticCollision, installPickingInspection, PICK_RANGE, PICK_SHIFT_START } from './picking.js';
 import { ChatBox } from './chat.js';
 import { CombatUI, bindProjection, installCombatFeedback } from './combat.js';
 import { SkillBar, SkillFx, SkillClass, loadSkillClass } from './skills.js';
 import { InventoryWnd } from './ui/inventorywnd.js';
 import { ShortcutWnd } from './ui/shortcutwnd.js';
-import { skillMeta, skillInfo, itemMeta, itemInfo, sysMsgMeta, renderSysMsg, sysMsgColor, skillAnimMeta, skillAnimInfo, skillAnimLoaded, shotMeta, isShot } from './gamedata.js';
+import { skillMeta, skillInfo, itemMeta, itemInfo, sysMsgMeta, renderSysMsg, sysMsgColor, skillAnimInfo, skillAnimLoaded, shotMeta, isShot } from './gamedata.js';
 import { isBeneficialAnim } from './skillfx_anim.js';
 import { audio } from './audio.js';
 import { gameSound } from './gamesound.js';
+import { ordinaryPlayerVoiceMeshType } from './skillsound-binding.js';
 import { worldAudio } from './worldaudio.js';
 import { loadEquipment } from './equipment.js';
 import { WorldLight } from './worldlight.js';
@@ -37,6 +42,7 @@ import { CharSheet } from './charsheet.js';
 import { MenuWnd, SystemMenuWnd } from './ui/menuwnd.js';
 import { TargetStatusWnd } from './ui/targetstatuswnd.js';
 import { NpcDialog } from './ui/npcdialog.js';
+import { TutorialWnd, TutorialEvents } from './ui/tutorialwnd.js';
 import { NpcHtml } from './ui/npchtml.js';
 import { Skin } from './ui/skin.js';
 import { Font } from './ui/font.js';
@@ -44,9 +50,13 @@ import { Layout } from './ui/layout.js';
 import { StatusWnd, loadExpTable } from './ui/statuswnd.js';
 import { WndMgr } from './ui/wndmgr.js';
 import { SkillWnd, loadSkillTypes, skillType } from './ui/skillwnd.js';
+import { SkillTrainWnd } from './ui/skilltrainwnd.js';
+import { HennaWnd } from './ui/hennawnd.js';
+import { RecipeWnd } from './ui/recipewnd.js';
 import { ActionWnd } from './ui/actionwnd.js';
 import { MinimapWnd } from './ui/minimapwnd.js';
 import { QuestWnd, questCond, questStarted } from './ui/questwnd.js';
+import { QuestMark } from './ui/questmark.js';
 import { PartyWnd } from './ui/partywnd.js';
 import { ClanWnd } from './ui/clanwnd.js';
 import { AbnormalWnd } from './ui/abnormalwnd.js';
@@ -64,6 +74,8 @@ const loadingText = document.getElementById('loading-text');
 const scenePicker = document.getElementById('scene-picker');
 const charPicker = document.getElementById('char-picker');
 const onlineToggle = document.getElementById('online-toggle');
+let inspectionRequest = getInspectionRequest(location.search);
+let inspectionCameraPose = null;
 
 // --- renderer / scene ----------------------------------------------------
 
@@ -297,6 +309,10 @@ function applyInteriorMode(interior) {
 // --- state -----------------------------------------------------------------
 
 let terrain = null;
+let staticCollision = null;
+let lastWorldPick = null;
+const pickingInspection = installPickingInspection(location.search);
+pickingInspection?.update(null, null);
 let character = null;
 let manifest = [];
 let selfModelId = null;      // manifest id of the currently loaded self model
@@ -372,18 +388,39 @@ if (CC_ENABLED) {
 }
 const entities = new EntityManager(scene, manifest);
 let online = false;
+let onlineGeneration = 0;   // invalidates asynchronous work across connection changes
+let worldEntryGeneration = 0;
+let characterLoadGeneration = 0;
+let characterLoading = false;
 let selfId = null;          // server object id of our own character
 let selfName = '';
 let npcNamesPromise = null; // lazy /gamedata/npcname.json fetch
+let selfServerPosition = null; // actual packet origin, never a destination/predicted pose
+let fineNavFollower = null;
+let fineNavSync = null; // one bounded origin-refresh order before a narrow route
+let sendingFineNav = false;
+// A deliberate new action supersedes our optional narrow-route follower.
+// Ordinary targeting can itself initiate an NPC approach or item pickup.
+const NAV_INTERRUPTING_OPS = new Set(['moveTo', 'target', 'talk', 'attack', 'useSkill', 'action', 'bypass']);
+const sendBeforeNavigation = net.send.bind(net);
+net.send = (op, fields = {}) => {
+  if (!sendingFineNav && NAV_INTERRUPTING_OPS.has(op)) cancelFineNavigation('new-action');
+  return sendBeforeNavigation(op, fields);
+};
 
 // --- Phase C.1: the retail player status window ------------------------------
 // Built from Interface.xdat geometry + the client's own art once the skin
 // has loaded (see boot()). Null until then; every call site guards.
 let statusWnd = null;
 let skillWnd = null;
+let skillTrainWnd = null;
+let hennaWnd = null;
+let recipeWnd = null;
+let trainerClanInfo = null; // authoritative clan snapshot for this online session
 let actionWnd = null;
 let minimapWnd = null;
 let questWnd = null;
+let questMark = null;
 let partyWnd = null;
 let clanWnd = null;
 let abnormalWnd = null;
@@ -396,6 +433,7 @@ let warehouseWnd = null;
 // toggle is server-side); storeOpen from storeState (open sits the seller,
 // close leaves them SITTING — the aCis re-list quirk, gateway README M13)
 let selfSitting = false;
+let selfWaitInitialized = false;
 let selfStoreOpen = false;
 let menuWnd = null;
 let systemMenuWnd = null;
@@ -504,6 +542,11 @@ function makeChat() {
 // --- M3 combat ---------------------------------------------------------------
 
 const combat = new CombatUI();
+const cameraInspection = installCameraInspection(location.search, () => ({
+  character, target: entities.getEntity(combat.targetId), online, tile: currentTile,
+  followCameraActive: !!(character && terrain && !(inspectionCameraPose && !online)),
+}));
+if (cameraInspection) followCam.onFrame = sample => cameraInspection.capture(sample);
 bindProjection(camera, canvas);
 // GHOST NPC fix, client half — the four combat ops the gateway used to drop
 // (moveToPawn / target_lost / autoAttack / stopMove). All the logic lives in
@@ -511,6 +554,15 @@ bindProjection(camera, canvas);
 // the measurement that motivated it.
 const combatFeedback = installCombatFeedback(net, {
   combat, entities, character: () => character, selfId: () => selfId,
+  onSelfMoveToPawn: msg => {
+    cameraInspection?.record('moveToPawn', { id: msg.id, targetId: msg.targetId,
+      distance: msg.distance, origin: [msg.x, msg.y, msg.z] });
+    cancelFineNavigation('server-pursuit'); rememberServerPosition(msg);
+  },
+  onSelfStopMove: msg => {
+    cameraInspection?.record('stopMove', { id: msg.id, origin: [msg.x, msg.y, msg.z] });
+    rememberServerPosition(msg);
+  },
 });
 
 // head position (for HP bars / damage floats) of an entity, or null
@@ -602,7 +654,11 @@ document.getElementById('respawn-btn').addEventListener('click', () => {
 // exists in the bridge contract (confirmed in gateway/src/bridge.js).
 const LOOT_OP = 'target';
 
-const skillFx = new SkillFx(scene);
+const skillFx = new SkillFx(scene, {
+  getEntity: id => id === selfId ? character : entities.getEntity(id),
+  onNativeSound: ({type,skillId,level,caster,isCurrent}) => gameSound.nativePhase(type,skillId,level,
+    caster.group.position,ordinaryPlayerVoiceMeshType(caster.modelId),isCurrent),
+});
 // Weapon-dependent skill gating (aCis weaponsAllowed; js/weapongate.js):
 // grays + blocks skills whose weapon condition doesn't match the equipped
 // weapon, refreshed from every itemList/invUpdate (weapon swap re-enables
@@ -682,10 +738,16 @@ function lootToast(text) {
 
 let inventory = null;   // InventoryWnd, constructed in boot (needs skin/layout)
 let npcDialog = null;     // NpcDialog, constructed in boot (needs skin/layout)
+let tutorialWnd = null;
+const tutorialEvents = new TutorialEvents(eventId => {
+  if (online) net.send('tutorialEvent', { eventId });
+});
+followCam.onTutorialInput = bit => { if (online) tutorialEvents.occurred(bit); };
 
 // --- M5: char sheet, shortcut bar, settings -----------------------------------
 
 let charSheetData = null;
+let selfAppearance = {};
 const sheetPanel = new CharSheet(
   document.getElementById('charsheet-panel'),
   {
@@ -695,32 +757,49 @@ const sheetPanel = new CharSheet(
   },
 );
 net.on('npcHtml', (msg) => {
+  cameraInspection?.record('npcHtml', { targetId: combat.targetId });
   if (npcDialog) npcDialog.showHtml(msg.html || '');
 });
+net.on('tutorialHtml', msg => tutorialWnd?.showHtml(msg.html || ''));
+net.on('tutorialHtmlClose', () => tutorialWnd?.closeHtml());
+net.on('tutorialQuestionMark', msg => tutorialWnd?.showQuestion(msg.markId));
+net.on('tutorialEvent', msg => tutorialEvents.arm(msg.eventId));
+function applySelfEquipment(ch, paperdoll, { playEquipSound = false } = {}) {
+  if (!ch || !paperdoll) return;
+  const rh = paperdoll.rhand;
+  if (rh !== lastRhand) {
+    if (playEquipSound && lastRhand !== null && rh) gameSound.equip(rh);
+    lastRhand = rh;
+  }
+  ch.setWeapon(rh);
+  ch.setOffhand(paperdoll.lhand);
+  ch.setArmor(paperdoll);
+  gameSound.setWeapon(rh);
+}
+function applySelfAppearance(ch, msg = null) {
+  // Preserve only received fields. A later UserInfo can replace the entry
+  // snapshot while its model is still loading; absent fields do not mean zero.
+  for (const key of ['face', 'hairStyle', 'hairColor']) {
+    if (msg && Object.prototype.hasOwnProperty.call(msg, key)) selfAppearance[key] = msg[key];
+  }
+  if (ch) ch.setAppearance(selfAppearance);
+}
 net.on('charSheet', (msg) => {
   charSheetData = msg;
+  applySelfAppearance(character, msg);
+  // The template's allowed slots cannot identify the worn ear/ring side.
+  // Repaint when the authoritative UserInfo object identities arrive too.
+  if (inventory) inventory.render();
   // aCis re-sends UserInfo on every stat change, so this is also how a haste
   // buff, a slow, or a weight penalty reaches locomotion
   if (character) character.setSpeeds(msg);
   // ...and how an equip/unequip reaches the hand: the paperdoll rides the same
   // UserInfo, so swapping a weapon in a shop updates the model with no extra op
-  if (character && msg.paperdoll) {
-    // UserInfo re-sends constantly, so the equip sound must fire on an actual
-    // change of weapon, not on every packet.
-    const rh = msg.paperdoll.rhand;
-    if (rh !== lastRhand) {
-      if (lastRhand !== null && rh) gameSound.equip(rh);
-      lastRhand = rh;
-    }
-    character.setWeapon(rh);
-    character.setOffhand(msg.paperdoll.lhand);  // shields, dual-wield second blade
-    // ...and the four ARMORED slots, which ride the very same UserInfo and had
-    // been decoded by the gateway all along (gameclient.js readPaperdollItems
-    // fills gloves/chest/legs/feet) without anything reading them. Unlike the
-    // hands this swaps body geometry, so it is idempotent by item id inside
-    // armor.js rather than re-running on every UserInfo.
-    character.setArmor(msg.paperdoll);
-    gameSound.setWeapon(rh);                    // impact sounds follow the weapon
+  // UserInfo re-sends constantly; only a changed right-hand item plays a sound.
+  applySelfEquipment(character, msg.paperdoll, { playEquipSound: true });
+  if (character && !selfWaitInitialized) {
+    character.setWaitType(selfSitting ? 0 : 1, {snapshot:true, initial:!selfSitting});
+    selfWaitInitialized = true;
   }
   if (document.getElementById('charsheet-panel').classList.contains('visible')) {
     sheetPanel.render();
@@ -754,26 +833,50 @@ document.getElementById('deviceid-copy').addEventListener('click', async (e) => 
   setTimeout(() => { e.target.textContent = 'Copy'; }, 1500);
 });
 
+net.on('shortcutInit', msg => shortcutWnd?.setShortcuts(msg.shortcuts));
+net.on('shortcutRegister', msg => shortcutWnd?.registerShortcut(msg.shortcut));
+net.on('shortcutDelete', msg => shortcutWnd?.deleteShortcut(msg.page, msg.slot));
+
 net.on('skillList', (msg) => {
   const all = msg.skills || [];
   if (skillWnd) skillWnd.setSkills(all);
+  if (shortcutWnd) shortcutWnd.setSkills(all);
   // The shortcut bar may only hold castable skills — passives are not usable
   // (MagicSkillWnd.uc keeps them in a separate pane for exactly this reason).
   skillBar.register(all.filter(
     s => skillType(s.id, s.passive) !== 'PASSIVE' && !s.disabled));
 });
+net.on('acquireSkillList', msg => skillTrainWnd?.list(msg));
+net.on('acquireSkillInfo', msg => skillTrainWnd?.details(msg));
+net.on('acquireSkillDone', () => skillTrainWnd?.done());
+net.on('hennaInfo', msg => { hennaWnd?.update(msg); inventory?.render(); });
+net.on('hennaEquipList', msg => hennaWnd?.list('equip', msg));
+net.on('hennaUnequipList', msg => hennaWnd?.list('unequip', msg));
+net.on('hennaItemInfo', msg => hennaWnd?.details('equip', msg));
+net.on('hennaUnequipInfo', msg => hennaWnd?.details('unequip', msg));
+net.on('recipeBook', msg => recipeWnd?.book(msg));
+net.on('recipeMakeInfo', msg => recipeWnd?.info(msg));
+net.on('storageMaxCount', msg => recipeWnd?.capacities(msg));
 net.on('itemList', async (msg) => {
+  const session = onlineGeneration;
   await inventory.setItems(msg.items || []);
+  if (!online || session !== onlineGeneration) return;
   refreshWeaponGate();
   refreshShotMarks();   // object ids change when a stack splits or is consumed
+  shortcutWnd?.refreshItems();
   // aCis answers shop transactions with a FULL ItemList (no InventoryUpdate)
   if (shopWnd) shopWnd.onInvUpdate();
   if (storeWnd) storeWnd.onInvUpdate();
   if (multiSellWnd) multiSellWnd.onInvUpdate();
   if (warehouseWnd) warehouseWnd.onInvUpdate();
+  questWnd?.onInvUpdate();
+  recipeWnd?.onInvUpdate();
 });
 net.on('questList', (msg) => {
   if (questWnd) questWnd.setQuests(msg.quests || []);
+});
+net.on('questMark', msg => {
+  if (online && selfId != null) questMark?.show(msg.questId);
 });
 // M9 party ops: full snapshot replace + in-place status + incoming invite
 net.on('party', (msg) => {
@@ -788,7 +891,10 @@ net.on('partyAsk', (msg) => {
 // M14 clan ops: clanInfo/clanMembers are full snapshots (queued after
 // enterWorld, re-emitted on every change); clanAsk is the incoming invite.
 net.on('clanInfo', (msg) => {
+  trainerClanInfo = msg.id ? msg : null;
   if (clanWnd) clanWnd.setClan(msg);
+  // Trainer scripts read the current resource when their window is shown;
+  // an unrelated clan update must not rebuild its tree and reset scrolling.
 });
 net.on('clanMembers', (msg) => {
   if (clanWnd) clanWnd.setMembers(msg.members || []);
@@ -828,10 +934,12 @@ net.on('skillCoolTime', (msg) => {
 // Shop: the server opens the window by sending the list (merchant bypass
 // flows through the dialog's 'bypass' op; nothing client-side to open)
 net.on('buyList', (msg) => {
-  if (shopWnd) shopWnd.openBuy(msg.items || []);
+  if (inventory) inventory.toggle(false);
+  if (shopWnd) shopWnd.openBuy(msg.items || [], msg.money);
 });
 net.on('sellList', (msg) => {
-  if (shopWnd) shopWnd.openSell(msg.items || []);
+  if (inventory) inventory.toggle(false);
+  if (shopWnd) shopWnd.openSell(msg.items || [], msg.money);
 });
 // M15 multisell: the merchant bypass drives it server-side (nothing
 // client-side to open); multisellList opens/fills the window — a re-sent
@@ -939,49 +1047,74 @@ function useAction(id) {
   net.send('action', { actionId: id });
 }
 net.on('invUpdate', async (msg) => {
+  const session = onlineGeneration;
   await inventory.applyUpdate(msg.updated || []);
+  if (!online || session !== onlineGeneration) return;
+  shortcutWnd?.refreshItems();
   refreshWeaponGate();
   if (shopWnd) shopWnd.onInvUpdate();
   if (storeWnd) storeWnd.onInvUpdate();
   if (multiSellWnd) multiSellWnd.onInvUpdate();
   if (warehouseWnd) warehouseWnd.onInvUpdate();
+  questWnd?.onInvUpdate();
+  recipeWnd?.onInvUpdate();
   for (const u of msg.updated || []) {
     if (u.change === 'add' || u.change === 1) {
-      itemMeta().then(meta =>
-        lootToast(`Looted: ${itemInfo(meta, u.itemId).name}${u.count > 1 ? ' ×' + u.count : ''}`));
+      itemMeta().then(meta => {
+        if (!online || session !== onlineGeneration) return;
+        lootToast(`Looted: ${itemInfo(meta, u.itemId).name}${u.count > 1 ? ' ×' + u.count : ''}`);
+      });
     }
   }
 });
 net.on('skillCast', (msg) => {
-  entities.skillFlash(msg.casterId);
-  const castPos = entityHeadPos(msg.casterId);
-  if (castPos) gameSound.cast(msg.skillId, castPos);
+  // Item-triggered spells also arrive here without an outgoing useSkill.
+  // Once our cast starts, automatic route probes must not issue a new move.
+  if (msg.casterId === selfId) cancelFineNavigation('server-cast');
+  const castHooks=skillFx.prepareCast(msg);
+  if (!castHooks) skillFx.handle(msg).catch(error => console.warn('Skill effect:', error));
+  entities.skillFlash(msg.casterId, msg, castHooks);
+  const castPos = !castHooks && entityHeadPos(msg.casterId);
+  if (castPos) gameSound.cast(msg.skillId, castPos, msg.level, skillCasterVoiceIndex(msg.casterId));
   if (msg.casterId === selfId) {
     // per-cast reuse: aCis sends NO SkillCoolTime on cast — the reuse
     // delay rides inside MagicSkillUse itself (ms, gateway M10 bridge)
     if (msg.reuse > 0) skillBar.setReuse(msg.skillId, msg.reuse);
-    skillMeta().then(meta => {
-      const info = skillInfo(meta, msg.skillId);
-      skillBar.startCastBar(msg.skillId, msg.level, msg.hitTime, info.name);
+    skillBar.startCastBar(msg.skillId, msg.level, msg.hitTime);
+    const cast = skillBar.cast, session = onlineGeneration;
+    if (cast) skillMeta().then(meta => {
+      if (!online || session !== onlineGeneration || skillBar.cast !== cast) return;
+      const info = skillInfo(meta, msg.skillId, msg.level);
+      skillBar.castName.textContent = info.name;
     });
   }
 });
+// Native model/voice identity is verified separately from this provisional
+// packet-driven audio timing. Missing/transformed/NPC identities get no voice.
+function skillCasterVoiceIndex(id) {
+  const actor = id === selfId ? character : entities.getEntity(id);
+  if (!actor || (id !== selfId && actor.kind !== 'player')) return null;
+  return ordinaryPlayerVoiceMeshType(actor.modelId);
+}
 net.on('skillLaunch', (msg) => {
   skillBar.finishCast(msg.skillId);
-  entities.skillFlash(msg.casterId);
+  if (skillFx.associate(msg)) return;
+  skillFx.handle(msg).catch(error => console.warn('Skill effect:', error));
   // No colour is computed here any more. This used to hash the skill id into a
   // hue (skillId * 47 % 360) — an invented value standing in for the retail
   // effect. skillvfx.js now drives the visuals from the decoded effect tables,
   // and a skill with no sourced effect renders nothing rather than a made-up
   // colour.
   const pos = entityHeadPos(msg.targetId);
-  if (pos) gameSound.launch(msg.skillId, pos);
+  if (pos) gameSound.launch(msg.skillId, pos, entityHeadPos(msg.casterId), msg.level, skillCasterVoiceIndex(msg.casterId));
 });
-// MagicSkillCanceled (gateway op `skillCancel`) — the cast died in flight.
-// js/skills.js already polled this op for the cast BAR; the ANIMATION never
-// heard about it, so a cancelled cast kept gesturing for the full stretched
-// hitTime and still fired its launch phase. entities.cancelCast drops both.
-net.on('skillCancel', (msg) => { entities.cancelCast(msg.casterId); });
+// MagicSkillCanceled names the interrupted caster. Remote cancellations
+// retire that actor's work without changing the local player's cast bar.
+net.on('skillCancel', (msg) => {
+  skillFx.cancel(msg.casterId);
+  entities.cancelCast(msg.casterId);
+  if (msg.casterId === selfId) skillBar.cancelCast();
+});
 // ExAutoSoulShot — the server confirming a shot toggle. It answers only on
 // success (RequestAutoSoulShot returns silently when the item is missing or
 // the player is dead/trading), so this, not the click, is the truth.
@@ -1009,20 +1142,18 @@ net.on('socialAction', (msg) => {
 // ChangeWaitType broadcast (gateway op changeWait{id, waitType}): sit/stand
 // toggle state — waitType 0 = sitting, 1 = standing (aCis ChangeWaitType).
 net.on('changeWait', (msg) => {
+  if (msg.waitType !== 0 && msg.waitType !== 1) return; // special wait types unported
   if (msg.id === selfId) {
     selfSitting = msg.waitType === 0;
-    if (character) character.sitting = selfSitting;
+    if (selfSitting) cancelFineNavigation('sitting');
+    if (character) character.setWaitType(msg.waitType);
   }
   entities.setWaitType(msg.id, msg.waitType);
 });
 // ChangeMoveType broadcast (walk/run toggle) — authoritative for remotes.
 net.on('changeMove', (msg) => entities.setMoveMode(msg.id, msg.running));
-// ActionFailed (0x25) is the server's routine "no" — and it is REASON-LESS.
-// During a cast it is the abort signal (PlayerCast.stop() fires
-// clientActionFailed when CreatureCast.interrupt cancels the cast), so the
-// casting bar cancels. It is also the ONLY answer a rejected move/attack
-// gets (MoveBackwardToLocation refuses >9900-unit moves, attacks without
-// line of sight never swing), so a failure that time-correlates with a
+// ActionFailed (0x25) carries no reason and cannot cancel a cast. It can
+// reject a movement request while casting continues. A failure correlated with a
 // player-initiated move/attack/cast surfaces ONE honest chat line. The
 // correlation guard matters: an UNSOLICITED actionFailed arrives right
 // after every enterWorld and must stay silent. Wording stays generic on
@@ -1051,7 +1182,6 @@ function notePlayerAction(kind) {
   lastPlayerAction = { t: performance.now(), kind };
 }
 net.on('actionFailed', () => {
-  skillBar.cancelCast();
   const now = performance.now();
   if (!lastPlayerAction || now - lastPlayerAction.t > ACTION_FEEDBACK_MS) return;
   const line = ACTION_FEEDBACK_LINE[lastPlayerAction.kind];
@@ -1077,7 +1207,57 @@ function npcNames() {
   return npcNamesPromise;
 }
 
+function resetOnlineSession() {
+  cancelFineNavigation('session-reset');
+  closeCharCreate();
+  closeCharSelect();
+  selfServerPosition = null;
+  selfWaitInitialized = false;
+  selfSitting = false;
+  charSheetData = null;
+  selfAppearance = {};
+  character?.cancelAppearance();
+  if (character) {
+    character.sweepableRaw = null;
+    character.sweepable = null;
+  }
+  ++onlineGeneration;
+  ++characterLoadGeneration;
+  questWnd?.reset();
+  questMark?.reset();
+  npcDialog?.close();
+  inventory?.resetSession();
+  shopWnd?.resetSession();
+  skillTrainWnd?.reset();
+  hennaWnd?.reset();
+  recipeWnd?.reset();
+  trainerClanInfo = null;
+  character?.cancelCast();
+  skillFx.clear();
+  skillBar.clear();
+  skillWnd?.clear();
+  shortcutWnd?.reset();
+  clearSceneLoadFailures();
+  pendingSceneSwitch = null;
+  // A pending offline picker/boot scene also belongs to the previous mode:
+  // connecting must not let it later replace the online player's map. The
+  // already visible terrain remains alive until a fresh replacement adopts.
+  if (sceneLoading) {
+    ++sceneLoadGeneration;
+    sceneLoadAbort?.abort();
+    sceneLoadAbort = null;
+    sceneLoading = false;
+    loadingEl.classList.add('hidden');
+  }
+  if (characterLoading) loadingEl.classList.add('hidden');
+  characterLoading = false;
+}
+
 function setOnline(on) {
+  resetOnlineSession();
+  if (on) inspectionCameraPose = null;
+  tutorialWnd?.reset();
+  tutorialEvents.reset();
   online = on;
   if (on) {
     chat.addSystem(`connecting to ${gatewayUrl()}…`);
@@ -1089,16 +1269,12 @@ function setOnline(on) {
     closeCharSelect();
     entities.clear();
     combat.clear();
-    skillBar.clear();
     if (inventory) inventory.toggle(false);
     if (storeWnd) storeWnd.hide();
     selfSitting = false;
     selfStoreOpen = false;
-    skillFx.clear();
-    if (shortcutWnd) { shortcutWnd.data = {}; shortcutWnd.render(); }
     sheetPanel.clear();
     if (statusWnd) statusWnd.clear();
-    if (skillWnd) skillWnd.clear();
     charSheetData = null;
     selfId = null;
     selfName = '';
@@ -1112,6 +1288,9 @@ net.on('open', () => {
   chat.addSystem('connected, logging in…');
 });
 net.on('close', () => {
+  resetOnlineSession();
+  tutorialWnd?.reset();
+  tutorialEvents.reset();
   if (!online) return;
   setStatus('online: disconnected');
   chat.addSystem('connection lost');
@@ -1141,7 +1320,7 @@ let ccOverlay = null;
 function openCharCreate() {
   if (ccOverlay) return;
   setStatus('online: create your character…');
-  chat.addSystem('no characters on this account — create one to enter');
+  chat.addSystem('create a character on this account');
   const el = document.createElement('div');
   el.id = 'charcreate-overlay';
   Object.assign(el.style, {
@@ -1173,8 +1352,8 @@ window.addEventListener('message', (ev) => {
 
 net.on('charCreateOk', () => {
   closeCharCreate();
-  chat.addSystem('character created — entering world…');
-  setStatus('online: entering world…');
+  chat.addSystem('character created — refreshing character list…');
+  setStatus('online: refreshing character list…');
 });
 net.on('charCreateFail', (msg) => {
   chat.addSystem(`character creation failed: ${msg.reason || 'unknown'}`);
@@ -1186,19 +1365,20 @@ net.on('charCreateFail', (msg) => {
 });
 
 // --- character select overlay ----------------------------------------------
-// A multi-char account (auth_ok with >= 2 chars) gets a retail-style char
-// select: a fullscreen dimmed overlay (same inline-style pattern as the
+// Every nonempty account gets a character selector: a fullscreen overlay
+// (same inline-style pattern as the
 // char-create overlay above) listing each character for click-to-enter,
 // plus a "＋ Create new character" button (closes this, opens the
-// char-create overlay) and a dismiss back to offline. Legacy paths are
-// untouched: 1 char auto-enters, 0 chars opens char-create, and ?cc=0
-// (CC_ENABLED false) always auto-enters the first char — the older suites
-// depend on all three. A refreshed auth_ok during the session (after a
+// char-create overlay) and a dismiss back to offline. This also permits
+// creating the second character on an account with only one character.
+// Zero chars opens char-create; ?cc=0 explicitly retains first-char
+// auto-entry for legacy clients. A refreshed auth_ok during the session (after a
 // successful createChar on a multi-char account) re-opens the select
 // overlay with the updated list instead of auto-entering.
 // Class display names come from the shipped creator data
 // (/characters/charcreate-data.json, classId -> name) — no new table.
 let csOverlay = null;
+let csOpenGeneration = 0;
 let csClassNamesPromise = null;   // lazy {classId: displayName} map
 
 function csClassNames() {
@@ -1217,14 +1397,16 @@ function csClassNames() {
 }
 
 function closeCharSelect() {
+  ++csOpenGeneration;
   if (csOverlay) { csOverlay.remove(); csOverlay = null; }
 }
 
 async function openCharSelect(chars) {
   closeCharSelect();
+  const request = csOpenGeneration, session = onlineGeneration;
   setStatus('online: select a character…');
   const classNames = await csClassNames();
-  if (csOverlay || !online) return;   // raced auth_ok, or went offline mid-fetch
+  if (request !== csOpenGeneration || session !== onlineGeneration || !online) return;
   const el = document.createElement('div');
   el.id = 'charsel-overlay';
   Object.assign(el.style, {
@@ -1248,13 +1430,12 @@ async function openCharSelect(chars) {
   for (const c of chars) {
     const row = document.createElement('button');
     row.className = 'charsel-row';
-    const race = c.race || '';
     const cls = classNames[c.classId] || `Class #${c.classId}`;
     row.innerHTML =
       `<span style="font-size:15px;color:#e8e3d3"></span>` +
       `<span style="font-size:12px;color:#8b93a7;margin-left:12px"></span>`;
     row.children[0].textContent = c.name || '?';
-    row.children[1].textContent = `Lv ${c.level ?? 1}  ${race} ${cls}`.trim();
+    row.children[1].textContent = `Lv ${c.level ?? 1} ${cls}`;
     Object.assign(row.style, {
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
       width: '100%', margin: '4px 0', padding: '10px 14px', cursor: 'pointer',
@@ -1296,54 +1477,75 @@ async function openCharSelect(chars) {
 }
 
 net.on('auth_ok', (msg) => {
+  if (!online) return;
   const chars = msg.chars || [];
-  if (!chars.length) { openCharCreate(); return; }   // fresh account: create first
+  if (!chars.length) { closeCharSelect(); openCharCreate(); return; }
   closeCharCreate();   // refreshed auth_ok after a successful createChar
   chat.addSystem(`logged in (${chars.length} character${chars.length === 1 ? '' : 's'})`);
-  // multi-char account (cc enabled): char-select overlay; it also re-opens
+  // The selector stays reachable even with one character; it also re-opens
   // with the updated list when a refreshed auth_ok arrives mid-session
   // (char #2+ created from the select screen's create button)
-  if (CC_ENABLED && chars.length >= 2) { openCharSelect(chars); return; }
+  if (CC_ENABLED) { openCharSelect(chars); return; }
   closeCharSelect();
   setStatus('online: entering world…');
   net.send('enterChar', { slot: chars[0].slot ?? 0 });
 });
 net.on('enterWorld', async (msg) => {
+  const session = onlineGeneration, entry = ++worldEntryGeneration;
+  const isCurrentSession = () => online && session === onlineGeneration
+    && entry === worldEntryGeneration;
+  if (!isCurrentSession()) return;
+  // An outstanding picker/boot model belongs to the previous view. Even if
+  // the current visible model already matches, that pending load must retire.
+  ++characterLoadGeneration;
+  if (characterLoading) loadingEl.classList.add('hidden');
+  characterLoading = false;
   const c = msg.char || {};
+  applySelfAppearance(null, c);
+  cancelFineNavigation('world-entry');
+  selfServerPosition = ['x', 'y', 'z'].every(k => Number.isInteger(c[k]))
+    ? { x: c.x, y: c.y, z: c.z } : null;
   selfId = c.id ?? selfId;
   selfName = c.name || selfName;
   const tile = tileNameFor(c.x || 0, c.y || 0);
   if (availableScenes.includes(tile) && tile !== currentTile) {
     scenePicker.value = tile;
-    await loadScene(tile);
+    await loadScene(tile, { isCurrentSession });
+    if (!isCurrentSession()) return;
   }
   // The boot model is always human_fighter_m: re-pick the self model for
   // the char actually entered (race/classId/sex ride enterWorld since
   // 2026-08-03) and reload when it differs. loadCharacter preserves the
   // old model's position/heading; the server-authoritative position block
   // below then re-applies both, so movement/animation continue untouched.
-  // NOTE (follow-up): hairStyle/hairColor/face variants are NOT applied —
-  // the Character loader has no per-appearance mesh support yet.
+  // Appearance is replayed from the latest received fields after adoption.
+  // The appearance resolver admits only independently source-backed variants.
   if (manifest.length) {
     const wantId = pickModelId(manifest, c.race, c.classId, c.sex);
-    if (wantId && wantId !== selfModelId) await loadCharacter(wantId);
+    if (wantId && wantId !== selfModelId) {
+      const loaded = await loadCharacter(wantId, { isCurrentSession });
+      if (!loaded || !isCurrentSession()) return;
+    }
   }
+  if (!isCurrentSession()) return;
+  applySelfAppearance(character);
   if (character && terrain) {
     l2ToThree(c.x || 0, c.y || 0, c.z || 0, character.group.position);
     // server z is authoritative: the geodata layer NEAREST to it (bridges
     // keep their floor; without geodata the older max() rule applies
     const p = character.group.position;
     p.y = terrain.geodata
-      ? terrain.heightAtWorld(p.x, p.z, (c.z || 0) * 0.01)
-      : Math.max(terrain.heightAtWorld(p.x, p.z), (c.z || 0) * 0.01);
+      ? (terrain.heightAtWorld(p.x, p.z, (c.z || 0) * 0.01) ?? (c.z || 0) * 0.01)
+      : Math.max(terrain.heightAtWorld(p.x, p.z) ?? -Infinity, (c.z || 0) * 0.01);
     character.group.rotation.y = l2HeadingToThreeYaw(c.heading);
     character.clearTarget();
+    if (charSheetData && !character.nativeCast && !character.nativeWait)
+      character.setWaitType(selfSitting ? 0 : 1, {snapshot:true, initial:!selfSitting});
     pendingGoal = null;   // server-placed spawn: no click route survives it
   }
   if (statusWnd) statusWnd.setName(selfName);
   setStatus(`online: ${selfName} @ ${currentTile}`);
   chat.addSystem(`entered world as ${selfName} (${currentTile})`);
-  if (shortcutWnd) shortcutWnd.load(selfName);
 });
 net.on('addPlayer', (msg) => {
   // contract ambiguity: server may also announce our own char via addPlayer
@@ -1433,16 +1635,16 @@ function placeSelfAtServerPos(l2x, l2y, l2z) {
   // (heightRouter routes through NeighborTiles.entryAt); anything else is a
   // clamped edge lie.
   if (tName === currentTile || (neighbors && neighbors.entryAt(p.x, p.z))) {
-    pos.y = heightRouter.heightAtWorld(p.x, p.z, p.y);
+    pos.y = heightRouter.heightAtWorld(p.x, p.z, p.y) ?? p.y;
     return;
   }
   pos.y = p.y;                       // the server's z, unmodified
-  if (availableScenes.includes(tName)) {
+  if (availableScenes.includes(tName) && canAutomaticallyLoadScene(tName)) {
     // Queue it through the SAME deferred slot the boundary watcher uses, so
     // there is exactly one place a scene switch starts and no second
     // loadScene can race one already in flight.
     pendingSceneSwitch = { tile: tName, hintY: p.y };
-  }
+  } else if (!sceneLoading) showBlockedSceneRetry(tName);
 }
 
 // MoveToLocation — a walk ORDER: a destination (tx,ty,tz) AND the mover's
@@ -1451,6 +1653,13 @@ function placeSelfAtServerPos(l2x, l2y, l2z) {
 // now three separate ops because they mean three different things.
 net.on('move', (msg) => {
   if (msg.id === selfId && character) {
+    cameraInspection?.record('move', { origin: [msg.x, msg.y, msg.z],
+      destination: [msg.tx, msg.ty, msg.tz] });
+    const syncing = !!fineNavSync;
+    const followed = fineNavFollower?.active;
+    rememberServerPosition(msg);
+    if (syncing) { acceptFineNavSync(msg); return; }
+    if (followed) return; // the follower owns this leg, including its final probe
     // Self-reconcile policy (click-walk and streamed WASD legs both ride
     // the moveTo op):
     // - while a walk target is active, the server broadcast is a
@@ -1484,6 +1693,8 @@ net.on('move', (msg) => {
 // it had been walking.
 net.on('teleport', (msg) => {
   if (msg.id === selfId && character) {
+    cancelFineNavigation('teleport');
+    rememberServerPosition(msg);
     moveQueue.length = 0;         // legs in flight are for the old location
     pendingGoal = null;
     wasdLeg = null;
@@ -1504,6 +1715,9 @@ net.on('teleport', (msg) => {
 net.on('validate', (msg) => {
   const p = l2ToThree(msg.x || 0, msg.y || 0, msg.z || 0);
   if (msg.id === selfId && character) {
+    const followed = fineNavFollower?.active || fineNavSync;
+    rememberServerPosition(msg);
+    if (followed) return;
     if (p.distanceTo(character.group.position) > 5) {
       placeSelfAtServerPos(msg.x, msg.y, msg.z);
       // The walk target is deliberately KEPT: ValidateLocation states a
@@ -1526,14 +1740,19 @@ net.on('remove', (msg) => {
 });
 net.on('chat', (msg) => chat.addChat(msg.from ?? '?', msg.channel, msg.text ?? '', msg.target));
 net.on('sysMsg', (msg) => {
-  // cast interruption signals (aCis CreatureCast): 27 CASTING_INTERRUPTED,
-  // 748 DIST_TOO_FAR_CASTING_STOPPED — the casting bar cancels on either
+  // Retain the existing aCis bar compatibility for 27 CASTING_INTERRUPTED
+  // and 748 DIST_TOO_FAR_CASTING_STOPPED. Dispatch at receipt, before text
+  // loading. This is not proof of the original client's native gauge rule;
+  // 748 also has non-casting senders in aCis and carries no caster ID.
   if (msg.id === 27 || msg.id === 748) skillBar.cancelCast();
-  // skillmeta rides along so SKILL_NAME params render as names, not raw
-  // ids ("You use Wind Strike." — gamedata.js SKILL_PARAM_MSGS)
-  Promise.all([sysMsgMeta(), skillMeta()]).then(([meta, skills]) =>
-    chat.addSysMsg(renderSysMsg(meta, msg.id, msg.params || [], skills), msg.id, msg.params || [],
-      sysMsgColor(meta, msg.id)));
+  // Preserve wire parameter types and exact skill levels. Plain numbers must
+  // not become skill/item names merely because of a guessed message category.
+  const session = onlineGeneration;
+  Promise.all([sysMsgMeta(), skillMeta(), itemMeta()]).then(([meta, skills, items]) => {
+    if (!online || session !== onlineGeneration) return;
+    chat.addSysMsg(renderSysMsg(meta, msg.id, msg.params || [], skills, msg.typedParams, items),
+      msg.id, msg.params || [], sysMsgColor(meta, msg.id));
+  });
 });
 
 // --- M3 combat ops ------------------------------------------------------------
@@ -1547,10 +1766,14 @@ net.on('target_ok', (msg) => {
   combat.setTarget(msg.id, (e && e.name) || (msg.id === selfId && selfName) || `#${msg.id}`,
     { kind: e ? e.kind : 'npc', level: e ? e.level ?? null : null, color });
 });
-net.on('status', (msg) => combat.updateStatus(msg.id, msg.hp, msg.maxHp, msg.mp, msg.maxMp));
+net.on('status', (msg) => {
+  combat.updateStatus(msg.id, msg.hp, msg.maxHp, msg.mp, msg.maxMp);
+  if (msg.id === selfId) recipeWnd?.updateMp(msg);
+});
 net.on('selfStatus', (msg) => {
   combat.updateSelf(msg);
   if (statusWnd) statusWnd.update({ ...msg, name: selfName });
+  recipeWnd?.updateMp(msg);
 });
 net.on('attack', (msg) => {
   entities.attackFlash(msg.id);
@@ -1576,9 +1799,10 @@ net.on('attack', (msg) => {
 net.on('die', (msg) => {
   const deathPos = entityHeadPos(msg.id);
   if (deathPos) gameSound.die(msg.id, deathPos);   // before the entity is torn down
-  entities.die(msg.id);
+  entities.die(msg.id, msg);
   combat.markDead(msg.id);
   if (msg.id === selfId && character) {
+    cancelFineNavigation('death');
     // a corpse keeps no walk order: a leftover click target would make
     // Character.update's moving branch override the death clip every frame
     // (and the model would keep sliding while dead)
@@ -1592,6 +1816,7 @@ net.on('revive', (msg) => {
   entities.revive(msg.id);
   combat.markRevived(msg.id);
   if (msg.id === selfId && character) {
+    cancelFineNavigation('revive');
     // self respawn: clear the death overlay NOW (the selfStatus hp>0 right
     // behind confirms it) and free the model — the respawn teleport arrives
     // as a regular move op, and a leftover walk target would adopt it as a
@@ -1606,8 +1831,26 @@ net.on('revive', (msg) => {
 
 onlineToggle.addEventListener('change', () => setOnline(onlineToggle.checked));
 
+// Compact read-only state for game smoke tests. Deliberately omit account
+// identifiers, packet history and connection credentials.
+window.render_game_to_text = () => JSON.stringify({
+  mode: online ? (net.connected ? 'online' : 'connecting') : 'offline',
+  tile: currentTile,
+  status: statusEl.textContent,
+  coordinates: 'renderer units; x=L2 X*0.01, y=L2 Z*0.01 (up), z=-L2 Y*0.01',
+  player: character ? {
+    x: character.group.position.x,
+    y: character.group.position.y,
+    z: character.group.position.z,
+  } : null,
+  creatingCharacter: !!ccOverlay,
+  selectingCharacter: !!csOverlay,
+});
+
 // verification hook
 window.__world = {
+  get lastWorldPick() { return lastWorldPick; },
+  get staticCollision() { return staticCollision && { tile: staticCollision.tile, triangleCount: staticCollision.triangleCount }; },
   scene, camera, renderer,
   hd: HD_ENABLED,
   audio, gameSound, worldAudio, worldLight,
@@ -1712,7 +1955,75 @@ function setLoading(msg) { loadingText.textContent = msg; }
 // path: there the current y was never resolved against this tile (nothing
 // covering the point was loaded when the op arrived), and re-resolving from
 // it is a fixed point, not a correction — see placeSelfAtServerPos.
-async function loadScene(tile, { keepCharPos = false, groundHintY = null } = {}) {
+let sceneLoadGeneration = 0;
+let sceneLoadAbort = null;
+const failedSceneLoads = new Map();
+let sceneLoadFailure = null;
+let sceneRetryNotice = null;
+
+function clearSceneRetryNotice() {
+  sceneLoadFailure = null;
+  sceneRetryNotice?.remove();
+  sceneRetryNotice = null;
+}
+
+function clearSceneLoadFailures() {
+  failedSceneLoads.clear();
+  clearSceneRetryNotice();
+}
+
+function canAutomaticallyLoadScene(tile) {
+  return !failedSceneLoads.get(tile)?.isCurrent();
+}
+
+function showBlockedSceneRetry(tile) {
+  const failure = failedSceneLoads.get(tile);
+  if (failure?.isCurrent()) showSceneRetry(failure);
+}
+
+function showSceneRetry(failure) {
+  if (sceneLoadFailure === failure) return;
+  clearSceneRetryNotice();
+  sceneLoadFailure = failure;
+  // Browser resource recovery, not an original game window. It must remain
+  // reachable with the developer toolbar hidden and leave the old world visible.
+  const notice = document.createElement('div');
+  notice.id = 'scene-load-retry';
+  notice.setAttribute('role', 'status');
+  notice.style.cssText = 'position:fixed;top:48px;left:50%;transform:translateX(-50%);z-index:10001;max-width:90vw;padding:12px;background:#161a22;color:#cfd4de;font:14px sans-serif;pointer-events:auto';
+  const message = document.createElement('span');
+  message.textContent = `Could not finish loading scene ${failure.tile}. `;
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.textContent = 'Retry scene';
+  retry.addEventListener('click', () => {
+    if (sceneRetryNotice !== notice || sceneLoadFailure !== failure || !failure.isCurrent()) return;
+    return loadScene(failure.tile, { ...failure.options, retry: true });
+  });
+  notice.append(message, retry);
+  document.body.append(notice);
+  sceneRetryNotice = notice;
+}
+
+async function loadScene(tile, { keepCharPos = false, groundHintY = null, isCurrentSession = null,
+  automatic = false, retry = false } = {}) {
+  // A frame watcher can observe the same border indefinitely. A failed
+  // resource gets one attempt until an explicit request or a new session.
+  if (automatic && !canAutomaticallyLoadScene(tile)) {
+    showBlockedSceneRetry(tile);
+    return;
+  }
+  if (isCurrentSession && !isCurrentSession()) return;
+  failedSceneLoads.delete(tile);
+  clearSceneRetryNotice();
+  const startedAt = Date.now();
+  const generation = ++sceneLoadGeneration, session = onlineGeneration;
+  const isLatest = () => generation === sceneLoadGeneration && session === onlineGeneration
+    && (!isCurrentSession || isCurrentSession());
+  sceneLoadAbort?.abort();
+  const abort = new AbortController();
+  sceneLoadAbort = abort;
+  let candidate = null, adopted = false;
   setLoading(`loading scene ${tile}…`);
   loadingEl.classList.remove('hidden');
   sceneLoading = true;
@@ -1726,18 +2037,32 @@ async function loadScene(tile, { keepCharPos = false, groundHintY = null } = {})
     // costs a little memory and is the difference between a hiccup and a dead
     // session.
     const baseUrl = `${HD_ENABLED ? '/scenes-hd' : '/scenes'}/${encodeURIComponent(tile)}/`;
-    const res = await fetch(baseUrl + 'scene.json');
+    const res = await fetch(baseUrl + 'scene.json', { signal: abort.signal });
     // fetch only rejects on network failure; an HTTP error still resolves, and
     // .json() on an error body throws something that tells you nothing.
     if (!res.ok) throw new Error(`scene.json: HTTP ${res.status}`);
     const def = await res.json();
-    const t = new Terrain(def, baseUrl);
-    await t.load();
+    if (!isLatest()) return;
+    const collision = await loadStaticCollision(tile, def.staticCollision, fetch, abort.signal);
+    if (!isLatest()) return;
+    const t = candidate = new Terrain(def, baseUrl, { legacyStretch: !!inspectionRequest?.legacyStretch });
+    await t.load(stage => {
+      // Stop superseded loads at phase boundaries before they start more
+      // texture/model work, and never let them replace the newest progress.
+      if (!isLatest()) throw new DOMException('Scene load superseded', 'AbortError');
+      setLoading(`loading ${tile}: ${stage}…`);
+    });
+    if (!isLatest()) return;
 
     if (terrain) { scene.remove(terrain.group); terrain.dispose(); }
     terrain = t;
+    staticCollision = collision;
+    lastWorldPick = null;
+    pickingInspection?.update(staticCollision, lastWorldPick);
+    adopted = true;
     scene.add(t.group);
     currentTile = tile;
+    console.info(`[scene] ${tile} center ready in ${Date.now() - startedAt}ms`);
     applyInteriorMode(!!t.interior);
     // the tile's own soundscape: MusicVolume zones + placed ambient emitters.
     // Always from /scenes — audio.json has no HD variant. Not awaited: the
@@ -1768,9 +2093,28 @@ async function loadScene(tile, { keepCharPos = false, groundHintY = null } = {})
     // the character its footing for the whole neighbour load — see above.
     // Asking `t` costs neither.)
     if (character) {
+      // enterWorld has applied server XYZ after its original load attempt.
+      // Resource recovery must not replay a scene-center spawn.
+      if (retry && online) keepCharPos = true;
+      // Online crossings and teleports can also move while resources load.
+      // Select the hint at adoption, using a server height only when its XY
+      // still matches the displayed position; the request's hint may be stale.
+      if (online && keepCharPos) {
+        const p = character.group.position, s = selfServerPosition;
+        groundHintY = p && s && ['x', 'y', 'z'].every(k => Number.isInteger(s[k]))
+          && p.x === s.x * 0.01 && p.z === -s.y * 0.01 ? s.z * 0.01 : null;
+      }
       if (keepCharPos) {
         const p = character.group.position;
-        p.y = t.heightAtWorld(p.x, p.z, groundHintY == null ? p.y : groundHintY);
+        // Any pending load may outlive movement to another tile. The height
+        // query clamps outside its own coverage, so preserve Y until a
+        // covering scene is active; missing XY cannot invent an origin.
+        const outsideTile = online && (!p
+          || !Number.isFinite(p.x) || !Number.isFinite(p.z)
+          || tileNameFor(p.x / 0.01, -p.z / 0.01) !== tile);
+        if (!outsideTile) {
+          p.y = t.heightAtWorld(p.x, p.z, groundHintY == null ? p.y : groundHintY) ?? groundHintY ?? p.y;
+        }
       } else {
         let c;
         if (t.interior && t.spawnL2) {
@@ -1786,7 +2130,7 @@ async function loadScene(tile, { keepCharPos = false, groundHintY = null } = {})
         // real floor and popped down on the first step). Outdoor: the
         // mesh height already in c; interior: the prop-derived floorY,
         // which selects the real dungeon-floor layer, not the dummy plane.
-        c.y = t.heightAtWorld(c.x, c.z, t.interior ? t.floorY : c.y);
+        c.y = t.heightAtWorld(c.x, c.z, t.interior ? t.floorY : c.y) ?? c.y;
         character.group.position.copy(c);
       }
       character.clearTarget();
@@ -1800,82 +2144,196 @@ async function loadScene(tile, { keepCharPos = false, groundHintY = null } = {})
     // (dungeons have no surface neighborhood — interiors skip it entirely).
     // Deliberately AFTER the character is grounded — see the note above.
     if (!neighbors) neighbors = new NeighborTiles(scene, availableScenes);
-    if (NEIGHBORS_ENABLED && !t.interior) await neighbors.setCenter(tile, t);
+    if (NEIGHBORS_ENABLED && !t.interior) {
+      setLoading(`loading ${tile}: surrounding maps…`);
+      await neighbors.setCenter(tile, t);
+    }
     else await neighbors.disposeAll();
+    if (!isLatest()) return;
 
     sun.position.copy(worldLight.direction).multiplyScalar(-150).add(character ? character.group.position : t.center());
+    console.info(`[scene] ${tile} surroundings ready in ${Date.now() - startedAt}ms`);
     setStatus(`scene: ${tile} (${def.gridSize}x${def.gridSize})`);
     loadingEl.classList.add('hidden');
   } catch (err) {
-    // There was no catch here at all, and terrain is nulled above BEFORE the
-    // fetch. So a single failed request — a 502 while crossing a tile border,
-    // a dropped connection — left the world with no terrain and the #loading
-    // overlay still up. That overlay is opaque and covers the viewport, and it
-    // swallows clicks, so the client was permanently dead with no way back
-    // short of a reload. One transient error should not end the session.
+    // A stale failure belongs to its old request, not the currently visible
+    // scene or loading UI. A failed replacement keeps the previous terrain.
+    if (!isLatest()) return;
     console.error(`[scene] ${tile}:`, err);
     setStatus(`scene ${tile} failed to load`);
     loadingEl.classList.add('hidden');
-    if (chat) chat.addSystem(`Could not load ${tile}. Staying where you were.`);
-    // Nothing was replaced if the failure happened before the new terrain was
-    // adopted, so let the boundary watcher retry the crossing later rather
-    // than pinning us to a tile we never managed to load.
+    if (chat) chat.addSystem(adopted ? `Could not finish loading ${tile}. Use Retry scene to try again.`
+      : `Could not load ${tile}. Keeping the previous scene. Use Retry scene to try again.`);
+    const failure = { tile,
+      isCurrent: () => session === onlineGeneration && (!isCurrentSession || isCurrentSession()),
+      options: { keepCharPos, groundHintY, isCurrentSession } };
+    failedSceneLoads.set(tile, failure);
+    showSceneRetry(failure);
     currentTile = terrain ? currentTile : prevTile;
   } finally {
-    sceneLoading = false;
+    // Partially built or superseded terrain never becomes scene-owned.
+    // Dispose its meshes/textures even when construction failed midway.
+    if (candidate && !adopted) candidate.dispose();
+    if (generation === sceneLoadGeneration) {
+      sceneLoading = false;
+      sceneLoadAbort = null;
+      if (!isLatest()) loadingEl.classList.add('hidden');
+    }
   }
 }
 
-async function loadCharacter(id) {
+// Only fresh, never-adopted Character instances come through here. Their base
+// GLTF owns these resources; no server equipment/armor has been attached yet.
+// Texture disposal does not close ImageBitmaps (browser image cache ownership).
+function disposeUnadoptedCharacter(ch) {
+  ch.mixer?.stopAllAction();
+  if (ch.model) ch.mixer?.uncacheRoot(ch.model);
+  const geometries = new Set(), materials = new Set(), textures = new Set();
+  ch.group.traverse(node => {
+    if (node.geometry) geometries.add(node.geometry);
+    for (const material of (Array.isArray(node.material) ? node.material : [node.material])) {
+      if (!material) continue;
+      materials.add(material);
+      for (const value of Object.values(material)) if (value?.isTexture) textures.add(value);
+    }
+  });
+  for (const geometry of geometries) geometry.dispose();
+  for (const material of materials) material.dispose();
+  for (const texture of textures) texture.dispose();
+}
+
+async function loadCharacter(id, { isCurrentSession = null } = {}) {
+  const generation = ++characterLoadGeneration, session = onlineGeneration;
+  const isLatest = () => generation === characterLoadGeneration && session === onlineGeneration
+    && (!isCurrentSession || isCurrentSession());
+  if (!isLatest()) return false;
+  const entry = manifest.find(m => m.id === id) || manifest[0];
+  if (!entry) return false;
   setLoading(`loading ${id}…`);
   loadingEl.classList.remove('hidden');
-
-  const entry = manifest.find(m => m.id === id) || manifest[0];
+  characterLoading = true;
   const url = `/characters/${entry.gltf}`;
-  const old = character;
   const ch = new Character();
-  await ch.load(url, entry.nativeHeight || null);
+  let adopted = false;
+  try {
+    await ch.load(url);
+    if (!isLatest()) return false;
 
-  if (old) {
-    ch.group.position.copy(old.group.position);
-    ch.group.rotation.y = old.group.rotation.y;
-    scene.remove(old.group);
-  } else if (terrain) {
-    const c = terrain.center();
-    c.y = terrain.heightAtWorld(c.x, c.z);
-    ch.group.position.copy(c);
+    const old = character;
+    if (old) {
+      old.cancelCast(); // Retire deferred notify sounds before this actor stops updating.
+      old.cancelAppearance();
+      ch.group.position.copy(old.group.position);
+      ch.group.rotation.y = old.group.rotation.y;
+      scene.remove(old.group);
+    } else if (terrain) {
+      const c = terrain.center();
+      c.y = terrain.heightAtWorld(c.x, c.z) ?? c.y;
+      ch.group.position.copy(c);
+    }
+    character = ch;
+    selfModelId = entry.id;
+    scene.add(ch.group);
+    adopted = true;
+    // The server's locomotion values, replayed onto the model that just
+    // finished loading. charSheet (UserInfo) lands during enterWorld, while
+    // loadCharacter is still awaiting the glTF, so its handler's
+    // `if (character) character.setSpeeds(msg)` found nothing and the speeds
+    // AND the walk/run stance were dropped on the floor. Measured live
+    // 2026-08-08: charSheet said runSpeed 122 / walkSpeed 85 / running true and
+    // the character was still carrying the offline fallbacks 115/80 with the
+    // stance unset, so every short leg walked at 0.80 m/s while the server ran
+    // it at 1.22 — a 34 % speed disagreement that leaves the drawn body metres
+    // behind where the server has it, and every following click is then aimed
+    // from a stale position. (The distance guess that made short legs walk is
+    // gone — see character.js — but this replay is still what carries the
+    // speeds, the multiplier and the stance onto a late-loading model.)
+    if (charSheetData) ch.setSpeeds(charSheetData);
+    // UserInfo may have reached the previous model while this glTF loaded.
+    // Apply its latest paperdoll to the adopted skeleton before selecting the
+    // wait pose, so the weapon stance is current. Adoption is not a new equip
+    // event and must not repeat the sound already handled by the packet.
+    applySelfEquipment(ch, charSheetData?.paperdoll);
+    applySelfAppearance(ch);
+    if (selfSitting) ch.setWaitType(0, { snapshot:true });
+    else if (charSheetData) ch.setWaitType(1, { snapshot:true, initial:true });
+    if (charSheetData) selfWaitInitialized = true;
+    followCam.setScale(ch.heightM || 1.75);
+    // Re-frame on a (re)load with retail's own FixedDefaultCamera[0] preset.
+    // camera.js no longer resets the zoom inside setScale — the retail boom is
+    // an absolute length and does not depend on who you are playing — so the
+    // reset is an explicit act here, where entering the world happens.
+    followCam.resetToDefaultView();
+    camera.near = Math.max(0.02, (ch.heightM || 1.75) * 0.1);
+    camera.updateProjectionMatrix();
+    sun.position.copy(worldLight.direction).multiplyScalar(-150).add(ch.group.position);
+    sun.target.position.copy(ch.group.position);
+
+    setStatus(`character: ${id}`);
+    loadingEl.classList.add('hidden');
+    window.__world.ready = true;
+    return true;
+  } catch (error) {
+    if (isLatest()) {
+      console.error(`[character] ${id}:`, error);
+      setStatus(`character ${id} failed to load`);
+    }
+    return false;
+  } finally {
+    if (!adopted) disposeUnadoptedCharacter(ch);
+    if (generation === characterLoadGeneration) {
+      characterLoading = false;
+      loadingEl.classList.add('hidden');
+    }
   }
-  character = ch;
-  selfModelId = entry.id;
-  scene.add(ch.group);
-  // The server's locomotion values, replayed onto the model that just
-  // finished loading. charSheet (UserInfo) lands during enterWorld, while
-  // loadCharacter is still awaiting the glTF, so its handler's
-  // `if (character) character.setSpeeds(msg)` found nothing and the speeds
-  // AND the walk/run stance were dropped on the floor. Measured live
-  // 2026-08-08: charSheet said runSpeed 122 / walkSpeed 85 / running true and
-  // the character was still carrying the offline fallbacks 115/80 with the
-  // stance unset, so every short leg walked at 0.80 m/s while the server ran
-  // it at 1.22 — a 34 % speed disagreement that leaves the drawn body metres
-  // behind where the server has it, and every following click is then aimed
-  // from a stale position. (The distance guess that made short legs walk is
-  // gone — see character.js — but this replay is still what carries the
-  // speeds, the multiplier and the stance onto a late-loading model.)
-  if (charSheetData) ch.setSpeeds(charSheetData);
-  followCam.setScale(ch.heightM || 1.75);
-  // Re-frame on a (re)load with retail's own FixedDefaultCamera[0] preset.
-  // camera.js no longer resets the zoom inside setScale — the retail boom is
-  // an absolute length and does not depend on who you are playing — so the
-  // reset is an explicit act here, where entering the world happens.
-  followCam.resetToDefaultView();
-  camera.near = Math.max(0.02, (ch.heightM || 1.75) * 0.1);
-  camera.updateProjectionMatrix();
-  sun.position.copy(worldLight.direction).multiplyScalar(-150).add(ch.group.position);
-  sun.target.position.copy(ch.group.position);
+}
 
-  setStatus(`character: ${id}`);
-  loadingEl.classList.add('hidden');
-  window.__world.ready = true;
+// Offline review viewpoints are measured audit locations, not spawn rules.
+function navigateInspection(request) {
+  if (online) throw new Error('Turn Online off before staging an inspection view.');
+  const url = new URL(location.href);
+  url.searchParams.set('checkpoint', request.checkpoint);
+  if (request.legacyStretch) url.searchParams.set('edge', 'legacy');
+  else url.searchParams.delete('edge');
+  // A fresh document releases the complete previous scene and preserves a
+  // shareable viewpoint. Repeated in-place world rebuilds can retain pending
+  // texture loads; the inspection tool does not need that extra lifecycle.
+  location.assign(url.href);
+}
+
+function visitInspection(request) {
+  inspectionRequest = request;
+  if (!request.position) return; // Current-player inspection never stages a viewpoint.
+  if (online) throw new Error('Turn Online off before staging an inspection view.');
+  if (!character || currentTile !== '22_22') throw new Error('Giran did not load.');
+  scenePicker.value = '22_22';
+  const point = l2ToThree(...request.position);
+  const sourcePose = point.clone();
+  point.y = terrain.heightAtWorld(point.x, point.z, point.y) ?? point.y;
+  character.group.position.copy(point);
+  character.clearTarget(); moveQueue.length = 0; pendingGoal = null; wasdLeg = null;
+  inspectionCameraPose = {
+    position: sourcePose.clone().add(new THREE.Vector3(2.4, 1.6, -3.5)),
+    target: sourcePose.clone().add(new THREE.Vector3(0, 0.25, 0)),
+  };
+  setStatus(`inspection: ${request.checkpoint} · ${request.legacyStretch ? 'previous repairs' : 'source terrain'}`);
+}
+
+function inspectionState() {
+  const p = character?.group.position;
+  if (!p || !terrain) return { online, tile: currentTile };
+  const x = p.x * 100, y = -p.z * 100;
+  const sampled = terrain._sampleSurface((x - terrain.origin[0]) / terrain.spacing,
+    (y - terrain.origin[1]) / terrain.spacing);
+  const drawn = terrain._drawnGroundL2(x, y, sampled == null ? null : sampled * 100, p.y * 100);
+  const ground = terrain.heightAtWorld(p.x, p.z, p.y);
+  return { online, tile: currentTile, xyz: [x, y, p.y * 100],
+    groundZ: ground == null ? null : ground * 100, renderedZ: drawn,
+    nativeDiagonal: terrain.surface?.edgeTurn ? 'original mask: set B–C, clear A–D' : null,
+    sourceRules: terrain.surface
+      ? `${terrain.surface.heightTransform ? 'Original saved coordinate matrix' : 'Height transform pending'} · ${terrain.surface.edgeTurn ? 'native triangle diagonals' : 'triangle rules pending'}\nAdjacent source edges; full streaming and lighting still under audit.`
+      : 'Previous stretched rows and inferred height repairs (comparison only).',
+  };
 }
 
 // --- input ------------------------------------------------------------------
@@ -1899,89 +2357,73 @@ canvas.addEventListener('pointerup', e => {
   const ray = new THREE.Raycaster();
   ray.setFromCamera(ndc, camera);
 
-  // M3: entity picking first (target/attack), terrain walk otherwise.
-  // Raycast against entity meshes; fall back to a screen-space nearest
-  // pick (skinned meshes raycast against bind pose, small monsters are
-  // hard to hit).
-  //
-  // THE FALLBACK BELOW IS AUTHORED. Investigated 2026-08-08 and NOT sourced:
-  // retail's pick is native. Engine.u (l2encdec -p 111) carries the full
-  // UnrealScript source, and the pick appears there only as results — LevelInfo
-  // declares `var int LastHitObject; var bool bClicked; var float
-  // ClickedMouseX, ClickedMouseY; var vector ClickLocation; var plane
-  // ClickPlane; var Actor ClickActor;` under `#ifdef __L2 Hunter` — with no
-  // script anywhere that computes them, so the geometry of the test is inside
-  // the engine binary and cannot be read out of the shipped packages. The
-  // earlier note that "retail hit-tests the model" is an inference, not a
-  // source, and is not repeated here as fact.
-  //
-  // What IS sourced, for whoever replaces this: every creature's collision
-  // cylinder arrives in-protocol — UserInfo, CharInfo and NpcInfo each write
-  // getCollisionRadius() and getCollisionHeight() right after the speed
-  // multipliers, and gameclient.js currently reads and discards both
-  // (`r.readF(); r.readF(); // collision radius/height`). A cylinder pick built
-  // from those two numbers would be made of server data instead of a pixel
-  // radius; that UE2 traces a Pawn against its cylinder is the usual engine
-  // default but was NOT verified for this client, so it stays a proposal.
-  //
-  // Known defect, unfixed and deliberately not papered over: the radius applies
-  // to EVERY entity at any distance, so a ground click near a mob can be
-  // swallowed by it.
-  if (online && entities.entities.size) {
-    const groups = [...entities.entities.values()].map(en => en.group);
-    const hitE = ray.intersectObjects(groups, true)[0];
-    if (hitE) {
-      let o = hitE.object;
-      while (o && o.userData.entityId == null) o = o.parent;
-      if (o) { clickEntity(o.userData.entityId); return; }
-    }
-    let best = null, bestD = 40;   // px pick radius — AUTHORED, see above
-    const v = new THREE.Vector3();
-    for (const [id, en] of entities.entities) {
-      if (en.dead) continue;
-      v.copy(en.group.position);
-      v.y += en.kind === 'player' ? 1.0 : en.kind === 'drop' ? 0.25 : 0.6;
-      v.project(camera);
-      if (v.z > 1) continue;
-      const px = (v.x + 1) / 2 * canvas.clientWidth;
-      const py = (-v.y + 1) / 2 * canvas.clientHeight;
-      const d = Math.hypot(px - e.clientX, py - e.clientY);
-      if (d < bestD) { bestD = d; best = id; }
-    }
-    if (best != null) { clickEntity(best); return; }
-  }
-
-  // click-to-move: center terrain + the cheap neighbor meshes + THE LEVEL BSP,
-  // so a click across the border walks there and a click on a town floor lands
-  // on the floor (entity picking above still wins).
-  //
-  // WHY THE BSP IS IN HERE. A town plaza is a stone slab built on top of the
-  // natural ground (bspfloor.js): at the Giran square the slab tops out at
-  // -3496 and the heightmap under it is -3600.8. With terrain-only targets the
-  // ray goes THROUGH the pavement and hits the dirt beneath, so the pick comes
-  // back both 105 L2u too low AND — because the ray is oblique — displaced
-  // along its own direction. Measured in the live client, character standing at
-  // (82000, 148000), followCam pitch 0.35 / dist 12, seven screen points:
-  // the terrain-only pick landed 187 to 380 L2 units (1.9-3.8 m) PAST the point
-  // the player clicked, always at z=-3601 instead of the slab's -3496. That is
-  // the owner's "when clicking inside giran ... its clicking below ground";
-  // on open ground there is no BSP, the terrain IS the floor, and nothing moves.
-  //
-  // Props are deliberately NOT targets. The ground query (terrain.heightAtWorld
-  // -> _drawnGroundL2) knows about the terrain mesh and the BSP floors and
-  // nothing else, so a pick on a prop would hand walkToServer a destination on
-  // a surface the walker has no height for — a tree canopy, a cart roof. Adding
-  // them needs the drawn-surface raster to cover props first (open gap, see
-  // verify_walksurface.js).
-  //
-  // recursive: the BSP arrives as a group of chunk meshes (bsp.py buckets them
-  // on a 48 m grid); terrain.mesh and the neighbor meshes have no children, so
-  // the flag costs nothing there.
+  // Retail places pawns and world geometry in the same nearest-hit query.
+  // Source range/Shift start are in L2 units; Three.js uses metres. Neither
+  // nameplate sprites nor the former authored 40px radius are pick targets.
+  ray.near = e.shiftKey ? PICK_SHIFT_START * 0.01 : 0;
+  ray.far = PICK_RANGE * 0.01;
   const walkTargets = terrain.mesh ? [terrain.mesh] : [];
   if (neighbors) walkTargets.push(...neighbors.meshes());
   if (terrain.bsp) walkTargets.push(terrain.bsp.group);
-  const hit = walkTargets.length ? ray.intersectObjects(walkTargets, true)[0] : null;
-  if (hit && !character.dead) walkToServer(hit.point);
+  let hit = walkTargets.length ? ray.intersectObjects(walkTargets, true)[0] : null;
+  const origin = { x: ray.ray.origin.x * 100, y: -ray.ray.origin.z * 100,
+    z: ray.ray.origin.y * 100 };
+  const direction = { x: ray.ray.direction.x, y: -ray.ray.direction.z,
+    z: ray.ray.direction.y };
+  const propHit = pickStaticCollision(origin, direction, staticCollision, { shift: e.shiftKey });
+  const propNearest = propHit && (!hit || propHit.distance * 0.01 < hit.distance);
+  if (propNearest) hit = { distance: propHit.distance * 0.01,
+    point: new THREE.Vector3(propHit.point.x * 0.01, propHit.point.z * 0.01, -propHit.point.y * 0.01) };
+  lastWorldPick = { pixel: [e.clientX, e.clientY], tile: currentTile,
+    surface: propNearest ? 'source-static-collision' : hit ? 'terrain-or-bsp' : null,
+    actor: propNearest ? propHit.actor : null, mesh: propNearest ? propHit.mesh : null,
+    triangle: propNearest ? propHit.triangle : null,
+    l2: hit ? threeToL2(hit.point) : null };
+  pickingInspection?.update(staticCollision, lastWorldPick);
+
+  if (online && entities.entities.size) {
+    const pawns = [], dropMeshes = [];
+    for (const en of entities.entities.values()) {
+      if (en.kind === 'drop') {
+        // Explicit remaining exception: the drop marker is still authored;
+        // its native primitive has not been recovered. Only its actual mesh
+        // is used here, never an invented cylinder or its nameplate.
+        en.group.traverse(o => { if (o.isMesh) dropMeshes.push(o); });
+        continue;
+      }
+      const feet = en.group.position;
+      pawns.push({ id: en.id, dead: en.dead, loading: !en.pickResourcesReady,
+        collisionRadius: en.collisionRadius, collisionHeight: en.collisionHeight,
+        // Native actor Location is the cylinder center. Grounded visual feet
+        // plus packet H is provisional until native collision placement is
+        // ported; raw packet Z itself must not be used as that center.
+        center: { x: feet.x * 100, y: -feet.z * 100,
+          z: feet.y * 100 + en.collisionHeight } });
+    }
+    const drop = ray.intersectObjects(dropMeshes, false)[0];
+    const worldDistance = hit ? hit.distance * 100 : Infinity;
+    const pawn = pickPawn(origin, direction, pawns, {
+      shift: e.shiftKey, selfId: net.selfId, worldDistance,
+    });
+    const dropDistance = drop && drop.distance * 100 < worldDistance
+      ? drop.distance * 100 : Infinity;
+    if (pawn && pawn.distance < dropDistance) { clickEntity(pawn.id); return; }
+    if (dropDistance < Infinity) {
+      let o = drop.object;
+      while (o && o.userData.entityId == null) o = o.parent;
+      if (o) { clickEntity(o.userData.entityId); return; }
+    }
+  }
+
+  // Only source-audited static collision joins the world query. Render props
+  // without such evidence stay absent; native extent sweep/bias is unported.
+  if (hit && !character.dead) {
+    walkToServer(hit.point);
+    // Original UInput::Exec PLAYERPAWNMOVETO reports bit1 after its MTL
+    // dispatch, excluding Shift/action-target branches. Camera and server
+    // movement updates are not ground-click tutorial events.
+    if (online && !e.shiftKey) tutorialEvents.occurred(1);
+  }
 });
 
 window.addEventListener('keydown', e => {
@@ -2112,6 +2554,111 @@ const nav = new NavGrid((x, y) => {   // world L2 coords -> loaded Geodata
   const e = neighbors && neighbors.tiles.get(t);
   return e ? e.geodata : null;
 });
+// The narrow fallback is a configured-server interoperability path. Local
+// interpolation cannot certify a 16-unit turn: aCis starts player movement at
+// walking speed and does not broadcast ordinary arrival. Preserve every raw
+// waypoint until a subsequent actual origin/position confirms it.
+fineNavFollower = new NavFollower({
+  lineOk: (a, b) => nav._lineOk(a, b),
+  send: (destination, origin) => {
+    if (!online || !character || character.dead || selfSitting) return false;
+    character.setTarget(l2ToThree(destination.x, destination.y, destination.z));
+    notePlayerAction('move');
+    sendingFineNav = true;
+    try {
+      return net.send('moveTo', { ...destination, ox: origin.x, oy: origin.y, oz: origin.z });
+    } finally { sendingFineNav = false; }
+  },
+  onPosition: p => placeSelfAtServerPos(p.x, p.y, p.z),
+  onComplete: () => { pendingGoal = null; character?.clearTarget(); },
+  onStop: reason => {
+    pendingGoal = null; moveQueue.length = 0; character?.clearTarget();
+    console.warn('[navigation]', reason);
+  },
+});
+
+function rememberServerPosition(msg) {
+  if (!['x', 'y', 'z'].every(k => Number.isInteger(msg[k]))) return;
+  selfServerPosition = { x: msg.x, y: msg.y, z: msg.z };
+  if (fineNavFollower?.active) fineNavFollower.observe(selfServerPosition, performance.now());
+}
+
+function cancelFineNavigation(reason) {
+  if (!fineNavFollower?.active && !fineNavSync) return;
+  if (fineNavSync) clearTimeout(fineNavSync.timer);
+  fineNavSync = null;
+  fineNavFollower?.cancel(reason);
+  moveQueue.length = 0; pendingGoal = null; character?.clearTarget();
+}
+
+function startFineNavigation(route) {
+  if (!selfServerPosition) return false; // a rendered pose cannot substitute for a server origin
+  const points = [route.points[0]];
+  for (const target of route.points.slice(1)) {
+    const from = points.at(-1), distance = Math.hypot(target.x - from.x, target.y - from.y);
+    const steps = Math.max(1, Math.ceil(distance / (MOVE_LEG_M * 100)));
+    for (let k = 1; k <= steps; k++) {
+      const candidate = { x: Math.round(from.x + (target.x - from.x) * k / steps),
+        y: Math.round(from.y + (target.y - from.y) * k / steps), ...(k === steps ? { z: target.z } : {}) };
+      const z = nav._lineOk(points.at(-1), candidate);
+      if (z == null) return false;
+      points.push({ x: candidate.x, y: candidate.y, z });
+    }
+  }
+  pendingGoal = null; moveQueue.length = 0;
+  return fineNavFollower.start(points, selfServerPosition, charSheetData, performance.now());
+}
+
+function beginFineNavigation(route, goal) {
+  const start = route.points[0], actual = selfServerPosition;
+  if (actual && actual.x === start.x && actual.y === start.y && nav._lineOk(actual, start) === start.z)
+    return startFineNavigation(route);
+  if (!actual || !online || !character || character.dead || selfSitting) return false;
+  // An ordinary same-position order can refresh stale server coordinates.
+  // Its destination is the rounded drawn position on the route's raw floor;
+  // its origin remains the last actual server statement. The gateway's legacy
+  // position cache can contain predicted origins, so it is not a substitute.
+  // This refresh is not an arrival.
+  const sync = { probe: { ...start }, goal: { ...goal }, until: performance.now() + 8000, timer: null };
+  fineNavSync = sync; pendingGoal = null; moveQueue.length = 0; character.clearTarget();
+  sync.timer = setTimeout(() => {
+    if (fineNavSync !== sync) return;
+    cancelFineNavigation('position-sync-timeout');
+    console.warn('[navigation] No matching server position refresh before timeout');
+  }, 8000);
+  sendingFineNav = true;
+  try {
+    const origin = { ox: actual.x, oy: actual.y, oz: actual.z };
+    if (net.send('moveTo', { ...sync.probe, ...origin }) === false) {
+      cancelFineNavigation('position-sync-send-failed'); return false;
+    }
+  } catch {
+    cancelFineNavigation('position-sync-send-failed'); return false;
+  } finally { sendingFineNav = false; }
+  return true;
+}
+
+function acceptFineNavSync(msg) {
+  const sync = fineNavSync;
+  if (!sync) return;
+  if (performance.now() >= sync.until) { cancelFineNavigation('position-sync-timeout'); return; }
+  if (msg.tx !== sync.probe.x || msg.ty !== sync.probe.y ||
+      !['x', 'y', 'z'].every(k => Number.isInteger(msg[k]))) return;
+  clearTimeout(sync.timer); fineNavSync = null;
+  if (!online || !character || character.dead || selfSitting) return;
+  // Only a matching order's actual origin starts replanning. Do not reuse the
+  // probe destination, the predicted model pose, or a stale cached origin.
+  const actual = { x: msg.x, y: msg.y, z: msg.z };
+  selfServerPosition = actual;
+  placeSelfAtServerPos(actual.x, actual.y, actual.z);
+  const goal = sync.goal;
+  const route = nav.findPath(Math.round(actual.x), Math.round(actual.y), actual.z,
+    Math.round(goal.x), Math.round(goal.y), goal.z);
+  if (!route?.complete || route.points.length < 2 || !startFineNavigation(route)) {
+    pendingGoal = null; moveQueue.length = 0; character.clearTarget();
+    console.warn('[navigation] Refreshed server origin has no complete supported route');
+  }
+}
 let pendingGoal = null;       // clicked destination (THREE.Vector3) until reached
 let repathDist = Infinity;    // goal distance at the last re-path
 let repathStalls = 0;         // consecutive re-paths without progress
@@ -2121,6 +2668,7 @@ const REPATH_MAX_STALLS = 3;  // give up after this many re-paths without progre
 const REPATH_MIN_MS = 400;
 
 function walkToServer(dest, { pathfinding = true } = {}) {
+  cancelFineNavigation('new-movement');
   // A no-op on a retail build. Kept as a call so the point the PLAYER asked
   // for still reaches the marker under ?markprojector=authored — on the click,
   // not on each of the legs the click is cut into. Streamed WASD legs
@@ -2155,8 +2703,16 @@ function straightLegs(dest) {
 function planNavLegs(dest) {
   const from = character.group.position;
   const s = threeToL2(from), d = threeToL2(dest);
-  const route = nav.findPath(s.x, s.y, s.z, d.x, d.y, d.z);
+  const route = nav.findPath(Math.round(s.x), Math.round(s.y), s.z, Math.round(d.x), Math.round(d.y), d.z);
   if (!route || route.points.length < 2) return false;
+  if (online && route.fineFallback) {
+    // Failure here must not fall through to an unchecked straight shortcut.
+    if (!beginFineNavigation(route, d)) {
+      pendingGoal = null; character.clearTarget();
+      console.warn('[navigation] Fine route subdivision is not supported by current geodata');
+    }
+    return true;
+  }
   let prev = from;
   for (let i = 1; i < route.points.length; i++) {
     const wp = l2ToThree(route.points[i].x, route.points[i].y, route.points[i].z);
@@ -2178,7 +2734,7 @@ function planNavLegs(dest) {
 // to the straight legs, so an online refusal still surfaces the loud
 // 'Can't reach that.' (the pre-nav behavior).
 function repathPending() {
-  if (!pendingGoal || character.dead || sceneLoading) return;
+  if (fineNavSync || fineNavFollower?.active || !pendingGoal || character.dead || sceneLoading) return;
   const p = character.group.position;
   const d = Math.hypot(pendingGoal.x - p.x, pendingGoal.z - p.z);
   if (d < REPATH_ARRIVE_M) { pendingGoal = null; return; }
@@ -2221,7 +2777,7 @@ function serverDest(p) {
 }
 
 function pumpMoveQueue() {
-  if (!moveQueue.length) return;
+  if (fineNavSync || fineNavFollower?.active || !moveQueue.length) return;
   const leg = moveQueue.shift();
   character.setTarget(leg);
   if (online) {
@@ -2257,7 +2813,7 @@ function streamWasdMove(dir) {
     || wasdLeg.dir.angleTo(dir) > WASD_TURN_RAD;
   if (!due || now - (wasdLeg ? wasdLeg.t : 0) < WASD_MIN_MS) return;
   const dest = pos.clone().addScaledVector(dir, WASD_LEG_M);
-  dest.y = heightRouter.heightAtWorld(dest.x, dest.z, pos.y);
+  dest.y = heightRouter.heightAtWorld(dest.x, dest.z, pos.y) ?? pos.y;
   // streamed WASD legs keep the straight-leg path (no nav detour): a held
   // key means "walk THIS heading", and each 8 m leg re-plans 4x a second
   walkToServer(dest, { pathfinding: false });
@@ -2281,13 +2837,13 @@ resize();
 
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.1);
-  // deferred boundary crossing (set at the bottom of the previous frame —
-  // loadScene nulls `terrain` synchronously, so it must not run mid-block)
+  // Deferred boundary crossing. A failed automatic request stays retired
+  // until the user retries; the currently adopted terrain remains available.
   if (pendingSceneSwitch && !sceneLoading) {
     const { tile: t, hintY } = pendingSceneSwitch;
     pendingSceneSwitch = null;
     scenePicker.value = t;
-    loadScene(t, { keepCharPos: true, groundHintY: hintY });
+    loadScene(t, { keepCharPos: true, groundHintY: hintY, automatic: true });
   }
   if (character && terrain) {
     // WASD: online it streams real moveTo legs (server-authoritative);
@@ -2301,7 +2857,8 @@ renderer.setAnimationLoop(() => {
       wasdLeg = null;
     }
     character.update(dt, heightRouter, online ? null : moveDir);
-    if (!character.target) {
+    fineNavFollower.update(performance.now());
+    if (!fineNavSync && !fineNavFollower.active && !character.target) {
       if (moveQueue.length) pumpMoveQueue();   // leg arrived: send the next
       else repathPending();                    // queue drained: re-path the click
     }
@@ -2309,8 +2866,7 @@ renderer.setAnimationLoop(() => {
     // boundary crossing: the entered tile becomes the full-quality center
     // (the 3x3 neighbor window shifts inside loadScene). Interiors never
     // trigger this — a dungeon's extent is its own business. The switch is
-    // DEFERRED to the top of the next frame: loadScene nulls `terrain`
-    // synchronously, and the rest of this block still reads it.
+    // DEFERRED to the top of the next frame so adoption cannot interrupt this block.
     if (!terrain.interior && !sceneLoading) {
       const p = character.group.position;
       const l2 = threeToL2(p);
@@ -2327,7 +2883,9 @@ renderer.setAnimationLoop(() => {
         // than "whatever y we happen to hold". (Today the two agree, because
         // that op also parks pos.y on the server z — this keeps them equal by
         // construction instead of by coincidence.)
-        if (!pendingSceneSwitch || pendingSceneSwitch.tile !== tName) {
+        if (!canAutomaticallyLoadScene(tName)) {
+          showBlockedSceneRetry(tName);
+        } else if (!pendingSceneSwitch || pendingSceneSwitch.tile !== tName) {
           pendingSceneSwitch = { tile: tName, hintY: null };
         }
       } else if (neighbors) {
@@ -2367,7 +2925,12 @@ renderer.setAnimationLoop(() => {
     // shadow frustum follows the character
     sun.position.copy(worldLight.direction).multiplyScalar(-150).add(character.group.position);
     sun.target.position.copy(character.group.position);
-    followCam.update(dt, character.group.position, heightRouter);
+    if (inspectionCameraPose && !online) {
+      // Fixed authored inspection framing: identical camera for both
+      // implementations, unaffected by their different ground collision.
+      camera.position.copy(inspectionCameraPose.position);
+      camera.lookAt(inspectionCameraPose.target);
+    } else followCam.update(dt, character.group.position, heightRouter);
     sky.position.copy(camera.position);
     if (minimapWnd) minimapWnd.tick(character, entities);
     if (abnormalWnd) abnormalWnd.tick();
@@ -2375,6 +2938,7 @@ renderer.setAnimationLoop(() => {
     if (shortcutWnd) shortcutWnd.tickCooldowns(skillBar);
     if (skillWnd) skillWnd.tickCooldowns(skillBar);
   }
+  if (!character || !terrain || (inspectionCameraPose && !online)) cameraInspection?.capture(null);
   // the ear rides the camera, not the character: the panner has to agree with
   // what is on screen or sounds pan the wrong way whenever the camera orbits
   audio.setListener(camera);
@@ -2398,15 +2962,15 @@ window.addEventListener('unhandledrejection', (e) => {
 (async function boot() {
   try {
     // The retail skin must be resident before any window is constructed.
-    // skillAnimMeta prefetches so the cast-time beneficial check (onCast)
-    // has the anim codes synchronously.
+    // Warm original skill/Agent/pawn metadata together so ordinary casts and
+    // the beneficial check (onCast) need no first-use metadata wait.
     // audio.init()/gameSound.load() resolve false when assets/audio is absent
     // (it is gitignored and regenerated by tools/audio/build_audio.py) — the
     // client then runs silent instead of failing to boot
     await Promise.all([Skin.load(), Font.load(), Layout.load(), NpcHtml.load(),
                        loadExpTable(), loadSkillTypes(), weaponGate.load(),
                        loadSkillClass(),
-                       skillAnimMeta(), shotMeta(), loadEquipment(),
+                       warmPlayerCastMetadata(), shotMeta(), loadEquipment(),
                        audio.init(), gameSound.load()]);
     makeChat();
     statusWnd = new StatusWnd(document.body);
@@ -2424,6 +2988,36 @@ window.addEventListener('unhandledrejection', (e) => {
     skillWnd.onAssign = (data) => shortcutWnd && shortcutWnd.assignFirstFree(data);
     skillWnd.place({ right: 12, top: 60 });
     WndMgr.register('MagicSkillWnd', skillWnd, { handle: skillWnd.win.bar });
+    skillTrainWnd = new SkillTrainWnd(document.body, {
+      send: (op, data) => online && net.send(op, data),
+      getPlayer: () => ({ ...combat.self, clanReputation: trainerClanInfo?.reputation }),
+    });
+    skillTrainWnd.ready.then(() => {
+      for (const [name, win] of Object.entries(skillTrainWnd.windows))
+        WndMgr.register(name, win, { handle: win.bar });
+    });
+    hennaWnd = new HennaWnd(document.body, {
+      send: (op, data) => online && net.send(op, data),
+      // This source build leaks the ordinary UIScript caller's return address
+      // into its ignored list-request DWORD. Preserve the verified padding;
+      // it is not a game rule or a portable native address for another build.
+      listArgument: mode => hennaWnd?.data?.native?.listRequestExtraDword?.byMode?.[mode] ?? null,
+    });
+    hennaWnd.ready.then(() => {
+      for (const [name, win] of Object.entries(hennaWnd.windows))
+        WndMgr.register(name, win, { handle: win.bar });
+      inventory?.render();
+    });
+    recipeWnd = new RecipeWnd(document.body, {
+      send: (op, data) => online && net.send(op, data),
+      getItems: () => [...(inventory?.items.values() || [])],
+      getPlayer: () => ({ ...combat.self, id: selfId }),
+    });
+    recipeWnd.ready.then(() => {
+      for (const [name, win] of Object.entries(recipeWnd.windows))
+        WndMgr.register(name, win, { handle: win.bar });
+      shortcutWnd?.render();
+    });
     WndMgr.bindResetKey();
 
     // Phase C.5: the retail actions window (Alt+C). Three sections
@@ -2447,9 +3041,14 @@ window.addEventListener('unhandledrejection', (e) => {
     // questList pushes (enterWorld + every server-side state change).
     questWnd = new QuestWnd(document.body, {
       onAbort: (id) => { if (online) net.send('questAbort', { id }); },
+      getItems: () => inventory ? [...inventory.items.values()] : [],
     });
     questWnd.place(questWnd.defaultPlace);
     WndMgr.register('QuestTreeWnd', questWnd, { handle: questWnd.win.bar });
+    questMark = new QuestMark(document.body, {
+      getAnchor: () => chat?.root || null,
+      onOpen: id => questWnd?.focusQuest(id),
+    });
 
     // Phase C.9: the retail party window (WindowsInfo.ini dock 0,92).
     // Frameless HUD strip: full-snapshot member rows + invite/leave/kick.
@@ -2499,13 +3098,7 @@ window.addEventListener('unhandledrejection', (e) => {
     shopWnd = new ShopWnd(document.body, {
       onBuy: (items) => { if (online) net.send('buy', { items }); },
       onSell: (items) => { if (online) net.send('sell', { items }); },
-      getAdena: () => {
-        if (!inventory) return 0;
-        const a = [...inventory.items.values()].find(i => i.itemId === 57);
-        return a ? a.count : 0;
-      },
     });
-    shopWnd.place(shopWnd.defaultPlace);
     WndMgr.register('ShopWnd', shopWnd, { handle: shopWnd.win.bar });
 
     // M15: the NPC multisell (item exchange). multisellList opens it (the
@@ -2626,19 +3219,27 @@ window.addEventListener('unhandledrejection', (e) => {
 
     inventory = new InventoryWnd(document.body, {
       onUse: (oid) => { if (online) net.send('useItem', { objectId: oid }); },
-      onDestroy: (oid) => { if (online) net.send('destroyItem', { objectId: oid, count: 1 }); },
-      onCrystallize: (oid) => { if (online) net.send('crystallizeItem', { objectId: oid, count: 1 }); },
-      onAssign: (data) => shortcutWnd && shortcutWnd.assignFirstFree(data),
+      onDestroy: (oid, count) => { if (online) net.send('destroyItem', { objectId: oid, count }); },
+      onCrystallize: (oid, count) => { if (online) net.send('crystallizeItem', { objectId: oid, count }); },
       getItems: () => inventory ? [...inventory.items.values()] : [],
       getCharSheet: () => charSheetData,
+      getHenna: () => hennaWnd?.state.snapshot,
+      getHennaData: () => hennaWnd?.data,
     });
 
     combat.targetWnd = new TargetStatusWnd(document.body);
     npcDialog = new NpcDialog(document.body, {
       onBypass: (command) => { if (online) net.send('bypass', { command }); },
     });
+    tutorialWnd = new TutorialWnd(document.body, {
+      onLink: command => { if (online) net.send('tutorialLink', { command }); },
+      onQuestion: markId => { if (online) net.send('tutorialQuestionMark', { markId }); },
+      getAnchor: () => chat?.root || null,
+    });
 
     shortcutWnd = new ShortcutWnd(document.body, {
+      onRegister: fields => online && net.send('shortcutRegister', fields),
+      onDelete: fields => online && net.send('shortcutDelete', fields),
       onUseSkill: (id) => { if (online) skillBar.castSkill(id); },
       onUseItem: (oid) => {
         if (!online) return;
@@ -2654,6 +3255,9 @@ window.addEventListener('unhandledrejection', (e) => {
         net.send('useItem', { objectId: oid });
       },
       onUseAction: (id) => useAction(id),
+      getRecipe: id => recipeWnd?.shortcutInfo(id),
+      canAssignRecipe: id => recipeWnd?.canAssignShortcut(id),
+      onUseRecipe: id => online && recipeWnd?.useShortcut(id),
       onNote: (text) => chat.addSystem(text),
     });
     // the lock button blocks dragging (Option.ini default: unlocked)
@@ -2681,8 +3285,15 @@ window.addEventListener('unhandledrejection', (e) => {
     scenePicker.addEventListener('change', () => loadScene(scenePicker.value));
     charPicker.addEventListener('change', () => loadCharacter(charPicker.value));
 
-    if (scenes.length) await loadScene(scenes[0]);
-    if (defaultChar) await loadCharacter(defaultChar.id);
+    if (scenes.length) await loadScene(inspectionRequest?.position ? '22_22' : scenes[0]);
+    if (defaultChar && !online) await loadCharacter(defaultChar.id);
+    if (inspectionRequest) {
+      visitInspection(inspectionRequest);
+      installWorldInspection({ visit: navigateInspection, readState: inspectionState,
+        measure:()=>measureWorldPlacement({character,terrain}),
+        compare: legacyStretch => navigateInspection({ ...inspectionRequest, legacyStretch }),
+      });
+    }
     if (!scenes.length) {
       setLoading('no scene packages in assets/world/ yet');
       setStatus('no scenes');

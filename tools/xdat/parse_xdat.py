@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ElberaSkin — Interface.xdat -> interface.json (the UI layout ground truth).
+"""Elbera Tools — Interface.xdat -> interface.json (source UI layout fields).
 
 The Interlude client stores its entire UI definition in system/Interface.xdat:
 every window, every control inside it, sizes, and the texture each one paints
@@ -20,9 +20,17 @@ Format, reverse-engineered here (see docs/xdat-format.md):
     str    "undefined"
     str    "undefined"
     i32    f0
-    i32    f1
-    i32    hasSize
-    i32 i32                 width, height   -- ONLY when hasSize != 0
+    i32    sizePresent
+    if sizePresent:
+      i32  sizeKind         nonzero = absolute; zero = relative
+      if sizeKind:
+        i32 i32             width, height
+      else:
+        str                 relative-size reference
+        f32 f32 i32 i32      width/height rates, width/height offsets
+    i32    positionPresent
+    if positionPresent:
+      i32 i32 str i32 i32    self/target anchors, target name, X/Y offsets
     ...                     type-dependent tail
     str    stateGroup       ("Game", "GamingState", ...)
     i32    childCount
@@ -45,6 +53,7 @@ Usage:
 
 import argparse
 import json
+import math
 import os
 import re
 import struct
@@ -113,6 +122,47 @@ class Reader:
         return struct.unpack_from("<i", self.d, o)[0]
 
 
+def parse_position(r, p):
+    """Read the native optional anchor object, preserving offsets, not a rect.
+
+    NWindow XMLUIData::Serialize -> 0x100cf4c0: two enum ints, FString,
+    then two signed ints. See docs/native-layout-evidence.md. Zero anchor
+    enums are native setter sentinels, not the first of the nine points.
+    """
+    present = r.i32(p)
+    p += 4
+    if not present:
+        return None, p
+    own, target = r.i32(p), r.i32(p + 4)
+    p += 8
+    if not (0 <= own <= 9 and 0 <= target <= 9):
+        raise ValueError("unsupported anchor enum")
+    name = r.string(p)
+    if name is None:
+        raise ValueError("invalid anchor target string")
+    name, p = name
+    x, y = r.i32(p), r.i32(p + 4)
+    return {"selfAnchor": own, "targetAnchor": target, "target": name,
+            "offsetX": x, "offsetY": y}, p + 8
+
+
+def parse_relative_size(r, p):
+    """Preserve the relative-size string, float rates and signed offsets.
+
+    All reviewed inputs have an empty reference. Its nonempty runtime lookup
+    semantics are not asserted here; it must not be treated as a flag byte.
+    """
+    reference = r.string(p)
+    if reference is None:
+        raise ValueError("invalid relative-size reference string")
+    reference, p = reference
+    width, height, dx, dy = struct.unpack_from("<ffii", r.d, p)
+    if not (math.isfinite(width) and math.isfinite(height)):
+        raise ValueError("nonfinite relative-size rate")
+    return {"reference": reference, "widthRate": width, "heightRate": height,
+            "widthOffset": dx, "heightOffset": dy}, p + 16
+
+
 def parse_header(r, o):
     """Decode a record header at o, or None if the shape does not match.
 
@@ -143,46 +193,50 @@ def parse_header(r, o):
             return None
         p = got[1]
 
-    f0, f1, has_size = r.i32(p), r.i32(p + 4), r.i32(p + 8)
-    p += 12
+    f0, size_present = r.i32(p), r.i32(p + 4)
+    p += 8
     width = height = None
-    if has_size:
-        width, height = r.i32(p), r.i32(p + 4)
-        p += 8
-
-    # docs/ui-mined-values.md §4: x/y are 24.8 fixed point at body+12/+16.
-    # Accept only when BOTH ints are divisible by 256 (p(false positive)
-    # ~2^-16 per record); otherwise the record is undecoded -- never guess.
-    x = y = None
-    tail = None
-    if has_size:
-        x_raw, y_raw = r.i32(p + 12), r.i32(p + 16)
-        if x_raw % 256 == 0 and y_raw % 256 == 0:
-            x, y = x_raw // 256, y_raw // 256
-    else:
-        # docs/xdat-tail-has0.md: hasSize==0 records carry x/y as plain
-        # pixel ints at body+30/+34, behind an auto-size block. The decode
-        # is gated on the full structural signature (zero bytes, floats in
-        # [0,1], small enum ints, the -1/0 enum pair, a literal "undefined"
-        # string and the -9999 sentinel); any deviation = undecoded.
-        tail = parse_has0_tail(r, p)
-        if tail:
-            x, y = tail["x"], tail["y"]
+    size_mode = None
+    relative = position = None
+    try:
+        if size_present:
+            size_kind = r.i32(p)
+            p += 4
+            size_mode = "absolute" if size_kind else "relative"
+            if size_kind:
+                width, height = r.i32(p), r.i32(p + 4)
+                p += 8
+        # Keep the existing body offset contract for specialized tail miners:
+        # absolute records start at positionPresent; relative records start
+        # at their reference string, before the 16-byte size rule.
+        body = p
+        if size_mode == "relative":
+            relative, p = parse_relative_size(r, p)
+        position, p = parse_position(r, p)
+    except (ValueError, IndexError, struct.error):
+        return None
+    x = position["offsetX"] if position else None
+    y = position["offsetY"] if position else None
 
     rec = {
         "name": name,
         "parent": parent,
         "off": o,
-        "body": p,
-        "flags": [f_a, f_b, f0, f1],
+        "body": body,
+        "flags": [f_a, f_b, f0, size_present],
         "width": width,
         "height": height,
         "x": x,
         "y": y,
+        "sizeMode": size_mode,
+        "position": position,
     }
-    if tail:
-        rec["autosize"] = tail["autosize"]
-        rec["insets"] = tail["insets"]
+    if relative:
+        rec["relativeSize"] = relative
+        # Retain these existing aliases while consumers migrate to explicit
+        # rates. They have never implied boolean or content-derived sizing.
+        rec["autosize"] = (relative["widthRate"], relative["heightRate"])
+        rec["insets"] = (relative["widthOffset"], relative["heightOffset"])
     return rec
 
 
@@ -247,8 +301,8 @@ def parse_grid(r, body, end):
 #     constants already mined independently out of NWindow.dll
 #     (docs/ui-mined-native.md §2), alpha 255 on all 650.
 #
-# Button/CheckBox/ListCtrl tails do NOT match this shape and are left alone;
-# their labels are still mined by hand (see js/ui/clanwnd.js).
+# Button tails have a separate native serializer decoded by parse_button_text.
+# CheckBox/ListCtrl labels are not decoded by this TextBox signature.
 TEXT_SIG = re.compile(rb"\xf1\xd8\xff\xff(.{4})\xf1\xd8\xff\xff(.{4})", re.S)
 
 # The horizontal alignment enum, one int32 immediately after the box's default
@@ -333,36 +387,117 @@ def parse_text_block(r, body, end):
 
 
 def parse_has0_tail(r, body):
-    """Decode the hasSize==0 record tail (docs/xdat-tail-has0.md), or None.
+    """Compatibility helper for a relative-size body; fields are native data."""
+    try:
+        size, p = parse_relative_size(r, body)
+        position, _ = parse_position(r, p)
+    except (ValueError, IndexError, struct.error):
+        return None
+    return {"x": position["offsetX"] if position else None,
+            "y": position["offsetY"] if position else None,
+            "autosize": (size["widthRate"], size["heightRate"]),
+            "insets": (size["widthOffset"], size["heightOffset"]),
+            "relativeSize": size, "position": position}
 
-    Layout: u8 0 | f32 f1 | f32 f2 | i32 A | i32 B | i32 C/D/E | u8 0 |
-    i32 X | i32 Y | i32 m1 | i32 m2 | i32 0 | str "undefined" | i32 -9999.
-    f1/f2 are the auto-size-to-parent toggles for width/height, A/B the
-    right/bottom insets applied when enabled (see the doc for the rule).
+
+def control_tail_start(r, rec):
+    """Cursor after the native common serializer, bounded by this record."""
+    p = rec["body"]
+    if rec.get("sizeMode") == "relative":
+        _, p = parse_relative_size(r, p)
+    _, p = parse_position(r, p)
+    p += 12
+    common_string = r.string(p)
+    if common_string is None or common_string[1] + 4 > rec["end"]:
+        raise ValueError("truncated common control suffix")
+    return common_string[1] + 4
+
+
+def parse_window_parent(r, rec):
+    """Window-specific FString +0x88: XMLWindowData::GetParent.
+
+    Keep the literal 'undefined' inheritance sentinel; do not infer its
+    prototype's value. See native-layout-evidence.md for the deferred path.
     """
-    d = r.d
-    if body + 65 > len(d) or d[body] != 0:
+    try:
+        got = r.string(control_tail_start(r, rec))
+        return got[0] if got and got[1] <= rec["end"] else None
+    except (ValueError, IndexError, struct.error):
         return None
-    f1, f2 = struct.unpack_from("<ff", d, body + 1)
-    if not (0.0 <= f1 <= 1.0 and 0.0 <= f2 <= 1.0):
+
+
+def parse_window_drawer(r, rec):
+    """XMLWindowData +124/+128/+12c/+130, after four strings and 88 bytes.
+
+    Original serializer/getters and completed drawer placement are verified
+    by Elbera Tools check_shortcut_native.py. Preserve the inactive direction
+    alone: its other fields can contain unused, uninitialized source bytes.
+    """
+    try:
+        p = control_tail_start(r, rec)
+        for _ in range(4):
+            _, p = r.string(p)
+        p += 88
+        if p + 4 > rec['end']:
+            return None
+        direction = r.i32(p)
+        if direction == 0:
+            return {'direction': 0}
+        if p + 12 > rec['end']:
+            return None
+        offset, fixed = r.i32(p + 4), r.i32(p + 8)
+        owner, end = r.string(p + 12)
+        if end > rec['end']:
+            return None
+        return {'direction': direction, 'offset': offset,
+                'fixed': fixed, 'owner': owner}
+    except (ValueError, TypeError, IndexError, struct.error):
         return None
-    a, b, c_, d_, e_ = struct.unpack_from("<iiiii", d, body + 9)
-    if not (0 < c_ < 10 and 0 < d_ < 10 and 0 < e_ < 10):
+
+
+def parse_button_text(r, rec):
+    """Decode Button's native system-string ID, or None for malformed input.
+
+    XMLButtonData::Serialize calls the common serializer, writes four FString
+    texture fields, then four int32 fields. Create passes the first int32 to
+    NCButton::SetButtonName unless it is -9999. The other ints stay unnamed.
+    Walk variable strings; do not signature-scan or assume empty targets.
+    """
+    try:
+        p = control_tail_start(r, rec)
+        for _ in range(4):
+            texture = r.string(p)
+            if texture is None:
+                return None
+            p = texture[1]
+        if p + 16 > rec["end"]:
+            return None
+        text_id = r.i32(p)
+        return {} if text_id == -9999 else {"textId": text_id}
+    except (ValueError, IndexError, struct.error):
         return None
-    if d[body + 29] != 0:
+
+
+def parse_text_layout(r, rec):
+    """Native TextBox fields needed for text-dependent anchor extents.
+
+    Autosize is an independent final int32, not implied by width=0. Preserve
+    -1 as the inheritance sentinel; only explicit 0/1 declare off/on here.
+    """
+    try:
+        p = control_tail_start(r, rec)
+        text, p = r.string(p)
+        align, font = r.i32(p), r.i32(p + 4)
+        background, p = r.string(p + 8)
+        if p + 24 > rec["end"]:
+            return None
+        auto = r.i32(p + 20)
+        if auto not in (-1, 0, 1):
+            return None
+        return {"defaultText": text, "autoSize": auto, "fontType": font,
+                "alignEnum": align}
+    except (TypeError, ValueError, IndexError, struct.error):
         return None
-    x, y = struct.unpack_from("<ii", d, body + 30)
-    m1, m2 = struct.unpack_from("<ii", d, body + 38)
-    if m1 not in (-1, 0, 1) or m2 not in (-1, 0, 1):
-        return None
-    if r.i32(body + 46) != 0:
-        return None
-    got = r.string(body + 50)
-    if not got or got[0] != "undefined":
-        return None
-    if r.i32(body + 61) != -9999:
-        return None
-    return {"x": x, "y": y, "autosize": (f1, f2), "insets": (a, b)}
 
 
 def preceding_type(r, off):
@@ -395,6 +530,9 @@ def scan(data):
     for i, rec in enumerate(records):
         end = records[i + 1]["off"] if i + 1 < len(records) else len(data)
         rec["end"] = end
+        if not rec["parent"] or rec["type"] == "Window":
+            rec["declaredWindowParent"] = parse_window_parent(r, rec)
+            rec["drawer"] = parse_window_drawer(r, rec)
         # Try EVERY byte offset, not a walk. A walk has to advance by a fixed
         # stride wherever a string does not parse, and record bodies open with
         # int32s, so a 4-byte stride starts off the string lattice and steps
@@ -421,22 +559,37 @@ data_g = b""
 
 
 def build_tree(records):
-    """Group records into windows -> flat child list (parent link is by name)."""
-    windows, by_name = [], {}
+    """Attach only uniquely named parents, including forward Window parents.
+
+    Ambiguous/missing parents and cycles stay visible as roots with explicit
+    metadata. The old global first-name-wins behavior silently misparented
+    repeated names. This is not a complete native hierarchy resolver.
+    """
+    windows, by_name, nodes = [], {}, []
     for rec in records:
         node = {
             "name": rec["name"],
-            "type": rec["type"] or "Window",
+            # Parent-empty records are serialized Window definitions without
+            # a preceding type string; a prior tail string is not their type.
+            "type": (rec["type"] or "Window") if rec["parent"] else "Window",
             "width": rec["width"],
             "height": rec["height"],
             "x": rec["x"],
             "y": rec["y"],
+            "sizeMode": rec.get("sizeMode"),
+            "position": rec.get("position"),
             "textures": rec["textures"],
             "children": [],
         }
         if rec.get("autosize"):
             node["autosize"] = rec["autosize"]
             node["insets"] = rec["insets"]
+        if rec.get("relativeSize"):
+            node["relativeSize"] = rec["relativeSize"]
+        if "declaredWindowParent" in rec:
+            node["declaredWindowParent"] = rec["declaredWindowParent"]
+        if rec.get("drawer") is not None:
+            node["drawer"] = rec["drawer"]
         if rec["type"] == "ItemWindow":
             grid = parse_grid(Reader(data_g), rec["body"], rec["end"])
             if grid:
@@ -445,13 +598,40 @@ def build_tree(records):
             txt = parse_text_block(Reader(data_g), rec["body"], rec["end"])
             if txt:
                 node.update(txt)
-        by_name.setdefault(rec["name"], node)
-        if not rec["parent"]:
-            node["type"] = rec["type"] or "Window"
-            windows.append(node)
+            layout = parse_text_layout(Reader(data_g), rec)
+            if layout:
+                node["textLayout"] = layout
+        if rec["type"] == "Button":
+            txt = parse_button_text(Reader(data_g), rec)
+            if txt:
+                node.update(txt)
+        nodes.append(node)
+        by_name.setdefault(rec["name"], []).append(len(nodes) - 1)
+
+    parents = {}
+    for i, (rec, node) in enumerate(zip(records, nodes)):
+        declared = rec.get("declaredWindowParent")
+        name = declared if declared not in (None, "", "undefined") else rec["parent"]
+        if not name:
+            continue
+        source = "declaredWindowParent" if name == declared else "commonParent"
+        candidates = by_name.get(name, [])
+        status = "resolved" if len(candidates) == 1 else "ambiguous" if candidates else "missing"
+        node["parentResolution"] = {"name": name, "source": source, "status": status}
+        if status == "resolved":
+            parents[i] = candidates[0]
+    for i, node in enumerate(nodes):
+        seen, cursor = {i}, i
+        while cursor in parents:
+            cursor = parents[cursor]
+            if cursor in seen:
+                node["parentResolution"]["status"] = "cycle"
+                break
+            seen.add(cursor)
+        if i in parents and node["parentResolution"]["status"] == "resolved":
+            nodes[parents[i]]["children"].append(node)
         else:
-            parent = by_name.get(rec["parent"])
-            (parent["children"] if parent else windows).append(node)
+            windows.append(node)
     return windows
 
 
@@ -496,6 +676,11 @@ def main():
     data_g = data
     declared, records = scan(data)
     windows = build_tree(records)
+    def descendants(nodes):
+        for node in nodes:
+            yield node
+            yield from descendants(node["children"])
+    all_nodes = list(descendants(windows))
 
     tops = [r for r in records if not r["parent"]]
     covered = sum(r["end"] - r["off"] for r in records)
@@ -537,7 +722,7 @@ def main():
         print("missing tex e.g. " + ", ".join(missing[:5]))
 
     decoded = sum(1 for r in records if r["x"] is not None)
-    menu = next((w for w in windows if w["name"] == "MenuWnd"), None)
+    menu = next((w for w in all_nodes if w["name"] == "MenuWnd"), None)
     bands_tile = False
     if menu:
         bands = {c["name"]: c for c in menu["children"]
@@ -553,7 +738,7 @@ def main():
     # must stack in order at a constant pitch inside the window, and the
     # five ChatWnd panes must share one rect (tab alternates).
     def child(win, cname):
-        w = next((w for w in windows if w["name"] == win), None)
+        w = next((w for w in all_nodes if w["name"] == win), None)
         return next((c for c in (w["children"] if w else [])
                      if c["name"] == cname), None)
     has0_decoded = sum(1 for r in records
@@ -581,7 +766,7 @@ def main():
             _walk(c)
     for w in windows:
         _walk(w)
-    inv = next((w for w in windows if w["name"] == "InventoryWnd"), None)
+    inv = next((w for w in all_nodes if w["name"] == "InventoryWnd"), None)
     inv_item = next((c for c in inv["children"] if c["name"] == "InventoryItem"), None) if inv else None
     grid_ok = (len(grids) >= 30 and inv_item and inv_item.get("grid")
                and inv_item["grid"]["rows"] == 4
@@ -621,7 +806,7 @@ def main():
     # NCStatusBarCtrl; the combat values are the row where only right-align
     # fits the column.
     al = {n["name"]: n["align"] for n in aligned
-          if n in [c for w in windows if w["name"] == "DetailStatusWnd"
+          if n in [c for w in all_nodes if w["name"] == "DetailStatusWnd"
                    for c in w["children"]]}
     align_ok = (len(aligned) >= 500
                 and all(al.get(n) == "center" for n in
@@ -640,6 +825,19 @@ def main():
     print(f"text align      {len(aligned)} decoded; "
           f"{'gauges centre, values right, heads left' if align_ok else 'BROKEN'} (guard)")
 
+    buttons = [r for r in records if r["type"] == "Button"]
+    button_text = [parse_button_text(Reader(data), r) for r in buttons]
+    button_ids = [t["textId"] for t in button_text if t and "textId" in t]
+    quest_close = child("QuestTreeWnd", "btnClose")
+    button_ok = (len(buttons) >= 340 and all(t is not None for t in button_text)
+                 and len(button_ids) >= 220 and quest_close is not None
+                 and quest_close.get("textId") == 385)
+    if os.path.exists(sysstr):
+        button_ok = button_ok and all(t in known for t in button_ids)
+    print(f"Button labels   {sum(t is not None for t in button_text)} decoded, "
+          f"{len(button_ids)} carry a sysstring id; "
+          f"{'quest Abort=385' if button_ok else 'BROKEN'} (guard)")
+
     ok = (len(tops) >= declared - 3
           and covered >= (len(data) - 4) * 0.95
           and not missing
@@ -649,7 +847,8 @@ def main():
           and bars_stack
           and panes_tile
           and grid_ok
-          and text_ok)
+          and text_ok
+          and button_ok)
     if args.check:
         print("CHECK", "PASS" if ok else "FAIL")
         return 0 if ok else 1

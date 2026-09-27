@@ -9,9 +9,12 @@ Joins two decoded tables (both real, in this repo):
                                       tools/dat/parse_skillsoundgrp.py)
                                    — cast/shot/explosion sound refs
 
-skillgrp.json is 11 MB (29812 id×level records) — too heavy for the client
-to fetch for a cast-time lookup. This emits one entry per skill id (lowest
-level, same convention as build_meta.py's skillmeta.json) plus a per-level
+The original skillgrp table is 11 MB as JSON (29812 id×level records), too
+heavy for the client
+to fetch for a cast-time lookup. This tool freshly decodes the original DAT
+for every build/check; the historical description string is preserved as
+`vfx` (native skill_visual_effect), with exact known `levels` on each base.
+It emits one entry per skill ID (lowest original level), plus a per-level
 override only where the level's presentation differs:
 
   {
@@ -37,6 +40,8 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 GAMEDATA = os.path.join(ROOT, "assets", "gamedata")
+from skill_bindings import original_skillgrp
+
 OUT_PATH = os.path.join(GAMEDATA, "skillanim.json")
 
 
@@ -46,7 +51,7 @@ def load(name):
 
 
 def build():
-    skillgrp = load("skillgrp.json")
+    skillgrp, source = original_skillgrp()
     skillsoundgrp = load("skillsoundgrp.json")
 
     # first row wins on the 6 conflicting duplicate keys (see parser notes)
@@ -68,6 +73,7 @@ def build():
             "magic": rec["is_magic"],
             "range": -1 if rec["cast_range"] == 0xFFFFFFFF else rec["cast_range"],
             "style": rec["cast_style"],
+            "vfx": rec["skill_visual_effect"],
         }
         snd = sounds.get((rec["skill_id"], rec["skill_level"]))
         if snd is None and rec["skill_id"] in base_sounds:
@@ -97,6 +103,8 @@ def build():
             e = entry(rec)
             if e != base:
                 out[f"{sid}_{rec['skill_level']}"] = e
+        base["levels"] = [rec["skill_level"] for rec in recs]
+    out["_source"] = source
     return out
 
 

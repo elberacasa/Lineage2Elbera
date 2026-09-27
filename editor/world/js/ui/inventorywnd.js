@@ -45,10 +45,13 @@ import { Skin } from './skin.js';
 import { Font } from './font.js';
 import { L2Window } from './window.js';
 import { WndMgr } from './wndmgr.js';
+import { sharedDialogBox } from './dialogbox.js';
+import { defaultWindowPosition, windowCornerInside } from './windowposition.js';
 import {
   loadTooltipData, attachItemTooltip, setItemNameSource, itemTypeOf,
 } from './tooltip.js';
 import { itemMeta, itemInfo, sysMsgMeta, renderSysMsg } from '../gamedata.js';
+import { inventoryHenna } from '../henna.js';
 
 const WND = 'InventoryWnd';
 const TITLEBAR_H = 20;   // docs/ui-mined-values.md §3: BackTexture y=20 is the titlebar
@@ -63,11 +66,24 @@ const SLOT_BITS = [
   ['gloves', 0x0200], ['chest', 0x0400], ['legs', 0x0800], ['feet', 0x1000],
   ['underwear', 0x0001],
 ];
-// Combined paperdoll masks aCis sends for the paired slots: the OR of the
-// two single-slot bits declared immediately above (rear|lear, rfinger|lfinger)
-// plus the two-hand marker. Every value here is a union of decoded bits, not
-// a number of ours.
-const LR_PAIRS = { 0x0006: ['rear', 'lear'], 0x0030: ['rfinger', 'lfinger'], 0x4000: ['rhand'] };
+/** InventoryWnd.uc EarItemUpdate/FingerItemUpdate and IsLOrREar/Finger
+ * distinguish object identities, not template IDs or allowed bodyPart bits.
+ * Missing UserInfo stays unresolved rather than displaying one item twice. */
+export function inventoryEquipSlots(item, objects) {
+  if (!item.equipped) return [];
+  if ([2, 4, 6].includes(item.slot)) {
+    if (objects?.lear === item.objectId) return ['lear'];
+    if (objects?.rear === item.objectId) return ['rear'];
+    return [];
+  }
+  if ([16, 32, 48].includes(item.slot)) {
+    if (objects?.lfinger === item.objectId) return ['lfinger'];
+    if (objects?.rfinger === item.objectId) return ['rfinger'];
+    return [];
+  }
+  if (item.slot === 0x4000) return ['rhand'];
+  return SLOT_BITS.filter(([, bit]) => item.slot & bit).map(([key]) => key);
+}
 
 // Paperdoll slot names, in InventoryWnd.uc's EQUIPITEM_* order. Positions
 // come from Layout.wells() (measured); this list only fixes which keys must
@@ -99,18 +115,22 @@ export function activeInventory() { return _activeInventory; }
 
 export class InventoryWnd {
   constructor(parent = document.body, {
-    onUse, onDestroy, onCrystallize, onAssign, getItems, getCharSheet,
+    onUse, onDestroy, onCrystallize, getItems, getCharSheet, getHenna, getHennaData,
   } = {}) {
     _activeInventory = this;
     this.onUse = onUse || (() => {});
     this.onDestroy = onDestroy || (() => {});
     this.onCrystallize = onCrystallize || (() => {});
-    this.onAssign = onAssign || (() => {});
     this.getItems = getItems || (() => []);
     this.getCharSheet = getCharSheet || (() => null);
+    this.getHenna = getHenna || (() => null);
+    this.getHennaData = getHennaData || (() => null);
     this.tab = 'inventory';
     this.order = [];           // client-side reorder state (objectIds)
     this.items = new Map();
+    this.sessionRevision = 0;
+    this.useDialog = sharedDialogBox(parent);
+    this.pendingUse = null;
     this.wells = Layout.wells(WND);
 
     const def = Layout.window(WND);
@@ -183,27 +203,28 @@ export class InventoryWnd {
       body.appendChild(el);
       this.doll[key] = el;
     }
-    // HennaItem: xdat control (223,39) 26x84 — our data model has no dyes;
-    // the back art already draws its well, so nothing is painted over it.
+    // HennaItem uses original class-step rows and server snapshot order.
+    // Exact NCItemWnd inactive tint and hover rendering remain parity work.
     const hennaPos = P(WND, 'HennaItem');
     const hennaSize = Layout.size(WND, 'HennaItem');
     if (hennaPos && hennaSize) {
       const el = document.createElement('div');
       el.className = 'doll-slot henna';
-      el.title = 'Henna (not bridged)';
       el.style.cssText = 'position:absolute;';
+      el.setAttribute('aria-label', 'Henna');
       place(el, hennaPos.x, hennaPos.y, hennaSize.w, hennaSize.h);
       body.appendChild(el);
+      this.hennaSlots = el;
     }
 
     // --- bottom row: crystallize / trash / adena / weight ------------------
     // Drop targets, per InventoryWnd.uc OnDropItem (uc:305 TrashButton,
     // uc:332 CrystallizeButton) — not click buttons.
-    // The third argument is the confirmation systemmsg id the client shows
-    // before the op: 336 "You are attempting to crystalize $s1..." and
-    // 74 "Do you wish to destroy your $s1?" in systemmsg.json.
-    this._dropButton(body, 'CrystallizeButton', 336, (oid) => this.onCrystallize(oid));
-    this._dropButton(body, 'TrashButton', 74, (oid) => this.onDestroy(oid));
+    // Original OnDropItem selects the warning/quantity branch and reserves
+    // the object and count before the shared DialogBox can confirm them.
+    this._dropButton(body, 'CrystallizeButton', 'crystallize');
+    this._dropButton(body, 'TrashButton', 'destroy');
+    if (this.CrystallizeButtonEl) this.CrystallizeButtonEl.style.display = 'none';
 
     const adenaIconPos = P(WND, 'AdenaIcon');
     const adenaIconSize = Layout.size(WND, 'AdenaIcon');
@@ -243,7 +264,6 @@ export class InventoryWnd {
     body.appendChild(this.weightEl);
 
     parent.appendChild(win.root);
-    WndMgr.register('InventoryWnd', this, { handle: win.bar });
     // Dock READ from WindowsInfo.ini [InventoryWnd] via Layout.dock() — the
     // client's own file, mined by tools/ui/mine_windowsinfo.py. Absolute
     // retail px at 1024x768 (Skin.px applies the uiScale; no proportional
@@ -251,7 +271,11 @@ export class InventoryWnd {
     // window opens where WndMgr left it rather than at a typed spot.
     const dock = Layout.dock('InventoryWnd');
     this.defaultPlace = dock ? { left: dock.x, top: dock.y } : null;
+    this.defaultPositionRule = Layout.windowDefault(WND);
     if (this.defaultPlace) this.place(this.defaultPlace);
+    // Apply the source default before restoring the player's saved position.
+    // Otherwise every new client instance discards the completed drag.
+    WndMgr.register('InventoryWnd', this, { handle: win.bar });
   }
 
   // -- pieces ----------------------------------------------------------------
@@ -259,7 +283,7 @@ export class InventoryWnd {
   /** A bottom-row control that accepts a dropped item, with the retail
    *  confirmation text (systemmsg-e.dat, the same id the .uc passes to
    *  DialogShow). */
-  _dropButton(body, ctrl, sysMsgId, act) {
+  _dropButton(body, ctrl, action) {
     const pos = P(WND, ctrl);
     const size = Layout.size(WND, ctrl);
     const tex = Layout.tex(WND, ctrl).filter(r => Skin.sprite(r));
@@ -279,18 +303,11 @@ export class InventoryWnd {
       if (tex[1]) Skin.apply(el, tex[0], { content: size });
       const data = readDrag(e);
       if (!data) return;
-      const it = this.items.get(data.id);
-      const name = it && this.meta ? itemInfo(this.meta, it.itemId).name : 'this item';
-      if (window.confirm(this._confirmText(sysMsgId, name))) act(data.id);
+      this.requestItemAction(action, data.id, { source: data.from,
+        allItemCount: data.allItemCount ?? 0 });
     });
     body.appendChild(el);
     this[`${ctrl}El`] = el;
-  }
-
-  /** The retail confirmation line: the same systemmsg-e.dat id the .uc
-   *  hands to DialogShow, with the item name substituted. */
-  _confirmText(id, name) {
-    return renderSysMsg(this.sysMsg, id, [name]);
   }
 
   _dollSlot(key, r) {
@@ -322,7 +339,13 @@ export class InventoryWnd {
         JSON.stringify({ type: 'item', id: Number(oid), from: 'equip' }));
     });
     el.addEventListener('dblclick', () => {
-      if (el.dataset.oid) this.onUse(Number(el.dataset.oid));
+      if (el.dataset.oid) this.useItem(Number(el.dataset.oid));
+    });
+    // InventoryWnd.uc OnRClickItemWithHandle invokes the same UseItem path
+    // as double-click, including equipped slots. Shortcut assignment is drag.
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (el.dataset.oid) this.useItem(Number(el.dataset.oid));
     });
     return el;
   }
@@ -349,6 +372,101 @@ export class InventoryWnd {
   }
 
   // -- data ------------------------------------------------------------------
+
+  /** InventoryWnd.OnDropItem and HandleDialogOK: the count branch belongs
+   * to the action, not a generic dialog clamp. Unknown source fields fail. */
+  async requestItemAction(action, objectId, { source, allItemCount = 0 } = {}) {
+    const item = this.items.get(objectId), revision = this.sessionRevision;
+    if (!item || this.pendingUse || !['destroy', 'crystallize'].includes(action)
+        || !['inventory', 'quest', 'equip', 'pet'].includes(source)) return;
+    if (!this.meta) this.meta = await itemMeta();
+    if (revision !== this.sessionRevision || this.items.get(objectId)?.itemId !== item.itemId) return;
+    const meta = this.meta?.[item.itemId];
+    if (!meta?.name || !Number.isInteger(item.count) || item.count < 1 || item.count > 0x7fffffff) return;
+    let messageId, type = 'warning', count = 1;
+    if (action === 'crystallize') {
+      const ability = this.getCharSheet()?.crystallizeAbility;
+      if (!['inventory', 'equip'].includes(source) || !Number.isInteger(ability) || ability === 0
+          || !Number.isInteger(meta.crystallizable) || meta.crystallizable === 0) return;
+      messageId = 336;
+    } else {
+      if (!Number.isInteger(meta.consumeType) || !Number.isInteger(allItemCount)
+          || allItemCount < 0 || allItemCount > 0x7fffffff) return;
+      messageId = 74;
+      if ([1, 2, 3].includes(meta.consumeType) && item.count > 1) {
+        if (allItemCount > 0) count = allItemCount;
+        else { type = 'number'; messageId = 73; }
+      }
+    }
+    if (this.pendingUse) return;
+    const token = { objectId, itemId: item.itemId, revision, action };
+    this.pendingUse = token;
+    try {
+      if (!this.sysMsg) this.sysMsg = await sysMsgMeta();
+      if (!this._useStillCurrent(token)) return;
+      const message = renderSysMsg(this.sysMsg, messageId, [meta.name]);
+      if (!message || /^sysmsg /.test(message)) return;
+      const result = await this.useDialog.request({ type, message, context: token, owner: this,
+        ...(type === 'number' ? { parameter: item.count } : {}) });
+      if (!result.accepted || !this._useStillCurrent(token)) return;
+      if (type === 'number') {
+        // Original int("") is zero; destroy forwards it unchanged. The
+        // native overflow conversion is not certified, so refuse that range.
+        if (typeof result.value !== 'string' || !/^\d*$/.test(result.value)) return;
+        count = Number(result.value);
+        if (!Number.isSafeInteger(count) || count > 0x7fffffff) return;
+      }
+      if (action === 'destroy') this.onDestroy(objectId, count);
+      else this.onCrystallize(objectId, count);
+    } finally { if (this.pendingUse === token) this.pendingUse = null; }
+  }
+
+  /** Original UseItem: recipe Warning798 takes precedence over PopMsgNum;
+   * both retain the requested ServerID until this dialog's explicit OK. */
+  async useItem(objectId) {
+    const item = this.items.get(objectId), revision = this.sessionRevision;
+    if (!item) return;
+    if (!this.meta) this.meta = await itemMeta();
+    if (revision !== this.sessionRevision || this.items.get(objectId)?.itemId !== item.itemId) return;
+    const meta = this.meta?.[item.itemId];
+    if (typeof meta?.isRecipe !== 'boolean' || (!meta.isRecipe && !Number.isInteger(meta.popMsgNum))) {
+      console.warn('[InventoryWnd] Original item-use metadata unavailable:', item.itemId);
+      return;
+    }
+    const messageId = meta.isRecipe ? 798 : meta.popMsgNum > 0 ? meta.popMsgNum : null;
+    if (messageId === null) { this.onUse(objectId); return; }
+    if (this.pendingUse) return;
+    const token = { objectId, itemId: item.itemId, revision };
+    this.pendingUse = token;
+    try {
+      if (!this.sysMsg) this.sysMsg = await sysMsgMeta();
+      if (!this._useStillCurrent(token)) return;
+      const message = renderSysMsg(this.sysMsg, messageId, []);
+      if (!message || /^sysmsg /.test(message)) return;
+      const result = await this.useDialog.request({ type: 'warning', message, context: token, owner: this });
+      if (result.accepted && this._useStillCurrent(token)) this.onUse(objectId);
+    } finally { if (this.pendingUse === token) this.pendingUse = null; }
+  }
+
+  _useStillCurrent(token) {
+    return this.pendingUse === token && this.sessionRevision === token.revision
+      && this.items.get(token.objectId)?.itemId === token.itemId;
+  }
+
+  _retireMissingUse() {
+    if (this.pendingUse && !this._useStillCurrent(this.pendingUse)) {
+      this.pendingUse = null;
+      this.useDialog.reset(this);
+    }
+  }
+
+  resetSession() {
+    this.sessionRevision++;
+    this.pendingUse = null;
+    this.useDialog.reset(this);
+    this.items.clear(); this.order = [];
+    this.win.hide();
+  }
 
   /** Inventory object ids holding a given item type. Shortcut slots key on
    *  objectId, but the server talks about shots by itemId (ExAutoSoulShot,
@@ -379,22 +497,26 @@ export class InventoryWnd {
   }
 
   async setItems(items) {
-    if (!this.meta) this.meta = await itemMeta();
-    if (!this.sysMsg) this.sysMsg = await sysMsgMeta();
-    // Tooltip tables: fetched once, never blocking the item list.
-    setItemNameSource((id) => itemInfo(this.meta, id).name);
-    loadTooltipData();
+    const revision = this.sessionRevision;
+    // Preserve packet arrival order. Only presentation may wait for metadata;
+    // a later InventoryUpdate must never be overwritten by this snapshot.
     this.items.clear();
     for (const it of items) {
       this.items.set(it.objectId, it);
       if (!this.order.includes(it.objectId)) this.order.push(it.objectId);
     }
     this.order = this.order.filter(oid => this.items.has(oid));
+    this._retireMissingUse();
+    if (!this.meta) this.meta = await itemMeta();
+    if (!this.sysMsg) this.sysMsg = await sysMsgMeta();
+    if (revision !== this.sessionRevision) return;
+    setItemNameSource((id) => itemInfo(this.meta, id).name);
+    loadTooltipData();
     this.render();
   }
 
   async applyUpdate(updated) {
-    if (!this.meta) this.meta = await itemMeta();
+    const revision = this.sessionRevision;
     // InventoryUpdate's per-item change code, straight from the packet:
     // aCis writes 1=ADDED, 2=MODIFIED, 3=REMOVED (ItemInfo/InventoryUpdate).
     const CHANGE = { 1: 'add', 2: 'modify', 3: 'remove' };
@@ -408,6 +530,9 @@ export class InventoryWnd {
         if (!this.order.includes(u.objectId)) this.order.push(u.objectId);
       }
     }
+    this._retireMissingUse();
+    if (!this.meta) this.meta = await itemMeta();
+    if (revision !== this.sessionRevision) return;
     this.render();
   }
 
@@ -417,8 +542,60 @@ export class InventoryWnd {
     else this.win.hide();
   }
 
-  place(o) { this.win.place(o || this.defaultPlace); return this; }
-  onDefaultPosition() { if (this.defaultPlace) this.place(this.defaultPlace); }
+  _positionRect() {
+    // Fixed CSS positions persist in browser pixels; source rectangles are
+    // unscaled client pixels. Hidden windows have a zero DOM bounding rect.
+    const x = parseFloat(this.root.style.left) / Skin.scale;
+    const y = parseFloat(this.root.style.top) / Skin.scale;
+    const rendered = this.root.getBoundingClientRect();
+    return { x: Number.isFinite(x) ? x : rendered.left / Skin.scale,
+      y: Number.isFinite(y) ? y : rendered.top / Skin.scale,
+      width: this.win.width, height: this.win.height + this.win.barH };
+  }
+
+  _parentRect() {
+    return { x: 0, y: 0, width: window.innerWidth / Skin.scale, height: window.innerHeight / Skin.scale };
+  }
+
+  place(o) {
+    if (o) this.win.place(o);
+    else if (this.defaultPositionRule) {
+      const resolved = defaultWindowPosition(this.defaultPositionRule, this._positionRect(), this._parentRect());
+      if (resolved) this.win.place({ left: resolved.x, top: resolved.y });
+    } else if (this.defaultPlace) this.win.place(this.defaultPlace);
+    return this;
+  }
+
+  repairPosition() {
+    if (this.defaultPositionRule && !windowCornerInside(this._positionRect(), this._parentRect())) this.place();
+  }
+
+  onDefaultPosition() { this.place(); }
+
+  renderHenna() {
+    if (!this.hennaSlots) return;
+    this.hennaSlots.replaceChildren();
+    const data = this.getHennaData();
+    const grid = data?.inventorySlot?.grid;
+    if (!grid) return;
+    const state = inventoryHenna(this.getHenna(), this.getCharSheet()?.classId, data);
+    this.hennaSlots.dataset.rows = String(state.rows);
+    for (const [index, item] of state.items.entries()) {
+      const file = data.icons?.[item.source.icon]?.file;
+      if (!file) break;
+      const icon = document.createElement('img');
+      icon.src = `/gamedata/${file}`;
+      icon.alt = `${item.source.name}: ${item.source.text1}`;
+      icon.draggable = false;
+      icon.dataset.symbolId = String(item.symbolId);
+      icon.setAttribute('aria-disabled', String(item.disabled));
+      // Source cell dimensions/spacing; the native ItemWindow inset, slot
+      // mark and inactive pixel tint remain unresolved. Do not invent them.
+      icon.style.cssText = 'position:absolute;';
+      place(icon, 0, index * (grid.cellY + grid.gapY), grid.cellX, grid.cellY);
+      this.hennaSlots.appendChild(icon);
+    }
+  }
 
   // -- render ------------------------------------------------------------------
 
@@ -433,6 +610,11 @@ export class InventoryWnd {
   }
 
   render() {
+    this.renderHenna();
+    const ability = this.getCharSheet()?.crystallizeAbility;
+    if (this.CrystallizeButtonEl) {
+      this.CrystallizeButtonEl.style.display = Number.isInteger(ability) && ability !== 0 ? '' : 'none';
+    }
     if (!this.meta) return;
     this.gridInner.innerHTML = '';
     if (!this.pitch || !this.well) return;
@@ -469,14 +651,14 @@ export class InventoryWnd {
       el.draggable = true;
       el.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('application/x-l2vzla',
-          JSON.stringify({ type: 'item', id: it.objectId }));
+          JSON.stringify({ type: 'item', id: it.objectId, from: this._paneOf(it) }));
       });
-      el.addEventListener('dblclick', () => this.onUse(it.objectId));
+      el.addEventListener('dblclick', () => this.useItem(it.objectId));
       // Tooltip.uc's "Inventory" tooltip type — the retail hover panel.
       attachItemTooltip(el, () => this._tipModel(it.objectId));
       el.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        this.onAssign({ type: 'item', id: it.objectId });
+        this.useItem(it.objectId);
       });
       this.gridInner.appendChild(el);
     }
@@ -495,13 +677,7 @@ export class InventoryWnd {
     }
     for (const it of this.items.values()) {
       if (!it.equipped) continue;
-      const keys = [];
-      for (const [key, bit] of SLOT_BITS) {
-        if (it.slot & bit) keys.push(key);
-      }
-      for (const [bit, pair] of Object.entries(LR_PAIRS)) {
-        if (it.slot & bit) keys.push(...pair);
-      }
+      const keys = inventoryEquipSlots(it, this.getCharSheet()?.paperdollObjectIds);
       const info = itemInfo(this.meta, it.itemId);
       for (const key of keys) {
         const el = this.doll[key];

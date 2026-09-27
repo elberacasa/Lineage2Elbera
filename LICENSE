@@ -22,16 +22,21 @@ SOFTWARE.
 
 ---
 
-NOTE: This license covers Elbera's own source code only (tools/, gateway/,
-panel/, editor/, deploy/, docs/). It does NOT cover, and this repository does
-NOT contain or redistribute:
+NOTE: This license covers Elbera's own source code and authored documentation.
+It does not grant rights to third-party content, including:
 
 - Lineage 2 game assets (textures, models, maps, audio, .dat tables).
   Copyright NCSoft Corporation. A legally obtained Lineage 2 Interlude client
-  is required; Elbera's tools extract and convert assets from your own copy
-  at build time.
+  is required; Elbera's tools extract and convert assets from your own copy.
+  Current source releases exclude original files and generated game data.
+  Older public commits included generated outputs; removing them from the
+  current tree does not remove those historical copies or relicense them.
 - The aCis server emulator under server/ — a separate third-party project
   (L2J lineage) with its own license; see server/LICENSE.
 - Vendored third-party components, each under its own license: UEViewer
   (umodel, © Gildor), open-l2encdec (MIT), Real-ESRGAN ncnn build
   (BSD-3-Clause), SDL2 (zlib), sse2neon (MIT), three.js (MIT), ws (MIT).
+
+Selected rendered screenshots in docs/img/ illustrate development and retain
+the rights of their underlying content. They are not a game-asset license.
+See docs/public-release-boundary.md for the source/distribution boundary.

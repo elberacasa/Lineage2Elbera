@@ -1,3 +1,13 @@
+// ARCHIVED: this suite mirrors the retired whole-clip wall-clock callbacks.
+// Its transcription cannot verify the original multi-phase scheduler.
+console.error('UNSUPPORTED: verify_castanim uses retired callback/timing expectations. '
+  + 'Use node --test editor/world/test/native-castschedule.test.mjs '
+  + 'editor/world/test/castplayback.test.mjs editor/world/test/native-skillanim.test.mjs '
+  + 'and python3 tools/ui/check_castschedule_runtime.py --check. '
+  + 'Those checks do not certify native pose interpolation or effects.');
+process.exit(2);
+
+// Historical implementation below; not an active verification suite.
 // SKILL CAST ANIMATION — WHICH CLIP, AND WHEN ITS PHASES FIRE.
 //
 // Six gates. Each one asserts something that was measurably WRONG or ABSENT
@@ -227,8 +237,7 @@ const MAGIC = ['castShort', 'castMid', 'castLong', 'castEnd',
 let invPairs = 0, invBad = [];
 for (const [id, m] of Object.entries(pa.models)) {
   for (const slot of MAGIC) {
-    // castEnd/magicShot/magicNoTarget are not shipped as glTF clips, so the
-    // resolved `slots` map has no row — the invariance claim is about the
+    // An unexported source slot has no resolved row. The invariance claim is about the
     // CLIENT table, and build_pawnanim.py asserts it there (98/98) before
     // writing. Here, assert it on whatever resolved.
     const row = m.slots[slot];
@@ -255,18 +264,33 @@ ok('spAtk01 varies by stance on every pawn that has more than one entry',
    varies === 14, `${varies}/14`);
 counted(14);
 
-// retail slots the client fills and the glTF pipeline does not ship —
-// a KNOWN GAP, asserted so it cannot grow silently
-const gap = {};
-for (const m of Object.values(pa.models)) {
-  for (const slot of Object.keys(m.unshipped || {})) {
-    if (MAGIC.includes(slot)) gap[slot] = (gap[slot] || 0) + 1;
+// Record source/build coverage; missing clips are a gap, not a desired
+// invariant. Every stance must be accounted for exactly once, and a resolved
+// entry must point to actual mesh animation and original sequence metadata.
+const recoveredSlots = ['castEnd', 'magicShot', 'magicNoTarget', 'picItem'];
+const coverage = Object.fromEntries(recoveredSlots.map(s => [s, { shipped: 0, missing: 0 }]));
+const coverageErrors = [];
+for (const [id, m] of Object.entries(pa.models)) {
+  const { g } = loadGltf(id);
+  for (const slot of recoveredSlots) {
+    const resolved = m.slots[slot] || {}, unshipped = m.unshipped?.[slot] || {};
+    if (findAnim(g, slot) && Object.keys(resolved).length !== 6) {
+      coverageErrors.push(`${id}.${slot}: exported clip has stale/missing slot metadata`);
+    }
+    coverage[slot][Object.keys(resolved).length === 6 ? 'shipped' : 'missing']++;
+    for (const stance of STANCES) {
+      const row = resolved[stance], absent = unshipped[stance];
+      if (!!row === !!absent) coverageErrors.push(`${id}.${slot}.${stance}: source coverage`);
+      if (row && (!findAnim(g, row.clip)?.channels?.length
+          || pa.clips[id]?.[row.clip]?.seq?.toLowerCase() !== row.seq.toLowerCase())) {
+        coverageErrors.push(`${id}.${slot}.${stance}: missing clip/source metadata`);
+      }
+    }
   }
 }
-ok('KNOWN GAP: castEnd / magicShot / magicNoTarget shipped by 0 of 14 models',
-   gap.castEnd === 14 && gap.magicShot === 14 && gap.magicNoTarget === 14,
-   JSON.stringify(gap));
-counted(3);
+ok('original skill slot coverage is explicit and exported references resolve',
+   coverageErrors.length === 0, JSON.stringify(coverage) + ' ' + coverageErrors.slice(0, 3).join('; '));
+counted(recoveredSlots.length * STANCES.length * Object.keys(pa.models).length);
 
 // ------------------------------------------------------------------ C
 section('C. the phase keyframes');
@@ -424,8 +448,11 @@ ok('character.js exposes cancelCast and clears pending phases',
 ok('entities.die cancels an in-flight cast', /die\(id\)\s*\{[\s\S]{0,400}this\.cancelCast\(id\)/.test(ent));
 ok('main.js routes skillCancel into the animation',
    /net\.on\('skillCancel'[\s\S]{0,120}entities\.cancelCast/.test(mn));
-ok('castanim.js states the undecoded letter->slot gap rather than filling it',
-   /letter->slot undecoded/.test(ca) && /PHYS_SLOT = 'spAtk01'/.test(ca));
+// Wiring guard only. Actual selector behavior is exercised by
+// test/native-skillanim.test.mjs and independently checked against Engine.dll
+// by Elbera Tools: tools/ui/check_skillanim_native.py --check.
+ok('castanim.js resolves the recovered native animation-code selector',
+   /nativeSkillSlots\(entry\.anim\)/.test(ca) && !/castClipForDuration/.test(ca));
 ok('a second Character.load() replaces the body instead of stacking one',
    /if \(this\.model\) this\.group\.remove\(this\.model\);/.test(chr)
    && /this\.actions = \{\};/.test(chr));
@@ -445,19 +472,16 @@ counted(9);
 // null because magicNoTarget is the KNOWN GAP above; Dance of the Warrior ->
 // dance via slot spAtk05; Vicious Stance -> nothing plays at all.
 //
-// The launch clip is RESOLVED and deliberately NOT PLAYED yet, which this
-// gate pins so the next wave does not mistake it for an oversight: retail
-// swaps to MagicThrow for the last 400 ms of the cast, and fitting a 1.533 s
-// clip into a 400 ms window needs GetMagicThrowAnimRate — a native export in
-// the Themida-packed engine.dll. Playing it at an invented rate would be a
-// guess, and two of the three launch slots (magicShot, magicNoTarget) are
-// not even shipped by the glTF pipeline.
+// The run above records the old duration-based selector, since superseded by
+// SetSkillAnim's original code->slot branches. It does not establish native
+// phase timing. Complete phase playback/rates still need separate proof, and
+// current magicShot / magicNoTarget build coverage is measured in section B.
 let launchResolved = 0, launchModels = 0;
 for (const [id, m] of Object.entries(pa.models)) {
   launchModels++;
   if ((m.slots.magicThrow || {}).bow) launchResolved++;
 }
-ok('a targeted magic cast resolves a launch clip on all 14 pawns',
+ok('the magicThrow slot has an exported clip on all 14 pawns',
    launchModels === 14 && launchResolved === 14, `${launchResolved}/14`);
 counted(14);
 

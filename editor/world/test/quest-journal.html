@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Elbera Tools — Quest journal</title>
+<style>
+  body { margin:24px; background:#272727; color:#eee; font:14px system-ui; }
+  .l2-window { position:fixed; }
+</style>
+<p><a href="index.html" style="color:#e7c887">Elbera Tools</a> · Development replay: original client journal text with simulated server progress.
+  No connection to the game server.</p>
+<label>Quest <select id="quest"></select></label>
+<label>Progress <input id="progress" type="number" value="2" min="0" max="4294967295"></label>
+<button id="show">Show journal</button>
+<button id="mark">Replay quest-update marker</button>
+<p id="status">Loading original client data…</p>
+<div id="chat-anchor" style="position:fixed;left:340px;bottom:32px;width:360px;padding:12px;border:1px dashed #999">
+  Diagnostic chat anchor. The original marker is positioned relative to this box;
+  this is a simulated packet, not a live quest update.
+</div>
+<script type="module">
+import { Skin } from '../js/ui/skin.js';
+import { Font } from '../js/ui/font.js';
+import { Layout } from '../js/ui/layout.js';
+import { QuestWnd } from '../js/ui/questwnd.js';
+import { QuestMark } from '../js/ui/questmark.js';
+await Promise.all([Skin.load(), Font.load(), Layout.load()]);
+const data = await fetch('/gamedata/quests.json').then(r => r.json());
+const select = document.querySelector('#quest');
+for (const record of data.records.filter(r => r.level === 1)) {
+  const option = document.createElement('option');
+  option.value = record.id; option.textContent = `${record.id}: ${record.title}`;
+  select.appendChild(option);
+}
+const journal = new QuestWnd(document.body, {
+  onAbort: id => { document.querySelector('#status').textContent = `Replay abort confirmed for ${id}; no server request.`; },
+});
+await journal.ready;
+const marker = new QuestMark(document.body, {
+  getAnchor: () => document.querySelector('#chat-anchor'),
+  onOpen: id => {
+    const found = journal.focusQuest(id);
+    document.querySelector('#status').textContent = found
+      ? `Replay marker opened quest ${id} and its final journal chapter; no server request.`
+      : `Replay marker opened the journal; quest ${id} has no active chapter. No server request.`;
+  },
+});
+journal.place({ left:24, top:150 });
+function show() {
+  journal.setQuests([{ id:Number(select.value), progress:Number(document.querySelector('#progress').value) }]);
+  journal.show();
+  document.querySelector('#status').textContent = `${data.provenance.recordCount} decoded records; replay only.`;
+}
+document.querySelector('#show').addEventListener('click', show);
+document.querySelector('#mark').addEventListener('click', async () => {
+  journal.setQuests([{ id:Number(select.value), progress:Number(document.querySelector('#progress').value) }]);
+  journal.hide();
+  const shown = await marker.show(Number(select.value));
+  document.querySelector('#status').textContent = shown
+    ? 'Simulated quest-update marker shown above the diagnostic chat anchor. Click it to focus the journal. Original discrete glow/blink timers and pointer artwork are active. GPU blend/gamma parity is unverified.'
+    : 'Original marker metadata/art is unavailable; no replacement icon was drawn.';
+});
+show();
+</script></html>

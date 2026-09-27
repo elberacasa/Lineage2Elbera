@@ -35,12 +35,12 @@
 //
 // Usage: node test/verify-paperdoll.js
 
+const { dbArgs } = require('../../tools/dev/db_cli.cjs');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const WebSocket = require('ws');
 
 const GATEWAY = process.env.GATEWAY_URL || 'ws://127.0.0.1:8090';
-const DB = ['-u', 'l2j', '-pl2jpass', 'l2jdb'];
 const DEVICE_ID = 'verify-paperdoll-fixture-1';
 
 const ONE_HAND = { itemId: 69, name: 'Bastard Sword' };
@@ -54,7 +54,7 @@ const derive = (d) => {
   const h1 = crypto.createHash('sha256').update('l2vzla-account:' + d).digest('hex');
   return { charName: 'W' + h1.slice(12, 23) };
 };
-const sql = (q) => execFileSync('mariadb', [...DB, '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
+const sql = (q) => execFileSync('mariadb', [...dbArgs(), '-N', '-B', '-e', q], { encoding: 'utf8' }).trim();
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 let pass = 0, fail = 0;

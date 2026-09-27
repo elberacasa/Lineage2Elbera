@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { PlayerAppearance, loadAppearance, facePlan } from '/js/appearance.js';
 
 /* ================================================================
  * Built-in fallback data — used when /characters/charcreate-data.json
@@ -94,6 +95,8 @@ const state = {
   modelEntry: null,    // manifest entry currently displayed (null => placeholder)
   usingPlaceholder: true,
   dataSource: 'defaults',
+  appearanceCatalog: null,
+  appearanceResult: null,
 };
 
 /* ================================================================
@@ -101,6 +104,8 @@ const state = {
  * ================================================================ */
 
 async function loadData() {
+  const faceData = loadAppearance().then(data => { state.appearanceCatalog = data; })
+    .catch(error => { console.warn('Original face options unavailable:', error); });
   // Location-independent absolute paths: both the standalone charcreate
   // server (:8082) and the world server (:8083, this app under /create/)
   // serve editor/characters/ at /characters/.
@@ -111,6 +116,7 @@ async function loadData() {
       if (m && Array.isArray(m.models)) state.manifest = m;
     }
   } catch (e) { /* empty manifest fallback already in state */ }
+  await faceData;
 
   try {
     const res = await fetch('/characters/charcreate-data.json');
@@ -399,6 +405,19 @@ function buildPlaceholder() {
 const gltfLoader = new GLTFLoader();
 const texLoader = new THREE.TextureLoader();
 const modelStatusEl = document.getElementById('model-status');
+const faceTexCache = new Map();
+const previewAppearance = new PlayerAppearance({
+  getModel: () => ({ model: state.usingPlaceholder ? null : currentModel, modelId: state.modelEntry?.id }),
+  loadCatalog: async () => state.appearanceCatalog,
+  loadTexture: loadFaceTexture,
+  onResult: result => {
+    state.appearanceResult = result;
+    if (!currentModel || state.usingPlaceholder || result.status === 'cancelled') return;
+    const label = state.modelEntry?.id || state.modelEntry?.gltf || '';
+    setModelStatus(result.status === 'ready' ? label : `${label} — ${
+      result.status === 'pending' ? 'Loading face preview…' : 'Face preview unavailable'}`, false);
+  },
+});
 
 function setModelStatus(text, isPlaceholder) {
   modelStatusEl.textContent = text;
@@ -407,14 +426,14 @@ function setModelStatus(text, isPlaceholder) {
 }
 
 function disposeModelObject(root) {
-  const cached = new Set(faceTexCache.values());
   root.traverse(o => {
     if (o.geometry) o.geometry.dispose();
     if (o.material) {
       (Array.isArray(o.material) ? o.material : [o.material])
         .forEach(m => {
-          // shared face-swap textures outlive the model — don't dispose them
-          if (m.map && !cached.has(m.map)) m.map.dispose();
+          // clearModel retires face-owned wrappers and restores these original
+          // model materials before disposal. Cached decoded images are separate.
+          if (m.map) m.map.dispose();
           m.dispose();
         });
     }
@@ -422,6 +441,7 @@ function disposeModelObject(root) {
 }
 
 function clearModel() {
+  previewAppearance.cancel();
   if (currentModel) {
     turntable.remove(currentModel);
     disposeModelObject(currentModel);
@@ -449,6 +469,7 @@ function frameModel(root) {
 }
 
 let modelLoadGen = 0;       // generation counter: stale async loads are dropped
+let pageActive = true;
 
 /* ---------- measured facing ----------
  * A model's idle pose can face any direction around Y (each race/gender's
@@ -621,6 +642,7 @@ function faceCamera(root, mixer, clip) {
 }
 
 async function refreshModel() {
+  if (!pageActive) return; // Boot metadata may settle after pagehide.
   const gen = ++modelLoadGen;
   clearModel();
   const entry = pickModel();
@@ -757,19 +779,15 @@ function materialsForPart(root, part) {
   return out;
 }
 
-/** Map a game texture ref ('MFighter.MFighter_m000_t00_f') to a served URL. */
-function gameTextureUrl(ref) {
-  const i = String(ref || '').indexOf('.');
-  if (i <= 0 || i === String(ref).length - 1) return null;
-  return '/faces/' + encodeURIComponent(ref.slice(0, i)) +
-         '/' + encodeURIComponent(ref.slice(i + 1)) + '.png';
-}
-
-/** creationAssets entry for the current gender + class type (fighter fallback). */
-function creationAssets(race) {
-  const byGender = ((race && race.creationAssets) || {})[state.gender] || {};
-  const cls = ((race && race.classes) || []).find(c => c.id === state.classId) || {};
-  return byGender[cls.type] || byGender.fighter || {};
+function sourceFaceChoices(modelId) {
+  const row = state.appearanceCatalog?.models?.[modelId];
+  if (!Array.isArray(row?.faces) || !row.faces.length) return [];
+  const indices = new Set();
+  for (const face of row.faces) {
+    if (indices.has(face.index) || facePlan(state.appearanceCatalog, modelId, face.index).status !== 'ready') return [];
+    indices.add(face.index);
+  }
+  return row.faces;
 }
 
 function appearanceOf(race) {
@@ -777,18 +795,13 @@ function appearanceOf(race) {
   const arr = v => (Array.isArray(v) ? v : []);
   const count = v => (typeof v === 'number' ? v : arr(v).length);
 
-  // Faces: the game's own variants from chargrp.dat (creationAssets.faceTextures),
-  // in the original order — Face A/B/C matches what the real client shows.
-  const faceTex = arr(creationAssets(race).faceTextures);
   const legacyFaces = arr(a.faces);
-  const faces = [];
-  for (let i = 0, n = faceTex.length || count(a.faces); i < n; i++) {
-    faces.push({
-      name: itemLabel(legacyFaces[i], i).length <= 2 ? itemLabel(legacyFaces[i], i)
-                                                     : String.fromCharCode(65 + i),
-      texture: faceTex[i] ? gameTextureUrl(faceTex[i]) : itemTexture(legacyFaces[i]),
-    });
-  }
+  // Choices belong to the actual source-bound model. Preserve the source
+  // index even if a future catalog has gaps; never fall back to legacy faces.
+  const faces = sourceFaceChoices(pickModel()?.id).map(face => ({ ...face,
+    name: itemLabel(legacyFaces[face.index], face.index).length <= 2
+      ? itemLabel(legacyFaces[face.index], face.index) : String.fromCharCode(65 + face.index),
+  }));
 
   // Hair styles: counts come from the game data, but only the baked-in style
   // (m000 / painted hair) was exported — later styles stay disabled until the
@@ -806,21 +819,12 @@ function appearanceOf(race) {
   return { faces, hairStyles, hairColors: arr(a.hairColors) };
 }
 
-// Manually loaded textures MUST use the glTF UV convention: flipY = false
-// (otherwise faces render upside-down/mirrored), sRGB color space, and the
-// same REPEAT wrapping the glTF samplers declare.
-const faceTexCache = new Map();
+// PlayerAppearance owns per-model wrappers and keeps the actual glTF sampler.
+// Only decoded source images are shared across model loads.
 function loadFaceTexture(url) {
-  let t = faceTexCache.get(url);
-  if (!t) {
-    t = texLoader.load(url);
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.flipY = false;
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-    faceTexCache.set(url, t);
-  }
-  return t;
+  if (!faceTexCache.has(url)) faceTexCache.set(url, texLoader.loadAsync(url)
+    .catch(error => { faceTexCache.delete(url); throw error; }));
+  return faceTexCache.get(url);
 }
 
 function applyAppearance() {
@@ -828,15 +832,7 @@ function applyAppearance() {
   const race = getRace(state.race);
   const app = appearanceOf(race);
 
-  // face texture swap (glTF path only — placeholder has no UVs for it)
-  const face = app.faces[state.face];
-  if (face && face.texture && !state.usingPlaceholder) {
-    const t = loadFaceTexture(face.texture);
-    const faceMats = materialsForPart(currentModel, 'f');
-    faceMats.forEach(m => { m.map = t; m.needsUpdate = true; });
-    console.info(`[appearance] face ${state.face} -> ${face.texture} on`,
-      faceMats.map(m => m.name));
-  }
+  const faceRequest = state.usingPlaceholder ? null : previewAppearance.set({ face: state.face });
 
   // Hair color tint: only models with a separate hair mesh (_ah/_bh). On
   // models where hair is painted into the face texture there is nothing safe
@@ -852,6 +848,7 @@ function applyAppearance() {
         hairMats.map(m => m.name));
     }
   }
+  return faceRequest;
 }
 
 /* ================================================================
@@ -866,7 +863,6 @@ function renderUI() {
   const classes = race.classes || [];
   if (!classes.find(c => c.id === state.classId)) state.classId = classes[0] ? classes[0].id : '';
   const app = appearanceOf(race);
-  state.face = Math.min(state.face, Math.max(0, app.faces.length - 1));
   state.hairStyle = Math.min(state.hairStyle, Math.max(0, app.hairStyles.length - 1));
   state.hairColor = Math.min(state.hairColor, Math.max(0, app.hairColors.length - 1));
 
@@ -913,10 +909,11 @@ function renderUI() {
     const el = $(elId);
     el.innerHTML = '';
     list.forEach((item, i) => {
+      const value = key === 'face' ? item.index : i;
       const unavailable = !!(item && typeof item === 'object' && item.available === false);
       const b = document.createElement('button');
       b.className = 'chip' + (isSwatch ? ' swatch' : '') +
-        (i === state[key] ? ' selected' : '') + (unavailable ? ' disabled' : '');
+        (value === state[key] ? ' selected' : '') + (unavailable ? ' disabled' : '');
       if (isSwatch) {
         b.style.background = itemColor(item) || '#444';
         b.title = itemLabel(item, i);
@@ -927,7 +924,7 @@ function renderUI() {
         b.disabled = true;
         b.title = 'Not exported yet';
       } else {
-        b.onclick = () => { state[key] = i; renderUI(); applyAppearance(); };
+        b.onclick = () => { state[key] = value; renderUI(); applyAppearance(); };
       }
       el.appendChild(b);
     });
@@ -938,7 +935,10 @@ function renderUI() {
 
   // combo note
   const note = $('combo-note');
-  if (!comboAvailable() && (state.manifest.models || []).length) {
+  if (!app.faces.some(face => face.index === state.face)) {
+    note.textContent = app.faces.length ? 'Choose an available face to continue.' : 'Face options are unavailable. Reload to try again.';
+    note.classList.remove('hidden');
+  } else if (!comboAvailable() && (state.manifest.models || []).length) {
     note.textContent = 'The 3D model for this combination is still being extracted — a preview rig is shown instead.';
     note.classList.remove('hidden');
   } else {
@@ -1007,8 +1007,9 @@ function validateName() {
   hint.textContent = ok || !state.name
     ? '1–16 letters, no numbers.'
     : 'Letters only, up to 16 characters.';
-  $('create-btn').disabled = !ok || creating;
-  return ok;
+  const faceReady = sourceFaceChoices(pickModel()?.id).some(face => face.index === state.face);
+  $('create-btn').disabled = !ok || !faceReady || creating;
+  return ok && faceReady;
 }
 
 $('name-input').addEventListener('input', validateName);
@@ -1046,7 +1047,7 @@ $('create-btn').addEventListener('click', () => {
     `${race.name} · ${state.gender === 'male' ? 'Male' : 'Female'} · ${cls.name || state.classId}`;
   const rows = [
     ['Class type', cls.type || '—'],
-    ['Face', app.faces.length ? itemLabel(app.faces[state.face], state.face) : '—'],
+    ['Face', app.faces.length ? itemLabel(app.faces.find(face => face.index === state.face), state.face) : '—'],
     ['Hair style', app.hairStyles.length ? itemLabel(app.hairStyles[state.hairStyle], state.hairStyle) : '—'],
     ['Hair color', app.hairColors.length ? itemLabel(app.hairColors[state.hairColor], state.hairColor) : '—'],
     ['Model', state.usingPlaceholder ? 'Preview rig' : (state.modelEntry.id || state.modelEntry.gltf)],
@@ -1139,6 +1140,16 @@ function animate() {
   document.getElementById('loading').classList.add('hidden');
   animate();
 })();
+
+window.addEventListener('pagehide', () => {
+  pageActive = false;
+  ++modelLoadGen; // A pending glTF load must not adopt into a retired page.
+  clearModel();
+});
+window.addEventListener('pageshow', event => {
+  pageActive = true;
+  if (event.persisted && state.data) refreshModel();
+});
 
 // verification/debug handle — lets headless checks inspect state and freeze
 // the view deterministically; harmless in normal use

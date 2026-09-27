@@ -1,5 +1,11 @@
 # Mined UI values — exact numbers, ready to implement
 
+**Coordinate interpretation superseded.** The original native serializer
+disproves the fixed-point explanation in this historical research. The
+decoded numbers are raw anchor offsets, not necessarily control positions.
+Use [native-layout-evidence.md](native-layout-evidence.md) for the current
+signed-offset, explicit-anchor and relative-size rules.
+
 **Status: research only. No code in this repository was changed to produce
 this document.** All analysis ran from throwaway scripts outside the repo.
 Everything below is a value to be *consumed* by the implementer.

@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""ElberaScript — recover the client's UnrealScript UI sources.
+"""Elbera Tools / ElberaScript — recover original UnrealScript UI source text.
 
 The Interlude UI is three layers, and only one of them is the .xdat:
 
   Interface.xdat   layout      what each window contains  (tools/xdat/)
-  Interface.u      logic       142 classes, one per window
-  NWindow.u        framework   UIScript + 28 UIAPI_* control classes
+  Interface.u      logic       142 unique source classes in the checked build
+  NWindow.u        framework   87 unique source classes in the checked build
 
 The two .u files are Lineage2Ver111-encrypted UE2 packages. Decrypt them and
-every class turns out to carry its ORIGINAL SOURCE TEXT in a `TextBuffer`
-export -- UE2 stores the script text alongside the compiled bytecode. So this
+these packages carry ORIGINAL SOURCE TEXT in `TextBuffer` exports -- UE2
+stores script text alongside compiled bytecode. Some buffers contain no class
+declaration; their export boundaries must never be crossed. So this
 is not a disassembler: it recovers the source NCSoft compiled, comments and
 all.
 
@@ -43,7 +44,7 @@ L2ENCDEC = os.path.join(REPO, "tools/bin/l2encdec")
 # package -> how many classes we expect to recover (regression guard)
 PACKAGES = {
     "Interface.u": 142,
-    "NWindow.u": 91,
+    "NWindow.u": 87,
 }
 PROTOCOL = "111"
 
@@ -57,25 +58,49 @@ def decrypt(src, dest):
     )
 
 
-def sources(dec_path, label):
-    """Yield (class_name, source_text) for every TextBuffer in the package."""
-    from l2lib.ue2package import Package
-    pkg = Package(open(dec_path, "rb").read(), label)
+def source_text(raw):
+    """Recover a class declaration only inside this bounded export body.
+
+    This retains the existing class-text search, not a claim to decode the
+    entire native TextBuffer serializer. Missing terminators fail instead of
+    consuming bytes from a neighboring export. Latin-1 preserves byte values,
+    including original Korean comment bytes; it is not a localization decode.
+    """
+    m = CLASS_DECL.search(raw)
+    if not m:
+        return None
+    body = raw[m.start():]
+    nul = body.find(b"\x00")
+    if nul < 0:
+        raise ValueError("unterminated class source inside TextBuffer export")
+    return m.group(1).decode("ascii"), body[:nul].decode("latin-1")
+
+
+def sources_from_package(pkg):
+    """Yield unique source classes without reading beyond any export."""
+    seen = set()
     for exp in pkg.exports:
         if pkg.class_name_of(exp) != "TextBuffer":
             continue
-        r = pkg.body_reader(exp)
-        raw = r.data[r.pos:]
-        m = CLASS_DECL.search(raw)
-        if not m:
+        start, end = exp.serial_offset, exp.serial_offset + exp.serial_size
+        if start < 0 or end < start or end > len(pkg.data):
+            raise ValueError("TextBuffer export lies outside package bytes")
+        result = source_text(pkg.data[start:end])
+        if result is None:
             continue
-        body = raw[m.start():]
-        # the source is an FString: it ends at the NUL terminator. Do NOT cut
-        # at the first non-ASCII byte -- the comments are Korean (EUC-KR) and
-        # truncating there loses almost the entire file.
-        nul = body.find(b"\x00")
-        text = body[:nul if nul > 0 else len(body)].decode("latin-1")
-        yield m.group(1).decode("ascii"), text
+        name, text = result
+        if name.casefold() in seen:
+            raise ValueError(f"duplicate source class: {name}")
+        seen.add(name.casefold())
+        yield name, text
+
+
+def sources(dec_path, label):
+    """Yield (class_name, source_text) for each bounded source TextBuffer."""
+    from l2lib.ue2package import Package
+    with open(dec_path, "rb") as fh:
+        pkg = Package(fh.read(), label)
+    yield from sources_from_package(pkg)
 
 
 def main():
