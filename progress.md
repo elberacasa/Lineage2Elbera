@@ -2089,3 +2089,52 @@ Next: resolve native SpawnEnterEvent and abnormal-state lifecycle, then connect
 admitted source NPC states and replace mismatched skin influences using original
 mesh data. Movement, attacks, casts, notifications and effects require their own
 source rules; source inspection is a milestone, not the full browser-port goal.
+
+## Original NPC GPU weights and spawn-event boundary — 27 September 2026
+
+Continued on `codex/native-npc-state-and-skin` from public PR #11 merge
+`ebb24da`. The original meshes contain two weight representations. Fresh
+conversion explains every current Gremlin/Fox glTF vertex: the old exporter
+uses lazy influences, quantizes them into bytes and normalizes; the assembler
+normalizes again. The earlier 582/215 differences compare that output with the
+separate stored GPU stream. No unexplained bone-set change or dropped influence
+was found in these two models.
+
+The new Elbera native check pins 78 serializer and 55 consumer anchors, bounded
+supplemental correspondences, and all 1,746 original soft52 vertex records.
+It establishes conditional native GPU stream binding, not complete shader or
+CPU deformation parity. `--npc-skin` carries exact ordered lanes in the existing
+private source bundles. No converted glTF, geometry buffer, animation key or
+inverse-bind matrix is rewritten. Repeated bones remain repeated; nonunit sums
+are not repaired. The browser replaces actor-owned attributes after the actual
+GLTFLoader's normalization step, verifies source-to-joint ordering and disposes
+only its owned geometry on retirement or an obsolete/failed upgrade.
+
+All 1,746 records match original lane bytes through bundle JSON and the actual
+browser decoder. Portable actual-loader tests additionally cover reordered
+joints, signed zero, sentinel and zero-weight rows, shared geometry, rejected
+joins and atomic failure. The isolated public workflow passes all 23 commands:
+420 Node tests and 235 Python test executions, including standalone Core smoke
+checks. All 14 player bundle hashes remain unchanged. Fresh NPC generation and
+`--check` agree.
+
+The browser exercised all 16 source sequences with the corrected inputs,
+timeline playback, restoration and model changes. Both models rendered; the
+inspector reported no warnings/errors. The refreshed live client re-entered
+Talking Island as the existing ElberaVisor character, with Gremlins visible.
+The known unhandled PlaySound warning remains. The README retains its gallery
+and updates the actual Gremlin tool capture with the source-weight status.
+
+Separately, the native state verifier now reads all 1,152 original enter-event
+records and checks the exact lookup-miss path. Gremlin/Fox IDs are absent, so
+their SpawnEnterEvent call returns before its effect/animation branches. The
+initial wait also precedes packet abnormal-mask assignment. This does not prove
+all fresh actor state neutral: abnormal-list lifecycle, other modifiers and
+complete state transitions remain unresolved. Automatic native NPC animation
+playback stays off.
+
+Code, synthetic fixtures, guides and the selected screenshot are public-release
+material. Original inputs, generated bundles and raw local receipts stay private;
+Core 0.1.0 remains the earlier smaller standalone toolkit. Next: close the fresh
+actor/modifier admission boundary, connect original NPC state playback, and
+continue movement, attack/cast/death schedules, effects and the full-client gaps.
