@@ -172,12 +172,19 @@ def source_ref_path(pkg, ref, package_name):
 
 
 def original_sequences(pkg, exp):
+    """Existing timing/notify API; does not retain or emit source pose arrays."""
+    return original_animation(pkg, exp)['sequences']
+
+
+def original_animation(pkg, exp, *, include_tracks=False):
     """Traverse version123/licensee28-or30 MeshAnimation1 within declared bounds.
 
     This follows every compressed movement/sequence trailer to its endpoint;
     there is no PSA oracle, byte search or guessed per-record padding. The
     independent terminal verifier implements the same original serializer
-    layout separately and measures source key tails.
+    layout separately and measures source key tails. Optional pose retention
+    keeps original sparse keys, flags, indices and root tracks unchanged;
+    it does not resample, normalize, match bones or infer playback semantics.
     """
     # Elf.ukx is licensee28; the six other player packages are licensee30.
     # Both use the same >=27 Lineage FLineageUnk4 sequence trailer and >=25
@@ -204,41 +211,62 @@ def original_sequences(pkg, exp):
         return reader.bytes(n * width), n
 
     def track(allow_empty=False):
-        reader.i32()
-        _, quats = array(16)
-        _, positions = array(12)
+        track_start = reader.pos
+        flags = reader.i32()
+        quat_raw, quats = array(16)
+        pos_raw, positions = array(12)
         raw, times = array(4)
         values = struct.unpack('<%df' % times, raw)
         _require((values or allow_empty) and quats in (1, times) and positions in (1, times),
                  "invalid source animation track cardinality")
         _require(all(math.isfinite(t) and t >= 0 for t in values)
                  and all(a <= b for a, b in zip(values, values[1:])), "invalid source key times")
+        if include_tracks:
+            quaternion_keys = list(struct.iter_unpack('<4f', quat_raw))
+            position_keys = list(struct.iter_unpack('<3f', pos_raw))
+            _require(all(math.isfinite(v) for row in quaternion_keys + position_keys for v in row),
+                     "nonfinite source pose component")
+            return {'flags': flags, 'quaternions': quaternion_keys, 'positions': position_keys,
+                    'times': values, 'source': {'offset': track_start, 'size': reader.pos - track_start,
+                        'SHA256': hashlib.sha256(pkg.data[track_start:reader.pos]).hexdigest()}}
 
     bones = count(9)
+    bone_rows = []
     for index in range(bones):
-        name(); reader.i32()
-        _require(0 <= reader.i32() <= index, "invalid source bone parent")
+        bone_name, flags, parent = name(), reader.i32(), reader.i32()
+        _require(0 <= parent <= index, "invalid source bone parent")
+        bone_rows.append({'name': bone_name, 'flags': flags, 'parent': parent})
     moves_end = reader.i32()
     _require(reader.pos < moves_end <= end, "invalid source movement endpoint")
     moves = []
     for _ in range(count(28)):
+        move_start = reader.pos
         local_end = reader.i32()
         _require(reader.pos < local_end <= moves_end, "invalid source movement chunk endpoint")
-        reader.bytes(12)
+        root_speed = struct.unpack('<3f', reader.bytes(12))
         duration = reader.f32()
         _require(math.isfinite(duration) and duration > 0, "invalid source movement duration")
-        reader.i32(); reader.i32()
-        array(4)
+        start_bone, flags = reader.i32(), reader.i32()
+        index_raw, _ = array(4)
         ntracks = count(7)
         _require(ntracks == bones, "source movement/bone count mismatch")
-        for _ in range(ntracks): track()
-        track(allow_empty=True)
+        tracks = [track() for _ in range(ntracks)]
+        root_track = track(allow_empty=True)
         _require(reader.pos == local_end, "source movement chunk not fully consumed")
-        moves.append(duration)
+        movement = {'duration': duration}
+        if include_tracks:
+            _require(all(math.isfinite(v) for v in root_speed), "nonfinite source root speed")
+            movement.update(rootSpeed=root_speed, startBone=start_bone, flags=flags,
+                boneIndices=struct.unpack('<%di' % (len(index_raw) // 4), index_raw),
+                tracks=tracks, rootTrack=root_track,
+                source={'offset': move_start, 'size': reader.pos - move_start,
+                        'SHA256': hashlib.sha256(pkg.data[move_start:reader.pos]).hexdigest()})
+        moves.append(movement)
     _require(reader.pos == moves_end, "source movements not fully consumed")
     _require(count(18) == len(moves), "source sequence/movement count mismatch")
     rows, seen = [], set()
-    for index, duration in enumerate(moves):
+    for index, movement in enumerate(moves):
+        duration = movement['duration']
         record_start = reader.pos
         reader.f32()
         sequence = name()
@@ -263,8 +291,10 @@ def original_sequences(pkg, exp):
                      'notifies': notifies, 'source': {'index': index, 'offset': record_start,
                          'size': reader.pos - record_start,
                          'SHA256': hashlib.sha256(pkg.data[record_start:reader.pos]).hexdigest()}})
+        if include_tracks:
+            rows[-1]['movement'] = movement
     _require(reader.pos == end, "source MeshAnimation export not fully consumed")
-    return rows
+    return {'bones': bone_rows, 'sequences': rows}
 
 
 def class_parents(pkg, package_name):
