@@ -59,7 +59,8 @@ browser behavior and focused verification.
 | **Character appearance** | Original face indices, five male / seven female creation hairstyles, four source color choices, and corrected default hair mesh/material selection. | [Appearance](docs/native-face-selection-evidence.md) · [Hair pipeline](docs/hair-asset-pipeline.md) |
 | **Hair and material inspection** | All **162** base-table meshes exported with original LOD0 geometry and weights; **648** material references retain their source identities. The inspector shows rigid and soft-rig parts in a static view. | [Inspecting original hair](docs/hair-asset-pipeline.md#browser-inspection) |
 | **Native transform research** | Ordinary and dynamic hair paths distinguished; retained coordinate arithmetic checked. A separately pinned comparison copy identifies missing imports within exactly matched code blocks. | [Attachment evidence](docs/native-hair-attachment-evidence.md) · [Comparison scope](docs/supplemental-engine-evidence.md) |
-| **Original animation and skeletons** | All **1,367** player sequences and **14** original face skeletons have lossless runtime bundles. Live wait, sit, stand and cast schedules now sample original keys on nonnegative frames, with native name links and neutral parent math. Initial transitions remain unfinished. | [Live playback guide](docs/original-animation-runtime.md) · [Preview](docs/native-track-evidence.md#browser-pose-preview) · [Source evidence](docs/native-animation-linkup-evidence.md) |
+| **Original animation and skeletons** | All **1,367** player sequences and **14** original face skeletons have lossless runtime bundles. Live wait, sit, stand and cast schedules use original keys, fresh-instance initialization and transitions from evaluated source poses. | [Live playback guide](docs/original-animation-runtime.md) · [Cache evidence](docs/native-pose-cache-evidence.md) · [Fresh instances](docs/native-pose-allocation-evidence.md) |
+| **NPC animation recovery** | Gremlin and fox selectors now trace from each original NPC class to its exact animation object, sequence and timing. Shared meshes retain separate class choices; missing and unverified inputs stay explicit. Browser integration is next. | [Selector tool and limits](docs/npc-animation-variants.md#qualified-selector-recovery-without-rebuilding-models) |
 | **Quest progression** | *Letters of Love* completed through server interactions; the reward survived reconnect and appeared in the browser inventory. | [Quest playtest](docs/quest-completion-playtest.md) |
 | **Shops and original dialogs** | A browser purchase and potion use changed server-owned inventory and currency. Quantity and confirmation dialogs use recovered client rules. | [Shop playtest](docs/shop-playtest.md) |
 | **Recipes and shortcuts** | Recipe books, manufacture details and source-index shortcuts are connected; the live empty Common Craft book was checked. Successful crafting remains a separate test. | [Recipe evidence](docs/native-recipe-evidence.md) |
@@ -68,9 +69,12 @@ browser behavior and focused verification.
 The latest appearance milestone is [PR #5](https://github.com/elberacasa/Lineage2Elbera/pull/5).
 The newest animation comparison includes male Human Fighter's **69 matched
 bones plus one original reference pose**, without inventing a finger alias.
-The same source-pose path now drives admitted frames in the live Character
-player. Existing browser skinning and hair adaptations remain in use; initial
-transitions, actor modifiers and animated hair attachment are still unfinished.
+The same source-pose path now drives admitted frames and cached transitions in
+the live Character player. Fresh instances follow the recovered original
+frame-zero path. After an exported-only animation interrupts source playback,
+transition history remains unknown. Existing browser skinning and hair
+adaptations remain in use; actor modifiers and animated hair attachment are
+still unfinished.
 [See what runs today and how to reproduce it](docs/original-animation-runtime.md).
 
 ## Elbera Tools
@@ -115,9 +119,24 @@ This is a neutral source-pose view, with full gameplay animation still in progre
 </p>
 
 The sit/stand replay reaches original waiting through the game's Character
-player. The visible status reports the original sequence and normalized frame.
-Initial transitions and other native animation paths remain unfinished.
+player. The visible status reports the original sequence and normalized frame;
+the current inspector also retains the last evaluated cached transition.
+Unobserved playback history and other native animation paths remain unfinished.
 [Reproduce this view and read the playback limits](docs/original-animation-runtime.md).
+
+</details>
+
+<details>
+<summary><strong>New: inspect original cached transitions</strong></summary>
+
+![Elbera Tools live Character inspector retaining the last original cached transition into Human Fighter waiting](docs/img/elbera-tools-cached-transition.jpg)
+
+The latest replay shows both the current original pose and the last evaluated
+transition, including its exact negative frame and incremental fraction.
+Fresh-frame initialization and known source history are checked separately;
+unresolved audio references stay visible. This is an offline inspection of
+the gameplay component, with existing browser skinning and inspection lighting.
+[Trace the cache and initialization evidence](docs/native-pose-cache-evidence.md).
 
 </details>
 

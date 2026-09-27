@@ -1988,3 +1988,58 @@ Next: bind native exception/cache initialization for the first transition, then
 use true cached source locals through transitions; continue native modifiers,
 skin/attachment/effect anchors and remaining gameplay/UI/world gaps. Full browser
 client goal remains active, with this playback slice only a milestone.
+
+## Original pose transitions and NPC selector recovery — 27 September 2026
+
+Resumed on `codex/native-transition-cache`, from public PR #9 merge `b7904cd`.
+Live Character wait, sit, stand and ordinary cast schedules now use recovered
+negative-frame tween arithmetic with evaluated original local poses. A fresh
+ordinary source instance first samples frame zero, then performs the separate
+masked zero-previous-frame reset on its next negative evaluation. Every mapped
+bone consumes the same incoming bookkeeping; missing links retain the original
+reference pose. Ordinary positive sampling never resets tween bookkeeping.
+
+Elbera Tools now verifies original repeat-evaluation keys, cache validity and
+fresh channel fields, the default-template allocation/constructor chain, and
+the normal Windows/CRT floating-point contract. Browser update epochs and
+successful-display commits remain explicit adaptations. An exported-only gap
+after source evaluation loses known history; positive sampling cannot silently
+repair it. Custom templates, modified native control words, callback-triggered
+bone queries, actor modifiers, native skinning and hair attachment remain open.
+The wait endpoint advances the animation clock and calls NotifyAnimEnd; it no
+longer manufactures an extra evaluated source pose for every crossed segment.
+
+The existing NPC variants tool now has a separate selector-only mode. It follows
+qualified per-NPC class inheritance, per-element localized fields and each
+mesh's serialized animation reference, preserving original sequence frames and
+Float32 rates. Fresh Gremlin and fox checks are reproducible; this is not a
+full-roster check or browser integration. Missing fields, explicit None and
+unverified historical clip aliases stay distinct. The existing ten bounded
+corpse/social overrides remain unchanged.
+
+Validation: the isolated public workflow commands pass after correcting an
+outdated test method lookup; its full animation group passes 159 tests. The
+remaining groups include 131 protocol/lifecycle, 81 appearance and 4 Java-config
+cases, Python decoder/native fixtures and standalone toolkit packaging. One
+private-corpus fixture is intentionally skipped in that source-only tree.
+New portable suites cover 14 NPC-selector cases, 8 cache cases and 5 FPU cases;
+tween suites pass 13 JavaScript and 12 Python cases. Private original-input
+checks include 510 tween instruction cases with 127 browser/reference comparisons
+and 114 sit/stand anchors. Native allocation checks cover 40 anchors, 7 exact
+supplemental blocks and 16 identical Core bodies. These bounded comparisons do
+not claim complete native client execution or exact CRT transcendental math.
+
+GUI: fresh male Human Fighter Sit → Stand → Wait and casting show original
+cached transitions with 69 mapped bones plus 1 reference; female Human Fighter
+casting shows 76 mapped bones. The inspector retains the actual last observed
+transition and clears old replay readouts when changing models. No browser
+warnings/errors appeared in the checked replay. Sound playback stayed off;
+the existing unresolved original sit/stand audio reference remains visible.
+A new direct inspector capture accompanies the preserved README/gallery images.
+Originals, generated bundles/catalogs, local accounts and raw receipts remain
+outside publication. The separate Core 0.1.0 release has not gained these newer
+browser/native tools; the catalog states that boundary.
+
+Next: admit original NPC state/stance/rate inputs and reuse the sparse-pose
+pipeline for real NPC playback, then continue skin/attachment, effect anchors,
+world and full gameplay/UI gaps. The full browser-port goal remains active.
