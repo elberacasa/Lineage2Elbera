@@ -8,8 +8,8 @@ Binding goal constraint (owner, 26 September 2026): always stay true to OFFICIAL
 game data; never invent values. Decode, decrypt and investigate original inputs
 as needed. Unknown data remains explicitly unknown. See root AGENTS.md.
 
-Public foundations: `main` at `9f4903b`; current work:
-`codex/native-hair-materials`. The preserved local research branch
+Public foundations began at `9f4903b`. The source-linkup checkpoint starts from
+merged PR #7 (`25d47b9`) on `codex/native-animation-linkup`. The preserved local research branch
 `codex/web-port-foundations` contains private intermediate history and must not
 be merged or pushed into public ancestry.
 
@@ -1892,3 +1892,44 @@ source parser/exporter suites passed 25 cases, and the source-free quaternion
 suite passed 10. Fresh all 14 JSON byte checks, the original timing/notify check,
 and both retained-instruction verifiers passed. These results establish the
 bounded decoder, arithmetic and inspection behavior described above.
+
+
+## Original face linkup and neutral hierarchy — 27 September 2026
+
+The paired original skeleton exporter now joins fresh class Mesh defaults,
+unique chargrp face entries, original stored animation references and same-package
+name-table tokens. All 14 private sidecars freshly byte-check; all 1,139 face
+bones match exported names/parents. First-name native linkup leaves the male
+Human Fighter right finger unmatched (69/70); retained GetFrame evidence copies
+its original face reference q/p while its child still animates. No alias added.
+Empty serialized movement BoneIndices no longer gate this ordinary native path.
+
+The pawn inspector now samples original keys, selects source reference locals
+for unmatched bones and computes neutral current-parent coordinates. Measured
+B*C*B^-1 matrices drive existing browser bones without quaternion decomposition;
+all manual matrices/flags restore before export sampling, model disposal or
+errors. The two source files load together with model/package/export identity
+checks and late intent/model guards. Root lock, additional modifiers, mixing,
+initial tween and actor/world/native deformation remain outside this neutral
+view; gameplay still uses exported animation. Existing part inverse binds are
+preserved. Two source-reference differences reflect canonical upper-body nodes,
+not a proven defect: fresh investigated part inverse binds retain their own
+original references.
+
+Validation: 9 focused battery suites pass, 130 excluded; battery runner check
+passes. Exporter has14 source-free tests, linkup9, coordinate Python11/Node8,
+sourcepose11 and actual inspector10 (including real source matrix lifecycle).
+Original checks cover28 linkup anchors/185 matched bytes/105 integer cases;
+49 fallback anchors/117 instruction cases;888 Core coordinate cases/427 body
+instructions plus104 quaternion cases. Cross-language coordinate outputs654
+match Float32 bits within the stated Float64/x87 approximation. Fresh original
+sidecars and a private all14/70pose comparison pass; no rendering-parity inference.
+
+GUI checked male Human Fighter69/70+1reference, female Human Fighter76/76 and
+male Dark Elf82/82; source scrub/play, closing interval and return to exported
+playback worked without browser warnings. Curated source-hierarchy capture and
+README/docs preserve all previous gallery images. Publication boundary excludes
+originals, generated skeleton/track catalogs and private evidence receipts.
+Next: trace/admit native initial tween and modifier/mixing inputs, integrate
+proved pose paths into actual gameplay, then native skin/attachment and actor
+placement. Full browser client goal remains active.

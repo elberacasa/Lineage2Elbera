@@ -19,13 +19,13 @@ select,button,input{font:inherit;max-width:100%}label{display:inline-block;margi
 <output id="time"></output></p>
 <p id="status" role="status">Loading original slot data…</p><p id="source"></p>
 <small>Drag to orbit; scroll to zoom. Scrubbing uses the selected pose source without blending.
-This stage and lighting are for inspection. Original-key preview uses recovered ordinary interpolation; native pose hierarchy, initial tweening, notify effects and remaining native paths are separate work.</small>
+This stage and lighting are for inspection. Original-key preview uses recovered ordinary interpolation and neutral source hierarchy; initial tweening, actor modifiers, notify effects and remaining native paths are separate work.</small>
 <details id="original-controls"><summary>Original sparse animation keys · experimental pose preview</summary>
 <p><button id="original-load" type="button">Load original keys</button>
 <label><input id="original-enabled" type="checkbox" disabled> Preview original keys</label></p>
 <p id="original-status" role="status">Decode private source tracks with Elbera Tools to compare them with the exported animation.</p>
 <p id="original-source"></p>
-<small>Uses original sparse keys and recovered ordinary interpolation. Bone correspondence and coordinate conversion are checked against the existing export. The browser skeleton, skinning and hair adaptations remain in use; native hierarchy, root-motion modifiers and full animation parity are not established. Sit/stand and skill replays use the existing game playback.</small>
+<small>Uses original face-mesh linkup, stored reference poses for unmatched bones and recovered ordinary interpolation and parent transforms. Neutral hierarchy only: root locking, bone modifiers, actor placement, mixing and full animation parity remain open. The browser skinning and hair adaptations remain in use. Sit/stand and skill replays use the existing game playback.</small>
 </details>
 <details id="face-controls"><summary>Original face textures</summary>
 <label>Source face index <select id="face" disabled></select></label>
@@ -85,7 +85,7 @@ const camera=new THREE.PerspectiveCamera(40,1,.001,100);
 const orbit=new OrbitControls(camera,renderer.domElement);
 let manifest, pawn, effects, animationMeta, character=null, action=null, playing=false, castPlaying=false, waitPlaying=false, generation=0;
 let appearance=null, faceCatalogError=null, faceGeneration=0;
-let originalCatalog=null, originalPreview=null, originalRequest=null, poseTime=0, poseIntent=0;
+let originalCatalog=null, originalSkeleton=null, originalPreview=null, originalRequest=null, poseTime=0, poseIntent=0;
 const originalLoad=document.querySelector('#original-load'),originalEnabled=document.querySelector('#original-enabled');
 const originalStatus=document.querySelector('#original-status'),originalSource=document.querySelector('#original-source');
 const face=document.querySelector('#face'),faceStatus=document.querySelector('#face-status'),faceSource=document.querySelector('#face-source');
@@ -173,12 +173,13 @@ function controls(enabled){for(const element of [play,pause,position])element.di
 function clockText(){
   const duration=originalEnabled.checked&&originalPreview?originalPreview.duration:action?.getClip().duration;
   if(action)status.textContent=originalEnabled.checked&&originalPreview?
-    'Displaying original sparse keys on the existing browser skeleton.':
+    'Displaying original sparse keys and neutral source hierarchy through the browser skin.':
     `Loaded original slot binding: ${action.getClip().name}. Exported poses; no fallback selected.`;
   time.textContent=duration!==undefined?`${poseTime.toFixed(3)} / ${duration.toFixed(3)} s`:'';
 }
 function sample(seconds){
   if(!character)return;
+  originalPreview?.restore();
   poseTime=seconds;
   if(action){
     // The source adapter writes bones outside Three's PropertyMixer. Retire
@@ -192,9 +193,10 @@ function sample(seconds){
   if(originalEnabled.checked&&originalPreview){
     try{
       const result=originalPreview.apply(Math.max(0,Math.min(1,Math.fround(seconds/originalPreview.duration))));
-      originalStatus.textContent=`Original keys: ${originalPreview.boneCount} mapped bones · ${result.wrapped} wrapped tracks · ${result.flipped} hemisphere flips.`
-        +(action?` Export comparison: max quaternion component Δ ${result.rotationDelta.toExponential(3)}; translation Δ ${result.positionDelta.toExponential(3)} export units.`:' No exported clip for comparison.');
+      originalStatus.textContent=`Original pose: ${originalPreview.mappedCount}/${originalPreview.boneCount} animation links · ${originalPreview.referenceCount} reference ${originalPreview.referenceCount===1?'bone':'bones'} · ${result.wrapped} wrapped tracks · ${result.flipped} hemisphere flips.`
+        +(action?` Export comparison: max hierarchy basis Δ ${result.basisDelta.toExponential(3)}; translation Δ ${result.positionDelta.toExponential(3)} export units.`:' No exported clip for comparison.');
     }catch(error){
+      originalPreview?.restore();
       playing=false;originalEnabled.checked=false;originalPreview=null;originalEnabled.disabled=true;
       originalStatus.textContent=`Unsupported source pose: ${error.message}`;
       if(action){position.max=String(action.getClip().duration);sample(Math.min(seconds,action.getClip().duration));}
@@ -204,22 +206,25 @@ function sample(seconds){
   clockText();
 }
 function configureOriginalPreview(sequenceName){
+  originalPreview?.restore();
   originalPreview=null;originalEnabled.disabled=true;
   if(!originalCatalog)return;
   try{
     if(!action)throw new Error('The exported comparison clip is unavailable.');
-    originalPreview=createOriginalPosePreview(character.model,originalCatalog,sequenceName);
+    originalPreview=createOriginalPosePreview(character.model,originalCatalog,sequenceName,originalSkeleton);
     originalEnabled.disabled=false;
-    originalStatus.textContent=`Ready: ${originalPreview.boneCount} exact bone correspondences for ${sequenceName}.`;
+    originalStatus.textContent=`Ready: ${originalPreview.mappedCount} animation links and ${originalPreview.referenceCount} stored reference bones for ${sequenceName}.`;
   }catch(error){originalEnabled.checked=false;originalStatus.textContent=`Unavailable: ${error.message}`;}
 }
 function originalMode(){
   ++poseIntent;
+  originalPreview?.restore();
   playing=false;castPlaying=false;waitPlaying=false;character?.cancelCast();skillFx.clear();previewCast=null;
   character?.mixer.stopAllAction();
   const duration=originalEnabled.checked&&originalPreview?originalPreview.duration:action?.getClip().duration;
   controls(duration!==undefined);position.value='0';
   if(duration!==undefined){position.max=String(duration);sample(0);}
+  if(!originalEnabled.checked&&originalPreview)originalStatus.textContent=`Exported playback. Original pose preview ready: ${originalPreview.mappedCount} animation links, ${originalPreview.referenceCount} reference bones.`;
 }
 function useExportedPlayback(){
   ++poseIntent;
@@ -232,13 +237,16 @@ originalLoad.addEventListener('click',async()=>{
   const actor=character,modelId=model.value,ticket=generation,intent=poseIntent;
   originalLoad.disabled=true;originalStatus.textContent='Loading privately decoded original tracks…';
   try{
-    const response=await fetch(`/gamedata/animation-tracks/${encodeURIComponent(modelId)}.json`,{cache:'no-cache',signal:request.signal});
-    if(!response.ok)throw new Error(`HTTP ${response.status}; run python3 tools/anim/export_source_tracks.py ${modelId} --write`);
-    const catalog=await response.json();
+    const read=async suffix=>{
+      const response=await fetch(`/gamedata/animation-tracks/${encodeURIComponent(modelId)}${suffix}.json`,{cache:'no-cache',signal:request.signal});
+      if(!response.ok)throw new Error(`HTTP ${response.status}; run python3 tools/anim/export_source_tracks.py ${modelId} ${suffix?'--skeletons ':''}--write`);
+      return response.json();
+    };
+    const [catalog,skeleton]=await Promise.all([read(''),read('.skeleton')]);
     if(request.signal.aborted||generation!==ticket||character!==actor)return;
-    if(catalog.modelId!==modelId)throw new Error('Original model identity does not match.');
-    originalCatalog=catalog;
-    originalSource.textContent=`${catalog.animationRef} · ${catalog.sequences.length} original sequences · package SHA256 ${catalog.source.packageSHA256}`;
+    if(catalog.modelId!==modelId||skeleton.modelId!==modelId)throw new Error('Original model identity does not match.');
+    originalPreview?.restore();originalCatalog=catalog;originalSkeleton=skeleton;
+    originalSource.textContent=`${skeleton.meshRef} → ${catalog.animationRef} · ${catalog.sequences.length} original sequences · package SHA256 ${catalog.source.packageSHA256}`;
     configureOriginalPreview(pawn.models[modelId]?.slots?.[slot.value]?.[stance.value]?.seq);
     // A delayed decode must not replace a newer cast, sit, scrub or pause.
     if(poseIntent===intent){originalEnabled.checked=!!originalPreview;originalMode();}
@@ -246,6 +254,7 @@ originalLoad.addEventListener('click',async()=>{
   finally{if(originalRequest===request){originalRequest=null;originalLoad.disabled=false;}}
 });
 function selectSlot(){
+  originalPreview?.restore();
   skillFx.clear();previewCast=null;
   playing=false;castPlaying=false;waitPlaying=false;character?.cancelCast();action=null;controls(false);position.value='0';time.textContent='';
   if(!character)return;
@@ -285,7 +294,8 @@ function release(pawnCharacter){
 }
 async function selectModel(){
   const ticket=++generation, entry=manifest.models.find(row=>row.id===model.value);
-  originalRequest?.abort();originalRequest=null;originalCatalog=null;originalPreview=null;
+  originalPreview?.restore();
+  originalRequest?.abort();originalRequest=null;originalCatalog=null;originalSkeleton=null;originalPreview=null;
   originalEnabled.checked=false;originalEnabled.disabled=true;originalLoad.disabled=false;originalSource.textContent='';
   originalStatus.textContent='Load this model’s privately decoded source tracks to compare animation poses.';
   ++faceGeneration;faceChoices(entry.id);

@@ -12,6 +12,8 @@ from pathlib import Path
 import struct
 import tempfile
 from types import SimpleNamespace
+import importlib.util
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -183,6 +185,98 @@ class SourceTrackExportTests(unittest.TestCase):
         self.assertEqual(error.exception.code, 2)
         self.loader.assert_not_called()
         self.assertFalse(self.output.exists())
+
+
+class SourceSkeletonExportTests(unittest.TestCase):
+    """Exercise the actual collector, with authored source-reader boundaries."""
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.path = self.root/'SkeletonPkg.ukx'; self.path.write_bytes(b'SYNTHETIC UKX INPUT')
+        system = self.root/'assets/interlude/system'; system.mkdir(parents=True)
+        (system/'chargrp.dat').write_bytes(b'SYNTHETIC DAT INPUT')
+        self.mesh_export = SimpleNamespace(name='FaceMesh', kind='SkeletalMesh', package_index=0,
+                                          serial_offset=0, serial_size=4)
+        self.anim_export = SimpleNamespace(name='MFixture_anim', kind='MeshAnimation', package_index=0,
+                                          serial_offset=4, serial_size=9)
+        self.package = SimpleNamespace(path=self.path, data=b'MESHANIMATIONUNRELATED',
+            names=['Root','Left','Right','Child'], exports=[self.mesh_export,self.anim_export])
+        self.package.export_name = lambda row: row.name
+        self.package.exports_by_class = lambda kind: [e for e in self.package.exports if e.kind==kind]
+        def bone(name, parent):
+            return {'name':name,'parent':parent,'flags':0,
+                    'orientation':[.25,-.5,0.,2.], 'position':[1.,-0.,3.]}
+        self.mesh = {'bones':[bone('Root',0),bone('Right',0),bone('Child',1),bone('Root',0)],
+                     'animationReference':7,'sourceExportSHA256':'synthetic-mesh-hash'}
+        self.animation = {'bones':[{'name':n,'flags':0,'parent':0} for n in ['Root','Left','Left','Child']]}
+        self.reference = 'SkeletonPkg.MFixture_anim'
+        self.defaults = {'sourcePackages':{'synthetic':'source-package-hash'}, 'rows':[{
+            'modelId':'fixture_m','class':'Synthetic.Fixture','defaultsEvidence':{'stream':'bounded'},
+            'fields':{'Mesh':{'value':['SkeletonPkg','FaceMesh']}}}]}
+        self.records = [{'face_mesh':['SkeletonPkg.FaceMesh']}]
+        self.source_calls = []
+        owner = self
+        class Sources:
+            def get(self, kind, name):
+                owner.source_calls.append((kind,name))
+                return owner.package
+        # The real decoded-name adapter is source-free; keep it in this test.
+        tool = Path(__file__).resolve().parents[1]/'ui/check_animation_linkup_native.py'
+        spec = importlib.util.spec_from_file_location('check_animation_linkup_native', tool)
+        linkup = importlib.util.module_from_spec(spec); spec.loader.exec_module(linkup)
+        modules = {
+            'build_hair': SimpleNamespace(Sources=Sources,
+                source_lod0=lambda package, export: copy.deepcopy(self.mesh),
+                object_reference=lambda package, ref: self.reference),
+            'check_hair_attachment_native': SimpleNamespace(audit_pawn_defaults=lambda:self.defaults),
+            'extract_charcreate': SimpleNamespace(decrypt=lambda name, temp:b'SYNTHETIC DECODED CHARGRP',
+                                                  parse_chargrp=lambda raw:self.records),
+            'check_animation_linkup_native': linkup,
+        }
+        for patcher in [patch.dict(sys.modules, modules), patch.object(sys,'path',sys.path[:]),
+                        patch.object(exporter,'ROOT',self.root),
+                        patch.object(exporter.pawn,'PAWNS',[('fixture_m','SkeletonPkg','MFixture')]),
+                        patch.object(exporter.pawn,'original_animation',side_effect=lambda p,e:copy.deepcopy(self.animation))]:
+            patcher.start(); self.addCleanup(patcher.stop)
+
+    def test_fresh_class_face_join_preserves_source_bones_and_native_first_match(self):
+        result = exporter.collect_skeletons('fixture_m')['fixture_m']
+        self.assertEqual(result['bones'], self.mesh['bones'])
+        self.assertEqual(result['animationBones'], self.animation['bones'])
+        self.assertEqual(result['trackBindings'], [0,-1,3,0])
+        self.assertEqual(result['meshRef'], 'SkeletonPkg.FaceMesh')
+        self.assertEqual(result['animationRef'], self.reference)
+        self.assertEqual(result['source']['packageSHA256'], hashlib.sha256(self.path.read_bytes()).hexdigest())
+        self.assertEqual(result['source']['animationExportSHA256'], hashlib.sha256(b'ANIMATION').hexdigest())
+        self.assertEqual(result['source']['chargrpIndex'], 0)
+        self.assertEqual(self.source_calls, [('animations','SkeletonPkg')])
+        self.assertIsNot(result['bones'], self.mesh['bones'])
+
+    def test_ambiguous_chargrp_face_cannot_select_arbitrary_source_row(self):
+        self.records.append(copy.deepcopy(self.records[0]))
+        with self.assertRaisesRegex(ValueError, 'ambiguous original master face'):
+            exporter.collect_skeletons('fixture_m')
+        self.assertEqual(self.source_calls, [])
+
+    def test_grouped_or_duplicate_animation_export_does_not_satisfy_qualified_reference(self):
+        self.anim_export.package_index = 4
+        with self.assertRaisesRegex(ValueError, 'missing or ambiguous master MeshAnimation'):
+            exporter.collect_skeletons('fixture_m')
+        self.anim_export.package_index = 0
+        self.package.exports.append(SimpleNamespace(**{**vars(self.anim_export),'name':'MFIXTURE_ANIM'}))
+        with self.assertRaisesRegex(ValueError, 'missing or ambiguous master MeshAnimation'):
+            exporter.collect_skeletons('fixture_m')
+
+    def test_imported_animation_package_is_not_satisfied_by_local_homonym(self):
+        exporter.pawn.PAWNS[:] = [('fixture_m','ForeignPkg','MFixture')]
+        self.reference = 'ForeignPkg.MFixture_anim'
+        with self.assertRaisesRegex(ValueError, 'package'):
+            exporter.collect_skeletons('fixture_m')
+
+    def test_original_name_table_gate_rejects_unverified_casefold_token_equivalence(self):
+        self.package.names.append('ROOT')
+        with self.assertRaisesRegex(ValueError, 'name'):
+            exporter.collect_skeletons('fixture_m')
 
 
 if __name__ == '__main__': unittest.main()
