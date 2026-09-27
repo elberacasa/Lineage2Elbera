@@ -1,132 +1,187 @@
-# ELBERA
+<div align="center">
+
+# E L B E R A
+
+### Lineage II Interlude. In your browser.
+
+**Porting the original game-client experience to the web.**<br>
+A browser client, an Interlude protocol gateway, and Elbera Tools for the L2 community.
 
 [![Source checks](https://github.com/elberacasa/Lineage2Elbera/actions/workflows/source-checks.yml/badge.svg)](https://github.com/elberacasa/Lineage2Elbera/actions/workflows/source-checks.yml)
+[![Elbera Tools Core](https://img.shields.io/badge/Elbera_Tools_Core-v0.1.0_prerelease-b49a61?style=flat-square)](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0)
+[![License: MIT](https://img.shields.io/badge/Code-MIT-506b83?style=flat-square)](LICENSE)
 
-**Lineage II Interlude in the browser — with reusable tools for studying and converting the original client.**
+[The game](#the-game) · [Elbera Tools](#elbera-tools) · [Recent progress](#recent-progress) · [Get started](#get-started) · [Roadmap](#roadmap) · [Español](#en-español)
 
-ELBERA is the browser-client project developed in this `l2vzla` repository. The
-long-term goal is the full Interlude experience: world, characters, combat,
-progression, effects and interface, without a game-client installation for players.
+</div>
 
-Today it is a working development prototype with connected gameplay and a growing
-body of original-client evidence. It is not a finished port or a public game
-service. A small, repeatable beginner playtest is the next milestone toward the
-full game.
+![ELBERA browser client: an equipped character in Giran with inventory, status, skills and action windows](docs/img/hero-armor-shield-giran.jpg)
 
-[Current coverage](docs/PORT-COVERAGE.md) ·
-[Development plan](docs/WEB-PORT-PLAN.md) ·
-[Elbera Tools](tools/README.md) ·
-[Public/private boundary](docs/public-release-boundary.md)
+<p align="center"><em>From the project's development gallery: Giran, equipped armor and shield, and the browser interface in one frame.</em><br>
+<a href="docs/SHOWCASE.md">Explore the game gallery</a> · <a href="docs/img/README.md">Capture history and context</a></p>
 
-## Showcase
+## The game
 
-These are **offline Elbera Tools inspections**, rendered by the browser client.
-They demonstrate inspectable assets and UI behavior; they are not screenshots of
-live crafting or proof that every original-client behavior has been reproduced.
+ELBERA brings Lineage II Interlude to the web: its world, characters, skills,
+animations, effects, progression and interface, with no installed game client
+for players. This repository, developed locally as `l2vzla`, contains the
+browser client and the tools being built to make that possible.
 
-| Original face selection | Recipe and shortcut inspection |
+The browser already connects through **ElberaGate** to an aCis server for
+movement, combat, inventory, NPC interaction and other gameplay systems.
+Recent checks include a completed quest with its reward preserved after
+reconnect, an actual merchant purchase, and original appearance and UI data
+recovered from the client.
+
+**Status: active development.** The next delivery is a small invited playtest;
+the goal remains the full Interlude client. World fidelity, animation, effects,
+interface details and whole gameplay systems still need work. The
+[coverage inventory](docs/PORT-COVERAGE.md) records what is implemented,
+source-verified and tested through normal play.
+
+| Talking Island | Giran |
 | --- | --- |
-| ![Elbera Tools player face inspection](docs/img/elbera-tools-faces.png) | ![Elbera Tools recipe and shortcut inspection](docs/img/elbera-tools-recipes.png) |
-| Explicit original face indices, with source mesh and texture checks. | Original recipe metadata and browser controls, using clearly labeled replay state. |
+| ![Talking Island shoreline and stone terrace in the browser](docs/img/world-talking-island.jpg) | ![Giran's plaza and architecture rendered in the browser](docs/img/world-giran.jpg) |
+| Coastal terrain, water and map geometry. | Town architecture, stonework and public spaces. |
 
-![Elbera Tools original hair geometry and color inspection](docs/img/elbera-tools-hair.jpg)
+*These retained game captures show earlier development builds. New tool captures
+appear below; current feature status is recorded in the coverage inventory.
+The [full gallery](docs/SHOWCASE.md) also preserves character creation, combat,
+multiplayer, NPCs, dungeons and interface views.*
 
-**Original hair inspection:** exact source mesh/color choices, including distinct
-alpha rules for the two hair parts. This is a static source view; animated body
-attachment and native sampling remain unfinished. [Build and inspection guide](docs/hair-asset-pipeline.md).
+## Recent progress
 
-With locally generated assets, the [inspection index](editor/world/test/index.html)
-provides hair, face and animation viewers, world diagnostics, quest journals, inventory
-dialogs, merchants, recipes and other focused tools.
+**September 2026** — work now follows original inputs through decoding,
+browser behavior and focused verification.
 
-## What works today
+| Area | What advanced | Follow the work |
+| --- | --- | --- |
+| **Character appearance** | Original face indices, five male / seven female creation hairstyles, four source color choices, and corrected default hair mesh/material selection. | [Appearance](docs/native-face-selection-evidence.md) · [Hair pipeline](docs/hair-asset-pipeline.md) |
+| **Hair and material inspection** | All **162** base-table meshes exported with original LOD0 geometry and weights; **648** material references retain their source identities. The inspector shows rigid and soft-rig parts in a static view. | [Inspecting original hair](docs/hair-asset-pipeline.md#browser-inspection) |
+| **Native transform research** | Ordinary and dynamic hair paths distinguished; retained coordinate arithmetic checked. A separately pinned comparison copy identifies missing imports within exactly matched code blocks. | [Attachment evidence](docs/native-hair-attachment-evidence.md) · [Comparison scope](docs/supplemental-engine-evidence.md) |
+| **Quest progression** | *Letters of Love* completed through server interactions; the reward survived reconnect and appeared in the browser inventory. | [Quest playtest](docs/quest-completion-playtest.md) |
+| **Shops and original dialogs** | A browser purchase and potion use changed server-owned inventory and currency. Quantity and confirmation dialogs use recovered client rules. | [Shop playtest](docs/shop-playtest.md) |
+| **Recipes and shortcuts** | Recipe books, manufacture details and source-index shortcuts are connected; the live empty Common Craft book was checked. Successful crafting remains a separate test. | [Recipe evidence](docs/native-recipe-evidence.md) |
+| **Community tooling** | Standalone Elbera Tools Core release, portable checks, source provenance, updated guides and actual inspection screenshots. | [Download Core](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0) · [Tool catalog](tools/README.md) |
 
-Recent work combines ordinary gameplay checks with targeted source verification.
-The distinction matters: a connected feature, a recovered rule and a verified
-end-to-end scenario are different achievements.
-
-| Area | Current evidence |
-| --- | --- |
-| Character entry and progression | Ordinary browser creation, selection, entry and reconnect have been exercised. A Dwarf starter character holds its received club and has progressed through normal combat. |
-| Quests and navigation | Letters of Love was completed through ordinary server interactions; its reward survived reconnect and appeared in the browser inventory. The journal correctly removes the completed zero-stage entry. [Playtest](docs/quest-completion-playtest.md). |
-| Merchant interaction | A real browser purchase and use of a healing potion changed the server-owned inventory and currency. Shared quantity dialogs and selected shop layout rules are traced to original sources. [Playtest](docs/shop-playtest.md). |
-| Player appearance | Original face indices reach self and remote actors. Creation choices now use the original sex-specific lists, without invented hair-color tints. All 162 referenced hair meshes and 648 material references have a separate source export; animated hair selection remains unfinished. [Face evidence](docs/native-face-selection-evidence.md) · [Hair pipeline](docs/hair-asset-pipeline.md). |
-| Recipes and shortcuts | Recipe books, manufacture details and recipe shortcuts are connected. Opening the live empty Common Craft book is verified; successful recipe learning and crafting remain separate, unverified journeys. [Evidence](docs/native-recipe-evidence.md). |
-| World and animation foundations | Source terrain coordinates, selected collision geometry, floor-aware navigation, original animation slots and bounded timing rules have reproducible checks. These establish specific behaviors, not complete map or renderer fidelity. |
-
-Inventory, skills, NPC dialogs, warehouse, trade, private stores, party and basic
-clan features also have browser and gateway implementations. See the
-[coverage inventory](docs/PORT-COVERAGE.md) for their actual boundaries rather
-than treating implementation presence as completion.
-
-## Architecture
-
-```text
-Original Interlude inputs (private)
-        │
-        └── Elbera Tools ──► generated assets and metadata (private)
-                                      │ HTTP
-                                      ▼
-                              Browser client
-                           Three.js + DOM interface
-                                      │ WebSocket
-                                      ▼
-                               Node.js gateway
-                                      │ L2 TCP protocol
-                                      ▼
-                           aCis emulator + database
-```
-
-The browser renders the world and sends player intentions. The gateway translates
-between browser messages and the configured Interlude server protocol. The server
-owns gameplay results, inventory and progression. Asset conversion runs separately
-from play.
-
-The current server target is **aCis**, an emulator with local configuration and
-changes. It is not the original NCSoft server and is not an authority for original
-client presentation. Original packages, scripts, data tables and retained native
-instructions are used to establish client rules. Tests against aCis establish
-interoperability with that configured server.
+The latest appearance milestone is [PR #5](https://github.com/elberacasa/Lineage2Elbera/pull/5).
+Animated hair attachment remains unfinished; the new checks establish specific
+source rules rather than complete rendering parity.
 
 ## Elbera Tools
 
-The research and conversion tools are useful separately from the browser game.
-They preserve source identities, record the inputs behind a result and expose
-unsupported cases instead of silently choosing replacements.
+**Built for the port. Useful to the community.**
 
-| Start here | Purpose |
+Read packages, decode original tables and textures, inspect models and UI,
+and reproduce the evidence behind a conversion. Each tool documents its inputs,
+supported scope and unresolved cases.
+
+| Original faces | Recipes and shortcuts |
 | --- | --- |
-| [Tool catalog](tools/README.md) | Commands, prerequisites, evidence links and known limits. |
-| [l2lib](tools/l2lib/README.md) | Unreal Engine 2 package, DAT and texture readers used by the pipelines. |
-| [World tools](tools/world/) | Terrain conversion, source collision exports, qualified prop checks and navigation inspection. |
-| [Data and animation tools](tools/dat/) · [animation tools](tools/anim/) | Source metadata, appearance, model identity and original sequence recovery. |
-| [Original hair pipeline](docs/hair-asset-pipeline.md) | Raw LOD0 meshes, unmodified skin weights, original material graphs and source/built geometry comparisons. |
-| [UI and native checks](tools/ui/) | Reproducible evidence for layouts, packet fields, dialogs, animation rules and other bounded client behavior. |
-| [Playtest client](tools/playtest/README.md) | Controlled journeys and private receipts using an explicitly selected existing character; includes read-only catalog queries. |
+| ![Elbera Tools face inspector showing the original mesh and texture references](docs/img/elbera-tools-faces.png) | ![Elbera Tools recipe inspector with manufacture details and shortcut drawers](docs/img/elbera-tools-recipes.png) |
+| Inspect source face indices through the browser's character loader. | Exercise the actual recipe windows with explicitly supplied replay state. |
+| **Hair geometry and colors** | **Soft-rig source inspection** |
+| ![Elbera Tools original hair inspector with separate source material states](docs/img/elbera-tools-hair.jpg) | ![Elbera Tools Dark Elf hair inspection showing a separate soft-rig part](docs/img/elbera-tools-hair-soft.jpg) |
+| Browse original mesh/color choices and material alpha rules. | Examine original bones and weights; this view is static. |
 
-[Elbera Tools Core](tools/release/CORE-README.md) is the separate, source-only
-Python subset: package/texture readers, the texture editor, ScriptText extraction
-and XDAT decoding. It uses an explicit file allowlist and isolated checks; it does
-not package the browser game or original client content.
+*Direct browser captures, September 26–27, 2026. These tools run offline;
+recipe fixtures do not grant items, and a static asset view does not verify
+animation. [Capture details](docs/img/README.md).*
 
-[Download Core 0.1.0 (prerelease)](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0),
-or build the archive locally:
+### Download the standalone toolkit
 
-```sh
-python3 tools/release/build_core.py --version 0.1.0 --output tmp/releases/elbera-tools-core-0.1.0.zip
+[**Elbera Tools Core 0.1.0 — source-only prerelease**](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0)
+
+The separate ZIP includes the Python package/texture library, UTX editor,
+embedded-script extractor, XDAT decoder and portable smoke checks.
+It runs independently of the browser project. It contains no game assets.
+
+The full repository also contains the newer native verifiers, conversion
+pipelines and browser inspectors shown above. They are **not included in the
+Core 0.1.0 ZIP** and have their own inputs and dependencies.
+
+[Core quick start](tools/release/CORE-README.md) ·
+[Complete tool catalog](tools/README.md) ·
+[Reproduce a release](tools/release/CORE-README.md#reproduce-a-source-release)
+
+### The ELBERA toolchain
+
+The project's component names remain mapped to the existing source structure.
+
+| Component | Role | Source |
+| --- | --- | --- |
+| **ElberaClient** | World rendering, gameplay interface and browser inspections | [Browser client](editor/world/) |
+| **ElberaCreate** | Character creation and preview | [Character creator](editor/charcreate/) |
+| **ElberaGate** | WebSocket ↔ Interlude login/game protocol | [Gateway and contract](gateway/README.md) |
+| **ElberaLib** | Supported package, DAT and texture readers | [Format library](tools/l2lib/README.md) |
+| **ElberaWorld** | Terrain, BSP, props and navigation tooling | [World pipeline](tools/world/) |
+| **ElberaModeler** | Character, equipment and model conversion | [Character pipeline](tools/src/char_pipeline/) |
+| **ElberaDat** | Original table decoding and metadata exports | [Data tools](tools/dat/) |
+| **ElberaForge** | Supported UTX texture inspection and replacement | [Texture editor guide](tools/utx/README.md) |
+| **ElberaSkin** | Original interface records, art and browser controls | [XDAT tools](tools/xdat/) · [UI tools](tools/ui/) |
+| **ElberaPanel** | Local server configuration interface | [Panel](panel/) |
+| **ElberaEdge / ElberaDeploy** | Existing proxy and development deployment helpers | [Deployment](deploy/) |
+
+Animation, sound, effects, native evidence and playtest tools are indexed in the
+[full catalog](tools/README.md). Original-data commands require locally supplied
+inputs; deployment helpers still depend on a configured private server.
+
+## How it fits together
+
+```mermaid
+flowchart TB
+    subgraph Build["Asset preparation · offline"]
+        direction LR
+        Original["Original Interlude files<br/>private inputs"] --> Tools["Elbera Tools"]
+        Tools --> Assets["Web assets and metadata<br/>generated locally"]
+    end
+    subgraph Play["Game session"]
+        direction LR
+        Client["ElberaClient<br/>Three.js + DOM interface"]
+        Gateway["ElberaGate<br/>Node.js"]
+        Server["aCis server + database"]
+        Client <-->|WebSocket| Gateway
+        Gateway <-->|Interlude TCP protocol| Server
+    end
+    Build -->|Web assets over HTTP| Play
 ```
 
-Original-data operations require your own matching inputs, and some encrypted
-formats need a separately built decoder. The [Core guide](tools/release/CORE-README.md)
-and [release boundary](docs/public-release-boundary.md) define the supported scope.
+The browser renders the game and sends player intentions. The server owns
+gameplay outcomes, inventory and progression; the gateway connects the two.
+Asset conversion is separate from the running game.
 
-## Getting started
+**Original data is the rule.** Geometry, values, UI behavior and animation rules
+must be decoded, extracted or traced to their original Interlude sources.
+Unknowns remain explicit. aCis is the current interoperability target, with local
+configuration and changes; it is not the original NCSoft server or an authority
+for original client presentation.
 
-### Read and test the public source
+<details>
+<summary><strong>Inside the engineering: protocol, formats, UI and rendering</strong></summary>
 
-Use a current Node.js release and Python 3. The gateway dependencies are installed
-from its lockfile. These examples run focused automated checks without logging
-into a game server:
+- **Protocol bridge.** Browsers use WebSockets; Interlude uses its login and game
+  TCP protocols. The gateway handles those sessions and exposes the browser
+  contract. [Protocol documentation](gateway/README.md).
+- **Format recovery.** Package boundaries, compressed records, material chains
+  and texture formats are decoded into inspectable data.
+  [Format library](tools/l2lib/README.md) · [DAT notes](docs/dat-format-notes.md).
+- **Interface recovery.** XDAT records, original scripts, textures and retained
+  native instructions establish window geometry and behavior.
+  [Layout evidence](docs/native-layout-evidence.md).
+- **Rendering checks.** Original mesh/material identities, coordinate arithmetic
+  and actual converted geometry are compared separately. A screenshot is one
+  observation, not a substitute for those checks.
+  [Player transforms](docs/player-transform-audit.md) ·
+  [Hair pipeline](docs/hair-asset-pipeline.md).
+
+</details>
+
+## Get started
+
+### Explore the public source
+
+Node.js and Python 3 are used throughout the project. The public checks below
+need no game server or original client assets:
 
 ```sh
 npm ci --prefix gateway
@@ -134,124 +189,121 @@ node --test gateway/test/*.test.js
 node --test editor/world/test/geodata.test.mjs editor/world/test/net-lifecycle.test.mjs
 ```
 
-Browse the test inventory with `bash tools/battery.sh --list`. Inventory listing is
-not a full test run. Some suites require original files, generated outputs or a
-live server; use the [tool catalog](tools/README.md) to choose the appropriate
-check. A skipped original-data check is not evidence of source compatibility.
+List the broader test inventory with `bash tools/battery.sh --list`.
+Individual source and live-server suites have additional prerequisites.
+The **Source checks** badge covers the portable workflow; it is not a full
+gameplay or visual certification.
 
-GitHub's **Source checks** workflow runs portable protocol/lifecycle fixtures and
-builds the Core toolkit in isolation. It requires no client assets or game server;
-its green status does not certify native rendering or live gameplay.
+### Run a local development instance
 
-### Run a private development instance
+Rendering requires your own matching Interlude inputs and locally generated
+assets. Online play also requires the configured login/game servers and database.
+The public checkout does not bundle those inputs.
 
-The public source alone does **not** contain everything needed to render or host
-the game. You need your own matching Interlude inputs, locally generated assets
-and metadata, and a separately configured emulator/database for Online play.
-Native checks may require additional Python packages and converter binaries; each
-tool documents its prerequisites.
-
-Once those inputs and the login/game servers are ready, run these in separate
-terminals from the repository root:
+With those prepared, run each service in its own terminal:
 
 ```sh
-# Protocol gateway — defaults to localhost login server on port 2106
+# Protocol gateway
 npm start --prefix gateway
 
-# Browser client and offline inspection pages — port 8083
+# Browser client, character creator and Elbera Tools pages
 python3 editor/world/server.py
 ```
 
-Open `http://127.0.0.1:8083/` for the world, `/create/` for character creation,
-or `/test/index.html` for Elbera Tools. Offline inspection does not establish an
-Online session. Some tools use simulated state and label it accordingly.
+Open **http://127.0.0.1:8083/** and select **Online** in the top-left corner
+to connect to the game. Use **/create/** for character creation and
+**/test/index.html** for the Elbera Tools inspection hub.
 
-See the [gateway contract](gateway/README.md) for connection settings and protocol
-operations. Existing [deployment scripts](deploy/) depend on private server/build
-inputs; they are development helpers, not a production hosting guarantee. Keep
-identities, credentials, databases and playtest receipts outside tracked files.
-
-## Known limitations
-
-- **World fidelity:** camera collision, native BSP sweeps, lighting, materials and
-  map transitions remain incomplete. Exported or rendered maps are not the same
-  as verified playable routes.
-- **Characters and effects:** face selection has bounded source checks; hair
-  selection, full skinning/material parity, effect placement and some animation
-  and sound paths remain unfinished.
-- **Interface and gameplay:** the browser includes approximations and incomplete
-  flows. Native actor gauges, macros, pets, advanced clan systems, siege,
-  Olympiad, fishing and other systems still need substantial work.
-- **Progression coverage:** a verified beginner journey does not establish all
-  classes, quests, crafting outcomes, multiplayer interactions or restart
-  persistence. Offline replay never proves a server result.
-- **Operations:** broad performance, long-session recovery, capacity and public
-  hosting are not certified. The current milestone is a controlled private test.
-
-The [coverage inventory](docs/PORT-COVERAGE.md) records specific remaining work and
-links to source evidence. Unknown native behavior remains explicit; a plausible
-visual substitute is not considered a faithful implementation.
+[Gateway setup](gateway/README.md) · [Tool prerequisites](tools/README.md) ·
+[Private-input boundary](docs/public-release-boundary.md)
 
 ## Roadmap
 
-1. **Trustworthy foundations:** close world-coordinate, collision, camera,
-   appearance and animation gaps with reproducible source checks.
-2. **Repeatable beginner journey:** validate creation, movement, combat, quests,
-   loot, equipment, shops, death, reconnect and persistence through normal play.
-3. **Small private playtest:** document clean setup and recovery, exercise multiple
-   browsers, and measure performance and failure handling.
-4. **Full Interlude coverage:** extend those standards across classes, maps,
-   progression, effects, dialogs and remaining game systems.
+| Stage | Next acceptance target |
+| --- | --- |
+| **World and character fidelity** | Verified terrain, floors, collision, camera, materials, equipment, animation and effect placement. |
+| **Repeatable beginner journey** | Creation → movement → combat → quest → loot/equip → shop → death/respawn, with reconnect and persistence checked through normal play. |
+| **Small invited test server** | Reproducible setup and recovery, multiple browsers, measured performance and session failure handling. |
+| **Full Interlude client** | Remaining regions, classes, skills/effects/audio, progression, crafting, pets, social systems, fishing, transport, siege and every original dialog/menu. |
 
-The [working plan](docs/WEB-PORT-PLAN.md) defines acceptance criteria. There is no
-release-date promise or completion percentage derived from asset/test counts.
+A test server is a milestone within the full port. The
+[development plan](docs/WEB-PORT-PLAN.md) defines the acceptance gates.
 
-## Repository map
+<details>
+<summary><strong>Current gaps and verification boundaries</strong></summary>
+
+World collision and transitions, native lighting/materials, animated appearance,
+effect placement, some animation/audio paths and interface details are incomplete.
+Pets, macros, advanced clan systems, siege, Olympiad, fishing and other systems
+still need substantial work. Long-session stability, capacity and public hosting
+also require measurement.
+
+A working quest or shop scenario does not establish every class, quest, crafting
+outcome or multiplayer interaction. Read the
+[full coverage inventory](docs/PORT-COVERAGE.md) for feature-specific evidence
+and remaining tasks.
+
+</details>
+
+## Documentation and contributing
+
+| Looking for | Start here |
+| --- | --- |
+| Current behavior and gaps | [Coverage inventory](docs/PORT-COVERAGE.md) |
+| Delivery order and acceptance | [Development plan](docs/WEB-PORT-PLAN.md) |
+| Commands and reusable tools | [Elbera Tools catalog](tools/README.md) |
+| Character and world conversion | [Characters](docs/character-pipeline.md) · [Monsters](docs/monster-pipeline.md) · [Weapons](docs/weapon-pipeline.md) · [Map format](docs/map-format.md) |
+| UI, animation and native investigations | [Evidence documents](docs/) |
+| Development images | [Game gallery](docs/SHOWCASE.md) · [Capture provenance](docs/img/README.md) |
+| Packaging and publication | [Public/private boundary](docs/public-release-boundary.md) |
+
+A useful contribution identifies its source/build, explains the behavior changed,
+and provides a focused way to reproduce the result. Keep portable tests, original
+source checks, offline inspections and live gameplay results distinguishable.
+
+Original client files, generated assets, decompiled source, credentials, databases
+and private playtest receipts stay out of public changes. Earlier repository
+history contains legacy generated outputs; the current source boundary does not
+erase that history.
+
+<details>
+<summary><strong>Repository map</strong></summary>
 
 ```text
-editor/world/       Browser world, UI, pure runtime helpers and inspections
-editor/charcreate/  Character creator and preview
-editor/characters/ Local generated character models and manifests
-gateway/           WebSocket ↔ Interlude protocol bridge and packet tests
-tools/             Elbera Tools: readers, exporters, verifiers and playtests
-panel/             Development configuration interface
-deploy/            Local deployment helpers
-docs/              Coverage, plans, evidence, playtests and curated screenshots
+editor/world/       Browser world, UI and inspection pages
+editor/charcreate/  Character creator
+editor/characters/ Local generated character models
+gateway/           Interlude protocol bridge
+tools/             Elbera Tools and verification utilities
+panel/             Local configuration interface
+deploy/            Development deployment helpers
+docs/              Guides, evidence, playtests and screenshots
 assets/            Local original inputs and generated data
 ```
 
-## Contributing
-
-A useful change identifies the original input/build, states the behavior being
-ported and adds a focused way to reproduce the result. Keep protocol tests,
-original-source checks, offline previews and live gameplay receipts distinct.
-Record unresolved behavior instead of widening a passing claim.
-
-Do not submit original client files, generated game assets, decompiled source,
-credentials, databases or private account logs. See the
-[public/private boundary](docs/public-release-boundary.md) before packaging or
-publishing. Older repository history contains legacy generated outputs; the
-current source-only boundary does not remove that history.
+</details>
 
 ## License and attribution
 
-ELBERA's own code is covered by the [MIT license](LICENSE), subject to the scope
-and third-party notices there. Dependencies and external projects retain their
-own licenses. Lineage II and its original client content belong to their
-respective owners; this project's license does not grant rights to that content.
+The project's own code is covered by the [MIT license](LICENSE), subject to its
+scope and third-party notices. External components retain their own licenses.
+Lineage II and its original content belong to their respective owners; the source
+license does not grant rights to game content.
 
-This is an independent fan and research project, not an NCSoft product or an
-endorsed service. Curated screenshots illustrate development and inspection
-results; they do not constitute a redistributable game-asset package.
+ELBERA is an independent fan and research project, unaffiliated with NCSoft.
 
 ## En español
 
-ELBERA busca llevar Lineage II Interlude completo al navegador. Hoy es un
-prototipo en desarrollo, con recorridos reales de juego comprobados y herramientas
-para investigar los datos originales. Aún faltan sistemas y detalles de fidelidad;
-una vista previa no demuestra que una función esté terminada.
+**Lineage II Interlude completo, desde el navegador.** ELBERA reúne el cliente web,
+el puente de protocolo ElberaGate y las herramientas de la comunidad **Elbera
+Tools**. El trabajo parte de los archivos y comportamientos originales: se
+descifran, se decodifican y se verifican; los datos desconocidos no se inventan.
 
-El código y Elbera Tools se comparten por separado de los archivos originales,
-los recursos generados y los datos privados del servidor. Consulta la
-[cobertura actual](docs/PORT-COVERAGE.md), el [plan](docs/WEB-PORT-PLAN.md) y el
-[catálogo de herramientas](tools/README.md) para empezar.
+Ya hay recorridos de juego comprobados, nuevas herramientas de inspección y una
+primera descarga independiente de Elbera Tools Core. El próximo hito es un
+servidor de pruebas pequeño; la meta sigue siendo portar el cliente completo,
+con sus mapas, habilidades, animaciones, efectos, progresión e interfaz.
+
+[Estado actual](docs/PORT-COVERAGE.md) · [Plan](docs/WEB-PORT-PLAN.md) ·
+[Herramientas](tools/README.md) ·
+[Descargar Core](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0)
