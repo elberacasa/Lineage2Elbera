@@ -142,7 +142,9 @@ These inspections do not connect to the game server:
   exposes all eight original sparse sequences. The manual source overlay pauses
   the entity mixer and restores its local pose on exit. Its `frames/rate` timeline
   is an inspection control. Optional source GPU weight lanes are preserved
-  without renormalization; full skinning, state selection, placement and gameplay
+  without renormalization. The current exporter also decodes notify objects;
+  **Original notifies** displays their exact times, classes and raw sound fields
+  without dispatching them. Full skinning, state selection, placement and gameplay
   timing remain separate. [Generate the private inputs](../docs/original-npc-animation-runtime.md).
 - **Player faces, animation and casting:** actual Character loader with exact
   source face indices, mesh/material/texture references and explicit unsupported

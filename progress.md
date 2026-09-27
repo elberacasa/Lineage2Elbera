@@ -2206,3 +2206,32 @@ checks now reject partial instruction ranges. Independent review reproduced the
 full comparisons, deliberately restored the truncated endpoints in memory and
 confirmed rejection, and reran 20 portable cases plus native cache/tween checks.
 This strengthens evidence framing without changing browser behavior.
+
+## Original NPC notify objects — 27 September 2026
+
+The NPC collector now reuses the player notify decoder instead of transporting
+only raw object references. It retains all 34 original Gremlin/Fox events,
+qualified classes, exact normalized times, source-object hashes and explicit
+sound fields/default provenance. Engine.u must match selector recovery. The
+16 sequence key payloads, both skeletons/GPU inputs and all 14 player bundles
+remain unchanged. The existing NPC inspector shows compact ordered event cards
+with expandable raw evidence; it dispatches no effects or sounds.
+
+Verification: 35 portable export cases, 16 pawn-source cases (including the
+private original comparison), 30 browser-module cases, fresh NPC export/check,
+and independent review. The extracted standalone profile passes 98 cases with
+the optional pinned synthetic PE suite; its 43-file allowlist already contains
+the reused helpers. Browser checks covered both NPCs, attack events, empty
+one-frame corpse events, timeline play/pause, restore and expandable evidence,
+with no warning/error logs. A curated actual tool screenshot accompanies the
+updated guide; existing README galleries remain intact. Published NPC Source
+0.1.0 is immutable and predates this metadata addition.
+
+Private native investigation also closes bounded fresh mesh setup and the
+Talking Island zone/volume class census. Post-load animation linkage and
+decoration initialization are being checked before live original NPC startup
+can be admitted. Original Wait sounds have Random=30 and attack-wait sounds
+Random=50; the current supported direct-sound runtime only admits Random=100.
+Resolving that original RNG/dispatch path remains real work, not permission to
+drop events or invent a browser probability. Automatic native NPC playback is
+still off. The full browser-client goal remains active.
