@@ -114,6 +114,22 @@ test('late model load after remove cannot adopt into retired actor or its same-I
   assert.deepEqual(h.warnings,[]);assert.deepEqual(stale.disposal,{material:0,texture:0,geometry:0});
 });
 
+test('actor-owned source skin retires on removal, obsolete loads and failed adoption',async()=>{
+  for(const stage of ['adopted','loading','materials','invalid']) {
+    const h=harness(),npc=h.add(packet());await flush();const loaded=model();let disposed=0;
+    loaded.originalSource={disposeSkin:()=>disposed++};
+    if(stage==='loading')h.manager.remove(7);
+    if(stage==='invalid')loaded.overrides={idle:'AbsentSourceClip'};
+    h.jobs[0].resolve(loaded);await flush();
+    if(stage==='materials')h.manager.remove(7);
+    if(stage!=='loading'){h.materials[0].resolve();await flush();}
+    if(stage==='adopted')assert.equal(disposed,0,'live actor keeps its owned geometry');
+    h.manager.remove(7);npc.retire();
+    assert.equal(disposed,1,stage);
+    assert.deepEqual(loaded.disposal,{material:0,texture:0,geometry:0},'shared model resources remain untouched');
+  }
+});
+
 test('removal while original materials await prevents late admission and never disposes shared asset resources',async()=>{
   const h=harness(),npc=h.add(packet());await flush();const loaded=model();h.jobs[0].resolve(loaded);await flush();
   assert.equal(h.materials.length,1);h.manager.remove(7);h.materials[0].resolve();await flush();

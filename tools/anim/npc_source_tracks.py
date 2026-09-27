@@ -3,7 +3,9 @@
 Original inputs are read afresh through recover_selectors and serialized
 Mesh.Animation references. Built aliases are only a path locator: admission
 requires actual LOD0 triangle POSITION/UV/winding and bone-parent-path checks.
-Skin weights, inverse binds, actor placement and native playback stay separate.
+Optional stored GPU influence lanes reuse the existing bundle metadata; no
+converted model file changes. Inverse binds, placement and native playback stay
+separate from input fidelity.
 All returned game records are private data; this module writes nothing.
 """
 import hashlib
@@ -63,7 +65,74 @@ def _local_file(base, name):
     return path
 
 
-def built_correspondence(base, diagnostic, source):
+def source_skin_inputs(gltf, buffers, source, built):
+    """Bind stored GPU soft52 lanes, without quantizing or changing their order.
+
+    This carries original GPU stream inputs, not a native deformation result.
+    In particular, it does not substitute the different lazy influence table,
+    merge repeated bones, renormalize weights or certify inverse bind matrices.
+    """
+    from build_hair import accessor, source_vertex_key
+    from pack_source_tracks import exact_float
+    if source.get('stream') != 'soft' or source.get('useNewWedges') != 1:
+        raise ValueError('stored original GPU soft52 stream required')
+    primitives = gltf['meshes'][built['meshIndex']]['primitives']
+    sections = source['softSections']
+    if len(primitives) != len(sections):
+        raise ValueError('source skin section count differs')
+    rows = []
+    for pi, (primitive, section) in enumerate(zip(primitives, sections)):
+        palette = section['boneMap']
+        if not 0 < len(palette) <= 70:
+            raise ValueError('original GPU section palette exceeds native bound')
+        first, stop = section['firstFace'] * 3, (section['firstFace'] + section['numFaces']) * 3
+        choices = {}
+        for index in source['softIndices'][first:stop]:
+            vertex = source['vertices'][index]
+            local, weights = vertex['localBones'], vertex['weights']
+            if len(local) != 4 or len(weights) != 4:
+                raise ValueError('original GPU vertex must have four stored lanes')
+            bones = []
+            for bone, weight in zip(local, weights):
+                exact_float(weight)
+                if weight < 0 or type(bone) is not int or not (bone == 255 or 0 <= bone < len(palette)):
+                    raise ValueError('invalid original GPU influence lane')
+                if bone == 255 and weight != 0:
+                    raise ValueError('original GPU sentinel has a nonzero weight')
+                mapped = -1 if bone == 255 else palette[bone]
+                if mapped != -1 and (type(mapped) is not int or not 0 <= mapped < len(source['bones'])):
+                    raise ValueError('original GPU palette bone outside skeleton')
+                bones.append(mapped)
+            # Float32 bytes preserve even the sign of a zero. Equal positions
+            # and UVs alone cannot resolve differing ordered source influences.
+            key = source_vertex_key(vertex)
+            value = (tuple(bones), b''.join(exact_float(w) for w in weights))
+            if key in choices and choices[key][0] != value:
+                raise ValueError('ambiguous original GPU ordered influences at vertex')
+            choices[key] = (value, bones, list(weights))
+        attrs = primitive['attributes']
+        if any(re.fullmatch(r'(?:JOINTS|WEIGHTS)_[1-9][0-9]*', k) for k in attrs) or primitive.get('targets'):
+            raise ValueError('additional skin sets or morphs require separate admission')
+        positions = accessor(gltf, buffers, attrs['POSITION'])
+        uvs = accessor(gltf, buffers, attrs['TEXCOORD_0'])
+        if len(positions) != len(uvs):
+            raise ValueError('source skin vertex attributes differ in length')
+        bones, weights = [], []
+        for position, uv in zip(positions, uvs):
+            selected = choices.get((*position, *uv))
+            if selected is None:
+                raise ValueError('built vertex has no exact original GPU correspondence')
+            bones.append(selected[1]); weights.append(selected[2])
+        rows.append({'primitiveIndex': pi, 'bones': bones, 'weights': weights})
+    return {'format': 'elbera-original-npc-skin-inputs-v1', 'stream': 'stored-gpu-soft52',
+        'sourceLOD0SHA256': built['sourceLOD0SHA256'],
+        'builtGLTFSHA256': built['gltfSHA256'], 'builtBuffers': built['buffers'],
+        'meshIndex': built['meshIndex'], 'skinIndex': built['skinIndex'],
+        'boneNodes': built['boneNodes'], 'primitives': rows,
+        'scope': 'stored GPU input lanes only; inverse binds, native shader math and CPU path remain separate'}
+
+
+def built_correspondence(base, diagnostic, source, *, include_skin=False):
     """Hash actual bytes after independent source geometry and bone matching."""
     from build_hair import built_binding, original_bone_paths, built_bone_paths
     if not isinstance(diagnostic, dict) or 'gltf' not in diagnostic:
@@ -95,7 +164,7 @@ def built_correspondence(base, diagnostic, source):
     joints = gltf['skins'][binding['skinIndex']]['joints']
     if len(set(joints)) != len(joints) or len(set(nodes)) != len(nodes) or set(joints) != set(nodes):
         raise ValueError('built NPC skin does not uniquely cover original bones')
-    return {'modelId': entries[0]['id'], 'gltf': diagnostic['gltf'], 'gltfSHA256': hashlib.sha256(raw).hexdigest(),
+    result = {'modelId': entries[0]['id'], 'gltf': diagnostic['gltf'], 'gltfSHA256': hashlib.sha256(raw).hexdigest(),
         'buffers': fingerprints, 'meshIndex': binding['meshIndex'], 'skinIndex': binding['skinIndex'],
         'boneNodes': nodes, 'sourceBones': len(nodes), 'sourceVertices': len(source['vertices']),
         'sourceTriangles': sum(s['numFaces'] for s in source[source['stream'] + 'Sections']),
@@ -107,9 +176,12 @@ def built_correspondence(base, diagnostic, source):
             'checkedVertices': binding['skinProof']['checkedVertices'],
             'differentInfluenceVertices': binding['skinProof']['differentInfluenceVertices'],
             'limits': ['existing weights retained; no native weight, inverse-bind or actor-placement certification']}}
+    if include_skin:
+        result['sourceSkin'] = source_skin_inputs(gltf, buffers, source, result)
+    return result
 
 
-def collect_npcs(npc_ids):
+def collect_npcs(npc_ids, *, include_skin=False):
     """Return complete catalog/skeleton dictionaries and an index, no writes."""
     if (not isinstance(npc_ids, (list, tuple)) or not npc_ids
             or any(type(i) is not int or not 0 < i <= 0x7fffffff for i in npc_ids)
@@ -173,9 +245,17 @@ def collect_npcs(npc_ids):
                 'animationBones': animation['bones'],
                 'trackBindings': name_bindings(mesh['bones'], animation['bones'], mesh_package, animation_package),
                 'source': source, 'animationReferenceProof': reference_proof}
+            built = built_correspondence(ROOT / 'editor/characters/monsters', mesh_record.get('built'), mesh,
+                                         include_skin=include_skin)
+            if include_skin:
+                skeletons[model_id]['sourceSkin'] = built.pop('sourceSkin')
+                built['skinProof']['runtimeInputs'] = 'stored-gpu-soft52'
+                built['skinProof']['limits'] = [
+                    'stored GPU lanes carried separately; converted glTF bytes unchanged',
+                    'inverse binds, native shader math, CPU path and actor placement unverified']
             models[model_id] = {'meshRef': full_mesh_ref, 'animationRef': stored_ref, 'source': source,
                 'bundle': 'animation-tracks/runtime/' + model_id + '.l2anim',
-                'built': built_correspondence(ROOT / 'editor/characters/monsters', mesh_record.get('built'), mesh)}
+                'built': built}
         elif (models[model_id]['meshRef'].casefold() != mesh_ref.casefold()
               or models[model_id]['animationRef'].casefold() != animation_ref.casefold()):
             raise ValueError('conflicting original NPC bundle identity')
@@ -186,6 +266,6 @@ def collect_npcs(npc_ids):
         'sources': selectors['sources'], 'sourceSHA256': selectors['sourceSHA256'],
         'scope': {'selection': 'explicit requested NPC IDs; index replaced as one selected set',
             'transport': 'authored ELBA transport; all original sparse sequences and keys retained',
-            'built': 'source LOD0 geometry and bone-parent paths; skin weights and actor placement unverified',
+            'built': 'source LOD0 geometry and bone-parent paths; optional stored GPU influence inputs; native skinning and placement unverified',
             'playback': 'source inputs only; original NPC state, rate and modifier admission remains separate'}}
     return catalogs, skeletons, index

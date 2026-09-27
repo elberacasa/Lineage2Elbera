@@ -1,13 +1,13 @@
 // Elbera Tools: manual original NPC pose inspection, independent of game state.
 // Time means a chosen point in frames/rate, not a native endpoint, clock, tween,
-// stance or notify schedule. Existing skin weights/actor placement stay unverified.
+// stance or notify schedule. Source weight inputs and full skinning are separate.
 import { createOriginalPoseRig } from './sourcepose.js';
 
 const SCOPE = 'manual-original-source-inspection';
 const same = (a,b) => typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();
 const hashes = ['meshPackageSHA256','animationPackageSHA256','meshExportSHA256','animationExportSHA256'];
 
-export function createNpcSourceInspection(scene, {catalog,skeleton,record}={}) {
+export function createNpcSourceInspection(scene, {catalog,skeleton,record,skinReceipt}={}) {
   if (skeleton?.format !== 'elbera-original-npc-skeleton-v1'
       || record?.modelId !== catalog?.modelId
       || !same(record?.model?.meshRef,skeleton.meshRef)
@@ -29,7 +29,7 @@ export function createNpcSourceInspection(scene, {catalog,skeleton,record}={}) {
     return Object.freeze({name:row.name,frames:row.frames,rate:row.rate,duration:row.frames/row.rate});
   }));
   let selected=null, disposed=false;
-  const common = {scope:SCOPE,skinWeights:'unverified',modelId:catalog.modelId,
+  const common = {scope:SCOPE,skinWeights:skinReceipt?.status ?? 'unverified',modelId:catalog.modelId,
     meshRef:skeleton.meshRef,animationRef:skeleton.animationRef};
   let state={...common,status:'idle'};
   const describe = () => selected ? {sequence:selected.sequence.name,frames:selected.sequence.frames,

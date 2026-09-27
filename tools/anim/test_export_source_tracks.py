@@ -430,7 +430,7 @@ class NpcRuntimeTransportTests(unittest.TestCase):
         index={'format':'elbera-original-npc-animation-runtime-index-v1','npcs':{'101':{'modelId':model}},
                'models':{model:{'meshRef':s['meshRef'],'animationRef':s['animationRef']}}}
         with tempfile.TemporaryDirectory() as tmp, patch.object(exporter,'OUTPUT',Path(tmp)/'animation-tracks'), \
-             patch.object(exporter,'collect_npcs',side_effect=lambda ids:({model:c},{model:s},copy.deepcopy(index))) as collector, \
+             patch.object(exporter,'collect_npcs',side_effect=lambda ids,include_skin=False:({model:c},{model:s},copy.deepcopy(index))) as collector, \
              redirect_stdout(io.StringIO()):
             with patch('sys.stderr',io.StringIO()), self.assertRaises(SystemExit):exporter.main(['--npc','101'])
             collector.assert_not_called()
@@ -447,6 +447,49 @@ class NpcRuntimeTransportTests(unittest.TestCase):
                 with self.assertRaises(OSError):exporter.main(['--npc','101','--runtime','--write'])
             self.assertEqual(target.read_bytes(),before)
             self.assertEqual(list(bundle.parent.iterdir()),[bundle])
+
+    def test_npc_skin_cli_is_explicit_and_preserves_metadata_and_existing_key_payload(self):
+        c,s=npc_runtime_fixture();model=c['modelId']
+        skin={'format':'elbera-original-npc-skin-inputs-v1','stream':'stored-gpu-soft52',
+              'sourceLOD0SHA256':'1'*64,'builtGLTFSHA256':'2'*64,
+              'builtBuffers':[{'uri':'fixture.bin','byteLength':4,'SHA256':'3'*64}],
+              'meshIndex':0,'skinIndex':0,'boneNodes':[2,0,1],
+              'primitives':[{'primitiveIndex':0,'bones':[[2,0,2,-1]],
+                             'weights':[[.125,.25,.5,-0.]]}]}
+        def collect(ids, *, include_skin=False):
+            self.assertEqual(ids,[101])
+            skeleton=copy.deepcopy(s)
+            if include_skin:skeleton['sourceSkin']=copy.deepcopy(skin)
+            index={'format':'elbera-original-npc-animation-runtime-index-v1',
+                   'npcs':{'101':{'modelId':model}},'models':{model:{}}}
+            return {model:copy.deepcopy(c)},{model:skeleton},index
+        with tempfile.TemporaryDirectory() as tmp, patch.object(exporter,'OUTPUT',Path(tmp)/'animation-tracks'), \
+             patch.object(exporter,'collect_npcs',side_effect=collect) as collector, \
+             redirect_stdout(io.StringIO()):
+            for args in (['--npc-skin'],['--runtime','--npc-skin'],['--npc','101','--npc-skin']):
+                with self.subTest(args=args),patch('sys.stderr',io.StringIO()),self.assertRaises(SystemExit):
+                    exporter.main(args)
+            collector.assert_not_called()
+            exporter.main(['--npc','101','--runtime','--npc-skin'])
+            collector.assert_called_once_with([101],include_skin=True)
+            self.assertFalse(exporter.OUTPUT.exists(),'read-only mode must not write the skin extension')
+            args=['--npc','101','--runtime','--npc-skin']
+            exporter.main(args+['--write'])
+            bundle=exporter.OUTPUT/'runtime'/f'{model}.l2anim';blob=bundle.read_bytes()
+            size=struct.unpack_from('<I',blob,8)[0];meta=json.loads(blob[16:16+size])
+            actual=meta['skeleton']['sourceSkin']
+            self.assertEqual(actual,skin)
+            self.assertEqual(struct.pack('<4f',*actual['primitives'][0]['weights'][0]),
+                             struct.pack('<4f',.125,.25,.5,-0.))
+            plain=pack_animation_bundle(c,s);plain_size=struct.unpack_from('<I',plain,8)[0]
+            self.assertEqual(blob[16+(size+3)//4*4:],plain[16+(plain_size+3)//4*4:],
+                             'adding skin inputs cannot change original animation keys')
+            exporter.main(args+['--check'])
+            before=bundle.stat().st_mtime_ns
+            with self.assertRaisesRegex(ValueError,'missing or stale'):
+                exporter.main(['--npc','101','--runtime','--check'])
+            self.assertEqual(bundle.read_bytes(),blob)
+            self.assertEqual(bundle.stat().st_mtime_ns,before)
 
 
 class NpcSourceCollectorTests(unittest.TestCase):
@@ -532,6 +575,29 @@ class NpcSourceCollectorTests(unittest.TestCase):
         for ids in ([],[101,101],[True],[0],[103]):
             with self.subTest(ids=ids),self.assertRaises(ValueError):self.npc.collect_npcs(ids)
 
+    def test_optional_skin_is_carried_in_skeleton_without_relabeling_native_deformation(self):
+        skin={'format':'elbera-original-npc-skin-inputs-v1','stream':'stored-gpu-soft52',
+              'primitives':[{'primitiveIndex':0,'bones':[[0,0,-1,-1]],
+                             'weights':[[.25,.75,0.,-0.]]}]}
+        built={'geometryProof':{'status':'synthetic-test'},
+               'skinProof':{'status':'unverified'},'sourceSkin':copy.deepcopy(skin)}
+        with patch.object(self.npc,'built_correspondence',return_value=built) as correspondence:
+            catalogs,skeletons,index=self.npc.collect_npcs([101,102],include_skin=True)
+        correspondence.assert_called_once()
+        self.assertEqual(correspondence.call_args.kwargs,{'include_skin':True})
+        model=next(iter(catalogs));skeleton=skeletons[model]
+        self.assertEqual(skeleton['sourceSkin'],skin)
+        indexed=index['models'][model]['built']
+        self.assertNotIn('sourceSkin',indexed,'large lane arrays should have one bundle owner')
+        self.assertEqual(indexed['skinProof']['status'],'unverified')
+        self.assertEqual(indexed['skinProof']['runtimeInputs'],'stored-gpu-soft52')
+        blob=pack_animation_bundle(catalogs[model],skeleton)
+        size=struct.unpack_from('<I',blob,8)[0]
+        actual=json.loads(blob[16:16+size])['skeleton']['sourceSkin']
+        self.assertEqual(actual,skin)
+        self.assertEqual(struct.pack('<4f',*actual['primitives'][0]['weights'][0]),
+                         struct.pack('<4f',.25,.75,0.,-0.))
+
 
 class NpcBuiltCorrespondenceTests(unittest.TestCase):
     """Actual geometry/path verifier using a fully authored triangle and glTF."""
@@ -549,6 +615,7 @@ class NpcBuiltCorrespondenceTests(unittest.TestCase):
             self.views.append({'buffer':0,'byteOffset':start,'byteLength':len(self.raw)-start})
             self.accessors.append({'bufferView':len(self.views)-1,'componentType':component,'count':len(rows),'type':kind})
             return len(self.accessors)-1
+        self.attribute=attribute
         pos=attribute([(0.,0.,0.),(1.,0.,0.),(0.,0.,1.)],'f',3,5126,'VEC3')
         uv=attribute([(0.,0.),(1.,0.),(0.,1.)],'f',2,5126,'VEC2')
         joints=attribute([(0,0,0,0)]*3,'H',4,5123,'VEC4')
@@ -562,10 +629,11 @@ class NpcBuiltCorrespondenceTests(unittest.TestCase):
             'meshes':[{'name':'mFixture','primitives':[{'attributes':{'POSITION':pos,'TEXCOORD_0':uv,
                        'JOINTS_0':joints,'WEIGHTS_0':weights},'indices':indices,'material':0}]}]}
         self.source={'name':'mFixture','bones':[{'name':'Root','parent':0}],
-            'vertices':[{'position':p,'uv':uv,'sourceInfluences':[(0,1.)]}
+            'vertices':[{'position':p,'uv':uv,'sourceInfluences':[(0,1.)],
+                         'localBones':[0,255,255,255],'weights':[1.,0.,0.,0.]}
                         for p,uv in [((0.,0.,0.),(0.,0.)),((100.,0.,0.),(1.,0.)),((0.,100.,0.),(0.,1.))]],
-            'stream':'soft','softIndices':[0,1,2],
-            'softSections':[{'firstFace':0,'numFaces':1,'material':0}],
+            'stream':'soft','useNewWedges':1,'softIndices':[0,1,2],
+            'softSections':[{'firstFace':0,'numFaces':1,'material':0,'boneMap':[0]}],
             'materialSlots':[{'textureIndex':0,'polyFlags':0}], 'sourceLOD0':{'SHA256':'f'*64}}
         self.diagnostic={'gltf':'models/fixture.gltf','status':'legacy-only'}
         (self.base/'manifest.json').write_text(json.dumps({'models':[{'id':'fixture','gltf':'models/fixture.gltf'}]}))
@@ -600,6 +668,111 @@ class NpcBuiltCorrespondenceTests(unittest.TestCase):
             with self.subTest(uri=uri),self.assertRaises(ValueError):self.npc.built_correspondence(self.base,self.diagnostic,self.source)
         self.gltf['buffers'][0]['uri']='fixture.bin';self.raw.append(0);self.save()
         with self.assertRaisesRegex(ValueError,'byte length'):self.npc.built_correspondence(self.base,self.diagnostic,self.source)
+
+    def test_source_skin_preserves_four_ordered_lanes_and_signed_zero_across_shuffled_built_joints(self):
+        self.source['bones'] += [{'name':name,'parent':0} for name in ('B','C','D')]
+        self.gltf['nodes'][0]['children']=[2,3,4]
+        self.gltf['nodes'] += [{'name':name} for name in ('B','C','D')]
+        self.gltf['skins'][0]['joints']=[4,2,0,3]
+        self.source['softSections'][0]['boneMap']=[3,0,2,1]
+        for vertex in self.source['vertices']:
+            vertex.update(localBones=[2,0,2,255],weights=[.125,.25,.5,-0.],
+                          sourceInfluences=[(2,.125),(3,.25),(2,.5)])
+        self.save();before=(copy.deepcopy(self.source),copy.deepcopy(self.gltf),bytes(self.raw))
+        result=self.npc.built_correspondence(self.base,self.diagnostic,self.source,include_skin=True)
+        skin=result['sourceSkin']
+        self.assertEqual(skin['boneNodes'],[0,2,3,4])
+        self.assertEqual(skin['primitives'][0]['bones'],[[2,3,2,-1]]*3)
+        for row in skin['primitives'][0]['weights']:
+            self.assertEqual(struct.pack('<4f',*row),struct.pack('<4f',.125,.25,.5,-0.))
+            self.assertEqual(sum(row),.875,'do not normalize the stored Float32 input lanes')
+        self.assertEqual(skin['builtGLTFSHA256'],result['gltfSHA256'])
+        self.assertEqual(skin['builtBuffers'],result['buffers'])
+        self.assertEqual(skin['sourceLOD0SHA256'],'f'*64)
+        self.assertEqual((self.source,self.gltf,bytes(self.raw)),before)
+        self.assertNotIn('sourceSkin',self.npc.built_correspondence(self.base,self.diagnostic,self.source))
+
+    def test_source_skin_equal_position_uv_is_rejected_when_ordered_lanes_are_ambiguous(self):
+        self.source['bones'].append({'name':'Child','parent':0})
+        self.gltf['nodes'][0]['children']=[2];self.gltf['nodes'].append({'name':'Child'})
+        self.gltf['skins'][0]['joints']=[0,2]
+        self.source['softSections'][0]['boneMap']=[0,1]
+        for vertex in self.source['vertices']:
+            vertex.update(localBones=[0,1,255,255],weights=[.25,.75,0.,0.],
+                          sourceInfluences=[(0,.25),(1,.75)])
+        # Two geometrically identical triangles are legal source data. Their
+        # complete lane sequence, not a sum/sort, must disambiguate the mapping.
+        self.source['vertices'] += copy.deepcopy(self.source['vertices'])
+        self.source['softIndices']=[0,1,2,3,4,5]
+        self.source['softSections'][0]['numFaces']=2
+        primitive=self.gltf['meshes'][0]['primitives'][0]
+        primitive['indices']=self.attribute([(0,),(1,),(2,),(0,),(1,),(2,)],'H',1,5123,'SCALAR')
+        self.gltf['buffers'][0]['byteLength']=len(self.raw);self.save()
+        self.npc.built_correspondence(self.base,self.diagnostic,self.source,include_skin=True)
+        self.source['vertices'][3].update(localBones=[1,0,255,255],weights=[.75,.25,0.,0.])
+        with self.assertRaisesRegex(ValueError,'ambiguous original GPU ordered'):
+            self.npc.built_correspondence(self.base,self.diagnostic,self.source,include_skin=True)
+        # Equal arithmetic weights with a different stored zero sign are also
+        # distinct byte records and cannot be silently selected.
+        self.source['vertices'][3].update(localBones=[0,1,255,255],weights=[.25,.75,-0.,0.])
+        with self.assertRaisesRegex(ValueError,'ambiguous original GPU ordered'):
+            self.npc.built_correspondence(self.base,self.diagnostic,self.source,include_skin=True)
+
+    def test_source_skin_mapping_stays_with_each_material_section(self):
+        # Identical POSITION/UV in different sections may legitimately carry
+        # different influences. Matching must use each source section's range.
+        self.source['bones'].append({'name':'Child','parent':0})
+        self.gltf['nodes'][0]['children']=[2];self.gltf['nodes'].append({'name':'Child'})
+        self.gltf['skins'][0]['joints']=[0,2]
+        self.source['vertices'] += copy.deepcopy(self.source['vertices'])
+        for vertex in self.source['vertices'][3:]:vertex['sourceInfluences']=[(1,1.)]
+        self.source['softIndices'] += [3,4,5]
+        self.source['softSections'].append({'firstFace':1,'numFaces':1,'material':0,'boneMap':[1]})
+        self.gltf['meshes'][0]['primitives'].append(copy.deepcopy(self.gltf['meshes'][0]['primitives'][0]))
+        self.save()
+        result=self.npc.built_correspondence(self.base,self.diagnostic,self.source,include_skin=True)
+        self.assertEqual([p['bones'] for p in result['sourceSkin']['primitives']],
+                         [[[0,-1,-1,-1]]*3,[[1,-1,-1,-1]]*3])
+
+    def test_source_skin_rejects_unproved_stream_palette_lane_and_float_inputs(self):
+        mutations=[
+            ('stream',lambda:self.source.__setitem__('stream','rigid')),
+            ('stream',lambda:self.source.__setitem__('useNewWedges',0)),
+            ('palette',lambda:self.source['softSections'][0].__setitem__('boneMap',[])),
+            ('palette',lambda:self.source['softSections'][0].__setitem__('boneMap',[0]*71)),
+            ('lane',lambda:self.source['vertices'][0]['localBones'].__setitem__(0,1)),
+            ('lane',lambda:self.source['vertices'][0]['localBones'].__setitem__(0,True)),
+            ('sentinel',lambda:self.source['vertices'][0]['localBones'].__setitem__(0,255)),
+            ('outside skeleton',lambda:self.source['softSections'][0].__setitem__('boneMap',[1])),
+            ('lane',lambda:self.source['vertices'][0]['weights'].__setitem__(0,-.5)),
+            ('Float32',lambda:self.source['vertices'][0]['weights'].__setitem__(0,.1)),
+            ('Float32',lambda:self.source['vertices'][0]['weights'].__setitem__(0,float('nan'))),
+            ('Float32',lambda:self.source['vertices'][0]['weights'].__setitem__(0,True)),
+        ]
+        # The real geometry proof is already exercised above. Here isolate the
+        # new admission gates from unrelated legacy source-audit assertions.
+        built=self.npc.built_correspondence(self.base,self.diagnostic,self.source)
+        original=copy.deepcopy(self.source)
+        for pattern,change in mutations:
+            self.source=copy.deepcopy(original);change()
+            with self.subTest(pattern=pattern),self.assertRaisesRegex(ValueError,pattern):
+                self.npc.source_skin_inputs(self.gltf,[bytes(self.raw)],self.source,built)
+        self.source=original
+        self.source['softSections'][0]['boneMap']=[0]*70
+        self.npc.source_skin_inputs(self.gltf,[bytes(self.raw)],self.source,built)
+
+    def test_source_skin_rejects_extra_skin_sets_morphs_and_unmapped_vertices(self):
+        built=self.npc.built_correspondence(self.base,self.diagnostic,self.source)
+        primitive=self.gltf['meshes'][0]['primitives'][0]
+        primitive['attributes']['JOINTS_1']=primitive['attributes']['JOINTS_0']
+        with self.assertRaisesRegex(ValueError,'additional skin sets'):
+            self.npc.source_skin_inputs(self.gltf,[bytes(self.raw)],self.source,built)
+        del primitive['attributes']['JOINTS_1'];primitive['targets']=[{'POSITION':0}]
+        with self.assertRaisesRegex(ValueError,'morphs'):
+            self.npc.source_skin_inputs(self.gltf,[bytes(self.raw)],self.source,built)
+        del primitive['targets'];struct.pack_into('<f',self.raw,0,2.)
+        with self.assertRaisesRegex(ValueError,'no exact original GPU correspondence'):
+            self.npc.source_skin_inputs(self.gltf,[bytes(self.raw)],self.source,built)
 
 
 if __name__ == '__main__': unittest.main()

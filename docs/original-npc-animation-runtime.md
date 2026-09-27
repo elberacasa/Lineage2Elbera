@@ -4,8 +4,8 @@ Gremlin 20001 and fox 20091 now have private bundles containing every sequence
 in their original bound animation objects. The normal NPC entity loader verifies
 and loads these inputs; the manual inspector can display the sparse source poses
 through that entity's existing model. **Automatic live native NPC playback is
-off.** Original packet-tail interpretation and summon/event-type 2 admission
-remain unresolved, so loading source data does not select a native gameplay state.
+off.** Loading source data does not establish a live actor's complete native
+state, modifiers, animation transitions or event schedule.
 
 ## Inputs and reproducible generation
 
@@ -19,6 +19,9 @@ python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime
 # Generate the private selected set, then independently re-decode and compare.
 python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime --write
 python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime --check
+# Also retain the original stored GPU influence lanes, without rebuilding glTF.
+python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime --npc-skin --write
+python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime --npc-skin --check
 ```
 
 The collector reuses [qualified selector recovery](npc-animation-variants.md):
@@ -59,10 +62,10 @@ than passing as the old set. `--check` compares fresh bytes and writes nothing.
 
 ## Source coverage and geometry boundary
 
-| NPC | Original mesh → animation | Mesh/animation bones | Bundle size |
+| NPC | Original mesh → animation | Mesh/animation bones | Base bundle / with GPU inputs |
 | --- | --- | --- | --- |
-| Gremlin 20001 | `LineageMonsters.gremlin_m00` → `LineageMonsters.gremlin_anim` | 55 / 55, all linked | 424,912 bytes |
-| Fox 20091 | `LineageMonsters.fox_m00` → `LineageMonsters.Fox_anim` | 40 / 40, all linked | 348,336 bytes |
+| Gremlin 20001 | `LineageMonsters.gremlin_m00` → `LineageMonsters.gremlin_anim` | 55 / 55, all linked | 424,912 / 487,240 bytes |
+| Fox 20091 | `LineageMonsters.fox_m00` → `LineageMonsters.Fox_anim` | 40 / 40, all linked | 348,336 / 370,088 bytes |
 
 Both bundles retain eight sequences, including the one-frame `deathwait` and
 the `atkwait` absent from their legacy converted clips. All listed source rates
@@ -86,11 +89,32 @@ Every source bone maps to a unique browser joint by its name/parent path.
 The manifest alias is only a file locator. Exact glTF/buffer hashes, lengths,
 mesh/skin indexes and joint identities accompany that correspondence.
 
-**Skin weights remain unverified:** the comparison finds different influence
-values at 582/1,324 Gremlin vertices and 215/422 fox vertices. Existing browser
-weights are retained. Position/UV/winding agreement does not certify native
-weighted deformation, inverse binds, actor placement, materials or lighting.
-This is two source models, not a complete NPC-roster audit.
+The original files contain two influence representations: lazy influence arrays
+and stored GPU vertex records. The old converter uses the lazy arrays, packs
+weights into bytes, merges repeated bones and normalizes them; the glTF assembler
+normalizes again. Fresh conversion reproduces every current glTF vertex. The
+previous 582/1,324 Gremlin and 215/422 fox discrepancy counts compare those glTF
+records against the **stored GPU stream**, not against a single universal native
+weight representation. There are no unexplained bone-set changes or dropped
+influences in these two models.
+
+`--npc-skin` carries the stored GPU stream's four original Float32 lanes in the
+existing source bundle. It requires the original GPU stream flag, a supported
+section palette and exact per-section vertex correspondence. Duplicate geometry
+keys with different ordered influences fail closed. Repeated bones, lane order
+and weights survive unchanged; source sentinel lanes remain explicit. No source
+or converted model is overwritten. The source inputs are bound to the original
+LOD hash and the exact verified glTF/buffers.
+
+The runtime replaces actor-owned skin attributes after GLTFLoader parses the
+model: that loader otherwise renormalizes even Float32 weights and changes zero
+rows. Source bone ordinals map through the verified node identities into actual
+skin-joint order. A zero-weight sentinel uses a valid, noncontributing browser
+joint slot; this is an explicit transport adaptation. No inverse-bind matrix is
+changed. **Exact GPU input preservation does not certify native deformation:**
+original shader arithmetic, the separate CPU skinning path, inverse binds,
+actor placement, materials and lighting remain open. This is two source models,
+not a complete NPC-roster audit. The [native GPU input evidence](native-npc-skin-evidence.md) records the conditional original consumer and its limits.
 
 ## Transport and browser ownership
 
@@ -102,6 +126,13 @@ arrays. Keys are neither resampled nor dropped. The authored format names are
 `elbera-original-npc-animation-runtime-index-v1`; these are tool contracts, not
 original client file formats or game rules. Existing player bundle bytes are
 unchanged by the NPC extension.
+
+With `--npc-skin`, optional `skeleton.sourceSkin` metadata uses
+`elbera-original-npc-skin-inputs-v1` inside the same container. Its ordered
+influence records describe the stored `soft52` GPU stream, not the legacy lazy
+arrays. The index retains an explicit full-skinning limit and separately names
+the admitted input representation. Old bundles without this field retain their
+converted skin attributes.
 
 The real entity path loads `/gamedata/npc-animation-runtime.json` and verifies
 the selected class, qualified mesh/animation, bundle, glTF and buffers before
@@ -147,7 +178,7 @@ These fixtures need no original game files, generated catalog or server:
 ```sh
 python3 -S -m unittest discover -s tools/anim -p test_export_source_tracks.py
 python3 -S -m unittest discover -s tools/anim -p test_build_npc_variants.py
-node --test editor/world/test/npcsourceanim.test.mjs editor/world/test/npc-source-inspection.test.mjs editor/world/test/npc-entity-lifecycle.test.mjs editor/world/test/npcanimations.test.mjs
+node --test editor/world/test/npcsourceanim.test.mjs editor/world/test/npc-source-skin.test.mjs editor/world/test/npc-source-inspection.test.mjs editor/world/test/npc-entity-lifecycle.test.mjs editor/world/test/npcanimations.test.mjs
 ```
 
 They cover strict source joins, Float32 transport, malformed data, verified-byte

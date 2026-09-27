@@ -334,6 +334,7 @@ class NpcEntity {
     this.pickResourcesReady = false;
     this.mixer?.stopAllAction?.();
     if (this.monsterRoot) this.mixer?.uncacheRoot?.(this.monsterRoot);
+    this.originalSource?.disposeSkin?.();
     this.current = null; this.actions = null; this.mixer = null;
     this._removeCapsules();
   }
@@ -384,7 +385,7 @@ class NpcEntity {
     const npcId = this.npcId;
     this.modelLoadError = null;
     const current = () => !this._retired && this._upgradeGeneration === generation && this.npcId === npcId;
-    let mixer = null, root = null, adopted = false;
+    let mixer = null, root = null, originalSource = null, adopted = false;
     try {
       const [manifest, meshes] = await Promise.all([monsterManifest(), npcMeshes()]);
       if (!current() || !manifest) return;
@@ -398,8 +399,9 @@ class NpcEntity {
       if (!current()) return;
       const visualScale = npcVisualScale(visualMeta, npcId, entry.id);
       if (!visualScale) throw new Error(`original visual scale unresolved for NPC ${npcId}`);
-      const { gltf, overrides: animationOverrides, originalSource=null } = await loadNpcAnimationModel(
+      const { gltf, overrides: animationOverrides, originalSource: loadedSource=null } = await loadNpcAnimationModel(
         npcId, entry, new GLTFLoader());
+      originalSource = loadedSource;
       if (!current()) return;
       await applyOriginalNpcMaterials(npcId, entry, gltf, THREE);
       if (!current()) return;
@@ -443,6 +445,7 @@ class NpcEntity {
         console.warn(`monster model for npcId ${npcId} failed:`, e.message);
       }
     } finally {
+      if (!adopted) originalSource?.disposeSkin?.();
       if (mixer && !adopted) {
         mixer.stopAllAction();
         mixer.uncacheRoot(root);

@@ -2,6 +2,7 @@
 // The index is generated from private originals; it is not a native format.
 // This module establishes asset identity, not NPC state/rate/modifier parity.
 import { decodeOriginalAnimationBundle } from './sourceanim-data.js';
+import { applyNpcSourceSkin, disposeNpcSourceSkin } from './npc-source-skin.js';
 
 const FORMAT = 'elbera-original-npc-animation-runtime-index-v1';
 const BASE = '/characters/monsters/';
@@ -96,7 +97,9 @@ export async function verifiedNpcSourceModel(record, loader, fetcher=fetch) {
     // mutable model/buffer after validating a different response.
     const parsed = {...document,buffers:document.buffers.map((row,i)=>({...row,uri:urls[i]}))};
     const gltf = await loader.parseAsync(JSON.stringify(parsed),BASE+directory);
-    return {gltf,overrides:{},originalSource:{...source,record}};
+    const skinReceipt = applyNpcSourceSkin(gltf,document,source,record);
+    return {gltf,overrides:{},originalSource:{...source,record,
+      ...(skinReceipt ? {skinReceipt,disposeSkin:()=>disposeNpcSourceSkin(gltf)} : {})}};
   } finally { urls.forEach(url=>URL.revokeObjectURL(url)); }
 }
 

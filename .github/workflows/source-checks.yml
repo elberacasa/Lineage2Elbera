@@ -54,7 +54,7 @@ jobs:
           python3 -m unittest discover -s tools/ui -p test_pose_cache_native.py
           python3 -m unittest discover -s tools/ui -p test_animation_fpu_native.py
           node --test editor/world/test/nativequaternion.test.mjs editor/world/test/nativecoords.test.mjs editor/world/test/nativetrack.test.mjs editor/world/test/sourcepose.test.mjs editor/world/test/pawn-source-inspection.test.mjs editor/world/test/pawn-appearance-inspection.test.mjs editor/world/test/sourceanim-data.test.mjs editor/world/test/sourcepose-playback.test.mjs editor/world/test/nativetween.test.mjs editor/world/test/castplayback.test.mjs editor/world/test/castplayback-review.test.mjs editor/world/test/waitanim.test.mjs editor/world/test/native-castschedule.test.mjs editor/world/test/player-transform.test.mjs
-          node --test editor/world/test/npcsourceanim.test.mjs editor/world/test/npc-source-inspection.test.mjs editor/world/test/npc-entity-lifecycle.test.mjs editor/world/test/npcanimations.test.mjs
+          node --test editor/world/test/npcsourceanim.test.mjs editor/world/test/npc-source-skin.test.mjs editor/world/test/npc-source-inspection.test.mjs editor/world/test/npc-entity-lifecycle.test.mjs editor/world/test/npcanimations.test.mjs
       - name: Java configuration round trip
         run: node --test deploy/test/password-config.test.cjs
       - name: Standalone toolkit packaging tests

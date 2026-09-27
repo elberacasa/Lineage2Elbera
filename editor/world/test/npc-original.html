@@ -110,7 +110,11 @@ function showTracks(){
   for(const control of [sequenceSelect,frameInput,playButton,restoreButton])control.disabled=false;
   const {npc,model}=current.originalSource.record;
   document.querySelector('#track-identity').textContent=`${npc.className} → ${model.meshRef} → ${model.animationRef}. Original animation export SHA-256: ${model.source.animationExportSHA256}`;
-  document.querySelector('#track-limit').textContent=`Geometry and original bone identities checked. Skin weights remain unverified: ${model.built.skinProof.differentInfluenceVertices} vertices differ from source influences. This manual timeline does not execute native state selection, notifies, effects or sounds. Model placement and lighting remain provisional.`;
+  const skin=current.originalSource.skinReceipt;
+  const weights=skin?.status==='stored-gpu-inputs'
+    ? `${skin.vertices.toLocaleString()} vertices use original GPU weight lanes, without quantization or renormalization. Inverse binds and native shader math remain unverified.`
+    : `Converted weights retained: ${model.built.skinProof.differentInfluenceVertices} vertices differ from the stored original GPU records. Native skinning remains unverified.`;
+  document.querySelector('#track-limit').textContent=`Geometry and original bone identities checked. ${weights} This manual timeline does not execute native state selection, notifies, effects or sounds. Model placement and lighting remain provisional.`;
   const wait=npc.selectors.WaitAnimName?.['0']?.sequence;
   if(inspection.sequences.some(row=>row.name===wait))sequenceSelect.value=wait;
   selectSequence();

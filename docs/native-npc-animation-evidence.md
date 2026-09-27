@@ -17,11 +17,13 @@ python3 tools/ui/check_npc_animation_native.py \
   --comparison-core /path/to/pinned/supplemental/Core.dll --check
 ```
 
-The original check verifies 164 Engine anchors, nine Core anchors, five
-interpreted native hash-lookup cases, two freshly recovered NPC selector joins,
-and the existing fresh-instance allocation proof. The portable suite has eight
-cases. Passing these checks is evidence for the bounded statements below, not
-an NPC behavior or rendering parity certificate.
+The original check verifies the existing 164 Engine and nine Core anchors,
+57 additional event/packet-order anchors, ten interpreted native hash-lookup
+cases, two freshly recovered NPC selector joins, and the existing fresh-instance
+allocation proof. It also parses all 1,152 unique original spawn-event records
+through exact EOF. The portable suite has 15 cases. Passing these checks is
+evidence for the bounded statements below, not an NPC behavior or rendering
+parity certificate.
 
 ## Edition and exact source domain
 
@@ -80,7 +82,11 @@ Core `Top` reads in insertion order. Same-address candidate IAT slots are
 
 `OnNpcInfo` calls `GetCurWaitAnimName`, then channel-zero `APawn::PlayAnim`
 with loop 1, tween 0, and Float32 wire movement multiplier. This is the initial
-call, not a recovered full idle/movement/combat state machine.
+call, not a recovered full idle/movement/combat state machine. The fresh decoder
+calls `OnNpcInfo` at `0x1043b0df`; its initial loop and optional spawn event return
+before the decoder stores extension DWORD 0 at `Pawn+0x17d0` at `0x1043b15d`.
+The incoming mask therefore cannot be treated as a field already set during
+that initial selector call.
 
 ## Empty-equipment stance and conditional selection
 
@@ -110,6 +116,40 @@ not attest these conditions. `IsDamageAct` independently reads `Pawn+0x73c`
 bit 0; `IsSpineRotation` reads `+0x748` bit 0. Combat 1 is therefore not itself
 proof of either damage or spine modification.
 
+## Spawn event: closed table miss for these two templates
+
+The original `entereventgrp.dat` encrypted SHA256 is
+`748a0b56f4c92854ddd639945c40d1956601bbc78a034a79c15ffa415f6608f5`;
+its decoded 125,689 bytes hash to
+`cd0819ef32fdb3828a7c1fd855865ccdba3cde1b856f69a5cd55291366f20d5a`.
+The checker freshly decrypts that input and reads the retained serializer's
+field order: ID, two FStrings, two floats, two DWORDs and two L2FNames. It retains
+the first string as `text0`, because its purpose is not established. Counts,
+string boundaries, the original trailer, exact EOF and unique IDs are checked;
+the generated table is not committed or returned in the public proof metadata.
+
+The fresh loader constructs the event map and inserts records by their source
+ID. Packet template normalization and `OnNpcInfo` assign that ID to
+`Pawn+0x69c`. `SpawnEnterEvent` at `0x1061ce50` passes it to the named
+`GetEnterEventData` at `0x104616e0`. The getter requires an exact matching record
+with nonzero `spawn_type`. Missing records return null; there is **no key-zero
+fallback**. The interpreted native lookup tests include collisions and an
+actual synthetic key-zero entry, which returns its own stored-value pointer.
+
+Neither 20001 nor 20091 is present in the 1,152-record original table. The
+null-result branch at `0x1061cead` therefore returns before all data-driven
+effect, rise, animation and sound branches. This closes the original spawn-mode
+2 concern for these exact templates under a fresh original binary-table load.
+It excludes edited text-mode data, later table mutation and template changes.
+Spawn mode 2 is not generally inert: other records can move an actor or replace
+channel-zero animation through `APawn::PlayAnim`.
+
+The serializer, map constructor and append blocks have explicit supplemental
+correspondence. One FString import operand differs between the images and is
+bound individually; same-address IAT slots are not borrowed across files.
+Relocated exception-handler references have only the bounded entry comparison
+described by the checker, not a claim about complete unwind equivalence.
+
 ## What remains before live admission
 
 The [fresh allocation proof](native-pose-allocation-evidence.md) supplies a
@@ -120,14 +160,19 @@ face rotation from a sequence field; the disable path calls named
 `ClearBoneDirection`, which cannot add a modifier to a fresh empty array. This
 closes that specific concern, not every actor update.
 
-Two concrete boundaries prevent an unconditional packet-to-neutral-pose claim:
+The abnormal-state collection still prevents an unconditional
+packet-to-neutral-pose claim. `CheckAbnormalState` reads the reverse array at
+`Pawn+0x165c/+0x1660`, rather than directly testing the incoming mask.
+`UpdateAbnormalState` visits existing entries with the current `+0x17d0` mask
+before its zero-mask gate skips creation. Its direct caller is `APawn::Tick` at
+`0x105d4403`. A zero packet mask is consequently **not** an unconditional clear
+or proof of an empty collection. This checkpoint does not admit a fresh empty
+list from the entire allocation/default/template/callback lifecycle.
 
-- `SpawnEnterEvent` at `0x1061ce50` has global and actor gates followed by
-  class/data-driven effects. The installed ordinary-NPC writer sends spawn
-  byte 2. This event is not established as inert for either live actor.
-- Packet `Pawn+0x17d0` and the linked abnormal-state collection read by
-  `CheckAbnormalState` have not been connected through their complete update
-  lifecycle. A zero packet mask alone is not proof that the collection is empty.
+Lobby, riding, fishing, swimming, damage/spine state, startup channels and other
+local modifiers remain separate actor-lifecycle conditions. The closed event
+table miss removes one specific unknown; automatic live NPC source playback
+remains disabled.
 
 The gateway now preserves raw spawn mode and the complete optional tail.
 Unavailable/truncated tails remain unavailable, not invented zeros. The browser
