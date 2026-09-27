@@ -7,7 +7,8 @@ a read-only audit. --write emits private data; --check compares existing bytes.
 transport metadata and exact Float32 key arrays, not a native game file format.
 This preserves source inputs, not complete native playback or bone association.
 --npc IDs --runtime includes a private selected-NPC index with independently
-verified built geometry/bone paths. Skin weights/placement remain unverified.
+verified built geometry/bone paths. --npc-skin additionally carries stored
+original GPU influence lanes; native skinning and placement remain unverified.
 """
 import argparse
 import hashlib
@@ -22,9 +23,9 @@ ROOT = Path(pawn.ROOT)
 OUTPUT = ROOT / 'assets/gamedata/animation-tracks'
 
 
-def collect_npcs(npc_ids):
+def collect_npcs(npc_ids, *, include_skin=False):
     from npc_source_tracks import collect_npcs as collector
-    return collector(npc_ids)
+    return collector(npc_ids, include_skin=include_skin)
 
 
 def collect(model='all'):
@@ -147,18 +148,22 @@ def main(argv=None):
     content.add_argument('--runtime', action='store_true', help='pack all original sequences and source skeleton as private ELBA transport')
     parser.add_argument('--npc', nargs='+', type=int,
                         help='explicit original NPC IDs; requires --runtime, replaces the selected NPC index')
+    parser.add_argument('--npc-skin', action='store_true',
+                        help='include original stored GPU soft52 influence lanes in the selected NPC bundles')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--write', action='store_true', help='write ignored private source data')
     mode.add_argument('--check', action='store_true', help='freshly decode and compare private output bytes')
     args = parser.parse_args(argv)
     if args.npc is not None and (not args.runtime or args.model != 'all'):
         parser.error('--npc requires --runtime and cannot be combined with a player model')
+    if args.npc_skin and args.npc is None:
+        parser.error('--npc-skin requires explicit --npc IDs and --runtime')
     # Decode and encode every requested model before any output is changed.
     npc_index = None
     if args.runtime:
         from pack_source_tracks import pack_animation_bundle
         if args.npc is not None:
-            catalogs, skeletons, npc_index = collect_npcs(args.npc)
+            catalogs, skeletons, npc_index = collect_npcs(args.npc, include_skin=args.npc_skin)
         else:
             catalogs, skeletons = collect(args.model), collect_skeletons(args.model)
         if set(catalogs) != set(skeletons):

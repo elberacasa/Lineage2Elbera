@@ -41,6 +41,176 @@ def absent_zero_item_ids(groups):
             for name, rows in groups.items()}
 
 
+def parse_enter_event_table(data):
+    """Read the retained EnterEventData serializer; no field-name guessing.
+
+    Duplicate IDs are rejected: this bounded proof needs an unambiguous fresh
+    table and does not emulate replacement order for edited/custom datasets.
+    The first FString's meaning remains unknown and is retained as text0.
+    """
+    sys.path.insert(0, str(ROOT/'tools/dat'))
+    from extract_gamedata import SkillReader, TRAILER
+    if not isinstance(data, bytes) or not data.endswith(TRAILER):
+        raise ValueError('EnterEventgrp: missing SafePackage trailer')
+    reader = SkillReader(data[:-len(TRAILER)], 'EnterEventgrp')
+    try:
+        count = reader.u32()
+        # id + two empty ASCF strings + two floats + two DWORDs + two
+        # empty length-prefixed UTF16 strings = 30 minimum serialized bytes.
+        if count > (len(reader.data)-reader.pos)//30:
+            raise ValueError('EnterEventgrp: record count exceeds payload')
+        rows, ids = [], set()
+        for _ in range(count):
+            row = {'id':reader.u32(), 'text0':reader.ascf(), 'sound':reader.ascf(),
+                   'soundVolume':reader.f32(), 'soundRadius':reader.f32(),
+                   'isrise':reader.u32(), 'spawn_type':reader.u32(),
+                   'effect':reader.ustr(), 'animation':reader.ustr()}
+            if row['id'] in ids:
+                raise ValueError('EnterEventgrp: duplicate source identifier')
+            ids.add(row['id'])
+            rows.append(row)
+        if not reader.done():
+            raise ValueError('EnterEventgrp: unconsumed payload')
+        return rows
+    except (EOFError, UnicodeError, struct.error) as error:
+        raise ValueError('EnterEventgrp: malformed or truncated record') from error
+
+
+def enter_event_lookup(rows, npc_id):
+    """Retained GetEnterEventData: exact key and nonzero spawn_type only.
+
+    Input must be the unique table returned by parse_enter_event_table. In
+    particular, source key zero is ordinary data, never a fallback for a miss.
+    """
+    if type(npc_id) is not int or not 0 <= npc_id <= 0xffffffff:
+        raise ValueError('original DWORD NPC identifier required')
+    row = next((row for row in rows if row['id'] == npc_id), None)
+    return row if row is not None and row['spawn_type'] != 0 else None
+
+
+def verify_spawn_enter_event(engine, candidate):
+    """Fresh original binary table only; return proof metadata, never rows."""
+    from check_hair_attachment_native import compare_call_block
+    from check_supplemental_engine import compare_method
+    sys.path.insert(0, str(ROOT/'tools/dat'))
+    from extract_gamedata import decrypt
+    read = lambda va,n: bytes(engine.data[engine.offset(va):engine.offset(va)+n])
+    anchors = [
+        (0x1043ac3f,'mov','ecx, dword ptr [esp + 0x64]'),
+        (0x1043ac43,'add','ecx, 0xfff0bdc0'),(0x1043ac49,'mov','dword ptr [esi + 0x14], ecx'),
+        (0x10495316,'mov','edx, dword ptr [ebp + 0x14]'),(0x10495319,'mov','dword ptr [eax + 0x69c], edx'),
+        (0x10495656,'cmp','dword ptr [esp + 0x44], 2'),(0x10495663,'call','0x10307d5b'),
+        (0x1061ce7b,'cmp','dword ptr [0x10c51034], 0'),(0x1061ce82,'je','0x1061d23c'),
+        (0x1061ce88,'test','byte ptr [esi + 0x694], 4'),(0x1061ce8f,'je','0x1061d23c'),
+        (0x1061ce95,'mov','eax, dword ptr [esi + 0x69c]'),(0x1061ce9b,'push','eax'),
+        (0x1061cea1,'call','0x10303909'),(0x1061ceab,'test','edi, edi'),(0x1061cead,'je','0x1061d223'),
+        (0x1046170c,'mov','ecx, dword ptr [ecx + 0x7dce8]'),(0x10461712,'call','0x10302fe0'),
+        (0x10461719,'je','0x1046172f'),(0x10461724,'cmp','ecx, dword ptr [ebp + 8]'),
+        (0x10461729,'cmp','dword ptr [eax + 0x28], 0'),(0x1046172f,'xor','eax, eax'),
+        (0x10458c43,'cmp','dword ptr [esi + ecx*4 + 4], edx'),(0x10458c53,'xor','eax, eax'),
+        (0x10480664,'cmp','dword ptr [esi + 0x7dce8], ebx'),(0x10480683,'call','0x10312111'),
+        (0x1048068f,'mov','dword ptr [esi + 0x7dce8], eax'),(0x10480698,'call','0x1030e827'),
+        (0x10474480,'push','4'),(0x10474497,'cmp','eax, dword ptr [ebp + 0x44]'),
+        (0x104744c8,'call','0x1030e697'),(0x104744d1,'push','esi'),
+        (0x104744d5,'mov','ecx, dword ptr [edx + 0x7dce8]'),(0x104744db,'call','0x10311900'),
+        (0x104632cc,'mov','esi, dword ptr [ebx]'),(0x104632e3,'cmp','dword ptr [edi + edx*4 + 4], esi'),
+        (0x1045a6e4,'mov','dword ptr [edi + 4], eax'),(0x1045a6e9,'mov','dword ptr [edi + 8], edx'),
+        (0x1061cfb9,'mov','eax, dword ptr [edi + 0x24]'),(0x1061cfbe,'je','0x1061d108'),
+        (0x1061d0b9,'lea','edi, [esi + 0x658]'),(0x1061d0fe,'or','dword ptr [esi + 0x678], 4'),
+        (0x1061d113,'lea','ebx, [edi + 0x30]'),(0x1061d124,'je','0x1061d14d'),
+        (0x1061d145,'mov','eax, dword ptr [edx + 0x328]'),(0x1061d14b,'call','eax'),
+        (0x1061d14d,'lea','ebx, [edi + 0x10]'),
+        # Initial loop/event return precedes the fresh packet-mask assignment.
+        (0x1043b0df,'call','edx'),(0x1043b159,'mov','ecx, dword ptr [esp + 0x54]'),
+        (0x1043b15d,'mov','dword ptr [eax + 0x17d0], ecx'),
+        # A zero mask is not an unconditional clear of an existing collection.
+        (0x104b114a,'mov','eax, dword ptr [edi + 0x1660]'),
+        (0x104b115d,'mov','eax, dword ptr [edi + 0x165c]'),
+        (0x104b9eac,'mov','ecx, dword ptr [edi + 0x17d0]'),
+        (0x104b9eb8,'call','edx'),(0x104ba0b1,'cmp','dword ptr [edi + 0x17d0], 0'),
+        (0x104ba0b8,'je','0x104ba59e'),(0x105d4403,'call','0x10311847'),
+    ]
+    for anchor in anchors: engine.instruction(*anchor)
+    assert engine.exported('?GetEnterEventData@FL2GameData@@QAEPAUFL2EnterEventData@@H@Z',True)==0x104616e0
+    assert engine.exported('?SpawnEnterEvent@APawn@@QAEXXZ',True)==0x1061ce50
+    assert engine.exported('?CheckAbnormalState@APawn@@QAEHH@Z',True)==0x104b1120
+    assert engine.exported('?UpdateAbnormalState@APawn@@QAEHM@Z',True)==0x104b9870
+    assert engine.wide(0x1089b6b8)=='EnterEventgrp.dat'
+    assert engine.wide(0x1089b68c)=='EnterEventgrp.txt'
+    assert engine.u32(engine.exported('??_7APawn@@6B@')+0x328)==engine.exported('?PlayAnim@APawn@@UAEHHVFName@@MMHH@Z')
+    assert engine.u32(engine.exported('??_7UGameEngine@@6BUObject@@@')+0x258)==engine.exported('?OnNpcInfo@UGameEngine@@UAEHPAUUser@@VFVector@@HAAVL2ParamStack@@@Z')
+
+    # Exact serializer correspondence; same-address IAT slots are NOT assumed
+    # equivalent. This particular FString operand and bounded EH entry differ.
+    lo,hi=0x1044ede0,0x1044ee84
+    owned=bytearray(read(lo,hi-lo));other=candidate.read(lo,hi-lo)
+    assert struct.unpack_from('<I',owned,0x3b)[0]==0x11d8d958
+    assert struct.unpack_from('<I',other,0x3b)[0]==0x11d8d954
+    assert candidate.imports[0x11d8d954]==('core.dll','??6@YAAAVFArchive@@AAV0@AAVFString@@@Z')
+    owned[0x3b:0x3f]=struct.pack('<I',0x11d8d954)
+    serializer=compare_method(bytes(owned),other,lo,lo,candidate.imported_call,read,candidate.read,(0x108129b0,0x10812970))
+    assert len(serializer['differences'])==1
+    lo,hi=0x1047a660,0x1047a6ba
+    constructor=compare_method(read(lo,hi-lo),candidate.read(lo,hi-lo),lo,lo,candidate.imported_call,read,candidate.read,(0x108148f1,0x108148b1))
+    assert [(r['kind'],r.get('binding')) for r in constructor['differences']]==[
+        ('explicit-handler-reference',None),('named-import',['core.dll','??0FArray@@QAE@XZ'])]
+    append=compare_call_block(read(0x1045a6c0,0x70),candidate.read(0x1045a6c0,0x70),owned_va=0x1045a6c0,candidate_va=0x1045a6c0,
+        sites=[(8,('core.dll','?Add@FArray@@QAEHHH@Z'))],direct_calls=[],imports=candidate.imports)
+
+    # This event map's lookup returns a pointer to its stored value, unlike
+    # the item map above. Interpret its own retained body, including collisions.
+    from check_track_native import Machine
+    class EventLookupMachine(Machine):
+        def step(self, instruction):
+            if instruction.mnemonic == 'and':
+                left,right=instruction.op_str.split(', ')
+                self.write(left,self.read(left)&self.read(right))
+                return instruction.address+instruction.size  # CMP precedes every branch.
+            return super().step(instruction)
+    native_lookup_cases=0
+    program=list(engine.dis.disasm(read(0x10458c20,0x44),0x10458c20))
+    for keys,query in [([],0),([8,16,24],0),([0,8,16],0),([8,16,24],16),([1,9],17)]:
+        address,entry,bucket,stack,query_ptr=0x1000,0x2000,0x3000,0x4000,0x5000
+        memory={address:entry,address+12:bucket,address+16:8,stack+4:query_ptr,query_ptr:query}
+        for i in range(8):memory[bucket+4*i]=0xffffffff
+        for i,key in enumerate(keys):
+            h=key&7
+            memory[entry+12*i]=memory[bucket+4*h]
+            memory[entry+12*i+4]=key
+            memory[entry+12*i+8]=0x6000+4*i
+            memory[bucket+4*h]=i
+        machine=EventLookupMachine(memory,{'ecx':address,'esp':stack,'esi':0},program)
+        machine.execute(0x10458c20)
+        expected=entry+12*keys.index(query)+8 if query in keys else 0
+        assert machine.registers['eax']==expected
+        native_lookup_cases+=1
+
+    source_hash=hashlib.sha256((ROOT/'assets/interlude/system/entereventgrp.dat').read_bytes()).hexdigest()
+    assert source_hash=='748a0b56f4c92854ddd639945c40d1956601bbc78a034a79c15ffa415f6608f5'
+    with tempfile.TemporaryDirectory(prefix='elbera-enter-event-') as temporary:
+        data=decrypt('entereventgrp.dat',temporary)
+    decoded_hash=hashlib.sha256(data).hexdigest()
+    assert decoded_hash=='cd0819ef32fdb3828a7c1fd855865ccdba3cde1b856f69a5cd55291366f20d5a'
+    rows=parse_enter_event_table(data)
+    assert len(rows)==1152 and len(data)==125689
+    assert all(not any(row['id']==npc_id for row in rows) and enter_event_lookup(rows,npc_id) is None for npc_id in (20001,20091))
+    return {'status':'verified-fresh-binary-table-miss','ownedAnchors':len(anchors),
+        'sourceSHA256':source_hash,'decodedSHA256':decoded_hash,'decodedBytes':len(data),'recordCount':len(rows),
+        'interpretedLookupCases':native_lookup_cases,
+        'sourceIds':{'20001':'absent','20091':'absent'},'missingLookup':'null; no key-zero fallback',
+        'spawnResult':'early return before data-driven effect/rise/animation/sound branches',
+        'serializer':serializer,'mapConstructor':constructor,'append':append,
+        'methodSHA256':{name:hashlib.sha256(read(a,b-a)).hexdigest() for name,a,b in [
+            ('SpawnEnterEvent',0x1061ce50,0x1061d24e),('GetEnterEventData',0x104616e0,0x10461744),
+            ('serializer',0x1044ede0,0x1044ee84),('mapLookup',0x10458c20,0x10458c64)]},
+        'packetOrdering':['OnNpcInfo initial loop','optional SpawnEnterEvent','return to decoder','extension DWORD0 stored at Pawn+17d0'],
+        'abnormalBoundary':'CheckAbnormalState reads +165c/+1660; UpdateAbnormalState visits existing entries before zero-mask creation gate. No fresh empty-list admission asserted.',
+        'limits':['Fresh original binary table only; custom/edit-mode text or mutated tables excluded.',
+            'Supplemental correspondence does not restore owned imports or authenticate the comparison distribution.',
+            'Other NPC records may move an actor or replace channel0 animation; spawn mode2 is not generally inert.',
+            'No automatic live neutral-state admission, modifier closure or renderer parity claim.']}
+
+
 def verify(comparison_engine, comparison_core):
     from check_tutorial_quest_native import Image, ENGINE_SHA
     from check_skillanim_native import CORE_SHA
@@ -456,12 +626,14 @@ def verify(comparison_engine, comparison_core):
     # cannot certify packet-created actor flags or a later modified instance.
     from check_pose_allocation_native import verify as allocation_verify
     allocation=allocation_verify(comparison_engine,comparison_core)
+    spawn_event=verify_spawn_enter_event(engine,candidate)
     report.update(format='l2-npc-initial-animation-evidence-v1',status='conditional-inputs-verified;live-admission-unresolved',
         ownedAnchors=len(checks),ownedCoreAnchors=9,packetFields=packet_fields,
         packetFormats=[packet_format,extension],paramStackCorrespondence=param_blocks,
         itemKeyZero={'interpretedLookupCases':lookup_cases,'originalTables':groups,'sources':item_sources,'mapConstructor':map_constructor,'append':append,
             'scope':'Fresh original table load only; source key0 absent, native lookup miss returns null. Runtime table mutation excluded.'},
         sourceDomain=source_domain,sourcePackages=selectors['sources'],
+        spawnEnterEvent=spawn_event,
         freshInstance={'status':allocation['status'],'ownedEngine':allocation['ownedEngine'],
             'ownedCore':allocation['ownedCore'],'supplementalEngine':allocation['supplementalEngine'],
             'supplementalCore':allocation['supplementalCore'],'proof':'check_pose_allocation_native.py',
@@ -472,8 +644,8 @@ def verify(comparison_engine, comparison_core):
         remainingAdmission=[
             'User constructor memset is supplemental correspondence, not restored owned import; reused User state is excluded.',
             'Fresh source table stance zero is conditional on empty right/left/fallback equipment bank.',
-            'Spawn mode2 calls SpawnEnterEvent after initial PlayAnim; its class/data/effect lifecycle is not admitted here.',
-            'Packet extension first DWORD goes to Pawn+17d0, but zero does not by itself prove an empty CheckAbnormalState list.',
+            'SpawnEnterEvent exits on the checked fresh original table miss for Gremlin/Fox only; changed templates/tables and other NPCs remain outside that proof.',
+            'Initial loop/event precede the packet store to Pawn+17d0. UpdateAbnormalState visits existing entries before its zero-mask creation gate; no fresh empty-list admission is asserted.',
             'Lobby, riding, fishing, swimming overrides, damage/spine state and extra channels/modifiers need actual actor-lifecycle admission.',
             'Original Wait/AtkWait sound notifies are not rendered by this selector proof.',
             'No unconditional live NPC playback admission or full rendering/behavior parity is established.'])
@@ -490,7 +662,9 @@ def main():
     if args.check:
         print(f"Elbera NPC initial-animation inputs: {result['ownedAnchors']} Engine anchors; "
               f"{result['ownedCoreAnchors']} Core anchors; 2 source NPCs; "
-              "key0 absent in fresh original item tables; live neutral-state admission unresolved.")
+              f"{result['spawnEnterEvent']['ownedAnchors']} additional event/order anchors; "
+              f"{result['spawnEnterEvent']['recordCount']} unique original spawn-event records; "
+              "Gremlin/Fox event miss verified; live neutral-state admission unresolved.")
     else:
         print(json.dumps(result,indent=2))
 
