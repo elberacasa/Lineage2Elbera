@@ -58,6 +58,10 @@ jobs:
       - name: Java configuration round trip
         run: node --test deploy/test/password-config.test.cjs
       - name: Standalone toolkit packaging tests
-        run: python3 -m unittest discover -s tools/release -p test_build_core.py
+        run: |
+          python3 -m unittest discover -s tools/release -p test_build_core.py
+          python3 -m unittest discover -s tools/release -p test_build_npc_source.py
       - name: Build and verify the isolated source-only toolkit
         run: python3 tools/release/build_core.py --check
+      - name: Build and verify the isolated NPC source toolkit
+        run: python3 tools/release/build_npc_source.py --check --native-fixtures

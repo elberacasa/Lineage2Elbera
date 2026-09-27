@@ -148,8 +148,10 @@ event mappings. The full beginner loop remains unfinished.
 
 Reusable decoders, verifiers and inspections are maintained as
 [Elbera Tools](../tools/README.md). Their public code stays separate from
-private originals and generated game data; no community release has been
-published from this work.
+private originals and generated game data. The standalone
+[Core 0.1.0 prerelease](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0)
+contains the allowlisted package/texture library, UTX editor, script extractor
+and XDAT decoder. It does not contain the full browser or every newer verifier.
 
 
 ## Sit/stand and effect attachment checkpoint

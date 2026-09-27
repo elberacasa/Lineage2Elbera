@@ -2138,3 +2138,34 @@ material. Original inputs, generated bundles and raw local receipts stay private
 Core 0.1.0 remains the earlier smaller standalone toolkit. Next: close the fresh
 actor/modifier admission boundary, connect original NPC state playback, and
 continue movement, attack/cast/death schedules, effects and the full-client gaps.
+
+## Standalone NPC Source toolkit — 27 September 2026
+
+Added the separate Elbera Tools NPC Source 0.1.0 release profile. It packages
+the existing qualified NPC selector recovery, original sparse-key transport,
+optional GPU input lanes, and bounded initial-animation/GPU evidence checks.
+Its 43 text files and hash manifest contain no browser application, graphical
+inspector, client files, converted models or generated game data. Users supply
+their own original inputs; runtime export additionally checks their matching
+converted geometry. The guide distinguishes each command's reads and writes,
+the selected-set index behavior, native evidence limits and external dependencies.
+
+The new profile reuses Core's deterministic allowlist/archive machinery.
+Core's original profile produces identical bytes for identical inputs. Source
+selector recovery now imports the old conversion stack only when the separate
+legacy model-build path is called, reducing the NPC production dependency set
+from 36 to 32 modules. No decoder or browser runtime was duplicated.
+
+The extracted NPC archive passes 89 standard-library test executions and 97
+with the optional pinned Capstone PE cases; no original-input tests silently
+activate when users add their game files. Nine packaging cases cover the
+manifest, deterministic output, source changes, symlinks, missing/binary inputs,
+adjacent private-file exclusion and isolated extraction. Candidates explicitly
+record working-tree provenance; reviewed releases are rebuilt from committed
+source. CI now exercises both standalone profiles. The README keeps its full
+gallery and distinguishes the two downloads from the complete repository.
+
+Native spawn research continues separately. Constructor-return defaults,
+startup script dispatch, earlier animation requests and later native selection
+must remain distinct. Shipping analysis tools does not admit automatic native
+NPC state playback or complete the full browser-client goal.

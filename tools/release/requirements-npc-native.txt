@@ -1,0 +1,3 @@
+# Optional original-input verifiers and synthetic PE correspondence cases.
+# Not needed for the default portable smoke suite. No package is bundled.
+capstone==5.0.7

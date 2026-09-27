@@ -9,6 +9,7 @@ A browser client, an Interlude protocol gateway, and Elbera Tools for the L2 com
 
 [![Source checks](https://github.com/elberacasa/Lineage2Elbera/actions/workflows/source-checks.yml/badge.svg)](https://github.com/elberacasa/Lineage2Elbera/actions/workflows/source-checks.yml)
 [![Elbera Tools Core](https://img.shields.io/badge/Elbera_Tools_Core-v0.1.0_prerelease-b49a61?style=flat-square)](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0)
+[![Elbera Tools NPC Source](https://img.shields.io/badge/NPC_Source-v0.1.0_prerelease-b49a61?style=flat-square)](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-npc-source-v0.1.0)
 [![License: MIT](https://img.shields.io/badge/Code-MIT-506b83?style=flat-square)](LICENSE)
 
 [The game](#the-game) · [Elbera Tools](#elbera-tools) · [Recent progress](#recent-progress) · [Get started](#get-started) · [Roadmap](#roadmap) · [Español](#en-español)
@@ -64,7 +65,7 @@ browser behavior and focused verification.
 | **Quest progression** | *Letters of Love* completed through server interactions; the reward survived reconnect and appeared in the browser inventory. | [Quest playtest](docs/quest-completion-playtest.md) |
 | **Shops and original dialogs** | A browser purchase and potion use changed server-owned inventory and currency. Quantity and confirmation dialogs use recovered client rules. | [Shop playtest](docs/shop-playtest.md) |
 | **Recipes and shortcuts** | Recipe books, manufacture details and source-index shortcuts are connected; the live empty Common Craft book was checked. Successful crafting remains a separate test. | [Recipe evidence](docs/native-recipe-evidence.md) |
-| **Community tooling** | Standalone Elbera Tools Core release, portable checks, source provenance, updated guides and actual inspection screenshots. | [Download Core](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0) · [Tool catalog](tools/README.md) |
+| **Community tooling** | Separate Core and NPC Source kits, portable checks, source provenance, updated guides and actual inspection screenshots. | [Core](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0) · [NPC Source](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-npc-source-v0.1.0) · [Tool catalog](tools/README.md) |
 
 The latest appearance milestone is [PR #5](https://github.com/elberacasa/Lineage2Elbera/pull/5).
 The newest animation comparison includes male Human Fighter's **69 matched
@@ -154,21 +155,28 @@ inverse binds, effects and gameplay state transitions still need integration.
 
 </details>
 
-### Download the standalone toolkit
+### Download the standalone toolkits
 
-[**Elbera Tools Core 0.1.0 — source-only prerelease**](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0)
+Two source-only prereleases run independently of the browser project. Each ZIP
+has an explicit file manifest and portable checks; neither contains game assets.
 
-The separate ZIP includes the Python package/texture library, UTX editor,
-embedded-script extractor, XDAT decoder and portable smoke checks.
-It runs independently of the browser project. It contains no game assets.
+| Toolkit | Included | Start here |
+| --- | --- | --- |
+| **[Core 0.1.0](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0)** | Python package/texture library, UTX editor, embedded-script extractor and XDAT decoder. | [Core guide](tools/release/CORE-README.md) |
+| **[NPC Source 0.1.0](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-npc-source-v0.1.0)** | Qualified NPC selectors, original sparse-key bundles, optional GPU weights, and the bounded initial-animation/GPU evidence checks. | [NPC Source guide](tools/release/NPC-SOURCE-README.md) |
 
-The full repository also contains the newer native verifiers, conversion
-pipelines and browser inspectors shown above. They are **not included in the
-Core 0.1.0 ZIP** and have their own inputs and dependencies.
+NPC Source includes 43 text files and a hash manifest. Its portable checks need
+only Python; the optional native-analysis checks require pinned Capstone and
+your own matching client inputs. Runtime bundle export also requires your
+matching converted model data. It supplies inspection data; the graphical
+inspectors shown above remain part of the full repository.
 
-[Core quick start](tools/release/CORE-README.md) ·
+Core 0.1.0 retains its original contents. Each kit documents its supported
+commands and limits; neither includes every tool in the repository.
+
 [Complete tool catalog](tools/README.md) ·
-[Reproduce a release](tools/release/CORE-README.md#reproduce-a-source-release)
+[Reproduce Core](tools/release/CORE-README.md#reproduce-a-source-release) ·
+[Reproduce NPC Source](tools/release/NPC-SOURCE-README.md#reproduce-the-archive)
 
 ### The ELBERA toolchain
 
@@ -367,11 +375,12 @@ el puente de protocolo ElberaGate y las herramientas de la comunidad **Elbera
 Tools**. El trabajo parte de los archivos y comportamientos originales: se
 descifran, se decodifican y se verifican; los datos desconocidos no se inventan.
 
-Ya hay recorridos de juego comprobados, nuevas herramientas de inspección y una
-primera descarga independiente de Elbera Tools Core. El próximo hito es un
+Ya hay recorridos de juego comprobados, nuevas herramientas de inspección y
+descargas independientes de Elbera Tools Core y NPC Source. El próximo hito es un
 servidor de pruebas pequeño; la meta sigue siendo portar el cliente completo,
 con sus mapas, habilidades, animaciones, efectos, progresión e interfaz.
 
 [Estado actual](docs/PORT-COVERAGE.md) · [Plan](docs/WEB-PORT-PLAN.md) ·
 [Herramientas](tools/README.md) ·
-[Descargar Core](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0)
+[Descargar Core](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0) ·
+[Descargar NPC Source](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-npc-source-v0.1.0)
