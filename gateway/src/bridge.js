@@ -796,6 +796,8 @@ class Bridge {
           char: {
             id: u.id, name: u.name, race: u.race, classId: u.classId,
             sex: u.sex, hairStyle: u.hairStyle, hairColor: u.hairColor, face: u.face,
+            paperdoll: u.paperdoll,
+            appearanceItems: u.paperdollObjectIds,
             x: u.x, y: u.y, z: u.z, heading: u.heading,
           },
         });
@@ -892,6 +894,9 @@ class Bridge {
         // equipped item ids (UserInfo's 17-slot layout) — what the client
         // renders in the hand and on the body
         paperdoll: u.paperdoll,
+        // Original UserInfo fills User+0x98 from the object-ID bank. Its
+        // HaveItem hair/accessory checks must not read the template-ID bank.
+        appearanceItems: u.paperdollObjectIds,
         paperdollObjectIds: u.paperdollObjectIds,
         crystallizeAbility: u.crystallizeAbility,
       });
@@ -954,6 +959,8 @@ class Bridge {
         // equipped item ids (CharInfo's 12-slot layout — a different order
         // from UserInfo's, see readPaperdollItems)
         paperdoll: c.paperdoll,
+        // CharInfo fills the same native presence slots from its item-ID bank.
+        appearanceItems: c.paperdoll,
         // attack cadence / swing rate / walk-run stance, same fields and same
         // meaning as on charSheet (CharInfo carries them per player)
         pAtkSpd: c.pAtkSpd, mAtkSpd: c.mAtkSpd, atkSpdMul: c.atkSpdMul,

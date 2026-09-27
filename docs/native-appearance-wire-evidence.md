@@ -52,6 +52,52 @@ server field names and shows agreement with the original wire destinations.
 The evidence here does not independently close every original texture/mesh
 selector using those destinations.
 
+## Equipment banks and native hair-selection inputs
+
+The gateway preserves every received equipment word, rather than only the six
+previously rendered armor/hand fields. UserInfo has seventeen words in each of
+two distinct banks: first item **object IDs**, then item **template IDs**.
+CharInfo has twelve template-ID words and no corresponding object-ID bank.
+The layouts are not interchangeable:
+
+| Packet | Received word order |
+|---|---|
+| UserInfo, each bank | `hairall, rear, lear, neck, rfinger, lfinger, head, rhand, lhand, gloves, chest, legs, feet, cloak, rhand2, hair, face` |
+| CharInfo | `hairall, head, rhand, lhand, gloves, chest, legs, feet, cloak, rhand2, hair, face` |
+
+`paperdoll` carries template IDs for mesh/item lookup. `appearanceItems`
+carries the bank consumed by the native presence checks: UserInfo's first,
+object-ID bank for self, and CharInfo's template-ID bank for remote players.
+`paperdollObjectIds` remains available separately on `charSheet`. Entry also
+carries both `paperdoll` and `appearanceItems`, so model loading cannot discard
+the initial equipment context. Unreceived remote jewelry fields remain absent;
+zero and negative received words are preserved. `rhand2` is retained as a
+separate word and is never used as a substitute for an empty `rhand`.
+
+The original packet argument-address checks bind UserInfo fields 25–41 and
+CharInfo fields 9–20 to the `User + 0x98` slot bank. UserInfo uses native slots
+0–14, 17 and 18; CharInfo uses 0, 6–14, 17 and 18. The missing slots are not
+filled with fabricated words. The named `User::HaveItem` body at `0x10480f40`
+compares `[this + slot*4 + 0x98]` against zero (`0x10480f4b`) and returns the
+signed `> 0` result (`0x10480f52`). Consequently, template IDs cannot replace
+self object IDs merely because both are positive integers.
+
+The named `User::GetItemClassID` at `0x10482100` separately distinguishes local
+and remote users through `+0x94`. UserInfo marks the local branch at
+`0x10434a61`. The local path resolves object IDs through the original
+`UNetworkHandler::GetItem` virtual slot `+0xa0`, whose named body is
+`0x1042b8c0`; the remote path already has template IDs. Submesh parts 6/7/8
+select helmet/accessory inputs, with the local part-8 branch additionally
+checking the resolved item's category/body-part before choosing slot 17 or
+18. The checker retains that distinction instead of interpreting every
+accessory presence word as a directly usable mesh ID.
+
+This closes the ordinary UserInfo/CharInfo transport and presence-bank join.
+It does not prove party-equipment update behavior, creator initialization,
+arbitrary equipment-to-hair table-key matching, or the full local item-class
+selection pipeline in the browser. Those remain separate source/runtime
+boundaries.
+
 ## Runtime and verification scope
 
 The parser requires the appearance DWORDs as part of its normal packet prefix.
@@ -72,10 +118,14 @@ PYTHONDONTWRITEBYTECODE=1 python3 tools/ui/check_appearance_native.py --check
 node --test gateway/test/appearance-packets.test.js gateway/test/collision-packets.test.js
 ```
 
-The native check covers 29 instruction anchors, two original reader formats
-and eight appearance destinations. The portable fixtures contain synthetic
+The native check covers 29 appearance instruction anchors, two original
+reader formats and eight appearance destinations, plus 23 equipment anchors
+and 29 exact equipment-bank destinations. The portable fixtures contain synthetic
 values, variable-length UTF-16 names/titles, distinct doubles, updates to zero,
 and out-of-creation-range values to detect accidental transport coercion.
 They also test every truncated prefix through the last appearance DWORD,
-retired/closed connections, and missing-field behavior in the bridge. No
+retired/closed connections, missing-field behavior in the bridge, distinct
+equipment/presence values, explicit unequips, and absence of a right-hand
+fallback. Actual browser-module tests also exercise latest equipment replay
+during model loading and session retirement. No
 account, live packet capture or proprietary asset payload is checked in.

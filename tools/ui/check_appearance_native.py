@@ -14,6 +14,77 @@ from check_tutorial_quest_native import Image, ROOT, ENGINE_SHA
 from check_inventory_native import field_argument_index
 
 
+def equipment_evidence(e):
+    """Join packet argument addresses to the native User item-slot bank.
+
+    The first UserInfo bank contains object IDs; CharInfo's corresponding
+    bank contains template IDs. HaveItem deliberately consumes that bank,
+    whereas GetItemClassID resolves local object IDs through the item list.
+    """
+    assert e.exported('?HaveItem@User@@QAEHW4ItemSlotType@@@Z', True) == 0x10480f40
+    assert e.exported('?GetItemClassID@User@@QAEHH@Z', True) == 0x10482100
+    assert e.exported('?GetItem@UNetworkHandler@@UAEPAUItem@@H@Z', True) == 0x1042b8c0
+    table = e.exported('??_7UNetworkHandler@@6BUObject@@@')
+    assert e.u32(table + 0xa0) == e.exported('?GetItem@UNetworkHandler@@UAEPAUItem@@H@Z')
+    anchors = [
+        (0x10480f4b, 'cmp', 'dword ptr [ecx + edx*4 + 0x98], eax'),
+        (0x10480f52, 'setg', 'al'),
+        (0x10434a61, 'mov', 'dword ptr [esi + 0x94], 1'),
+        (0x1048212e, 'cmp', 'dword ptr [edi + 0x94], edx'),
+        (0x10482134, 'je', '0x1048266e'),
+        (0x10483608, 'call', '0x10305394'),
+        (0x10305394, 'jmp', '0x10482100'),
+        (0x10482297, 'mov', 'edi, dword ptr [edi + 0xb0]'),
+        (0x104825d5, 'mov', 'edi, dword ptr [edi + 0xdc]'),
+        (0x104825e0, 'mov', 'eax, dword ptr [edi + 0xdc]'),
+        (0x104825f6, 'mov', 'eax, dword ptr [edx + 0xa0]'),
+        (0x104825fc, 'call', 'eax'),
+        (0x10482617, 'cmp', 'dword ptr [eax + 4], 1'),
+        (0x1048261d, 'cmp', 'dword ptr [eax + 0xd4], 0x13'),
+        (0x10482624, 'jne', '0x10482634'),
+        (0x10482629, 'mov', 'eax, dword ptr [esi + 4]'),
+        (0x10482634, 'mov', 'edi, dword ptr [edi + 0xe0]'),
+        (0x1048264e, 'mov', 'edx, dword ptr [eax + 0xa0]'),
+        (0x10482654, 'call', 'edx'),
+        (0x10482663, 'mov', 'eax, dword ptr [esi + 4]'),
+        (0x10482759, 'mov', 'edi, dword ptr [edi + 0xb0]'),
+        (0x10482961, 'mov', 'eax, dword ptr [edi + 0xdc]'),
+        (0x1048296c, 'mov', 'ecx, dword ptr [edi + 0xe0]'),
+    ]
+    for anchor in anchors:
+        e.instruction(*anchor)
+    for table, targets in [(0x104829c8, [0x10482297, 0x104825d5, 0x104825e0]),
+                           (0x10482a04, [0x10482759, 0x10482961, 0x1048296c])]:
+        assert [e.u32(table + part * 4) for part in (6, 7, 8)] == targets
+    result = {}
+    for packet, fmtva, start, end, first, slots in [
+        ('UserInfo', 0x1088ae38, 0x10434357, 0x1043473e, 25, [*range(15), 17, 18]),
+        ('CharInfo', 0x1088b080, 0x10436777, 0x104369c3, 9, [0, *range(6, 15), 17, 18]),
+    ]:
+        off = e.offset(fmtva)
+        fmt = e.data[off:e.data.index(0, off)].decode('ascii')
+        ins = list(e.dis.disasm(e.data[e.offset(start):e.offset(end)], start))
+        args = list(reversed([i for i in ins if i.mnemonic == 'push'][:-3]))
+        previous = {b.address: a for a, b in zip(ins, ins[1:])}
+        fields = []
+        for index, slot in enumerate(slots):
+            field = first + index
+            push = args[field_argument_index(fmt, field)]
+            lea = previous[push.address]
+            expected = f'{push.op_str}, [esi + {hex(0x98 + slot * 4)}]'
+            assert fmt[field] == 'd' and (lea.mnemonic, lea.op_str) == ('lea', expected)
+            fields.append({'wireField': field, 'bankIndex': index, 'nativeSlot': slot,
+                           'UserOffset': hex(0x98 + slot * 4), 'pushVA': hex(push.address)})
+        result[packet] = fields
+    return {'instructionChecks': len(anchors), 'packetBankFields': result,
+            'HaveItem': 'signed bank[slot] > 0',
+            'appearanceItems': {'UserInfo': 'first/object-ID bank', 'CharInfo': 'template-ID bank'},
+            'meshParts': {'6': 'slot6', '7': 'slot17',
+                          '8': 'remote slot18; local slot17 only if resolved item category1/bodypart19, else slot18'},
+            'limits': ['local mesh selection requires inventory object-to-template resolution and item category/bodypart',
+                       'does not certify preview initialization or infer accessory table keys from item IDs']}
+
+
 def verify():
     e = Image(ROOT / 'assets/interlude/system/engine.dll', ENGINE_SHA, True)
     anchors = [
@@ -102,9 +173,11 @@ def verify():
                        for key, index, destination, push_va in fields},
             'configuredWriterSHA256': hashlib.sha256(java_path.read_bytes()).hexdigest(),
         }
+    equipment = equipment_evidence(e)
     return {'format': 'elbera-native-appearance-wire-evidence-v1', 'status': 'verified',
             'engineSHA256': e.sha, 'instructionChecks': len(anchors), 'packetReaders': packets,
             'scope': 'original DWORD positions and User destinations; configured writer field-name correspondence',
+            'equipment': equipment,
             'limits': ['not a complete native packet-reader emulation or malformed-packet compatibility claim',
                        'not proof of hair/face selector rules, palette support or visual parity']}
 
@@ -115,7 +188,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     result = verify()
     if args.check:
-        print(f"PASS Elbera Tools appearance wire: {result['instructionChecks']} instruction anchors, "
-              '2 original readers, 8 DWORD destinations, 2 source-format packet fixtures')
+        print(f"PASS Elbera Tools appearance wire: {result['instructionChecks']} appearance + "
+              f"{result['equipment']['instructionChecks']} equipment anchors, 2 original readers, "
+              '8 appearance + 29 item-bank DWORD destinations, 2 source-format packet fixtures')
     else:
         print(json.dumps(result, indent=2))

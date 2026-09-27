@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Elbera Tools — Original hair</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#20262b;color:#e9edf0;font:14px/1.5 system-ui}a{color:#e7c887}header{padding:16px 22px}h1{font-size:20px;font-weight:500;margin:8px 0}p{margin:6px 0}.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:14px 0}select,button{font:inherit;padding:4px}main{display:grid;grid-template-columns:minmax(0,1fr) 330px;min-height:55vh}#stage{height:65vh;min-height:320px;background:#303a44;overflow:hidden}canvas{display:block;width:100%;height:100%}aside{padding:12px 22px;overflow-wrap:anywhere}article{border-top:1px solid #58616a;padding:10px 0}small,.note{color:#b9c3cb}pre{white-space:pre-wrap;font:12px/1.5 ui-monospace,monospace}details{margin:10px 0}#status{min-height:24px}@media(max-width:850px){main{grid-template-columns:1fr}#stage{height:55vh}aside{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}}
+</style>
+<script type="importmap">{"imports":{"three":"../vendor/three.module.min.js","three/addons/":"../vendor/addons/"}}</script>
+<header>
+<a href="index.html">Elbera Tools</a>
+<h1>Original hair geometry and colors</h1>
+<p>Static LOD0 from the original client. Source positions, triangle order and UVs stay unchanged; bind bones and weights are retained for inspection, without animation or body attachment.</p>
+<div class="controls">
+<label>Model <select id="model" disabled></select></label>
+<label>Stored style <select id="style" disabled></select></label>
+<label>Color <select id="color" disabled></select></label>
+<button id="reset" disabled>Reset view</button>
+<label><input type="checkbox" id="backfaces"> Show backfaces (inspection override)</label>
+</div>
+<p id="status" role="status">Loading the local original-hair catalog…</p>
+<p class="note">Base hair table only. Stored slots are not creation-menu choices. Headgear, alternate equipment rules and character attachment are not previewed. Drag to orbit; scroll to zoom.</p>
+</header>
+<main><div id="stage"></div><aside id="details"></aside></main>
+<header><small>Unlit inspection view, native XYZ coordinates with Z up. MeshScale, MeshOrigin and RotOrigin are reported, not applied. The recovered Texture/FinalBlend pass is used; texture sampling, color space and camera are inspection choices, not native-renderer parity. No game-server connection.</small></header>
+<script type="module" src="./original-hair.js"></script>
+</html>

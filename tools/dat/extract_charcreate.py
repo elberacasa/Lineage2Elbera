@@ -1,32 +1,18 @@
 #!/usr/bin/env python3
-"""Extract the Lineage 2 Interlude character-creation data matrix into JSON.
+"""Elbera Tools: original character-creation choices and source asset references.
 
-Output: editor/characters/charcreate-data.json (frozen schema for the web
-character creator, plus documented extra blocks with the raw asset references).
+Writes ignored editor/characters/charcreate-data.json. Original NWindow option
+lists establish offered styles/colors/faces. Hairgrp pairs are two independent
+hair-part indices, NOT mesh/texture pairs or a painted-hair classification.
+Chargrp/classinfo/SysString supply original references/descriptions/labels.
+Class IDs and base stats remain explicitly configured aCis-server data.
 
-Data sources (all real, extracted from this repo):
-  - assets/interlude/system/chargrp.dat    (413/RSA, decrypted with tools/bin/l2encdec)
-      -> per race/gender/class: face mesh + 3 face textures, creation outfit
-         body meshes/textures (the preview model data)
-  - assets/interlude/system/hairgrp.dat    (413/RSA)
-      -> per char record: 15 hair slots of (meshIndex, textureIndex);
-         slots 0-6 = selectable hair styles (mesh -1 = painted hair, no
-         attached mesh), slots 8/9 = universal extra head textures
-  - assets/interlude/system/classinfo-e.dat (413/RSA)
-      -> the 9 creation class description texts (ids 1-9; id 0 is the
-         "Select a race and occupation." placeholder)
-  - assets/interlude/systextures/*.utx     (listed with tools/bin/umodel -game=l2)
-      -> hair style meshes (mXXX) and colors (tYY) actually shipped per
-         race/gender/class package; hair color hex values are the average of
-         the opaque pixels of one exported hair texture per color (t00-t03)
-  - server/aCis_datapack/data/xml/classes/*.xml
-      -> official class ids + base STR/DEX/CON/INT/WIT/MEN (server-side data;
-         the Interlude client does NOT carry base stats)
-
-See docs/dat-format-notes.md for the reverse-engineered format details.
+Requires pinned original DLLs, Capstone, the owner's DAT files and l2encdec.
+This metadata does not certify preview initialization or renderer parity.
+See docs/native-creation-appearance-evidence.md.
 """
 
-import glob
+import hashlib
 import json
 import os
 import re
@@ -40,10 +26,8 @@ from l2dat import Reader  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SYSTEM_DIR = os.path.join(ROOT, "assets", "interlude", "system")
-SYSTEX_DIR = os.path.join(ROOT, "assets", "interlude", "systextures")
 CLASSES_DIR = os.path.join(ROOT, "server", "aCis_datapack", "data", "xml", "classes")
 L2ENCDEC = os.path.join(ROOT, "tools", "bin", "l2encdec")
-UMODEL = os.path.join(ROOT, "tools", "bin", "umodel")
 OUT_PATH = os.path.join(ROOT, "editor", "characters", "charcreate-data.json")
 
 TRAILER = b"\x0cSafePackage\x00"  # ASCF EOF marker in every .dat
@@ -66,23 +50,9 @@ CHARGRP_RECORDS = [
     ("orc",     "male",   "mage",    "MShaman"),
     ("orc",     "female", "mage",    "FShaman"),
 ]
-# Elf / Dark Elf (and Dwarf) mages have no chargrp record of their own.
-# PROVEN identical-to-fighter in retail Interlude (three independent sets):
-#   1. chargrp.dat carries exactly 14 records (re-parsed from the raw file);
-#      no elf/darkelf/dwarf mage record exists.
-#   2. armorgrp.dat race_slots: the mystic starting armor (425 Apprentice's
-#      Tunic, 461 Apprentice's Stockings) maps to the SAME m001 meshes as
-#      the fighter's Squire set (1146/1147) for elf/darkelf/dwarf — only
-#      human mystics (MMagic_m005 / FMagic_m002) and orc mystics
-#      (MShaman/FShaman_m001) get distinct robe meshes at level 1.
-#   3. aCis class definitions: elvenMystic/darkMystic start with items
-#      425+461, i.e. the same in-game look as their fighters.
-# The m002+ armor series in Elf.ukx/DarkElf.ukx are higher-GRADE sets
-# (Devotion etc.), not the level-1 mystic outfit.
-PACKAGE_FALLBACK = {  # (race, gender, mage) -> package used for hair assets
-    "elf":     {"mage": {"male": "melf",     "female": "felf"}},
-    "darkelf": {"mage": {"male": "mdarkelf", "female": "fdarkelf"}},
-}
+# Native GetMeshType maps Elf/Dark Elf mage and fighter to the same model
+# rows; see check_face_selection_native.py. Starting gear/class statistics
+# are separate configured-server inputs, not evidence for that native mapping.
 
 RACE_NAMES = {"human": "Human", "elf": "Elf", "darkelf": "Dark Elf",
               "orc": "Orc", "dwarf": "Dwarf"}
@@ -144,7 +114,11 @@ def parse_chargrp(data: bytes):
 
 
 def parse_hairgrp(data: bytes):
-    """15 records x 30 int32 = 15 slots of (meshIndex, textureIndex)."""
+    """15 records x 15 signed pairs: (PMS_Hair1 index, PMS_Hair2 index).
+
+    -1 means that individual part is absent; it does not remove the style
+    from the original creation UI. Native proof: check_hair_selection_native.
+    """
     assert data.endswith(TRAILER), "hairgrp: missing SafePackage trailer"
     body = data[:-len(TRAILER)]
     assert len(body) == 15 * 30 * 4, f"hairgrp: unexpected size {len(body)}"
@@ -167,95 +141,6 @@ def parse_classinfo(data: bytes):
     return descs
 
 
-def umodel_list(package: str):
-    out = subprocess.run([UMODEL, "-game=l2", "-list",
-                          os.path.join(SYSTEX_DIR, package + ".utx")],
-                         check=True, capture_output=True, text=True).stdout
-    return out
-
-
-def hair_assets(package: str):
-    """Distinct hair mesh indices (mXXX) and color indices (tYY) in a package."""
-    meshes, colors = set(), set()
-    for m in re.finditer(r"Texture\s+\S*?_(m\d{3})_(t\d+)_m00_(?:a|b)h(?:_ori)?\b",
-                         umodel_list(package)):
-        meshes.add(m.group(1))
-        colors.add(m.group(2))
-    return sorted(meshes), sorted(colors)
-
-
-def export_texture(package: str, texname: str, outdir: str) -> str:
-    subprocess.run([UMODEL, "-game=l2", "-export", "-out=" + outdir,
-                    os.path.join(SYSTEX_DIR, package + ".utx"), texname],
-                   check=True, capture_output=True)
-    hits = glob.glob(os.path.join(outdir, package, "Texture", texname + ".tga"))
-    assert hits, f"umodel did not export {package}/{texname}"
-    return hits[0]
-
-
-def tga_avg_hex(path: str) -> str:
-    """Average RGB of opaque pixels of an uncompressed/RLE truecolor TGA."""
-    with open(path, "rb") as f:
-        hdr = f.read(18)
-        idlen, imgtype = hdr[0], hdr[2]
-        w, h = struct.unpack("<HH", hdr[12:16])
-        step = hdr[16] // 8
-        f.seek(18 + idlen)
-        raw = f.read()
-    if imgtype == 2:
-        data = raw
-    elif imgtype == 10:
-        data = bytearray()
-        i = 0
-        while i < len(raw) and len(data) < w * h * step:
-            c = raw[i]; i += 1
-            n = (c & 0x7F) + 1
-            if c & 0x80:
-                data += raw[i:i + step] * n; i += step
-            else:
-                data += raw[i:i + step * n]; i += step * n
-    else:
-        raise ValueError(f"{path}: unsupported TGA type {imgtype}")
-    tr = tg = tb = tn = 0
-    for i in range(0, min(len(data), w * h * step), step):
-        a = data[i + 3] if step == 4 else 255
-        if a > 128:
-            tb += data[i]; tg += data[i + 1]; tr += data[i + 2]; tn += 1
-    assert tn, f"{path}: no opaque pixels"
-    return f"#{tr // tn:02x}{tg // tn:02x}{tb // tn:02x}"
-
-
-def sample_hair_colors(package: str, mesh: str, suffix: str, outdir: str):
-    """Average color of the t00-t03 hair textures of one style mesh."""
-    colors = []
-    for t in ("t00", "t01", "t02", "t03"):
-        tex = f"{TEX_PREFIX[package]}_{mesh}_{t}_m00_{suffix}"
-        colors.append(tga_avg_hex(export_texture(package, tex, outdir)))
-    return colors
-
-
-# Texture names inside a package use the class-model prefix, not the file name.
-TEX_PREFIX = {
-    "MFighter": "MFighter", "FFighter": "FFighter",
-    "MMagic": "MMagic", "FMagic": "FMagic",
-    "melf": "MElf", "felf": "FElf",
-    "mdarkelf": "MDarkElf", "fdarkelf": "FDarkElf",
-    "MOrc": "MOrc", "FOrc": "FOrc",
-    "MShaman": "MShaman", "FShaman": "FShaman",
-    "mdwarf": "MDwarf", "fdwarf": "FDwarf",
-}
-
-# Representative style mesh + suffix used to sample hair colors per race.
-# _ah_ori = attached-hair texture, _bh = painted-on head texture.
-COLOR_SAMPLE = {
-    "human":   ("MFighter",  "m000", "ah_ori"),
-    "elf":     ("melf",      "m000", "ah_ori"),
-    "darkelf": ("mdarkelf",  "m001", "ah_ori"),
-    "orc":     ("MOrc",      "m000", "bh"),
-    "dwarf":   ("mdwarf",    "m000", "bh"),
-}
-
-
 def parse_acis_class(filename: str):
     with open(os.path.join(CLASSES_DIR, filename + ".xml")) as f:
         x = f.read()
@@ -267,6 +152,53 @@ def parse_acis_class(filename: str):
                  "INT": int_, "WIT": wit, "MEN": men}
 
 
+def appearance_matrix(chargrp, hairgrp, proof, labels):
+    """Join original offered options to both part indices, preserving absence.
+
+    The UI options determine the domain. A missing part never shrinks/reorders
+    it; source labels carry no fabricated average-color swatches.
+    """
+    if proof.get('status') != 'verified-options' or len(chargrp) != 14 or len(hairgrp) != 15:
+        raise ValueError('verified native options and complete source tables required')
+    race_ids = {'human': 0, 'elf': 1, 'darkelf': 2, 'orc': 3, 'dwarf': 4}
+    combinations = {(row['race'], row['occupation'], row['sex']): row for row in proof['combinations']}
+    if len(combinations) != len(proof['combinations']):
+        raise ValueError('duplicate creation-option combination')
+
+    def choices(ids):
+        return [{'index': index, 'sysStringId': key, 'name': labels[key]} for index, key in enumerate(ids)]
+
+    appearance, assets = {}, {}
+    for index, (race, gender, kind, package) in enumerate(CHARGRP_RECORDS):
+        row = combinations[(race_ids[race], int(kind == 'mage'), int(gender == 'female'))]
+        styles = choices(row['styleSysStringIds'])
+        if len(hairgrp[index]) != 15:
+            raise ValueError('incomplete hair-part source row')
+        parts = []
+        for style in styles:
+            pair = hairgrp[index][style['index']]
+            if len(pair) != 2 or any(type(value) is not int or value < -1 for value in pair):
+                raise ValueError('invalid source hair-part pair')
+            parts.append({'style': style['index'], 'hair1Index': pair[0], 'hair2Index': pair[1]})
+        appearance.setdefault(race, {}).setdefault(gender, {})[kind] = {
+            'hairStyles': len(styles), 'hairStyleOptions': styles,
+            'hairParts': parts, 'hairColorCount': len(row['colorSysStringIds']),
+            'hairColors': choices(row['colorSysStringIds']), 'faces': choices(row['faceSysStringIds']),
+            'chargrpRow': index, 'package': package + '.utx',
+        }
+        rec = chargrp[index]
+        assets.setdefault(race, {}).setdefault(gender, {})[kind] = {
+            'faceIcon': 'sek.' + rec['face_icon'].split('.', 1)[1] if '.' in rec['face_icon'] else rec['face_icon'],
+            'faceMesh': rec['face_mesh'], 'faceTextures': rec['face_texture'],
+            'bodyMeshes': rec['body_mesh'], 'bodyTextures': rec['body_texture'],
+            'animationPackage': pkg_animation(rec),
+        }
+    for race in ('elf', 'darkelf'):
+        for gender in ('male', 'female'):
+            appearance[race][gender]['mage'] = dict(appearance[race][gender]['fighter'])
+    return appearance, assets
+
+
 def main():
     workdir = tempfile.mkdtemp(prefix="l2charcreate_")
     print("decrypting .dat files ...")
@@ -276,75 +208,26 @@ def main():
     print(f"  chargrp: {len(chargrp)} records (+padding), "
           f"hairgrp: {len(hairgrp)} records, classinfo: {len(classinfo)} entries")
 
-    # Per (race, gender, type) appearance from hairgrp + umodel cross-check.
-    print("listing systextures packages with umodel ...")
-    appearance = {}   # race -> gender -> type -> info
-    assets = {}       # race -> gender -> type -> chargrp asset refs
-    for i, (race, gender, ctype, pkg) in enumerate(CHARGRP_RECORDS):
-        rec = chargrp[i]
-        slots = hairgrp[i]
-        style_slots = [(k, m, t) for k, (m, t) in enumerate(slots[:7])
-                       if t != -1]
-        meshes, colors = hair_assets(pkg)
-        # style id = mesh index when an attached hair mesh exists, else the
-        # texture index (painted-on hair, no mesh)
-        style_meshes = ["m%03d" % (m if m != -1 else t)
-                        for k, m, t in style_slots]
-        # cross-check hairgrp against the real package contents
-        missing = [m for m in style_meshes if m not in meshes]
-        if missing:
-            print(f"  WARNING {pkg}: hairgrp meshes {missing} not in package")
-        appearance.setdefault(race, {}).setdefault(gender, {})[ctype] = {
-            "hairStyles": len(style_slots),
-            "styleMeshes": style_meshes,
-            "paintedOnly": ["m%03d" % t for k, m, t in style_slots if m == -1],
-            "attachedMesh": ["m%03d" % m for k, m, t in style_slots if m != -1],
-            "hairColorCount": len(colors),
-            "package": pkg + ".utx",
-        }
-        assets.setdefault(race, {}).setdefault(gender, {})[ctype] = {
-            "faceIcon": "sek." + rec["face_icon"].split(".", 1)[1]
-                        if "." in rec["face_icon"] else rec["face_icon"],
-            "faceMesh": rec["face_mesh"],
-            "faceTextures": rec["face_texture"],
-            "bodyMeshes": rec["body_mesh"],
-            "bodyTextures": rec["body_texture"],
-            "animationPackage": pkg_animation(rec),
-        }
-        print(f"  {pkg:<10} styles={len(style_slots)} {style_meshes} "
-              f"colors={len(colors)} faces={len(rec['face_texture'])}")
+    sys.path.insert(0, os.path.join(ROOT, "tools", "ui"))
+    from check_creation_appearance_native import verify
+    from extract_gamedata import parse_sysstring
+    proof = verify()
+    labels = {row["id"]: row["string"] for row in parse_sysstring(decrypt("sysstring-e.dat", workdir))}
+    appearance, assets = appearance_matrix(chargrp, hairgrp, proof, labels)
 
-    # Elf/Dark Elf mage appearance = same race package (no own chargrp record).
-    for race in ("elf", "darkelf"):
-        for gender in ("male", "female"):
-            pkg = PACKAGE_FALLBACK[race]["mage"][gender]
-            meshes, colors = hair_assets(pkg)
-            fighter_app = appearance[race][gender]["fighter"]
-            appearance[race][gender]["mage"] = {
-                "hairStyles": fighter_app["hairStyles"],
-                "styleMeshes": fighter_app["styleMeshes"],
-                "paintedOnly": [],
-                "attachedMesh": fighter_app["attachedMesh"],
-                "hairColorCount": len(colors),
-                "package": pkg + ".utx",
-            }
-
-    print("sampling hair color hex values ...")
-    race_colors = {}
-    for race, (pkg, mesh, suffix) in COLOR_SAMPLE.items():
-        race_colors[race] = sample_hair_colors(pkg, mesh, suffix, workdir)
-        print(f"  {race:<8} {race_colors[race]}")
-
-    out = {"races": []}
+    out = {"format": "elbera-character-creation-v2", "races": [], "nativeAppearance": proof,
+           "sources": {name: hashlib.sha256(open(os.path.join(SYSTEM_DIR, name), "rb").read()).hexdigest()
+                       for name in ("chargrp.dat", "hairgrp.dat", "classinfo-e.dat", "sysstring-e.dat")},
+           "classStatsSource": "configured aCis datapack; not original-client rules"}
     for race in ("human", "elf", "darkelf", "orc", "dwarf"):
         classes = []
         for cid, name, ctype, acis_file, classinfo_id in CLASS_DEFS[race]:
-            official_id, stats = parse_acis_class(acis_file)
+            configured_id, stats = parse_acis_class(acis_file)
             classes.append({
                 "id": cid,
                 "name": name,
                 "type": ctype,
-                "classId": official_id,
+                "classId": configured_id,
                 "baseStats": stats,
                 "description": classinfo[classinfo_id],
             })
@@ -355,13 +238,14 @@ def main():
             "genders": ["male", "female"],
             "classes": classes,
             "appearance": {
-                "faces": 3,
+                "faces": app["male"]["fighter"]["faces"],
                 "hairStyles": max(app[g][t]["hairStyles"]
                                   for g in app for t in app[g]),
-                "hairColors": race_colors[race],
+                "hairColors": app["male"]["fighter"]["hairColors"],
             },
-            # EXTRA (documented in docs/dat-format-notes.md): full-fidelity
-            # per-gender/per-class data and raw asset references.
+            # Per-sex choices are authoritative; the race maximum is retained
+            # only for older consumers. These are source references, not a
+            # full visual-parity certification.
             "appearanceDetail": app,
             "creationAssets": assets.get(race, {}),
         }

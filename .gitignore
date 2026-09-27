@@ -48,6 +48,8 @@ editor/characters/weapons/
 editor/cache/
 editor/characters/models/
 editor/characters/models_lq/
+# Original hair meshes, material images and extraction receipts.
+editor/characters/hair/
 editor/characters/monsters/models/
 # Armor paperdoll output, including its source-derived manifest.
 editor/characters/armor/*/

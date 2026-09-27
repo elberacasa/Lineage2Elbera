@@ -14,10 +14,12 @@ const FORMATS = {
 const WIDTHS = { d: 4, h: 2, c: 1, Q: 8, f: 8 };
 const keys = ['sex', 'hairStyle', 'hairColor', 'face'];
 const appearance = row => Object.fromEntries(keys.map(key => [key, row[key]]));
-function packet(kind, values, id = 42) {
+function packet(kind, values, id = 42, equipment = [], presence = []) {
   const format = FORMATS[kind], hair = kind === 'user' ? 117 : 63;
   const fields = { 4: id, 5: 'Synthetic 雪', 6: 0, 7: values.sex, 8: 0,
     [hair]: values.hairStyle, [hair + 1]: values.hairColor, [hair + 2]: values.face };
+  equipment.forEach((value, index) => { fields[(kind === 'user' ? 42 : 9) + index] = value; });
+  if (kind === 'user') presence.forEach((value, index) => { fields[25 + index] = value; });
   fields[kind === 'user' ? 121 : 66] = 'Following title';
   const parts = [Buffer.from([kind === 'user' ? 4 : 3])], offsets = [];
   let double = 0, position = 1;
@@ -78,6 +80,43 @@ test('CharInfo repeated snapshots carry all appearance fields without creation-r
   assert.deepEqual(decoded.map(appearance), snapshots);
   assert.deepEqual(f.messages.filter(m => m.op === 'addPlayer').map(appearance), snapshots);
   assert.ok(decoded.every(row => row.name === 'Synthetic 雪' && row.collisionRadius === 9.75 && row.waitType === 0));
+});
+
+test('complete self and remote equipment words reach appearance without layout aliases', () => {
+  const slots = {
+    user: ['hairall', 'rear', 'lear', 'neck', 'rfinger', 'lfinger', 'head', 'rhand',
+      'lhand', 'gloves', 'chest', 'legs', 'feet', 'cloak', 'rhand2', 'hair', 'face'],
+    char: ['hairall', 'head', 'rhand', 'lhand', 'gloves', 'chest', 'legs', 'feet',
+      'cloak', 'rhand2', 'hair', 'face'],
+  };
+  for (const kind of ['user', 'char']) {
+    const f = fixture(), values = { sex: 0, hairStyle: 0, hairColor: 0, face: 0 };
+    const words = slots[kind].map((_, i) => 1200 + i);
+    words[slots[kind].indexOf('rhand')] = 0;
+    words[slots[kind].indexOf('rhand2')] = -7;
+    const expected = Object.fromEntries(slots[kind].map((key, i) => [key, words[i]]));
+    const objects = slots[kind].map((_, i) => 4400 + i);
+    objects[slots[kind].indexOf('hair')] = 0;
+    objects[slots[kind].indexOf('face')] = -1;
+    const expectedPresence = kind === 'user'
+      ? Object.fromEntries(slots.user.map((key, i) => [key, objects[i]])) : expected;
+    f.game._onPacket(packet(kind, values, 91, words, objects).bytes);
+    assert.deepEqual(f.errors, []);
+    const updates = f.messages.filter(m => m.op === (kind === 'user' ? 'charSheet' : 'addPlayer'));
+    assert.deepEqual(updates[0].paperdoll, expected);
+    assert.deepEqual(updates[0].appearanceItems, expectedPresence,
+      'native presence words retain their original packet bank, independently of mesh item IDs');
+    assert.equal(updates[0].paperdoll.rhand, 0, 'secondary word cannot replace an empty right hand');
+    if (kind === 'user') {
+      assert.deepEqual(f.messages.find(m => m.op === 'enterWorld').char.paperdoll, expected);
+      assert.deepEqual(f.messages.find(m => m.op === 'enterWorld').char.appearanceItems, expectedPresence);
+    } else {
+      assert.equal(Object.hasOwn(updates[0].paperdoll, 'rear'), false, 'unreceived jewelry stays unknown');
+    }
+    f.game._onPacket(packet(kind, values, 91, words.map(() => 0)).bytes);
+    assert.ok(Object.values(f.messages.filter(m => m.op === updates[0].op).at(-1).paperdoll)
+      .every(value => value === 0), 'explicit unequip survives repeated packets');
+  }
 });
 
 test('truncated appearance prefixes never publish a partial player or synthesize missing fields', () => {

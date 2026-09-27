@@ -8,7 +8,10 @@ Binding goal constraint (owner, 26 September 2026): always stay true to OFFICIAL
 game data; never invent values. Decode, decrypt and investigate original inputs
 as needed. Unknown data remains explicitly unknown. See root AGENTS.md.
 
-Branch: `codex/web-port-foundations`, based on `72c8304`.
+Public foundations: `main` at `9f4903b`; current work:
+`codex/native-hair-materials`. The preserved local research branch
+`codex/web-port-foundations` contains private intermediate history and must not
+be merged or pushed into public ancestry.
 
 ## Working rules
 
@@ -1748,3 +1751,42 @@ anchors/nine ranges and six portable parser cases pass. No hair runtime was
 enabled: group resolution, alternate skeletal exports, FinalBlend state and
 equipment/body overrides remain open. The creator's inherited tint remains
 an explicit unsupported approximation, not source proof.
+
+## Original hair data and creator correction — 27 September 2026
+
+- Added Elbera Tools original-hair export and static browser inspection. All162
+  referenced meshes retain original LOD0 positions, UVs, triangle order, bind
+  bones and unmodified influences;648 selected material references retain exact
+  source identity and decoded images. Content hashes are checked before display.
+- Recovered ordinary Texture/FinalBlend material pass state: source-specific
+  alpha references, strict GREATER including enabled zero, blend, depth and
+  culling. The adapter rejects tinted/reused materials and preserves sampler
+  ownership. Static inspection does not certify native lighting or sampling.
+- Corrected creation data/UI to the original five male/seven female styles,
+  four colors and three faces, using source language labels/indices. Removed
+  invented RGB tint/swatches and the false painted-hair interpretation. Missing
+  source choices prevent submission; hair choices visibly lack a preview.
+- Preserved all17 UserInfo and12 CharInfo equipment words, distinguishing self
+  presence object IDs from remote template IDs. Removed secondary-hand aliasing;
+  late model admission now uses the latest remote equipment, including zero.
+- All22 current default hair parts match original triangle position/UV/winding,
+  but their3245 emitted vertices differ in skin influences. Native attachment
+  must be recovered before treating that adaptation as equivalent. This is an
+  explicit gap, not proof that different weights alone imply different output.
+
+Verification:768 combined browser-runtime/creator/gateway/playtest fixture cases
+passed before the final inspector PolyFlags gate; the final10 inspector cases
+also pass. Twelve exporter,16 material-source and5 creation-source portable
+cases pass without original files or third-party Python packages. The actual
+battery ran all6 selected appearance suites successfully; other suites were
+excluded. Its independent runner check passes. Fresh private export/check
+matched all mesh/PNG/catalog bytes. Native creation, equipment and hair-material
+checks pass against pinned originals.
+
+Browser checks: Online reconnect and entry as the existing ElberaVisor succeeded
+with the refreshed gateway/client. Male/female creator lists show5/7 styles and
+four text color choices. The hair inspector displayed rigid Dwarf, soft-rig
+Dark Elf (static only), Human Fighter AlphaRef0 and explicit absent slots, with
+no browser errors observed. A curated actual screenshot is in docs/img/; raw
+assets and receipts remain ignored. Live two-player equipment changes and
+animated hair selection are still unverified.

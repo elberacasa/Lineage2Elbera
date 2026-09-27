@@ -1,6 +1,8 @@
 # Browser port: path to a small test server
 
-Updated 27 September 2026. Working branch: `codex/web-port-foundations`.
+Updated 27 September 2026. Public foundations are on `main`; current appearance
+work continues on `codex/native-hair-materials`. The older local research branch
+is preserved separately and is not a publication branch.
 
 ## Product and scope
 
@@ -86,6 +88,16 @@ reconnect. Auto-learn stays enabled while manual trainers remain supported
 work. The [coverage inventory](PORT-COVERAGE.md) is the current system-by-system
 record; hair, full native gauges/effects, complete camera collision and many
 gameplay journeys remain unfinished.
+
+The next appearance checkpoint now exports all162 referenced source hair meshes
+without changing their weights, plus648 exact material references. Creation
+uses the original five male/seven female styles, four colors and three faces;
+unsupported hair previews are labeled and the old RGB tint is removed. The
+source/built comparison found differing skin influences in all22 default hair
+parts. That is a reason to recover native master-instance attachment, not proof
+that changing texture alone finishes hair fidelity. Original material pass
+state and raw geometry can be inspected independently while attachment remains
+open. See [hair-asset-pipeline.md](hair-asset-pipeline.md).
 
 Offline review is available at
 `/?dev=1&inspect=1&checkpoint=giran-border`. The **Previous terrain repairs**

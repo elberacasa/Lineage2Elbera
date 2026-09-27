@@ -7,9 +7,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { PlayerAppearance, loadAppearance, facePlan } from '/js/appearance.js';
 
 /* ================================================================
- * Built-in fallback data — used when /characters/charcreate-data.json
- * is missing (contract: {"races":[{"id","name","genders","classes":[...],
- *   "appearance":{"faces","hairStyles","hairColors":[]}}]})
+ * Navigation fallback when /characters/charcreate-data.json is missing.
+ * Creation requires the separately verified per-sex appearance choices;
+ * these fallback race/class labels cannot supply appearance defaults.
  * ================================================================ */
 
 const DEFAULT_DATA = {
@@ -20,11 +20,6 @@ const DEFAULT_DATA = {
         { id: 'fighter', name: 'Human Fighter', type: 'fighter' },
         { id: 'mage', name: 'Human Mystic', type: 'mage' },
       ],
-      appearance: {
-        faces: ['A', 'B', 'C'],
-        hairStyles: ['A', 'B', 'C', 'D', 'E', 'F'],
-        hairColors: ['#2b2b2e', '#5a3a1e', '#8a5a2a', '#b8843c', '#c9c9c9', '#7a2e1e'],
-      },
     },
     {
       id: 'elf', name: 'Elf', genders: ['male', 'female'],
@@ -32,11 +27,6 @@ const DEFAULT_DATA = {
         { id: 'fighter', name: 'Elven Fighter', type: 'fighter' },
         { id: 'mage', name: 'Elven Mystic', type: 'mage' },
       ],
-      appearance: {
-        faces: ['A', 'B', 'C'],
-        hairStyles: ['A', 'B', 'C', 'D', 'E'],
-        hairColors: ['#e8e4d8', '#c9c9c9', '#8a8a92', '#b8843c', '#5a3a1e', '#3a5a7a'],
-      },
     },
     {
       id: 'darkelf', name: 'Dark Elf', genders: ['male', 'female'],
@@ -44,11 +34,6 @@ const DEFAULT_DATA = {
         { id: 'fighter', name: 'Dark Fighter', type: 'fighter' },
         { id: 'mage', name: 'Dark Mystic', type: 'mage' },
       ],
-      appearance: {
-        faces: ['A', 'B', 'C'],
-        hairStyles: ['A', 'B', 'C', 'D', 'E'],
-        hairColors: ['#e8e8ec', '#c9c9c9', '#8a8a92', '#2b2b2e', '#4a3a5a', '#7a2e1e'],
-      },
     },
     {
       id: 'orc', name: 'Orc', genders: ['male', 'female'],
@@ -56,22 +41,12 @@ const DEFAULT_DATA = {
         { id: 'fighter', name: 'Orc Fighter', type: 'fighter' },
         { id: 'mage', name: 'Orc Mystic', type: 'mage' },
       ],
-      appearance: {
-        faces: ['A', 'B', 'C'],
-        hairStyles: ['A', 'B', 'C', 'D'],
-        hairColors: ['#2b2b2e', '#5a3a1e', '#8a5a2a', '#7a2e1e', '#c9c9c9'],
-      },
     },
     {
       id: 'dwarf', name: 'Dwarf', genders: ['male', 'female'],
       classes: [
         { id: 'fighter', name: 'Dwarven Fighter', type: 'fighter' },
       ],
-      appearance: {
-        faces: ['A', 'B', 'C'],
-        hairStyles: ['A', 'B', 'C', 'D'],
-        hairColors: ['#5a3a1e', '#8a5a2a', '#b8843c', '#7a2e1e', '#c9c9c9', '#2b2b2e'],
-      },
     },
   ],
 };
@@ -714,69 +689,11 @@ function itemLabel(item, i) {
   if (item && typeof item === 'object') return item.name || item.id || String(i + 1);
   return String(item);
 }
-function itemTexture(item) {
-  return (item && typeof item === 'object' && item.texture) ? item.texture : null;
-}
-function itemColor(item) {
-  if (item && typeof item === 'object') return item.color || null;
-  if (typeof item === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(item)) return item;
-  return null;
-}
-
-// glTF material/mesh names follow the game's naming: <Prefix>_m000_<part>
-// (e.g. MFighter_m000_f, MMagic_M000_u) — _f face, _u/_l/_g/_b body parts.
-// Hair materials use two-letter style suffixes: _ah/_bh (hair style A/B),
-// sometimes with different casing (FMagic_M000_M00_bh). Matching is by that
-// trailing part suffix, never by substrings like "face".
 function partSuffix(name) {
   // strip exporter trailers like ":material_0" before reading the part suffix
   const base = String(name || '').split(':')[0];
   const m = /_([a-z0-9]+)$/i.exec(base);
   return m ? m[1].toLowerCase() : '';
-}
-
-/** True when a trailing name suffix belongs to the requested body part. */
-function suffixMatchesPart(suffix, part) {
-  if (!suffix) return false;
-  if (suffix === part) return true;
-  // hair: accept the style suffixes _ah, _bh, ... (any single letter + h)
-  if (part === 'h' && /^[a-z]h$/.test(suffix)) return true;
-  return false;
-}
-
-/**
- * Materials for a body part ('f' face, 'h' hair, ...). Tolerant by design:
- * a material matches when its OWN name suffix matches, or (fallback) when
- * the name of a mesh that uses it matches — so the swap keeps working if a
- * rebuilt model renames either side. Unmatched lookups are logged with the
- * names that ARE present, so a naming drift is diagnosable from the console.
- */
-function materialsForPart(root, part) {
-  const out = [];
-  const seen = new Set();
-  root.traverse(o => {
-    if (!o.isMesh) return;
-    (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
-      if (!m || seen.has(m)) return;
-      if (suffixMatchesPart(partSuffix(m.name), part) ||
-          suffixMatchesPart(partSuffix(o.name), part)) {
-        seen.add(m);
-        out.push(m);
-      }
-    });
-  });
-  if (!out.length) {
-    const mats = [], meshes = [];
-    root.traverse(o => {
-      if (!o.isMesh) return;
-      meshes.push(o.name);
-      (Array.isArray(o.material) ? o.material : [o.material])
-        .forEach(m => { if (m && !mats.includes(m.name)) mats.push(m.name); });
-    });
-    console.info(`[appearance] no '${part}' materials matched. materials:`,
-      mats, 'meshes:', meshes);
-  }
-  return out;
 }
 
 function sourceFaceChoices(modelId) {
@@ -791,32 +708,23 @@ function sourceFaceChoices(modelId) {
 }
 
 function appearanceOf(race) {
-  const a = (race && race.appearance) || {};
-  const arr = v => (Array.isArray(v) ? v : []);
-  const count = v => (typeof v === 'number' ? v : arr(v).length);
-
-  const legacyFaces = arr(a.faces);
-  // Choices belong to the actual source-bound model. Preserve the source
-  // index even if a future catalog has gaps; never fall back to legacy faces.
-  const faces = sourceFaceChoices(pickModel()?.id).map(face => ({ ...face,
-    name: itemLabel(legacyFaces[face.index], face.index).length <= 2
-      ? itemLabel(legacyFaces[face.index], face.index) : String.fromCharCode(65 + face.index),
-  }));
-
-  // Hair styles: counts come from the game data, but only the baked-in style
-  // (m000 / painted hair) was exported — later styles stay disabled until the
-  // pipeline exports the hair-variant meshes.
-  const legacyHair = arr(a.hairStyles);
-  const hairStyles = [];
-  for (let i = 0, n = count(a.hairStyles); i < n; i++) {
-    hairStyles.push({
-      name: legacyHair.length ? itemLabel(legacyHair[i], i) : String.fromCharCode(65 + i),
-      texture: itemTexture(legacyHair[i]),
-      available: i === 0 || !!itemTexture(legacyHair[i]),
-    });
-  }
-
-  return { faces, hairStyles, hairColors: arr(a.hairColors) };
+  const kind = race?.classes?.find(c => c.id === state.classId)?.type;
+  const detail = race?.appearanceDetail?.[state.gender]?.[kind];
+  const choices = rows => {
+    if (state.data?.nativeAppearance?.status !== 'verified-options' || !Array.isArray(rows) || !rows.length) return [];
+    const indices = new Set();
+    for (const row of rows) {
+      if (!Number.isInteger(row?.index) || row.index < 0 || indices.has(row.index) ||
+          typeof row.name !== 'string' || !row.name || !Number.isInteger(row.sysStringId)) return [];
+      indices.add(row.index);
+    }
+    return rows;
+  };
+  const faceLabels = new Map(choices(detail?.faces).map(row => [row.index, row]));
+  // Face choices must also resolve to this model's exact source material.
+  const faces = sourceFaceChoices(pickModel()?.id).filter(face => faceLabels.has(face.index))
+    .map(face => ({ ...face, name: faceLabels.get(face.index).name }));
+  return { faces, hairStyles: choices(detail?.hairStyleOptions), hairColors: choices(detail?.hairColors) };
 }
 
 // PlayerAppearance owns per-model wrappers and keeps the actual glTF sampler.
@@ -829,26 +737,9 @@ function loadFaceTexture(url) {
 
 function applyAppearance() {
   if (!currentModel) return;
-  const race = getRace(state.race);
-  const app = appearanceOf(race);
-
-  const faceRequest = state.usingPlaceholder ? null : previewAppearance.set({ face: state.face });
-
-  // Hair color tint: only models with a separate hair mesh (_ah/_bh). On
-  // models where hair is painted into the face texture there is nothing safe
-  // to tint (tinting _f would recolor the whole face).
-  const color = itemColor(app.hairColors[state.hairColor]);
-  if (color) {
-    if (state.usingPlaceholder && placeholder) {
-      placeholder.hairMat.color.set(color);
-    } else {
-      const hairMats = materialsForPart(currentModel, 'h');
-      hairMats.forEach(m => { if (m.color) m.color.set(color); });
-      console.info(`[appearance] hair color ${color} on`,
-        hairMats.map(m => m.name));
-    }
-  }
-  return faceRequest;
+  // Exact hair attachment is still unresolved. Do not tint original textures
+  // or present the retained model hair as the selected style/color preview.
+  return state.usingPlaceholder ? null : previewAppearance.set({ face: state.face });
 }
 
 /* ================================================================
@@ -863,8 +754,6 @@ function renderUI() {
   const classes = race.classes || [];
   if (!classes.find(c => c.id === state.classId)) state.classId = classes[0] ? classes[0].id : '';
   const app = appearanceOf(race);
-  state.hairStyle = Math.min(state.hairStyle, Math.max(0, app.hairStyles.length - 1));
-  state.hairColor = Math.min(state.hairColor, Math.max(0, app.hairColors.length - 1));
 
   // races
   $('race-list').innerHTML = '';
@@ -882,7 +771,12 @@ function renderUI() {
     const b = document.createElement('button');
     b.textContent = g === 'male' ? 'Male' : g === 'female' ? 'Female' : g;
     b.className = g === state.gender ? 'selected' : '';
-    b.onclick = () => { state.gender = g; renderUI(); refreshModel(); };
+    b.onclick = () => {
+      state.gender = g;
+      // Original sex selection resets all three appearance indices to zero.
+      state.face = state.hairStyle = state.hairColor = 0;
+      renderUI(); refreshModel();
+    };
     $('gender-list').appendChild(b);
   });
 
@@ -902,47 +796,42 @@ function renderUI() {
   });
 
   // appearance groups (gracefully hidden when empty)
-  const fillChips = (elId, groupId, list, key, isSwatch) => {
+  const fillChips = (elId, groupId, list, key) => {
     const group = $(groupId);
     if (!list.length) { group.classList.add('hidden'); return; }
     group.classList.remove('hidden');
     const el = $(elId);
     el.innerHTML = '';
     list.forEach((item, i) => {
-      const value = key === 'face' ? item.index : i;
-      const unavailable = !!(item && typeof item === 'object' && item.available === false);
+      const value = item.index;
       const b = document.createElement('button');
-      b.className = 'chip' + (isSwatch ? ' swatch' : '') +
-        (value === state[key] ? ' selected' : '') + (unavailable ? ' disabled' : '');
-      if (isSwatch) {
-        b.style.background = itemColor(item) || '#444';
-        b.title = itemLabel(item, i);
-      } else {
-        b.textContent = itemLabel(item, i);
-      }
-      if (unavailable) {
-        b.disabled = true;
-        b.title = 'Not exported yet';
-      } else {
-        b.onclick = () => { state[key] = value; renderUI(); applyAppearance(); };
-      }
+      b.className = 'chip' + (value === state[key] ? ' selected' : '');
+      b.textContent = itemLabel(item, i);
+      b.onclick = () => { state[key] = value; renderUI(); applyAppearance(); };
       el.appendChild(b);
     });
   };
-  fillChips('face-list', 'face-group', app.faces, 'face', false);
-  fillChips('hairstyle-list', 'hairstyle-group', app.hairStyles, 'hairStyle', false);
-  fillChips('haircolor-list', 'haircolor-group', app.hairColors, 'hairColor', true);
+  fillChips('face-list', 'face-group', app.faces, 'face');
+  fillChips('hairstyle-list', 'hairstyle-group', app.hairStyles, 'hairStyle');
+  fillChips('haircolor-list', 'haircolor-group', app.hairColors, 'hairColor');
 
   // combo note
   const note = $('combo-note');
   if (!app.faces.some(face => face.index === state.face)) {
     note.textContent = app.faces.length ? 'Choose an available face to continue.' : 'Face options are unavailable. Reload to try again.';
     note.classList.remove('hidden');
+  } else if (!app.hairStyles.some(row => row.index === state.hairStyle) ||
+             !app.hairColors.some(row => row.index === state.hairColor)) {
+    note.textContent = app.hairStyles.length && app.hairColors.length
+      ? 'Choose an available hair style and color to continue.'
+      : 'Original hair choices are unavailable. Reload to try again.';
+    note.classList.remove('hidden');
   } else if (!comboAvailable() && (state.manifest.models || []).length) {
     note.textContent = 'The 3D model for this combination is still being extracted — a preview rig is shown instead.';
     note.classList.remove('hidden');
   } else {
-    note.classList.add('hidden');
+    note.textContent = 'Hair selections are not previewed yet. The model keeps its existing hair; your selected style and color are sent when you create the character.';
+    note.classList.remove('hidden');
   }
 
   validateName();
@@ -1007,9 +896,12 @@ function validateName() {
   hint.textContent = ok || !state.name
     ? '1–16 letters, no numbers.'
     : 'Letters only, up to 16 characters.';
-  const faceReady = sourceFaceChoices(pickModel()?.id).some(face => face.index === state.face);
-  $('create-btn').disabled = !ok || !faceReady || creating;
-  return ok && faceReady;
+  const appearance = appearanceOf(getRace(state.race));
+  const appearanceReady = appearance.faces.some(row => row.index === state.face) &&
+    appearance.hairStyles.some(row => row.index === state.hairStyle) &&
+    appearance.hairColors.some(row => row.index === state.hairColor);
+  $('create-btn').disabled = !ok || !appearanceReady || creating;
+  return ok && appearanceReady;
 }
 
 $('name-input').addEventListener('input', validateName);
@@ -1048,8 +940,8 @@ $('create-btn').addEventListener('click', () => {
   const rows = [
     ['Class type', cls.type || '—'],
     ['Face', app.faces.length ? itemLabel(app.faces.find(face => face.index === state.face), state.face) : '—'],
-    ['Hair style', app.hairStyles.length ? itemLabel(app.hairStyles[state.hairStyle], state.hairStyle) : '—'],
-    ['Hair color', app.hairColors.length ? itemLabel(app.hairColors[state.hairColor], state.hairColor) : '—'],
+    ['Hair style', app.hairStyles.length ? itemLabel(app.hairStyles.find(row => row.index === state.hairStyle), state.hairStyle) : '—'],
+    ['Hair color', app.hairColors.length ? itemLabel(app.hairColors.find(row => row.index === state.hairColor), state.hairColor) : '—'],
     ['Model', state.usingPlaceholder ? 'Preview rig' : (state.modelEntry.id || state.modelEntry.gltf)],
     ['Data source', state.dataSource === 'server' ? 'server pipeline' : 'built-in defaults'],
   ];

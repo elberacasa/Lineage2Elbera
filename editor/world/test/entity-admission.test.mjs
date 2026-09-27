@@ -72,7 +72,8 @@ test('remote appearance updates received during loading replace only supplied fi
   await h.manager.addPlayer({ ...message(), face: 2, hairColor: 0 });
   assert.equal(h.jobs[0].appearanceCalls, undefined, 'appearance loading starts after actor admission');
   h.jobs[0].work.resolve(); await load;
-  assert.deepEqual(h.jobs[0].appearanceCalls, [{ face: 2, hairStyle: 1, hairColor: 0 }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.jobs[0].appearanceCalls)),
+    [{ face: 2, hairStyle: 1, hairColor: 0, paperdoll: message().paperdoll }]);
   await h.manager.addPlayer({ ...message(), face: 1 });
   assert.equal(h.jobs[0].appearanceCalls.at(-1).face, 1, 'existing actors receive changes too');
   h.manager.remove(7);
@@ -85,7 +86,31 @@ test('same-ID replacement cannot inherit retired appearance', async () => {
   const fresh = h.manager.addPlayer(message());
   h.jobs[0].work.resolve(); h.jobs[1].work.resolve(); await Promise.all([old, fresh]);
   assert.equal(h.jobs[0].appearanceCalls, undefined);
-  assert.deepEqual(h.jobs[1].appearanceCalls, [{}]);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.jobs[1].appearanceCalls)), [{ paperdoll: message().paperdoll }]);
+});
+
+test('remote load adopts the latest complete equipment including hair context and explicit unequip', async () => {
+  const h = harness(), load = h.manager.addPlayer(message());
+  const latest = { rhand: 0, lhand: 0, gloves: 1, chest: 2, legs: 3, feet: 4,
+    hairall: 5, head: 6, hair: 7, face: 8 };
+  await h.manager.addPlayer({ ...message(), paperdoll: latest });
+  latest.head = 99; // The receiving snapshot owns its copy.
+  h.jobs[0].work.resolve(); await load;
+  const expected = { ...latest, head: 6 };
+  assert.deepEqual(JSON.parse(JSON.stringify(h.jobs[0].equipment)),
+    [['rhand', 0], ['lhand', 0], ['armor', expected]]);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.jobs[0].appearanceCalls.at(-1).paperdoll)), expected);
+});
+
+test('existing remote players apply equipment changes and do not infer missing hand values', async () => {
+  const h = harness(), load = h.manager.addPlayer(message());
+  h.jobs[0].work.resolve(); await load;
+  const ch = h.jobs[0]; ch.equipment = [];
+  await h.manager.addPlayer({ ...message(), paperdoll: { rhand: 0, lhand: 0, head: 0, hair: 0, face: 0 } });
+  assert.deepEqual(ch.equipment.slice(0, 2), [['rhand', 0], ['lhand', 0]]);
+  ch.equipment = [];
+  await h.manager.addPlayer({ id: 7, face: 1 });
+  assert.deepEqual(ch.equipment, [], 'appearance-only data is not an unequip');
 });
 
 test('clear retires pending and admitted players without disposing shared NPC resources', async () => {

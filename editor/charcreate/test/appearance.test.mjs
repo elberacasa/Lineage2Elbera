@@ -40,10 +40,16 @@ function harness() {
   $('name-input').value = 'SourceName';
   const original = model(), race = { id: 'human', name: 'Human', genders: ['male'],
     classes: [{ id: 'fighter', classId: 0, name: 'Human Fighter', type: 'fighter' }],
-    appearance: { faces: ['Invented A', 'Invented B'], hairStyles: [], hairColors: [] } };
+    appearance: { faces: ['Invented A', 'Invented B'], hairStyles: [], hairColors: [] },
+    appearanceDetail: { male: { fighter: {
+      faces: [3, 7].map(index => ({ index, sysStringId: 40 + index, name: `Source face ${index}` })),
+      hairStyleOptions: [{ index: 0, sysStringId: 20, name: 'Source style' }],
+      hairColors: [{ index: 0, sysStringId: 30, name: 'Source color' }],
+    } } } };
   const state = { race: 'human', gender: 'male', classId: 'fighter', face: 3, hairStyle: 0, hairColor: 0,
     appearanceCatalog: catalog(), modelEntry: { id: 'a', gltf: 'models/a.gltf' }, selectedModel: 'a',
-    usingPlaceholder: false, data: { races: [race] }, manifest: { models: [{ id: 'a' }, { id: 'b' }] } };
+    usingPlaceholder: false, data: { races: [race], nativeAppearance: { status: 'verified-options' } },
+    manifest: { models: [{ id: 'a' }, { id: 'b' }] } };
   const context = vm.createContext({ THREE, PlayerAppearance, facePlan, state, $, console,
     document: { createElement: element }, modelStatusEl: $('model-status'),
     currentModel: original.root, mixer: null, currentClip: null, placeholder: null,
@@ -97,6 +103,54 @@ test('a non-admitted previous face is not clamped or reindexed after render', ()
   assert.equal(h.state.face, 1); assert.equal(h.$('create-btn').disabled, true);
   h.$('face-list').children[0].onclick(); assert.equal(h.state.face, 3);
   assert.equal(h.$('create-btn').disabled, false);
+});
+test('creator uses per-sex source hair choices and submits exact indices without claiming a preview', () => {
+  const h = harness(), race = h.state.data.races[0], male = race.appearanceDetail.male.fighter;
+  const choices = count => Array.from({ length: count }, (_, index) => ({ index,
+    sysStringId: 200 + index, name: `Source choice ${index}` }));
+  male.hairStyleOptions = choices(5); male.hairColors = choices(4);
+  race.appearanceDetail.female = { fighter: { ...male, hairStyleOptions: choices(7) } };
+  race.appearance.hairStyles = 99;
+  h.context.renderUI(); assert.equal(h.$('hairstyle-list').children.length, 5);
+  race.genders.push('female'); h.state.gender = 'female'; h.context.renderUI();
+  assert.equal(h.$('hairstyle-list').children.length, 7);
+  assert.equal(h.$('haircolor-list').children.length, 4);
+  h.$('hairstyle-list').children[6].onclick(); h.$('haircolor-list').children[3].onclick();
+  assert.equal(h.state.hairStyle, 6); assert.equal(h.state.hairColor, 3);
+  assert.match(h.$('combo-note').textContent, /not previewed/);
+  assert.equal(h.$('haircolor-list').children[3].textContent, 'Source choice 3');
+  assert.equal(h.$('haircolor-list').children[3].style.background, undefined);
+  h.$('create-btn').listeners.click();
+  assert.equal(h.packets[0][0].sex, 1); assert.equal(h.packets[0][0].hairStyle, 6);
+  assert.equal(h.packets[0][0].hairColor, 3);
+});
+test('source indices survive sparse fixture choices and an out-of-domain selection cannot create', () => {
+  const h = harness(), row = h.state.data.races[0].appearanceDetail.male.fighter;
+  row.hairStyleOptions = [{ index: 0, sysStringId: 30, name: 'First' }, { index: 4, sysStringId: 40, name: 'Last' }];
+  h.context.renderUI(); h.$('hairstyle-list').children[1].onclick();
+  assert.equal(h.state.hairStyle, 4);
+  row.hairStyleOptions.pop(); h.context.renderUI();
+  assert.equal(h.state.hairStyle, 4); assert.equal(h.$('create-btn').disabled, true);
+  h.$('create-btn').listeners.click(); assert.equal(h.packets.length, 0);
+});
+test('missing or malformed source hair options do not inherit race-wide defaults', () => {
+  for (const mutate of [h => { delete h.state.data.nativeAppearance; },
+    h => { delete h.state.data.races[0].appearanceDetail; },
+    h => { h.state.data.races[0].appearanceDetail.male.fighter.hairColors.push({ index: 0, sysStringId: 90, name: 'Duplicate' }); }]) {
+    const h = harness(); mutate(h); h.context.renderUI();
+    assert.equal(h.$('create-btn').disabled, true); h.$('create-btn').listeners.click();
+    assert.equal(h.packets.length, 0);
+  }
+});
+test('hair choice changes preserve source material color and only request the bound face image', async () => {
+  const h = harness(); h.state.data.races[0].appearanceDetail.male.fighter.hairColors[0].color = '#ff0000';
+  const hairMaterial = new THREE.MeshBasicMaterial({ color: 0x336699 });
+  hairMaterial.name = 'Hair_m000_t00_m00_ah';
+  h.original.root.add(new THREE.Mesh(new THREE.BoxGeometry(), hairMaterial));
+  const before = hairMaterial.color.clone(), work = h.context.applyAppearance(); await tick();
+  assert.ok(hairMaterial.color.equals(before)); assert.equal(h.images.length, 1);
+  h.images[0].resolve(new THREE.Texture({ face: 3 })); await work;
+  assert.ok(hairMaterial.color.equals(before));
 });
 test('actual creator controller chooses exact material and newer image wins out of order', async () => {
   const h = harness(); const old = h.context.applyAppearance(); await tick();

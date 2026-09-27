@@ -782,6 +782,11 @@ function applySelfAppearance(ch, msg = null) {
   for (const key of ['face', 'hairStyle', 'hairColor']) {
     if (msg && Object.prototype.hasOwnProperty.call(msg, key)) selfAppearance[key] = msg[key];
   }
+  for (const key of ['paperdoll', 'appearanceItems']) {
+    if (msg && Object.prototype.hasOwnProperty.call(msg, key)) {
+      selfAppearance[key] = msg[key] ? { ...msg[key] } : msg[key];
+    }
+  }
   if (ch) ch.setAppearance(selfAppearance);
 }
 net.on('charSheet', (msg) => {

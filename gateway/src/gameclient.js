@@ -1570,11 +1570,12 @@ class GameSession extends EventEmitter {
 //
 // RHAND appears TWICE — at 7 and again at 14. In retail the second one is the
 // two-handed (LRHAND) slot, but aCis writes `Paperdoll.RHAND` for both, so the
-// two values are ALWAYS identical and carry no extra information. Verified
+// two values are identical for that configured writer. Verified
 // live: equipping a Claymore (handness 2) sets index 7 exactly like a
 // one-hander does. Whether a weapon is two-handed therefore cannot be derived
 // here at all — it comes from weapongrp.json's `handness`, which the client
-// already holds. Slot 14 is read and ignored.
+// already holds. Preserve both received words; an empty RHAND must not borrow
+// an unrelated/unsupported RHAND2 value as a rendering fallback.
 // CharInfo.java writes a DIFFERENT, shorter set for other players — 12 slots,
 // not the same list truncated:
 //
@@ -1584,22 +1585,16 @@ class GameSession extends EventEmitter {
 // So the right hand is index 7 in UserInfo and index 2 in CharInfo. Reading one
 // layout with the other's indices yields a plausible-looking wrong item id,
 // which is exactly the kind of bug that survives review — hence two tables.
-const PAPERDOLL_USER = { RHAND: 7, LHAND: 8, GLOVES: 9, CHEST: 10, LEGS: 11, FEET: 12, RHAND2: 14 };
-const PAPERDOLL_CHAR = { RHAND: 2, LHAND: 3, GLOVES: 4, CHEST: 5, LEGS: 6, FEET: 7, RHAND2: 9 };
-const PAPERDOLL_OBJECT_SLOTS = ['hairall', 'rear', 'lear', 'neck', 'rfinger', 'lfinger',
+const PAPERDOLL_USER = ['hairall', 'rear', 'lear', 'neck', 'rfinger', 'lfinger',
   'head', 'rhand', 'lhand', 'gloves', 'chest', 'legs', 'feet', 'cloak', 'rhand2', 'hair', 'face'];
+const PAPERDOLL_CHAR = ['hairall', 'head', 'rhand', 'lhand', 'gloves', 'chest',
+  'legs', 'feet', 'cloak', 'rhand2', 'hair', 'face'];
+const PAPERDOLL_OBJECT_SLOTS = PAPERDOLL_USER;
 
-function readPaperdollItems(r, count = 17, map = PAPERDOLL_USER) {
-  const slots = [];
-  for (let j = 0; j < count; j++) slots.push(r.readD());
-  return {
-    rhand: slots[map.RHAND] || slots[map.RHAND2] || 0,
-    lhand: slots[map.LHAND] || 0,
-    gloves: slots[map.GLOVES] || 0,
-    chest: slots[map.CHEST] || 0,
-    legs: slots[map.LEGS] || 0,
-    feet: slots[map.FEET] || 0,
-  };
+function readPaperdollItems(r, slots = PAPERDOLL_USER) {
+  // Keep all received item identities, including hair/head selection inputs.
+  // Layouts differ; absent CharInfo jewelry fields must stay absent.
+  return Object.fromEntries(slots.map(key => [key, r.readD()]));
 }
 
 function parseCharSelectInfo(r) {
@@ -1647,7 +1642,7 @@ function parseCharInfo(r) {
   const race = r.readD();
   const sex = r.readD();
   const classId = r.readD();
-  const paperdoll = readPaperdollItems(r, 12, PAPERDOLL_CHAR);
+  const paperdoll = readPaperdollItems(r, PAPERDOLL_CHAR);
   for (let j = 0; j < 4; j++) r.readH();
   r.readD(); // rhand augmentation
   for (let j = 0; j < 12; j++) r.readH();
