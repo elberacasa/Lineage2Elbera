@@ -2043,3 +2043,49 @@ browser/native tools; the catalog states that boundary.
 Next: admit original NPC state/stance/rate inputs and reuse the sparse-pose
 pipeline for real NPC playback, then continue skin/attachment, effect anchors,
 world and full gameplay/UI gaps. The full browser-port goal remains active.
+
+
+## Original NPC source inspection and packet retention — 27 September 2026
+
+Continued on `codex/native-npc-playback` from public PR #10 merge `e04fa66`.
+Gremlin 20001 and Young Fox 20091 now have lossless source bundles with explicit
+NPC skeleton identities, qualified mesh/animation references and all eight
+original sequences each. The existing entity loader validates actual glTF,
+geometry-buffer and bundle bytes together, then creates a separate scene per
+actor while sharing immutable source data. Late upgrades cannot attach to
+removed/replaced NPCs; retirement clears owned timers, mixers and placeholders.
+
+The existing Elbera NPC inspector now exposes every recovered sequence, a
+manual source timeline, normalized-frame scrubbing and exact local-pose
+restoration. One-frame DeathWait works without an invented animation duration
+rule. Original geometry matches triangle positions, UVs and winding; converted
+skin influence records still differ at 582 Gremlin and 215 Fox vertices. The
+inspector makes those limits visible. It does not enable native NPC gameplay
+state selection or execute original notifies, effects or sound callbacks.
+
+Native tracing corrected opcode 0x16 byte 25 from the inherited name-display
+label to Controller.WaitType. The gateway now retains raw WaitType, combat,
+all three equipment fields, summon-animation byte and the complete optional
+post-string tail. Missing/truncated tails stay absent. Entity snapshots deep
+copy/freeze these inputs. Original initial rate and stance inputs are now
+bounded evidence, but the configured server sends summon byte 2, which invokes
+SpawnEnterEvent; abnormal-state and fresh-instance admission cannot be inferred
+from empty equipment alone. Automatic source NPC gameplay remains disabled.
+
+Portable tests cover transport identities, exact verified-byte consumption,
+retries, actor isolation, async model retirement, matrix restoration, all source
+sequence types and raw packet values. All 14 existing player codec outputs remain
+byte-identical. The browser exercised all 16 NPC sequences, both playback/pause
+and restoration, plus the existing angel-corpse/material path, with no new
+warnings/errors in the inspector. After a loopback-gateway restart, the existing
+ElberaVisor character re-entered Talking Island with Gremlins visible; the
+previously known unhandled PlaySound warnings remain. A direct Gremlin
+combat-wait capture preserves the README's
+existing hero/gallery and adds this tool layout. Private originals, generated
+bundles and raw receipts remain outside publication; Core 0.1.0 remains the
+previous smaller standalone release.
+
+Next: resolve native SpawnEnterEvent and abnormal-state lifecycle, then connect
+admitted source NPC states and replace mismatched skin influences using original
+mesh data. Movement, attacks, casts, notifications and effects require their own
+source rules; source inspection is a milestone, not the full browser-port goal.
