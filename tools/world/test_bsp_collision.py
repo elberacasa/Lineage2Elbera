@@ -5,7 +5,7 @@ import struct
 from types import SimpleNamespace
 import unittest
 
-from export_bsp_collision import export_model, validate_graph, validate_model, stage_path
+from export_bsp_collision import export_model, validate_graph, validate_model, stage_path, level_model_binding
 from l2lib import L2Error, encode_compact
 from l2lib.ue2package import _read_model
 
@@ -34,15 +34,94 @@ def source_fixture(short=False):
     raw += c(1) + c(0) + c(-1) + c(-1) + struct.pack('<Q', 1 << 63)
     raw += c(0) + struct.pack('<2i', 1, 0) + b'\0\0\0'
     origin = 17
-    export = SimpleNamespace(index=0, serial_offset=origin, serial_size=len(raw), package_index=0)
-    pkg = SimpleNamespace(data=b'P'*origin + raw + b'NEXT EXPORT BYTES', path=Path('synthetic.unr'),
+    export = SimpleNamespace(index=0, serial_offset=origin, serial_size=len(raw), package_index=0,
+                             class_index=-2, object_flags=0, label='Model0')
+    level_raw = c(0) + bytes(16) + bytes(5) + struct.pack('<2i', 0, 1) + c(1) + b'UNPARSED LEVEL TAIL'
+    level = SimpleNamespace(index=1, serial_offset=origin+len(raw)+17, serial_size=len(level_raw),
+                            package_index=0, class_index=-3, object_flags=0, label='myLevel')
+    imports = [SimpleNamespace(package_index=0,label='Engine'),
+               SimpleNamespace(package_index=-1,label='Model'),
+               SimpleNamespace(package_index=-1,label='Level')]
+    exports = [export,level]
+    def resolve(n):
+        if n == 0: return None
+        if n > 0 and n <= len(exports): return exports[n-1]
+        if n < 0 and -n <= len(imports): return imports[-n-1]
+        raise L2Error('bad synthetic reference')
+    pkg = SimpleNamespace(data=b'P'*origin + raw + b'NEXT EXPORT BYTES' + level_raw, path=Path('synthetic.unr'),
                           file_version=123, licensee_version=25,
                           name=lambda n: 'None' if n == 0 else 'unexpected',
-                          export_name=lambda e: 'Model0', resolve_ref=lambda n: export)
+                          export_name=lambda e: e.label, import_name=lambda e:e.label,
+                          resolve_ref=resolve, exports=exports, imports=imports)
     return pkg, export, _read_model(pkg, export, not short)
 
 
 class BspCollisionTests(unittest.TestCase):
+    def test_serialized_level_model_is_selected_instead_of_zoned_heuristic(self):
+        pkg, expected, model = source_fixture()
+        selected, binding = level_model_binding(pkg)
+        self.assertIs(selected, expected)
+        self.assertEqual(binding['model'], {'reference':1,'qualified':'synthetic.Model0'})
+        self.assertEqual(binding['level']['qualified'], 'synthetic.myLevel')
+        self.assertEqual(binding['actorArrays'][0]['count'], 0)
+        self.assertEqual(binding['remainingTailBytes'], len(b'UNPARSED LEVEL TAIL'))
+        result = export_model(pkg, model, '00_00', '0'*64, 111)
+        self.assertEqual(result['source']['levelBinding'], binding)
+        # Another Model's contents, including its zone count, are never searched.
+        other = copy.copy(expected); other.index=2; other.label='UnselectedModel'
+        pkg.exports.append(other)
+        self.assertIs(level_model_binding(pkg)[0], expected)
+        wrong = copy.copy(model); wrong.export=other
+        with self.assertRaisesRegex(ValueError,'differs from serialized'): export_model(pkg,wrong,'00_00','0'*64,111)
+
+    def test_level_prefix_handles_reference_arrays_and_unicode_url_without_tail_guess(self):
+        pkg, expected, _ = source_fixture()
+        level=pkg.exports[1];c=encode_compact
+        ansi=lambda s:c(len(s)+1)+s.encode('latin-1')+b'\0'
+        wide=lambda s:c(-(len(s)+1))+s.encode('utf-16-le')+b'\0\0'
+        body=(c(0)+struct.pack('<2i',2,2)+c(0)+c(1)+struct.pack('<2i',1,1)+c(2)+
+              ansi('proto')+wide('host')+ansi('map')+c(0)+c(1)+ansi('option')+
+              struct.pack('<2i',1234,1)+c(1)+b'tail')
+        pkg.data=pkg.data[:level.serial_offset]+body;level.serial_size=len(body)
+        selected,binding=level_model_binding(pkg)
+        self.assertIs(selected,expected)
+        self.assertEqual([row['count'] for row in binding['actorArrays']],[2,1])
+        self.assertEqual(binding['urlOptionCount'],1)
+        self.assertEqual(binding['remainingTailBytes'],4)
+
+    def test_level_binding_rejects_ambiguous_identity_and_unsupported_layout(self):
+        for mutate in [lambda p:setattr(p,'file_version',122),lambda p:setattr(p,'licensee_version',22),
+                       lambda p:setattr(p.exports[1],'object_flags',0x02000000),
+                       lambda p:setattr(p.exports[1],'package_index',1),
+                       lambda p:setattr(p.imports[0],'label','UnrelatedPackage'),
+                       lambda p:p.exports.append(copy.copy(p.exports[1]))]:
+            pkg,_,_=source_fixture();mutate(pkg)
+            with self.assertRaises(ValueError):level_model_binding(pkg)
+
+    def test_level_binding_rejects_wrong_reference_counts_strings_and_truncation(self):
+        for malformed in ['negative','unequal','huge','actor-ref','string','model-null','model-import','model-class','model-range','properties']:
+            pkg,_,_=source_fixture();level=pkg.exports[1]
+            body=bytearray(pkg.data[level.serial_offset:level.serial_offset+level.serial_size])
+            if malformed=='negative':struct.pack_into('<i',body,1,-1)
+            elif malformed=='unequal':struct.pack_into('<i',body,5,1)
+            elif malformed=='huge':struct.pack_into('<2i',body,1,0x7fffffff,0x7fffffff)
+            elif malformed=='actor-ref':body[1:9]=struct.pack('<2i',1,1)+encode_compact(999)
+            elif malformed=='string':body[17:18]=encode_compact(2)+b'XX'
+            elif malformed=='model-null':body[30]=0
+            elif malformed=='model-import':body[30]=0x81
+            elif malformed=='model-class':body[30]=2
+            elif malformed=='model-range':body[30]=63
+            elif malformed=='properties':body[0]=1
+            pkg.data=pkg.data[:level.serial_offset]+body;level.serial_size=len(body)
+            with self.subTest(malformed=malformed),self.assertRaises((ValueError,L2Error)):
+                level_model_binding(pkg)
+        pkg,_,_=source_fixture();level=pkg.exports[1]
+        # All bytes still exist in the package; the Level export ends before Model.
+        level.serial_size=30
+        with self.assertRaises(L2Error):level_model_binding(pkg)
+        level.serial_offset=-1
+        with self.assertRaisesRegex(ValueError,'outside package'):level_model_binding(pkg)
+
     def test_original_fields_and_absolute_source_consumption_retained(self):
         _, export, model = source_fixture()
         self.assertEqual(model.nodes[0].i_leaf, (-1, 0))

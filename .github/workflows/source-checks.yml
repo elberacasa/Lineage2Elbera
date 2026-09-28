@@ -42,6 +42,11 @@ jobs:
           python3 -m pip install capstone==5.0.7
           python3 -m unittest discover -s tools/ui -p test_supplemental_pe.py
           python3 -m unittest discover -s tools/ui -p test_grounding_native.py
+      - name: Original BSP source and extent sweep fixtures
+        run: |
+          python3 -m unittest discover -s tools/world -p test_bsp_collision.py
+          python3 -m unittest discover -s tools/ui -p test_bsp_camera_native.py
+          node --test editor/world/test/bsp-collision.test.mjs
       - name: Original animation keys and interpolation fixtures
         run: |
           python3 -m unittest discover -s tools/anim -p test_pawnanim_source.py
@@ -64,7 +69,10 @@ jobs:
         run: |
           python3 -m unittest discover -s tools/release -p test_build_core.py
           python3 -m unittest discover -s tools/release -p test_build_npc_source.py
+          python3 -m unittest discover -s tools/release -p test_build_bsp.py
       - name: Build and verify the isolated source-only toolkit
         run: python3 tools/release/build_core.py --check
       - name: Build and verify the isolated NPC source toolkit
         run: python3 tools/release/build_npc_source.py --check --native-fixtures
+      - name: Build and verify the isolated BSP Inspector toolkit
+        run: python3 tools/release/build_bsp.py --check

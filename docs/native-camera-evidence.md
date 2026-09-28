@@ -217,8 +217,8 @@ against that rendering can both miss collision and introduce false blockers.
 A faithful replacement needs the original UModel collision fields and the
 primitive selected by the active native extent, rather than visible triangles.
 The zero-extent algorithm's primary-only result is described below for isolated
-comparison; the nonzero extent and complete collision wrapper are not certified
-by this checkpoint.
+comparison; the composed nonzero-extent world BSP path is described in
+[World BSP extent sweep](#world-bsp-extent-sweep). Full level aggregation remains separate.
 
 ## Primary BSP tree traversal
 
@@ -297,7 +297,7 @@ unreachable cycles, immutable preparation, finite overflow, bounded work and a
 nodes and RootOutside 0. A synthetic world-space segment was queried as a
 structural smoke check; it is not a captured original-client camera comparison.
 
-This module is deliberately **primary-only and not the default world camera**.
+This zero-extent operation is deliberately **primary-only and not the default world camera**.
 The enclosing UModel wrapper computes hit time and applies a subtraction of
 `0.5 / <erased-call result>`, then clamps it to 0..1 and recomputes location.
 The call shape is consistent with segment length, but its actual restored
@@ -310,8 +310,9 @@ it is not a complete native-camera collision claim.
 
 ## Nonzero extent: retained hull and one-plane slice
 
-The next executable slice is available in the same module and verifier. It
-does **not** enable the camera or expose a complete box-sweep hit query.
+The following independently checked slices are available in the same module
+and verifier. They now compose into `traceBspSweep`, described below. Neither
+the individual helpers nor that world BSP component enable the native camera.
 The nonzero branch at `0x107496b0` initializes the result time to 2, constructs
 a sweep state through `0x103121d9 → 0x10746310`, and calls traversal through
 `0x103051cd → 0x10748160`. The constructor retains start, end and their
@@ -328,9 +329,11 @@ implements the framing read by helper `0x10745580`:
   has capacity for 64 planes; the bounded decoder rejects a stream that has
   not reached its sentinel at that capacity.
 - Each referenced node index is `word & 0xbfffffff`. Bit `0x40000000` selects
-  an additional native plane operation. Its call at `0x10745650` is six NOPs
-  in the recovered copy, so the decoder preserves
-  `requiresNativePlaneOperation` and does not fabricate the resulting plane.
+  `FPlane::Flip`: negate all four Float32 components, including W and signed
+  zero. The call at `0x10745650` is erased in the owned copy; a separately pinned
+  exact comparison block now binds it. `requiresNativePlaneOperation` retains
+  the original flag while `plane` contains the oriented values. See the
+  qualified correspondence below.
 - The six DWORDs after the sentinel are reinterpreted as Float32 minimum XYZ
   and maximum XYZ, not numeric integer coordinates. Truncated, nonfinite,
   inverted, or invalid-reference records are rejected.
@@ -340,8 +343,8 @@ records, 1,617 plane references, 525 flagged plane operations and a maximum
 of 12 planes per hull; all 291 records validate. An independent raw-word read
 produced the same counts. The receipt remains private at
 `tmp/restart-audit/bsp-sweep/hull-framing.json`. These counts validate framing,
-not collision results, and show that ignoring the unresolved operation would
-affect real supplied geometry.
+not collision results, and show why preserving native orientation matters
+for real supplied geometry.
 
 `clipBspSweepPlane({plane,start,end,extent,enter,exit,normal})` implements the
 **complete retained single-plane interval helper** at `0x10746460`. All inputs
@@ -378,11 +381,11 @@ exactly with the JS slice. Cases cover inward/outward motion, the near-start
 exception, parallel and exact epsilon boundaries, entry ties, closed intervals,
 oblique planes and original-scale coordinates. Float64 still approximates
 x87 extended intermediates; this is not a universal numerical parity claim.
-The JS suite now contains 33 tests covering the primary ray, hull framing,
-plane clipping, branch/candidate traversal, bounds planes, final interval/time and bevel-admission slices, including
+The portable JS suite now contains 43 tests covering the primary ray, hull
+framing, individual sweep operations and the composed extent query, including
 malformed records, deep/cyclic trees, budgets and unsupported arithmetic.
 
-### Flagged-plane investigation: compatible operation is not a binding
+### Flagged-plane investigation and qualified binding
 
 At `0x10745647..0x1074566b`, the original code passes a hidden output pointer
 and the current plane as `this`, then copies all four DWORDs from the returned
@@ -398,8 +401,9 @@ and its complete body hash
 `96f66fdcc588cbe0005298a7cfe87f66d04e3ab899d7a050906c127d0be7a9f8`.
 Core SHA256 is
 `9462f87a5e77d21865e2e00264efd44df25feb47aa78f8a72e9cf66ce4e919bf`.
-This supports **Flip as a candidate**, not proof that the unresolved Engine
-call targets it. No runtime code negates or ignores flagged hull planes.
+Those owned-only checks establish **Flip as a candidate**, not a call binding.
+The later exact supplemental comparison described below supplies the qualified
+binding; the decoder now negates all four components for flagged references.
 Of the 291 staged 17_25 hulls, 254 contain at least one flagged plane, so a
 blanket unflagged-only collision implementation would omit substantial data.
 
@@ -469,25 +473,17 @@ The private receipt is
 the separately recorded nearby static actor or certify actor origin, terrain,
 adjacent levels, the trace wrapper or final camera behavior.
 
-To complete the world box sweep, the remaining work is explicit: verify the
-flagged-plane operation and owner-transform bindings; implement and verify the
-edge/bevel planes after `0x10748815` (including unresolved vector-returning
-calls at `0x1074897c`, `0x10748b64` and `0x10748d27`);
-then combine them with the independently verified final interval/time slices
-below. The adjustment still depends on an unresolved metric-returning call at
-`0x107463e3`. These pieces must be resolved before treating `continues` as a
-world collision result or using this slice as the default camera trace.
+The flagged-plane operation, metric and bevel construction are now joined in
+`traceBspSweep`; see the final section. Owner transforms, terrain, actors,
+adjacent-level aggregation and movement response remain outside that scope.
 
-### Final interval admission and explicit-metric time adjustment
+### Final interval admission and segment-length time adjustment
 
-The follow-up static import investigation did not bind `0x10745650`.
-Independent raw DWORD reconstruction still produces six NOPs, and the
-ordinary Engine PE import table has no Core imports (see the linked recovery
-evidence). A scoped filename census under the owned `assets` and `tools`
-directories found only the already pinned Engine build, not an independent
-unprotected comparison build. No protector/native DLL was executed. The
-Core `Flip` candidate remains unadmitted; these new operations do not consume
-or repair flagged hull planes.
+The first owned-only investigation could not name the erased plane and metric
+calls. The later pinned supplemental comparison supplies their names within
+exactly matched finite blocks; it does not restore or authenticate the owned
+binary. Running the checker without that comparison keeps the binding unknown
+in its receipt.
 
 The retained block `0x10748e10..0x10748e83` is now checked independently by
 `adoptBspSweepInterval({enter,exit,normal})`. It accepts exactly when:
@@ -502,8 +498,8 @@ writes entry to result `+0x24`, copies all three normal DWORDs, copies the
 source owner/model references, and sets its found-result field `+0x5fc` to 1.
 Rejected fixtures leave the prior result record untouched. The JS operation
 returns only an interval-adoption result, never a world hit; its input must
-already represent the completed native hull/bevel tests, which are not yet
-available end to end.
+already represent the completed native hull/bevel tests. The composed sweep
+provides that interval only after every required plane has passed.
 
 The nonzero-extent wrapper's intact time block is
 `0x1074973c..0x107497a7`. It is reached only after the found-result flag is
@@ -525,13 +521,20 @@ time    = clamp(f32(time - backoff), 0, 1)
 
 The source double at `0x108a01b0` contains exactly `Float32(0.1)`, while
 `0x108a42e0` contains `4.0`. Both clamp helpers return a stored Float32.
-The metric is an **explicit supplied Float32**, originating from the still
-unbound call at `0x107463e3` and its store at state `+0x5f8`. The JS API does
-not rename it length, calculate it from endpoints, or accept missing/zero/
-negative/nonfinite inputs. This narrow positive-finite arithmetic domain is
-not a claim about the unresolved callee's complete domain. Hit-position
-construction, material selection and overall trace aggregation remain outside
-this slice.
+The metric is a stored Float32 segment length: each `end-start` component is
+stored before the bound Core `FVector::Size` call at `0x107463e3`; the caller
+stores its result at state `+0x5f8`. `bspSweepSegmentMetric` reproduces that
+sequence. The ordered squared sum is stored as Float64 before `appSqrt`, and
+the returned square root is stored as Float32. It is not `Math.hypot` or a
+Float32 squared-length sum.
+
+A zero metric or a sufficiently small positive metric produces infinite
+intermediate bounds under masked floating-point exceptions. The retained
+clamps then yield final positive zero. The browser helper preserves this path;
+it does not reject the intermediate infinities or manufacture a stationary
+hit. The wrapper only runs after a hull has actually adopted an interval.
+NaN, negative lengths and source-derived overflow outside the admitted domain
+remain unsupported. Native CRT/FPU exception-mask equivalence is not claimed.
 
 The checker pins 17 further instruction anchors and three complete ranges:
 
@@ -546,7 +549,8 @@ and the time block plus both actual clamp bodies for 144 supplied metric/time
 pairs. The fixtures include strict-boundary ties, negative entry, each clamp
 branch, and source Float32 rounding. All outputs agree with the separate JS
 implementation. Four added portable tests cover boundaries, preserved result
-normal, explicit metric requirements and overflow refusal. No runtime
+normal and explicit metric requirements. Later zero/tiny metric cases extend
+the originally positive-finite domain as described above. No runtime
 camera/main/world integration or private source asset was changed.
 
 Reproduce with:
@@ -559,8 +563,8 @@ node --test editor/world/test/bsp-collision.test.mjs
 ### Retained bevel-pair admission
 
 `selectBspSweepBevelAxes({planeA,planeB})` closes the next call-free boundary.
-It requires **already oriented**, finite Float32 planes; it neither accepts raw
-LeafHulls references nor substitutes the unbound flagged-plane operation.
+It requires **already oriented**, finite Float32 planes; raw LeafHulls
+references are decoded and oriented by `decodeBspLeafHull` before this step.
 It returns only `scope: "bsp-sweep-bevel-axis-selection"`, never a bevel plane
 or a hit. Original plane W does not participate in this admission step.
 
@@ -583,8 +587,8 @@ planes have projected dot zero and request no bevel on that axis.
 The enclosing loops visit saved plane `i` in increasing order and each earlier
 plane `j < i` in increasing order. A later clipping failure can terminate the
 hull, so this selector does not claim that every admitted axis is eventually
-executed. The subsequent intersection helper and three vector-returning calls
-remain unbound; their outputs are not fabricated from this test.
+executed. This selector alone does not execute the subsequent intersection
+and normalization calls; those are now checked and composed separately below.
 
 The native verifier adds 20 anchors and these four exact ranges:
 
@@ -618,6 +622,115 @@ These counts are structural admission checks, not observed collisions or a
 promise that every pair survives earlier clipping. They use the ignored
 `tmp/restart-audit/bsp-<tile>-source/bsp-collision.json` records, enumerating
 `decodeBspLeafHull` once per distinct `collisionBound` and the new selector for
-each `j < i` pair. The flagged-plane binding, native metric and complete bevel
-construction remain required before default camera adoption. No world asset
-or camera behavior changed in this checkpoint.
+each `j < i` pair. These earlier counts intentionally excluded flagged hulls;
+the composed sweep now admits their recovered orientation. Full level-query
+aggregation is still required before default camera adoption.
+
+
+## World BSP extent sweep
+
+`prepareBspSweep(source)` snapshots the serialized tree, collision-bound
+indices and leaf-hull words. `traceBspSweep(model,start,end,extent)` then runs
+the **no-owner, nonzero-extent world UModel** path in original L2 XYZ:
+
+1. Traverse the original tree in its retained order, preserving repeated hulls.
+2. Start each hull interval at entry −1 and exit equal to the current best time
+   (initially 2). Clip its original oriented planes, then the six source bounds.
+3. Visit each plane pair `i,j<i` and admitted X/Y/Z bevel in order. Construct
+   the intersection and bevel normal with the recovered Float32 stores. Stop
+   immediately on a failed clip, before evaluating later planes or bevels.
+4. Adopt only the original strict interval predicate; preserve its raw normal
+   and negative entry. Compute the original segment-length backoff and clamp.
+5. Store the final location as `f32(start + f32(f32(end-start) * time))`.
+   Report the native wrapper decision: time below 1 blocks; time equal to 1
+   returns clear even if the wrapper retains an adopted hit record.
+
+The result explicitly separates `blocked` from `hit`. A miss has `hit:null`.
+Malformed data, exhausted work bounds and unsupported arithmetic return
+`status:'unsupported'`; callers must treat that as unknown. No node index,
+material, terrain result, actor or movement response is invented.
+
+### Bound operations and precision
+
+The optional pinned Engine comparison identifies `FPlane::Flip` in a 57-byte
+block and `FVector::Size` in a 134-byte constructor block. Each differs only
+at its declared six-NOP/import-call site. The owned Core bodies supply actual
+retained arithmetic; the comparison is qualified evidence from a supplemental
+copy, not vendor authentication or binary restoration.
+
+The complete 1,531-byte bevel loop and 467-byte intersection arithmetic block
+bind `UnsafeNormal`, `SizeSquared`, scalar division and `Normalize`. Let `F`
+mean a Float32 store, including every vector component, and A/B be oriented
+planes. The intersection is:
+
+```
+D = F(A.xyz × B.xyz)
+s = F((Dx*Dx + Dy*Dy) + Dz*Dz)
+C = F(D × A.xyz); E = F(B.xyz × D)
+P = F(F(F(C*B.w) + F(E*A.w)) * F(1/s))
+D = F(D * F(1/sqrt(s)))
+```
+
+The native helper first returns zero vectors if `s` is below the original
+Float32 `1.0000001111620804e-6`. Its caller ignores that return before
+`UnsafeNormal`; the browser reports this degenerate domain as unsupported,
+never as a skipped plane. For admitted axis U, construct `raw=F(U×D)` and
+normalize with a **Float64** squared-sum store, followed by a Float32 reciprocal
+square-root store and Float32 component products. If the stored dot with A's
+normal is negative, negate the normal. Store W as its ordered dot with P.
+The intersection division uses reciprocal-then-multiply, not per-axis division.
+
+Float64 remains an approximation of native x87 intermediates. The verifier
+interprets retained instructions without loading a DLL; named `appSqrt` is an
+explicit mathematical boundary. Checks compare actual runtime output, including
+Float32 bit patterns and signed zero, but do not establish universal native
+FPU rounding, CRT exception behavior or a captured original-client session.
+
+### Inspect it
+
+Open `editor/world/test/bsp-original.html` through a local static server.
+The **Elbera Tools — Original BSP collision** page uses this exact module.
+Its synthetic box needs no game files. A local `bsp-collision.json` export can
+be selected in the browser; no upload or game connection occurs. New sources
+clear the old inputs so synthetic coordinates cannot silently query a real map.
+Edited or invalid inputs clear the previous result. The projection draws
+candidate bounds, explicit query extent and adjusted hit; diagnostic boxes
+are not presented as the complete convex hull.
+
+Reproduce portable runtime checks with:
+
+```sh
+node --test editor/world/test/bsp-collision.test.mjs
+```
+
+Use the existing private-input checker for interpreted original instructions:
+
+```sh
+python3 tools/ui/check_bsp_camera_native.py --check
+python3 tools/ui/check_bsp_camera_native.py --check --comparison-engine /path/to/pinned/engine.dll
+```
+
+At this checkpoint the source checker compares 64 synthetic bevel sets
+(441 exact-bit planes) and 90 composed synthetic sweeps (524 plane clips)
+against the actual browser module. The existing slice checks remain separate;
+they include 133 oriented-plane cases, 134 segment metrics, 35 zero/tiny/finite
+adjustments and nine final-location cases. Ten source-free mutation/guard tests
+exercise the verifier itself:
+
+```sh
+python3 -S -m unittest discover -s tools/ui -p test_bsp_camera_native.py
+```
+
+A separate private run queries the staged original 17_25/22_22 models: 49
+explicitly authored probes, 37 hits and 948 plane clips, all matching interpreted
+source results bit for bit for time, location and normal. The browser's Talking
+Island diagnostic query is included. These are original-geometry probes, not
+an observed native game process, blanket map coverage or default gameplay
+adoption. Raw geometry and query receipts stay private.
+
+The qualified comparison path is optional and must match the documented hash.
+The owned-only receipt keeps erased-call identities unresolved. This component
+is not yet the default game camera or walking collision: level aggregation,
+terrain, actor primitives, transformed owners and response remain separate
+requirements. An inspector result is a milestone toward that integration,
+not completion of the browser client.
