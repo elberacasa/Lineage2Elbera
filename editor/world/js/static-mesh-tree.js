@@ -138,6 +138,86 @@ export function prepareLoadedStaticMeshTree(source, current) {
   });
 }
 
+/** A freshly allocated, referenced native StaticMesh under an explicit current
+ * class definition. Reused objects, custom templates, script stacks and config
+ * initialization require their own paths. The caller still owns class loading;
+ * saved export flags never serve as current flags without these transitions.
+ */
+export function prepareFreshStaticMeshTree(source, { classFlags } = {}) {
+  if (!uint(classFlags)) return fail("current native class flags required");
+  if (classFlags & 0x400)
+    return fail("class config/localized initialization is unresolved");
+  if (source?.sourceClass !== "Engine.StaticMesh" || source.fileVersion !== 123)
+    return fail("original file-123 Engine.StaticMesh required");
+  const saved = source.savedProperties;
+  if (!uint(saved?.savedExportFlags) || !dense(saved.tags))
+    return fail("ordered saved properties and export flags required");
+  if (saved.savedExportFlags & 0x02000000)
+    return fail("script-stack resource loading is unresolved");
+  // Top-level declarations recovered from UStaticMesh.StaticConstructor.
+  // In particular, Materials is the array at +0x13c, not the native sections.
+  const kinds = {
+    MaxSwayAngle: 4,
+    Frequency: 4,
+    bSwayObject: 3,
+    UseSimpleLineCollision: 3,
+    UseSimpleBoxCollision: 3,
+    UseSimpleKarmaCollision: 3,
+    UseVertexColor: 3,
+    bStaticMeshLod: 3,
+    StaticMeshLod01: 5,
+    StaticMeshLod02: 5,
+    LodRange01: 4,
+    LodRange02: 4,
+    bStaticMeshLodBlend: 3,
+    bMakeTwoSideMesh: 3,
+    bUseBillBoard: 3,
+    Materials: 9,
+  };
+  const seen = new Set();
+  for (const tag of saved.tags) {
+    if (
+      !tag ||
+      !own(kinds, tag.name) ||
+      tag.type !== kinds[tag.name] ||
+      tag.index !== 0 ||
+      tag.struct !== null ||
+      seen.has(tag.name)
+    )
+      return fail("unresolved saved property or compatibility conversion");
+    seen.add(tag.name);
+  }
+  const version = source.loadTail?.fields?.["0x1dc"];
+  if (version?.encoding !== "i32")
+    return fail("original signed saved mesh version required");
+  // CreateExport -> fresh StaticAllocateObject -> ordinary Preload/Serialize
+  // -> ConditionalPostLoad. Header preservation is scoped to the admitted
+  // native descriptors; arbitrary class/template mutation is not supported.
+  const created = ((saved.savedExportFlags & 0x067f01a5) | 0x01000200) >>> 0;
+  const allocated = (created | (classFlags & 8 ? 0x4000 : 0)) >>> 0;
+  const serializing = ((allocated & ~0x200) | 0x8000) >>> 0;
+  const serialized = ((serializing | 0x40000000) & ~0x8000) >>> 0;
+  const beforePostLoad = (serialized & 0xdeffffff) >>> 0;
+  const loaded = prepareLoadedStaticMeshTree(source, {
+    objectFlags: beforePostLoad,
+    meshVersion: version.value,
+    localBounds: source.savedLocalBounds,
+    // Original normal constructor initializes this array empty. PostLoad
+    // reserves and zeroes its entries from the actual loaded vertex stream.
+    vertexArray: { count: 0, capacity: 0 },
+  });
+  return freeze({
+    ...loaded,
+    loadingFlags: freeze({
+      created,
+      allocated,
+      serializing,
+      serialized,
+      beforePostLoad,
+    }),
+  });
+}
+
 /** Snapshot the existing exporter record format once, without deriving planes,
  * rebuilding the tree or inferring placements/material identities. Shared
  * descendants are allowed; a cycle cannot complete the native traversal.

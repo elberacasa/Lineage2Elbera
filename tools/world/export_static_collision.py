@@ -479,6 +479,16 @@ class Audit:
                        and qualified_ref(pkg, e.index + 1).casefold() == qualified.casefold()]
             if len(matches) != 1: raise ValueError('missing-or-ambiguous-qualified-mesh')
             ex = matches[0]; r = pkg.body_reader(ex); props = read_properties(pkg, r)
+            saved_properties = None
+            if self.retain_sweep_data:
+                source_class = qualified_ref(pkg, ex.class_index)
+                tags, tag_end = read_props_ordered(pkg, ex.serial_offset,
+                    end=ex.serial_offset + ex.serial_size)
+                if tag_end != r.pos:
+                    raise ValueError('ordered-mesh-property-framing-mismatch')
+                saved_properties = dict(savedExportFlags=ex.object_flags,
+                    tags=[{key: tag[key] for key in ('name', 'type', 'index', 'struct')}
+                          for tag in tags])
             mr = Reader(props['Materials'])
             mats = [read_properties(pkg, mr) for _ in range(count(mr))]
             if mr.pos != len(mr.data): raise ValueError('material-properties-trailing-bytes')
@@ -495,6 +505,7 @@ class Audit:
                 data['loadTail'] = mesh_load_tail(r, file_version=pkg.file_version,
                     licensee_version=pkg.licensee_version,
                     export_end=ex.serial_offset + ex.serial_size)
+                data.update(sourceClass=source_class, savedProperties=saved_properties)
             referenced = sorted(set(data['materials']))
             if not self.retain_sweep_data:
                 del data['materials']

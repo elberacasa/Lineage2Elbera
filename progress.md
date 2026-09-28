@@ -2,6 +2,38 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Fresh static-mesh resource preparation — 28 September 2026
+
+The existing browser mesh module now prepares fresh original records through
+recovered allocation/loading flag transitions and PostLoad, using the saved
+box/version and constructor-empty array. The sweep exporter preserves exact
+source class and ordered property identities. Sixteen original native property
+declarations bind admission; unknown conversions, class configuration, reuse
+and custom templates remain explicit unsupported paths. Current class flags
+are required input, not guessed from saved flags or a presumed default.
+
+The existing Elbera bounds verifier adds 256 browser/native comparisons,
+271,620 interpreted instructions at 723 addresses, including the normal mesh
+constructor and ConditionalPostLoad/PostLoad. Prior 600 bounds, 288 actor
+updates, 600 PostLoad and 128 constructor cases still pass. The existing record
+checker adds an optional diagnostic class-state comparison: all 480 per-map
+records on Talking Island/Giran pass with explicitly authored class flags zero.
+That is record compatibility evidence, not recovered native class state.
+
+Corrected the inherited InitProperties endpoint: the former range cut through
+a jump and excluded the final constructor-linked property loop. The picking
+and pose-allocation checks now retain the complete normal body and still pass.
+Forty-two related browser tests, 40 portable exporter/record tests and ten
+interpreter tests pass. The installed browser runner reached the offline world;
+its screenshot/state were inspected, with no captured errors. No Online or
+live-placement acceptance is claimed; main still uses legacy collision.
+
+Public docs retain all 17 README images. No visual layout changed or new public
+screenshot is claimed. Reusable Elbera code remains separate from private
+originals and receipts, outside current standalone archives. Next: resolve
+ordinary native class state and join the existing world population/query path.
+The full browser-client goal remains active and incomplete.
+
 ## Original packed-property framing and saved-state census — 28 September 2026
 
 The existing map reader now preserves extended array indices instead of

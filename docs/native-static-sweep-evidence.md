@@ -133,10 +133,18 @@ array indices use an extended encoding. These findings do not explain existing
 placement defects. `savedExportFlags` remains saved metadata, not a substitute
 for current resource flags or the original construction/loading chain.
 
+The sweep payload now also retains the qualified `sourceClass` and compact
+`savedProperties` metadata (saved flags and ordered name/type/index/struct
+identities). This feeds [fresh browser resource preparation](native-static-actor-bounds-evidence.md#fresh-resource-preparation).
+That entry uses recovered loading transitions with explicit current class
+state; it does not turn the saved export flags directly into live flags.
+The record checker cross-checks these added fields against the original export.
+
 The same read-only record command below reproduces the census summary; omit
 `--check` for private per-tag evidence. No assets or scenes are rewritten. The
 reader and checker remain Elbera repository tools, outside the current standalone
-release archives. No browser runtime or visual layout changes in this checkpoint.
+release archives. The fresh-preparation entry changes the browser component;
+the main-world loader and visual layout remain unchanged.
 
 The existing exporter has an opt-in `--sweep-output` mode:
 

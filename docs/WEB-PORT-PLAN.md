@@ -10,26 +10,26 @@ publication branch. The [coverage inventory](PORT-COVERAGE.md) records the
 broader published milestones and remaining gaps.
 
 The [static actor bounds checkpoint](native-static-actor-bounds-evidence.md)
-now compares 600 original box results, 288 composed updates and 600 bounded
-PostLoad-to-bounds cases against the actual browser reset implementation.
-The existing mesh-tree API now joins that reset to source geometry and an
-explicit current box. The source decoder recovers saved mesh version eight
-for 480 per-map records through exact export ends. The admitted PostLoad branch
-preserves the box, but current object initialization/flags still need to be
-joined to saved state. Then current actors must populate the original query
-components; the main world still uses the older collision loader. The ordinary
-mesh constructor is now checked in 128 retained-instruction cases: it preserves
-incoming flags and the version slot. Allocation/class-default and serialization
-effects remain to be joined, rather than treating construction as a full reset. Rendered
-mesh recentering remains provisional.
+now joins original saved mesh records to a fresh-resource entry, including
+allocation/loading flag transitions and PostLoad. Its 256 source/browser
+comparisons supplement 600 bounds cases, 288 actor updates, 600 PostLoad cases
+and 128 constructor cases. All 480 checked per-map records pass preparation
+under an explicitly supplied diagnostic class state. That state is not a
+recovered native class value. The main world still uses the older collision
+loader; this remains a component checkpoint.
 
-The shared property reader now retains extended array indices and correctly
-handles Boolean tags without payload bytes. The original Core serializer binds
-both fixes. A fresh census finds no saved native-header overrides in the 480
-checked mesh records; all 2,922 static-actor records on the two maps are unchanged.
-This narrows the loading investigation but does not establish current flags or
-repair live placement. Continue from fresh allocation and serialization into
-the existing resource/actor APIs, then validate actual Online world queries.
+The shared property reader preserves extended indices and Boolean framing.
+The sweep exporter now retains the exact source class, saved export flags and
+ordered tag identities; all sixteen accepted mesh declarations are bound to
+the original native constructor. An inherited truncated InitProperties range
+has also been corrected through the final property-copy loop. Existing actor
+admission counts and default ray outputs remain unchanged.
+
+Next: derive ordinary native class state, then feed resolved mesh resources
+and original actor fields into the existing world-query components. Validate
+actual Online queries and placement before claiming a map repair. Rendered
+mesh recentering remains provisional; UI, animation, effects and gameplay gaps
+in the coverage inventory are still part of the full-client goal.
 
 ## Product and scope
 

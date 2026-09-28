@@ -56,9 +56,18 @@ does not authenticate the archive or establish whole-build equivalence.
 `InitProperties` copies template bytes after the 0x34-byte UObject header.
 An explicit template is copied for the supplied size; if inheriting a shorter
 parent default, its remaining tail is zeroed. The retained path is
-`0x1015fb00..0x1015fc0b`; copy at `0x1015fbff`, tail length/address setup at
+`0x1015fb00..0x1015fc7a`; copy at `0x1015fbff`, tail length/address setup at
 `0x1015fb84..0x1015fb89`, and zero-fill call at `0x1015fb8a`. Its call-free
 helper at `0x10108420` uses `xor eax,eax`, `rep stosd` and `rep stosb`.
+
+The prior endpoint `0x1015fc0b` cut through a jump and omitted the final
+constructor-linked property loop. The verifier now retains the complete normal
+body through its return at `0x1015fc79`. After the bulk copy/zero, that loop
+clears and copies linked property values using their declared offsets and
+virtual `CopyCompleteValue`. Header preservation is therefore scoped to the
+original native descriptors; it is not a claim about arbitrary class metadata.
+For the native mesh-instance chain below, the inherited no-op static constructor
+introduces no reflected property at the separate `+0x1fc` cache field.
 
 ## Why this class default contains zero
 

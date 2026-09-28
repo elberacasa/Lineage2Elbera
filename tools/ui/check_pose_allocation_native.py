@@ -92,7 +92,7 @@ def verify(comparison_engine, comparison_core):
      ('?Register@UClass@@UAEXXZ',0x101339d0,0x10133af6),
      ('?GetDefaultObject@UClass@@QAEPAVUObject@@XZ',0x10115bb0,0x10115be5),
      ('?InitClassDefaultObject@UObject@@QAEXPAVUClass@@H@Z',0x1015fe10,0x1015fe9f),
-     ('?InitProperties@UObject@@SAXPAEHPAVUClass@@0HPAV1@2@Z',0x1015fb00,0x1015fc0b),
+     ('?InitProperties@UObject@@SAXPAEHPAVUClass@@0HPAV1@2@Z',0x1015fb00,0x1015fc7a),
      ('?StaticConstructor@UObject@@QAEXXZ',0x1015a1e0,0x1015a220),
      ('?StaticConstructObject@UObject@@SAPAV1@PAVUClass@@PAV1@VFName@@K1PAVFOutputDevice@@1@Z',0x10167eb0,0x10167f3e),
      ('?StaticAllocateObject@UObject@@SAPAV1@PAVUClass@@PAV1@VFName@@K1PAVFOutputDevice@@11@Z',0x101677c0,0x10167e10),

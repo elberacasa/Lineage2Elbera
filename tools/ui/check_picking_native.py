@@ -37,7 +37,7 @@ def verify_actor_defaults_and_trace(e):
     ranges = [
         (0x101352a8, 0x1013540b, '4d65d86dd081b121b6bee66cd09f5ac19eb1f5fd46cb2e014da67dedad1fa3fb'),
         (0x1015fe10, 0x1015fe9f, '7995734cc2cc19f9b79ad29df0b4a054e3e285014b60082257fea61883e0f82d'),
-        (0x1015fb00, 0x1015fc0b, 'dec186032d66a9d75924592eb2d16505cee7b8a66eb605a8f7d360973c74e641'),
+        (0x1015fb00, 0x1015fc7a, 'b0c9be4fb68a51e262c655f53daffe4689aebc9a297feac729bc0bb9b808df17'),
         (0x10108420, 0x1010843d, '7631fe6ea18cde71eba7b7436a8d121276e577aa0ab8fd7db89aa9b5cff60900'),
         (0x10173250, 0x101732f1, '80bf0d6214e3a404ca35d27be526557554f3b520fd587b3cb3d9afe91878031f')]
     for start, end, digest in ranges:
