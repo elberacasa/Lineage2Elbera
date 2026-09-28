@@ -2,6 +2,26 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original static triangle preparation and clipping — 28 September 2026
+
+The browser preserves original world-triangle construction, cache validity,
+negative-scale winding and ordered box/plane/edge clipping. The source scratch
+constructor starts entry at minus one and consumes the caller's closest time.
+SafeNormal and UnsafeNormal retain their different rounding paths. Unknown
+consumed values remain unsupported; rejected intervals preserve earlier writes.
+
+Elbera Tools compares the actual module with 5,200 original-instruction cases,
+including 500 composed scratch/preparation/clipping cases. Seventeen browser
+fixtures and six interpreter fixtures run without game files in CI. Source
+blocks, named supplemental imports and numerical constants are freshly pinned.
+The finite PC53/RNE profile uses an explicit positive mathematical square-root
+boundary, not a claim about observed native CRT or FPU execution.
+
+Whole-mesh traversal, material callbacks, cache lifetime, spatial admission and
+walking remain unfinished. The full client goal is active. Existing README
+images and standalone archives are preserved; the new source verifier is a
+repository Elbera Tool. [Inputs, commands and limits](docs/native-static-triangle-evidence.md).
+
 ## Original static sweep preparation and collision records — 28 September 2026
 
 The browser now prepares nonzero static-mesh queries using the original cached

@@ -6,9 +6,11 @@ match retained Engine/Core instructions bit for bit. Elbera Tools also preserves
 the original collision planes, tree links and bounds instead of rebuilding them
 from the rendered mesh.
 
-This component does not yet return a collision result. Tree traversal, triangle
-checks, material callbacks, current actor/cache state and live walking remain
-unfinished. It does not change the existing world scene or legacy ray picker.
+This component does not yet return a collision result. The separate
+[triangle component](native-static-triangle-evidence.md) now preserves original
+world preparation and clipping. Tree traversal, material callbacks, current
+actor/cache lifetime and live walking remain unfinished. The existing world
+scene and legacy ray picker are unchanged.
 
 ## Browser contract
 
