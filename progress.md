@@ -2,6 +2,29 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Declared actor collision flags and reference bindings — 28 September 2026
+
+PR47 merged actor loading preservation and saved transform recovery with
+source and merged-main CI passing. The active continuation now recovers all
+82 declared Boolean fields across four collision words. Linked Engine.u
+declarations and native typed-copy slices bind their masks; 512 original
+instruction cases preserve padding and source/neighboring words. Five linked
+reference chains distinguish StaticMesh, Mesh, Brush, AntiPortal, LevelInfo
+and the transient world reference XLevel.
+
+The private sweep output retains known masks and explicit map overrides.
+All 2,922 Talking Island/Giran saved flag records check against the original
+tags/defaults, with unchanged transform and collision-selection counts.
+52 portable record tests and 12 interpreter tests pass, along with the
+existing bounds/loading comparisons. Saved fields remain distinct from
+current state; no runtime JS/UI, new screenshot or Online repair is claimed.
+Private inputs/generated records stay local; all 17 README images remain.
+
+Next: recover the level loading assignment and current actor inputs, then
+feed the existing world-query path. The original ULevel.PostLoad contains the
+XLevel assignment; its iteration and loading conditions still need bounded
+qualification. The full-client goal remains active and incomplete.
+
 ## Actor loading preservation and original transform operands — 28 September 2026
 
 PR46 published and merged source-derived native mesh loading bits; source and

@@ -24,6 +24,50 @@ from export_static_collision import (
 from l2lib import encode_compact, read_properties
 
 
+def check_actor_flags(package, export, saved, defaults, layout):
+    """Check declared bits and overrides without filling unknown padding."""
+    if saved.get("scope") != "saved-map-and-class-defaults":
+        raise ValueError("unknown actor Boolean scope")
+    names = {field["name"] for group in layout for field in group["fields"]}
+    values = {name: defaults.get(name) for name in names}
+    if any(type(value) is not bool for value in values.values()):
+        raise ValueError("missing qualified Boolean default")
+    off = actor_prop_offset(package, export)
+    if off is None:
+        raise ValueError("unsupported actor property framing")
+    end = export.serial_offset + export.serial_size
+    tags, actual = read_props_ordered(package, export.serial_offset + off, end=end)
+    if actual != end:
+        raise ValueError("actor Boolean properties exceed export")
+    overrides = {}
+    for tag in tags:
+        name = tag["name"]
+        if name not in names:
+            continue
+        if (
+            name in overrides
+            or tag["type"] != 3
+            or tag["index"] != 0
+            or tag["struct"] is not None
+        ):
+            raise ValueError("unsupported saved actor Boolean property")
+        overrides[name] = tag["boolval"]
+        values[name] = tag["boolval"]
+    groups = {}
+    for group in layout:
+        bits = group["fields"]
+        mask = sum(field["mask"] for field in bits)
+        if mask != group["mask"]:
+            raise ValueError("inconsistent declared actor Boolean mask")
+        value = sum(field["mask"] for field in bits if values[field["name"]])
+        groups[group["offset"]] = dict(mask=mask, value=value)
+    if saved["groups"] != groups or saved["overrides"] != overrides:
+        raise ValueError(
+            "actor Boolean record differs from original properties/defaults"
+        )
+    return dict(groups=groups, overrideCount=len(overrides))
+
+
 def check_actor_transform(package, export, saved, defaults):
     """Round-trip each saved operand; defaults remain separately identified.
 
@@ -319,9 +363,9 @@ def verify(tile, *, fresh_class_flags=None):
     audit = Audit(tile, retain_sweep_data=True)
     actors = audit.actors()
     report = audit.report(actors)
-    actor_transforms = []
+    actor_transforms, actor_flags = [], []
     for actor in actors:
-        if "savedTransform" not in actor:
+        if not any(key in actor for key in ("savedTransform", "savedCollisionFlags")):
             continue
         matches = [
             e
@@ -331,15 +375,30 @@ def verify(tile, *, fresh_class_flags=None):
         ]
         if len(matches) != 1:
             raise ValueError("ambiguous saved actor transform identity")
-        actor_transforms.append(
-            dict(
-                actor=actor["name"],
-                sourceExportSHA256=actor["exportSHA256"],
-                fields=check_actor_transform(
-                    audit.pkg, matches[0], actor["savedTransform"], audit.inherited
-                ),
+        if "savedTransform" in actor:
+            actor_transforms.append(
+                dict(
+                    actor=actor["name"],
+                    sourceExportSHA256=actor["exportSHA256"],
+                    fields=check_actor_transform(
+                        audit.pkg, matches[0], actor["savedTransform"], audit.inherited
+                    ),
+                )
             )
-        )
+        if "savedCollisionFlags" in actor:
+            actor_flags.append(
+                dict(
+                    actor=actor["name"],
+                    sourceExportSHA256=actor["exportSHA256"],
+                    **check_actor_flags(
+                        audit.pkg,
+                        matches[0],
+                        actor["savedCollisionFlags"],
+                        audit.inherited,
+                        audit.boolean_layout,
+                    )
+                )
+            )
     records, layouts = [], Counter()
     for name, data in sorted(audit.geometry.items()):
         package = audit.packages[name.split(".")[0]]
@@ -397,6 +456,7 @@ def verify(tile, *, fresh_class_flags=None):
         sources=audit.sources,
         selection=report["summary"],
         actorTransforms=actor_transforms,
+        actorFlags=actor_flags,
         classDefaults=audit.defaults,
         meshes=len(records),
         triangles=sum(row["triangles"] for row in records),
@@ -420,6 +480,7 @@ def verify(tile, *, fresh_class_flags=None):
         freshPreparation=check_fresh_preparation(audit.geometry, fresh_class_flags),
         limits=[
             "Actor transform operands round-trip saved properties or qualified class defaults; current actor state and matrices are not inferred.",
+            "Actor Boolean records preserve declared saved/default bits and map overrides; padding, transient-property loading and current lifecycle writes remain unqualified.",
             "Exact decoded-package array byte round trip, including compact-index encoding and lazy saved ends.",
             "Both serialized boxes are compared at offsets recovered through the primitive prefix and section count. The second overwrites the first saved field; post-load state is not established.",
             "Load-tail fields are re-encoded through the exact export end. The lazy payload is only span/hash checked; its elements are not decoded. References are encoded package indices, not resolved objects.",
@@ -446,6 +507,7 @@ def main():
         if args.check:
             fresh = report["freshPreparation"]
             actor_count = len(report["actorTransforms"])
+            actor_flags = len(report["actorFlags"])
             report = {
                 key: report[key]
                 for key in [
@@ -465,6 +527,7 @@ def main():
                 ]
             }
             report["actorTransformRecords"] = actor_count
+            report["actorFlagRecords"] = actor_flags
             if fresh is not None:
                 report["freshPreparation"] = {
                     k: v for k, v in fresh.items() if k != "records"

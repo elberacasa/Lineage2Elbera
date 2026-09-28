@@ -31,7 +31,10 @@ from actor_octree_machine import MembershipMachine, snapshot
 from check_static_sweep_native import PreparationProgram, IDENTITY
 from check_hair_attachment_native import compare_call_block
 from static_mesh_class_source import qualify_registration, loading_bits
-from actor_transform_source import qualify_static_actor_loading
+from actor_transform_source import (
+    qualify_static_actor_loading,
+    qualify_actor_collision_fields,
+)
 from static_collision_source import (
     qualify_static_postload,
     qualify_static_mesh_constructor,
@@ -154,10 +157,11 @@ def qualify(program, core, candidate, candidate_core):
     registration = qualify_registration(e, core, candidate, candidate_core)
     from l2lib import load_package
 
+    engine_package = load_package(ROOT / "assets/interlude/system/Engine.u")[0]
     class_loading = loading_bits(
         e,
         core,
-        load_package(ROOT / "assets/interlude/system/Engine.u")[0],
+        engine_package,
         load_package(ROOT / "assets/interlude/system/Core.u")[0],
     )
     for block in loading["coreBlocks"]:
@@ -179,6 +183,14 @@ def qualify(program, core, candidate, candidate_core):
     )
     program.membership_targets[postload_thunk] = 0x106F5CC0
     actor_loading = qualify_static_actor_loading(e, core, candidate, candidate_core)
+    actor_fields = qualify_actor_collision_fields(
+        e, core, candidate, candidate_core, engine_package
+    )
+    for block in actor_fields["copyBlocks"]:
+        start, end = int(block["start"], 16), int(block["end"], 16)
+        PreparationProgram.add(
+            program, e, start, end, bytes(e.data[e.offset(start) : e.offset(end)])
+        )
     for image, blocks in [
         (e, actor_loading["engineBlocks"]),
         (core, actor_loading["coreBlocks"]),
@@ -223,6 +235,7 @@ def qualify(program, core, candidate, candidate_core):
         staticPostLoad=postload,
         staticConstructor=constructor,
         actorLoading=actor_loading,
+        actorFields=actor_fields,
     )
     return program
 
@@ -444,6 +457,54 @@ def native_one(program, row):
     m.invoke(0x106FE700, 0x300000, [0x600000, 0x200000])
     assert m.registers["eax"] == 0x600000
     return dict(bounds=hexes(m.box(0x600000)), events=m.bound_events), m
+
+
+def actor_field_cases(program):
+    """Execute the typed-copy bit slices, retaining undeclared destination bits."""
+    rng = random.Random(0x424F4F4C)
+    steps, visited, cases = 0, set(), 0
+    for block, group in zip(
+        program.receipt["actorFields"]["copyBlocks"],
+        program.receipt["actorFields"]["booleanLayout"],
+    ):
+        offset, mask = int(block["offset"], 16), group["mask"]
+        for index in range(128):
+            source = (
+                [0, 0xFFFFFFFF, 0xAAAAAAAA, 0x55555555][index]
+                if index < 4
+                else rng.getrandbits(32)
+            )
+            destination = rng.getrandbits(32)
+            m = StaticBoundsMachine(program)
+            m.registers.update(ebp=0x700000, ebx=0x710000, edx=destination)
+            m.memory.update(
+                {
+                    0x700000 + offset: source,
+                    0x710000 + offset: destination,
+                    0x710000 + offset - 4: 0x12345678,
+                    0x710000 + offset + 4: 0x89ABCDEF,
+                }
+            )
+            m.execute_until(int(block["entry"], 16), int(block["end"], 16))
+            assert m.memory[0x710000 + offset] == (destination & ~mask) | (
+                source & mask
+            )
+            assert m.memory[0x700000 + offset] == source
+            assert m.memory[0x710000 + offset - 4] == 0x12345678
+            assert m.memory[0x710000 + offset + 4] == 0x89ABCDEF
+            steps += len(m.visited)
+            visited.update(m.visited)
+            cases += 1
+    return dict(
+        cases=cases,
+        declaredBooleans=sum(
+            len(g["fields"]) for g in program.receipt["actorFields"]["booleanLayout"]
+        ),
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        undeclaredDestinationBitsPreserved=True,
+        scope="typed actor-copy slices with supplied source/destination words; not map loading",
+    )
 
 
 def actor_loading_cases(program):
@@ -1091,6 +1152,7 @@ def fresh_loading_cases(program, runtime):
 def verify(engine, core, comparison_engine, comparison_core, runtime):
     program = load_program(engine, core, comparison_engine, comparison_core)
     actor_loading = actor_loading_cases(program)
+    actor_fields = actor_field_cases(program)
     construction = constructor_cases(program)
     fresh_loading = fresh_loading_cases(program, runtime)
     rows = fixture_rows()
@@ -1155,6 +1217,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         uniqueInstructions=len(visited),
         construction=construction,
         actorLoading=actor_loading,
+        actorFields=actor_fields,
         freshLoading=fresh_loading,
         postLoad=dict(
             cases=len(rows),
@@ -1232,6 +1295,7 @@ def main():
                         "uniqueInstructions",
                         "construction",
                         "actorLoading",
+                        "actorFields",
                         "freshLoading",
                         "postLoad",
                     ]

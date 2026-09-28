@@ -3,11 +3,11 @@ import struct
 from pathlib import Path
 import unittest
 from copy import deepcopy
-from export_static_collision import Reader, mesh_body, mesh_load_tail, qualified_ref, eligible_materials, Audit, flattened_reference_collisions, actor_record
+from export_static_collision import Reader, mesh_body, mesh_load_tail, qualified_ref, eligible_materials, Audit, flattened_reference_collisions, actor_record, actor_boolean_layout
 from types import SimpleNamespace
 from unittest.mock import patch
 from l2lib import L2Error
-from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation, check_actor_transform
+from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation, check_actor_transform, check_actor_flags
 from static_mesh_class_source import read_root_class_flags
 
 
@@ -368,13 +368,13 @@ class QualificationTest(unittest.TestCase):
         audit.geometry = {'Fixture.Mesh': geometry}
         rows = [{'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
                  'issues': [], 'meshIssues': [], 'position': [1, 2, 3], 'scale': [1, 1, 1],
-                 'savedTransform': {'scope': 'authored-fixture'}}]
+                 'savedTransform': {'scope': 'authored-fixture'}, 'savedCollisionFlags': {'scope': 'authored-fixture'}}]
         with self.assertRaisesRegex(ValueError, 'separate private source output'):
             audit.output(rows)
         source = audit.sweep_output(rows)
         self.assertEqual(source['references'], [
             {'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
-             'savedTransform': {'scope': 'authored-fixture'}}])
+             'savedTransform': {'scope': 'authored-fixture'}, 'savedCollisionFlags': {'scope': 'authored-fixture'}}])
         self.assertEqual(source['classDefaults'], audit.defaults)
         self.assertIs(source['meshes']['Fixture.Mesh'], geometry)
         self.assertNotIn('actors', source)
@@ -547,6 +547,65 @@ class MeshLoadTailTest(unittest.TestCase):
             self.check(raw, origin+1, original)
 
 
+def authored_actor_layout(first_count=2):
+    chains = [
+        [('CreatureID', 'IntProperty')] + [(f'First{i}', 'BoolProperty') for i in range(first_count)]
+        + [('RelativeTrailOffset', 'StructProperty'), ('Second', 'BoolProperty'), ('RelativeLocInVehicle', 'StructProperty')],
+        [('Style', 'ByteProperty'), ('Third', 'BoolProperty'), ('TransientSoundVolume', 'FloatProperty')],
+        [('CollisionHeight', 'FloatProperty'), ('Fourth', 'BoolProperty'), ('Mass', 'FloatProperty')],
+    ]
+    # Export order deliberately differs from the linked declaration order.
+    props = list(reversed([row for chain in chains for row in chain]))
+    exports = [SimpleNamespace(index=0, name='Actor', kind='Class', package_index=0)]
+    for i, (name, kind) in enumerate(props, 1):
+        exports.append(SimpleNamespace(index=i, name=name, kind=kind, package_index=1))
+    by_name = {e.name: e for e in exports}
+    links = {a[0]: by_name[b[0]].index + 1 for chain in chains for a, b in zip(chain, chain[1:])}
+    raw = bytearray()
+    for ex in exports[1:]:
+        payload = b'\0\0' + compact(links.get(ex.name, 0)) + struct.pack('<II', 1, 0x2000) + b'\0'
+        if ex.kind == 'StructProperty': payload += compact(-1)
+        if ex.kind == 'ByteProperty': payload += compact(0)
+        ex.serial_offset, ex.serial_size = len(raw), len(payload)
+        raw += payload
+    imports = [SimpleNamespace(name='Vector', package_index=-2),
+               SimpleNamespace(name='Object', package_index=-3), SimpleNamespace(name='Core', package_index=0)]
+    return SimpleNamespace(exports=exports, data=raw, path='authored.u',
+        export_name=lambda e: e.name, class_name_of=lambda e: e.kind, name=lambda n: 'None' if n == 0 else 'invalid',
+        resolve_ref=lambda n: imports[-n-1] if n < 0 else exports[n-1], import_name=lambda e: e.name), by_name
+
+
+class ActorLayoutTest(unittest.TestCase):
+    def test_boolean_declarations_follow_links_and_keep_padding_unknown(self):
+        pkg, _ = authored_actor_layout()
+        groups = actor_boolean_layout(pkg)
+        self.assertEqual([g['offset'] for g in groups], ['0x64', '0x74', '0x2e4', '0x2f8'])
+        self.assertEqual([g['mask'] for g in groups], [3, 1, 1, 1])
+        self.assertEqual([f['name'] for f in groups[0]['fields']], ['First0', 'First1'])
+        self.assertEqual([f['mask'] for f in groups[0]['fields']], [1, 2])
+        self.assertEqual(groups[0]['fields'][0]['propertyFlags'], 0x2000)
+        self.assertNotIn('value', groups[0])
+
+    def test_unknown_layout_cannot_borrow_another_owner_or_follow_cycles(self):
+        pkg, rows = authored_actor_layout()
+        rows['First0'].package_index = 0
+        with self.assertRaisesRegex(ValueError, 'owner'): actor_boolean_layout(pkg)
+        pkg, rows = authored_actor_layout()
+        at = rows['First0'].serial_offset + 2
+        pkg.data[at] = rows['First0'].index + 1
+        with self.assertRaisesRegex(ValueError, 'cyclic'): actor_boolean_layout(pkg)
+        pkg, _ = authored_actor_layout(33)
+        with self.assertRaisesRegex(ValueError, 'one source word'): actor_boolean_layout(pkg)
+
+    def test_declaration_arrays_and_truncation_remain_unsupported(self):
+        pkg, rows = authored_actor_layout()
+        struct.pack_into('<I', pkg.data, rows['First0'].serial_offset + 3, 2)
+        with self.assertRaisesRegex(ValueError, 'size'): actor_boolean_layout(pkg)
+        pkg, rows = authored_actor_layout()
+        rows['First0'].serial_size -= 1
+        with self.assertRaises(L2Error): actor_boolean_layout(pkg)
+
+
 class ActorAdmissionTest(unittest.TestCase):
     def test_transform_round_trip_rejects_signed_zero_origin_and_scale_changes(self):
         scale = compact(1) + bytes([0x24]) + struct.pack('<f', 3.25)
@@ -571,12 +630,14 @@ class ActorAdmissionTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     check_actor_transform(package, export, changed, defaults)
 
-    def actor(self, extra=(), *, inherited_rotation=True, source=False, inherited_pivot=True):
+    def actor(self, extra=(), *, inherited_rotation=True, source=False, inherited_pivot=True,
+              boolean_layout=None, boolean_defaults=None):
         inherited = {name: True for name in ('bStatic', 'bCollideActors', 'bBlockActors',
             'bBlockPlayers', 'bBlockZeroExtentTraces', 'bBlockNonZeroExtentTraces')}
         inherited.update(DrawScale=1, DrawScale3D=[1, 1, 1])
         if inherited_rotation: inherited['Rotation'] = [0, 0, 0]
         if inherited_pivot: inherited['PrePivot'] = [0., 0., 0.]
+        inherited.update(boolean_defaults or {})
         props = [{'name': 'StaticMesh', 'type': 5, 'raw': compact(-1)},
                  {'name': 'Location', 'type': 10, 'struct': 'Vector', 'raw': struct.pack('<3f', 100, -200, 300)}]
         props.extend(extra)
@@ -589,8 +650,40 @@ class ActorAdmissionTest(unittest.TestCase):
         ex = SimpleNamespace(serial_offset=0, serial_size=7, class_index=-2)
         with patch('export_static_collision.actor_prop_offset', return_value=0), \
              patch('export_static_collision.read_props_ordered', return_value=(props, 7)):
-            row = actor_record(pkg, ex, inherited, retain_source_transform=source)
+            row = actor_record(pkg, ex, inherited, retain_source_transform=source, boolean_layout=boolean_layout)
         return row, inherited
+
+    def test_saved_boolean_words_keep_known_masks_and_explicit_false_overrides(self):
+        layout = [dict(offset='0x64', mask=0x30, fields=[dict(name='bStatic', mask=0x10), dict(name='bHidden', mask=0x20)])]
+        prop = dict(name='bStatic', type=3, raw=b'', boolval=False)
+        row, inherited = self.actor([prop], boolean_layout=layout, boolean_defaults={'bHidden': True})
+        saved = row['savedCollisionFlags']
+        self.assertEqual(saved, dict(scope='saved-map-and-class-defaults',
+            groups={'0x64': dict(mask=0x30, value=0x20)}, overrides={'bStatic': False}))
+        self.assertTrue(inherited['bStatic'])
+        self.assertNotIn('savedCollisionFlags', self.actor()[0])
+        row, _ = self.actor(boolean_layout=layout)
+        self.assertIn('unsupported-source-actor-booleans', row['issues'])
+        self.assertNotIn('savedCollisionFlags', row)
+        row, _ = self.actor([prop, prop], boolean_layout=layout, boolean_defaults={'bHidden': True})
+        self.assertNotIn('savedCollisionFlags', row)
+
+    def test_boolean_round_trip_rejects_padding_wrong_overrides_and_unknown_defaults(self):
+        raw = b'\x01\x03\x02\x83\0'
+        pkg = SimpleNamespace(data=raw, path='authored.unr', name=lambda n: ['None', 'A', 'B'][n])
+        ex = SimpleNamespace(serial_offset=0, serial_size=len(raw))
+        layout = [dict(offset='authored', mask=3, fields=[dict(name='A', mask=1), dict(name='B', mask=2)])]
+        defaults = {'A': True, 'B': False}
+        saved = dict(scope='saved-map-and-class-defaults', groups={'authored': dict(mask=3, value=2)}, overrides={'A': False, 'B': True})
+        with patch('check_static_collision_records.actor_prop_offset', return_value=0):
+            self.assertEqual(check_actor_flags(pkg, ex, saved, defaults, layout)['overrideCount'], 2)
+            for mutate in [lambda s: s['groups']['authored'].update(mask=0xFFFFFFFF),
+                           lambda s: s['groups']['authored'].update(value=3),
+                           lambda s: s['overrides'].pop('A')]:
+                changed = deepcopy(saved); mutate(changed)
+                with self.assertRaises(ValueError): check_actor_flags(pkg, ex, changed, defaults, layout)
+            with self.assertRaisesRegex(ValueError, 'default'):
+                check_actor_flags(pkg, ex, saved, {}, layout)
 
     def test_source_transform_preserves_separate_scale_pivot_signed_zero_and_origins(self):
         props = [

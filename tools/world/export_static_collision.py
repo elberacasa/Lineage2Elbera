@@ -226,7 +226,7 @@ def mesh_load_tail(r, *, file_version, licensee_version, export_end):
     return dict(**span(start, r.pos), fields=fields, lazyArray1c4=lazy)
 
 
-def class_defaults():
+def class_defaults(*, retain_collision_fields=False):
     catalog, values, evidence = OriginalClasses(), {}, []
     for qualified in ('Engine.Actor', 'Engine.StaticMeshActor'):
         types = catalog.property_types(qualified, set())
@@ -270,7 +270,97 @@ def class_defaults():
         if pivot[0] != 'Vector' or len(bytes.fromhex(pivot[1])) != 12:
             raise ValueError('unsupported PrePivot class default')
         values['PrePivot'] = list(struct.unpack('<3f', bytes.fromhex(pivot[1])))
+    if retain_collision_fields:
+        layout = actor_boolean_layout(pkg)
+        zero_names = []
+        for group in layout:
+            for field in group['fields']:
+                name = field['name']
+                if name not in values:
+                    # Same qualified zero-plus-parent CDO path as Rotation and
+                    # PrePivot, now applied only to declared Boolean fields.
+                    values[name] = False
+                    zero_names.append(name)
+                if type(values[name]) is not bool:
+                    raise ValueError('non-Boolean actor class default: ' + name)
+        evidence[-1]['collisionBooleans'] = dict(
+            layout=layout, zeroInitialized=zero_names,
+            scope='declared-class-default-bits; not current actor state')
     return values, evidence, catalog.sources
+
+
+def actor_declaration(pkg, ref, owner_ref):
+    if not 0 < ref <= len(pkg.exports):
+        raise ValueError('invalid actor declaration reference')
+    ex = pkg.exports[ref - 1]
+    if ex.package_index != owner_ref:
+        raise ValueError('actor declaration escapes its owner')
+    start, end = ex.serial_offset, ex.serial_offset + ex.serial_size
+    if not 0 <= start < end <= len(pkg.data):
+        raise ValueError('invalid actor declaration boundary')
+    r = Reader(memoryview(pkg.data)[:end], start, pkg.path)
+    if pkg.name(r.compact()) != 'None' or r.compact() != 0:
+        raise ValueError('unsupported actor declaration header')
+    nxt, dimension, flags = r.compact(), r.u32(), r.u32()
+    pkg.name(r.compact())  # Validate the category FName, even though unused here.
+    kind, name = pkg.class_name_of(ex), pkg.export_name(ex)
+    reference = None
+    if kind in ('StructProperty', 'ByteProperty', 'ObjectProperty'):
+        encoded = r.compact()
+        reference = qualified_ref(pkg, encoded) if encoded else None
+    elif kind not in ('IntProperty', 'FloatProperty', 'BoolProperty'):
+        raise ValueError('unsupported actor declaration kind: ' + kind)
+    if dimension != 1 or r.pos != end:
+        raise ValueError('unsupported actor declaration size')
+    return dict(name=name, kind=kind, next=nxt, propertyFlags=flags,
+                reference=reference, exportRef=ref, exportSHA256=sha(pkg.data[start:end]))
+
+
+def actor_boolean_layout(pkg):
+    """Read the four original declaration chains used by collision methods.
+
+    Native offsets and packing are separately qualified against the typed copy
+    constructor and Core.BoolProperty.Link. Undeclared padding stays unknown.
+    """
+    owner = [e for e in pkg.exports if pkg.class_name_of(e) == 'Class'
+             and pkg.export_name(e) == 'Actor']
+    if len(owner) != 1:
+        raise ValueError('ambiguous Actor class declaration')
+    owner_ref = owner[0].index + 1
+
+    groups = []
+    for offset, first, first_kind, last, last_kind in [
+        (0x64, 'CreatureID', 'IntProperty', 'RelativeTrailOffset', 'StructProperty'),
+        (0x74, 'RelativeTrailOffset', 'StructProperty', 'RelativeLocInVehicle', 'StructProperty'),
+        (0x2e4, 'Style', 'ByteProperty', 'TransientSoundVolume', 'FloatProperty'),
+        (0x2f8, 'CollisionHeight', 'FloatProperty', 'Mass', 'FloatProperty'),
+    ]:
+        matches = [e for e in pkg.exports if e.package_index == owner_ref and pkg.export_name(e) == first]
+        if len(matches) != 1:
+            raise ValueError('ambiguous actor Boolean group anchor')
+        previous = actor_declaration(pkg, matches[0].index + 1, owner_ref)
+        if previous['kind'] != first_kind:
+            raise ValueError('unexpected actor Boolean group anchor kind')
+        fields, seen, cursor = [], set(), previous['next']
+        while True:
+            if cursor in seen:
+                raise ValueError('cyclic actor Boolean declaration chain')
+            seen.add(cursor)
+            row = actor_declaration(pkg, cursor, owner_ref)
+            if row['kind'] != 'BoolProperty':
+                break
+            if len(fields) >= 32:
+                raise ValueError('actor Boolean group exceeds one source word')
+            fields.append(dict(row, mask=1 << len(fields)))
+            cursor = row['next']
+        if not fields or row['name'] != last or row['kind'] != last_kind:
+            raise ValueError('unsupported actor Boolean group endpoint')
+        for anchor in (previous, row):
+            if anchor['kind'] == 'StructProperty' and anchor['reference'] != 'Core.Object.Vector':
+                raise ValueError('unsupported actor Boolean group anchor struct')
+        groups.append(dict(offset=hex(offset), mask=(1 << len(fields)) - 1,
+                           before=previous, after=row, fields=fields))
+    return groups
 
 
 def actor_field_evidence(pkg):
@@ -337,7 +427,7 @@ def eligible_materials(materials, referenced):
             raise ValueError('collision-referenced material is not explicitly enabled')
 
 
-def actor_record(pkg, ex, inherited, *, retain_source_transform=False):
+def actor_record(pkg, ex, inherited, *, retain_source_transform=False, boolean_layout=None):
     name = pkg.export_name(ex)
     result = {'name': name, 'issues': [], 'class': pkg.class_name_of(ex)}
     if result['class'] != 'StaticMeshActor' or qualified_ref(pkg, ex.class_index) != 'Engine.StaticMeshActor':
@@ -356,6 +446,8 @@ def actor_record(pkg, ex, inherited, *, retain_source_transform=False):
                 'DrawScale3D': (10, 12), 'PrePivot': (10, 12), 'DrawScale': (4, 4)}
     expected.update({k: (3, None) for k in ('bStatic', 'bCollideActors', 'bBlockActors',
         'bBlockPlayers', 'bBlockZeroExtentTraces', 'bBlockNonZeroExtentTraces', 'bUseCylinderCollision')})
+    boolean_names = {field['name'] for group in boolean_layout or [] for field in group['fields']}
+    expected.update({name: (3, None) for name in boolean_names})
     seen = set()
     for p in props:
         k, raw = p['name'], p['raw']
@@ -423,6 +515,20 @@ def actor_record(pkg, ex, inherited, *, retain_source_transform=False):
                 'fields': {k: list(v) if isinstance(v, list) else v for k, v in fields.items()},
                 'origins': {k: 'map-property' if name in seen else 'inherited-class-default'
                             for k, name in native_names.items()}}
+    if boolean_layout is not None:
+        # Only declared bits are known here. Do not fabricate padding or
+        # reinterpret saved UObject export flags as these Actor field words.
+        malformed = any(reason in result['issues'] for name in boolean_names
+                        for reason in ('malformed-property:' + name, 'duplicate-property:' + name))
+        if malformed or any(type(values.get(name)) is not bool for name in boolean_names):
+            result['issues'].append('unsupported-source-actor-booleans')
+        else:
+            result['savedCollisionFlags'] = dict(
+                scope='saved-map-and-class-defaults',
+                groups={group['offset']: dict(mask=group['mask'], value=sum(
+                    field['mask'] for field in group['fields'] if values[field['name']]))
+                    for group in boolean_layout},
+                overrides={name: values[name] for name in sorted(boolean_names & seen)})
     return result
 
 
@@ -498,7 +604,8 @@ class Audit:
             self.class_loading = read_owned_loading_bits()
         source = ROOT / 'assets/interlude/maps' / (tile + '.unr')
         self.pkg, _ = load_package(source)
-        self.inherited, self.defaults, sources = class_defaults()
+        self.inherited, self.defaults, sources = class_defaults(retain_collision_fields=retain_sweep_data)
+        self.boolean_layout = self.defaults[-1]['collisionBooleans']['layout'] if retain_sweep_data else None
         self.sources = {str(source.relative_to(ROOT)): sha(source.read_bytes()), **sources}
         self.packages, self.meshes, self.geometry = {}, {}, {}
 
@@ -577,7 +684,8 @@ class Audit:
         rows = []
         for ex in exports:
             try: row = actor_record(self.pkg, ex, self.inherited,
-                                   retain_source_transform=self.retain_sweep_data)
+                                   retain_source_transform=self.retain_sweep_data,
+                                   boolean_layout=self.boolean_layout)
             except (L2Error, ValueError, IndexError, struct.error) as error:
                 row = {'name': self.pkg.export_name(ex), 'issues': [str(error)]}
             row['meshIssues'] = self.mesh(row['mesh'])['issues'] if row.get('mesh') else []
@@ -629,7 +737,7 @@ class Audit:
             'sources': self.sources, 'nativeProof': self.proof,
             'classDefaults': self.defaults,
             'meshes': {k: self.geometry[k] for k in sorted({r['mesh'] for r in selected})},
-            'references': [{k: r[k] for k in ('name', 'mesh', 'exportSHA256', 'savedTransform')} for r in selected],
+            'references': [{k: r[k] for k in ('name', 'mesh', 'exportSHA256', 'savedTransform', 'savedCollisionFlags')} for r in selected],
             'limits': [
                 'Saved source geometry, not live actor/cache state or a collision query.',
                 'savedLocalBounds is the later serialized mesh field; baseSerializedBounds preserves the overwritten primitive record. PostLoad/current mutations remain separate.',
@@ -637,6 +745,7 @@ class Audit:
                 'Node links and bounds and triangle planes retain source order; no tree rebuild or plane normalization.',
                 'Current actor matrices, query state and owner/material callbacks must be supplied separately.',
                 'savedTransform preserves separate original operands and their map/default origins; it is not current actor state or a renderer matrix.',
+                'savedCollisionFlags contains only declared Boolean bits and explicit map overrides; undeclared padding, current lifecycle writes and level membership are not inferred.',
                 'Existing conservative actor/material selection gates remain in force.',
                 'Original-derived private data; never include in public source or tool bundles.',
             ],
