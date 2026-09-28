@@ -177,9 +177,19 @@ verified [NPC resource loader](../editor/world/js/npcsourceanim.js), which retai
 the index's source-file provenance. A generated schema or legacy clip label is
 not enough.
 
-Both the active source terrain at entity construction and the received NPC
+Both the ready source terrain for the current world entry and the received NPC
 coordinates must identify tile `17_25`. The current source zone/volume callback
 census covers that map; the adapter does not generalize it to other maps.
+
+The scene and model are separate resource dependencies. An NPC received before
+the entry's map finishes loading keeps processing packets while its first
+source start waits. Guarded center adoption releases this dependency before
+surrounding maps finish; a matching already-loaded entry uses the same path.
+Only the first entry can bind eligible NPCs received before UserInfo. Session
+reset, replacement entries, unsupported intervening state and foreign scene
+changes retire ownership. Repeated readiness cannot reset a running channel.
+This browser scheduling does not reproduce native lazy-loader or tick history
+and does not synthesize missed animation events.
 
 The first raw NPC snapshot must be complete and immutable: WaitType 1, explicit
 alive state, empty right/chest/left equipment, a positive finite Float32 movement

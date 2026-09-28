@@ -2,8 +2,8 @@
 
 Gremlin IDs 18342/20001 and fox 20091 use two private bundles containing every
 sequence in their original bound animation objects. The normal NPC entity loader verifies
-and loads these inputs. Entities created with source terrain and received
-coordinates both on Talking Island tile `17_25` now have a bounded source-ready
+and loads these inputs. Entities whose ready source terrain and received
+coordinates both identify Talking Island tile `17_25` have a bounded source-ready
 initial Wait/AtkWait path with the original clock, sparse keys and Sound random
 gate. Its [state admission and retirement limits](native-npc-animation-evidence.md#bounded-browser-initial-loop)
 remain explicit. Loading source data alone does not establish every live state
@@ -217,7 +217,7 @@ classification enable gameplay dispatch in the inspector.
 ## Live world check
 
 Open `/?dev=1&inspect=1&checkpoint=current` with the private preview and local
-game services running. Load scene **17_25**, then enable **Online** and enter a
+game services running. Enable **Online** and enter a
 test character near the Talking Island starter Gremlins. Expand **Live original
 NPC events** in Elbera Tools. It shows received NPC identities, current source
 frames, event counts and sound-gate results; retired loops retain their last
@@ -234,10 +234,20 @@ audio equivalence, complete animation transitions or original renderer parity.
 
 ![Live starter Gremlin events and explicit movement retirement](img/elbera-tools-live-npc-events.jpg)
 
-Preloading the audited map is currently material: if an NPC arrives while a
-different terrain is still displayed, initial admission remains unavailable.
-Deferred world-entry/resource scheduling is unfinished; the browser does not
-invent catch-up events or re-admit that same actor after losing history.
+The original check above preloaded the audited map. Normal world entry now
+keeps the NPC's first source start pending until its verified model and the
+current entry's matching center map are ready. Packets continue to update the
+real entity throughout loading; intervening unsupported movement or other state
+changes still retire the initial path. Readiness cannot reset an active clock
+or revive a retired actor. This is browser resource scheduling, with no invented
+catch-up events or claim of equivalent native lazy-loading history.
+
+A subsequent browser check entered directly from the default offline map
+`16_21`, without selecting `17_25`. Starter Gremlins began Wait after automatic
+map adoption, advanced frames and emitted admitted/filtered Sound decisions;
+server movement still retired individual loops. Disconnect cleared the NPCs,
+and reconnect on the already-loaded map created fresh playback. The manual
+inspector's play/pause/restore controls also passed, with no new browser errors.
 
 ## Portable checks and release boundary
 

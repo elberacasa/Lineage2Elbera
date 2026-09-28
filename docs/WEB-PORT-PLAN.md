@@ -112,7 +112,7 @@ unverified; this evidence guides the next transform comparison rather than
 claiming finished attachment. See
 [native-hair-attachment-evidence.md](native-hair-attachment-evidence.md).
 
-Gremlin IDs 18342/20001 and Fox 20091 created on verified Talking Island tile
+Gremlin IDs 18342/20001 and Fox 20091 admitted on verified Talking Island tile
 `17_25` now have a bounded initial Wait/AtkWait implementation using original
 selectors, sparse keys, the
 original channel clock and Sound-notify random gating. It starts when matching
