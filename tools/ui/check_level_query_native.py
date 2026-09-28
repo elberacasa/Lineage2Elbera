@@ -424,13 +424,16 @@ class Machine(Arithmetic):
         return super().read(arg)
 
 
-def native(engine, core, case):
+def native(engine, core, case, providers=None):
     """Retained collector through sort with explicit fixture callbacks.
 
     The callback adapter consumes exact native argument frames and models each
     callee's stack cleanup. It excludes SEH/performance counters, primitive
     discovery and final FMemStack allocation/Next construction. The hit-count
     domain is nonnegative and at most64; native world-slot overflow rejects.
+    Optional providers receive the actual interpreted query/call frame, allowing
+    existing primitive evaluators to replace fixture responses without another
+    collector interpreter. The default response-fixture contract is unchanged.
     """
     levelptr = 0x200000
     levels = 0x300000
@@ -560,7 +563,9 @@ def native(engine, core, case):
                 }
             )
             calls.append([kind, q])
-            result = answer(kind, receiver)
+            result = answer(kind, receiver) if providers is None else providers[kind](q)
+            if providers is not None:
+                assert result["status"] == "ready", result
             write_record(m.memory, resultptr, result["writes"])
             m.registers["eax"] = 0 if result["blocked"] else 1
             m.registers["esp"] += 48 if terrain else 52
@@ -574,17 +579,15 @@ def native(engine, core, case):
             m.registers["esp"] += 4
         elif target == 0x10306B6D:
             point = [m.memory[sp + 8 + i * 4] for i in range(3)]
-            calls.append(
-                [
-                    "region",
-                    {
-                        "model": receiver,
-                        "point": point,
-                        "defaultZone": m.memory[sp + 4],
-                    },
-                ]
-            )
-            m.memory[m.memory[sp]] = lastterrain["region"] or 0
+            q = {"model": receiver, "point": point, "defaultZone": m.memory[sp + 4]}
+            calls.append(["region", q])
+            if providers is None:
+                zone = lastterrain["region"]
+            else:
+                response = providers["region"](q)
+                assert response["status"] == "ready", response
+                zone = response["zone"]
+            m.memory[m.memory[sp]] = zone or 0
             m.registers["esp"] += 20
         elif target == 0x700002:
             q = query(sp, 4)
@@ -595,7 +598,12 @@ def native(engine, core, case):
                 sourceActor=m.memory[sp + 48] or None,
             )
             calls.append(["actorHash", q])
-            result = answer("actorHash", receiver)
+            if providers is None:
+                result = answer("actorHash", receiver)
+            else:
+                response = providers["actorHash"](q)
+                assert response["status"] == "ready", response
+                result = response["hits"]
             base = 0x600000 + allocated * 0x10000
             allocated += 1
             for i, record in enumerate(result):
