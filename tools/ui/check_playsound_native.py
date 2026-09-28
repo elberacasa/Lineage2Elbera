@@ -270,6 +270,287 @@ process.stdout.write(JSON.stringify(JSON.parse(fs.readFileSync(0,'utf8')).map(se
                        'No native DLL execution or browser playback claim.']}
 
 
+class PriorityMachine(VoiceMachine):
+    """Finite priority arithmetic with explicit view-target callback output.
+
+    Binary64 intermediate arithmetic retains every original Float32 store.
+    This is the ordinary precision contract, not a general x87 emulator.
+    """
+    def step(self, instruction):
+        op, args = instruction.mnemonic, instruction.op_str.split(', ')
+        if op == 'fucom':
+            a, b = self.stack[0], self.read(args[0])
+            assert math.isfinite(a) and math.isfinite(b)
+            self.status = 0x100 if a < b else 0x4000 if a == b else 0
+        elif op == 'fdiv':
+            self.stack[0] /= self.read(args[0])
+        elif op == 'fiadd':
+            self.stack[0] += signed(self.read(args[0]))
+        elif op == 'shr':
+            self.write(args[0], (self.read(args[0]) & 0xffffffff) >> (self.read(args[1]) & 31))
+        elif op == 'and':
+            self.write(args[0], self.read(args[0]) & self.read(args[1]))
+        elif op == 'call':
+            assert instruction.address in (0x100080d3, 0x1000810c)
+            self.registers['esp'] -= 4
+            self.memory[self.registers['esp']] = instruction.address + instruction.size
+            return int(args[0], 16)
+        elif op == 'ret':
+            target = self.memory[self.registers['esp']]
+            self.registers['esp'] += 4
+            return target
+        else:
+            return super().step(instruction)
+        return instruction.address + instruction.size
+
+
+def native_audio_priority(image, state, multiplier):
+    frame, viewport, controller, vtable, target = 0x9000, 0x2000, 0x3000, 0x4000, 0x5000
+    memory = {frame + 8: viewport, viewport + 0x3c: controller, controller: vtable,
+              vtable + 0x340: 0x6000, frame + 0x18: state['volume'],
+              frame + 0x1c: state['radius'], frame + 0x20: state['flags'],
+              0x1004e7b4: 0x7000, 0x7000: multiplier,
+              0x10040288: struct.unpack_from('<f', image.data, image.offset(0x10040288))[0]}
+    for i in range(3):
+        memory[frame + 0xc + i * 4] = state['location'][i]
+        memory[target + 0x1bc + i * 4] = state['viewTargetLocation'][i]
+    registers = dict.fromkeys(('eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'esp', 'ebp'), 0)
+    registers.update(ebp=frame, esp=frame - 0x80)
+    rows = []
+    for start, end in [(0x10008099, 0x1000814b), (0x10006b60, 0x10006bc1),
+                       (0x100068d0, 0x10006906), (0x1000120d, 0x10001212),
+                       (0x10001357, 0x1000135c)]:
+        raw = image.data[image.offset(start):image.offset(end)]
+        decoded = list(image.dis.disasm(raw, start))
+        assert sum(row.size for row in decoded) == len(raw)
+        rows.extend(decoded)
+    machine = PriorityMachine(memory, registers, rows)
+    machine.zero = machine.less = machine.carry = machine.sign = machine.parity = False
+    pc, visited, queries = 0x10008099, [], 0
+    for _ in range(512):
+        if pc == 0x1000814b:
+            break
+        visited.append(pc)
+        instruction = machine.program[pc]
+        if pc == 0x100080c7:
+            # The caller supplies GetViewTarget's result; its code and side
+            # effects are not replaced by a guessed viewport/camera position.
+            assert instruction.mnemonic == 'call' and instruction.op_str == 'eax'
+            assert machine.registers['ecx'] == controller and machine.registers['eax'] == 0x6000
+            machine.registers['eax'] = target
+            queries += 1
+            pc += instruction.size
+        else:
+            pc = machine.step(instruction)
+    else:
+        raise AssertionError('priority calculation exceeded bounded instructions')
+    assert len(machine.stack) == 1 and math.isfinite(machine.stack[0])
+    assert machine.registers['esp'] == registers['esp']
+    return machine.stack[0], visited, queries
+
+
+def verify_audio_priority(image=None):
+    from supplemental_pe import PEImage
+    image = image or Image(ROOT / 'assets/interlude/system/ALAudio.dll', ALAUDIO_SHA)
+    assert image.sha == ALAUDIO_SHA
+    assert image.exported('?SoundPriority@UALAudioSubsystem@@QAEMPAVUViewport@@VFVector@@MMH@Z', True) == 0x10008070
+    engine = Image(ROOT / 'assets/interlude/system/engine.dll', ENGINE_SHA, True)
+    view_targets = {}
+    for cls in ('APlayerController', 'AController'):
+        tables = [name for name in engine.exports if name.startswith('??_7' + cls + '@@')]
+        assert len(tables) == 1
+        method = '?GetViewTarget@' + cls + '@@UAEPAVAActor@@XZ'
+        assert engine.u32(engine.exported(tables[0]) + 0x340) == engine.exported(method)
+        view_targets[cls] = {'symbol': method, 'exportVA': hex(engine.exported(method))}
+    image.instruction(0x100080b6, 'mov', 'ecx, dword ptr [ecx + 0x3c]')
+    image.instruction(0x100080c1, 'mov', 'eax, dword ptr [edx + 0x340]')
+    image.instruction(0x100080c7, 'call', 'eax')
+    driver = PEImage(ROOT / 'assets/interlude/system/ALAudio.dll', ALAUDIO_SHA)
+    core = PEImage(ROOT / 'assets/interlude/system/Core.dll', CORE_SHA)
+    symbol = '?GAudioMaxRadiusMultiplier@@3MA'
+    dll, imported = driver.imports[0x1004e7b4]
+    assert dll.casefold() == 'core.dll' and imported == symbol
+    multiplier, = struct.unpack('<f', core.read(core.exports[symbol], 4))
+    assert multiplier == 50
+    floor, = struct.unpack_from('<f', image.data, image.offset(0x10040288))
+    assert floor == struct.unpack('<f', struct.pack('<f', 0.01))[0]
+    cases = []
+    for radius in (0, -0.0, 0.25, -0.25, 80, 250):
+        for volume in (0, 0.25, 1, -1):
+            for flags in (0, 4, 8, 16, 28, 0xffffffff):
+                for point in ([0, 0, 0], [3, 4, 12], [4096, -8192, 256]):
+                    cases.append({'radius': radius, 'volume': volume, 'flags': flags,
+                                  'location': [0, 0, 0], 'viewTargetLocation': point})
+    rng = random.Random(0x41554449)
+    f32 = lambda value: struct.unpack('<f', struct.pack('<f', value))[0]
+    for _ in range(256):
+        radius = f32(rng.uniform(-300, 300))
+        location = [f32(rng.uniform(-100000, 100000)) for _ in range(3)]
+        # Correlated positions exercise the non-clamped arithmetic, including
+        # subtraction at nonzero world coordinates. Far-only cases hide drift.
+        target = [f32(v + rng.uniform(-0.7, 0.7) * radius * 50) for v in location]
+        cases.append({'radius': radius, 'volume': f32(rng.uniform(-2, 2)),
+                      'flags': rng.getrandbits(32), 'location': location,
+                      'viewTargetLocation': target})
+    script = """import fs from 'node:fs';
+import {nativeAudioPriority} from './editor/world/js/native-audio-voices.js';
+process.stdout.write(JSON.stringify(JSON.parse(fs.readFileSync(0,'utf8')).map(nativeAudioPriority)));"""
+    process = subprocess.run(['node', '--input-type=module', '-e', script], input=json.dumps(cases),
+                             text=True, capture_output=True, cwd=ROOT, timeout=30, check=True)
+    results = json.loads(process.stdout)
+    assert len(results) == len(cases)
+    steps, queries, visited = 0, 0, set()
+    for state, result in zip(cases, results):
+        value, trace, count = native_audio_priority(image, state, multiplier)
+        assert result == {'status': 'ready', 'priority': value}, (state, result, value)
+        steps += len(trace)
+        queries += count
+        visited.update(trace)
+    assert {0x100080a9, 0x100080ec, 0x100068f0, 0x100068fb, 0x10006bb7} <= visited
+    return {'status': 'matched-finite-priority', 'audioDriverSHA256': ALAUDIO_SHA,
+            'coreSHA256': CORE_SHA, 'engineSHA256': ENGINE_SHA, 'viewTargetBindings': view_targets,
+            'multiplier': multiplier, 'priorityFloor': floor,
+            'cases': len(cases), 'interpretedInstructions': steps, 'viewTargetQueries': queries,
+            'runtimeSHA256': digest((ROOT / 'editor/world/js/native-audio-voices.js').read_bytes()),
+            'limits': ['Explicit GetViewTarget callback result; no live viewport selection or callback side-effect proof.',
+                       'Finite Float32 values/stores with binary64 intermediates; not all x87 environments or inputs.',
+                       'Priority is not audible gain. No voice lifetime or browser playback claim.']}
+
+
+def stop_api_bindings(image):
+    """Bind the exact stop call slots through the original named loader inputs."""
+    from supplemental_pe import PEImage
+    pe = PEImage(ROOT / 'assets/interlude/system/ALAudio.dll', ALAUDIO_SHA)
+    assert image.sha == pe.sha == ALAUDIO_SHA
+    assert image.exported('?StopSound@UALAudioSubsystem@@QAEXH@Z', True) == 0x10007ec0
+    for slot, symbol in [
+        (0x1004e764, '?appFromAnsi@@YAPBGPBDPAG@Z'),
+        (0x1004e768, '?appGetDllExport@@YAPAXPAXPBG@Z'),
+        (0x1004e7ac, '?DestroyStream@FFileStream@@QAEXHH@Z'),
+        (0x1004e7b0, '?GFileStream@@3PAVFFileStream@@A'),
+    ]:
+        dll, name = pe.imports[slot]
+        assert dll.casefold() == 'core.dll' and name == symbol
+    for va, op, args in [
+        (0x10005dbf, 'push', '0x1003f1cc'), (0x10005dc4, 'push', '0x1004c704'),
+        (0x10005dcb, 'call', '0x10001177'),
+        (0x10005f2b, 'push', '0x1003f2c0'), (0x10005f30, 'push', '0x1004c6f0'),
+        (0x10005f37, 'call', '0x10001177'), (0x10001177, 'jmp', '0x10005930'),
+        (0x1000595b, 'mov', 'esi, dword ptr [ebp + 8]'),
+        (0x10005966, 'mov', 'edi, dword ptr [ebp + 0xc]'),
+        (0x1000596a, 'mov', 'ebx, dword ptr [0x1004e764]'),
+        (0x10005970, 'call', 'ebx'), (0x10005972, 'push', 'eax'),
+        (0x1000597d, 'call', 'dword ptr [0x1004e768]'),
+        (0x10005986, 'mov', 'dword ptr [esi], eax'),
+        (0x10005998, 'push', 'edi'), (0x10005999, 'call', 'dword ptr [0x1004c6c0]'),
+        (0x100059a2, 'mov', 'dword ptr [esi], eax'),
+        (0x10007ee3, 'xor', 'ebx, ebx'),
+        (0x10007f52, 'call', 'dword ptr [0x1004e7ac]'),
+        (0x10007f67, 'call', 'dword ptr [0x1004c6f0]'),
+        (0x10007f7e, 'call', 'dword ptr [0x1004c704]'),
+    ]:
+        image.instruction(va, op, args)
+    for va, expected in [(0x1003f1cc, b'alSourcei\0'), (0x1003f2c0, b'alSourceStop\0')]:
+        assert pe.read(va, len(expected)) == expected
+    return {'alSourceStopSlot': '0x1004c6f0', 'alSourceiSlot': '0x1004c704',
+            'streamCall': 'Core.FFileStream.DestroyStream',
+            'limit': 'Requested loader names and call sites; no loaded implementation or callback side-effect emulation.'}
+
+
+def native_audio_stop(image, state):
+    frame, driver, pool, sound, stats, buffers = 0x9000, 0x2000, 0x4000, 0x5000, 0x6000, 0xa000
+    voice = state['voice']
+    memory = {frame + 8: 0, driver + 0x88: pool, driver + 0x14c: 0,
+              driver + 0xa0: buffers, sound + 0x68: 1, sound + 0x70: 7,
+              buffers + 0x10: state['streamHandle'],
+              0x1004e90c: stats, stats + 0x48: 0x7000, 0x7000: 0,
+              0x1004e7b0: 0x8000, 0x8000: 0x8100}
+    # Other record cells are sentinels: StopSound must preserve them, notably
+    # the OpenAL handle, position, gain and radius.
+    memory.update({pool + offset: 123 for offset in range(0, 0x5c, 4)})
+    memory.update({pool: sound if voice['sound'] is not None else 0,
+                   pool + 4: voice['source'], pool + 0x50: voice['soundId'],
+                   pool + 0x4c: voice['flags'], pool + 0x1c: 0.5})
+    rows = list(image.dis.disasm(image.data[image.offset(0x10007ee9):image.offset(0x10007fce)], 0x10007ee9))
+    registers = dict.fromkeys(('eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'esp', 'ebp'), 0)
+    registers.update(esi=driver, ebp=frame, esp=frame - 0x80)
+    machine = VoiceMachine(memory, registers, rows)
+    machine.zero = machine.less = machine.carry = machine.sign = machine.parity = False
+    operations, visited, pc = [], [], 0x10007ee9
+    for _ in range(256):
+        if pc == 0x10007fce:
+            break
+        instruction = machine.program[pc]
+        visited.append(pc)
+        stack = machine.registers['esp']
+        if pc == 0x10007f52:
+            assert machine.registers['ecx'] == 0x8100
+            operations.append({'op': 'destroyStream', 'streamId': signed(machine.memory[stack]),
+                               'arg2': machine.memory[stack + 4]})
+            machine.registers['esp'] += 8  # Original Core thiscall, callee cleans arguments.
+        elif pc == 0x10007f67:
+            operations.append({'op': 'alSourceStop', 'source': machine.memory[stack]})
+        elif pc == 0x10007f7e:
+            operations.append({'op': 'alSourcei', 'source': machine.memory[stack],
+                               'parameter': machine.memory[stack + 4], 'value': machine.memory[stack + 8]})
+        else:
+            pc = machine.step(instruction)
+            if instruction.address == 0x10007f21:
+                operations.append({'op': 'setSoundField70', 'sound': voice['sound'],
+                                   'value': machine.memory[sound + 0x70]})
+            continue
+        pc += instruction.size
+    else:
+        raise AssertionError('stop exceeded bounded instruction count')
+    assert machine.registers['esp'] == registers['esp'] and not machine.stack
+    fields = {0: 'sound', 8: 'actor', 0x4c: 'flags', 0x1c: 'priority',
+              0x50: 'soundId', 0x54: 'field54', 0x58: 'field58'}
+    if voice['soundId'] != 0:
+        values = {name: machine.memory[pool + offset] for offset, name in fields.items()}
+        assert values['sound'] == values['actor'] == 0
+        values.update(sound=None, actor=None)
+        operations.append({'op': 'clearVoice', 'fields': values})
+    for offset in range(0, 0x5c, 4):
+        if voice['soundId'] == 0 or offset not in fields:
+            assert machine.memory[pool + offset] == memory[pool + offset]
+    return {'status': 'ready', 'operations': operations}, visited
+
+
+def verify_audio_stop(image=None):
+    image = image or Image(ROOT / 'assets/interlude/system/ALAudio.dll', ALAUDIO_SHA)
+    bindings = stop_api_bindings(image)
+    cases = []
+    for sound_id in (0, 1, 0xfffffffe):
+        for sound in (None, 'synthetic-sound'):
+            for source in (0, 17, 0xffffffff):
+                for flags in (0, 4, 8, 0xffffffff):
+                    if sound is None and flags & 4 and sound_id != 0:
+                        continue  # Invalid source pointer branch, not invented stream state.
+                    for handle in (0, 1, 0x80000000, 0xffffffff):
+                        cases.append({'voice': {'soundId': sound_id, 'sound': sound,
+                                                'source': source, 'flags': flags}, 'streamHandle': handle})
+    script = """import fs from 'node:fs';
+import {planNativeAudioStop} from './editor/world/js/native-audio-voices.js';
+process.stdout.write(JSON.stringify(JSON.parse(fs.readFileSync(0,'utf8')).map(planNativeAudioStop)));"""
+    process = subprocess.run(['node', '--input-type=module', '-e', script], input=json.dumps(cases),
+                             text=True, capture_output=True, cwd=ROOT, timeout=30, check=True)
+    results = json.loads(process.stdout)
+    assert len(results) == len(cases)
+    steps, visited = 0, set()
+    for state, result in zip(cases, results):
+        expected, trace = native_audio_stop(image, state)
+        assert result == expected, (state, result, expected)
+        visited.update(trace)
+        steps += len(trace)
+    assert {0x10007ef9, 0x10007f21, 0x10007f52, 0x10007f67, 0x10007f7e, 0x10007fca} <= visited
+    return {'status': 'matched-stop-operations', 'audioDriverSHA256': ALAUDIO_SHA,
+            'cases': len(cases), 'interpretedInstructions': steps, 'bindings': bindings,
+            'runtimeSHA256': digest((ROOT / 'editor/world/js/native-audio-voices.js').read_bytes()),
+            'limits': ['Stable supplied pool/stream snapshot; external calls recorded, not executed.',
+                       'Profiling counter is outside the browser operation plan.',
+                       'No OpenAL/Web Audio implementation or callback alias/lifetime proof.']}
+
+
 def recovered_span(raw, offset, size, key):
     """Independently recover whole words covering a possibly unaligned span.
 
@@ -707,10 +988,18 @@ if __name__ == '__main__':
     parser.add_argument('--comparison-core', type=Path, help='matching pinned supplemental Core.dll')
     parser.add_argument('--voice-selection', action='store_true',
                         help='also compare browser voice selection with retained ALAudio instructions; requires Node')
+    parser.add_argument('--priority', action='store_true',
+                        help='also compare finite browser sound priority with retained instructions; requires Node')
+    parser.add_argument('--stop', action='store_true',
+                        help='also compare browser stop operations with retained instructions; requires Node')
     args = parser.parse_args()
     if bool(args.comparison_engine) != bool(args.comparison_core):
         parser.error('--comparison-engine and --comparison-core must be supplied together')
     result = verify(args.comparison_engine, args.comparison_core)
     if args.voice_selection:
         result['voiceSelection'] = verify_voice_selection()
+    if args.priority:
+        result['priority'] = verify_audio_priority()
+    if args.stop:
+        result['stop'] = verify_audio_stop()
     print(json.dumps(result, indent=2))

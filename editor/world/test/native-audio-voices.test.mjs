@@ -2,7 +2,11 @@
 // supplied ALAudio.dll and check_playsound_native.py --voice-selection.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { selectNativeAudioVoice } from "../js/native-audio-voices.js";
+import {
+  nativeAudioPriority,
+  planNativeAudioStop,
+  selectNativeAudioVoice,
+} from "../js/native-audio-voices.js";
 
 const voice = (soundId, priority, flags = 0) => ({ soundId, priority, flags });
 const select = (state) =>
@@ -13,6 +17,170 @@ const select = (state) =>
     voices: [],
     ...state,
   });
+
+test("priority zero-radius branch skips locations and preserves raw flag contributions", () => {
+  for (const [flags, priority] of [
+    [0, 1],
+    [4, 2],
+    [8, 3],
+    [16, 2],
+    [28, 5],
+    [0xffffffe3, 1],
+  ]) {
+    assert.deepEqual(nativeAudioPriority({ radius: -0, volume: 1, flags }), {
+      status: "ready",
+      priority,
+    });
+  }
+});
+
+test("priority uses squared distance and a priority floor distinct from audible gain", () => {
+  const input = {
+    radius: 1,
+    volume: 0.5,
+    flags: 0,
+    location: [0, 0, 0],
+    viewTargetLocation: [25, 0, 0],
+  };
+  assert.equal(nativeAudioPriority(input).priority, 0.375);
+  assert.equal(nativeAudioPriority({ ...input, radius: -1 }).priority, 0.375);
+  for (const distance of [50, 100]) {
+    assert.equal(
+      nativeAudioPriority({ ...input, viewTargetLocation: [distance, 0, 0] })
+        .priority,
+      Math.fround(0.005),
+    );
+  }
+  assert.equal(
+    nativeAudioPriority({ ...input, volume: -1, flags: 4 }).priority,
+    0.25,
+  );
+});
+
+test("priority consumes the supplied view-target location without mutating inputs", () => {
+  const input = {
+    radius: 1,
+    volume: 1,
+    flags: 0,
+    location: [1024, 2048, 4096],
+    viewTargetLocation: [1049, 2048, 4096],
+  };
+  const before = structuredClone(input);
+  assert.equal(nativeAudioPriority(input).priority, 0.75);
+  assert.deepEqual(input, before);
+  assert.equal(
+    nativeAudioPriority({ ...input, location: undefined }).status,
+    "unsupported",
+  );
+  assert.equal(
+    nativeAudioPriority({ ...input, viewTargetLocation: undefined }).status,
+    "unsupported",
+  );
+});
+
+test("unsupported priority arithmetic does not produce a fabricated priority", () => {
+  const input = {
+    radius: 1,
+    volume: 1,
+    flags: 0,
+    location: [0, 0, 0],
+    viewTargetLocation: [0, 0, 0],
+  };
+  for (const patch of [
+    { radius: NaN },
+    { volume: Infinity },
+    { flags: -1 },
+    { radius: 0.1 },
+    { radius: 2 ** -149 },
+    { radius: Math.fround(1e30) },
+    { viewTargetLocation: [Math.fround(1e30), 0, 0] },
+  ]) {
+    const result = nativeAudioPriority({ ...input, ...patch });
+    assert.equal(result.status, "unsupported");
+    assert.equal("priority" in result, false);
+  }
+});
+
+test("stopping an inactive voice reads no other fields", () => {
+  assert.deepEqual(planNativeAudioStop({ voice: { soundId: 0 } }), {
+    status: "ready",
+    operations: [],
+  });
+});
+
+test("stop orders bookkeeping, stream destruction, source stop, detach and selective clearing", () => {
+  const input = {
+    voice: {
+      soundId: 2,
+      sound: "synthetic-sound",
+      source: 17,
+      flags: 4,
+      actor: "owner",
+      gain: 0.5,
+    },
+    streamHandle: 1,
+  };
+  const before = structuredClone(input);
+  assert.deepEqual(planNativeAudioStop(input), {
+    status: "ready",
+    operations: [
+      { op: "setSoundField70", sound: "synthetic-sound", value: 0 },
+      { op: "destroyStream", streamId: 0, arg2: 0 },
+      { op: "alSourceStop", source: 17 },
+      { op: "alSourcei", source: 17, parameter: 0x1009, value: 0 },
+      {
+        op: "clearVoice",
+        fields: {
+          sound: null,
+          actor: null,
+          flags: 0,
+          priority: 0,
+          soundId: 0,
+          field54: 0,
+          field58: 0,
+        },
+      },
+    ],
+  });
+  assert.deepEqual(input, before);
+});
+
+test("stop skips absent sound/source and preserves signed stream argument wraparound", () => {
+  const voice = { soundId: 2, sound: null, source: 0, flags: 0 };
+  assert.deepEqual(
+    planNativeAudioStop({ voice }).operations.map((o) => o.op),
+    ["clearVoice"],
+  );
+  for (const [streamHandle, expected] of [
+    [0, -1],
+    [0x80000000, 0x7fffffff],
+    [0xffffffff, -2],
+  ]) {
+    const result = planNativeAudioStop({
+      voice: { ...voice, sound: "sound", flags: 4 },
+      streamHandle,
+    });
+    assert.equal(result.operations[1].streamId, expected);
+    assert.deepEqual(
+      result.operations.map((o) => o.op),
+      ["setSoundField70", "destroyStream", "clearVoice"],
+    );
+  }
+});
+
+test("missing stop state cannot become a partial executable plan", () => {
+  const voice = { soundId: 2, sound: "sound", source: 17, flags: 4 };
+  for (const input of [
+    undefined,
+    { voice },
+    { voice: { ...voice, sound: null }, streamHandle: 1 },
+    { voice: { ...voice, source: undefined }, streamHandle: 1 },
+  ]) {
+    const result = planNativeAudioStop(input);
+    assert.equal(result.status, "unsupported");
+    assert.equal("operations" in result, false);
+  }
+});
 
 test("independent IDs decrement and wrap even when the pool rejects playback", () => {
   for (const [counter, updated, soundId] of [

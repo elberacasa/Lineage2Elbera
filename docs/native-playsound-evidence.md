@@ -6,8 +6,9 @@ packet decoder and lossless export do not certify the original audio lifecycle.
 An optional pinned comparison now binds the radius and controller type-query
 imports in exactly corresponding code. Calls after scene-node construction,
 the full voice lifetime and mixer behavior still require recovery/integration.
-The browser now has a source-checked voice selector, tested independently of
-playback with explicit sound-pool snapshots. It is not yet wired to live audio.
+The browser now has source-checked priority, voice-selection and ordered-stop
+components, tested independently of playback with explicit snapshots. They are
+not yet wired to live audio.
 
 ## Reproduce
 
@@ -24,6 +25,7 @@ python3 -m unittest discover -s tools/audio -p test_quest_sounds.py
 node --test gateway/test/playsound-packets.test.js
 node --test editor/world/test/native-audio-voices.test.mjs
 python3 tools/ui/check_playsound_native.py --check --voice-selection
+python3 tools/ui/check_playsound_native.py --check --priority --stop
 ```
 
 To check the additional bindings, supply both matching comparison images:
@@ -37,9 +39,10 @@ python3 tools/ui/check_playsound_native.py --check \
 Both paths are required together. Unsupported fingerprints fail before any
 comparison; the original-only command retains its original unresolved result.
 See the [supplemental binding check](#supplemental-binding-check).
-`--voice-selection` additionally requires Node and compares the actual browser
-module against interpreted instructions from the supplied original ALAudio.
-It can be combined with the two comparison-image options.
+`--voice-selection`, `--priority` and `--stop` additionally require Node and
+compare the actual browser module against interpreted instructions from the
+supplied original ALAudio. They can be combined with each other and the two
+comparison-image options.
 
 The exporter compares every output byte with a fresh extraction in `--check`.
 Its default private receipt is `tmp/restart-audit/quest-sounds.json`. Original
@@ -294,7 +297,72 @@ interpreter's byte handling, signed branch, wraparound, comparison flags and
 refusal of calls/NOPs. These checks do not execute a native DLL or establish
 the original client's live pool/history.
 
-The selector remains an integration component. Recover pool initialization,
-priority calculation and voice stopping/update first; then connect those
-states to the ordinary packet path and verify actual playback. The remaining
+The selector remains an integration component. Priority and ordered stopping
+are covered below; pool initialization, live updates and execution of the stop
+operations still need integration with the ordinary packet path. The remaining
 scene-node state, mixer and EAX boundaries above still apply.
+
+## Priority and ordered stopping
+
+The same browser module now exports `nativeAudioPriority` and
+`planNativeAudioStop`. These functions supply arithmetic and an ordered effect
+plan; they do not create an audio context or play/stop a browser source.
+
+The original named `SoundPriority` body is `0x10008070`. Its nonzero-radius
+branch asks the viewport controller's virtual slot `+0x340` for a view target,
+then uses that actor's Location. The checker binds this slot to named
+`GetViewTarget` exports in both original controller vtables. The browser
+function requires the resulting location explicitly; a camera or pawn position
+is not substituted for an unknown view target. Zero radius skips that query.
+
+Priority uses **squared distance**, independently from the manual audible-gain
+formula above. The radius is multiplied by Core's named original multiplier
+`50`. Original Float32 stores round each coordinate difference and square,
+the total squared distance, radius and radius square, attenuation and final
+priority. The intermediate X/Y squared sum has no intervening Float32 store.
+Attenuation is clamped between the retained Float32 `0.01` at `0x10040288` and
+`1`, multiplied by supplied volume, then raw flag bits `4`, `8`, and `16` add
+`1`, `2`, and `1`, respectively. This priority floor is not an audible minimum.
+
+**688 synthetic cases** match the actual browser function against 66,968
+interpreted original instructions, including 544 view-target queries, negative
+and zero radii, nonzero world coordinates, near/far distances and flag mixes.
+Both the original squared-distance helper and clamp branches are interpreted.
+The finite adapter preserves Float32 stores with binary64 intermediates;
+overflow, underflowed radius squares, nonfinite input and other x87 environments
+remain outside its admission. The callback result is supplied, not emulated.
+
+The original named `StopSound` body is `0x10007ec0`. Its operation plan:
+
+1. Returns without changes when the stored sound ID is zero.
+2. Clears sound-object field `+0x70` when a sound object is present.
+3. For flag bit `4`, calls the named Core `FFileStream::DestroyStream` with
+   the registered buffer's stream handle minus one and a second argument of
+   zero. DWORD decrement and signed argument conversion are preserved.
+4. For a nonzero source handle, calls `alSourceStop`, then
+   `alSourcei(source, 0x1009, 0)`.
+5. Clears voice sound/actor references, flags, priority, sound ID and raw fields
+   `+0x54`/`+0x58`. It preserves the source handle, position, gain and radius.
+
+The function slots at `0x1004c6f0` and `0x1004c704` are tied to original loader
+requests for `alSourceStop` and `alSourcei`, through named Core conversion/export
+imports. This establishes requested API names, not the runtime-loaded driver's
+implementation. `0x1009` is `AL_BUFFER` in the
+[OpenAL API header](https://raw.githubusercontent.com/kcat/openal-soft/master/include/AL/al.h).
+Stopping before releasing the buffer follows the API's required state ordering;
+attaching buffer zero releases the queue on a stopped source. See
+[OpenAL 1.1, §§4.3.2–4.3.4](https://www.openal.org/documentation/openal-1.1-specification.pdf).
+
+**240 synthetic voice snapshots** match the ordered browser plan against 7,296
+interpreted original instructions. The comparison checks callback arguments,
+order, cleared fields and preservation of every other voice-record cell.
+External calls are recorded, not executed; stable callback-visible state is a
+condition of the plan. The source profiling counter is outside the browser
+plan. Unknown required fields return `unsupported` without exposing a partial
+executable plan. Fields with unresolved meanings retain offset names.
+
+The tool and runtime have 20 and 15 portable tests, respectively. Four corrupted
+in-memory source views (priority shift/floor, stream mask and stop-call slot)
+are rejected; original files are never modified. Full pool initialization,
+PCM/source creation, per-frame voice updates, callback side effects and the
+browser operation executor remain necessary before claiming audible parity.
