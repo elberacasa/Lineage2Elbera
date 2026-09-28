@@ -39,6 +39,105 @@ const freeze = (a) => Object.freeze(a);
 /** Allows cache acquisition to reject foreign/unprepared geometry up front. */
 export const isPreparedStaticMeshTree = (model) => models.has(model);
 
+/** UStaticMesh.PostLoad's version>=8 ordinary path. This consumes CURRENT
+ * object state after serialization, not export-table flags or an inferred
+ * fresh/default object. Older conversion/Build and LoadLocalized stay unknown.
+ * Return sparse writes, including writes reached before an unsupported stage.
+ * The local box, collision records and other mesh fields are untouched.
+ */
+export function postLoadStaticMesh(input) {
+  if (!uint(input?.objectFlags))
+    return freeze({
+      status: "unsupported",
+      scope: "original-static-mesh-postload",
+      writes: freeze({}),
+      reason: "current UObject flags required before mesh PostLoad",
+    });
+  const objectFlags = (input.objectFlags | 0x20000000) >>> 0;
+  // The superclass sets this flag before invoking the unported localized path.
+  const writes = { objectFlags };
+  const result = (status, fields) =>
+    freeze({
+      status,
+      scope: "original-static-mesh-postload",
+      ...fields,
+      writes: freeze({ ...writes }),
+    });
+  if (input.objectFlags & 0x100)
+    return result("unsupported", {
+      reason: "UObject.LoadLocalized is unresolved",
+    });
+  if (
+    !Number.isInteger(input.meshVersion) ||
+    input.meshVersion < -0x80000000 ||
+    input.meshVersion > 0x7fffffff
+  )
+    return result("unsupported", {
+      reason: "current signed mesh version required",
+    });
+  if (input.meshVersion === -1)
+    return result("unsupported", {
+      reason: "legacy mesh conversion before field reset is unresolved",
+    });
+  // These are original DWORD fields; no meaning is assigned to their zeros.
+  writes.field1e4 = writes.field1e8 = writes.field1ec = 0;
+  if (input.meshVersion < 8)
+    return result("unsupported", {
+      reason: "older mesh conversion/Build after field reset is unresolved",
+    });
+  const array = input.vertexArray;
+  if (
+    !index(input.vertexCount) ||
+    input.vertexCount > 1_000_000 ||
+    !index(array?.count) ||
+    !index(array.capacity) ||
+    array.count > array.capacity
+  )
+    return result("unsupported", {
+      reason: "bounded vertex count and valid current array storage required",
+    });
+  // A browser admission cap, not an original game limit. Empty reserves exactly
+  // vertexCount slots; AddZeroed then fills them without the growth branch.
+  writes.vertexArray = freeze({
+    count: input.vertexCount,
+    capacity: input.vertexCount,
+    words: freeze(new Array(input.vertexCount).fill(0)),
+  });
+  return result("ready", {});
+}
+
+/** Join decoded collision geometry and PostLoad's current resource state. This
+ * intentionally requires explicit CURRENT fields. A source export's saved
+ * version/flags alone is not a substitute for the loading/constructor path.
+ */
+export function prepareLoadedStaticMeshTree(source, current) {
+  const prepared = prepareStaticMeshTree(source);
+  if (prepared.status !== "ready") return prepared;
+  if (
+    !vector(current?.localBounds?.min, 3) ||
+    !vector(current.localBounds.max, 3) ||
+    !uint(current.localBounds.valid) ||
+    current.localBounds.valid > 255
+  )
+    return fail("current serialized mesh box and validity required");
+  const postLoad = postLoadStaticMesh({
+    ...current,
+    vertexCount: prepared.model.vertices.length,
+  });
+  if (postLoad.status !== "ready") return postLoad;
+  return freeze({
+    status: "ready",
+    scope: "original-loaded-static-mesh-tree",
+    model: prepared.model,
+    localBounds: freeze({
+      min: freeze([...current.localBounds.min]),
+      max: freeze([...current.localBounds.max]),
+      valid: current.localBounds.valid,
+    }),
+    postLoadWrites: postLoad.writes,
+  });
+}
+
 /** Snapshot the existing exporter record format once, without deriving planes,
  * rebuilding the tree or inferring placements/material identities. Shared
  * descendants are allowed; a cycle cannot complete the native traversal.

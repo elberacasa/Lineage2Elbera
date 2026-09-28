@@ -340,6 +340,12 @@ def native_postload_one(program, row, index):
         }
     )
     before = {at: value for at, value in m.memory.items() if mesh <= at < mesh + 0x1F4}
+    m.postload_input = dict(
+        objectFlags=flags,
+        meshVersion=m.memory[mesh + 0x1DC],
+        vertexCount=count,
+        vertexArray=dict(count=old_count, capacity=capacity),
+    )
     m.postload(mesh)
     expected = {
         **before,
@@ -353,6 +359,17 @@ def native_postload_one(program, row, index):
     }
     assert {at: m.memory[at] for at in before} == expected
     assert m.array(mesh + 0xD8) == [0] * count
+    m.postload_writes = dict(
+        objectFlags=m.memory[mesh + 0x1C],
+        field1e4=m.memory[mesh + 0x1E4],
+        field1e8=m.memory[mesh + 0x1E8],
+        field1ec=m.memory[mesh + 0x1EC],
+        vertexArray=dict(
+            count=m.memory[mesh + 0xDC],
+            capacity=m.memory[mesh + 0xE0],
+            words=m.array(mesh + 0xD8),
+        ),
+    )
     assert hexes(m.box(mesh + 0x34)) == hexes(row["localBounds"])
     m.invoke(0x106FE700, mesh, [0x600000, 0x200000])
     assert m.registers["eax"] == 0x600000
@@ -504,6 +521,22 @@ process.stdout.write(JSON.stringify(decode(JSON.parse(fs.readFileSync(0,'utf8'))
 """
 
 
+POSTLOAD_SCRIPT = (
+    SCRIPT.replace(
+        "const api=await import(process.argv[1]);",
+        "const api=await import(process.argv[1]);const mesh=await import(new URL('./static-mesh-tree.js',process.argv[1]));",
+    )
+    .replace(
+        ".map(row=>{",
+        ".map(({row,postload})=>{const loaded=mesh.postLoadStaticMesh(postload);if(loaded.status!=='ready')throw Error(JSON.stringify(loaded));",
+    )
+    .replace(
+        "return {bounds:box(r.bounds),events};",
+        "return {bounds:box(r.bounds),events,writes:loaded.writes};",
+    )
+)
+
+
 ADMISSION_SCRIPT = r"""
 import fs from 'node:fs';
 const helpers=await import(process.argv[1]);
@@ -582,11 +615,18 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
     for n, (a, b) in enumerate(zip(actual, expected)):
         assert a == b, (n, rows[n], a, b)
     postload_steps, postload_visited = 0, set()
+    postload_inputs, postload_expected = [], []
     for n, row in enumerate(rows):
         result, m = native_postload_one(program, row, n)
         assert result == expected[n], ("PostLoad bounds", n, result, expected[n])
+        postload_inputs.append(dict(row=row, postload=m.postload_input))
+        postload_expected.append(dict(**result, writes=m.postload_writes))
         postload_steps += len(m.visited)
         postload_visited.update(m.visited)
+    actual = browser_outputs(POSTLOAD_SCRIPT, hexes(postload_inputs), Path(runtime))
+    assert len(actual) == len(postload_expected)
+    for n, (a, b) in enumerate(zip(actual, postload_expected)):
+        assert a == b, ("browser mesh PostLoad", n, a, b)
     sequences = admission_fixtures()
     joined = []
     counts = {}
@@ -626,6 +666,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
             instructions=postload_steps,
             uniqueInstructions=len(postload_visited),
             boundsUnchanged=True,
+            browserStateCompared=True,
             directionFlag="clear",
         ),
         source=program.receipt,
@@ -637,6 +678,10 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
                 "actor-octree.js",
                 "actor-octree-geometry.js",
                 "cylinder-collision.js",
+                "static-mesh-tree.js",
+                "static-hit.js",
+                "static-triangle.js",
+                "static-sweep.js",
             ]
         },
         limits=[

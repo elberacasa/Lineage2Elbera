@@ -16,6 +16,8 @@ full browser-client goal remains active; existing scene behavior is unchanged.
 | Operation | Required input | Result |
 | --- | --- | --- |
 | `prepareStaticMeshTree(source)` | Original exporter vertices, indices, material slots, triangle planes and ordered nodes | Immutable model; no rebuilt collision geometry |
+| `postLoadStaticMesh(current)` | Explicit current flags, signed mesh version, vertex count and array metadata | Original bounded PostLoad sparse writes, including writes reached before an unsupported stage |
+| `prepareLoadedStaticMeshTree(source, current)` | Original records plus explicit current flags/version/array and local box | Prepared model, owned box and PostLoad writes; saved metadata is not used to infer current state |
 | `traceStaticMeshTree(model, input)` | Query, current cache, closest time and consumed method responses | Tree hit flag, sparse cache/result writes and ordered object-field writes |
 | `traceStaticMeshCollision(model, input)` | The same state plus explicit ordinary-mesh branch fields and owner/mesh identities | Original initial time, tree result and final hit adjustment |
 
@@ -28,6 +30,12 @@ not establish the running client's FPU profile or native CRT behavior.
 Missing consumed state and unsupported arithmetic return `status: "unsupported"`
 with a reason. Callers must preserve that distinction from a clear result.
 Inputs remain unchanged; returned records and vectors are immutable.
+
+The [PostLoad contract](native-static-actor-bounds-evidence.md#browser-resource-preparation)
+joins original mesh loading to this geometry API under explicit current-state
+conditions. Its 600 instruction comparisons check every returned reset and
+the unchanged box. The main world's legacy collision loader is not yet wired
+to this entry point; native construction/current flags still need source proof.
 
 ### Original model and current cache
 
@@ -142,9 +150,9 @@ node --test editor/world/test/static-mesh-tree.test.mjs editor/world/test/static
 python3 -m unittest discover -s tools/ui -p test_static_mesh_native.py
 ```
 
-The 21 browser tests cover traversal/pruning, coplanar ties, duplicate tags,
+The 28 browser tests cover traversal/pruning, coplanar ties, duplicate tags,
 warm/cold caches, immutable and shared cache records, conditional material
-responses, sparse writes and final-hit behavior. Eight interpreter tests cover
+responses, sparse writes, bounded PostLoad and final-hit behavior. Eight interpreter tests cover
 low-byte reads, the admitted WAIT instruction, named call boundaries, normal
 SEH frame bookkeeping, material method argument cleanup and square roots.
 CI installs the same pinned Capstone version as the other source verifiers.

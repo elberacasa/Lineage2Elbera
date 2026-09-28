@@ -11,11 +11,14 @@ broader published milestones and remaining gaps.
 
 The [static actor bounds checkpoint](native-static-actor-bounds-evidence.md)
 now compares 600 original box results, 288 composed updates and 600 bounded
-PostLoad-to-bounds cases. The source decoder recovers saved mesh version eight
+PostLoad-to-bounds cases against the actual browser reset implementation.
+The existing mesh-tree API now joins that reset to source geometry and an
+explicit current box. The source decoder recovers saved mesh version eight
 for 480 per-map records through exact export ends. The admitted PostLoad branch
 preserves the box, but current object initialization/flags still need to be
 joined to saved state. Then current actors must populate the original query
-components. Rendered mesh recentering remains provisional.
+components; the main world still uses the older collision loader. Rendered
+mesh recentering remains provisional.
 
 ## Product and scope
 

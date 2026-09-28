@@ -2,6 +2,32 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Browser mesh PostLoad and resource preparation — 28 September 2026
+
+The existing static-mesh module now performs the recovered version-eight-and-
+later PostLoad operation. It returns the original object flag, three reset
+fields and zeroed vertex-array contents as immutable sparse writes. Unknown
+localized/older conversion branches stop with the writes already reached;
+saved metadata never stands in for missing current state. The loaded-resource
+entry joins decoded geometry, explicit current fields and the unchanged box
+to the existing bounds/tree APIs. No new collision framework was introduced.
+
+Elbera's existing bounds checker now compares the actual JavaScript writes
+with 600 original-instruction executions, including array count/capacity and
+every zeroed element. The prior 600 bounds cases, 288 actor updates and 2,600
+tree/final-hit comparisons remain regression checks. Fifty-three related
+browser tests and eight bounds-interpreter tests pass. The installed browser
+runner reached the offline world without captured errors; its screenshot and
+text state were inspected. This was startup validation, not an Online test.
+
+The main-world loader is not yet connected. Current object construction,
+inherited class flags and serialization/later mutation still require proof
+before saved boxes can be adopted as live resource state. Private source
+research is retained locally for that join. All 17 README images remain; no
+visual layout changed or new screenshot is claimed. The tools remain reusable
+repository source outside the existing standalone archives. Full-client work
+continues after this component checkpoint.
+
 ## Original mesh load tail and bounded PostLoad — 28 September 2026
 
 The existing Elbera collision exporter now recovers the saved mesh version and
