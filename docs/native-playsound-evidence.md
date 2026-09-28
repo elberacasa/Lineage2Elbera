@@ -4,7 +4,9 @@ Elbera Tools preserves the original `0x98` packet and five original stereo
 quest/tutorial sounds. The browser now connects the bounded mode-zero path to
 its verified priority/selection/stop components and real Web Audio sources.
 The admitted path uses an explicit current self-pawn viewport, predecoded
-stereo buffers and the supplied EAX-disabled profile. This is partial audio
+stereo buffers and the supplied EAX-disabled profile. Mode-two tutorial speech
+also uses original recordings and recovered controller timing/fades, as bounded
+below. This is partial audio
 integration, not complete driver or gameplay parity.
 
 [Open the local audio inspector](../editor/world/test/packet-audio.html) after
@@ -28,11 +30,15 @@ python3 tools/audio/export_quest_sounds.py
 python3 tools/audio/export_quest_sounds.py --check
 python3 tools/audio/native_audio_profile.py
 python3 tools/audio/native_audio_profile.py --check
+python3 tools/audio/export_tutorial_voice.py
+python3 tools/audio/export_tutorial_voice.py --check
 python3 -m unittest discover -s tools/audio -p test_native_audio_profile.py
 python3 -m unittest discover -s tools/ui -p test_playsound_native.py
 python3 -m unittest discover -s tools/audio -p test_quest_sounds.py
 node --test gateway/test/playsound-packets.test.js
 node --test editor/world/test/native-audio-voices.test.mjs editor/world/test/native-packet-audio.test.mjs
+node --test editor/world/test/native-speech.test.mjs
+python3 -m unittest discover -s tools/audio -p test_tutorial_voice.py
 python3 tools/ui/check_playsound_native.py --check --voice-selection
 python3 tools/ui/check_playsound_native.py --check --priority --stop
 ```
@@ -44,6 +50,11 @@ python3 tools/ui/check_playsound_native.py --check \
   --comparison-engine /path/to/comparison/engine.dll \
   --comparison-core /path/to/comparison/Core.dll
 ```
+
+Add `--speech` to that comparison command for the controller and fade differential.
+It checks **1,158 controller cases, 270 fade cases and 140 signed packet delays**
+against retained instructions (66,467 interpreted instructions), with named external
+call results supplied as explicit synthetic observations. It does not execute a DLL.
 
 Both paths are required together. Unsupported fingerprints fail before any
 comparison; the original-only command retains its original unresolved result.
@@ -447,8 +458,8 @@ The ported packet pool is currently separate from historical combat/world
 sound paths, which still use provisional buses and mono conversion. Shared
 voice competition, source-mode globals, complete settings/mixer, streams,
 EAX, alternate view targets and general sound lookup remain open. The
-entry-time PCM issue was addressed in the follow-up below; native loading-order
-equivalence and speech scheduling are separate boundaries. The new tool is delivered in repository source; the existing
+entry-time PCM issue and speech scheduling were addressed in the follow-ups
+below; native loading-order equivalence remains open. The tool is delivered in repository source; the existing
 Core/NPC Source release archives are unchanged.
 
 
@@ -489,6 +500,80 @@ establish that mode-two speech is supported or that every entry requests it.
 37 current Online-lifecycle and packet-audio tests pass, including unresolved
 map/model promises, rendered-pose adoption, absent pawn state and disconnect.
 The installed web-game runner also reaches fresh Online creation without
-captured errors. Full quest delivery and speech remain separate acceptance
-work; controller request scheduling, interruption, fade and music interaction
-must be connected before tutorial voice playback is complete.
+captured errors. That entry check covered PCM only. The follow-up below adds
+speech requests and replacement fades; full quest delivery and the shared
+native music mixer remain separate acceptance work.
+
+
+## Tutorial speech
+
+The same Interlude Engine/ALAudio fingerprints above contain the mode-two
+speech path. `OnPlaySound` at `0x1049df44` performs signed integer division by
+1,000 before storing a Float32 delay; 999 milliseconds therefore becomes zero.
+`ALineagePlayerController::SetRequestedServerVoice` at `0x105d0be0` writes one
+pending request. A later request replaces it. `Tick` at `0x105d5460` consumes
+that state, with the speech block at `0x105d5f17..0x105d6137`.
+
+The pinned comparison matches 604 surrounding bytes and qualifies five erased
+FString calls by name. Seven original audio vtable slots bind the driver queries
+and operations. The differential supplies explicit external observations and
+PlayVoice return handles; it is not a startup-state or full-function emulator.
+An additional 38 driver instruction anchors bind the voice format/flags,
+registration fields, source placement, handle return and update branches.
+
+- A positive delay is decremented once per tick and does not play on the tick
+  that crosses zero. A nonempty due request invokes the original voice path.
+- An existing voice receives a one-second fade before a replacement. Fade time
+  advances only for frame deltas below one second and retires at equality.
+- The Ogg path selects original flags `0x114`, slot 1, null actor, zero location,
+  radius 1,000 and pitch 1. The slot consumes the same independent sound-ID
+  counter as mode-zero cues. Flag `0x10` bypasses positional gain attenuation.
+- Missing saved OggVoiceVolume uses the Init constant at `0x100409b8`, Float32
+  `0.6000000238418579`. The exporter does not import a user's saved Option.ini.
+- The source has the English `-e` suffix, `..\Voice\` prefix and `.ogg`
+  extension. The browser explicitly selects the supplied English variant;
+  startup language globals and alternate-language behavior are not emulated.
+- Native music ducking requests Float32 0.3 over two seconds, and voice-end
+  restoration requests 1 over two seconds. These operations are tested in the
+  controller component. **The live legacy music pool has no native handles;
+  those operations are not yet connected to it.**
+
+`tools/audio/export_tutorial_voice.py` pins the complete 42-file catalog with
+SHA256 `d6a59635328d18053a600d200b544ae84708fdbe3c553f197e1b393ce0284ea2`.
+It copies **10,675,983 bytes unchanged** into ignored `assets/audio/voice`.
+The metadata retains each file's fingerprint, mono 44,100 Hz Vorbis identification,
+final granule count and the size/hash of opaque bytes after the Ogg end page.
+The trailer's meaning remains unresolved. No conversion, downmix or synthesized
+voice is involved. The browser rechecks the catalog and each complete file.
+
+Web Audio predecoding, browser source handles, end notifications and session
+ownership replace the native streaming/device interfaces. Decoder PCM equality,
+OpenAL streaming/replay semantics and OS output have not been established.
+The controller starts from an explicitly empty browser-session state; native
+constructor equivalence is not asserted. The render loop provides elapsed
+browser time independently of the legacy movement delta clamp. Cold/unknown
+assets and locked audio remain explicit unsupported results, not deferred replay.
+
+The Elbera inspector now offers original speech selection, raw packet delay,
+replacement and session retirement. Its 50 ms diagnostic refresh is not a claim
+about the native game loop. The previous exact stereo sample check remains a
+separate measurement; it does not certify Vorbis decoder output.
+
+![Elbera Tools original tutorial speech controls](img/elbera-tools-tutorial-speech.png)
+
+*Actual tool capture with an original narration request. The PCM comparison
+is deliberately labeled “Not run” in this capture; its earlier results are
+shown separately above. The screenshot documents the tool, not audible parity.*
+
+A fresh local Human Fighter's normal server entry played tutorial_voice_001a,
+followed by 002. Clicking the visible tutorial continuation opened Movement and
+played 003. Playback receipts show one channel, the recovered gain, voice 16,
+sequential IDs and eventual release. No packet injection or database mutation
+was used. This confirms those configured-server events reach browser sources;
+full tutorial/quest delivery and official UI/server parity remain unfinished.
+
+A normal ground click then advanced to Changing Point of View and played 004.
+Disconnect cleared all receipts and pending state. Reconnecting the same
+character played 006, and opening the Tutorial question button played 007;
+these were the two previously unported live speech requests. All completed
+with active voices returning to zero, with no captured warnings/errors.

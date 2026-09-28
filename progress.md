@@ -2,6 +2,38 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original tutorial speech connected — 28 September 2026
+
+Mode-two packets now populate the recovered controller request, with signed
+integer delay conversion, later tick dispatch, original replacement fade and
+session retirement. Forty-two supplied English Vorbis files are preserved
+byte-for-byte, including opaque post-EOS trailers, and checked against their
+catalog/individual fingerprints before decoding. New browser profiles use the
+original absent-option OggVoiceVolume. The same bounded native voice pool and
+ID counter serve PCM cues and speech; browser buffers replace native streaming.
+
+The existing Elbera packet-audio tool now offers speech requests, packet delays
+and active voice/fade inspection. The source verifier compares 1,158 controller,
+270 fade and 140 signed-delay cases. Portable tests cover queue replacement,
+source ownership, autoplay loss, fade boundaries and malformed containers.
+A first browser run exposed Online accepting input before windows existed;
+the startup gate now waits for boot readiness, and the rerun reaches creation
+with 42 voice buffers and no captured errors.
+
+A fresh local Human Fighter was created through the ordinary UI. Live packets
+started tutorial_voice_001a, then tutorial_voice_002; clicking the tutorial link
+opened Movement and started tutorial_voice_003. All used original mono input
+and Float32 gain 0.6, completed and released their voices. No injected packets,
+developer movement or database edits were used. This is configured-server
+observation, not proof that every tutorial path or official server rule works.
+
+Normal movement also advanced to voice 004. Disconnect cleared pending and
+active speech; reconnect and the Tutorial question button played 006/007 with
+no warnings/errors. Native music duck/restore operations are recovered but the legacy music
+pool has no native handles, so it is explicitly not integrated. Whole-client
+streaming, original language startup/settings, device decoder equivalence and
+the complete beginner journey remain open. Full browser-port goal is active.
+
 ## Live tutorial cue during browser loading — 28 September 2026
 
 The original tutorial PCM cue now starts from the real Online entry packet.

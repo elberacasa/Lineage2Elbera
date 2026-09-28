@@ -992,9 +992,13 @@ if __name__ == '__main__':
                         help='also compare finite browser sound priority with retained instructions; requires Node')
     parser.add_argument('--stop', action='store_true',
                         help='also compare browser stop operations with retained instructions; requires Node')
+    parser.add_argument('--speech', action='store_true',
+                        help='also compare controller speech/fades; requires pinned comparison pair and Node')
     args = parser.parse_args()
     if bool(args.comparison_engine) != bool(args.comparison_core):
         parser.error('--comparison-engine and --comparison-core must be supplied together')
+    if args.speech and not args.comparison_engine:
+        parser.error('--speech requires the pinned comparison pair for named FString bindings')
     result = verify(args.comparison_engine, args.comparison_core)
     if args.voice_selection:
         result['voiceSelection'] = verify_voice_selection()
@@ -1002,4 +1006,7 @@ if __name__ == '__main__':
         result['priority'] = verify_audio_priority()
     if args.stop:
         result['stop'] = verify_audio_stop()
+    if args.speech:
+        from native_speech_evidence import verify_speech
+        result['speech'] = verify_speech(args.comparison_engine)
     print(json.dumps(result, indent=2))

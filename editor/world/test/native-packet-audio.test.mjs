@@ -92,9 +92,124 @@ function fixture(options = {}) {
     buffers: new Map([
       [packet.sound, { numberOfChannels: options.channels ?? 2 }],
     ]),
+    speech: options.speech
+      ? {
+          sounds: {
+            tutorial_voice_006: {
+              encoding: "vorbis",
+              channels: 1,
+              sampleRate: 44100,
+            },
+          },
+          buffers: new Map([["tutorial_voice_006", { numberOfChannels: 1 }]]),
+        }
+      : undefined,
   });
   return { audio, context, calls, nodes, outputs };
 }
+
+const speechPacket = (delay = 0) => ({
+  soundType: 2,
+  sound: "tutorial_voice_006",
+  delay,
+});
+const voiceFixture = () =>
+  fixture({ speech: true, profile: { oggVoiceVolume: Math.fround(0.6) } });
+
+test("speech waits for a controller tick, retains mono, and shares the original voice counter", () => {
+  const h = voiceFixture(),
+    state = frame();
+  h.audio.play(packet, state);
+  assert.equal(h.audio.play(speechPacket(999), state).status, "requested");
+  assert.equal(h.nodes.length, 1);
+  h.audio.update(state, 0.1);
+  const result = h.audio.lastSpeechResult;
+  assert.equal(result.status, "playing");
+  assert.equal(result.soundId, 0xffffffe0);
+  assert.equal(result.voiceIndex, 17);
+  assert.equal(result.channels, 1);
+  assert.equal(result.gain, Math.fround(0.6));
+  const voice = h.audio.voices[17];
+  assert.deepEqual(voice.location, [0, 0, 0]);
+  assert.equal(voice.actor, null);
+  assert.equal(voice.flags, 0x114);
+  assert.equal(h.nodes[1].loop, false);
+});
+
+test("a delay crossing zero waits another tick, and a later request replaces the pending name/delay", () => {
+  const h = voiceFixture(),
+    state = frame();
+  h.audio.play(speechPacket(1000), state);
+  h.audio.update(state, 1.5);
+  assert.equal(h.nodes.length, 0);
+  assert.equal(h.audio.speechState.delay, -0.5);
+  h.audio.update(state, 0);
+  assert.equal(h.nodes.length, 1);
+  h.audio.play(speechPacket(2000), state);
+  h.audio.play(speechPacket(999), state);
+  h.audio.update(state, 0);
+  assert.equal(h.nodes.length, 2);
+});
+
+test("replacing speech fades the old resource over qualifying ticks and retires it at equality", () => {
+  const h = voiceFixture(),
+    state = frame();
+  h.audio.play(speechPacket(), state);
+  h.audio.update(state, 0);
+  const first = h.audio.voices[16],
+    oldNode = first.node,
+    resource = first.browserStream;
+  h.audio.play(speechPacket(), state);
+  h.audio.update(state, 0.5);
+  assert.equal(first.fadeElapsed, 0.5);
+  assert.equal(first.output.gain.value, Math.fround(0.3));
+  h.audio.update(state, 1);
+  assert.equal(first.fadeElapsed, 0.5);
+  assert.equal(first.browserStream, resource);
+  h.audio.update(state, 0.5);
+  assert.equal(first.soundId, 0);
+  assert.equal(first.browserStream, null);
+  assert.equal(oldNode.onended, null);
+  assert.equal(h.audio.voices.filter((v) => v.soundId).length, 1);
+});
+
+test("speech retirement clears both delayed requests and active decoder/source ownership", () => {
+  const h = voiceFixture(),
+    state = frame();
+  h.audio.play(speechPacket(), state);
+  h.audio.update(state, 0);
+  const node = h.nodes[0],
+    stale = node.onended;
+  h.audio.play(speechPacket(5000), state);
+  h.audio.reset();
+  stale();
+  h.audio.update({ ...state, epoch: 2 }, 6);
+  assert.equal(h.audio.lastSpeechResult, null);
+  assert.equal(h.audio.speechState.kind, 0);
+  assert.ok(h.audio.voices.every((v) => !v.soundId && !v.browserStream));
+  assert.equal(h.nodes.length, 1);
+  assert.equal(h.audio.counter, 0xffffffff);
+});
+
+test("speech without source data/volume is explicit; a newly locked context cannot start delayed playback", () => {
+  const h = voiceFixture(),
+    state = frame();
+  assert.equal(
+    fixture({ speech: true }).audio.play(speechPacket(), state).reason,
+    "original-voice-volume-unavailable",
+  );
+  assert.equal(
+    h.audio.play({ ...speechPacket(), sound: "unknown" }, state).reason,
+    "original-voice-buffer-unavailable",
+  );
+  h.audio.play(speechPacket(), state);
+  h.context.state = "suspended";
+  h.audio.update(state, 0);
+  assert.equal(h.audio.lastSpeechResult.reason, "browser-audio-locked");
+  h.context.state = "running";
+  h.audio.update(state, 0);
+  assert.equal(h.nodes.length, 0);
+});
 
 test("original profile caps allocation; failure retains only created sources", () => {
   assert.equal(fixture({ profile: { channels: 64 } }).audio.voices.length, 32);

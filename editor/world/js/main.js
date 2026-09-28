@@ -2888,7 +2888,8 @@ window.addEventListener('resize', resize);
 resize();
 
 renderer.setAnimationLoop(() => {
-  const dt = Math.min(clock.getDelta(), 0.1);
+  const audioDelta = clock.getDelta();
+  const dt = Math.min(audioDelta, 0.1);
   // Deferred boundary crossing. A failed automatic request stays retired
   // until the user retries; the currently adopted terrain remains available.
   if (pendingSceneSwitch && !sceneLoading) {
@@ -2994,7 +2995,7 @@ renderer.setAnimationLoop(() => {
   // the ear rides the camera, not the character: the panner has to agree with
   // what is on screen or sounds pan the wrong way whenever the camera orbits
   audio.setListener(camera);
-  audio.nativePacketAudio?.update(packetAudioFrame());
+  audio.updatePacketAudio(packetAudioFrame(), audioDelta);
   renderer.render(scene, camera);
 });
 
@@ -3351,6 +3352,9 @@ window.addEventListener('unhandledrejection', (e) => {
       setLoading('no scene packages in assets/world/ yet');
       setStatus('no scenes');
     }
+    // Browser readiness gate: no network callbacks before their windows and
+    // source buffers exist. This is not an original-client login UI claim.
+    onlineToggle.disabled = false;
   } catch (e) {
     console.error(e);
     setLoading('boot failed: ' + e.message);

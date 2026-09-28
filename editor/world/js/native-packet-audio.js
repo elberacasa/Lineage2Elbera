@@ -1,11 +1,16 @@
-// Original mode-zero stereo PCM playback over Web Audio. Native arithmetic,
-// selection and stop order live in native-audio-voices.js. Web Audio handles,
-// buffer decoding and autoplay are explicit browser platform adaptations.
+// Original packet PCM and tutorial speech over Web Audio. Native arithmetic,
+// selection and stop order live in native-audio-voices.js; controller requests
+// and fades live in native-speech.js. Decoding, handles and autoplay are adapters.
 import {
   nativeAudioPriority,
   selectNativeAudioVoice,
   planNativeAudioStop,
 } from "./native-audio-voices.js";
+import {
+  nativeSpeechDelay,
+  tickNativeSpeech,
+  nativeSpeechFade,
+} from "./native-speech.js";
 
 const f = Math.fround;
 const uint = (v) => Number.isInteger(v) && v >= 0 && v <= 0xffffffff;
@@ -16,11 +21,14 @@ const vector = (v) =>
 const unsupported = (reason) => ({ status: "unsupported", reason });
 
 export class NativePacketAudio {
-  constructor({ context, profile, sounds, buffers }) {
+  constructor({ context, profile, sounds, buffers, speech }) {
     this.context = context;
     this.profile = Object.freeze({ ...profile });
     this.voices = [];
     this.sounds = new Map();
+    this.speechSounds = new Map();
+    this.browserStreamSerial = 0;
+    this._resetSpeech();
     this.counter = profile?.initialCounter;
     this.ready = false;
     if (
@@ -86,17 +94,38 @@ export class NativePacketAudio {
       this.sounds.set(key.toLowerCase(), sound);
       this.sounds.set(info.sourceReference.toLowerCase(), sound);
     }
+    for (const [key, info] of Object.entries(speech?.sounds ?? {})) {
+      const buffer = speech.buffers.get(key);
+      if (
+        info.encoding === "vorbis" &&
+        info.channels === 1 &&
+        info.sampleRate === 44100 &&
+        buffer?.numberOfChannels === 1 &&
+        /^tutorial_voice_[0-9]{3}[a-z]?$/.test(key)
+      )
+        this.speechSounds.set(key, { ref: key, buffer, field70: 0 });
+    }
     this.ready = this.voices.length > 0;
     if (!this.ready) this.failure = "no-browser-audio-sources";
   }
 
   _stop(voice) {
-    const plan = planNativeAudioStop({ voice });
+    const plan = planNativeAudioStop({
+      voice,
+      streamHandle: voice.browserStream?.handle,
+    });
     if (plan.status !== "ready") return plan;
     for (const operation of plan.operations) {
       switch (operation.op) {
         case "setSoundField70":
           operation.sound.field70 = operation.value;
+          break;
+        case "destroyStream":
+          // A predecoded browser buffer replaces the native streaming decoder.
+          // Retire this play's resource identity before stopping/detaching the
+          // source. The immutable decode cache survives; no native decoder ID
+          // or OpenAL streaming-buffer equivalence is claimed.
+          voice.browserStream = null;
           break;
         case "alSourceStop":
           if (voice.node) {
@@ -121,6 +150,7 @@ export class NativePacketAudio {
 
   play(packet, frame) {
     if (!this.ready) return unsupported(this.failure);
+    if (packet.soundType === 2) return this._requestSpeech(packet, frame);
     if (packet.soundType !== 0)
       return unsupported("unported-packet-sound-mode");
     if (!this._frame(frame))
@@ -132,16 +162,30 @@ export class NativePacketAudio {
     const gain = f(Math.max(0, Math.min(1, this.profile.soundVolume)));
     if (gain === 0) return { status: "rejected", reason: "sound-volume-zero" };
     const radius = this.profile.defaultRadius;
+    return this._playBuffer({
+      sound,
+      frame,
+      gain,
+      radius,
+      flags: 0,
+      slot: 0,
+      location: frame.location,
+    });
+  }
+
+  _playBuffer({ sound, frame, gain, radius, flags, slot, location }) {
+    if (this.context.state !== "running")
+      return unsupported("browser-audio-locked");
     const priority = nativeAudioPriority({
       radius,
       volume: gain,
-      flags: 0,
-      location: frame.location,
+      flags,
+      location,
       viewTargetLocation: frame.viewTargetLocation,
     });
     if (priority.status !== "ready") return priority;
     const selected = selectNativeAudioVoice({
-      soundId: 0,
+      soundId: slot,
       counter: this.counter,
       priority: priority.priority,
       partitionFlag: this.profile.partitionFlag,
@@ -160,26 +204,31 @@ export class NativePacketAudio {
     try {
       node = this.context.createBufferSource();
       node.buffer = sound.buffer;
-      node.playbackRate.value = 1; // Original OnPlaySound mode-zero pitch.
-      node.loop = false; // Original ordinary PCM registration flags zero.
+      node.playbackRate.value = 1; // Original PCM and tutorial voice pitch.
+      node.loop = false; // Neither admitted source path requests looping.
       Object.assign(voice, {
         sound,
-        actor: frame.owner,
+        actor: flags & 0x100 ? null : frame.owner,
+        sessionOwner: frame.owner,
         epoch: frame.epoch,
         soundId: selected.soundId,
-        flags: 0,
+        flags,
         priority: priority.priority,
         radius,
         gain,
-        location: [...frame.location],
+        location: [...location],
+        fadeState: 0,
+        fadeElapsed: 0,
+        fadeDuration: 0,
+        browserStream:
+          flags & 4 ? { handle: ++this.browserStreamSerial } : null,
         field54: 1,
         field58: 0,
         node,
         ended: false,
       });
-      // This admitted ordinary viewport path has the same pawn for source and
-      // audio position. The native dry-gain formula therefore yields stored gain.
-      // No stereo panner, invented falloff or legacy UI/master bus is inserted.
+      // Ordinary stereo PCM is same-pawn; voice flag0x10 bypasses attenuation.
+      // Browser decoding/output replaces native OpenAL/Vorbis device work.
       voice.output.gain.value = gain;
       node.connect(voice.output);
       node.onended = () => {
@@ -206,6 +255,102 @@ export class NativePacketAudio {
     };
   }
 
+  _resetSpeech() {
+    // Neutral NEW browser-session state, not a claimed native constructor dump.
+    this.speechState = {
+      kind: 0,
+      delay: 0,
+      ref: "",
+      voiceHandle: -1,
+      musicHandle: -1,
+      flags: 0,
+    };
+    this.speechSnapshot = {
+      available: true,
+      ogg: false,
+      wav: false,
+      music: false,
+      voiceEnd: false,
+    };
+    this.speechOwner = null;
+    this.speechEpoch = null;
+    this.lastSpeechResult = null;
+  }
+
+  _requestSpeech(packet, frame) {
+    if (!this._frame(frame))
+      return unsupported("missing-current-pawn-audio-state");
+    if (this.context.state !== "running")
+      return unsupported("browser-audio-locked");
+    if (
+      !Number.isFinite(this.profile.oggVoiceVolume) ||
+      f(this.profile.oggVoiceVolume) !== this.profile.oggVoiceVolume
+    )
+      return unsupported("original-voice-volume-unavailable");
+    const delay = nativeSpeechDelay(packet.delay);
+    const ref = String(packet.sound).toLowerCase();
+    if (delay === null) return unsupported("invalid-original-voice-delay");
+    if (!this.speechSounds.has(ref))
+      return unsupported("original-voice-buffer-unavailable");
+    // One controller request field: a later packet replaces a pending request.
+    Object.assign(this.speechState, { kind: 1, delay, ref });
+    this.speechOwner = frame.owner;
+    this.speechEpoch = frame.epoch;
+    this.lastSpeechResult = { status: "requested", ref, delay };
+    return this.lastSpeechResult;
+  }
+
+  _tickSpeech(frame, delta) {
+    if (this.speechOwner === null) return;
+    if (
+      !this._frame(frame) ||
+      frame.owner !== this.speechOwner ||
+      frame.epoch !== this.speechEpoch
+    ) {
+      this._resetSpeech();
+      return;
+    }
+    tickNativeSpeech(
+      this.speechState,
+      { ...this.speechSnapshot, delta },
+      {
+        stopMusic: (handle, duration) => {
+          const voice = this.voices[handle - 1];
+          if (voice?.sound)
+            Object.assign(voice, {
+              fadeState: 2,
+              fadeElapsed: 0,
+              fadeDuration: duration,
+            });
+        },
+        playVoice: (ref) => {
+          const gain = f(Math.max(0, Math.min(1, this.profile.oggVoiceVolume)));
+          const template = this.speechSounds.get(ref);
+          const result = !template
+            ? unsupported("original-voice-buffer-unavailable")
+            : gain <= 0
+              ? { status: "rejected", reason: "voice-volume-zero" }
+              : this._playBuffer({
+                  sound: { ...template },
+                  frame,
+                  gain,
+                  radius: 1000,
+                  flags: 0x114,
+                  slot: 1,
+                  location: [0, 0, 0],
+                });
+          this.lastSpeechResult = result;
+          return result.status === "playing" ? result.voiceIndex + 1 : 0;
+        },
+        // The existing legacy music pool has no native music handle. Do not
+        // invent one or silently apply these operations to an unrelated bus.
+        setMusicVolume: () => {
+          throw new Error("Native music handle is not integrated");
+        },
+      },
+    );
+  }
+
   _frame(frame) {
     return (
       frame?.owner != null &&
@@ -217,19 +362,34 @@ export class NativePacketAudio {
     );
   }
 
-  update(frame) {
+  update(frame, delta = 0) {
+    if (!Number.isFinite(delta) || delta < 0 || !Number.isFinite(f(delta)))
+      return;
+    this._tickSpeech(frame, f(delta));
+    const observations = {
+      available: true,
+      ogg: false,
+      wav: false,
+      music: false,
+      voiceEnd: false,
+    };
     for (const voice of this.voices) {
       if (voice.soundId === 0) continue;
       if (
         voice.ended ||
         !this._frame(frame) ||
-        voice.actor !== frame.owner ||
+        voice.sessionOwner !== frame.owner ||
         voice.epoch !== frame.epoch
       ) {
+        if (voice.ended && (voice.flags & 0x104) === 0x104)
+          observations.voiceEnd = true;
         this._stop(voice);
         continue;
       }
-      voice.location = [...frame.location];
+      // Native observations precede the fade pass. A fade retired this frame
+      // remains visible to the controller until the next driver observation.
+      if (voice.flags & 0x100) observations.ogg = true;
+      else voice.location = [...frame.location];
       const priority = nativeAudioPriority({
         radius: voice.radius,
         volume: voice.gain,
@@ -242,13 +402,28 @@ export class NativePacketAudio {
         continue;
       }
       voice.priority = priority.priority;
-      voice.output.gain.value = voice.gain;
+      if (voice.fadeState === 2) {
+        const fade = nativeSpeechFade({
+          elapsed: voice.fadeElapsed,
+          duration: voice.fadeDuration,
+          delta: f(delta),
+          volume: this.profile.oggVoiceVolume,
+        });
+        if (fade.status !== "ready") {
+          this._stop(voice);
+          continue;
+        }
+        voice.fadeElapsed = fade.elapsed;
+        voice.output.gain.value = fade.gain;
+      } else voice.output.gain.value = voice.gain;
     }
+    this.speechSnapshot = observations;
   }
 
   reset() {
     // Browser session retirement, not an asserted native SetViewport mapping.
     for (const voice of this.voices) this._stop(voice);
+    this._resetSpeech();
   }
 
   dispose() {
