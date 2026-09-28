@@ -29,7 +29,7 @@ jobs:
       - name: Public protocol and lifecycle fixtures
         run: node --test gateway/test/*.test.js editor/world/test/geodata.test.mjs editor/world/test/net-lifecycle.test.mjs tools/dev/db_cli.test.cjs
       - name: Appearance lifecycle and material fixtures
-        run: node --test editor/world/test/appearance.test.mjs editor/world/test/entity-admission.test.mjs editor/world/test/online-session.test.mjs editor/world/test/hairmaterials.test.mjs editor/world/test/hair-inspection.test.mjs editor/charcreate/test/appearance.test.mjs
+        run: node --test editor/world/test/appearance.test.mjs editor/world/test/entity-admission.test.mjs editor/world/test/online-session.test.mjs editor/world/test/scene-loading.test.mjs editor/world/test/hairmaterials.test.mjs editor/world/test/hair-inspection.test.mjs editor/charcreate/test/appearance.test.mjs
       - name: Portable original hair decoder fixtures
         run: |
           python3 -m unittest discover -s tools/dat -p test_build_hair.py

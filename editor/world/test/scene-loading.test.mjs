@@ -12,6 +12,11 @@ const start = main.indexOf('let sceneLoadGeneration = 0;');
 const end = main.indexOf('\nasync function loadCharacter(', start);
 assert.ok(start >= 0 && end > start, 'scene loader boundary must exist');
 const loader = main.slice(start, end);
+const entitySource = fs.readFileSync(new URL('../js/entities.js', import.meta.url), 'utf8');
+const managerStart = entitySource.indexOf('export class EntityManager {');
+assert.ok(managerStart > 0, 'actual entity manager boundary must exist');
+const EntityManager = vm.runInNewContext(entitySource.slice(managerStart)
+  .replace('export class EntityManager', 'class EntityManager') + '\nEntityManager;');
 function deferred() {
   let resolve, reject;
   const promise = new Promise((a, b) => { resolve = a; reject = b; });
@@ -45,6 +50,7 @@ function harness({ neighbors = false, delayedFetch = false, delayedCollision = f
     AbortController, DOMException, Terrain, pickingInspection: null, lastWorldPick: null,
     document: { createElement: element, body: { append: notice => noticesDom.push(notice) } },
     terrain: old, staticCollision: { tile: 'old' }, currentTile: 'old', sceneLoading: false, pendingSceneSwitch: null, onlineGeneration: 0,
+    npcWorldEntry: null, entities: new EntityManager({}, []),
     inspectionRequest: null, character: null, online: false, selfServerPosition: null,
     tileNameFor: () => 'entered',
     chat: { addSystem: m => notices.push(m) },
@@ -494,4 +500,81 @@ test('ordinary online adoption uses the latest matching teleport height after lo
   h.jobs.get('entered').work.resolve(); await loading;
   assert.deepEqual(h.jobs.get('entered').groundQuery, [4, 6, 7]);
   assert.deepEqual(position, { x: 4, y: 7, z: 6 });
+});
+
+function beginNpcEntry(h) {
+  const session = h.context.onlineGeneration;
+  h.context.online = true;
+  return h.context.npcWorldEntry = h.context.entities.beginNpcWorldEntry(
+    () => h.context.online && session === h.context.onlineGeneration);
+}
+
+test('actual center adoption releases the real NPC manager before surrounding maps finish', async () => {
+  const h = harness({ neighbors: true }), entry = beginNpcEntry(h);
+  const loading = h.context.runSceneLoad('17_25'); await tick();
+  assert.equal(entry.terrain(), null, 'old offline terrain cannot satisfy the dependency');
+  h.jobs.get('17_25').work.resolve(); await tick();
+  assert.equal(entry.terrain(), h.context.terrain);
+  assert.equal(entry.terrain().def.tile, '17_25');
+  assert.equal(h.context.sceneLoading, true, 'surrounding maps are deliberately still pending');
+  h.neighborJobs.get('17_25').reject(new Error('neighbor failure')); await loading;
+  assert.equal(entry.terrain(), h.context.terrain, 'neighbor failure cannot undo adopted center readiness');
+});
+
+test('failed center leaves NPCs pending and explicit current-entry retry can satisfy readiness', async () => {
+  const h = harness(), entry = beginNpcEntry(h);
+  const failed = h.context.runSceneLoad('17_25'); await tick();
+  h.jobs.get('17_25').work.reject(new Error('center failure')); await failed;
+  assert.equal(entry.terrain(), null);
+  assert.equal(h.context.terrain, h.old);
+  const retry = h.noticesDom[0].children[1].events.click(); await tick();
+  assert.equal(entry.terrain(), null);
+  h.jobs.get('17_25').work.resolve(); await retry;
+  assert.equal(entry.terrain(), h.context.terrain);
+});
+
+test('later foreign center replaces NPC readiness and a superseded center cannot restore it', async () => {
+  const h = harness(), entry = beginNpcEntry(h);
+  const old = h.context.runSceneLoad('17_25'); await tick();
+  const latest = h.context.runSceneLoad('22_22'); await tick();
+  h.jobs.get('22_22').work.resolve(); await latest;
+  assert.equal(entry.terrain().def.tile, '22_22');
+  h.jobs.get('17_25').work.resolve(); await old;
+  assert.equal(entry.terrain().def.tile, '22_22');
+  assert.equal(h.jobs.get('17_25').disposed, 1);
+});
+
+test('same-connection entry replacement cancels an old automatic center before terrain adoption', async () => {
+  const h = harness(), oldEntry = beginNpcEntry(h);
+  const loading = h.context.runSceneLoad('17_25', { automatic: true }); await tick();
+  const currentEntry = beginNpcEntry(h);
+  assert.equal(oldEntry.isCurrent(), false);
+  h.jobs.get('17_25').work.resolve(); await loading;
+  assert.equal(h.context.terrain, h.old, 'the old automatic load cannot overwrite the new entry');
+  assert.equal(h.jobs.get('17_25').disposed, 1);
+  assert.equal(currentEntry.terrain(), null);
+  assert.equal(oldEntry.terrain(), null);
+});
+
+test('connection retirement cannot release the pending NPC scene dependency', async () => {
+  const h = harness(), entry = beginNpcEntry(h);
+  const loading = h.context.runSceneLoad('17_25'); await tick();
+  h.context.onlineGeneration++;
+  h.context.entities.resetNpcWorldEntry(); h.context.npcWorldEntry = null;
+  h.jobs.get('17_25').work.resolve(); await loading;
+  assert.equal(entry.isCurrent(), false);
+  assert.equal(entry.terrain(), null);
+  assert.equal(h.context.terrain, h.old);
+  assert.equal(h.jobs.get('17_25').disposed, 1);
+});
+
+test('automatic scene failure cannot retry its old destination in a replacement world entry', async () => {
+  const h = harness(); beginNpcEntry(h);
+  const failed = h.context.runSceneLoad('17_25', { automatic: true }); await tick();
+  h.jobs.get('17_25').work.reject(new Error('center failure')); await failed;
+  const retry = h.noticesDom[0].children[1], oldFetch = h.fetches.get('17_25');
+  const currentEntry = beginNpcEntry(h);
+  assert.equal(retry.events.click(), undefined, 'old entry retry cannot launch a new request');
+  assert.equal(h.fetches.get('17_25'), oldFetch);
+  assert.equal(currentEntry.terrain(), null);
 });

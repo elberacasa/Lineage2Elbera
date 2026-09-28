@@ -240,7 +240,7 @@ class DropEntity {
 }
 
 class NpcEntity {
-  constructor(msg, {sourceLevel=null}={}) {
+  constructor(msg, {entry=null}={}) {
     const { id, npcId, name, level, runSpeed, walkSpeed, speedMul, running,
       pAtkSpd, atkSpdMul, collisionRadius, collisionHeight, dead } = msg;
     this.captureOriginalNpcInfo(msg);
@@ -249,7 +249,7 @@ class NpcEntity {
     this._initialWaitEligible = true;
     this._waitGeneration = 0;
     this._waitPoseEpoch = 0;
-    this._initialSourceLevel = sourceLevel;
+    this._initialEntry = entry;
     // Tile naming follows the existing world coordinate convention. Retain
     // the received location separately from the compatibility placement.
     this._initialPacketLevel = Number.isInteger(msg.x) && Number.isInteger(msg.y)
@@ -331,11 +331,30 @@ class NpcEntity {
   // by this browser actor. Admission ends at the first unported state change;
   // an empty later packet cannot recreate the missing transition history.
   _startOriginalWait() {
-    if (!this._initialWaitEligible || this._retired || this.dead || this.target) return;
+    if (!this._initialWaitEligible || this._retired || this.dead || this.target || this.originalWait) return;
+    const entry = this._initialEntry;
+    if (!entry) {
+      this.originalWaitStatus = {status:'pending',reason:'waiting-for-world-entry'};
+      return;
+    }
+    if (!entry.isCurrent()) {
+      this._retireOriginalWait('retired-world-entry');
+      return;
+    }
+    const terrain = entry.terrain();
+    if (!terrain) {
+      this.originalWaitStatus = {status:'pending',reason:'waiting-for-initial-source-scene'};
+      return;
+    }
     // The source zone/volume callback census currently covers Talking Island
-    // 17_25 only. Do not generalize its startup preservation to other maps.
-    if (this._initialSourceLevel !== '17_25' || this._initialPacketLevel !== '17_25') {
-      this.originalWaitStatus = {status:'unsupported',reason:'unverified-initial-source-level'};
+    // 17_25 only. The loaded scene is a resource dependency, not a replacement
+    // for the original packet's location or the actor's qualified source data.
+    if (terrain.def?.tile !== '17_25' || this._initialPacketLevel !== '17_25') {
+      this._retireOriginalWait('unverified-initial-source-level');
+      return;
+    }
+    if (!this.monsterRoot || !this.mixer || !this.actions) {
+      this.originalWaitStatus = {status:'pending',reason:'waiting-for-original-resources'};
       return;
     }
     const startup = {
@@ -348,7 +367,7 @@ class NpcEntity {
     const plan = planInitialNpcWait(this.originalNpcInfo,this.originalSource,startup,
       this.originalSource?.record?.sourceFiles);
     this.originalWaitStatus = plan.status === 'ready' ? {status:'pending'} : plan;
-    if (plan.status !== 'ready') return;
+    if (plan.status !== 'ready') { this._initialWaitEligible = false; return; }
     let pose;
     try {
       pose = createOriginalPosePlayback(this.monsterRoot,this.originalSource);
@@ -382,6 +401,10 @@ class NpcEntity {
 
   _advanceOriginalWait(dt) {
     const state = this.originalWait;
+    if (!this._initialEntry?.isCurrent()) {
+      this._retireOriginalWait('retired-world-entry');
+      return;
+    }
     const step = advanceInitialNpcWait(state.channel,dt);
     if (step.status !== 'ready') { this._retireOriginalWait(step.reason); return; }
     for (const event of step.events) {
@@ -394,7 +417,8 @@ class NpcEntity {
       // actor's event or consume another draw.
       if (sound?.status === 'ready' && this.waitSoundEnabled !== false) audio.playAt(sound.ref,this.group.position,
         {volume:sound.volume,radius:sound.radius,isCurrent:()=>!this._retired
-          && this.originalWait === state && this._waitGeneration === state.generation && this.waitSoundEnabled !== false});
+          && this._initialEntry?.isCurrent() && this.originalWait === state
+          && this._waitGeneration === state.generation && this.waitSoundEnabled !== false});
     }
     const applied = state.pose.apply(step.frame,{epoch:++this._waitPoseEpoch});
     if (applied.status !== 'ready') { this._retireOriginalWait(applied.reason); return; }
@@ -698,9 +722,55 @@ export class EntityManager {
     this.manifest = manifest;
     this.entities = new Map();    // id -> Character (players) | NpcEntity
     this.pending = new Map();     // id -> identity of the current async spawn
+    this._npcEntry = null;
+    this._npcTerrain = null;
   }
 
   has(id) { return this.entities.has(id) || this.pending.has(id); }
+
+  // Session/entry ownership and scene readiness are browser resource state.
+  // Keep receiving every NPC event while pending; never replay or queue them.
+  resetNpcWorldEntry() {
+    this._npcEntry = null;
+    this._npcTerrain = null;
+    for (const entity of this.entities.values()) {
+      if (entity.kind === 'npc') entity._retireOriginalWait('session-reset');
+    }
+  }
+
+  beginNpcWorldEntry(isCurrent) {
+    if (typeof isCurrent !== 'function' || !isCurrent()) return null;
+    const previous = this._npcEntry;
+    const entry = Object.freeze({
+      isCurrent: () => this._npcEntry === entry && isCurrent(),
+      terrain: () => this._npcEntry === entry ? this._npcTerrain : null,
+    });
+    this._npcEntry = entry;
+    this._npcTerrain = null;
+    for (const entity of this.entities.values()) {
+      if (entity.kind !== 'npc') continue;
+      if (previous) entity._retireOriginalWait('world-entry-replaced');
+      // Only the first entry binds packets received before its UserInfo.
+      // Reset/transition-retired actors cannot acquire a new initial history.
+      else if (entity._initialWaitEligible) {
+        entity._initialEntry = entry;
+        entity._startOriginalWait();
+      }
+    }
+    return entry;
+  }
+
+  setNpcWorldScene(terrain, entry) {
+    if (!entry || entry !== this._npcEntry || !entry.isCurrent() || !terrain?.def?.tile) return false;
+    this._npcTerrain = terrain;
+    for (const entity of this.entities.values()) {
+      if (entity.kind !== 'npc' || entity._initialEntry !== entry) continue;
+      if (entity.originalWait && terrain.def.tile !== '17_25')
+        entity._retireOriginalWait('source-scene-change');
+      else entity._startOriginalWait();
+    }
+    return true;
+  }
 
   // Ground rule: with per-tile geodata present, the height is the layer
   // NEAREST to the server z (bridges: an entity on a bridge stays on the
@@ -851,7 +921,7 @@ export class EntityManager {
     // A new template on the same object ID cannot inherit the old model or
     // pending upgrade. Also retire a different entity kind/pending player.
     if (existing || this.pending.has(id)) this.remove(id);
-    const npc = new NpcEntity(msg,{sourceLevel:terrain?.def?.tile});
+    const npc = new NpcEntity(msg,{entry:this._npcEntry});
     // type (Monster/Folk) resolves with the async npcgrp fetch
     npcMeshes().then(map => {
       if (npc._retired || this.entities.get(id) !== npc) return;

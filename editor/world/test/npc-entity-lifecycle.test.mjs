@@ -21,8 +21,9 @@ const packet=(extra={})=>({id:7,npcId:9,name:'Authored NPC',x:0,y:0,z:0,heading:
   combat:0,waitType:1,rhand:0,chest:0,lhand:0,speedMul:1.25,running:0,dead:0,
   collisionRadius:12,collisionHeight:24,...extra});
 const plain=value=>JSON.parse(JSON.stringify(value));
+const terrainFor=tile=>({def:{tile},heightAtWorld:()=>0});
 
-function harness({holdManifest=false}={}) {
+function harness({holdManifest=false,worldEntry=true,sceneReady=true,readyTile='17_25'}={}) {
   const scene=new THREE.Group(),jobs=[],materials=[],warnings=[],mixers=[],timers=new Map();
   const manifest=deferred(),titles=deferred();let timerId=0;
   const modelRows=[{id:'Authored9',gltf:'nine.gltf'},{id:'Authored10',gltf:'ten.gltf'},
@@ -50,8 +51,10 @@ function harness({holdManifest=false}={}) {
   const classes=source.slice(begin).replace('export class EntityManager','class EntityManager');
   const {EntityManager,NpcEntity}=vm.runInNewContext(source.slice(mapBegin,mapEnd)+classes+'\n({EntityManager,NpcEntity});',context);
   const manager=new EntityManager(scene,[]);
-  const add=(msg,tile='17_25')=>{manager.addNpc(msg,{def:{tile},heightAtWorld:()=>0});return manager.getEntity(msg.id);};
-  return{scene,manager,NpcEntity,add,jobs,materials,warnings,mixers,timers,titles,manifest,modelRows,audio,sounds};
+  const session={current:true},entry=worldEntry ? manager.beginNpcWorldEntry(()=>session.current) : null;
+  if(entry && sceneReady)assert.equal(manager.setNpcWorldScene(terrainFor(readyTile),entry),true);
+  const add=(msg,tile='17_25')=>{manager.addNpc(msg,terrainFor(tile));return manager.getEntity(msg.id);};
+  return{scene,manager,NpcEntity,add,jobs,materials,warnings,mixers,timers,titles,manifest,modelRows,audio,sounds,session,entry};
 }
 function model() {
   const root=new THREE.Group(),texture=new THREE.Texture({close(){assert.fail('cached image closed');}});
@@ -157,8 +160,8 @@ test('invalid source pose leaves converted playback usable, without a hidden sto
 });
 
 test('initial source loop is not generalized beyond the audited source level',async()=>{
-  for(const tile of [null,'22_22']) {
-    const h=harness(),loaded=sourceModel(),npc=h.add(loaded.packet,tile);await adoptSource(h,loaded);
+  for(const tile of ['22_22','23_12']) {
+    const h=harness({readyTile:tile}),loaded=sourceModel(),npc=h.add(loaded.packet,tile);await adoptSource(h,loaded);
     assert.equal(npc.originalWaitStatus.reason,'unverified-initial-source-level');
     npc.update(.5,null);assert.equal(h.audio.nativeRandom.draws,0);
     assert.equal(loaded.bone.matrixAutoUpdate,true);h.manager.clear();
@@ -167,6 +170,182 @@ test('initial source loop is not generalized beyond the audited source level',as
   const npc=h.add(loaded.packet);await adoptSource(h,loaded);
   assert.equal(npc.originalWaitStatus.reason,'unverified-initial-source-level','old displayed tile cannot admit a foreign packet');
   h.manager.clear();
+});
+
+test('original resources and scene readiness join in either order without replaying loading time',async()=>{
+  for(const first of ['model','scene']) {
+    const h=harness({sceneReady:false}),loaded=sourceModel(),npc=h.add(loaded.packet);
+    const snapshot=npc.originalNpcInfo;
+    if(first==='model') {
+      await adoptSource(h,loaded);
+      assert.equal(npc.originalWaitStatus.reason,'waiting-for-initial-source-scene');
+      npc.update(.5,null);
+      assert.equal(npc.current,npc.actions.idle,'converted playback remains usable while waiting');
+      assert.equal(loaded.bone.matrixAutoUpdate,true);
+      assert.equal(h.audio.nativeRandom.draws,0);
+    }
+    assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),h.entry),true);
+    if(first==='scene') {
+      assert.equal(npc.originalWaitStatus.reason,'waiting-for-original-resources');
+      assert.equal(npc.originalWait == null,true);
+      await adoptSource(h,loaded);
+    }
+    assert.equal(npc.originalNpcInfo,snapshot,'readiness must not recreate the packet');
+    assert.equal(npc.originalWaitStatus.status,'ready',first);
+    assert.equal(npc.originalWaitStatus.frame,Math.fround(.0001));
+    assert.equal(npc.originalWaitStatus.notifyCount,0);
+    assert.equal(h.audio.nativeRandom.draws,0,'loading time produces no synthetic events');
+    npc.update(.5,null);assert.equal(h.audio.nativeRandom.draws,1);
+    h.manager.clear();
+  }
+});
+
+test('the first world entry binds untouched pre-entry packets in both model readiness orders',async()=>{
+  for(const modelBeforeEntry of [false,true]) {
+    const h=harness({worldEntry:false}),loaded=sourceModel(),npc=h.add(loaded.packet);
+    const snapshot=npc.originalNpcInfo;
+    if(modelBeforeEntry) {
+      await adoptSource(h,loaded);
+      assert.equal(npc.originalWaitStatus.reason,'waiting-for-world-entry');
+      npc.update(.5,null);assert.equal(h.audio.nativeRandom.draws,0);
+    }
+    const entry=h.manager.beginNpcWorldEntry(()=>h.session.current);
+    assert.ok(entry);assert.equal(Object.isFrozen(entry),true);
+    assert.equal(npc.originalNpcInfo,snapshot);
+    assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),entry),true);
+    if(!modelBeforeEntry)await adoptSource(h,loaded);
+    assert.equal(npc.originalWaitStatus.status,'ready');
+    assert.equal(npc.originalWaitStatus.frame,Math.fround(.0001));
+    h.manager.clear();
+  }
+});
+
+test('manual inspection without an entry keeps converted playback and refuses unrelated readiness tokens',async()=>{
+  const h=harness({worldEntry:false}),other=harness(),loaded=sourceModel(),npc=h.add(loaded.packet);
+  await adoptSource(h,loaded);npc.update(.5,null);
+  assert.equal(npc.originalWait == null,true);assert.equal(npc.originalWaitStatus.reason,'waiting-for-world-entry');
+  assert.equal(npc.current,npc.actions.idle);assert.ok(loaded.bone.position.x>50);
+  assert.equal(loaded.bone.matrixAutoUpdate,true);assert.equal(h.audio.nativeRandom.draws,0);
+  assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),null),false);
+  assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),other.entry),false);
+  assert.equal(h.manager.beginNpcWorldEntry(()=>false),null);
+  assert.equal(npc.originalWait == null,true);
+  h.manager.clear();other.manager.clear();
+});
+
+test('repeated scene readiness preserves the exact live channel, pose, frame and random stream',async()=>{
+  const h=harness(),loaded=sourceModel(),npc=h.add(loaded.packet);await adoptSource(h,loaded);
+  npc.update(.5,null);
+  const owned=npc.originalWait,frame=owned.channel.frame,epoch=npc._waitPoseEpoch;
+  const status=plain(npc.originalWaitStatus),stops=npc.mixer.stops,draws=h.audio.nativeRandom.draws;
+  const snapshot=npc.originalNpcInfo,guard=h.sounds[0][2].isCurrent;
+  for(let i=0;i<3;i++)assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),h.entry),true);
+  assert.equal(npc.originalWait,owned);assert.equal(owned.channel.frame,frame);
+  assert.equal(npc._waitPoseEpoch,epoch);assert.equal(npc.mixer.stops,stops);
+  assert.deepEqual(plain(npc.originalWaitStatus),status);assert.equal(npc.originalNpcInfo,snapshot);
+  assert.equal(h.audio.nativeRandom.draws,draws);assert.equal(h.sounds.length,1);assert.equal(guard(),true);
+  npc.update(.1,null);assert.notEqual(owned.channel.frame,frame,'the existing channel keeps advancing');
+  h.manager.clear();
+});
+
+test('pending scene readiness cannot erase intervening movement, state, or snapshot transitions',async()=>{
+  const transitions=[
+    ['movement',(h,n)=>h.manager.move({id:n.id,x:-71000,y:258000,z:-3100,tx:-70900,ty:258000,tz:-3100},null)],
+    ['attack',(h,n)=>n.attackFlash()],['skill',(h,n)=>n.skillFlash()],
+    ['death',(h,n)=>n.die()],['wait-type',(h,n)=>h.manager.setWaitType(n.id,4)],
+    ['snapshot',(h,n)=>h.add({...n.originalNpcInfo,id:n.id,x:-71000,y:258000,z:-3100})],
+  ];
+  for(const [name,transition] of transitions) {
+    const h=harness({sceneReady:false}),loaded=sourceModel(),npc=h.add(loaded.packet);
+    await adoptSource(h,loaded);transition(h,npc);
+    npc.target=null;npc.dead=false;
+    assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),h.entry),true);
+    assert.equal(npc.originalWait,null,name);assert.equal(npc._initialWaitEligible,false,name);
+    assert.equal(loaded.bone.matrixAutoUpdate,true);assert.equal(h.audio.nativeRandom.draws,0);
+    h.manager.clear();
+  }
+});
+
+test('readiness uses the frozen first snapshot and never reuses eligibility after a replacement snapshot',async()=>{
+  const h=harness({sceneReady:false}),loaded=sourceModel(),npc=h.add(loaded.packet);
+  const initial=npc.originalNpcInfo,rate=initial.speedMul,tail=plain(initial.npcInfoTail);
+  loaded.packet.combat=1;loaded.packet.speedMul=9;
+  loaded.packet.npcInfoTail.extension.bytes[0]=255;
+  await adoptSource(h,loaded);
+  assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),h.entry),true);
+  assert.equal(npc.originalNpcInfo,initial);assert.equal(npc.originalWait.channel.plan.seq,'Wait');
+  assert.equal(npc.originalWait.channel.plan.rate,Math.fround(rate));
+  assert.deepEqual(plain(initial.npcInfoTail),tail);
+  h.add({...loaded.packet,dead:false});const replacement=npc.originalNpcInfo;
+  assert.notEqual(replacement,initial);assert.equal(npc._initialWaitEligible,false);
+  assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),h.entry),true);
+  assert.equal(npc.originalNpcInfo,replacement);assert.equal(npc.originalWait,null);
+  h.manager.clear();
+});
+
+test('a scene outside the proven domain retires active or pending admission permanently',async()=>{
+  for(const active of [false,true]) {
+    const h=harness({sceneReady:active}),loaded=sourceModel(),npc=h.add(loaded.packet);
+    await adoptSource(h,loaded);
+    assert.equal(h.manager.setNpcWorldScene(terrainFor('22_22'),h.entry),true);
+    assert.equal(npc.originalWait,null);assert.equal(npc._initialWaitEligible,false);
+    assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),h.entry),true);
+    assert.equal(npc.originalWait,null);assert.equal(loaded.bone.matrixAutoUpdate,true);
+    assert.equal(h.audio.nativeRandom.draws,0);h.manager.clear();
+  }
+});
+
+test('source identity rejection at readiness is terminal, even if the object is later changed to match',async()=>{
+  const h=harness({sceneReady:false}),loaded=sourceModel(),npc=h.add(loaded.packet);
+  await adoptSource(h,loaded);
+  const sourceFiles=loaded.originalSource.record.sourceFiles;
+  loaded.originalSource.record.sourceFiles={...sourceFiles,'system/Engine.u':'0'.repeat(64)};
+  assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),h.entry),true);
+  assert.equal(npc.originalWait == null,true);assert.equal(npc._initialWaitEligible,false);
+  loaded.originalSource.record.sourceFiles=sourceFiles;
+  assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),h.entry),true);
+  assert.equal(npc.originalWait == null,true);assert.equal(npc.current,npc.actions.idle);
+  assert.equal(loaded.bone.matrixAutoUpdate,true);h.manager.clear();
+});
+
+test('an expired session predicate blocks pending loads and active clocks and queued sounds without reset',async()=>{
+  for(const stage of ['model','scene','active']) {
+    const h=harness({sceneReady:stage!=='scene'}),loaded=sourceModel(),npc=h.add(loaded.packet);
+    if(stage!=='model')await adoptSource(h,loaded);
+    let guard=null;
+    if(stage==='active'){npc.update(.5,null);guard=h.sounds[0][2].isCurrent;}
+    const draws=h.audio.nativeRandom.draws;h.session.current=false;
+    if(guard)assert.equal(guard(),false,'async audio must reject before another entity update');
+    assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),h.entry),false);
+    if(stage==='model')await adoptSource(h,loaded);
+    else if(stage==='scene')npc._startOriginalWait();
+    npc.update(.5,null);
+    assert.equal(npc.originalWait,null);assert.equal(npc._initialWaitEligible,false);
+    assert.equal(h.audio.nativeRandom.draws,draws);assert.equal(loaded.bone.matrixAutoUpdate,true);
+    h.manager.clear();
+  }
+});
+
+test('reset and replacement entries retire old pending/active ownership and permit only fresh actors',async()=>{
+  for(const operation of ['reset','replace'])for(const stage of ['model','scene','active']) {
+    const h=harness({sceneReady:stage!=='scene'}),loaded=sourceModel(),old=h.add(loaded.packet);
+    if(stage!=='model')await adoptSource(h,loaded);
+    let guard=null;if(stage==='active'){old.update(.5,null);guard=h.sounds[0][2].isCurrent;}
+    const draws=h.audio.nativeRandom.draws;
+    if(operation==='reset')h.manager.resetNpcWorldEntry();
+    const entry=h.manager.beginNpcWorldEntry(()=>true);
+    assert.notEqual(entry,h.entry);assert.equal(h.entry.isCurrent(),false);
+    assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),h.entry),false);
+    assert.equal(h.manager.setNpcWorldScene(terrainFor('17_25'),entry),true);
+    if(stage==='model')await adoptSource(h,loaded);
+    assert.equal(old.originalWait,null);assert.equal(old._initialWaitEligible,false);
+    if(guard)assert.equal(guard(),false);
+    old.update(.5,null);assert.equal(h.audio.nativeRandom.draws,draws);
+    const fresh=sourceModel();fresh.packet.id=8;const npc=h.add(fresh.packet);await adoptSource(h,fresh,1);
+    assert.equal(npc.originalWaitStatus.status,'ready');assert.equal(npc.originalWaitStatus.frame,Math.fround(.0001));
+    assert.equal(loaded.bone.matrixAutoUpdate,true);assert.equal(fresh.bone.matrixAutoUpdate,false);
+    h.manager.clear();
+  }
 });
 
 test('raw NpcInfo snapshots replace only own received fields, retaining zero independently of compatibility fallbacks',async()=>{

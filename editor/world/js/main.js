@@ -390,6 +390,7 @@ const entities = new EntityManager(scene, manifest);
 let online = false;
 let onlineGeneration = 0;   // invalidates asynchronous work across connection changes
 let worldEntryGeneration = 0;
+let npcWorldEntry = null;
 let characterLoadGeneration = 0;
 let characterLoading = false;
 let selfId = null;          // server object id of our own character
@@ -1214,6 +1215,8 @@ function npcNames() {
 }
 
 function resetOnlineSession() {
+  entities.resetNpcWorldEntry();
+  npcWorldEntry = null;
   cancelFineNavigation('session-reset');
   closeCharCreate();
   closeCharSelect();
@@ -1501,6 +1504,7 @@ net.on('enterWorld', async (msg) => {
   const isCurrentSession = () => online && session === onlineGeneration
     && entry === worldEntryGeneration;
   if (!isCurrentSession()) return;
+  const npcEntry = npcWorldEntry = entities.beginNpcWorldEntry(isCurrentSession);
   // An outstanding picker/boot model belongs to the previous view. Even if
   // the current visible model already matches, that pending load must retire.
   ++characterLoadGeneration;
@@ -1514,6 +1518,8 @@ net.on('enterWorld', async (msg) => {
   selfId = c.id ?? selfId;
   selfName = c.name || selfName;
   const tile = tileNameFor(c.x || 0, c.y || 0);
+  if (tile === currentTile && terrain?.def?.tile === tile)
+    entities.setNpcWorldScene(terrain, npcEntry);
   if (availableScenes.includes(tile) && tile !== currentTile) {
     scenePicker.value = tile;
     await loadScene(tile, { isCurrentSession });
@@ -2025,7 +2031,9 @@ async function loadScene(tile, { keepCharPos = false, groundHintY = null, isCurr
   clearSceneRetryNotice();
   const startedAt = Date.now();
   const generation = ++sceneLoadGeneration, session = onlineGeneration;
+  const npcEntry = npcWorldEntry;
   const isLatest = () => generation === sceneLoadGeneration && session === onlineGeneration
+    && (!online || npcEntry === npcWorldEntry)
     && (!isCurrentSession || isCurrentSession());
   sceneLoadAbort?.abort();
   const abort = new AbortController();
@@ -2069,6 +2077,10 @@ async function loadScene(tile, { keepCharPos = false, groundHintY = null, isCurr
     adopted = true;
     scene.add(t.group);
     currentTile = tile;
+    // Release only the center that actually adopted under this session/entry.
+    // First NPC playback joins this scene with its model readiness; it does
+    // not catch up skipped native loading time or wait for neighbor assets.
+    if (online && npcEntry === npcWorldEntry) entities.setNpcWorldScene(t, npcEntry);
     console.info(`[scene] ${tile} center ready in ${Date.now() - startedAt}ms`);
     applyInteriorMode(!!t.interior);
     // the tile's own soundscape: MusicVolume zones + placed ambient emitters.
@@ -2172,7 +2184,8 @@ async function loadScene(tile, { keepCharPos = false, groundHintY = null, isCurr
     if (chat) chat.addSystem(adopted ? `Could not finish loading ${tile}. Use Retry scene to try again.`
       : `Could not load ${tile}. Keeping the previous scene. Use Retry scene to try again.`);
     const failure = { tile,
-      isCurrent: () => session === onlineGeneration && (!isCurrentSession || isCurrentSession()),
+      isCurrent: () => session === onlineGeneration && (!online || npcEntry === npcWorldEntry)
+        && (!isCurrentSession || isCurrentSession()),
       options: { keepCharPos, groundHintY, isCurrentSession } };
     failedSceneLoads.set(tile, failure);
     showSceneRetry(failure);

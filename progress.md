@@ -2,6 +2,35 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Normal Online entry joins NPC source resources — 27 September 2026
+
+The initial NPC source loop no longer permanently captures the previous offline
+map. Real entities continue processing packets while the first current entry
+waits for its model and matching adopted center scene. The same readiness path
+supports a preloaded map and NPCs received before UserInfo; repeated readiness
+does not restart an active clock. Unsupported intervening actions, stale scene
+loads, replacement entries and disconnects cannot revive initial playback.
+Center adoption does not wait for surrounding maps or the self model.
+
+Actual browser verification started on default scene 16_21 and entered Online
+as the existing test character without manually selecting Talking Island.
+Starter Gremlins advanced original Wait frames and Sound decisions after the
+automatic map load. Movement retirement, disconnect cleanup, same-page reconnect
+and manual inspector play/pause/restore passed; no new browser errors appeared.
+The existing curated screenshot remains representative. Native loading/tick
+history, movement transitions, placement and full rendering remain unported.
+
+The prior live NPC milestone is published through PR #15 at public merge
+0ee4407. Its public checks exposed an inherited test import of a local dependency;
+the test now uses the checked-in browser Three.js and both final checks passed.
+The private local main/history and immutable standalone releases remain untouched.
+
+Verification: 95 focused entity, source-adapter, entry and scene-loader cases
+passed with no skips. The broader CI lifecycle group also passed all 115 cases
+(overlapping suites, not an additional total). The stale retry regression first
+reproduced the defect, then passed with the entry-identity guard. Browser resource
+tests do not certify native movement predicates or loading history.
+
 ## Live original NPC waiting milestone — 27 September 2026
 
 On `codex/native-npc-event-playback`, the normal entity loader now drives a

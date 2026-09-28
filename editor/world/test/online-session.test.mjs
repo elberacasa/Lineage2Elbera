@@ -80,6 +80,7 @@ function vector(x = 0, y = 0, z = 0) {
 }
 function harness() {
   const handlers = {}, jobs = [], sceneJobs = [], notices = [], hidden = new Set(['hidden']);
+  const npcEntries = [], npcScenes = [], npcResets = [];
   const clearedNavTimers = [];
   const old = { group: { position: vector(1, 2, 3), rotation: { y: .5 } }, clearTarget() {},
     cancelled: 0, cancelCast() { this.cancelled++; } };
@@ -117,7 +118,7 @@ function harness() {
   for (const name of ['setSpeeds', 'setWeapon', 'setOffhand', 'setArmor', 'setAppearance', 'cancelAppearance']) old[name] = Character.prototype[name];
   const noop = () => {};
   const context = {
-    online: true, onlineGeneration: 1, worldEntryGeneration: 0,
+    online: true, onlineGeneration: 1, worldEntryGeneration: 0, npcWorldEntry: null,
     characterLoadGeneration: 0, characterLoading: false,
     fineNavSync: null, fineNavFollower: null, selfServerPosition: {x:1,y:2,z:3}, moveQueue: [],
     clearTimeout: id => clearedNavTimers.push(id),
@@ -145,7 +146,11 @@ function harness() {
     trainerClanInfo: { id: 456, reputation: 987 },
     tutorialWnd: { reset: noop }, tutorialEvents: { reset: noop },
     gatewayUrl: () => 'test://gateway', closeCharCreate: noop, closeCharSelect: noop,
-    entities: { clear: noop }, combat: { clear: noop },
+    entities: { clear: noop,
+      resetNpcWorldEntry: () => npcResets.push(context.onlineGeneration),
+      beginNpcWorldEntry(isCurrent) { const token = { isCurrent }; npcEntries.push(token); return token; },
+      setNpcWorldScene(terrain, token) { npcScenes.push({ terrain, token }); },
+    }, combat: { clear: noop },
     skillBar: { clears: 0, clear() { this.clears++; } },
     inventory: { toggle: noop, renders: 0, resets: 0,
       render() { this.renders++; }, resetSession() { this.resets++; } },
@@ -173,6 +178,7 @@ function harness() {
   };
   vm.runInNewContext(source + '\nglobalThis.runLoad = loadCharacter; globalThis.runOnline = setOnline;', context);
   return { context, handlers, jobs, sceneJobs, notices, hidden, old, children, clearedNavTimers,
+    npcEntries, npcScenes, npcResets,
     trainer, get trainerResets() { return trainerResets; },
     get questResets() { return questResets; }, get connects() { return connects; },
     get disconnects() { return disconnects; }, get abortedScenes() { return abortedScenes; },
@@ -496,6 +502,56 @@ test('matching current model still retires an outstanding picker model', async (
   assert.equal(h.context.character, h.old);
   assert.equal(h.context.characterLoading, false);
   assert.equal(h.hidden.has('hidden'), true);
+});
+
+test('matching adopted entry map releases NPC readiness before self appearance finishes', async () => {
+  const h = harness();
+  h.context.terrain.def = { tile: 'home' };
+  const entering = h.handlers.enterWorld({ char: { id: 1, name: 'Current', x: 5, y: 6, z: 7, race: 2 } });
+  assert.equal(h.jobs.length, 1, 'self appearance is still pending');
+  assert.equal(h.npcEntries.length, 1);
+  assert.equal(h.context.npcWorldEntry, h.npcEntries[0]);
+  assert.equal(h.npcEntries[0].isCurrent(), true);
+  assert.deepEqual(h.npcScenes, [{ terrain: h.context.terrain, token: h.npcEntries[0] }]);
+  h.jobs[0].work.resolve(); await entering;
+  assert.equal(h.npcScenes.length, 1, 'self appearance completion does not restart NPC clocks');
+});
+
+test('entry cannot certify the previous map or a mismatched terrain definition', async () => {
+  for (const remote of [false, true]) {
+    const h = harness(); h.context.selfModelId = 'a';
+    h.context.terrain.def = { tile: remote ? 'home' : 'foreign' };
+    const entering = h.handlers.enterWorld({ char: { id: 1, x: remote ? 100 : 5, y: 6, z: 7, race: 1 } });
+    assert.equal(h.npcScenes.length, 0);
+    assert.equal(h.npcEntries.length, 1, 'NPCs may wait under the current entry while assets load');
+    if (remote) {
+      assert.equal(h.sceneJobs.length, 1);
+      assert.equal(h.sceneJobs[0].options.isCurrentSession(), true);
+      h.sceneJobs[0].resolve();
+    }
+    await entering;
+    assert.equal(h.npcScenes.length, 0, 'only actual center adoption may supply later readiness');
+  }
+});
+
+test('disconnect and later entries retire the exact NPC readiness owner', async () => {
+  const h = harness(); h.context.selfModelId = 'a';
+  h.context.terrain.def = { tile: 'home' };
+  const packet = { char: { id: 1, x: 5, y: 6, z: 7, race: 1 } };
+  await h.handlers.enterWorld(packet);
+  const first = h.context.npcWorldEntry;
+  await h.handlers.enterWorld(packet);
+  const second = h.context.npcWorldEntry;
+  assert.notEqual(second, first);
+  assert.equal(first.isCurrent(), false);
+  assert.equal(second.isCurrent(), true);
+  h.context.runOnline(false);
+  assert.equal(h.context.npcWorldEntry, null);
+  assert.equal(second.isCurrent(), false);
+  assert.equal(h.npcResets.length, 1);
+  h.context.runOnline(true);
+  assert.equal(h.context.npcWorldEntry, null, 'connecting does not certify the old visible map');
+  assert.equal(h.npcResets.length, 2);
 });
 
 
