@@ -5,6 +5,9 @@ import {
   applyActorReferenceTags,
   applyActorTransformTags,
   prepareStaticActorProperties,
+  freshObjectLoadingFlags,
+  postLoadStaticActor,
+  prepareFreshStaticActor,
   collectLevelActorAssignments,
   resolvePackageReference,
 } from "../js/actor-loading.js";
@@ -132,6 +135,174 @@ function propertiesFixture() {
     level: references.level,
   };
 }
+
+function freshFixture() {
+  const input = propertiesFixture();
+  input.classLoading = {
+    sourceClass: "Engine.StaticMeshActor",
+    scope: "ordinary-native-registration-and-package",
+    mask: 0x428,
+    value: 0,
+  };
+  input.source.savedStateFrame = {
+    scope: "saved-map-state-frame",
+    classIdentity: "Engine.StaticMeshActor",
+    savedExportFlags: 0x02070001,
+    codeOffset: -1,
+  };
+  input.source.savedActorLoading = {
+    scope: "saved-actor-loading-inputs",
+    fileVersion: 123,
+    tags: [{ name: "Rotation" }],
+    attachedOverrideCount: 0,
+  };
+  input.defaults.collisionAttached = {
+    layout: {
+      name: "Attached",
+      kind: "ArrayProperty",
+      propertyFlags: 0x400002,
+    },
+    inner: {
+      kind: "ObjectProperty",
+      reference: "Engine.Actor",
+      propertyFlags: 0,
+    },
+    defaultCount: 0,
+    defaultOrigin: "zero-initialized-class-default",
+  };
+  return input;
+}
+
+test("fresh actor flags pass through loading stages rather than retaining saved flags", () => {
+  const result = freshObjectLoadingFlags(0x02070001, 0);
+  assert.deepEqual(result.flags, {
+    created: 0x03070201,
+    allocated: 0x03070201,
+    serializing: 0x03078001,
+    serialized: 0x43070001,
+    beforePostLoad: 0x42070001,
+  });
+  assert.equal(freshObjectLoadingFlags(0, 8).flags.allocated, 0x01004200);
+  for (const args of [
+    [undefined, 0],
+    [-1, 0],
+    [0, 0x400],
+    [0, undefined],
+  ])
+    assert.equal(freshObjectLoadingFlags(...args).status, "unsupported");
+  assert.ok(Object.isFrozen(result.flags));
+});
+
+test("fresh actor preparation joins loaded properties, empty attachments and PostLoad writes", () => {
+  const input = freshFixture(),
+    result = prepareFreshStaticActor(input);
+  assert.equal(result.status, "ready");
+  assert.equal(result.scope, "original-fresh-static-actor");
+  assert.deepEqual(result.postLoadWrites, {
+    objectFlags: 0x62070001,
+    swayRotationOrig: [-2147483648, 0, 2147483647],
+    flags5c: { mask: 0x40, value: 0x40 },
+  });
+  assert.deepEqual(result.attached, []);
+  assert.equal(result.references.StaticMesh, input.mesh);
+  assert.deepEqual(result.groups, prepareStaticActorProperties(input).groups);
+  // PostLoad reads Brush (+0x278); skeletal Mesh (+0x104) is not this branch.
+  input.resolvedReferenceDefaults.Mesh = { identity: "skeletal-mesh" };
+  const withMesh = prepareFreshStaticActor(input);
+  assert.equal(withMesh.status, "ready");
+  assert.equal(withMesh.references.Mesh, input.resolvedReferenceDefaults.Mesh);
+  assert.ok(
+    Object.isFrozen(result.attached) &&
+      Object.isFrozen(result.postLoadWrites.swayRotationOrig),
+  );
+  input.source.savedStateFrame.savedExportFlags = 0;
+  input.defaults.collisionTransforms.defaults.Rotation[0] = 123;
+  assert.equal(result.postLoadWrites.objectFlags, 0x62070001);
+  assert.equal(result.postLoadWrites.swayRotationOrig[0], -2147483648);
+});
+
+test("fresh actor admission rejects unknown lifecycle state before exposing properties", () => {
+  for (const corrupt of [
+    (input) => delete input.classLoading,
+    (input) => (input.classLoading.mask = 0x408),
+    (input) => (input.classLoading.value = 0x20),
+    (input) => (input.classLoading.value = 0x400),
+    (input) => (input.source.savedStateFrame.classIdentity = "Engine.Actor"),
+    (input) => (input.source.savedStateFrame.codeOffset = 0),
+    (input) => (input.source.savedActorLoading.fileVersion = 120),
+    (input) => (input.source.savedActorLoading.tags = new Array(1)),
+    (input) =>
+      input.source.savedActorLoading.tags.push({ name: "oBjEcTfLaGs" }),
+    (input) => input.source.savedActorLoading.tags.push({ name: "Attached" }),
+    (input) => input.source.savedActorLoading.tags.push({ name: "aTtAcHeD" }),
+    (input) => (input.source.savedActorLoading.attachedOverrideCount = 1),
+    (input) => (input.defaults.collisionAttached.defaultOrigin = "assumed"),
+    (input) => (input.defaults.collisionAttached.defaultCount = 1),
+    (input) => (input.defaults.collisionAttached.layout.propertyFlags = 2),
+    (input) =>
+      (input.defaults.collisionAttached.inner.propertyFlags = 0x400000),
+    (input) =>
+      (input.resolvedReferenceDefaults.Brush = {
+        identity: "unresolved-brush",
+      }),
+    (input) => (input.source.savedStateFrame.savedExportFlags |= 0x100),
+  ]) {
+    const input = freshFixture();
+    corrupt(input);
+    const result = prepareFreshStaticActor(input);
+    assert.equal(result.status, "unsupported");
+    assert.equal(result.transform, undefined);
+    assert.equal(result.postLoadWrites, undefined);
+  }
+});
+
+test("PostLoad retains known flag bits and does not invent unknown bits", () => {
+  const input = {
+    objectFlags: 0x42070001,
+    classFlags: 0,
+    brushReference: null,
+    attachedCount: 0,
+    rotation: [1, -2, 3],
+    flags5c: { mask: 0x80000001, value: 0x80000000 },
+  };
+  const before = structuredClone(input),
+    result = postLoadStaticActor(input);
+  assert.equal(result.status, "ready");
+  assert.deepEqual(result.writes.flags5c, {
+    mask: 0x80000041,
+    value: 0x80000040,
+  });
+  assert.deepEqual(result.writes.swayRotationOrig, input.rotation);
+  assert.deepEqual(input, before);
+});
+
+test("unsupported PostLoad branches retain only writes reached before the missing state", () => {
+  const input = {
+    objectFlags: 1,
+    classFlags: 0,
+    brushReference: null,
+    attachedCount: 0,
+    rotation: [1, 2, 3],
+    flags5c: { mask: 0, value: 0 },
+  };
+  for (const extra of [
+    { objectFlags: 0x100 },
+    { classFlags: 0x20 },
+    { brushReference: {} },
+    { attachedCount: undefined },
+    { attachedCount: 1 },
+    { rotation: [0, 0, 2147483648] },
+    { flags5c: { mask: 0, value: 1 } },
+  ]) {
+    const result = postLoadStaticActor({ ...input, ...extra });
+    assert.equal(result.status, "unsupported");
+    assert.deepEqual(result.writes, {
+      objectFlags: ((extra.objectFlags ?? 1) | 0x20000000) >>> 0,
+      ...(extra.flags5c ? { swayRotationOrig: [1, 2, 3] } : {}),
+    });
+  }
+  assert.deepEqual(postLoadStaticActor().writes, {});
+});
 
 test("joined properties retain mesh identity, transform operands and known Boolean bits", () => {
   const input = propertiesFixture(),

@@ -1,6 +1,7 @@
 """Portable synthetic helper-boundary tests; no original client files."""
 
 from types import SimpleNamespace
+import struct
 import unittest
 
 from capstone import Cs, CS_ARCH_X86, CS_MODE_32
@@ -28,6 +29,71 @@ def call_at(address):
 
 
 class StaticBoundsBoundaryTest(unittest.TestCase):
+    def test_default_copy_provider_preserves_headers_sources_and_caller_stack(self):
+        for at, size in ((0x1015FBFF, 12), (0x1016FF56, 0)):
+            target = 0x1017AC60
+            instruction = next(
+                Cs(CS_ARCH_X86, CS_MODE_32).disasm(
+                    b"\xe8" + struct.pack("<i", target - at - 5), at
+                )
+            )
+            m = machine()
+            m.registers.update(esp=0x1000)
+            m.memory.update(
+                {
+                    0x1000: 0x2004,
+                    0x1004: 0x3004,
+                    0x1008: size,
+                    0x2000: 99,
+                    0x2010: 98,
+                    0x3000: 97,
+                    0x3004: 1,
+                    0x3008: 2,
+                    0x300C: 3,
+                }
+            )
+            before = dict(m.memory)
+            self.assertEqual(m.step(instruction), at + 5)
+            expected = before | {
+                0x2004 + off: before[0x3004 + off] for off in range(0, size, 4)
+            }
+            self.assertEqual(m.memory, expected)
+            self.assertEqual(m.registers["esp"], 0x1000)
+            self.assertEqual(m.registers["eax"], 0x2004)
+            if not size:
+                m.memory[0x1008] = 4
+                with self.assertRaises(AssertionError):
+                    m.step(instruction)
+
+    def test_specialized_default_zeroing_is_bounded_and_cdecl(self):
+        at, target = 0x1015FC32, 0x101022E3
+        instruction = next(
+            Cs(CS_ARCH_X86, CS_MODE_32).disasm(
+                b"\xe8" + struct.pack("<i", target - at - 5), at
+            )
+        )
+        for size in (4, 12, 8, 13):
+            m = machine()
+            m.registers["esp"] = 0x1000
+            m.memory.update(
+                {
+                    0x1000: 0x2004,
+                    0x1004: size,
+                    **{at: 0xFFFFFFFF for at in range(0x2000, 0x2014, 4)},
+                }
+            )
+            before = dict(m.memory)
+            if size in (4, 12):
+                m.step(instruction)
+                self.assertEqual(
+                    m.memory, before | {0x2004 + off: 0 for off in range(0, size, 4)}
+                )
+            else:
+                with self.assertRaises(AssertionError):
+                    m.step(instruction)
+                self.assertEqual(m.memory, before)
+            self.assertEqual(m.registers["esp"], 0x1000)
+
     def test_not_inverts_full_word_without_changing_comparison_flags(self):
         instruction = next(
             Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex("f7d2"), 0x9000)

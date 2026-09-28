@@ -5,6 +5,7 @@
  */
 import { prepareStaticSweep } from "./static-sweep.js";
 import { adjustStaticMeshHit } from "./static-hit.js";
+import { freshObjectLoadingFlags } from "./actor-loading.js";
 import {
   prepareStaticTriangle,
   createStaticTriangleClipState,
@@ -208,13 +209,10 @@ export function prepareFreshStaticMeshTree(source, { classFlags } = {}) {
   // CreateExport -> fresh StaticAllocateObject -> ordinary Preload/Serialize
   // -> ConditionalPostLoad. Header preservation is scoped to the admitted
   // native descriptors; arbitrary class/template mutation is not supported.
-  const created = ((saved.savedExportFlags & 0x067f01a5) | 0x01000200) >>> 0;
-  const allocated = (created | (classFlags & 8 ? 0x4000 : 0)) >>> 0;
-  const serializing = ((allocated & ~0x200) | 0x8000) >>> 0;
-  const serialized = ((serializing | 0x40000000) & ~0x8000) >>> 0;
-  const beforePostLoad = (serialized & 0xdeffffff) >>> 0;
+  const loading = freshObjectLoadingFlags(saved.savedExportFlags, classFlags);
+  if (loading.status !== "ready") return fail(loading.reason);
   const loaded = prepareLoadedStaticMeshTree(source, {
-    objectFlags: beforePostLoad,
+    objectFlags: loading.flags.beforePostLoad,
     meshVersion: version.value,
     localBounds: source.savedLocalBounds,
     // Original normal constructor initializes this array empty. PostLoad
@@ -223,13 +221,7 @@ export function prepareFreshStaticMeshTree(source, { classFlags } = {}) {
   });
   return freeze({
     ...loaded,
-    loadingFlags: freeze({
-      created,
-      allocated,
-      serializing,
-      serialized,
-      beforePostLoad,
-    }),
+    loadingFlags: loading.flags,
   });
 }
 

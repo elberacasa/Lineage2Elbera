@@ -933,3 +933,67 @@ identity and failure before reference resolution. The inspected offline Giran
 startup captured no errors and still reports no audited static surfaces; live
 Online acceptance and camera/walking integration remain unfinished. Existing
 standalone release archives are unchanged.
+
+
+## Fresh static-actor lifecycle
+
+`prepareFreshStaticActor` extends the combined property entry through the
+source-qualified, ordinary static-actor loading stages. It derives current
+object flags from saved export flags and the known class mask, admits the
+original empty Attached default only when the complete saved tag census has
+no override, and applies bounded `AActor.PostLoad`. The mesh-resource entry
+reuses the same flag arithmetic. No duplicate loader or diagnostic-only actor
+implementation was added.
+
+The public contract requires validated edition-123 source records. Native
+header tags, config/localization branches, non-null Brush references,
+nonempty attachments and unresolved inputs remain unsupported. The original
+PostLoad copies Rotation into SwayRotationOrig and sets actor flag `0x40` at
+`+0x5c`; only that bit becomes known when the incoming word is unknown. Saved
+sway rotation and flag padding never become invented current values. Failures
+in the lower-level PostLoad entry retain only the writes reached before an
+unsupported branch. The combined entry exposes no partial actor result.
+
+The pinned Engine.u declaration chain places Attached between AttachTag and
+RelativeLocation. The retained typed-copy block `103b68ef..103b69ca` binds
+its storage at `+0x1f0`; its internal array helper is identified by address,
+not falsely described as an exported symbol. Attached's array declaration
+has flags `0x400002`, while its ObjectProperty element has flags zero and
+references Engine.Actor. This distinction matters: the original
+`UArrayProperty.CopyCompleteValue` tests the **element** flags before choosing
+a deep-copy branch.
+
+The existing source qualifier now also binds the complete ordinary array-copy
+method (`1016fe90..1016ff66`), its vtable slot and calls from InitProperties.
+**128 fresh actor comparisons** execute original flag stages, InitProperties,
+the constructor and ConditionalPostLoad/PostLoad: **67,200 instructions across
+467 addresses**. Cases preserve the supplied default buffer, unrelated actor
+storage and unknown flag bits. The fixture supplies a class-default buffer,
+a reduced specialized-copy list containing Attached, decoded payload writes
+and memory-copy/zero/allocation providers. It does **not** execute complete
+class construction, archive I/O, script-state initialization or level startup.
+The existing separate property comparisons remain necessary.
+
+The private original-record checker reparses every actor's full bounded tag
+stream and verifies its census, order, byte span and hash. All **2,922 actors**
+in Talking Island and Giran have no Attached override and no Brush
+reference; their original class defaults admit the empty-array path. They
+pass the combined fresh entry and retain their **480 per-map prepared mesh
+records**. This establishes consumed collision fields through bounded PostLoad,
+not current registry membership or a complete playable map.
+
+Reproduce with the same pinned inputs and commands above. Portable checks:
+
+```sh
+node --test editor/world/test/actor-loading.test.mjs editor/world/test/static-mesh-tree.test.mjs editor/world/test/static-actor-bounds.test.mjs
+python3 -m unittest discover -s tools/world -p test_static_collision.py
+python3 -m unittest discover -s tools/ui -p test_static_actor_bounds_native.py
+```
+
+These cover 65 browser-module cases, 64 record cases and 18 interpreter cases;
+the interpreter suite requires Capstone but no game files. The inspected offline
+Giran startup records no browser errors and still reports no audited static
+surfaces loaded; this checkpoint makes no visual map-repair claim. Live level population,
+LevelInfo collision mode, camera/walking queries and Online acceptance remain
+unfinished. Repository Elbera Tools gains these checks; existing standalone
+archives remain unchanged. Original files and raw receipts stay private.

@@ -22,6 +22,180 @@ function dense(value) {
   return true;
 }
 
+/** Common flag stages of a fresh referenced native object. The caller must
+ * establish ordinary allocation, header-preserving serialization and successful
+ * loading. These arithmetic stages do not execute a constructor or an archive.
+ */
+export function freshObjectLoadingFlags(savedExportFlags, classFlags) {
+  if (!uint(savedExportFlags) || !uint(classFlags) || classFlags & 0x400)
+    return freeze({
+      status: "unsupported",
+      scope: "original-fresh-object-flags",
+      reason:
+        "saved flags and current class bits without config initialization required",
+    });
+  const created = ((savedExportFlags & 0x067f01a5) | 0x01000200) >>> 0;
+  const allocated = (created | (classFlags & 8 ? 0x4000 : 0)) >>> 0;
+  const serializing = ((allocated & ~0x200) | 0x8000) >>> 0;
+  const serialized = ((serializing | 0x40000000) & ~0x8000) >>> 0;
+  const beforePostLoad = (serialized & 0xdeffffff) >>> 0;
+  return freeze({
+    status: "ready",
+    scope: "original-fresh-object-flags",
+    flags: freeze({
+      created,
+      allocated,
+      serializing,
+      serialized,
+      beforePostLoad,
+    }),
+  });
+}
+
+/** Ordinary StaticMeshActor PostLoad with no Brush or attachments.
+ * Preserve unknown flag bits as a mask/value pair. The native method writes
+ * SwayRotationOrig from Rotation, even if the archive saved a different value.
+ * Localization and the separate Brush/attached-object branches stay explicit.
+ */
+export function postLoadStaticActor(input) {
+  const resultScope = "original-static-actor-postload",
+    writes = {};
+  const result = (status, reason) =>
+    freeze({
+      status,
+      scope: resultScope,
+      writes: freeze({ ...writes }),
+      ...(reason ? { reason } : {}),
+    });
+  if (!uint(input?.objectFlags))
+    return result("unsupported", "current object flags required");
+  writes.objectFlags = (input.objectFlags | 0x20000000) >>> 0;
+  if (input.objectFlags & 0x100)
+    return result("unsupported", "UObject localized loading is unresolved");
+  if (!uint(input.classFlags) || input.classFlags & 0x20)
+    return result(
+      "unsupported",
+      "current actor class without localized loading required",
+    );
+  if (input.brushReference !== null)
+    return result(
+      "unsupported",
+      "Brush PostLoad reference writes require their own path",
+    );
+  if (input.attachedCount !== 0)
+    return result(
+      "unsupported",
+      "explicit empty loaded Attached array required",
+    );
+  if (
+    !dense(input.rotation) ||
+    input.rotation.length !== 3 ||
+    !input.rotation.every(sint)
+  )
+    return result("unsupported", "original current Rotator required");
+  writes.swayRotationOrig = freeze([...input.rotation]);
+  const word = input.flags5c;
+  if (!uint(word?.mask) || !uint(word.value) || (word.value & ~word.mask) !== 0)
+    return result(
+      "unsupported",
+      "explicit known bits of actor flags5c required",
+    );
+  writes.flags5c = freeze({
+    mask: (word.mask | 0x40) >>> 0,
+    value: (word.value | 0x40) >>> 0,
+  });
+  return result("ready");
+}
+
+/** Initialize the consumed collision state of a fresh original static actor.
+ * Source class/default/tag/frame records must already be validated by the
+ * exporter. Ordinary properties are loaded through the shared entry below;
+ * saved headers never stand in for current flags. No world assignment, script
+ * execution, later gameplay writes or complete native actor is implied.
+ */
+export function prepareFreshStaticActor(input) {
+  const resultScope = "original-fresh-static-actor";
+  const fail = (reason) =>
+    freeze({ status: "unsupported", scope: resultScope, reason });
+  const source = input?.source,
+    declared = input?.classLoading;
+  if (
+    declared?.sourceClass !== "Engine.StaticMeshActor" ||
+    declared.scope !== "ordinary-native-registration-and-package" ||
+    !uint(declared.mask) ||
+    !uint(declared.value) ||
+    (declared.mask & 0x428) !== 0x428 ||
+    (declared.value & ~declared.mask) !== 0 ||
+    declared.value & 0x420
+  )
+    return fail("source-qualified ordinary actor class loading bits required");
+  const saved = source?.savedActorLoading,
+    frame = source?.savedStateFrame;
+  if (
+    saved?.scope !== "saved-actor-loading-inputs" ||
+    saved.fileVersion !== 123 ||
+    frame?.scope !== "saved-map-state-frame" ||
+    frame.classIdentity !== declared.sourceClass ||
+    !uint(frame.savedExportFlags) ||
+    !(frame.savedExportFlags & 0x02000000) ||
+    frame.codeOffset !== -1 ||
+    !dense(saved.tags)
+  )
+    return fail(
+      "validated original actor header, saved frame and tag census required",
+    );
+  for (const tag of saved.tags) {
+    if (
+      typeof tag?.name !== "string" ||
+      ["objectinternal", "objectflags", "outer", "name", "class"].includes(
+        tag.name.toLowerCase(),
+      )
+    )
+      return fail("native header override or unknown actor tag descriptor");
+  }
+  const array = input.defaults?.collisionAttached;
+  if (
+    array?.layout?.name !== "Attached" ||
+    array.layout.kind !== "ArrayProperty" ||
+    !uint(array.layout.propertyFlags) ||
+    !(array.layout.propertyFlags & 0x400000) ||
+    array.inner?.kind !== "ObjectProperty" ||
+    array.inner.reference !== "Engine.Actor" ||
+    array.inner.propertyFlags !== 0 ||
+    array.defaultCount !== 0 ||
+    array.defaultOrigin !== "zero-initialized-class-default" ||
+    saved.attachedOverrideCount !== 0 ||
+    saved.tags.some((tag) => tag.name.toLowerCase() === "attached")
+  )
+    return fail(
+      "source empty Attached default with no saved override required",
+    );
+  const properties = prepareStaticActorProperties(input);
+  if (properties.status !== "ready") return fail(properties.reason);
+  const loading = freshObjectLoadingFlags(
+    frame.savedExportFlags,
+    declared.value & 0x428,
+  );
+  if (loading.status !== "ready") return fail(loading.reason);
+  const postLoad = postLoadStaticActor({
+    objectFlags: loading.flags.beforePostLoad,
+    classFlags: declared.value & 0x428,
+    brushReference: properties.references.Brush,
+    attachedCount: 0,
+    rotation: properties.transform.rotation,
+    flags5c: { mask: 0, value: 0 },
+  });
+  if (postLoad.status !== "ready") return fail(postLoad.reason);
+  return freeze({
+    ...properties,
+    status: "ready",
+    scope: resultScope,
+    loadingFlags: loading.flags,
+    postLoadWrites: postLoad.writes,
+    attached: freeze([]),
+  });
+}
+
 /** Copy decoded dimension-one transform defaults, then admit tags in source
  * order. Vector/Rotator components retain their Float32/int32 representation;
  * no renderer axis conversion, combined scale or trigonometry belongs here.

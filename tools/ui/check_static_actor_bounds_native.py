@@ -404,6 +404,28 @@ class StaticBoundsMachine(AdmissionMachine):
         self.invoke(0x106F5CC0, mesh)
 
     def step(self, i):
+        if i.address in (0x1015FBFF, 0x1016FF56):
+            # Qualified InitProperties/array-copy memory-provider boundary.
+            # Fixtures are nonoverlapping, aligned ordinary source buffers.
+            assert i.op_str == "0x1017ac60"
+            sp = self.registers["esp"]
+            dest, source, size = [self.memory[sp + n * 4] for n in range(3)]
+            assert 0 <= size <= 0x400 and size % 4 == 0
+            if i.address == 0x1016FF56:
+                assert size == 0
+            self.memmove(dest, source, size)
+            self.registers["eax"] = dest
+            self.visited.append(i.address)
+            return i.address + i.size
+        if i.address == 0x1015FC32:
+            assert i.op_str == "0x101022e3"
+            sp = self.registers["esp"]
+            dest, size = self.memory[sp], self.memory[sp + 4]
+            assert size in (4, 12) and dest % 4 == 0
+            for off in range(0, size, 4):
+                self.memory[dest + off] = 0
+            self.visited.append(i.address)
+            return i.address + i.size
         if i.address in (0x10171600, 0x10170E30):
             # Original 4-byte archive Serialize virtual call. The private
             # fixture supplies bytes at this boundary, not a native file handle.
@@ -1403,6 +1425,196 @@ process.stdout.write(JSON.stringify(rows.map(({source,classFlags})=>{
 """
 
 
+ACTOR_FRESH_SCRIPT = r"""
+import fs from 'node:fs';
+const api=await import(new URL('./actor-loading.js',process.argv[1]));
+const rows=JSON.parse(fs.readFileSync(0,'utf8'));
+process.stdout.write(JSON.stringify(rows.map(row=>{
+ const loading=api.freshObjectLoadingFlags(row.savedFlags,row.classFlags);
+ if(loading.status!=='ready')throw Error(JSON.stringify(loading));
+ const result=api.postLoadStaticActor({...row.postLoad,
+   objectFlags:loading.flags.beforePostLoad,classFlags:row.classFlags});
+ if(result.status!=='ready')throw Error(JSON.stringify(result));
+ return {loadingFlags:loading.flags,writes:result.writes};
+})));
+"""
+
+
+def fresh_actor_loading_cases(program, runtime):
+    """Join flag stages, default copy, ctor and bounded actor PostLoad.
+
+    This executes InitProperties with a supplied class-default buffer and a
+    reduced specialized-copy list containing Attached. Other property/reference
+    copies have their own differential checks. Decoded payload writes remain an
+    explicit boundary; no UObject archive or script frame is executed here.
+    """
+    rng = random.Random(0x41545441)
+    rows, expected, visited, steps = [], [], set(), 0
+    actor, export, cls, template, prop, inner = (
+        0x200000,
+        0x300000,
+        0x400000,
+        0x500000,
+        0x600000,
+        0x610000,
+    )
+    array = program.receipt["actorLoading"]["attached"]
+    class_bits = program.receipt["actorClassLoading"]
+    counters = program.receipt["actorLoading"]["actorCounters"]
+    for n in range(128):
+        saved_flags = (
+            0x02070001 if not n else (rng.getrandbits(32) & ~0x100) | 0x02000000
+        )
+        class_flags = (rng.getrandbits(32) & ~class_bits["mask"]) | class_bits["value"]
+        m = StaticBoundsMachine(program)
+        storage = {actor + off: rng.getrandbits(32) for off in range(0, 0x3F8, 4)}
+        defaults = {template + off: rng.getrandbits(32) for off in range(0, 0x3F8, 4)}
+        defaults.update({template + 0x1F0 + off: 0 for off in (0, 4, 8)})
+        m.memory.update(
+            storage
+            | defaults
+            | {
+                export + 0x10: saved_flags,
+                cls + 0x4A4: class_flags,
+                actor + 0x24: cls,
+                cls + 0x4F4: template,
+                cls + 0x4F8: 0x3F8,
+                cls + 0x78: prop,
+                prop: int(array["vtable"], 16),
+                prop + 0x40: 1,
+                prop + 0x44: 12,
+                prop + 0x48: array["layout"]["propertyFlags"],
+                prop + 0x54: 0x1F0,
+                prop + 0x60: 0,
+                prop + 0x78: inner,
+                inner + 0x44: 4,
+                inner + 0x48: array["inner"]["propertyFlags"],
+                int(array["vtable"], 16) + 0xA8: int(array["copyTarget"], 16),
+            }
+        )
+        m.registers["esi"] = export
+        m.execute_until(0x10149791, 0x101497A0)
+        created = m.registers["ecx"]
+        m.registers.update(edi=cls, ebx=created, ebp=0xE00000, esi=actor)
+        m.execute_until(0x10167BE4, 0x10167BF6)
+        allocated = m.registers["ebx"]
+        m.execute_until(0x10167C10, 0x10167C13)
+        header = {at: m.memory[at] for at in range(actor, actor + 0x34, 4)}
+        # InitProperties is cdecl: restore the caller's seven argument slots.
+        sp, previous_link = m.registers["esp"], m.memory[0]
+        saved_registers = {
+            name: m.registers[name] for name in ("ebx", "esi", "edi", "ebp")
+        }
+        for value in reversed([actor, 0x3F8, cls, 0, 0, actor, 0]):
+            m.push(value)
+        m.push(0)
+        m.execute_until(0x1015FB00)
+        assert (
+            m.registers["esp"] == sp - 28
+            and m.memory[0] == previous_link
+            and not m.stack
+        )
+        m.registers["esp"] = sp
+        assert {name: m.registers[name] for name in saved_registers} == saved_registers
+        assert {at: m.memory[at] for at in header} == header
+        assert all(
+            m.memory[actor + off] == defaults[template + off]
+            for off in range(0x34, 0x3F8, 4)
+        )
+        assert m.array(actor + 0x1F0) == []
+        for iat, address in counters.items():
+            m.memory[int(iat, 16)] = address
+            m.memory[address] = 0
+        m.memory.update({0x103307E8: 0, 0x103307EC: 0, 0x103307F0: 0})
+        m.invoke(0x103C2A40, actor)
+        assert m.memory[actor + 0x1C] == allocated and m.array(actor + 0x1F0) == []
+        # Explicit decoded collision payload boundary. The separate property
+        # differentials exercise ordered tag admission and source value copies.
+        rotation = [rng.randrange(-0x80000000, 0x80000000) for _ in range(3)]
+        m.memory.update(
+            {
+                actor + 0x1C8 + i * 4: value & 0xFFFFFFFF
+                for i, value in enumerate(rotation)
+            }
+        )
+        m.memory[actor + 0x278] = 0
+        word, mask = m.memory[actor + 0x5C], rng.getrandbits(32) if n else 0
+        m.registers["esi"] = actor
+        m.execute_until(0x10148C70, 0x10148C82)
+        serializing = m.memory[actor + 0x1C]
+        m.execute_until(0x1015E84B, 0x1015E852)
+        m.execute_until(0x10148C95, 0x10148C9C)
+        serialized = m.memory[actor + 0x1C]
+        before = {at: m.memory[at] for at in storage}
+        m.memory[m.memory[actor] + 0x24] = program.engine.exported(
+            "?PostLoad@AActor@@UAEXXZ"
+        )
+        m.invoke(0x1015E650, actor)
+        changed = {
+            actor + 0x1C,
+            actor + 0x5C,
+            actor + 0x2D0,
+            actor + 0x2D4,
+            actor + 0x2D8,
+        }
+        assert all(
+            m.memory[at] == value for at, value in before.items() if at not in changed
+        )
+        assert m.memory[actor + 0x5C] == word | 0x40
+        assert {at: m.memory[at] for at in defaults} == defaults
+        sway = [m.memory[actor + 0x2D0 + i * 4] for i in range(3)]
+        sway = [v - 0x100000000 if v & 0x80000000 else v for v in sway]
+        rows.append(
+            dict(
+                savedFlags=saved_flags,
+                classFlags=class_flags,
+                postLoad=dict(
+                    brushReference=None,
+                    attachedCount=0,
+                    rotation=rotation,
+                    flags5c=dict(mask=mask, value=word & mask),
+                ),
+            )
+        )
+        expected.append(
+            dict(
+                loadingFlags=dict(
+                    created=created,
+                    allocated=allocated,
+                    serializing=serializing,
+                    serialized=serialized,
+                    beforePostLoad=m.before_postload_flags,
+                ),
+                writes=dict(
+                    objectFlags=m.memory[actor + 0x1C],
+                    swayRotationOrig=sway,
+                    flags5c=dict(
+                        mask=mask | 0x40, value=m.memory[actor + 0x5C] & (mask | 0x40)
+                    ),
+                ),
+            )
+        )
+        visited.update(m.visited)
+        steps += len(m.visited)
+    actual = browser_outputs(ACTOR_FRESH_SCRIPT, rows, Path(runtime))
+    assert len(actual) == len(expected)
+    for n, (a, b) in enumerate(zip(actual, expected)):
+        assert a == b, ("fresh actor loading", n, rows[n], a, b)
+    return dict(
+        cases=len(rows),
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        browserStateCompared=True,
+        defaultBufferPreserved=True,
+        unknownFlagBitsPreserved=True,
+        scope="fresh collision-state stages with supplied CDO/payload, empty Attached and null Brush",
+        limits=[
+            "Reduced specialized default-copy list; full class construction, archive application, script frame and world population are not executed.",
+            "Memory copy/zero/allocation use the explicitly supplied memory provider.",
+        ],
+    )
+
+
 def fresh_loading_cases(program, runtime):
     """Actual flag instructions and complete ConditionalPostLoad/PostLoad.
 
@@ -2013,6 +2225,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
     level_loading = level_loading_cases(program, runtime)
     construction = constructor_cases(program)
     fresh_loading = fresh_loading_cases(program, runtime)
+    fresh_actor_loading = fresh_actor_loading_cases(program, runtime)
     rows = fixture_rows()
     expected = []
     visited = set()
@@ -2082,6 +2295,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         levelPopulation=level_population,
         levelLoading=level_loading,
         freshLoading=fresh_loading,
+        freshActorLoading=fresh_actor_loading,
         postLoad=dict(
             cases=len(rows),
             instructions=postload_steps,
@@ -2165,6 +2379,8 @@ def main():
                         "levelPopulation",
                         "levelLoading",
                         "freshLoading",
+                        "freshActorLoading",
+                        "actorTransformLoading",
                         "postLoad",
                     ]
                 }
