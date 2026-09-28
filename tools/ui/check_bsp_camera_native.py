@@ -120,7 +120,7 @@ def run_sweep_slice(image, machine, start, end, *, stop=None, on_call=None, max_
             assert not math.isnan(a) and not math.isnan(b), 'NaN comparison outside verifier domain'
             machine.status = 0x4000 if a == b else 0x100 if a < b else 0
             if op != 'fcom': del machine.stack[:2 if op == 'fcompp' else 1]
-        elif op in ('fmul', 'fmulp', 'fadd', 'faddp', 'fsub', 'fsubr', 'fsubp', 'fsubrp', 'fdiv', 'fdivr'):
+        elif op in ('fmul', 'fmulp', 'fadd', 'faddp', 'fsub', 'fsubr', 'fsubp', 'fsubrp', 'fdiv', 'fdivr', 'fdivp'):
             pop = op.endswith('p')
             target = args[0] if pop or len(args) == 2 else 'st(0)'
             other = 'st(0)' if pop else args[1] if len(args) == 2 else args[0]
