@@ -271,6 +271,21 @@ def class_defaults(*, retain_collision_fields=False):
             raise ValueError('unsupported PrePivot class default')
         values['PrePivot'] = list(struct.unpack('<3f', bytes.fromhex(pivot[1])))
     if retain_collision_fields:
+        transform_layout = actor_transform_layout(pkg)
+        location = values.get('Location')
+        if location is None:
+            values['Location'] = [0.0, 0.0, 0.0]
+            evidence[-1]['locationDefault'] = dict(
+                value=values['Location'],
+                source='zero-initialized-class-default; no inherited tagged override')
+        else:
+            if location[0] != 'Vector' or len(bytes.fromhex(location[1])) != 12:
+                raise ValueError('unsupported Location class default')
+            values['Location'] = list(struct.unpack('<3f', bytes.fromhex(location[1])))
+        evidence[-1]['collisionTransforms'] = dict(
+            layout=transform_layout,
+            defaults={field['name']: values[field['name']] for field in transform_layout},
+            scope='decoded declared class defaults; not live actor transforms')
         reference_layout = actor_reference_layout(pkg)
         references = {
             field['name']: dict(reference=0, qualified=None, package=Path(pkg.path).stem,
@@ -354,6 +369,28 @@ def actor_reference_layout(pkg):
         field = actor_declaration(pkg, matches[0].index + 1, owner_ref)
         if field['kind'] != 'ObjectProperty' or field['reference'] != 'Engine.' + target:
             raise ValueError('unsupported actor reference type: ' + name)
+        fields.append(field)
+    return fields
+
+
+def actor_transform_layout(pkg):
+    """Dimension-one source declarations used by original actor matrices."""
+    owners = [e for e in pkg.exports if pkg.class_name_of(e) == 'Class'
+              and pkg.export_name(e) == 'Actor']
+    if len(owners) != 1:
+        raise ValueError('ambiguous Actor class declaration')
+    owner_ref = owners[0].index + 1
+    fields = []
+    for name, target in [('Location', 'Core.Object.Vector'),
+                         ('Rotation', 'Core.Object.Rotator'), ('DrawScale', None),
+                         ('DrawScale3D', 'Core.Object.Vector'), ('PrePivot', 'Core.Object.Vector')]:
+        matches = [e for e in pkg.exports if e.package_index == owner_ref
+                   and pkg.export_name(e) == name]
+        if len(matches) != 1:
+            raise ValueError('ambiguous actor transform declaration: ' + name)
+        field = actor_declaration(pkg, matches[0].index + 1, owner_ref)
+        if field['kind'] != ('StructProperty' if target else 'FloatProperty') or field['reference'] != target:
+            raise ValueError('unsupported actor transform type: ' + name)
         fields.append(field)
     return fields
 
@@ -592,6 +629,10 @@ def actor_record(pkg, ex, inherited, *, retain_source_transform=False, boolean_l
             result['savedTransform'] = {
                 'scope': 'saved-map-and-class-defaults',
                 'fields': {k: list(v) if isinstance(v, list) else v for k, v in fields.items()},
+                'tags': [dict(name=p['name'], value=(struct.unpack('<f', p['raw'])[0]
+                    if p['name'] == 'DrawScale' else list(struct.unpack(
+                        '<3i' if p['name'] == 'Rotation' else '<3f', p['raw']))))
+                    for p in props if p['name'] in native_names.values()],
                 'origins': {k: 'map-property' if name in seen else 'inherited-class-default'
                             for k, name in native_names.items()}}
     if boolean_layout is not None:
@@ -604,6 +645,8 @@ def actor_record(pkg, ex, inherited, *, retain_source_transform=False, boolean_l
         else:
             result['savedCollisionFlags'] = dict(
                 scope='saved-map-and-class-defaults',
+                tags=[dict(name=p['name'], value=p['boolval'])
+                      for p in props if p['name'] in boolean_names],
                 groups={group['offset']: dict(mask=group['mask'], value=sum(
                     field['mask'] for field in group['fields'] if values[field['name']]))
                     for group in boolean_layout},

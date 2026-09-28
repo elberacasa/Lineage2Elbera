@@ -869,6 +869,7 @@ class ActorAdmissionTest(unittest.TestCase):
         saved = dict(scope='saved-map-and-class-defaults', fields=dict(
             location=[1., 2., 3.], rotation=[0, 0, 0], drawScale=3.25,
             drawScale3D=[1., 1., 1.], prePivot=[-0., 7., -12.]),
+            tags=[dict(name='DrawScale', value=3.25), dict(name='PrePivot', value=[-0., 7., -12.])],
             origins=dict(location='inherited-class-default', rotation='inherited-class-default',
                          drawScale3D='inherited-class-default', drawScale='map-property', prePivot='map-property'))
         with patch('check_static_collision_records.actor_prop_offset', return_value=0):
@@ -876,7 +877,9 @@ class ActorAdmissionTest(unittest.TestCase):
             for mutate in [lambda s: s['fields']['prePivot'].__setitem__(0, 0.),
                            lambda s: s['fields'].__setitem__('drawScale', 6.5),
                            lambda s: s['fields']['rotation'].__setitem__(0, 1),
-                           lambda s: s['origins'].__setitem__('drawScale', 'inherited-class-default')]:
+                           lambda s: s['origins'].__setitem__('drawScale', 'inherited-class-default'),
+                           lambda s: s['tags'].reverse(),
+                           lambda s: s['tags'][1]['value'].__setitem__(0, 0.)]:
                 changed = deepcopy(saved); mutate(changed)
                 with self.assertRaises(ValueError):
                     check_actor_transform(package, export, changed, defaults)
@@ -928,6 +931,7 @@ class ActorAdmissionTest(unittest.TestCase):
         row, inherited = self.actor([prop], boolean_layout=layout, boolean_defaults={'bHidden': True})
         saved = row['savedCollisionFlags']
         self.assertEqual(saved, dict(scope='saved-map-and-class-defaults',
+            tags=[dict(name='bStatic', value=False)],
             groups={'0x64': dict(mask=0x30, value=0x20)}, overrides={'bStatic': False}))
         self.assertTrue(inherited['bStatic'])
         self.assertNotIn('savedCollisionFlags', self.actor()[0])
@@ -943,12 +947,14 @@ class ActorAdmissionTest(unittest.TestCase):
         ex = SimpleNamespace(serial_offset=0, serial_size=len(raw))
         layout = [dict(offset='authored', mask=3, fields=[dict(name='A', mask=1), dict(name='B', mask=2)])]
         defaults = {'A': True, 'B': False}
-        saved = dict(scope='saved-map-and-class-defaults', groups={'authored': dict(mask=3, value=2)}, overrides={'A': False, 'B': True})
+        saved = dict(scope='saved-map-and-class-defaults', groups={'authored': dict(mask=3, value=2)}, overrides={'A': False, 'B': True},
+                     tags=[dict(name='A', value=False), dict(name='B', value=True)])
         with patch('check_static_collision_records.actor_prop_offset', return_value=0):
             self.assertEqual(check_actor_flags(pkg, ex, saved, defaults, layout)['overrideCount'], 2)
             for mutate in [lambda s: s['groups']['authored'].update(mask=0xFFFFFFFF),
                            lambda s: s['groups']['authored'].update(value=3),
-                           lambda s: s['overrides'].pop('A')]:
+                           lambda s: s['overrides'].pop('A'),
+                           lambda s: s['tags'].reverse(), lambda s: s['tags'].pop()]:
                 changed = deepcopy(saved); mutate(changed)
                 with self.assertRaises(ValueError): check_actor_flags(pkg, ex, changed, defaults, layout)
             with self.assertRaisesRegex(ValueError, 'default'):

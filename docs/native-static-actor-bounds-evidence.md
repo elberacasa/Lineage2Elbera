@@ -876,3 +876,60 @@ Live actor population, original current transforms/flags, concrete primitive
 query dispatch, auxiliary model implementations and movement callbacks remain
 unfinished. This component removes one dependency from the faithful browser
 port; it does not complete that goal.
+
+
+## Joined actor property initialization
+
+`actor-loading.js` now exposes `applyActorTransformTags` and
+`prepareStaticActorProperties`. The first copies decoded defaults and applies
+ordered, dimension-one Location, Rotation, DrawScale, DrawScale3D and PrePivot
+tags through the original property gate. Float32 values and signed int32
+rotation components stay separate; there is no axis conversion, combined
+scale or generated trigonometry. Skipped properties never consume their
+payload. Repeated admitted tags preserve order. Missing or malformed inputs
+return an unsupported result without exposing partial property output.
+
+The second entry combines those transforms with the existing Boolean and
+reference loaders under persistent-load modes. It requires all four consumed
+Boolean groups and seven reference declarations, retains known-bit masks and
+resolved object identities, and keeps transient XLevel at its supplied default.
+It does **not** construct a complete native actor, run PostLoad, assign a level
+or establish the current collision registry. Resolver side effects already
+performed before a later failure cannot be rolled back. Inputs must remain
+stable, and the resolver must not inspect or mutate the actor being loaded;
+observable cross-family archive interleaving is outside this entry.
+
+The exporter retains transform declarations/defaults and ordered transform
+and Boolean tags alongside existing references. Location has no tagged class
+default in the pinned source; its zero value comes from the already qualified
+root-zero/parent-default construction path. The independent source check verifies
+each saved tag's order and exact scalar bytes before using the combined entry.
+All **2,922 original actors** across Talking Island and Giran pass it and retain
+their **480 per-map prepared mesh records**. No consumed saved transform or
+Boolean tag is skipped in these two maps. Result transport uses scalar words
+so JSON serialization cannot erase a negative zero from the comparison.
+
+The existing bounds verifier binds the full ordinary Core methods for
+Float/Int/Struct `SerializeItem`, `UStruct.SerializeBin`, the property iterator
+and superclass lookup. Original FName registration binds Vector/Rotator indices
+`0x57`/`0x58`; Core.u binds their linked component declarations, first-child
+references, zero superclass and bounded zero-script records. Float/Int Link
+methods establish their four-byte element size and alignment. Prior class
+registration evidence supplies the complete struct-serialization correspondence.
+
+**128 original-instruction comparisons** cover **1,024 tags**, **192 skips**
+and **2,112 scalar reads**. They execute property admission, struct dispatch,
+linked field iteration, nested admission and scalar stores, preserving signed
+zero, all tested int32 bits and unrelated actor storage. Defaults and loaded
+reflection metadata are supplied; archive Serialize/Preload/Tell callbacks are
+explicit boundaries. This is neither native filesystem I/O nor execution of a
+complete default-object/archive/lifecycle pipeline.
+
+Reproduce with the bounds-verifier and original-record commands in the preceding
+section. Portable validation now includes **31 browser-module tests**, **63
+record tests** and **16 interpreter tests**. The five new browser cases cover
+repeated transforms, exact scalar representation, transient gates, joined object
+identity and failure before reference resolution. The inspected offline Giran
+startup captured no errors and still reports no audited static surfaces; live
+Online acceptance and camera/walking integration remain unfinished. Existing
+standalone release archives are unchanged.

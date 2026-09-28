@@ -2,6 +2,29 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Joined actor property initialization — 28 September 2026
+
+PR53 is merged and its branch/PR/merged-head checks passed. The existing
+actor loading module now admits original transform defaults and ordered tags,
+then joins all three consumed property families in one entry: transforms,
+known Boolean words and resolved references. Source exports retain ordered
+transform/Boolean tags; private checks independently verify order and bytes.
+Location's missing class override is tied to the qualified zero-default path.
+
+Original Float/Int/Struct serializers and field iteration match 128 cases,
+1,024 tags, 192 skips and 2,112 scalar reads. Vector/Rotator names and component
+chains are bound to original Core code/packages. Signed zero, int32 limits,
+repeated tags and unconsumed actor storage are preserved. Archive bytes and
+loaded reflection metadata remain explicit inputs; complete native loading
+is not claimed. All 2,922 original actors pass the combined property entry
+and retain their 480 per-map prepared mesh resources.
+
+Validation: 31 browser-module, 63 record and 16 interpreter tests pass.
+Completed offline Giran startup was inspected with no captured errors; it
+still reports no audited static surfaces. This is no Online/map-repair claim.
+All 17 README images remain. Next: actor header/PostLoad and level collision
+startup, then actual octree/world query use. Full-client goal active.
+
 ## Actor references joined to prepared source meshes — 28 September 2026
 
 The existing loading module now copies ordinary reference defaults, applies

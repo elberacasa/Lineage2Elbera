@@ -24,6 +24,214 @@ def raw(image, a, b):
     return bytes(image.data[image.offset(a) : image.offset(b)])
 
 
+def qualify_actor_transform_loading(core, comparison, engine_package, core_package):
+    """Bind ordinary scalar/Vector/Rotator loading, including binary field order.
+
+    Archive read/preload/tell replies remain explicit interpreter boundaries.
+    Full InitProperties correspondence is already qualified by freshLoading.
+    """
+    assert (core.sha, comparison.sha) == (CORE_SHA, COMPARISON_CORE_SHA)
+    symbols = [
+        (
+            "?SerializeItem@UFloatProperty@@UBEXAAVFArchive@@PAXH@Z",
+            0x101715F0,
+            0x10171605,
+        ),
+        (
+            "?SerializeItem@UIntProperty@@UBEXAAVFArchive@@PAXH@Z",
+            0x10170E20,
+            0x10170E35,
+        ),
+        (
+            "?SerializeItem@UStructProperty@@UBEXAAVFArchive@@PAXH@Z",
+            0x101727D0,
+            0x10172843,
+        ),
+        ("?SerializeBin@UStruct@@UAEXAAVFArchive@@PAEH@Z", 0x101335F0, 0x101337B3),
+        ("?GetInheritanceSuper@UStruct@@UAEPAV1@XZ", 0x10115950, 0x10115954),
+        (
+            "?Link@UFloatProperty@@UAEXAAVFArchive@@PAVUProperty@@@Z",
+            0x10171510,
+            0x10171571,
+        ),
+        (
+            "?Link@UIntProperty@@UAEXAAVFArchive@@PAVUProperty@@@Z",
+            0x10170D40,
+            0x10170DA1,
+        ),
+        ("?AllocateNameEntry@@YAPAUFNameEntry@@PBGKKPAU1@@Z", 0x10156CF0, 0x10156D72),
+        ("?Hardcode@FName@@SAXPAUFNameEntry@@@Z", 0x10156FA0, 0x10157070),
+    ]
+    blocks, thunks = [], {}
+    for symbol, start, end in symbols:
+        assert core.exported(symbol, True) == comparison.body(symbol) == start
+        thunk = core.exported(symbol)
+        assert thunk == comparison.exports[symbol]
+        thunks[hex(thunk)] = hex(start)
+        data = raw(core, start, end)
+        rows = list(core.dis.disasm(data, start))
+        assert sum(r.size for r in rows) == len(data) and rows[-1].mnemonic == "ret"
+        assert data == comparison.read(start, len(data))
+        blocks.append(
+            dict(
+                symbol=symbol,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    for thunk, start, end in [
+        (0x101014CE, 0x10119210, 0x1011923E),
+        (0x101040C0, 0x10114340, 0x10114395),
+        (0x101017CB, 0x1010B6D0, 0x1010B717),
+    ]:
+        core.instruction(thunk, "jmp", hex(start))
+        assert raw(core, thunk, thunk + 5) == comparison.read(thunk, 5)
+        data = raw(core, start, end)
+        assert data == comparison.read(start, len(data))
+        rows = list(core.dis.disasm(data, start))
+        assert sum(r.size for r in rows) == len(data) and rows[-1].mnemonic == "ret"
+        blocks.append(
+            dict(
+                start=hex(start), end=hex(end), SHA256=hashlib.sha256(data).hexdigest()
+            )
+        )
+        thunks[hex(thunk)] = hex(start)
+    tables = []
+    for name, slot, symbol in [
+        ("??_7UFloatProperty@@6B@", 0x90, symbols[0][0]),
+        ("??_7UIntProperty@@6B@", 0x90, symbols[1][0]),
+        ("??_7UStructProperty@@6B@", 0x90, symbols[2][0]),
+        ("??_7UStruct@@6B@", 0x84, symbols[3][0]),
+        ("??_7UStruct@@6B@", 0x7C, symbols[4][0]),
+    ]:
+        table, target = core.exported(name), core.exported(symbol)
+        assert (
+            core.u32(table + slot)
+            == comparison.u32(comparison.exports[name] + slot)
+            == target
+        )
+        tables.append(
+            dict(name=name, address=hex(table), slot=hex(slot), target=hex(target))
+        )
+    names = []
+    for name, at, index, text_at in [
+        ("Vector", 0x10157650, 0x57, 0x101D7250),
+        ("Rotator", 0x1015766C, 0x58, 0x101D7260),
+    ]:
+        data = raw(core, at, at + 25)
+        assert data == comparison.read(at, len(data))
+        core.instruction(at + 7, "push", hex(index))
+        core.instruction(at + 9, "push", hex(text_at))
+        core.instruction(at + 14, "call", "0x101036f2")
+        core.instruction(at + 20, "call", "0x1010180c")
+        assert core.wide(text_at) == name
+        assert raw(core, text_at, text_at + (len(name) + 1) * 2) == comparison.read(
+            text_at, (len(name) + 1) * 2
+        )
+        names.append(
+            dict(
+                name=name,
+                index=index,
+                start=hex(at),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    sys.path[:0] = [str(ROOT / "tools/world"), str(ROOT / "tools")]
+    from l2lib import load_package, qualified_ref, Reader
+    from export_static_collision import actor_transform_layout, actor_declaration
+
+    assert hashlib.sha256(Path(engine_package).read_bytes()).hexdigest() == PACKAGE_SHA
+    from static_mesh_class_source import CORE_PACKAGE_SHA
+
+    assert (
+        hashlib.sha256(Path(core_package).read_bytes()).hexdigest() == CORE_PACKAGE_SHA
+    )
+    engine_pkg, _ = load_package(engine_package)
+    package, _ = load_package(core_package)
+    layouts = {}
+    prefixes = {}
+    for name, fields, kind in [
+        ("Vector", ["X", "Y", "Z"], "FloatProperty"),
+        ("Rotator", ["Pitch", "Yaw", "Roll"], "IntProperty"),
+    ]:
+        (owner,) = [
+            ex
+            for ex in package.exports
+            if qualified_ref(package, ex.index + 1) == "Core.Object." + name
+            and package.class_name_of(ex) == "Struct"
+        ]
+        assert owner.super_index == 0
+        declarations = []
+        for field in fields:
+            (ex,) = [
+                ex
+                for ex in package.exports
+                if ex.package_index == owner.index + 1
+                and package.export_name(ex) == field
+            ]
+            record = actor_declaration(package, ex.index + 1, owner.index + 1)
+            assert record["kind"] == kind and record["propertyFlags"] == 0x4001
+            declarations.append(record)
+        assert [row["next"] for row in declarations] == [
+            row["exportRef"] for row in declarations[1:]
+        ] + [0]
+        start, end = owner.serial_offset, owner.serial_offset + owner.serial_size
+        reader = Reader(memoryview(package.data)[:end], start, package.path)
+        assert package.file_version == 123 and not owner.object_flags & 0x02000000
+        assert package.name(reader.compact()) == "None"
+        assert reader.compact() == 0  # UField superclass
+        following = reader.compact()
+        assert following == 0 or qualified_ref(package, following)
+        assert reader.compact() == 0  # ScriptText
+        assert reader.compact() == declarations[0]["exportRef"]  # Children
+        assert package.name(reader.compact()) == name  # FriendlyName
+        assert reader.compact() == 0  # file>=120 CppText
+        reader.i32()  # source line
+        reader.i32()  # source text position
+        assert reader.i32() == 0 and reader.pos == end  # no script bytecode
+        prefixes[name] = dict(
+            firstField=declarations[0]["exportRef"],
+            sourceOffset=start,
+            sourceBytes=end - start,
+            SHA256=hashlib.sha256(package.data[start:end]).hexdigest(),
+        )
+        layouts[name] = declarations
+    anchors = [
+        (0x10131486, "lea", "eax, [esi + 0x48]"),
+        (0x1013148A, "lea", "ecx, [esi + 0x40]"),
+        (0x101314A0, "lea", "ebx, [esi + 0x50]"),
+        (0x101314C9, "cmp", "dword ptr [edi + 4], 0x78"),
+        (0x101314CF, "lea", "ecx, [esi + 0x44]"),
+        (0x1017153D, "mov", "dword ptr [esi + 0x44], 4"),
+        (0x1017154E, "add", "eax, 3"),
+        (0x10171551, "and", "eax, 0xfffffffc"),
+        (0x10171554, "mov", "dword ptr [esi + 0x54], eax"),
+        (0x10170D6D, "mov", "dword ptr [esi + 0x44], 4"),
+        (0x10170D7E, "add", "eax, 3"),
+        (0x10170D81, "and", "eax, 0xfffffffc"),
+        (0x10170D84, "mov", "dword ptr [esi + 0x54], eax"),
+    ]
+    for at, op, args in anchors:
+        core.instruction(at, op, args)
+    assert core.exported(symbols[-2][0]) == 0x101036F2
+    assert core.exported(symbols[-1][0]) == 0x1010180C
+    return dict(
+        coreBlocks=blocks,
+        thunkTargets=thunks,
+        vtables=tables,
+        nativeNames=names,
+        layout=actor_transform_layout(engine_pkg),
+        componentLayouts=layouts,
+        componentPrefixes=prefixes,
+        anchors=anchors,
+        limits=[
+            "Explicit loaded reflection metadata and archive payloads; no native filesystem I/O, name-table population or complete object lifecycle.",
+            "Only file-123 persistent loading of dimension-one Float, Vector and Rotator properties; decoded finite values are inputs.",
+        ],
+    )
+
+
 def qualify_actor_state_frames(core, comparison):
     """Bind the saved frame layout and the later, separate execution reset.
 

@@ -53,9 +53,13 @@ that saved frame from the later execution reset. Reference loading now copies
 ordinary identities, applies the property gate and resolves signed package
 indices through explicit factories. The source checker joins all 2,922 actor
 inputs to 480 prepared mesh records. Import matching includes class package/name;
-a real lighthouse texture and mesh share the same full object name. Complete
-actor default construction, registry population and LevelInfo collision mode
-still need the loading join before world queries can use these records.
+a real lighthouse texture and mesh share the same full object name. The existing
+loading module now joins transform defaults/tags, known Boolean words and
+references in one property entry. All 2,922 inputs pass that entry; 128 original
+serializer cases check transform gates, component order and exact scalar bits.
+Whole default-object construction, actor headers/PostLoad, registry population
+and LevelInfo collision mode still need the lifecycle join before world queries
+can use these records.
 
 Next: feed these prepared mesh resources and original actor fields into the
 existing world-query components, preserving unresolved lifecycle boundaries. Validate
