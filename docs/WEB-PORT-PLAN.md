@@ -2,12 +2,18 @@
 
 Updated 28 September 2026. Recent source work joins original collision
 components through actor admission, nonzero query traversal and original
-actor/pawn trace filtering. Live world and movement integration remain
+actor/pawn trace filtering and static-mesh actor bounds. Live world and movement integration remain
 unfinished; numerical comparisons are not playtest
 acceptance.
 The older local research branch is preserved separately and is not a
 publication branch. The [coverage inventory](PORT-COVERAGE.md) records the
 broader published milestones and remaining gaps.
+
+The [static actor bounds checkpoint](native-static-actor-bounds-evidence.md)
+now compares 600 original box results and 288 composed updates. The next
+placement dependency is recovering the effective serialized mesh box and
+following its later mutations, then supplying current actors to the original
+query components. Rendered mesh recentering remains provisional.
 
 ## Product and scope
 
