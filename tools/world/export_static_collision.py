@@ -271,6 +271,23 @@ def class_defaults(*, retain_collision_fields=False):
             raise ValueError('unsupported PrePivot class default')
         values['PrePivot'] = list(struct.unpack('<3f', bytes.fromhex(pivot[1])))
     if retain_collision_fields:
+        reference_layout = actor_reference_layout(pkg)
+        references = {
+            field['name']: dict(reference=0, qualified=None, package=Path(pkg.path).stem,
+                                origin='zero-initialized-class-default')
+            for field in reference_layout}
+        for ev in evidence:
+            start = ev['exportOffset'] + ev['defaultsOffset']
+            end = ev['exportOffset'] + ev['exportLength']
+            tags, actual = read_props_ordered(pkg, start, end=end)
+            if actual != end:
+                raise ValueError('actor reference defaults exceed class export')
+            overrides = saved_reference_overrides(pkg, tags, references)
+            for name, record in overrides.items():
+                references[name] = dict(record, origin=ev['class'] + '.default')
+        evidence[-1]['collisionReferences'] = dict(
+            layout=reference_layout, defaults=references,
+            scope='saved-class-default-references; not resolved current objects')
         layout = actor_boolean_layout(pkg)
         zero_names = []
         for group in layout:
@@ -314,6 +331,53 @@ def actor_declaration(pkg, ref, owner_ref):
         raise ValueError('unsupported actor declaration size')
     return dict(name=name, kind=kind, next=nxt, propertyFlags=flags,
                 reference=reference, exportRef=ref, exportSHA256=sha(pkg.data[start:end]))
+
+
+def actor_reference_layout(pkg):
+    """Declared reference types; native offsets are checked by the bounds tool."""
+    owners = [e for e in pkg.exports if pkg.class_name_of(e) == 'Class'
+              and pkg.export_name(e) == 'Actor']
+    if len(owners) != 1:
+        raise ValueError('ambiguous Actor class declaration')
+    owner_ref = owners[0].index + 1
+    fields = []
+    for name, target in [('StaticMesh', 'StaticMesh'), ('Owner', 'Actor'),
+                         ('Level', 'LevelInfo'), ('XLevel', 'Level'),
+                         ('Mesh', 'Mesh'), ('Brush', 'Model'), ('AntiPortal', 'ConvexVolume')]:
+        matches = [e for e in pkg.exports if e.package_index == owner_ref
+                   and pkg.export_name(e) == name]
+        if len(matches) != 1:
+            raise ValueError('ambiguous actor reference declaration: ' + name)
+        field = actor_declaration(pkg, matches[0].index + 1, owner_ref)
+        if field['kind'] != 'ObjectProperty' or field['reference'] != 'Engine.' + target:
+            raise ValueError('unsupported actor reference type: ' + name)
+        fields.append(field)
+    return fields
+
+
+def saved_reference_overrides(pkg, tags, names):
+    """Retain canonical package references, including explicit nulls.
+
+    Qualified names retain group/outer identity. They are not resolved runtime
+    objects, and transient-property application is deliberately not inferred.
+    """
+    result = {}
+    for tag in tags:
+        name = tag['name']
+        if name not in names:
+            continue
+        if (name in result or tag['type'] != 5 or tag.get('index', 0) != 0
+                or tag.get('struct') is not None):
+            raise ValueError('unsupported saved actor reference: ' + name)
+        raw = tag['raw']
+        reader = Reader(raw)
+        reference = reader.compact()
+        if reader.pos != len(raw) or encode_compact(reference) != raw:
+            raise ValueError('noncanonical saved actor reference: ' + name)
+        result[name] = dict(reference=reference,
+            qualified=qualified_ref(pkg, reference) if reference else None,
+            package=Path(pkg.path).stem, origin='map-property')
+    return result
 
 
 def actor_boolean_layout(pkg):
@@ -427,7 +491,8 @@ def eligible_materials(materials, referenced):
             raise ValueError('collision-referenced material is not explicitly enabled')
 
 
-def actor_record(pkg, ex, inherited, *, retain_source_transform=False, boolean_layout=None):
+def actor_record(pkg, ex, inherited, *, retain_source_transform=False, boolean_layout=None,
+                 reference_defaults=None):
     name = pkg.export_name(ex)
     result = {'name': name, 'issues': [], 'class': pkg.class_name_of(ex)}
     if result['class'] != 'StaticMeshActor' or qualified_ref(pkg, ex.class_index) != 'Engine.StaticMeshActor':
@@ -439,6 +504,12 @@ def actor_record(pkg, ex, inherited, *, retain_source_transform=False, boolean_l
                                   end=ex.serial_offset + ex.serial_size)
     if end != ex.serial_offset + ex.serial_size:
         result['issues'].append('actor-properties-trailing-bytes'); return result
+    if reference_defaults is not None:
+        overrides = saved_reference_overrides(pkg, props, reference_defaults)
+        result['savedReferences'] = dict(
+            scope='saved-map-and-class-defaults',
+            fields={name: dict(overrides.get(name, value))
+                    for name, value in reference_defaults.items()})
     values, mesh, position = dict(inherited), None, None
     rotation = list(inherited['Rotation']) if 'Rotation' in inherited else None
     rotation_source = 'inherited-class-default' if rotation is not None else None
@@ -613,6 +684,7 @@ class Audit:
                 self.level_slots.setdefault(ref, []).append(slot)
         self.inherited, self.defaults, sources = class_defaults(retain_collision_fields=retain_sweep_data)
         self.boolean_layout = self.defaults[-1]['collisionBooleans']['layout'] if retain_sweep_data else None
+        self.reference_defaults = self.defaults[-1]['collisionReferences']['defaults'] if retain_sweep_data else None
         self.sources = {str(source.relative_to(ROOT)): sha(source.read_bytes()), **sources}
         self.packages, self.meshes, self.geometry = {}, {}, {}
 
@@ -692,7 +764,8 @@ class Audit:
         for ex in exports:
             try: row = actor_record(self.pkg, ex, self.inherited,
                                    retain_source_transform=self.retain_sweep_data,
-                                   boolean_layout=self.boolean_layout)
+                                   boolean_layout=self.boolean_layout,
+                                   reference_defaults=self.reference_defaults)
             except (L2Error, ValueError, IndexError, struct.error) as error:
                 row = {'name': self.pkg.export_name(ex), 'issues': [str(error)]}
             if self.retain_sweep_data:
@@ -749,7 +822,7 @@ class Audit:
             'savedLevelBinding': self.level_binding,
             'meshes': {k: self.geometry[k] for k in sorted({r['mesh'] for r in selected})},
             'references': [{k: r[k] for k in ('name', 'mesh', 'exportRef', 'exportSHA256',
-                'savedTransform', 'savedCollisionFlags', 'savedLevelSlots')} for r in selected],
+                'savedTransform', 'savedCollisionFlags', 'savedReferences', 'savedLevelSlots')} for r in selected],
             'limits': [
                 'Saved source geometry, not live actor/cache state or a collision query.',
                 'savedLocalBounds is the later serialized mesh field; baseSerializedBounds preserves the overwritten primitive record. PostLoad/current mutations remain separate.',
@@ -758,6 +831,7 @@ class Audit:
                 'Current actor matrices, query state and owner/material callbacks must be supplied separately.',
                 'savedTransform preserves separate original operands and their map/default origins; it is not current actor state or a renderer matrix.',
                 'savedCollisionFlags contains only declared Boolean bits and explicit map overrides; undeclared padding, current lifecycle writes and current level membership are not inferred.',
+                'savedReferences retains canonical package indices, full outer/group names and default/map origins for the seven declared collision references. Null class defaults are not current reference-resolution proof; transient XLevel is assigned separately by level loading.',
                 'savedLevelBinding retains both original reference arrays in serialized order, including null/repeated slots. savedLevelSlots identifies membership in field 0x38; an empty list has no saved slot. Export/audit order is not population order, and saved membership does not establish current state.',
                 'Existing conservative actor/material selection gates remain in force.',
                 'Original-derived private data; never include in public source or tool bundles.',

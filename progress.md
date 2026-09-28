@@ -2,6 +2,29 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original level assignment and saved actor references — 28 September 2026
+
+The active continuation implements both ULevel.PostLoad world-assignment loops
+in the browser, with current registry/class/outer inputs explicit. 192 native
+comparisons reproduce 1,875 ordered XLevel/tag writes, including repeated
+identities and the PlayerController exclusion. Other supplied actor words and
+source lists remain unchanged. Named original classes/imports and Core helpers
+bind the source; global population and full saved-to-current loading are separate.
+
+The existing source exporter now retains seven declared actor references with
+canonical package indices, complete qualified names and map/default origins.
+All 20,454 fields across 2,922 Talking Island/Giran static actors check against
+source tags/defaults. Legacy selection counts are unchanged. Six loading-module,
+57 record and 14 interpreter tests pass, along with native bounds/loading checks.
+Private inputs, generated records and raw receipts remain local.
+
+The inspected browser startup reached offline Giran without captured errors;
+its inspector still reports no audited static collision surfaces loaded. This
+is not Online acceptance or a map fix. The main collision loader is not connected
+to the new assignment component. Current actor loading, transient fields,
+LevelInfo mode and concrete query integration are the next work. The full-client
+goal remains ACTIVE and incomplete; the owner said to keep going.
+
 ## Saved level actors and original population order — 28 September 2026
 
 PR48 merged source-bound actor flags/reference identities; branch and

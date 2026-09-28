@@ -122,6 +122,53 @@ def check_actor_flags(package, export, saved, defaults, layout):
     return dict(groups=groups, overrideCount=len(overrides))
 
 
+def check_actor_references(package, export, saved, defaults):
+    """Re-encode each map reference and check its full qualified identity.
+
+    Defaults retain the class/source package recorded by the default reader.
+    This checks transport; it does not resolve native pointers or transient tags.
+    """
+    if saved.get("scope") != "saved-map-and-class-defaults" or set(
+        saved["fields"]
+    ) != set(defaults):
+        raise ValueError("unknown actor reference scope or fields")
+    off = actor_prop_offset(package, export)
+    if off is None:
+        raise ValueError("unsupported actor property framing")
+    end = export.serial_offset + export.serial_size
+    tags, actual = read_props_ordered(package, export.serial_offset + off, end=end)
+    if actual != end:
+        raise ValueError("actor reference properties exceed export")
+    checked = []
+    for name, value in saved["fields"].items():
+        matches = [tag for tag in tags if tag["name"] == name]
+        if not matches:
+            if value != defaults[name]:
+                raise ValueError("actor reference differs from qualified default")
+        else:
+            if len(matches) != 1:
+                raise ValueError("duplicate saved actor reference property")
+            tag = matches[0]
+            reference = value["reference"]
+            if (
+                type(reference) is not int
+                or tag["type"] != 5
+                or tag.get("struct") is not None
+                or tag.get("index", 0) != 0
+                or tag["raw"] != encode_compact(reference)
+                or value
+                != dict(
+                    reference=reference,
+                    qualified=qualified_ref(package, reference) if reference else None,
+                    package=Path(package.path).stem,
+                    origin="map-property",
+                )
+            ):
+                raise ValueError("actor reference differs from original property")
+        checked.append(dict(name=name, **value))
+    return checked
+
+
 def check_actor_transform(package, export, saved, defaults):
     """Round-trip each saved operand; defaults remain separately identified.
 
@@ -418,9 +465,12 @@ def verify(tile, *, fresh_class_flags=None):
     actors = audit.actors()
     report = audit.report(actors)
     level_order = check_level_actor_order(audit.pkg, audit.level_binding, actors)
-    actor_transforms, actor_flags = [], []
+    actor_transforms, actor_flags, actor_references = [], [], []
     for actor in actors:
-        if not any(key in actor for key in ("savedTransform", "savedCollisionFlags")):
+        if not any(
+            key in actor
+            for key in ("savedTransform", "savedCollisionFlags", "savedReferences")
+        ):
             continue
         matches = [
             e
@@ -452,6 +502,19 @@ def verify(tile, *, fresh_class_flags=None):
                         audit.inherited,
                         audit.boolean_layout,
                     )
+                )
+            )
+        if "savedReferences" in actor:
+            actor_references.append(
+                dict(
+                    actor=actor["name"],
+                    sourceExportSHA256=actor["exportSHA256"],
+                    fields=check_actor_references(
+                        audit.pkg,
+                        matches[0],
+                        actor["savedReferences"],
+                        audit.reference_defaults,
+                    ),
                 )
             )
     records, layouts = [], Counter()
@@ -512,6 +575,7 @@ def verify(tile, *, fresh_class_flags=None):
         selection=report["summary"],
         actorTransforms=actor_transforms,
         actorFlags=actor_flags,
+        actorReferences=actor_references,
         levelActorOrder=level_order,
         classDefaults=audit.defaults,
         meshes=len(records),
@@ -537,6 +601,7 @@ def verify(tile, *, fresh_class_flags=None):
         limits=[
             "Actor transform operands round-trip saved properties or qualified class defaults; current actor state and matrices are not inferred.",
             "Actor Boolean records preserve declared saved/default bits and map overrides; padding, transient-property loading and current lifecycle writes remain unqualified.",
+            "Actor reference records re-encode original map tags and retain full package/group identities and qualified class-default origins. Current reference resolution and transient tag application are not inferred.",
             "Level arrays and audited export slots round-trip source order, including null/repeated references; later loading and population changes are not inferred.",
             "Exact decoded-package array byte round trip, including compact-index encoding and lazy saved ends.",
             "Both serialized boxes are compared at offsets recovered through the primitive prefix and section count. The second overwrites the first saved field; post-load state is not established.",
@@ -565,6 +630,7 @@ def main():
             fresh = report["freshPreparation"]
             actor_count = len(report["actorTransforms"])
             actor_flags = len(report["actorFlags"])
+            actor_references = len(report["actorReferences"])
             report = {
                 key: report[key]
                 for key in [
@@ -586,6 +652,7 @@ def main():
             }
             report["actorTransformRecords"] = actor_count
             report["actorFlagRecords"] = actor_flags
+            report["actorReferenceRecords"] = actor_references
             if fresh is not None:
                 report["freshPreparation"] = {
                     k: v for k, v in fresh.items() if k != "records"

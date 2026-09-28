@@ -24,6 +24,160 @@ def raw(image, a, b):
     return bytes(image.data[image.offset(a) : image.offset(b)])
 
 
+def qualify_level_actor_loading(engine, core, comparison, comparison_core):
+    """Bind both PostLoad actor-assignment loops and their actual type helpers."""
+    assert (engine.sha, core.sha, comparison.sha, comparison_core.sha) == (
+        ENGINE_SHA,
+        CORE_SHA,
+        COMPARISON_SHA,
+        COMPARISON_CORE_SHA,
+    )
+    method = "?PostLoad@ULevel@@UAEXXZ"
+    assert engine.exported(method, True) == 0x105CD620
+    assert comparison.body(method) == 0x105CD5E0
+    classes = {}
+    for name, owned, other in [
+        ("AActor", 0x10C1C4C8, 0x10C1C4D8),
+        ("APlayerController", 0x10C2AE78, 0x10C2AE88),
+    ]:
+        symbol = f"?PrivateStaticClass@{name}@@0VUClass@@A"
+        assert engine.exported(symbol) == owned and comparison.exports[symbol] == other
+        classes[name] = dict(symbol=symbol, owned=owned, comparison=other)
+    globals_ = {
+        0x11D8D8FC: (0x11D8D8F8, "?GObjObjects@UObject@@1V?$TArray@PAVUObject@@@@A"),
+        0x11D8E324: (
+            0x11D8E31C,
+            "?GObjObjectsBuffer@UObject@@1V?$TArray@PAVUObject@@@@A",
+        ),
+    }
+    for other, name in globals_.values():
+        assert comparison.imports[other] == ("core.dll", name)
+    outer, isa = "?GetOuter@UObject@@QBEPAV1@XZ", "?IsA@UObject@@QBEHPAVUClass@@@Z"
+    imports = {at: outer for at in (0x105CD674, 0x105CD67E, 0x105CD702, 0x105CD70C)}
+    imports.update({at: isa for at in (0x103737D5, 0x103285F0, 0x104EEEA0)})
+    # Every normalized operand has a named class/export or named import binding.
+    operands = {
+        0x105CD660: (1, 0x11D8D8FC),
+        0x105CD688: (2, 0x11D8D8FC),
+        0x105CD6AC: (1, 0x11D8D8FC),
+        0x105CD6BC: (2, 0x11D8D8FC),
+        0x105CD6E0: (1, 0x11D8E324),
+        0x103737BA: (2, 0x11D8D8FC),
+        0x1059BD63: (2, 0x10C1C4C8),
+        0x103285E9: (1, 0x10C2AE78),
+        0x104EEE99: (1, 0x10C1C4C8),
+    }
+    bindings = globals_ | {
+        row["owned"]: (row["comparison"], row["symbol"]) for row in classes.values()
+    }
+    blocks = []
+    for name, start, end, delta in [
+        ("Level actor world assignment", 0x105CD651, 0x105CD747, -64),
+        ("Actor iterator constructor", 0x1059BD60, 0x1059BD79, -64),
+        ("Actor iterator advance", 0x103737B0, 0x103737E1, 0),
+        ("PlayerController cast", 0x103285E0, 0x10328602, 0),
+        ("Actor cast", 0x104EEE90, 0x104EEEB2, 0),
+    ]:
+        data, other = raw(engine, start, end), bytearray(
+            comparison.read(start + delta, end - start)
+        )
+        rows = list(engine.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data)
+        normalized = []
+        for at, (pos, value) in operands.items():
+            if not start <= at < end:
+                continue
+            off = at - start + pos
+            expected, symbol = bindings[value]
+            assert struct.unpack_from("<I", data, off)[0] == value
+            assert struct.unpack_from("<I", other, off)[0] == expected
+            struct.pack_into("<I", other, off, value)
+            normalized.append(
+                dict(
+                    address=hex(at),
+                    symbol=symbol,
+                    owned=hex(value),
+                    comparison=hex(expected),
+                )
+            )
+        proof = compare_call_block(
+            data,
+            bytes(other),
+            owned_va=start,
+            candidate_va=start + delta,
+            sites=[
+                (at - start, ("core.dll", symbol))
+                for at, symbol in imports.items()
+                if start <= at < end
+            ],
+            direct_calls=[
+                row.address - start
+                for row in rows
+                if row.mnemonic == "call" and row.bytes[0] == 0xE8
+            ],
+            imports=comparison.imports,
+        )
+        blocks.append(
+            dict(
+                name=name,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+                comparison=proof,
+                normalizedOperands=normalized,
+            )
+        )
+    targets = {}
+    for thunk, body, delta in [
+        (0x103109F6, 0x1059BD60, -64),
+        (0x1030C3C4, 0x103737B0, 0),
+        (0x1030A74A, 0x103285E0, 0),
+        (0x10311612, 0x104EEE90, 0),
+    ]:
+        engine.instruction(thunk, "jmp", hex(body))
+        data = comparison.read(thunk, 5)
+        assert (
+            data[0] == 0xE9
+            and thunk + 5 + struct.unpack_from("<i", data, 1)[0] == body + delta
+        )
+        targets[hex(thunk)] = hex(body)
+    core_blocks = []
+    for symbol, start, end in [
+        (outer, 0x1010A240, 0x1010A244),
+        (isa, 0x1010BC20, 0x1010BC4D),
+    ]:
+        assert core.exported(symbol, True) == comparison_core.body(symbol) == start
+        data = raw(core, start, end)
+        assert data == comparison_core.read(start, end - start)
+        core_blocks.append(
+            dict(
+                symbol=symbol,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    return dict(
+        method=method,
+        engineBlocks=blocks,
+        coreBlocks=core_blocks,
+        importTargets={
+            hex(at): hex(core.exported(symbol, True)) for at, symbol in imports.items()
+        },
+        thunkTargets=targets,
+        classes=classes,
+        globals={
+            hex(at): dict(comparison=hex(other), symbol=name)
+            for at, (other, name) in globals_.items()
+        },
+        limits=[
+            "Both assignment loops and type/outer helpers execute with explicit current registry, class and outer inputs.",
+            "UObject.PostLoad has already returned at this boundary; model/render/tile work after the loops is separate.",
+            "Global/class address binding does not recover registry population, class construction, saved-to-current loading or later world reassignment.",
+        ],
+    )
+
+
 def qualify_level_actor_population(engine, comparison):
     """Bind the normal fresh-hash population loop; allocation is not executed."""
     assert (engine.sha, comparison.sha) == (ENGINE_SHA, COMPARISON_SHA)
@@ -92,7 +246,11 @@ def qualify_actor_collision_fields(
         str(ROOT / "tools"),
         str(ROOT / "tools/dat"),
     ]
-    from export_static_collision import actor_boolean_layout, actor_declaration
+    from export_static_collision import (
+        actor_boolean_layout,
+        actor_declaration,
+        actor_reference_layout,
+    )
 
     assert (engine.sha, core.sha, comparison_engine.sha, comparison_core.sha) == (
         ENGINE_SHA,
@@ -249,11 +407,20 @@ def qualify_actor_collision_fields(
                 SHA256=hashlib.sha256(data).hexdigest(),
             )
         )
+    reference_layout = actor_reference_layout(package)
+    bound_references = {
+        row["name"]: {key: value for key, value in row.items() if key != "offset"}
+        for chain in chains
+        for row in chain["declarations"]
+        if row["kind"] == "ObjectProperty"
+    }
+    assert all(bound_references[row["name"]] == row for row in reference_layout)
     return dict(
         packageSHA256=PACKAGE_SHA,
         booleanLayout=layout,
         copyBlocks=blocks,
         referenceChains=chains,
+        savedReferenceDeclarations=reference_layout,
         booleanLink=dict(
             start="0x10173250",
             end="0x101732f1",

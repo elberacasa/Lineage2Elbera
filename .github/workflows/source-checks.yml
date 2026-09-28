@@ -56,7 +56,7 @@ jobs:
           node --test editor/world/test/actor-trace.test.mjs
           python3 -m unittest discover -s tools/ui -p test_actor_trace_native.py
           python3 -m unittest discover -s tools/ui -p test_gmath_table.py
-          node --test editor/world/test/static-actor-bounds.test.mjs
+          node --test editor/world/test/static-actor-bounds.test.mjs editor/world/test/actor-loading.test.mjs
           python3 -m unittest discover -s tools/ui -p test_static_actor_bounds_native.py
           node --test editor/world/test/static-sweep.test.mjs
           node --test editor/world/test/static-triangle.test.mjs

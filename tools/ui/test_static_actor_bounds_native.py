@@ -28,6 +28,25 @@ def call_at(address):
 
 
 class StaticBoundsBoundaryTest(unittest.TestCase):
+    def test_set_equal_writes_only_al_and_preserves_comparison_flags(self):
+        # Authored SETE AL used by the Core IsA null-target branch.
+        instruction = next(
+            Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex("0f94c0"), 0x9000)
+        )
+        for zero in (False, True):
+            for carry, less in ((False, True), (True, False)):
+                m = machine()
+                m.registers.update(eax=0xABCDEF98, ebx=0x12345678)
+                m.carry, m.zero, m.less = carry, zero, less
+                m.memory[0x3000] = 0x5678
+                before = dict(m.memory)
+                self.assertEqual(m.step(instruction), 0x9003)
+                self.assertEqual(m.registers["eax"], 0xABCDEF00 | int(zero))
+                self.assertEqual(m.registers["ebx"], 0x12345678)
+                self.assertEqual((m.carry, m.zero, m.less), (carry, zero, less))
+                self.assertEqual(m.memory, before)
+                self.assertEqual(m.visited, [0x9000])
+
     def test_population_callback_checks_receiver_target_and_stack_cleanup(self):
         call = next(
             Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex("ffd0"), 0x105CAC19)
