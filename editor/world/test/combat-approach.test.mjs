@@ -6,7 +6,7 @@ import { registerHooks } from 'node:module';
 // No renderer, original assets, network connection or gameplay is involved.
 registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier === 'three') return {
-    url: new URL('../../../tools/src/char_pipeline/node_modules/three/build/three.module.js', import.meta.url).href,
+    url: new URL('../vendor/three.module.min.js', import.meta.url).href,
     shortCircuit: true,
   };
   return nextResolve(specifier, context);
