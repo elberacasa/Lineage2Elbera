@@ -62,6 +62,29 @@ function determinant(m) {
       (m[1] * c - m[5] * e + m[9] * g) * m[12],
   );
 }
+/** The named Core determinant, also used by original mesh-cache updates. */
+export function originalMatrixDeterminant(input) {
+  const matrix = input?.matrix;
+  if (
+    input?.arithmeticProfile !== "pc53-rne" ||
+    !Array.isArray(matrix) ||
+    matrix.length !== 16 ||
+    !Array.from({ length: 16 }, (_, i) => finiteF32(matrix[i])).every(Boolean)
+  )
+    return freeze({
+      status: "unsupported",
+      scope,
+      reason: "explicit finite source matrix and arithmetic profile required",
+    });
+  const value = determinant(matrix);
+  return Number.isFinite(value)
+    ? freeze({ status: "ready", scope, determinant: value })
+    : freeze({
+        status: "unsupported",
+        scope,
+        reason: "nonfinite source determinant",
+      });
+}
 function localToWorld(a, sine) {
   const [pitch, yaw, roll] = a.rotation;
   // Original read order and signed integer/table quantization.

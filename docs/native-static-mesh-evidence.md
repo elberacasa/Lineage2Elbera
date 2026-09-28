@@ -11,7 +11,7 @@ full browser-client goal remains active; existing scene behavior is unchanged.
 
 ## Browser contract
 
-`editor/world/js/static-mesh-tree.js` provides three operations:
+`editor/world/js/static-mesh-tree.js` provides these query operations:
 
 | Operation | Required input | Result |
 | --- | --- | --- |
@@ -70,6 +70,12 @@ when their valid records are consumed. The cache's `queryTag` is the DWORD
 **already advanced by the original query constructor**. This component does not
 choose a starting tag, allocate the native cache or invent invalidation rules.
 `traceStaticMeshTree` additionally requires the caller's current `time`.
+
+The separate [cache adapter](native-static-mesh-cache-evidence.md) now acquires,
+initializes or reuses explicit provider entries and advances their tags before
+calling this tree. It uses `isPreparedStaticMeshTree` to check the model and
+the shared `finishStaticMeshCollision(tree, input)` stage after releasing the
+query token. The supplied-cache convenience entry has no token to release.
 
 The module reuses [original local preparation](native-static-sweep-evidence.md)
 and [triangle preparation/clipping](native-static-triangle-evidence.md). It
@@ -206,13 +212,15 @@ authenticated and the owned binary is not repaired.
 The expected-result interpreter executes supplied-cache preparation, the normal
 tree and its helpers, and the post-hit slice. The full wrapper, cached-count
 return and exact-equality body are qualified source evidence; their admission
-paths are not dynamically interpreted. Native paging, query-tag advancement,
-SEH setup/unwinding, default-object creation/type checking and virtual method
-implementations remain supplied-state boundaries. Other arithmetic profiles
-and exceptional values are outside this comparison.
+paths are not dynamically interpreted by this checker. The separate cache
+verifier now executes bounded acquisition, tag advancement and normal release
+against explicit provider responses. Native paging, SEH setup/unwinding,
+default-object creation/type checking and virtual method implementations remain
+supplied-state boundaries. Other arithmetic profiles and exceptional values
+are outside these comparisons.
 
-The next integration work is the original cache lifecycle and current actor
-provider, followed by level queries and floor/step/ledge response. This Elbera
+The next integration work is current actor-provider membership and native
+cache-provider internals, followed by level queries and floor/step/ledge response. This Elbera
 Tool is available as repository source. Existing standalone releases remain
 unchanged. No visual layout changed, so the existing README gallery is retained
 without adding an unrelated screenshot.

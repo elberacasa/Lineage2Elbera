@@ -2,6 +2,31 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original static mesh cache acquisition and reuse — 28 September 2026
+
+The browser now joins original cache lookup, owner/mesh identity checks, fresh
+record initialization and conditional matrix refresh with the existing mesh
+query. Source cache indices retain their original key arithmetic. Query tags
+wrap as DWORDs without an invented reset, warm validity survives matrix refresh,
+and cold numerical cells stay absent. Sparse tree writes are applied and the
+query token is released before final hit adjustment.
+
+The reusable Elbera verifier compares 600 joined cache/tree/hit queries and
+1,000 general matrix determinants against retained Engine/Core instructions.
+The run executes 3,636,882 instructions. Fifteen browser fixtures and eight
+interpreter fixtures join portable CI. Deliberate wrong-mesh reuse, static-owner
+refresh, warm-validity clearing, tag-wrap removal and late release are rejected.
+The new checker reuses existing source qualifiers and interpreters and reads no
+original inputs at import.
+
+Provider lookup/allocation/release responses and current owner matrices remain
+explicit inputs. Native cache capacity/eviction, current actor membership,
+material-method implementations and live walking remain unfinished. Browser
+cleanup on unsupported queries is not a native exception-path claim. The full
+client goal remains active. Existing README images and standalone archives are
+retained; this headless tool is available as repository source.
+[Reproducible commands, source bindings and limits](docs/native-static-mesh-cache-evidence.md).
+
 ## Original static mesh traversal and final hits — 28 September 2026
 
 The browser now joins original nonzero mesh preparation, ordered tree traversal,
