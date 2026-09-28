@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Elbera Tools: preserve four original quest-feedback stereo WAV containers.
+"""Elbera Tools: preserve original quest/tutorial stereo WAV containers.
 
 Requires supplied private ItemSound.uax. No transcoding, downmixing, playback,
 network or account access. Outputs remain private under assets/audio/quest.

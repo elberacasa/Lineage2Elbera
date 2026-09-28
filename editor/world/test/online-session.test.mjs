@@ -162,6 +162,8 @@ function harness() {
     skillWnd: { clears: 0, clear() { this.clears++; } }, charSheetData: { runSpeed: 120 },
     gameSound: { clear: noop, equips: [], weapons: [],
       equip(id) { this.equips.push(id); }, setWeapon(id) { this.weapons.push(id); } },
+    audio: { lastPacketSound: { status: 'playing' },
+      nativePacketAudio: { resets: 0, reset() { this.resets++; } } },
     lastRhand: null, selfAppearance: {}, onlineToggle: { checked: true },
     document: { getElementById: () => ({ classList: { contains: () => false } }) },
     scenePicker: {}, tileNameFor: x => x === 100 ? 'remote' : 'home',
@@ -408,6 +410,8 @@ test('session retirement clears pending origin refresh, active follower and cach
     assert.equal(h.context.fineNavSync,null);assert.equal(h.context.fineNavFollower.active,false);
     assert.equal(h.context.selfServerPosition,null);assert.equal(h.context.moveQueue.length,0);
     assert.equal(h.context.pendingGoal,null);
+    assert.equal(h.context.audio.nativePacketAudio.resets,1);
+    assert.equal(h.context.audio.lastPacketSound,null);
   }
 });
 

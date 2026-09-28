@@ -29,7 +29,7 @@ from sound_reference_aliases import original_path
 ALAUDIO_SHA = '1a589f91b748eb0662ef29a0ef62cadcc40a18d56b46bb73a6e72a428f437f23'
 CORE_SHA = '9462f87a5e77d21865e2e00264efd44df25feb47aa78f8a72e9cf66ce4e919bf'
 ITEMSOUND_SHA = 'e16cd1701b485f4b76de4938af5674699b8622cb6e0c418c2c313044c485365d'
-QUEST_SOUNDS = ('quest_accept', 'quest_middle', 'quest_finish', 'quest_itemget')
+QUEST_SOUNDS = ('quest_accept', 'quest_middle', 'quest_finish', 'quest_itemget', 'quest_tutorial')
 RADIUS_SLOT = 0x11d8dc10
 
 
@@ -649,7 +649,7 @@ def wave_info(data):
 
 
 def collect_quest_waves(source=None):
-    """Return metadata plus unchanged PCM containers for the four exact names.
+    """Return metadata plus unchanged PCM containers for the exact names.
 
     The configured server uses short package/leaf references. Require that each
     leaf identifies exactly one original Sound export, and preserve its actual

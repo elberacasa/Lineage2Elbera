@@ -6,7 +6,7 @@ import { NeighborTiles } from './neighbors.js';
 import { Character } from './character.js';
 import { FollowCamera, verticalFovDeg, FOV_H_DEG } from './camera.js';
 import { installCameraInspection } from './camera-inspection.js';
-import { l2ToThree, threeToL2, l2HeadingToThreeYaw } from './coords.js';
+import { l2ToThree, threeToL2, l2HeadingToThreeYaw, L2_TO_M } from './coords.js';
 import { NavGrid } from './geodata.js';
 import { NavFollower } from './navfollower.js';
 import { getInspectionRequest, installWorldInspection, measureWorldPlacement } from './world-inspection.js';
@@ -1215,6 +1215,8 @@ function npcNames() {
 }
 
 function resetOnlineSession() {
+  audio.nativePacketAudio?.reset();
+  audio.lastPacketSound = null;
   entities.resetNpcWorldEntry();
   npcWorldEntry = null;
   cancelFineNavigation('session-reset');
@@ -1751,6 +1753,23 @@ net.on('remove', (msg) => {
   gameSound.forget(msg.id);
 });
 net.on('chat', (msg) => chat.addChat(msg.from ?? '?', msg.channel, msg.text ?? '', msg.target));
+function packetAudioFrame() {
+  if (!online || !net.connected || !selfServerPosition || !character ||
+      sceneLoading || characterLoading || ccOverlay || csOverlay) return null;
+  const p = character.group.position;
+  const location = [Math.fround(p.x / L2_TO_M), Math.fround(-p.z / L2_TO_M), Math.fround(p.y / L2_TO_M)];
+  // Ordinary browser viewport is owned by the self pawn. Audio position is
+  // separate from camera position, matching the original controller branch.
+  // Alternate view-target modes must supply their own recovered state first.
+  return { owner: selfId, epoch: `${onlineGeneration}:${worldEntryGeneration}`,
+    location, viewTargetLocation: location, audioLocation: location };
+}
+net.on('playSound', packet => {
+  const result = audio.playPacketSound(packet, packetAudioFrame());
+  if (result.status === 'unsupported') {
+    console.warn('[audio] unported PlaySound:', result.reason, packet.soundType, packet.sound);
+  }
+});
 net.on('sysMsg', (msg) => {
   // Retain the existing aCis bar compatibility for 27 CASTING_INTERRUPTED
   // and 748 DIST_TOO_FAR_CASTING_STOPPED. Dispatch at receipt, before text
@@ -1858,6 +1877,7 @@ window.render_game_to_text = () => JSON.stringify({
   } : null,
   creatingCharacter: !!ccOverlay,
   selectingCharacter: !!csOverlay,
+  packetAudio: audio.packetAudioState(),
 });
 
 // verification hook
@@ -2964,6 +2984,7 @@ renderer.setAnimationLoop(() => {
   // the ear rides the camera, not the character: the panner has to agree with
   // what is on screen or sounds pan the wrong way whenever the camera orbits
   audio.setListener(camera);
+  audio.nativePacketAudio?.update(packetAudioFrame());
   renderer.render(scene, camera);
 });
 
