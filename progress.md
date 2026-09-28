@@ -2,6 +2,32 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original actor bounds and octree membership — 28 September 2026
+
+The browser now preserves the source actor-box expansion, cached center/extent
+stores, inclusive root overlap, child-volume arithmetic and distinct query versus
+insertion equality rules. The membership component grows and redistributes the
+tree in original order, keeps single/multi mode explicit, retains duplicate
+pointer entries and removes every occurrence without collapsing child nodes.
+Earlier research shorthand describing the append as unique-entry insertion was
+incorrect: both recovered wrappers call ordinary Core.FArray.Add.
+
+Elbera Tools compares 5,565 geometry/bounds cases and 2,239 ordered snapshots
+across 60 membership sequences with retained Engine/Core instructions. The
+membership run executes 1,872,517 instructions at 890 addresses and includes
+trees with 561 nodes. Fifteen browser and ten interpreter fixtures are portable.
+Deliberate arithmetic, ordering, threshold, mode and duplicate-handling mistakes
+are rejected. Source comparisons keep allocator, memmove, compiler-frame and
+exception boundaries explicit; no native DLL executes.
+
+These components still require current source inputs. Full AddActor admission,
+primitive bounds dispatch, level-mode selection, ordered actor queries, live
+population and walking remain unfinished. The next join is admission/update and
+query traversal, followed by the existing primitive and level components. The
+full-client goal remains active. README images and existing standalone archives
+are retained; the new headless tools are available as repository source.
+[Inputs, commands and limits](docs/native-actor-octree-evidence.md).
+
 ## Original static mesh cache acquisition and reuse — 28 September 2026
 
 The browser now joins original cache lookup, owner/mesh identity checks, fresh
