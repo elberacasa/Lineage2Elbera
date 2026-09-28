@@ -12,10 +12,13 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import random
 import struct
+import subprocess
 import sys
 
 from check_tutorial_quest_native import Image, ROOT, ENGINE_SHA
+from check_track_native import Machine, signed
 
 sys.path.insert(0, str(ROOT / 'tools'))
 sys.path.insert(0, str(ROOT / 'tools/audio'))
@@ -124,6 +127,147 @@ def qualify_sound_bindings(engine, core, comparison, comparison_core):
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
+
+
+class VoiceMachine(Machine):
+    """Retained call-free voice selection with finite Float32 comparisons.
+
+    No floating arithmetic is approximated in this slice: only loads, stores
+    and comparisons. WAIT assumes no pending FPU exception. Calls, exception
+    handlers, profiling and StopSound are not executed by this interpreter.
+    """
+    def read(self, operand):
+        if operand == 'bl':
+            return self.registers['ebx'] & 255
+        value = super().read(operand)
+        return value & 255 if operand.startswith('byte ptr') else value
+
+    def write(self, operand, value, floating=False):
+        if operand.startswith('byte ptr'):
+            address = self.address(operand)
+            self.memory[address] = (self.memory[address] & 0xffffff00) | (value & 255)
+        else:
+            super().write(operand, value, floating)
+
+    def step(self, instruction):
+        op, args = instruction.mnemonic, instruction.op_str.split(', ')
+        if op == 'wait':
+            pass
+        elif op == 'imul':
+            self.write(args[0], (self.read(args[1]) * self.read(args[2])) & 0xffffffff)
+        elif op == 'jg':
+            if not self.less and not self.zero:
+                return int(args[0], 16)
+        else:
+            return super().step(instruction)
+        return instruction.address + instruction.size
+
+
+def native_voice_selection(image, state):
+    """Interpret original normal-flow intervals with an injected pool snapshot."""
+    assert image.sha == ALAUDIO_SHA
+    symbol = '?PlaySoundW@UALAudioSubsystem@@UAEHPAVAActor@@HPAVUSound@@VFVector@@MMMHMM@Z'
+    assert image.exported(symbol, True) == 0x1000a6f0
+    ranges = [(0x1000a8e7, 0x1000a9b9), (0x1000a9d7, 0x1000a9fa),
+              (0x1000aa2a, 0x1000aa89)]
+    rows = []
+    for start, end in ranges:
+        raw = image.data[image.offset(start):image.offset(end)]
+        decoded = list(image.dis.disasm(raw, start))
+        assert sum(row.size for row in decoded) == len(raw)
+        rows.extend(decoded)
+    driver, pool, frame = 0x2000, 0x4000, 0x9000
+    memory = {driver + 0x88: pool, driver + 0x8c: len(state['voices']),
+              frame - 4: 0, frame - 0x18: state['priority'],
+              0x1004ce10: state['counter'], 0x1004c770: state['partitionFlag'],
+              0x1004c774: state['splitCount']}
+    for index, voice in enumerate(state['voices']):
+        at = pool + index * 0x5c
+        memory.update({at + 0x50: voice['soundId'], at + 0x1c: voice['priority'],
+                       at + 0x4c: voice['flags']})
+    registers = dict.fromkeys(('eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'esp', 'ebp'), 0)
+    registers.update(esi=driver, ebp=frame, ebx=state['soundId'], ecx=state['selectionClass'])
+    machine = VoiceMachine(memory, registers, rows)
+    machine.zero = machine.less = machine.carry = machine.sign = machine.parity = False
+    pc, visited = 0x1000a8e7, []
+    # All three terminal branches stop before any external call or profiling.
+    stops = (0x1000aa89, 0x1000a871, 0x1000a9b9)
+    for _ in range(4096):
+        if pc in stops:
+            break
+        visited.append(pc)
+        pc = machine.step(machine.program[pc])
+    else:
+        raise AssertionError('voice selection exceeded bounded instruction count')
+    assert not machine.stack
+    writes = {'counter': machine.memory[0x1004ce10]} if 0x1000a8f4 in visited else {}
+    index = signed(machine.memory[frame - 0x14]) if pc == 0x1000aa89 else None
+    assert index is None or 0 <= index < len(state['voices'])
+    return {'status': 'ready', 'soundId': machine.registers['ebx'], 'index': index,
+            'writes': writes}, visited
+
+
+def verify_voice_selection(image=None):
+    """Compare the actual JS component with retained instructions, not a model."""
+    image = image or Image(ROOT / 'assets/interlude/system/ALAudio.dll', ALAUDIO_SHA)
+    # Authored synthetic states exercise selection; none claim original startup
+    # defaults, a real voice count or an observed client's playback history.
+    rng = random.Random(0x504c4159)
+    cases = []
+    priorities = [-2, -0.0, 0, 2**-149, 0.25, 0.5, 1, 2, 2**24]
+    ids = [0, 1, 2, 3, 8, 9, 16, 17, 0x7fffffff, 0x80000000, 0xfffffffe, 0xffffffff]
+    for iteration in range(512):
+        sound_id = rng.choice(ids)
+        counter = rng.choice([0, 1, 0x80000000, 0xffffffff, rng.getrandbits(32)])
+        effective_id = (((counter - 1) << 4) & 0xffffffff) if sound_id & 14 == 0 else sound_id
+        voices = [{'soundId': rng.choice(ids + [effective_id, effective_id ^ 1]),
+                   'priority': rng.choice(priorities), 'flags': rng.getrandbits(32)}
+                  for _ in range(iteration % 17)]
+        cases.append({'soundId': sound_id, 'counter': counter, 'priority': rng.choice(priorities),
+                      'partitionFlag': rng.choice([0, 1, 0xffffffff]),
+                      'selectionClass': rng.choice([0, 1, 0xffffffff]),
+                      'splitCount': rng.choice([0, len(voices), len(voices) + 1, 0x7fffffff]),
+                      'voices': voices})
+    # Explicit interior splits, priority ties, identity override and bit-zero
+    # refusal after an earlier candidate; these do not depend on random coverage.
+    for partition in (0, 1):
+        for selection_class in (0, 1):
+            for sound_id in (2, 3):
+                for split in (0, 1, 2, 3):
+                    cases.append({'soundId': sound_id, 'counter': 0, 'priority': 1,
+                                  'partitionFlag': partition, 'selectionClass': selection_class,
+                                  'splitCount': split, 'voices': [
+                                      {'soundId': 8, 'priority': 0.25, 'flags': 0},
+                                      {'soundId': 10, 'priority': 0.25, 'flags': 8},
+                                      {'soundId': 2, 'priority': 2, 'flags': 8}]})
+    runtime = 'editor/world/js/native-audio-voices.js'
+    script = """import fs from 'node:fs';
+import {selectNativeAudioVoice} from './editor/world/js/native-audio-voices.js';
+process.stdout.write(JSON.stringify(JSON.parse(fs.readFileSync(0,'utf8')).map(selectNativeAudioVoice)));"""
+    process = subprocess.run(['node', '--input-type=module', '-e', script],
+        input=json.dumps(cases), text=True, capture_output=True, cwd=ROOT, check=True, timeout=30)
+    actual = json.loads(process.stdout)
+    assert len(actual) == len(cases)
+    visited, steps = set(), 0
+    outcomes = {'selected': 0, 'notSelected': 0}
+    for state, result in zip(cases, actual):
+        expected, trace = native_voice_selection(image, state)
+        assert result == expected, (state, result, expected)
+        visited.update(trace)
+        steps += len(trace)
+        outcomes['selected' if result['index'] is not None else 'notSelected'] += 1
+    # Reach each counter, pool branch, priority store and identity decision.
+    required = {0x1000a8f4, 0x1000a921, 0x1000a961, 0x1000a96f, 0x1000a99b,
+                0x1000a9ec, 0x1000aa2a, 0x1000aa5b, 0x1000aa7b}
+    assert required <= visited, required - visited
+    return {'status': 'matched-retained-selection', 'audioDriverSHA256': ALAUDIO_SHA,
+            'runtimeSHA256': digest((ROOT / runtime).read_bytes()), 'cases': len(cases),
+            'interpretedInstructions': steps, 'distinctInstructionAddresses': len(visited),
+            'outcomes': outcomes,
+            'limits': ['Synthetic explicit pool snapshots; no startup defaults or live state recovered.',
+                       'Finite Float32 priorities, nonnegative signed counts and no pending FPU exception.',
+                       'Stops before StopSound; allocation, priority calculation, PCM loading, mixer, EAX and playback lifetime are separate.',
+                       'No native DLL execution or browser playback claim.']}
 
 
 def recovered_span(raw, offset, size, key):
@@ -561,7 +705,12 @@ if __name__ == '__main__':
     parser.add_argument('--check', action='store_true', help='verify pinned supplied original evidence')
     parser.add_argument('--comparison-engine', type=Path, help='pinned supplemental Engine.dll')
     parser.add_argument('--comparison-core', type=Path, help='matching pinned supplemental Core.dll')
+    parser.add_argument('--voice-selection', action='store_true',
+                        help='also compare browser voice selection with retained ALAudio instructions; requires Node')
     args = parser.parse_args()
     if bool(args.comparison_engine) != bool(args.comparison_core):
         parser.error('--comparison-engine and --comparison-core must be supplied together')
-    print(json.dumps(verify(args.comparison_engine, args.comparison_core), indent=2))
+    result = verify(args.comparison_engine, args.comparison_core)
+    if args.voice_selection:
+        result['voiceSelection'] = verify_voice_selection()
+    print(json.dumps(result, indent=2))

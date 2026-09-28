@@ -6,6 +6,8 @@ packet decoder and lossless export do not certify the original audio lifecycle.
 An optional pinned comparison now binds the radius and controller type-query
 imports in exactly corresponding code. Calls after scene-node construction,
 the full voice lifetime and mixer behavior still require recovery/integration.
+The browser now has a source-checked voice selector, tested independently of
+playback with explicit sound-pool snapshots. It is not yet wired to live audio.
 
 ## Reproduce
 
@@ -20,6 +22,8 @@ python3 tools/audio/export_quest_sounds.py --check
 python3 -m unittest discover -s tools/ui -p test_playsound_native.py
 python3 -m unittest discover -s tools/audio -p test_quest_sounds.py
 node --test gateway/test/playsound-packets.test.js
+node --test editor/world/test/native-audio-voices.test.mjs
+python3 tools/ui/check_playsound_native.py --check --voice-selection
 ```
 
 To check the additional bindings, supply both matching comparison images:
@@ -33,6 +37,9 @@ python3 tools/ui/check_playsound_native.py --check \
 Both paths are required together. Unsupported fingerprints fail before any
 comparison; the original-only command retains its original unresolved result.
 See the [supplemental binding check](#supplemental-binding-check).
+`--voice-selection` additionally requires Node and compares the actual browser
+module against interpreted instructions from the supplied original ALAudio.
+It can be combined with the two comparison-image options.
 
 The exporter compares every output byte with a fresh extraction in `--check`.
 Its default private receipt is `tmp/restart-audit/quest-sounds.json`. Original
@@ -155,7 +162,8 @@ documented correspondence boundary. It does not close the remaining conditions.
 
 No invented radius, positional adapter, gain constant or generic UI-sound
 fallback has been added. Full mixer behavior, EAX/reverb, alternate viewports,
-voice allocation/stealing and modes one/two remain outside this checkpoint. The verifier pins
+voice allocation/lifetime and modes one/two remain outside this checkpoint.
+The bounded voice-selection component below does not close those gaps. The verifier pins
 source identities and instructions; it does not claim that the original client
 was executed or that browser audio parity has been demonstrated.
 
@@ -231,3 +239,62 @@ slot `+0x10` before Audio.Update. Their effects and any indirect writes must be
 accounted for before claiming that every update retains the same pawn snapshot.
 Original voice lifetime, source loading, mixer controls and EAX processing also
 remain separate. Browser playback is not enabled by this binding check alone.
+
+## Original voice selection
+
+`editor/world/js/native-audio-voices.js` implements the normal selection paths
+in original `UALAudioSubsystem::PlaySoundW`, starting at `0x1000a8e7` and
+stopping before `StopSound` at `0x1000aa89`. Its supplied ALAudio fingerprint is
+`1a589f91b748eb0662ef29a0ef62cadcc40a18d56b46bb73a6e72a428f437f23`.
+It does not initialize a pool or choose its capacity, calculate priorities,
+stop a browser node, load PCM, or start playback.
+
+The recovered selection rules are:
+
+- When sound-ID bits `0x0e` are zero, decrement the global counter and shift
+  the result left four bits, with DWORD wraparound. A rejected request still
+  consumes this counter write.
+- Scan voices in original index order. An ID match ignoring bit zero wins
+  before the priority comparison. If the incoming ID's bit zero is set, that
+  match rejects replacement, even after an earlier candidate was found.
+- Otherwise, replacement requires strictly greater priority. The first voice
+  with the lowest eligible priority survives ties.
+- With the partition flag clear, scan the entire pool. With it set, nonzero
+  selection class scans the prefix and zero class scans the suffix, separated
+  at `min(splitCount, voiceCount)`. Only the zero-class suffix excludes a
+  nonmatching candidate whose flags contain bit `8`. Identity matching still
+  precedes that exclusion. The raw fields are not assigned inferred music or
+  reserved-channel meanings.
+
+| Explicit input | Original selection state |
+| --- | --- |
+| `soundId`, `priority`, `selectionClass` | EBX, Float32 `[EBP-0x18]`, ECX at entry |
+| `counter` | Global DWORD `0x1004ce10` |
+| `partitionFlag`, `splitCount` | Globals `0x1004c770`, `0x1004c774` |
+| `voices.length`, array order | Driver count `+0x8c`, array `+0x88`; stride `0x5c` |
+| Per-voice `soundId`, `priority`, `flags` | Record `+0x50`, `+0x1c`, `+0x4c` |
+
+`selectNativeAudioVoice` returns `status: 'ready'`, the effective `soundId`,
+an `index` (or `null` for native rejection), and explicit counter `writes`.
+It never mutates the supplied state. Missing consumed fields return
+`unsupported`, retaining any counter write that precedes the missing field;
+callers must not interpret that result as native rejection. Fields skipped by
+the source branch do not need invented defaults. Supported comparisons require
+finite Float32 values; negative split/count states and pending FPU exceptions
+are outside this component's contract.
+
+The Elbera Tools verifier extends the existing restricted instruction
+interpreter. It reads three normal-flow intervals, refuses unknown operations,
+and stops before calls, exception handlers, profiling and voice destruction.
+**544 authored synthetic snapshots** match the actual JavaScript results,
+including 238 selections and 306 rejections across 35,007 interpreted
+instructions. No floating arithmetic is required in this slice: priorities
+are loaded, compared and stored. Separate portable fixtures check the
+interpreter's byte handling, signed branch, wraparound, comparison flags and
+refusal of calls/NOPs. These checks do not execute a native DLL or establish
+the original client's live pool/history.
+
+The selector remains an integration component. Recover pool initialization,
+priority calculation and voice stopping/update first; then connect those
+states to the ordinary packet path and verify actual playback. The remaining
+scene-node state, mixer and EAX boundaries above still apply.

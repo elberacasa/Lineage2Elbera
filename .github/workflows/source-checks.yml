@@ -79,6 +79,8 @@ jobs:
           python3 -m unittest discover -s tools/ui -p test_pose_cache_native.py
           python3 -m unittest discover -s tools/ui -p test_animation_fpu_native.py
           python3 -m unittest discover -s tools/ui -p test_cast_sound_native.py
+          python3 -m unittest discover -s tools/ui -p test_playsound_native.py
+          node --test editor/world/test/native-audio-voices.test.mjs
           node --test editor/world/test/nativequaternion.test.mjs editor/world/test/nativecoords.test.mjs editor/world/test/nativetrack.test.mjs editor/world/test/sourcepose.test.mjs editor/world/test/pawn-source-inspection.test.mjs editor/world/test/pawn-appearance-inspection.test.mjs editor/world/test/sourceanim-data.test.mjs editor/world/test/sourcepose-playback.test.mjs editor/world/test/nativetween.test.mjs editor/world/test/castplayback.test.mjs editor/world/test/castplayback-review.test.mjs editor/world/test/waitanim.test.mjs editor/world/test/native-castschedule.test.mjs editor/world/test/player-transform.test.mjs
           node --test editor/world/test/native-random.test.mjs editor/world/test/npcwaitanim.test.mjs editor/world/test/npcsourceanim.test.mjs editor/world/test/npc-source-skin.test.mjs editor/world/test/npc-source-inspection.test.mjs editor/world/test/npc-entity-lifecycle.test.mjs editor/world/test/npcanimations.test.mjs
           node --test editor/world/test/animnotify-clock.test.mjs editor/world/test/audio-lifecycle.test.mjs editor/world/test/combat-approach.test.mjs editor/world/test/skill-state.test.mjs editor/world/test/camera-inspection.test.mjs
