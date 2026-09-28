@@ -516,6 +516,54 @@ no new runtime JS/UI change, screenshot or Online map-repair claim. Original
 inputs and generated flag records remain private; these additions extend
 the existing repository tools, outside the current standalone archives.
 
+## Saved level membership and population order
+
+The shared Level prefix reader now retains both serialized reference arrays,
+not just their counts. `savedLevelBinding` carries their exact original order;
+each static source record adds `exportRef` and `savedLevelSlots` for the
+`ULevel+38` array. Empty and repeated slots remain intact. The static export's
+`references` list is still an audit list, **not a population sequence**. An
+empty `savedLevelSlots` means the export has no slot in the saved actor array.
+
+| Map | Saved `+48` references | Saved `+38` actor slots | Static actor exports | Static actors in `+38` |
+| --- | --- | --- | --- | --- |
+| Talking Island `17_25` | 1,484 | 1,234 | 986 | 983 |
+| Giran `22_22` | 2,301 | 2,406 | 1,936 | 1,936 |
+
+All **7,425 references** round-trip their original array bytes, and every
+audited static actor's slot membership is checked. The three Talking Island
+exports outside `+38` pass the older static collision-selection checks;
+export-table presence alone cannot establish level membership. This does not
+remove actors from the current browser scene or claim that later loading
+never changes the arrays.
+
+The existing bounds verifier also binds `ULevel.SetActorCollision` and its
+fresh-hash population loop (`105cabe8..105cac20`). **256 interpreted cases**
+preserve slot order, skip nulls, test actor `+2f8` mask `0x1` and call the collision
+provider's `AddActor` virtual at offset `+0x08`. A repeated actor gets another
+call; there is no sorting or deduplication. These cases make 2,311 calls over
+80,761 instructions at 19 addresses, including 589 null slots and 3,218
+repeated nonnull slots. The preceding fresh-hash guard matches the pinned
+supplement as source correspondence; allocation is not executed.
+
+These cases supply a stable current array, provider and synchronous AddActor
+callback. They do not execute the callback internals, editor cleanup, hash
+removal or saved-to-current loading. The existing separate AddActor comparisons
+remain passing. The original Level serializer binding also passes its existing
+41 instruction anchors and ten supplemental block comparisons:
+
+```sh
+python3 tools/world/export_bsp_collision.py 17_25 --check \
+  --native-binding-check --comparison-engine /local/comparison/engine.dll
+```
+
+The usual record and bounds commands above reproduce the new checks. Portable
+tests pass: 53 static-record tests, 12 BSP tests, 13 bounds-interpreter tests
+and 44 related terrain tests. Authored fixtures reject changed array order,
+missing repeated slots, fabricated membership, changed counts/spans and wrong
+callback targets or receivers. No runtime JS/UI change or new screenshot is
+claimed; live population still needs current fields and loading evidence.
+
 ## Next integration boundary
 
 `localBounds` must be the **current native mesh field**, not a box recomputed

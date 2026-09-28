@@ -2,6 +2,32 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Saved level actors and original population order — 28 September 2026
+
+PR48 merged source-bound actor flags/reference identities; branch and
+merged-main CI passed. The shared Level reader now retains both original
+reference arrays. The private sweep output keeps each static export's saved
+actor slots, including explicit absence and repeated membership, while its
+audit list remains separate from population order.
+
+All 7,425 references across Talking Island/Giran round-trip their source
+bytes. Talking Island has 986 static exports but only 983 in its saved actor
+array; all 1,936 Giran static exports are present. The three absent exports
+pass the old static collision-selection checks, demonstrating why export
+membership is insufficient. Current browser scenes have not been altered.
+
+The Elbera bounds tool adds 256 interpreted population-loop cases with
+2,311 AddActor callbacks. Original order, null filtering and the collision
+bit gate are preserved; callbacks remain explicit, without claiming the
+whole loading lifecycle. 53 record, 12 BSP, 13 interpreter and 44 terrain
+tests pass, together with the prior native bounds/loading comparisons.
+All README images remain; private source data and receipts stay local.
+
+Next: qualify ULevel.PostLoad's XLevel assignment and current actor loading,
+then connect prepared static actors in source level order to the existing
+world-query path. No new Online/map-repair claim. The full-client goal remains
+active and incomplete.
+
 ## Declared actor collision flags and reference bindings — 28 September 2026
 
 PR47 merged actor loading preservation and saved transform recovery with

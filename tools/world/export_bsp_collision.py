@@ -174,11 +174,14 @@ def level_model_binding(pkg):
         # uses the first; noncanonical unequal pairs stay outside this reader.
         if count < 0 or count != duplicate or count > len(raw)-r.pos:
             raise ValueError('invalid or noncanonical Level actor-array counts')
+        references = []
         for _ in range(count):
             value = r.compact()
             if value: pkg.resolve_ref(value)  # preserve legal null slots
+            references.append(value)
         spans['array'+field] = [start+begin, start+r.pos]
-        arrays.append({'nativeField': field, 'count': count, 'duplicateCount': duplicate})
+        arrays.append({'nativeField': field, 'count': count, 'duplicateCount': duplicate,
+                       'references': references})
 
     def string():
         size = r.compact()

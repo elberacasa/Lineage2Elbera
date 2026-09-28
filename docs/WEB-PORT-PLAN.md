@@ -32,6 +32,11 @@ separate the mesh, collision brush, LevelInfo and transient world reference;
 saved values still need the native loading/lifecycle boundary before use as
 current actor state.
 
+The saved level arrays now retain exact actor order and membership. Three
+Talking Island static exports have no saved actor slot despite passing the
+older collision selection. The population loop's original order and gates
+pass 256 interpreted cases; saved-to-current loading remains a separate step.
+
 Next: feed these prepared mesh resources and original actor fields into the
 existing world-query components, preserving unresolved lifecycle boundaries. Validate
 actual Online queries and placement before claiming a map repair. Rendered

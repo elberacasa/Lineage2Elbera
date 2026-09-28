@@ -34,6 +34,7 @@ from static_mesh_class_source import qualify_registration, loading_bits
 from actor_transform_source import (
     qualify_static_actor_loading,
     qualify_actor_collision_fields,
+    qualify_level_actor_population,
 )
 from static_collision_source import (
     qualify_static_postload,
@@ -186,6 +187,11 @@ def qualify(program, core, candidate, candidate_core):
     actor_fields = qualify_actor_collision_fields(
         e, core, candidate, candidate_core, engine_package
     )
+    level_population = qualify_level_actor_population(e, candidate)
+    start, end = int(level_population["start"], 16), int(level_population["end"], 16)
+    PreparationProgram.add(
+        program, e, start, end, bytes(e.data[e.offset(start) : e.offset(end)])
+    )
     for block in actor_fields["copyBlocks"]:
         start, end = int(block["start"], 16), int(block["end"], 16)
         PreparationProgram.add(
@@ -236,6 +242,7 @@ def qualify(program, core, candidate, candidate_core):
         staticConstructor=constructor,
         actorLoading=actor_loading,
         actorFields=actor_fields,
+        levelPopulation=level_population,
     )
     return program
 
@@ -251,6 +258,7 @@ class StaticBoundsMachine(AdmissionMachine):
             }
         )
         self.bound_events = []
+        self.population_events = []
         self.current = None
 
     def read(self, operand):
@@ -299,6 +307,18 @@ class StaticBoundsMachine(AdmissionMachine):
         self.invoke(0x106F5CC0, mesh)
 
     def step(self, i):
+        if i.address == 0x105CAC19:
+            proof = self.source.receipt["levelPopulation"]
+            assert self.registers["eax"] == int(proof["vtable"]["target"], 16)
+            assert self.registers["ecx"] == self.population_provider
+            sp = self.registers["esp"]
+            self.population_events.append([self.registers["ebx"], self.memory[sp]])
+            # Supplied synchronous AddActor response. Its internal mutation is
+            # covered separately; it must not change the array in this fixture.
+            self.registers.update(eax=0xA5A5A5A5, ecx=0x5A5A5A5A, edx=0x12345678)
+            self.registers["esp"] += 4
+            self.visited.append(i.address)
+            return i.address + i.size
         if i.address in (0x1052F5B3, 0x1052F5F3):
             raise AssertionError("unadmitted actor localization or attached-array path")
         if i.address == 0x1015E68F:
@@ -457,6 +477,58 @@ def native_one(program, row):
     m.invoke(0x106FE700, 0x300000, [0x600000, 0x200000])
     assert m.registers["eax"] == 0x600000
     return dict(bounds=hexes(m.box(0x600000)), events=m.bound_events), m
+
+
+def level_population_cases(program):
+    """Execute source slot ordering and gates with explicit AddActor callbacks."""
+    rng = random.Random(0x4C455645)
+    proof = program.receipt["levelPopulation"]
+    steps, calls, nulls, repeated, visited = 0, 0, 0, 0, set()
+    for index in range(256):
+        m = StaticBoundsMachine(program)
+        level, provider, storage = 0x700000, 0x710000, 0x720000
+        m.population_provider = provider
+        pool = [0x730000 + j * 0x1000 for j in range(8)]
+        flags = [0, 1, 0xFFFFFFFE, 0x80000001, 0x100, 3, 2, 0xFFFFFFFF]
+        if index >= 128:
+            flags = [rng.getrandbits(32) for _ in pool]
+        refs = [rng.choice([0, *pool]) for _ in range(index % 49)]
+        if index % 8 == 1:
+            refs = [pool[1], 0, pool[0], pool[1], pool[4], pool[3]]
+        fields = {
+            level + 0x38: storage,
+            level + 0x3C: len(refs),
+            level + 0x120: provider,
+            provider: int(proof["vtable"]["address"], 16),
+            int(proof["vtable"]["address"], 16) + 8: int(proof["vtable"]["target"], 16),
+        }
+        fields.update({storage + j * 4: ref for j, ref in enumerate(refs)})
+        fields.update({actor + 0x2F8: flag for actor, flag in zip(pool, flags)})
+        m.memory.update(fields)
+        m.registers.update(esi=level, edi=0, ebp=0x800000)
+        initial_sp = m.registers["esp"]
+        m.execute_until(int(proof["start"], 16), int(proof["stop"], 16))
+        by_actor = dict(zip(pool, flags))
+        expected = [
+            [slot, ref] for slot, ref in enumerate(refs) if ref and by_actor[ref] & 1
+        ]
+        assert m.population_events == expected
+        assert {at: m.memory[at] for at in fields} == fields
+        assert m.registers["esp"] == initial_sp
+        steps += len(m.visited)
+        visited.update(m.visited)
+        calls += len(expected)
+        nulls += refs.count(0)
+        repeated += len([ref for ref in refs if ref]) - len(set(refs) - {0})
+    return dict(
+        cases=256,
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        addActorCalls=calls,
+        nullSlots=nulls,
+        repeatedNonNullSlots=repeated,
+        scope="stable supplied current array; AddActor callback boundary, not map loading",
+    )
 
 
 def actor_field_cases(program):
@@ -1153,6 +1225,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
     program = load_program(engine, core, comparison_engine, comparison_core)
     actor_loading = actor_loading_cases(program)
     actor_fields = actor_field_cases(program)
+    level_population = level_population_cases(program)
     construction = constructor_cases(program)
     fresh_loading = fresh_loading_cases(program, runtime)
     rows = fixture_rows()
@@ -1218,6 +1291,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         construction=construction,
         actorLoading=actor_loading,
         actorFields=actor_fields,
+        levelPopulation=level_population,
         freshLoading=fresh_loading,
         postLoad=dict(
             cases=len(rows),
@@ -1296,6 +1370,7 @@ def main():
                         "construction",
                         "actorLoading",
                         "actorFields",
+                        "levelPopulation",
                         "freshLoading",
                         "postLoad",
                     ]

@@ -28,6 +28,33 @@ def call_at(address):
 
 
 class StaticBoundsBoundaryTest(unittest.TestCase):
+    def test_population_callback_checks_receiver_target_and_stack_cleanup(self):
+        call = next(
+            Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex("ffd0"), 0x105CAC19)
+        )
+        for target, receiver in [
+            (0xA03000, 0x2000),
+            (0xDEAD, 0x2000),
+            (0xA03000, 0xDEAD),
+        ]:
+            m = machine()
+            m.source.receipt = {"levelPopulation": {"vtable": {"target": "0xa03000"}}}
+            m.population_provider = 0x2000
+            m.registers.update(eax=target, ecx=receiver, esp=0x1000, ebx=7, esi=0x6000)
+            m.memory.update({0x1000: 0x3000, 0x3000: 0xABCDEF})
+            before = dict(m.memory)
+            if target != 0xA03000 or receiver != 0x2000:
+                with self.assertRaises(AssertionError):
+                    m.step(call)
+                self.assertEqual(m.population_events, [])
+                self.assertEqual(m.registers["esp"], 0x1000)
+            else:
+                self.assertEqual(m.step(call), 0x105CAC1B)
+                self.assertEqual(m.population_events, [[7, 0x3000]])
+                self.assertEqual(m.registers["esp"], 0x1004)
+                self.assertEqual((m.registers["ebx"], m.registers["esi"]), (7, 0x6000))
+            self.assertEqual(m.memory, before)
+
     def test_unadmitted_actor_paths_never_treat_erased_calls_as_noops(self):
         for at in (0x1052F5B3, 0x1052F5F3):
             m = machine()

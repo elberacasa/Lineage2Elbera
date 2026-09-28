@@ -24,6 +24,60 @@ from export_static_collision import (
 from l2lib import encode_compact, read_properties
 
 
+def check_level_actor_order(package, binding, actors):
+    """Round-trip both saved arrays and each audited export's slot membership."""
+    arrays = binding["actorArrays"]
+    if [row["nativeField"] for row in arrays] != ["0x48", "0x38"]:
+        raise ValueError("unknown saved Level reference arrays")
+    checked, slots = [], {}
+    for row in arrays:
+        field, refs = row["nativeField"], row["references"]
+        if (
+            not isinstance(refs, list)
+            or any(type(ref) is not int for ref in refs)
+            or row["count"] != len(refs)
+            or row["duplicateCount"] != len(refs)
+        ):
+            raise ValueError("inconsistent saved Level reference count")
+        a, b = binding["spans"]["array" + field]
+        if not 0 <= a < b <= len(package.data):
+            raise ValueError("saved Level reference span escapes package")
+        encoded = struct.pack("<ii", len(refs), len(refs)) + b"".join(
+            map(encode_compact, refs)
+        )
+        if encoded != bytes(package.data[a:b]):
+            raise ValueError("saved Level reference order differs from source")
+        present = [ref for ref in refs if ref]
+        checked.append(
+            dict(
+                nativeField=field,
+                count=len(refs),
+                nullSlots=refs.count(0),
+                repeatedNonNullSlots=len(present) - len(set(present)),
+                SHA256=hashlib.sha256(encoded).hexdigest(),
+            )
+        )
+        if field == "0x38":
+            for slot, ref in enumerate(refs):
+                slots.setdefault(ref, []).append(slot)
+    seen = set()
+    for actor in actors:
+        ref = actor["exportRef"]
+        if type(ref) is not int or ref <= 0 or ref in seen:
+            raise ValueError("ambiguous audited actor export reference")
+        seen.add(ref)
+        if actor["savedLevelSlots"] != slots.get(ref, []):
+            raise ValueError("saved actor slot membership differs from source")
+    return dict(
+        arrays=checked,
+        auditedActors=len(actors),
+        actorsInSavedLevel=sum(bool(a["savedLevelSlots"]) for a in actors),
+        actorsAbsentFromSavedLevel=sum(not a["savedLevelSlots"] for a in actors),
+        auditedActorSlots=sum(len(a["savedLevelSlots"]) for a in actors),
+        scope="saved-source-order; not current population",
+    )
+
+
 def check_actor_flags(package, export, saved, defaults, layout):
     """Check declared bits and overrides without filling unknown padding."""
     if saved.get("scope") != "saved-map-and-class-defaults":
@@ -363,6 +417,7 @@ def verify(tile, *, fresh_class_flags=None):
     audit = Audit(tile, retain_sweep_data=True)
     actors = audit.actors()
     report = audit.report(actors)
+    level_order = check_level_actor_order(audit.pkg, audit.level_binding, actors)
     actor_transforms, actor_flags = [], []
     for actor in actors:
         if not any(key in actor for key in ("savedTransform", "savedCollisionFlags")):
@@ -457,6 +512,7 @@ def verify(tile, *, fresh_class_flags=None):
         selection=report["summary"],
         actorTransforms=actor_transforms,
         actorFlags=actor_flags,
+        levelActorOrder=level_order,
         classDefaults=audit.defaults,
         meshes=len(records),
         triangles=sum(row["triangles"] for row in records),
@@ -481,6 +537,7 @@ def verify(tile, *, fresh_class_flags=None):
         limits=[
             "Actor transform operands round-trip saved properties or qualified class defaults; current actor state and matrices are not inferred.",
             "Actor Boolean records preserve declared saved/default bits and map overrides; padding, transient-property loading and current lifecycle writes remain unqualified.",
+            "Level arrays and audited export slots round-trip source order, including null/repeated references; later loading and population changes are not inferred.",
             "Exact decoded-package array byte round trip, including compact-index encoding and lazy saved ends.",
             "Both serialized boxes are compared at offsets recovered through the primitive prefix and section count. The second overwrites the first saved field; post-load state is not established.",
             "Load-tail fields are re-encoded through the exact export end. The lazy payload is only span/hash checked; its elements are not decoded. References are encoded package indices, not resolved objects.",
@@ -524,6 +581,7 @@ def main():
                     "meshHeaderTagRecords",
                     "meshDuplicateTagRecords",
                     "selection",
+                    "levelActorOrder",
                 ]
             }
             report["actorTransformRecords"] = actor_count

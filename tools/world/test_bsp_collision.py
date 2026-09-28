@@ -86,8 +86,19 @@ class BspCollisionTests(unittest.TestCase):
         selected,binding=level_model_binding(pkg)
         self.assertIs(selected,expected)
         self.assertEqual([row['count'] for row in binding['actorArrays']],[2,1])
+        self.assertEqual([row['references'] for row in binding['actorArrays']],[[0,1],[2]])
         self.assertEqual(binding['urlOptionCount'],1)
         self.assertEqual(binding['remainingTailBytes'],4)
+
+    def test_saved_actor_array_keeps_repeats_and_nulls_in_source_order(self):
+        pkg, _, _ = source_fixture()
+        level = pkg.exports[1]
+        body = bytearray(pkg.data[level.serial_offset:level.serial_offset + level.serial_size])
+        body[9:17] = struct.pack('<2i', 5, 5) + b''.join(map(encode_compact, [2, 0, 1, 2, 1]))
+        pkg.data = pkg.data[:level.serial_offset] + body
+        level.serial_size = len(body)
+        _, binding = level_model_binding(pkg)
+        self.assertEqual(binding['actorArrays'][1]['references'], [2, 0, 1, 2, 1])
 
     def test_level_binding_rejects_ambiguous_identity_and_unsupported_layout(self):
         for mutate in [lambda p:setattr(p,'file_version',122),lambda p:setattr(p,'licensee_version',22),

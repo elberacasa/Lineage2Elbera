@@ -604,6 +604,13 @@ class Audit:
             self.class_loading = read_owned_loading_bits()
         source = ROOT / 'assets/interlude/maps' / (tile + '.unr')
         self.pkg, _ = load_package(source)
+        if retain_sweep_data:
+            from export_bsp_collision import level_model_binding
+            _, self.level_binding = level_model_binding(self.pkg)
+            self.level_slots = {}
+            actor_array = next(a for a in self.level_binding['actorArrays'] if a['nativeField'] == '0x38')
+            for slot, ref in enumerate(actor_array['references']):
+                self.level_slots.setdefault(ref, []).append(slot)
         self.inherited, self.defaults, sources = class_defaults(retain_collision_fields=retain_sweep_data)
         self.boolean_layout = self.defaults[-1]['collisionBooleans']['layout'] if retain_sweep_data else None
         self.sources = {str(source.relative_to(ROOT)): sha(source.read_bytes()), **sources}
@@ -688,6 +695,9 @@ class Audit:
                                    boolean_layout=self.boolean_layout)
             except (L2Error, ValueError, IndexError, struct.error) as error:
                 row = {'name': self.pkg.export_name(ex), 'issues': [str(error)]}
+            if self.retain_sweep_data:
+                row['exportRef'] = ex.index + 1
+                row['savedLevelSlots'] = list(self.level_slots.get(ex.index + 1, []))
             row['meshIssues'] = self.mesh(row['mesh'])['issues'] if row.get('mesh') else []
             rows.append(row)
         return rows
@@ -736,8 +746,10 @@ class Audit:
             'format': 'l2-static-sweep-source-v1', 'tile': self.tile,
             'sources': self.sources, 'nativeProof': self.proof,
             'classDefaults': self.defaults,
+            'savedLevelBinding': self.level_binding,
             'meshes': {k: self.geometry[k] for k in sorted({r['mesh'] for r in selected})},
-            'references': [{k: r[k] for k in ('name', 'mesh', 'exportSHA256', 'savedTransform', 'savedCollisionFlags')} for r in selected],
+            'references': [{k: r[k] for k in ('name', 'mesh', 'exportRef', 'exportSHA256',
+                'savedTransform', 'savedCollisionFlags', 'savedLevelSlots')} for r in selected],
             'limits': [
                 'Saved source geometry, not live actor/cache state or a collision query.',
                 'savedLocalBounds is the later serialized mesh field; baseSerializedBounds preserves the overwritten primitive record. PostLoad/current mutations remain separate.',
@@ -745,7 +757,8 @@ class Audit:
                 'Node links and bounds and triangle planes retain source order; no tree rebuild or plane normalization.',
                 'Current actor matrices, query state and owner/material callbacks must be supplied separately.',
                 'savedTransform preserves separate original operands and their map/default origins; it is not current actor state or a renderer matrix.',
-                'savedCollisionFlags contains only declared Boolean bits and explicit map overrides; undeclared padding, current lifecycle writes and level membership are not inferred.',
+                'savedCollisionFlags contains only declared Boolean bits and explicit map overrides; undeclared padding, current lifecycle writes and current level membership are not inferred.',
+                'savedLevelBinding retains both original reference arrays in serialized order, including null/repeated slots. savedLevelSlots identifies membership in field 0x38; an empty list has no saved slot. Export/audit order is not population order, and saved membership does not establish current state.',
                 'Existing conservative actor/material selection gates remain in force.',
                 'Original-derived private data; never include in public source or tool bundles.',
             ],
