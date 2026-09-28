@@ -23,7 +23,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / 'tools'), str(ROOT / 'tools/dat'), str(ROOT / 'tools/ui')]
 from l2lib import L2Error, Reader, load_package, read_properties, encode_compact, qualified_ref
-from convert import actor_prop_offset, read_props_ordered
+from convert import actor_prop_offset, read_props_ordered, read_map_actor_frame
 from export_npc_visuals import OriginalClasses, terminal_defaults
 
 FORMAT = 'l2-static-collision-v1'
@@ -479,8 +479,23 @@ def eligible_materials(materials, referenced):
             raise ValueError('collision-referenced material is not explicitly enabled')
 
 
+def saved_actor_frame(pkg, ex):
+    """Retain the complete supported saved frame; no live state is inferred."""
+    frame = read_map_actor_frame(pkg, ex)
+    if frame is None:
+        raise ValueError('unsupported saved actor state frame')
+    raw = bytes(pkg.data[ex.serial_offset:ex.serial_offset + frame.size])
+    return dict(scope='saved-map-state-frame', savedExportFlags=ex.object_flags,
+                classIdentity=qualified_ref(pkg, ex.class_index),
+                node=frame.node, stateNode=frame.state_node,
+                probeMaskWords=[frame.probe_mask & 0xFFFFFFFF,
+                                (frame.probe_mask >> 32) & 0xFFFFFFFF],
+                word28=frame.latent_action & 0xFFFFFFFF, codeOffset=frame.offset,
+                sourceOffset=ex.serial_offset, sourceBytes=frame.size, sourceSHA256=sha(raw))
+
+
 def actor_record(pkg, ex, inherited, *, retain_source_transform=False, boolean_layout=None,
-                 reference_defaults=None):
+                 reference_defaults=None, retain_state_frame=False):
     name = pkg.export_name(ex)
     result = {'name': name, 'issues': [], 'class': pkg.class_name_of(ex)}
     if result['class'] != 'StaticMeshActor' or qualified_ref(pkg, ex.class_index) != 'Engine.StaticMeshActor':
@@ -488,6 +503,8 @@ def actor_record(pkg, ex, inherited, *, retain_source_transform=False, boolean_l
     off = actor_prop_offset(pkg, ex)
     if off is None:
         result['issues'].append('unsupported-actor-framing'); return result
+    if retain_state_frame:
+        result['savedStateFrame'] = saved_actor_frame(pkg, ex)
     props, end = read_props_ordered(pkg, ex.serial_offset + off,
                                   end=ex.serial_offset + ex.serial_size)
     if end != ex.serial_offset + ex.serial_size:
@@ -753,6 +770,7 @@ class Audit:
         for ex in exports:
             try: row = actor_record(self.pkg, ex, self.inherited,
                                    retain_source_transform=self.retain_sweep_data,
+                                   retain_state_frame=self.retain_sweep_data,
                                    boolean_layout=self.boolean_layout,
                                    reference_defaults=self.reference_defaults)
             except (L2Error, ValueError, IndexError, struct.error) as error:
@@ -812,7 +830,8 @@ class Audit:
             'savedLevelBinding': self.level_binding,
             'meshes': {k: self.geometry[k] for k in sorted({r['mesh'] for r in selected})},
             'references': [{k: r[k] for k in ('name', 'mesh', 'exportRef', 'exportSHA256',
-                'savedTransform', 'savedCollisionFlags', 'savedReferences', 'savedLevelSlots')} for r in selected],
+                'savedTransform', 'savedCollisionFlags', 'savedReferences',
+                'savedLevelSlots', 'savedStateFrame')} for r in selected],
             'limits': [
                 'Saved source geometry, not live actor/cache state or a collision query.',
                 'savedLocalBounds is the later serialized mesh field; baseSerializedBounds preserves the overwritten primitive record. PostLoad/current mutations remain separate.',

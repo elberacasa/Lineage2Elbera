@@ -24,6 +24,102 @@ def raw(image, a, b):
     return bytes(image.data[image.offset(a) : image.offset(b)])
 
 
+def qualify_actor_state_frames(core, comparison):
+    """Bind the saved frame layout and the later, separate execution reset.
+
+    This is original-code correspondence, not execution of archive I/O or a
+    current object registry. The existing bounded map reader reuses l2lib.
+    """
+    assert (core.sha, comparison.sha) == (CORE_SHA, COMPARISON_CORE_SHA)
+    symbols = [
+        ("?Serialize@UObject@@UAEXAAVFArchive@@@Z", 0x1015E820, 0x1015EA8F),
+        ("?InitExecution@UObject@@UAEXXZ", 0x1015EFA0, 0x1015F03B),
+        ("??0FStateFrame@@QAE@PAVUObject@@@Z", 0x1010BDD0, 0x1010BE1A),
+        ("??6ULinkerLoad@@EAEAAVFArchive@@AAPAVUObject@@@Z", 0x10113370, 0x101133E9),
+        ("??6@YAAAVFArchive@@AAV0@AAVFCompactIndex@@@Z", 0x1015CFB0, 0x1015D18D),
+    ]
+    blocks = []
+    for symbol, start, end in symbols:
+        assert core.exported(symbol, True) == comparison.body(symbol) == start
+        data = raw(core, start, end)
+        rows = list(core.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data) and rows[-1].mnemonic == "ret"
+        assert data == comparison.read(start, len(data))
+        blocks.append(
+            dict(
+                symbol=symbol,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    helpers = []
+    for thunk, start, end in [
+        (0x101040FC, 0x10130EF0, 0x10130F01),
+        (0x10102B1C, 0x1015B3E0, 0x1015B3F1),
+        (0x1010405C, 0x10130860, 0x10130879),
+        (0x10102DFB, 0x10130820, 0x10130839),
+        (0x10102D8D, 0x101307E0, 0x101307F9),
+        (0x10102315, 0x1015CFB0, 0x1015D18D),
+        (0x1010436D, 0x1010BDD0, 0x1010BE1A),
+        (0x10102BE9, 0x1015A300, 0x1015A317),
+        (0x10101839, 0x101088C0, 0x101088D3),
+    ]:
+        core.instruction(thunk, "jmp", hex(start))
+        assert raw(core, thunk, thunk + 5) == comparison.read(thunk, 5)
+        data = raw(core, start, end)
+        rows = list(core.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data) and rows[-1].mnemonic == "ret"
+        assert data == comparison.read(start, len(data))
+        helpers.append(
+            dict(
+                thunk=hex(thunk),
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    table = "??_7ULinkerLoad@@6BFArchive@@@"
+    ref = symbols[3][0]
+    assert core.u32(core.exported(table) + 0x18) == core.exported(ref)
+    assert comparison.u32(comparison.exports[table] + 0x18) == comparison.exports[ref]
+    frame_table = "??_7FStateFrame@@6B@"
+    assert core.exported(frame_table) == comparison.exports[frame_table] == 0x101CDB04
+    anchors = [
+        (0x10167C01, "mov", "dword ptr [esi + 0xc], eax"),
+        (0x1015E8C8, "test", "eax, 0x2000000"),
+        (0x1015E8EE, "call", "0x1010436d"),
+        (0x1015E906, "call", "0x101040fc"),
+        (0x1015E90F, "call", "0x10102b1c"),
+        (0x1015E91C, "call", "0x1010405c"),
+        (0x1015E929, "call", "0x10102dfb"),
+        (0x1015E9A2, "call", "0x10102315"),
+        (0x1015E9AD, "cmp", "eax, -1"),
+        (0x1015EA0A, "mov", "dword ptr [eax + 0xc], ecx"),
+        (0x101133AF, "call", "0x10102315"),
+        (0x101133BD, "call", "0x10102540"),
+        (0x1015EFF2, "call", "0x10101839"),
+        (0x1015F010, "call", "0x1010436d"),
+        (0x1010BDFB, "mov", "dword ptr [eax], 0x101cdb04"),
+    ]
+    for at, op, args in anchors:
+        core.instruction(at, op, args)
+    return dict(
+        ownedCoreSHA256=core.sha,
+        supplementalCoreSHA256=comparison.sha,
+        coreBlocks=blocks,
+        helpers=helpers,
+        anchors=anchors,
+        referenceArchive=dict(table=table, slot="0x18", method=ref),
+        limits=[
+            "Saved frame layout and normal source bodies only; archive I/O, allocation and reference resolution are not executed.",
+            "The map reader admits class/class references, probe mask -1 and code offset -1. Other frames remain unsupported, not malformed game data.",
+            "InitExecution replaces the previous frame. Its constructor leaves words +0x14 and +0x28 untouched; no live zero values or script meanings are inferred.",
+            "Supplemental correspondence does not authenticate the archive or restore a protected runtime.",
+        ],
+    )
+
+
 def qualify_level_actor_loading(engine, core, comparison, comparison_core):
     """Bind both PostLoad actor-assignment loops and their actual type helpers."""
     assert (engine.sha, core.sha, comparison.sha, comparison_core.sha) == (

@@ -707,6 +707,68 @@ is exercised in the isolated Core kit; released archive versions are unchanged.
 The native verifier/runtime remain repository Elbera Tools. Original files,
 generated records and raw receipts are not release inputs.
 
+## Saved actor frames and execution reset
+
+The world reader now decodes the saved `FStateFrame` with the existing
+`l2lib.read_state_frame`, bounded to its own export. This replaces an inherited
+five-byte skip and the separate terrain-zone frame parser. The admitted map
+subset requires `RF_HasStack`, two nonzero references equal to the export class,
+a 64-bit probe mask of all ones, and a decoded compact code offset of `-1`.
+Other frames remain unsupported by this subset; they are not declared invalid
+game data. The intervening DWORD is retained unchanged as `word28`, without
+assigning it a script meaning. Reference width determines the property offset.
+
+The private sweep source output adds `savedStateFrame` to each retained actor:
+qualified class identity, saved export flags, both references, two probe-mask
+words, raw DWORD, code offset, and exact source offset/length/SHA256. The existing
+record checker independently re-encodes these fields against the original
+export prefix. Its `--check` summary includes frame count, widths and distinct
+raw-word count. Legacy ray output does not acquire this source-only payload.
+
+```sh
+python3 tools/world/check_static_collision_records.py 17_25 22_22 --check
+python3 -m unittest discover -s tools/world -p test_static_collision.py
+python3 -m unittest discover -s tools/world -p test_export_terrain_zones.py
+```
+
+All **986 Talking Island and 1,936 Giran frames** round-trip exactly. They are
+15 bytes each, with 159 and 296 distinct raw DWORD values respectively.
+The 62 portable collision-record cases include variable-width references,
+high-bit DWORDs, truncated exports, unsupported offsets and deliberately
+changed retained fields. Another 12 terrain-zone cases pass. Authored fixtures
+exercise parsing boundaries; they do not establish official game values.
+
+The bounds verifier adds `source.actorStateFrames` using the pinned owned Core
+and explicit supplemental Core edition listed above. It compares ordinary
+bodies of `UObject.Serialize` (`1015e820..1015ea8f`), `UObject.InitExecution`
+(`1015efa0..1015f03b`), `FStateFrame(UObject*)` (`1010bdd0..1010be1a`), the
+ULinkerLoad object-reference archive operator (`10113370..101133e9`) and the
+compact-index operator (`1015cfb0..1015d18d`). The exact ranges end after whole
+return instructions; compiler exception-handler tails are outside these ranges.
+Nine helper/thunk bindings and the named archive vtable's reference slot join
+the frame fields to their serializers. Reproduce with the same bounds command:
+
+```sh
+python3 tools/ui/check_static_actor_bounds_native.py \
+  --comparison-engine /path/to/comparison/system/engine.dll \
+  --comparison-core /path/to/comparison/system/Core.dll
+```
+
+This is code correspondence and saved-byte verification, not execution of
+archive I/O, allocation or current reference resolution. The ordinary
+`InitExecution` path releases the previous frame and constructs a replacement.
+The constructor writes the class node/state references, owner, null code and
+locals, field `+0x18`, and probe mask. It does **not** initialize `+0x14` or
+`+0x28`; neither may be inferred to be zero. Saved `word28` must not be copied
+into a supposed post-startup state. Supplemental correspondence still does not
+authenticate that archive or reconstruct a protected executable.
+
+Main-world collision and walking are unchanged. This closes the saved-frame
+parsing boundary for the checked actors; live reference/default loading, level
+startup and collision population remain integration work. Original packages,
+generated records and raw receipts stay private. These additions are repository
+Elbera Tools, outside the existing standalone release archives.
+
 ## Next integration boundary
 
 `localBounds` must be the **current native mesh field**, not a box recomputed

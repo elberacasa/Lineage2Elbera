@@ -51,37 +51,41 @@ grid), `Brush`×35, `Model`×45 + `Polys`×45 (BSP), `Light`×25,
 
 ### 3.1 Scripted actors (Light, ZoneInfo, StaticMeshActor, TerrainInfo, ...)
 
+An export with `RF_HasStack` (`0x02000000`) begins with a serialized
+`FStateFrame`. The bounded map reader admits this observed subset:
+
 ```
-cidx ClassIndex            (identical to the export-table ClassIndex)
-cidx ClassIndex            (same value again)
-i32 -1
-i32 -1
-byte[5] ??                 (varies per object; e.g. 65 00 72 00 81)
-<tagged property list>     (same FPropertyTag format as .utx textures)
+cidx Node                  (= export-table ClassIndex, nonzero)
+cidx StateNode             (= export-table ClassIndex)
+u64 ProbeMask              (= 0xffffffffffffffff)
+u32 word28                 (preserved raw; no script meaning inferred)
+cidx CodeOffset            (= -1)
+<tagged property list>     (FPropertyTag stream)
 <native tail>              (class-specific; empty for most actors)
 ```
 
-The header is **15 bytes for licensee 25** (class index = 1-byte compact)
-and **17 bytes for licensee 28** (2-byte compact class index). Verified by
-parsing clean, complete property lists for Light, ZoneInfo, LevelInfo,
-PhysicsVolume, PlayerStart, Camera, Brush, BlockingVolume, Projector,
-SkyZoneInfo, NMoon, NSun, NMovableSunLight, StaticMeshActor, TerrainInfo.
-Every actor property set ends with the UE-standard `Region` (PointRegion
-struct), `Tag`, `PhysicsVolume`, `Location` (Vector), `TexModifyInfo`
-(TextureModifyinfo struct) properties.
+The former `byte[5] ??` was a DWORD followed by a compact code offset.
+`convert.py` now reuses `l2lib.read_state_frame` within the export boundary,
+and terrain-zone extraction uses that same reader. References, mask, flag and
+code offset are checked; unsupported frames return no admitted property start.
+Header length follows the encoded references, **not the licensee version**.
+For this subset it is `2 * len(cidx(ClassIndex)) + 13`. The general library
+reader also handles a null Node, for which no CodeOffset is serialized; that
+case is outside this map subset.
 
-Property list scan tool: `tools/maps/propscan.py` (auto-detects the list
-start per class).
+Fresh checks retain and round-trip all **2,922 StaticMeshActor frames** in
+Talking Island (`17_25`) and Giran (`22_22`). Each is 15 bytes. Their raw DWORDs
+have 159 and 296 distinct values respectively and are never zeroed or ignored.
+[Source binding and commands](native-static-actor-bounds-evidence.md#saved-actor-frames-and-execution-reset)
+distinguish the saved prefix from later `InitExecution`, which replaces the
+frame. Neither a saved code offset nor a passing property parse proves current
+script state.
 
-**DO NOT SCAN FOR THE HEADER — COMPUTE IT (2026-08-08).** The header length
-is not a mystery to be searched for: it is `2 * len(cidx(ClassIndex)) + 13`,
-and every byte of it is checkable (both compact indices must equal the
-export table's own `ClassIndex`, both i32 must be `-1`). That is
-`convert.py`'s `actor_prop_offset()`. Measured over all 100 converted maps
-and their 162,805 `StaticMeshActor` exports: the check passes for **every**
-one, the offset is **15 for every one** (no licensee-28 tile in the
-converted set produces 17), and the property list there consumes the export
-body exactly for 162,779 of them (99.98%).
+`actor_prop_offset()` uses this strict path. `find_prop_start()` still has a
+legacy property scan fallback for other callers; that fallback is not evidence
+of original loading. The audited collision and terrain-zone readers require
+the strict frame. The older census below records conversion history, not a
+fresh certification of every actor class, map, property tail or live placement.
 
 History, because this was got wrong twice and the second wrong answer was
 written up here as if it were right:

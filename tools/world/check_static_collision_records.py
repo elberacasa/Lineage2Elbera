@@ -21,7 +21,56 @@ from export_static_collision import (
     count,
     read_props_ordered,
 )
-from l2lib import encode_compact, read_properties
+from l2lib import RF_HAS_STACK, encode_compact, read_properties
+
+
+def check_actor_frame(package, export, saved):
+    """Re-encode retained frame fields against the bounded original prefix."""
+    if (
+        saved.get("scope") != "saved-map-state-frame"
+        or saved.get("savedExportFlags") != export.object_flags
+        or not export.object_flags & RF_HAS_STACK
+        or saved.get("classIdentity") != qualified_ref(package, export.class_index)
+    ):
+        raise ValueError("saved actor frame identity differs from export")
+    for name in (
+        "node",
+        "stateNode",
+        "word28",
+        "codeOffset",
+        "sourceOffset",
+        "sourceBytes",
+    ):
+        if type(saved.get(name)) is not int:
+            raise ValueError("saved actor frame scalar is not an integer")
+    if (
+        saved["node"] != export.class_index
+        or saved["stateNode"] != export.class_index
+        or not saved["node"]
+        or saved["codeOffset"] != -1
+        or not 0 <= saved["word28"] <= 0xFFFFFFFF
+        or saved.get("probeMaskWords") != [0xFFFFFFFF, 0xFFFFFFFF]
+        or any(type(word) is not int for word in saved["probeMaskWords"])
+    ):
+        raise ValueError("unsupported saved actor frame fields")
+    encoded = (
+        encode_compact(saved["node"])
+        + encode_compact(saved["stateNode"])
+        + struct.pack("<III", *saved["probeMaskWords"], saved["word28"])
+        + encode_compact(saved["codeOffset"])
+    )
+    start, end = export.serial_offset, export.serial_offset + export.serial_size
+    if (
+        not 0 <= start < start + len(encoded) <= end <= len(package.data)
+        or bytes(package.data[start : start + len(encoded)]) != encoded
+        or saved.get("sourceOffset") != start
+        or saved.get("sourceBytes") != len(encoded)
+        or saved.get("sourceSHA256") != hashlib.sha256(encoded).hexdigest()
+    ):
+        raise ValueError("saved actor frame differs from original prefix")
+    return dict(
+        bytes=len(encoded), SHA256=saved["sourceSHA256"], word28=saved["word28"]
+    )
 
 
 def check_level_actor_order(package, binding, actors):
@@ -510,11 +559,16 @@ def verify(tile, *, fresh_class_flags=None):
     actors = audit.actors()
     report = audit.report(actors)
     level_order = check_level_actor_order(audit.pkg, audit.level_binding, actors)
-    actor_transforms, actor_flags, actor_references = [], [], []
+    actor_transforms, actor_flags, actor_references, actor_frames = [], [], [], []
     for actor in actors:
         if not any(
             key in actor
-            for key in ("savedTransform", "savedCollisionFlags", "savedReferences")
+            for key in (
+                "savedTransform",
+                "savedCollisionFlags",
+                "savedReferences",
+                "savedStateFrame",
+            )
         ):
             continue
         matches = [
@@ -525,6 +579,13 @@ def verify(tile, *, fresh_class_flags=None):
         ]
         if len(matches) != 1:
             raise ValueError("ambiguous saved actor transform identity")
+        if "savedStateFrame" in actor:
+            actor_frames.append(
+                dict(
+                    actor=actor["name"],
+                    **check_actor_frame(audit.pkg, matches[0], actor["savedStateFrame"])
+                )
+            )
         if "savedTransform" in actor:
             actor_transforms.append(
                 dict(
@@ -621,6 +682,7 @@ def verify(tile, *, fresh_class_flags=None):
         actorTransforms=actor_transforms,
         actorFlags=actor_flags,
         actorReferences=actor_references,
+        actorStateFrames=actor_frames,
         levelActorOrder=level_order,
         classDefaults=audit.defaults,
         actorClassLoading=audit.actor_class_loading,
@@ -680,6 +742,7 @@ def main():
         if args.check:
             fresh = report["freshPreparation"]
             booleans = report["persistentBooleanPreparation"]
+            actor_frames = report["actorStateFrames"]
             actor_count = len(report["actorTransforms"])
             actor_flags = len(report["actorFlags"])
             actor_references = len(report["actorReferences"])
@@ -706,6 +769,13 @@ def main():
             report["actorTransformRecords"] = actor_count
             report["actorFlagRecords"] = actor_flags
             report["actorReferenceRecords"] = actor_references
+            report["actorStateFrameRecords"] = len(actor_frames)
+            report["actorStateFrameWidths"] = dict(
+                Counter(row["bytes"] for row in actor_frames)
+            )
+            report["actorStateFrameDistinctWords28"] = len(
+                {row["word28"] for row in actor_frames}
+            )
             report["persistentBooleanPreparation"] = {
                 k: v for k, v in booleans.items() if k != "records"
             }

@@ -2,6 +2,31 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Bounded saved actor frames — 28 September 2026
+
+The map reader now reuses l2lib's state-frame decoder instead of blindly
+skipping five bytes. The terrain-zone reader shares it. Export bounds,
+RF_HasStack, class references, probe mask and compact code offset are checked;
+the raw DWORD remains intact and is not assigned a script meaning. Private
+sweep records retain every field and exact source spans/hashes. Original Core
+code correspondence ties the serializers together and distinguishes the later
+InitExecution replacement, whose constructor leaves two words unwritten.
+
+All 2,922 static actor frames in Talking Island and Giran round-trip. The
+62 collision-record, 12 zone and 16 interpreter cases pass. Both original zone
+exports pass, and the 100-map conversion census retains all 163,953 readable
+placements in existing scenes. That census does not prove strict-frame coverage
+or correct live placement. Native bounds verification passes with the new frame
+binding. No runtime JS or UI changed; no Online map repair is claimed. The old
+format guide's five unknown bytes and licensee-based header-width claim are
+corrected. Private files and raw receipts remain local; all 17 README images
+are preserved.
+
+Next: join source-derived actor reference/default state and level collision
+startup to the existing world-query components. A saved frame is not current
+execution state; loading completion and later writes must remain explicit.
+The full-client goal is active and incomplete.
+
 ## Static actor class flags and property loading — 28 September 2026
 
 Recovered the consumed StaticMeshActor class mask0x428 from original native
