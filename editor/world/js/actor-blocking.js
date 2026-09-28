@@ -85,6 +85,29 @@ export function isActorBasedOn(input) {
   });
 }
 
+/** Ordinary AActor::IsOwnedBy includes the receiver and follows Owner +0x3c.
+ * It is distinct from IsBasedOn's Base chain. Null is an explicit terminator.
+ */
+export function isActorOwnedBy(input) {
+  return ready(() => {
+    let { actor, owner, ownerOf } = input ?? {};
+    if (actor === undefined || owner === undefined)
+      unknown("explicit actor/owner identities required");
+    const seen = new Set();
+    while (actor !== null) {
+      if (actor === owner) return { value: 1 };
+      if (seen.has(actor))
+        unknown("cyclic owner chain outside terminating source domain");
+      seen.add(actor);
+      if (typeof ownerOf !== "function")
+        unknown("missing source Owner provider");
+      actor = ownerOf(actor);
+      if (actor === undefined) unknown("missing source Owner link");
+    }
+    return { value: 0 };
+  });
+}
+
 /** Native direct helpers retain conditional virtual/class calls and byte fields.
  * Source aliases primitive38/primitive278 and physicsByte34 name offsets only.
  */

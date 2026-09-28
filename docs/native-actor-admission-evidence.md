@@ -123,7 +123,8 @@ python3 tools/ui/check_actor_octree_admission_native.py \
 Owned files default to `assets/interlude/system/engine.dll` and `Core.dll`;
 `--engine` and `--core` override them. Without `--check`, the tool returns source
 bindings, coverage and current file hashes. `--runtime-module` compares an
-alternate `actor-octree.js` beside its geometry and primitive-helper dependencies.
+alternate `actor-octree.js` beside its geometry, primitive-helper and
+cylinder-collision dependencies.
 Original files are read only when verification runs. Capstone 5.0.7 is required.
 
 New qualification includes normal AddActor/RemoveActor, `ULevel.GetLevelInfo`,
@@ -157,8 +158,9 @@ padding or its Float32 store, reversed selector priority, and late removal.
 ## Remaining work
 
 Current fields, LevelInfo state, primitive methods and lifecycle calls still
-need to come from the live browser world. Ordered actor-query traversal and
-candidate/primitive dispatch must connect this membership to
+need to come from the live browser world. The separate
+[nonzero actor-query component](native-actor-query-evidence.md) now traverses this
+membership. Live filtering and concrete primitive dispatch must connect it to
 [cached mesh collision](native-static-mesh-cache-evidence.md), cylinders and
 [level sweeps](native-level-sweep-adapters-evidence.md). Saved render placements
 alone do not establish those current values.

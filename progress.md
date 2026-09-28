@@ -2,6 +2,29 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original nonzero actor-query traversal — 28 September 2026
+
+The browser now queries its existing actor tree in original parent/child order,
+preserving candidate tags, owner-chain filtering, scratch initialization, hit
+prepending, first-hit exits and strict minimum-time selection. The query keeps
+tag wrap and signed zero-direction reciprocals under an explicit masked-division
+profile. Unknown later state returns completed tag writes and partial hits as
+unsupported; it never establishes a clear route. Browser collection reverses
+once instead of repeatedly shifting the hit array.
+
+Elbera Tools compares 600 queries after 1,144 original admissions, checking 3,302
+candidate-tag writes and 283 returned hits. The run executes 4,104,967 retained
+instructions at 1,890 addresses, with 360 conditional masked zero divisions.
+Eight deliberate tag/order/flag/extent errors are rejected. Nine browser and four
+interpreter cases are added. Reused Float32 stack cells retain their bits when
+the original code writes an overlapping byte.
+
+Current world fields/tags, subclass ShouldTrace, concrete primitive joins and
+zero-extent queries remain unfinished. Supplied virtual responses are explicit;
+these checks do not claim walking or camera integration. No new UI, screenshot
+or standalone archive is claimed. The full browser-client goal remains active.
+[Contract, source and reproducibility](docs/native-actor-query-evidence.md).
+
 ## Original actor admission and updates — 28 September 2026
 
 The browser joins ordinary AddActor gates, current primitive bounds, numeric
