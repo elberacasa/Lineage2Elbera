@@ -7,7 +7,7 @@ from export_static_collision import Reader, mesh_body, mesh_load_tail, qualified
 from types import SimpleNamespace
 from unittest.mock import patch
 from l2lib import L2Error
-from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation, check_actor_transform, check_actor_flags
+from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation, check_actor_transform, check_actor_flags, check_level_actor_order
 from static_mesh_class_source import read_root_class_flags
 
 
@@ -366,7 +366,9 @@ class QualificationTest(unittest.TestCase):
         audit.defaults = [{'class': 'authored-default-evidence'}]
         geometry = mesh_body(Reader(body()), retain_sweep_data=True)
         audit.geometry = {'Fixture.Mesh': geometry}
+        audit.level_binding = {'scope': 'authored-fixture'}
         rows = [{'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
+                 'exportRef': 8, 'savedLevelSlots': [1, 3],
                  'issues': [], 'meshIssues': [], 'position': [1, 2, 3], 'scale': [1, 1, 1],
                  'savedTransform': {'scope': 'authored-fixture'}, 'savedCollisionFlags': {'scope': 'authored-fixture'}}]
         with self.assertRaisesRegex(ValueError, 'separate private source output'):
@@ -374,8 +376,10 @@ class QualificationTest(unittest.TestCase):
         source = audit.sweep_output(rows)
         self.assertEqual(source['references'], [
             {'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
+             'exportRef': 8, 'savedLevelSlots': [1, 3],
              'savedTransform': {'scope': 'authored-fixture'}, 'savedCollisionFlags': {'scope': 'authored-fixture'}}])
         self.assertEqual(source['classDefaults'], audit.defaults)
+        self.assertEqual(source['savedLevelBinding'], audit.level_binding)
         self.assertIs(source['meshes']['Fixture.Mesh'], geometry)
         self.assertNotIn('actors', source)
         rows.append({'name': 'Unknown', 'issues': ['unknown'], 'meshIssues': []})
@@ -607,6 +611,32 @@ class ActorLayoutTest(unittest.TestCase):
 
 
 class ActorAdmissionTest(unittest.TestCase):
+    def test_level_order_round_trip_retains_null_repeats_and_absent_exports(self):
+        refs = [3, 0, 1, 3, 2]
+        first = struct.pack('<ii', 1, 1) + compact(4)
+        second = struct.pack('<ii', len(refs), len(refs)) + b''.join(map(compact, refs))
+        pkg = SimpleNamespace(data=first + second)
+        binding = dict(actorArrays=[
+            dict(nativeField='0x48', count=1, duplicateCount=1, references=[4]),
+            dict(nativeField='0x38', count=5, duplicateCount=5, references=refs)],
+            spans={'array0x48': [0, len(first)], 'array0x38': [len(first), len(first + second)]})
+        actors = [dict(exportRef=1, savedLevelSlots=[2]), dict(exportRef=3, savedLevelSlots=[0,3]),
+                  dict(exportRef=4, savedLevelSlots=[])]
+        result = check_level_actor_order(pkg, binding, actors)
+        self.assertEqual((result['actorsInSavedLevel'], result['actorsAbsentFromSavedLevel'], result['auditedActorSlots']), (2,1,3))
+        self.assertEqual(result['arrays'][1]['nullSlots'], 1)
+        self.assertEqual(result['arrays'][1]['repeatedNonNullSlots'], 1)
+        for mutate in [lambda b: b['actorArrays'][1]['references'].reverse(),
+                       lambda b: b['actorArrays'][1].update(duplicateCount=4),
+                       lambda b: b['spans'].update(array0x38=[len(first), len(first+second)-1])]:
+            changed = deepcopy(binding); mutate(changed)
+            with self.assertRaises(ValueError): check_level_actor_order(pkg, changed, actors)
+        for mutate in [lambda a: a[1].update(savedLevelSlots=[0]),
+                       lambda a: a[2].update(savedLevelSlots=[0]),
+                       lambda a: a[2].update(exportRef=3)]:
+            changed = deepcopy(actors); mutate(changed)
+            with self.assertRaises(ValueError): check_level_actor_order(pkg, binding, changed)
+
     def test_transform_round_trip_rejects_signed_zero_origin_and_scale_changes(self):
         scale = compact(1) + bytes([0x24]) + struct.pack('<f', 3.25)
         pivot = compact(2) + bytes([0x3a]) + compact(3) + struct.pack('<3f', -0., 7, -12)

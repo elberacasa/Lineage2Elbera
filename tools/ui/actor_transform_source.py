@@ -24,6 +24,65 @@ def raw(image, a, b):
     return bytes(image.data[image.offset(a) : image.offset(b)])
 
 
+def qualify_level_actor_population(engine, comparison):
+    """Bind the normal fresh-hash population loop; allocation is not executed."""
+    assert (engine.sha, comparison.sha) == (ENGINE_SHA, COMPARISON_SHA)
+    symbol = "?SetActorCollision@ULevel@@UAEXHH@Z"
+    assert engine.exported(symbol, True) == 0x105CAB50
+    assert comparison.body(symbol) == 0x105CAB10
+    start, end = 0x105CABE8, 0x105CAC20
+    data = raw(engine, start, end)
+    assert data == comparison.read(start - 64, len(data))
+    rows = list(engine.dis.disasm(data, start))
+    assert sum(row.size for row in rows) == len(data)
+    for at, op, args in [
+        (0x105CABED, "mov", "eax, dword ptr [esi + 0x3c]"),
+        (0x105CABF8, "mov", "eax, dword ptr [esi + 0x38]"),
+        (0x105CABFE, "cmp", "dword ptr [eax], edi"),
+        (0x105CAC04, "test", "byte ptr [eax + 0x2f8], 1"),
+        (0x105CAC0D, "mov", "ecx, dword ptr [esi + 0x120]"),
+        (0x105CAC16, "mov", "eax, dword ptr [edx + 8]"),
+        (0x105CAC19, "call", "eax"),
+        (0x105CAC1B, "add", "ebx, 1"),
+    ]:
+        engine.instruction(at, op, args)
+    before = raw(engine, 0x105CABCA, start)
+    guard = compare_call_block(
+        before,
+        comparison.read(0x105CAB8A, len(before)),
+        owned_va=0x105CABCA,
+        candidate_va=0x105CAB8A,
+        sites=[],
+        direct_calls=[0x105CABDD - 0x105CABCA],
+        imports=comparison.imports,
+    )
+    table_symbol = "??_7FCollisionOctree@@6B@"
+    add_symbol = "?AddActor@FCollisionOctree@@UAEXPAVAActor@@@Z"
+    table, target = engine.exported(table_symbol), engine.exported(add_symbol)
+    assert comparison.exports[table_symbol] == table
+    assert comparison.exports[add_symbol] == target
+    assert engine.u32(table + 8) == comparison.u32(table + 8) == target
+    return dict(
+        symbol=symbol,
+        start=hex(start),
+        end=hex(end),
+        stop="0x105cacb1",
+        SHA256=hashlib.sha256(data).hexdigest(),
+        precedingFreshHashGuard=guard,
+        vtable=dict(
+            symbol=table_symbol,
+            address=hex(table),
+            slot=8,
+            method=add_symbol,
+            target=hex(target),
+        ),
+        limits=[
+            "Population loop with supplied stable current Level array and collision hash; not saved-to-current loading.",
+            "Native slot order, null gate and collision bit are executed. AddActor is an explicit callback boundary here; allocation, editor cleanup and hash removal are not executed.",
+        ],
+    )
+
+
 def qualify_actor_collision_fields(
     engine, core, comparison_engine, comparison_core, package
 ):
