@@ -2,6 +2,59 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Beginner combat/reconnect and sound binding — 28 September 2026
+
+The existing level-one Human Fighter entered Talking Island through Online,
+selected a visible Gremlin and used the normal Attack shortcut. The client
+showed approach/combat, damage, a kill reward of 33 Adena, 145 experience and
+10 SP, and a level increase. A fresh page and Online login then listed the
+same character at level two. These are observations of the configured local
+server, not official reward/rate evidence or a complete animation/movement
+parity check. No developer movement, injected events or database edits were
+used. The temporary tab was closed after checking reconnect.
+
+Two unhandled PlaySound warnings exposed a concrete presentation gap. The
+existing Elbera Tools sound verifier now optionally compares both pinned
+supplemental Engine/Core images. Three exact code intervals (417 bytes) bind
+the previously erased radius/type-query imports: the radius load corresponds
+to the named Core default, whose original Float32 value is 80; the camera's
+controller cast calls the named IsA method. Sound lookup/load imports and the
+actual cast-helper thunk are also checked. Seven deliberately corrupted
+in-memory comparison views failed admission; nine source-free tests pass.
+
+The original-only command continues to report its unresolved import boundary.
+The comparison does not establish archive provenance or repair/execution of
+the protected client. Browser sound playback remains unsupported while the
+post-constructor audio state, voice lifetime and mixer paths remain incomplete.
+Next: inspect the scene-node matrix update and intervening render-interface
+call, then connect only the recovered ordinary sound behavior to the real
+packet path. See [source and reproduction](docs/native-playsound-evidence.md).
+
+## Fresh Online entry baseline — 28 September 2026
+
+After the original actor-query milestone merged as PR30, a fresh isolated
+browser session reached character creation through the ordinary Online control.
+The captured creator still uses a custom layout; official Interlude appearance
+is an explicit gap. The installed web-game runner recorded no console/page
+errors for this bounded entry check.
+
+A separate interactive check on the same published build entered an existing
+local character on Talking Island, selected Katerina through the rendered world,
+opened her dialog and loaded the server's shop list. Cancel and the inventory
+keyboard shortcut displayed the saved inventory/equipment. No warning/error
+entries were captured during those interactions. No purchases, developer
+teleports, state injection or database changes were used for this check. The
+temporary playtest browser/tab were closed afterwards.
+
+This verifies entry and those interactions, not a complete beginner journey,
+official visual parity, movement/camera collision, new progression persistence,
+server restart recovery or multiplayer readiness. The next acceptance sequence
+is ordinary entry, movement, combat/skill use, loot/equipment, quest/shop,
+death/respawn and reconnect, followed by two-client consistency and server
+restart. Connect the recovered collision and presentation components to that
+sequence; add inspection tools only where they resolve a concrete missing input
+or make a defect reproducible. The full-port goal remains active.
+
 ## Original nonzero actor-query traversal — 28 September 2026
 
 The browser now queries its existing actor tree in original parent/child order,

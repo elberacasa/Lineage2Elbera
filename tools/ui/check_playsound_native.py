@@ -3,13 +3,15 @@
 
 Read-only: supplied Engine.dll, Core.dll, ALAudio.dll and ItemSound.uax required.
 Decodes only in memory; no client execution, sockets, accounts or asset output.
-The radius import and full driver-update lifecycle remain explicitly unbound.
+An optional pinned comparison binds radius/type imports; the complete driver
+update and voice lifecycle remain separate work.
 """
 import argparse
 from fractions import Fraction
 import hashlib
 import json
 import math
+from pathlib import Path
 import struct
 import sys
 
@@ -26,6 +28,98 @@ CORE_SHA = '9462f87a5e77d21865e2e00264efd44df25feb47aa78f8a72e9cf66ce4e919bf'
 ITEMSOUND_SHA = 'e16cd1701b485f4b76de4938af5674699b8622cb6e0c418c2c313044c485365d'
 QUEST_SOUNDS = ('quest_accept', 'quest_middle', 'quest_finish', 'quest_itemget')
 RADIUS_SLOT = 0x11d8dc10
+
+
+def qualify_sound_bindings(engine, core, comparison, comparison_core):
+    """Match bounded owned code to named imports in the pinned second copy.
+
+    No missing-call bytes are written back. Correspondence does not establish
+    archive provenance, native startup repair or post-constructor alias safety.
+    """
+    from check_hair_attachment_native import compare_call_block
+    from check_supplemental_engine import CANDIDATE_ENGINE_SHA, CANDIDATE_CORE_SHA
+
+    assert (engine.sha, core.sha, comparison.sha, comparison_core.sha) == (
+        ENGINE_SHA, CORE_SHA, CANDIDATE_ENGINE_SHA, CANDIDATE_CORE_SHA)
+    handler = '?OnPlaySound@UGameEngine@@UAEXAAVL2ParamStack@@@Z'
+    camera = '??0FCameraSceneNode@@QAE@PAVUViewport@@PAVFRenderTarget@@PAVAActor@@VFVector@@VFRotator@@M@Z'
+    assert engine.exported(handler, True) == comparison.body(handler) == 0x1049dec0
+    assert engine.exported(camera, True) == 0x10655680
+    assert comparison.body(camera) == 0x10655640
+    radius = '?GAudioDefaultRadius@@3MA'
+    assert comparison.imports[0x11d8dc0c] == ('core.dll', radius)
+    owned_value = core.read(core.exports[radius], 4)
+    assert owned_value == comparison_core.read(comparison_core.exports[radius], 4)
+    value, = struct.unpack('<f', owned_value)
+    assert value == 80.0
+    imports = {
+        0x1049dfe6: '?StaticFindObject@UObject@@SAPAV1@PAVUClass@@PAV1@PBGH@Z',
+        0x1049dffc: '?IsA@UObject@@QBEHPAVUClass@@@Z',
+        0x1049e018: '?StaticLoadObject@UObject@@SAPAV1@PAVUClass@@PAV1@PBG2KPAVUPackageMap@@@Z',
+        0x1056b250: '?IsA@UObject@@QBEHPAVUClass@@@Z',
+    }
+    sound_class = '?PrivateStaticClass@USound@@0VUClass@@A'
+    controller_class = '?PrivateStaticClass@AController@@0VUClass@@A'
+    # Only these independently named class addresses can be relocated.
+    classes = {0x1049dfe1: sound_class, 0x1049dff5: sound_class,
+               0x1049e013: sound_class, 0x1056b249: controller_class}
+    proofs = []
+    for name, start, end, delta in [
+        ('mode-zero lookup and complete driver dispatch', 0x1049dfd4, 0x1049e0af, 0),
+        ('controller cast helper', 0x1056b240, 0x1056b262, 0),
+        ('camera audio-position selection', 0x106556d1, 0x10655775, -64),
+    ]:
+        raw = bytes(engine.data[engine.offset(start):engine.offset(end)])
+        candidate = bytearray(comparison.read(start + delta, end - start))
+        normalizations = []
+        for at, symbol in classes.items():
+            if not start <= at < end:
+                continue
+            offset = at - start
+            assert raw[offset] == candidate[offset] == 0x68
+            assert struct.unpack_from('<I', raw, offset + 1)[0] == engine.exported(symbol)
+            assert struct.unpack_from('<I', candidate, offset + 1)[0] == comparison.exports[symbol]
+            struct.pack_into('<I', candidate, offset + 1, engine.exported(symbol))
+            normalizations.append({'VA': hex(at), 'kind': 'named class', 'symbol': symbol})
+        if start <= 0x1049e058 < end:
+            offset = 0x1049e058 - start
+            assert raw[offset:offset + 2] == candidate[offset:offset + 2] == b'\x8b\x15'
+            assert struct.unpack_from('<I', raw, offset + 2)[0] == RADIUS_SLOT
+            assert struct.unpack_from('<I', candidate, offset + 2)[0] == 0x11d8dc0c
+            struct.pack_into('<I', candidate, offset + 2, RADIUS_SLOT)
+            normalizations.append({'VA': '0x1049e058', 'kind': 'named imported global',
+                                   'symbol': radius, 'candidateIAT': '0x11d8dc0c'})
+        rows = list(engine.dis.disasm(raw, start))
+        assert sum(row.size for row in rows) == len(raw)
+        proof = compare_call_block(raw, bytes(candidate), owned_va=start,
+            candidate_va=start + delta,
+            sites=[(at - start, ('core.dll', symbol)) for at, symbol in imports.items()
+                   if start <= at < end],
+            direct_calls=[row.address - start for row in rows
+                          if row.mnemonic == 'call' and row.bytes[0] == 0xe8],
+            imports=comparison.imports)
+        proofs.append({'name': name, 'startVA': hex(start), 'endVAExclusive': hex(end),
+                       'comparisonDelta': delta, 'ownedSHA256': digest(raw),
+                       'normalizations': normalizations, **proof})
+    # The camera helper call really reaches the matched cast body. A nearby
+    # IsA import on its own would not establish the helper's identity.
+    engine.instruction(0x1065571b, 'call', '0x10312445')
+    engine.instruction(0x10312445, 'jmp', '0x1056b240')
+    assert comparison.read(0x10312445, 5) == bytes(
+        engine.data[engine.offset(0x10312445):engine.offset(0x10312445) + 5])
+    return {'status': 'matched-supplemental-bindings',
+        'comparisonEngineSHA256': comparison.sha, 'comparisonCoreSHA256': comparison_core.sha,
+        'blocks': proofs,
+        'radius': {'status': 'matched-named-import', 'ownedSlotVA': hex(RADIUS_SLOT),
+                   'candidateIAT': '0x11d8dc0c', 'symbol': radius, 'value': value,
+                   'ownedCoreVA': hex(core.exports[radius]),
+                   'comparisonCoreVA': hex(comparison_core.exports[radius]),
+                   'valueBytesSHA256': digest(owned_value)},
+        'controllerTypeQuery': {'status': 'matched-named-import', 'ownedVA': '0x1056b250',
+                                'symbol': imports[0x1056b250], 'classSymbol': controller_class},
+        'remaining': ['post-constructor callbacks and indirect writes before Audio.Update',
+                      'full voice lifecycle, mixer and EAX behavior',
+                      'comparison provenance and owned native startup repair']}
 
 
 def digest(data):
@@ -158,7 +252,9 @@ def collect_quest_waves(source=None):
     return sounds, waves
 
 
-def verify():
+def verify(comparison_engine=None, comparison_core=None):
+    if (comparison_engine is None) != (comparison_core is None):
+        raise ValueError('comparison Engine and Core must be supplied together')
     engine_path = ROOT / 'assets/interlude/system/engine.dll'
     e = Image(engine_path, ENGINE_SHA, True)
     raw_engine = engine_path.read_bytes()
@@ -414,22 +510,33 @@ def verify():
     for va, op, args in driver:
         pin(a, va, op, args)
     sounds, _ = collect_quest_waves()
+    supplemental = None
+    if comparison_engine is not None:
+        from supplemental_pe import PEImage
+        from check_supplemental_engine import CANDIDATE_ENGINE_SHA, CANDIDATE_CORE_SHA
+        supplemental = qualify_sound_bindings(e,
+            PEImage(ROOT / 'assets/interlude/system/Core.dll', CORE_SHA),
+            PEImage(comparison_engine, CANDIDATE_ENGINE_SHA),
+            PEImage(comparison_core, CANDIDATE_CORE_SHA))
     return {'tool': 'Elbera Tools', 'status': 'verified-static-original',
+        'supplementalBindings': supplemental,
         'engineSHA256': ENGINE_SHA, 'audioDriverSHA256': ALAUDIO_SHA, 'coreSHA256': CORE_SHA,
         'soundBankSHA256': ITEMSOUND_SHA, 'instructionChecks': count,
         'packet': {'opcode': '0x98', 'format': 'dSdddddd', 'handlerVA': '0x1049dec0'},
         'mode0': {'owner': 'current viewport controller pawn', 'location': 'owner.Location',
             'gain': 1, 'pitch': 1, 'slot': 0, 'flags': 0,
             'ignoredWireFields': ['objectFlag', 'objectId', 'x', 'y', 'z', 'delay'],
-            'radius': {'status': 'unresolved-pointer-slot', 'slotVA': hex(RADIUS_SLOT)}},
-        'bindingBoundary': {'status': 'unresolved', 'independentRawRoundTrips': raw_sites,
+            'radius': supplemental['radius'] if supplemental else
+                {'status': 'unresolved-pointer-slot', 'slotVA': hex(RADIUS_SLOT)}},
+        'bindingBoundary': {'status': 'matched-supplemental-bindings' if supplemental else 'unresolved',
+            'independentRawRoundTrips': raw_sites,
             'radiusSlotInitialPointer': e.u32(RADIUS_SLOT),
             'radiusLiteralLoadCount': len(references),
             'radiusLiteralLoadVAs': [hex(row['VA']) for row in references],
             'ordinaryImportDLLs': sorted({dll for dll, _ in ordinary_imports.values()}),
             'defaultRole': 'also selected by execClientHearSound when its radius is zero',
             'limits': ['Literal-reference inventory does not exclude indirect/computed writes or later runtime repair.',
-                'A named radius default role does not bind this Engine slot to Core.GAudioDefaultRadius.',
+                'The original-only role inventory does not bind the radius slot; the optional exact block comparison provides separate correspondence.',
                 'The raw bytes do not identify who produced the missing-call bytes or whether/how runtime changes them.']},
         'ordinaryGain': {'status': 'conditional-reduction-only',
             'formula': 'clamp(volume * (R*50 - distance) / (R*50), 0, 1)',
@@ -437,19 +544,24 @@ def verify():
             'samePawnFiniteRadiusWitness': str(dry_gain_witness(1, Fraction(1, 4), 0)),
             'conditions': ['finite nonzero radius', 'same valid pawn at source and scene-node snapshots',
                 'ordinary nonambient flags-zero PCM voice', 'EAX disabled/unavailable'],
-            'unclosed': ['Engine radius import binding/value', 'camera-node type-query import target',
-                'complete callback/indirect-write closure between node construction and audio update']},
+            'unclosed': ([] if supplemental else ['Engine radius import binding/value',
+                'camera-node type-query import target']) +
+                ['complete callback/indirect-write closure between node construction and audio update']},
         'questSounds': sounds,
         'limits': ['Static source path only; no original client executed.',
             'Music/voice modes retained on wire but not implemented by this proof.',
-            'Ordinary Draw constructs the player node immediately before Audio.Update, ahead of scene Render. Its pawn branch uses Pawn.Location; the protected controller type query is still unbound.',
+            'Ordinary Draw constructs the player node before Audio.Update and scene Render, with intervening calls. The optional comparison binds its controller type query, not all later alias writes.',
             'Finite nonzero radius cancels from the dry zero-distance gain formula. The native assertion does not prove finiteness and EAX has a separate radius-dependent path.',
-            'Occlusion/reverb, user-volume controls and radius binding remain separate.',
+            'Occlusion/reverb, user-volume controls and full voice lifetime remain separate.',
             'Current general audio exporter downmixes these originals to mono; that output is not stereo parity.']}
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true', help='verify pinned supplied original evidence')
-    parser.parse_args()
-    print(json.dumps(verify(), indent=2))
+    parser.add_argument('--comparison-engine', type=Path, help='pinned supplemental Engine.dll')
+    parser.add_argument('--comparison-core', type=Path, help='matching pinned supplemental Core.dll')
+    args = parser.parse_args()
+    if bool(args.comparison_engine) != bool(args.comparison_core):
+        parser.error('--comparison-engine and --comparison-core must be supplied together')
+    print(json.dumps(verify(args.comparison_engine, args.comparison_core), indent=2))
