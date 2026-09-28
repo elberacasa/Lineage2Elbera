@@ -188,13 +188,52 @@ export class AudioEngine {
         if (hash !== info.SHA256) throw new Error('Original stereo WAV hash differs');
         buffers.set(key, await this.ctx.decodeAudioData(bytes));
       }));
-      this.nativePacketAudio = new NativePacketAudio({ context: this.ctx, profile, sounds: metadata.sounds, buffers });
+      let speech;
+      try { speech = await this._loadTutorialSpeech(read); }
+      catch (error) { console.warn('[audio] original tutorial speech unavailable:', error.message); }
+      this.nativePacketAudio = new NativePacketAudio({ context: this.ctx, profile, sounds: metadata.sounds, buffers, speech });
       if (!this.nativePacketAudio.ready) throw new Error(this.nativePacketAudio.failure);
     } catch (error) {
       this.nativePacketAudio?.dispose();
       this.nativePacketAudio = null;
       console.warn('[audio] original packet audio unavailable:', error.message);
     }
+  }
+
+  async _loadTutorialSpeech(read) {
+    const metadata = await read(`${BASE}/tutorial-voice.json`).then(r => r.json());
+    if (metadata.format !== 'l2-interlude-tutorial-voice-v1' || metadata.languageVariant !== 'e' ||
+        metadata.catalogSHA256 !== 'd6a59635328d18053a600d200b544ae84708fdbe3c553f197e1b393ce0284ea2')
+      throw new Error('Unsupported original tutorial catalog');
+    const buffers = new Map();
+    // Predecode before admitting packets; no late replay after async loading.
+    // Four workers bound simultaneous browser decoders, not game voice count.
+    const entries = Object.entries(metadata.sounds);
+    const catalog = entries.map(([key, info]) => {
+      if (info.file !== `${key}-e.ogg`) throw new Error('Original voice catalog name differs');
+      return { SHA256:info.SHA256, bytes:info.bytes, file:info.file };
+    }).sort((a,b) => a.file < b.file ? -1 : a.file > b.file ? 1 : 0);
+    const catalogHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',
+      new TextEncoder().encode(JSON.stringify(catalog)))), byte => byte.toString(16).padStart(2,'0')).join('');
+    if (catalogHash !== metadata.catalogSHA256) throw new Error('Original tutorial catalog fingerprint differs');
+    let next = 0;
+    await Promise.all(Array.from({ length: 4 }, async () => {
+      while (next < entries.length) {
+        const [key, info] = entries[next++];
+        if (!/^tutorial_voice_[0-9]{3}[a-z]?$/.test(key) || info.url !== `/audio/voice/${key}-e.ogg`)
+          throw new Error('Unexpected original voice URL');
+        const bytes = await read(info.url).then(r => r.arrayBuffer());
+        const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)),
+          byte => byte.toString(16).padStart(2, '0')).join('');
+        if (hash !== info.SHA256 || bytes.byteLength !== info.bytes)
+          throw new Error('Original tutorial voice hash differs');
+        const buffer = await this.ctx.decodeAudioData(bytes);
+        if (buffer.numberOfChannels !== info.channels)
+          throw new Error('Original tutorial channel count differs');
+        buffers.set(key, buffer);
+      }
+    }));
+    return { sounds: metadata.sounds, buffers };
   }
 
   playPacketSound(packet, frame) {
@@ -212,7 +251,20 @@ export class AudioEngine {
       active: this.nativePacketAudio?.voices.filter(v => v.soundId !== 0).length ?? 0,
       last: this.lastPacketSound,
       lastPlayed: this.lastPlayedPacketSound,
+      speechBuffers: this.nativePacketAudio?.speechSounds.size ?? 0,
+      speech: this.nativePacketAudio?.lastSpeechResult ?? null,
+      speechPending: this.nativePacketAudio?.speechState.kind !== 0 && !!this.nativePacketAudio,
+      nativeMusicIntegrated: false,
     };
+  }
+
+  updatePacketAudio(frame, delta) {
+    this.nativePacketAudio?.update(frame, delta);
+    const result = this.nativePacketAudio?.lastSpeechResult;
+    if (result?.status === 'playing' && result !== this._lastSpeechReceipt) {
+      this.lastPlayedPacketSound = result;
+      this._lastSpeechReceipt = result;
+    }
   }
 
   resume() {

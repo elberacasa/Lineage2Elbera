@@ -78,6 +78,11 @@ def extract_profile():
         (0x1000c652, 'push', '0x1003e13c'), (0x1000c657, 'push', '0x1003e154'),
         (0x1000c663, 'jne', '0x1000c66d'), (0x1000c665, 'fld', 'dword ptr [0x100409bc]'),
         (0x1000c66b, 'fstp', 'dword ptr [edi]'),
+        (0x1000c6a2, 'lea', 'edi, [esi + 0xd0]'),
+        (0x1000c6b0, 'push', '0x1003e1b4'),
+        (0x1000c6c1, 'jne', '0x1000c6cb'),
+        (0x1000c6c3, 'fld', 'dword ptr [0x100409b8]'),
+        (0x1000c6c9, 'fstp', 'dword ptr [edi]'),
         (0x1000c70b, 'push', '0x1004c770'), (0x1000c737, 'push', '0x1004c774'),
         (0x1000c9ed, 'mov', 'eax, dword ptr [esi + 0xd8]'),
         (0x1000c9f3, 'cmp', 'eax, 0x20'), (0x1000c9f6, 'jle', '0x1000c9fd'),
@@ -91,6 +96,8 @@ def extract_profile():
         image.instruction(va, op, args)
     for va, text in [(0x1003dee0, 'Channels'), (0x1003e124, 'Option.ini'),
                      (0x1003e13c, 'SoundVolume'), (0x1003e154, 'Audio'),
+                     (0x1003e1b4, 'OggVoiceVolume'), (0x1003e1d4, 'Audio'),
+                     (0x1003e19c, 'Option.ini'),
                      (0x1003e23c, 'UseAmbientSlot'), (0x1003e290, 'AmbientSoundSlot')]:
         assert image.wide(va) == text
     assert pe.imports[0x1004e76c][1] == '?AddZeroed@FArray@@QAEHHH@Z'
@@ -109,6 +116,7 @@ def extract_profile():
     image.instruction(0x10001177, 'jmp', '0x10005930')
     assert pe.read(0x1004ce10, 4) == b'\0' * 4
     volume, = struct.unpack('<f', pe.read(0x100409bc, 4))
+    voice_volume, = struct.unpack('<f', pe.read(0x100409b8, 4))
     return {'format': FORMAT, 'sources': {**sources, 'ALAudio.dll': {'SHA256': ALAUDIO_SHA},
                                         'Core.dll': {'SHA256': CORE_SHA}},
             'profileKind': 'supplied-driver-config-with-absent-user-options',
@@ -116,9 +124,10 @@ def extract_profile():
             'partitionFlag': int(literal_bool(ambient['UseAmbientSlot'])),
             'splitCount': int(ambient['AmbientSoundSlot']),
             'useEAX': literal_bool(driver['UseEAX']), 'rolloff': float(driver['Rolloff']),
-            'soundVolume': volume, 'initialCounter': 0, 'defaultRadius': radius,
+            'soundVolume': volume, 'oggVoiceVolume': voice_volume,
+            'initialCounter': 0, 'defaultRadius': radius,
             'limits': ['Supplied local configuration; not authenticated retail defaults.',
-                       'New browser profile has no saved Option.ini; SoundVolume uses the original missing-option branch.',
+                       'New browser profile has no saved Option.ini; SoundVolume and OggVoiceVolume use original missing-option branches.',
                        'Pool allocation and driver callbacks still require a browser platform adapter.']}
 
 

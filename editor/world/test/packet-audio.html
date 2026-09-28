@@ -6,7 +6,8 @@
 <style>
   body { max-width:1000px; margin:40px auto; padding:0 24px; background:#20262b; color:#eee; font:15px/1.6 system-ui; }
   a { color:#e7c887; } h1 { font-weight:500; } small,.muted { color:#adb6bc; }
-  button,select { font:inherit; color:inherit; background:#303a42; border:1px solid #64717a; padding:8px 12px; border-radius:4px; }
+  button,select,input { font:inherit; color:inherit; background:#303a42; border:1px solid #64717a; padding:8px 12px; border-radius:4px; }
+  input { width:95px; } .voice-controls { display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin-top:18px; }
   button { cursor:pointer; } button:disabled { opacity:.5; cursor:default; }
   table { width:100%; border-collapse:collapse; margin:24px 0; font-variant-numeric:tabular-nums; }
   td,th { padding:10px; text-align:left; border-bottom:1px solid #475058; } th { color:#e7c887; }
@@ -16,13 +17,19 @@
 <script type="importmap">{"imports":{"three":"../vendor/three.module.min.js"}}</script>
 <p><a href="index.html">Elbera Tools</a> / Audio evidence</p>
 <h1>Original packet audio</h1>
-<p>Five original stereo PCM sources through the browser's packet-audio module.
+<p>Five original stereo PCM sources and 42 English tutorial recordings through the browser's packet-audio module.
   This is an offline replay with an explicit same-pawn fixture, not a live quest or native-driver execution.</p>
 <p id="profile" class="muted">Loading the private source profile…</p>
 <label>Source <select id="sound" disabled></select></label>
 <button id="play" disabled>Replay mode zero</button>
 <button id="stop" disabled>Retire session</button>
 <button id="verify" disabled>Verify rendered PCM</button>
+<div class="voice-controls">
+  <label>Tutorial voice <select id="voice" disabled></select></label>
+  <label>Packet delay (ms) <input id="voice-delay" type="number" value="0" step="1" min="-2147483648" max="2147483647"></label>
+  <button id="play-voice" disabled>Request original speech</button>
+</div>
+<p class="muted">Speech uses the supplied English recordings unchanged. Request again during playback to inspect the original replacement fade. Decoding is a browser adapter; native music ducking is not yet connected to the legacy music pool.</p>
 <p id="status" role="status">Loading exact source buffers…</p>
 <table><thead><tr><th>Original source</th><th>Channels</th><th>Rate</th><th>Frames</th><th>PCM check</th></tr></thead><tbody id="sources"></tbody></table>
 <pre id="state" aria-label="Current audio state"></pre>
@@ -38,7 +45,8 @@ const frame = { owner:'offline-replay-pawn', epoch:1, location:[0,0,0],
   viewTargetLocation:[0,0,0], audioLocation:[0,0,0] };
 const packet = () => ({ soundType:0, sound:select.value });
 const verification = { status:'not-run', sources:0, samples:0 };
-const state = () => JSON.stringify({ mode:'offline-packet-audio-replay', ...engine.packetAudioState(), verification });
+const state = () => JSON.stringify({ mode:'offline-packet-audio-replay', ...engine.packetAudioState(),
+  voices: engine.nativePacketAudio?.voices.flatMap((v,i) => v.sound ? [{ index:i, ref:v.sound.ref, gain:v.output.gain.value, fadeState:v.fadeState }] : []) ?? [], verification });
 window.render_game_to_text = state;
 let timer;
 try {
@@ -57,11 +65,26 @@ try {
     cells.set(key, row.lastElementChild); document.querySelector('#sources').append(row);
   }
   for (const control of document.querySelectorAll('button,select')) control.disabled = false;
+  const voiceSelect = document.querySelector('#voice');
+  for (const key of engine.nativePacketAudio.speechSounds.keys()) voiceSelect.add(new Option(key,key));
+  voiceSelect.disabled = document.querySelector('#play-voice').disabled = voiceSelect.options.length === 0;
+  if (engine.nativePacketAudio.speechSounds.has('tutorial_voice_006')) voiceSelect.value = 'tutorial_voice_006';
   status.textContent = 'Ready. Replay uses a real AudioContext; verification renders offline.';
+  let previous = performance.now();
   timer = setInterval(() => {
-    engine.nativePacketAudio.update(frame);
+    const now = performance.now();
+    engine.updatePacketAudio(frame, (now - previous) / 1000);
+    previous = now;
     document.querySelector('#state').textContent = state();
   }, 50); // Diagnostic refresh only; the game updates on its rendering loop.
+  document.querySelector('#play-voice').onclick = async () => {
+    await engine.ctx.resume();
+    const result = engine.playPacketSound({ soundType:2, sound:voiceSelect.value,
+      delay:document.querySelector('#voice-delay').valueAsNumber }, frame);
+    status.textContent = result.status === 'requested'
+      ? `Requested ${result.ref}; original integer delay ${result.delay} seconds. Playback starts on a later tick.`
+      : `${result.status}: ${result.reason}`;
+  };
   document.querySelector('#play').onclick = async () => {
     await engine.ctx.resume();
     const result = engine.playPacketSound(packet(), frame);
