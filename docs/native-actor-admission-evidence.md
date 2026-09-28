@@ -86,8 +86,8 @@ collision route. `inspectActorOctree` remains a diagnostic membership snapshot.
 
 ## Ordinary primitive helpers
 
-`editor/world/js/actor-primitive-bounds.js` provides two source methods for use
-inside those callbacks:
+`editor/world/js/actor-primitive-bounds.js` provides the ordinary source methods
+for use inside those callbacks:
 
 - `selectActorPrimitive(input)` reproduces ordinary `AActor.GetPrimitive`.
   It consumes `primitive104`, then `primitive38`, then `primitive2b8`, returning
@@ -104,9 +104,12 @@ inside those callbacks:
   the octree's later 4.2 expansion is a separate stage.
 
 The verifier executes the ordinary selector and generic box method themselves.
-Other primitive bounding boxes are authored virtual responses. Static-mesh
-transformed boxes, collision-model unions, overridden actor selectors and the
-generic method's null-owner branch are not claimed by these helpers.
+Other primitive bounding boxes remain authored virtual responses in that
+checker. The separate [static-mesh bounds component](native-static-actor-bounds-evidence.md)
+now executes transformed boxes and collision-model unions, including 288
+joined updates through this admission path. Current transform and auxiliary
+model method replies remain explicit. Overridden actor selectors and the
+generic method's null-owner branch remain outside these helpers.
 
 ## Reproduce the evidence
 

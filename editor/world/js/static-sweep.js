@@ -2,6 +2,7 @@
  * Current cached source matrix and query fields must be supplied explicitly.
  * No cache creation, actor admission, triangle query or collision result here.
  */
+import { transformOriginalBox } from "./actor-primitive-bounds.js";
 const f = Math.fround;
 const scope = "original-static-sweep-preparation";
 const finiteF32 = (v) =>
@@ -14,22 +15,15 @@ const point = ([x, y, z], m) =>
   [0, 1, 2].map((i) => f(y * m[4 + i] + x * m[i] + z * m[8 + i] + m[12 + i]));
 
 function transformedExtent(extent, m) {
-  let bounds;
-  // Original FBox::TransformBy visits every corner in this exact order.
-  for (const x of [-extent[0], extent[0]])
-    for (const y of [-extent[1], extent[1]])
-      for (const z of [-extent[2], extent[2]]) {
-        const corner = point([x, y, z], m);
-        if (!bounds) bounds = [...corner, ...corner];
-        else
-          for (let i = 0; i < 3; i++) {
-            // Both source comparisons are strict. Ties retain the previous sign.
-            if (corner[i] < bounds[i]) bounds[i] = corner[i];
-            if (corner[i] > bounds[3 + i]) bounds[3 + i] = corner[i];
-          }
-      }
+  const result = transformOriginalBox({
+    arithmeticProfile: "pc53-rne",
+    bounds: { min: extent.map((v) => -v), max: extent },
+    matrix: m,
+  });
+  if (result.status !== "ready") return null;
+  const bounds = result.bounds;
   // GetExtent stores the subtraction before multiplying by the source 1/2.
-  return [0, 1, 2].map((i) => f(f(bounds[3 + i] - bounds[i]) * 0.5));
+  return [0, 1, 2].map((i) => f(f(bounds.max[i] - bounds.min[i]) * 0.5));
 }
 
 export function prepareStaticSweep(input) {
@@ -50,6 +44,7 @@ export function prepareStaticSweep(input) {
   const localStart = point(start, cacheWorldToLocal);
   const localEnd = point(end, cacheWorldToLocal);
   const localExtent = transformedExtent(extent, cacheWorldToLocal);
+  if (!localExtent) return unsupported("nonfinite transformed source extent");
   const localDelta = localEnd.map((v, i) => f(v - localStart[i]));
   // Original Engine Float64 at 108e9018, consumed only for exact zero delta.
   for (let i = 0; i < 3; i++)

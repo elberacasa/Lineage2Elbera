@@ -2,6 +2,29 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original static-mesh actor bounds — 28 September 2026
+
+The existing primitive helper now implements the original static-mesh bounding
+box method, including the cylinder branch and the native invalid-auxiliary-box
+copy rule. Static sweep preparation reuses its eight-corner transform. The
+Elbera checker compares 600 authored boxes and 288 joined actor updates against
+retained Engine/Core instructions: 2,314,902 steps at 1,725 addresses. It preserves
+current method-call boundaries, membership order and sparse cache writes.
+
+Ten new browser and four interpreter tests are portable; 89 related browser
+checks and all 800 previous source sweep comparisons pass. Four deliberate
+mutations are rejected. A browser startup smoke reached the offline world
+without captured errors; the screenshot was inspected. No Online collision or
+corrected placement claim follows from this smoke. Public source and evidence
+remain separate from private client inputs and receipts.
+
+Next: qualify both serialized writes to the mesh bounds field and retain the
+later effective saved box with exact byte provenance. Then follow post-load
+state and live actor population into the query components. Current transforms,
+auxiliary subclass methods, native movement and actor placement remain open.
+The tool is repository source, outside existing standalone archives. The full
+browser-port goal remains active.
+
 ## Original actor and pawn trace filters — 28 September 2026
 
 The existing collision module now implements ordinary AActor and APawn
