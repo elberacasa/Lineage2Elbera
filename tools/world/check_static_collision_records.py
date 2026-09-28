@@ -204,13 +204,14 @@ def check_load_tail(source, data, *, array_end, export_end):
     )
 
 
-def check_fresh_preparation(geometry, class_flags):
-    """Exercise the actual browser API with a supplied diagnostic class state.
+def check_fresh_preparation(geometry, class_flags=None):
+    """Exercise the browser with decoded loading bits or an explicit override.
 
-    This is compatibility evidence for decoded records, not recovery of the
-    native class registry. No default class flags are invented here.
+    No default class word is invented. An override remains diagnostic input.
     """
-    if type(class_flags) is not int or not 0 <= class_flags <= 0xFFFFFFFF:
+    if class_flags is not None and (
+        type(class_flags) is not int or not 0 <= class_flags <= 0xFFFFFFFF
+    ):
         raise ValueError("current class flags must be an unsigned DWORD")
     runtime = (
         Path(__file__).resolve().parents[2] / "editor/world/js/static-mesh-tree.js"
@@ -220,7 +221,7 @@ import fs from 'node:fs';
 const {prepareFreshStaticMeshTree}=await import(process.argv[1]);
 const {geometry,classFlags}=JSON.parse(fs.readFileSync(0,'utf8'));
 const rows=Object.entries(geometry).map(([mesh,source])=>{
- const r=prepareFreshStaticMeshTree(source,{classFlags});
+ const r=prepareFreshStaticMeshTree(source,classFlags===null?undefined:{classFlags});
  if(r.status!=='ready')throw Error(`${mesh}: ${JSON.stringify(r)}`);
  return {mesh,loadingFlags:r.loadingFlags,objectFlags:r.postLoadWrites.objectFlags,
          vertexCount:r.postLoadWrites.vertexArray.count};
@@ -242,7 +243,11 @@ process.stdout.write(JSON.stringify(rows));
     return dict(
         cases=len(rows),
         classFlags=class_flags,
-        classStateEvidence="explicit diagnostic input, not recovered runtime state",
+        classStateEvidence=(
+            "decoded original native-registration loading bits"
+            if class_flags is None
+            else "explicit diagnostic input, not recovered runtime state"
+        ),
         runtimeSHA256=hashlib.sha256(runtime.read_bytes()).hexdigest(),
         records=rows,
     )
@@ -326,11 +331,7 @@ def verify(tile, *, fresh_class_flags=None):
             bool(row["savedProperties"]["duplicateNames"]) for row in records
         ),
         records=records,
-        freshPreparation=(
-            check_fresh_preparation(audit.geometry, fresh_class_flags)
-            if fresh_class_flags is not None
-            else None
-        ),
+        freshPreparation=check_fresh_preparation(audit.geometry, fresh_class_flags),
         limits=[
             "Exact decoded-package array byte round trip, including compact-index encoding and lazy saved ends.",
             "Both serialized boxes are compared at offsets recovered through the primitive prefix and section count. The second overwrites the first saved field; post-load state is not established.",

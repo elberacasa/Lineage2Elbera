@@ -14,8 +14,8 @@ now joins original saved mesh records to a fresh-resource entry, including
 allocation/loading flag transitions and PostLoad. Its 256 source/browser
 comparisons supplement 600 bounds cases, 288 actor updates, 600 PostLoad cases
 and 128 constructor cases. All 480 checked per-map records pass preparation
-under an explicitly supplied diagnostic class state. That state is not a
-recovered native class value. The main world still uses the older collision
+using source-derived native class loading bits. Only the two bits consumed by
+fresh allocation are supplied, rather than an invented complete class word. The main world still uses the older collision
 loader; this remains a component checkpoint.
 
 The shared property reader preserves extended indices and Boolean framing.
@@ -25,8 +25,8 @@ the original native constructor. An inherited truncated InitProperties range
 has also been corrected through the final property-copy loop. Existing actor
 admission counts and default ray outputs remain unchanged.
 
-Next: derive ordinary native class state, then feed resolved mesh resources
-and original actor fields into the existing world-query components. Validate
+Next: feed these prepared mesh resources and original actor fields into the
+existing world-query components, preserving unresolved lifecycle boundaries. Validate
 actual Online queries and placement before claiming a map repair. Rendered
 mesh recentering remains provisional; UI, animation, effects and gameplay gaps
 in the coverage inventory are still part of the full-client goal.

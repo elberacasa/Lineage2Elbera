@@ -117,6 +117,48 @@ test("fresh allocation consumes the actual class flag branch without defaulting 
   assert.equal(r.postLoadWrites.objectFlags, 0x600f4004);
 });
 
+test("source class loading bits remove the need for a diagnostic class-word input", () => {
+  const source = savedMesh();
+  for (const value of [0, 8]) {
+    source.classLoading = {
+      sourceClass: "Engine.StaticMesh",
+      scope: "ordinary-native-registration",
+      mask: 0x408,
+      value,
+    };
+    const expected = prepareFreshStaticMeshTree(source, { classFlags: value });
+    const actual = prepareFreshStaticMeshTree(source);
+    assert.equal(actual.status, "ready", actual.reason);
+    assert.deepEqual(actual.loadingFlags, expected.loadingFlags);
+    assert.deepEqual(actual.postLoadWrites, expected.postLoadWrites);
+  }
+});
+
+test("partial or mismatched class evidence cannot silently become zero flags", () => {
+  const good = {
+    sourceClass: "Engine.StaticMesh",
+    scope: "ordinary-native-registration",
+    mask: 0x408,
+    value: 0,
+  };
+  for (const change of [
+    { sourceClass: "Other.StaticMesh" },
+    { scope: "unresolved" },
+    { mask: 0 },
+    { mask: 8 },
+    { mask: 0x400 },
+    { mask: undefined },
+    { value: undefined },
+    { value: 1 },
+    { value: 0x400 },
+    { value: -1 },
+  ]) {
+    const source = savedMesh();
+    source.classLoading = { ...good, ...change };
+    assert.equal(prepareFreshStaticMeshTree(source).status, "unsupported");
+  }
+});
+
 test("fresh loading refuses header writes, unknown or converted properties and indexed duplicates", () => {
   for (const tags of [
     [{ name: "ObjectFlags", type: 2, index: 0, struct: null }],
