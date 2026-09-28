@@ -122,6 +122,7 @@ export class AudioEngine {
     this._unlockBound = null;
     this.nativePacketAudio = null;
     this.lastPacketSound = null;
+    this.lastPlayedPacketSound = null;
   }
 
   // ---- lifecycle --------------------------------------------------------
@@ -200,6 +201,7 @@ export class AudioEngine {
     const result = this.nativePacketAudio?.play(packet, frame)
       ?? { status: 'unsupported', reason: 'original-packet-audio-unavailable' };
     this.lastPacketSound = result;
+    if (result.status === 'playing') this.lastPlayedPacketSound = result;
     return result;
   }
 
@@ -209,6 +211,7 @@ export class AudioEngine {
       sources: this.nativePacketAudio?.voices.length ?? 0,
       active: this.nativePacketAudio?.voices.filter(v => v.soundId !== 0).length ?? 0,
       last: this.lastPacketSound,
+      lastPlayed: this.lastPlayedPacketSound,
     };
   }
 

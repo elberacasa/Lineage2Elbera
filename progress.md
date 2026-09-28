@@ -2,6 +2,34 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Live tutorial cue during browser loading — 28 September 2026
+
+The original tutorial PCM cue now starts from the real Online entry packet.
+Logical self-pawn ownership is established before browser map/model promises
+finish; audio uses the received actual origin until this entry's rendered
+pose is adopted. Old character transforms, destinations and delayed packet
+replays are never substituted. Native Windows loading-order equivalence is
+not asserted by this browser resource-readiness fix.
+
+The existing Elbera world inspector exposes live packet-audio receipts, with
+last-successful playback separate from later unsupported requests. Normal
+saved-character entry started quest_tutorial in slot16, ID4294967280, two
+channels, recovered gain; its voice retired on completion. Disconnect cleared
+both receipts. No injected events, movement or database edits were used, and
+that entry captured no warnings/errors. Re-entry played a new cue with the
+next sound ID, preserving the context counter. The fresh Online runner passed.
+37 lifecycle/packet-audio tests cover delayed maps/models, adoption, missing
+pawn state and reset. Source geometry and game values are unchanged.
+
+Native speech investigation located SetRequestedServerVoice and its pending
+controller state, including integer-millisecond division, later tick dispatch,
+interruption and music interaction. The actual speech files are present. These
+paths still require complete driver/fade integration; do not turn them into
+an immediate generic sound or claim the full tutorial is finished.
+
+Next: complete that recovered speech lifecycle and the normal beginner journey.
+Full browser-client coverage remains the active goal.
+
 ## Bounded original packet audio integration — 28 September 2026
 
 Connected mode-zero packets to the recovered priority/selection/stop components

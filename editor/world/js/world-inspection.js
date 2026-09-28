@@ -78,6 +78,12 @@ export function installWorldInspection({ visit, readState, compare, measure }) {
   npcLimit.style.cssText='font-size:11px;color:#bdcbd7';
   npcLimit.textContent='Initial Gremlin/Fox waits only. Other transitions, native random history, placement and full rendering parity remain unresolved.';
   npcDetails.append(npcSummary,npcReadout,npcLimit); panel.append(npcDetails);
+  const audioDetails = document.createElement('details'), audioSummary = document.createElement('summary');
+  audioSummary.textContent = 'Live packet audio';
+  const audioReadout = document.createElement('pre');
+  audioReadout.setAttribute('aria-label', 'Packet audio playback');
+  audioReadout.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.5 monospace';
+  audioDetails.append(audioSummary, audioReadout); panel.append(audioDetails);
   document.body.append(panel);
   let pending = false, failure = '', disposed = false;
   const number = value => Number.isFinite(value) ? String(Math.round(value * 100) / 100) : 'unknown';
@@ -98,6 +104,8 @@ export function installWorldInspection({ visit, readState, compare, measure }) {
       : `${row.status}: ${row.reason}${row.sequence ? `\nPrevious ${row.sequence} · ${row.notifyCount} events` : ''}`}\n${row.lastNotify ? `Last event ${row.lastNotify.index}: ${row.lastNotify.soundDecision?.status || 'null object'}` : ''}`)
       .join('\n\n') || 'No NPCs currently loaded.';
     if (npcReadout.textContent !== npcText) npcReadout.textContent = npcText;
+    const audioText = JSON.stringify(s.packetAudio ?? {ready:false}, null, 2);
+    if (audioReadout.textContent !== audioText) audioReadout.textContent = audioText;
   }
   async function run(action, restore) {
     if (pending || readState().online) { restore(); refresh(); return; }

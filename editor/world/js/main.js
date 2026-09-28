@@ -390,6 +390,7 @@ const entities = new EntityManager(scene, manifest);
 let online = false;
 let onlineGeneration = 0;   // invalidates asynchronous work across connection changes
 let worldEntryGeneration = 0;
+let selfPlacementGeneration = null; // rendered self pose belongs to this entry
 let npcWorldEntry = null;
 let characterLoadGeneration = 0;
 let characterLoading = false;
@@ -1217,6 +1218,8 @@ function npcNames() {
 function resetOnlineSession() {
   audio.nativePacketAudio?.reset();
   audio.lastPacketSound = null;
+  audio.lastPlayedPacketSound = null;
+  selfPlacementGeneration = null;
   entities.resetNpcWorldEntry();
   npcWorldEntry = null;
   cancelFineNavigation('session-reset');
@@ -1556,6 +1559,7 @@ net.on('enterWorld', async (msg) => {
     if (charSheetData && !character.nativeCast && !character.nativeWait)
       character.setWaitType(selfSitting ? 0 : 1, {snapshot:true, initial:!selfSitting});
     pendingGoal = null;   // server-placed spawn: no click route survives it
+    selfPlacementGeneration = entry;
   }
   if (statusWnd) statusWnd.setName(selfName);
   setStatus(`online: ${selfName} @ ${currentTile}`);
@@ -1754,10 +1758,15 @@ net.on('remove', (msg) => {
 });
 net.on('chat', (msg) => chat.addChat(msg.from ?? '?', msg.channel, msg.text ?? '', msg.target));
 function packetAudioFrame() {
-  if (!online || !net.connected || !selfServerPosition || !character ||
-      sceneLoading || characterLoading || ccOverlay || csOverlay) return null;
-  const p = character.group.position;
-  const location = [Math.fround(p.x / L2_TO_M), Math.fround(-p.z / L2_TO_M), Math.fround(p.y / L2_TO_M)];
+  if (!online || !net.connected || selfId == null || !selfServerPosition || ccOverlay || csOverlay) return null;
+  // EnterWorld establishes the logical self pawn before browser map/model
+  // loading completes. Use that packet's actual position until this entry's
+  // rendered pose is adopted; never borrow a previous scene/model's pose.
+  // This is browser asset-readiness handling, not a native loading-order claim.
+  const p = character?.group.position;
+  const location = p && selfPlacementGeneration === worldEntryGeneration && !sceneLoading && !characterLoading
+    ? [Math.fround(p.x / L2_TO_M), Math.fround(-p.z / L2_TO_M), Math.fround(p.y / L2_TO_M)]
+    : [selfServerPosition.x, selfServerPosition.y, selfServerPosition.z].map(Math.fround);
   // Ordinary browser viewport is owned by the self pawn. Audio position is
   // separate from camera position, matching the original controller branch.
   // Alternate view-target modes must supply their own recovered state first.
@@ -2368,6 +2377,7 @@ function inspectionState() {
   const drawn = terrain._drawnGroundL2(x, y, sampled == null ? null : sampled * 100, p.y * 100);
   const ground = terrain.heightAtWorld(p.x, p.z, p.y);
   return { online, tile: currentTile, xyz: [x, y, p.y * 100],
+    packetAudio: audio.packetAudioState(),
     npcWait:[...entities.entities.values()].filter(entity => entity.kind === 'npc').slice(0,12).map(entity => ({
         npcId:entity.npcId,name:entity.name,...entity.originalWaitStatus})),
     groundZ: ground == null ? null : ground * 100, renderedZ: drawn,
