@@ -1,4 +1,4 @@
-"""Elbera Tools: loading bits of the original native StaticMesh class.
+"""Elbera Tools: consumed loading bits of original static resource/actor classes.
 
 This is a bounded native-registration/package reader, not a general class
 registry. Original files stay private. Supplemental binding is a separate,
@@ -21,34 +21,52 @@ CLASS_CTOR = "??0UClass@@QAE@W4ENativeConstructor@@KKPAV0@1VFGuid@@PBG33KP6AXPAX
 OBJECT_CLASS = "?PrivateStaticClass@UObject@@0VUClass@@A"
 PRIMITIVE_CLASS = "?PrivateStaticClass@UPrimitive@@0VUClass@@A"
 MESH_CLASS = "?PrivateStaticClass@UStaticMesh@@0VUClass@@A"
+ACTOR_CLASS = "?PrivateStaticClass@AActor@@0VUClass@@A"
+STATIC_ACTOR_CLASS = "?PrivateStaticClass@AStaticMeshActor@@0VUClass@@A"
 
 
 def read_root_class_flags(package):
     """Read the source-bound, zero-script file-123 root-class prefix only."""
-    from l2lib import Reader
+    return read_zero_script_class_flags(package, "Object", None)
+
+
+def read_zero_script_class_flags(package, name, superclass):
+    """Read a named zero-script class prefix, checking both superclass records.
+
+    The flags are serialized evidence only. A nonzero script length requires
+    bytecode decoding and is never skipped as an assumed raw byte count.
+    """
+    from l2lib import Reader, qualified_ref
 
     if package.file_version != 123:
-        raise ValueError("unsupported root-class file version")
+        raise ValueError("unsupported class-prefix file version")
     matches = [
         e
         for e in package.exports
-        if package.class_name_of(e) == "Class" and package.export_name(e) == "Object"
+        if package.class_name_of(e) == "Class" and package.export_name(e) == name
     ]
     if len(matches) != 1:
-        raise ValueError("expected one root Object class")
+        raise ValueError("expected one named class")
     export = matches[0]
-    if export.super_index != 0 or export.object_flags & 0x02000000:
-        raise ValueError("unsupported root-class superclass or script stack")
+    if superclass is None:
+        parent_matches = export.super_index == 0
+    else:
+        parent_matches = (
+            export.super_index != 0
+            and qualified_ref(package, export.super_index) == superclass
+        )
+    if not parent_matches or export.object_flags & 0x02000000:
+        raise ValueError("unsupported class-prefix superclass or script stack")
     start, end = export.serial_offset, export.serial_offset + export.serial_size
     if not 0 <= start < end <= len(package.data):
-        raise ValueError("invalid root-class export boundary")
+        raise ValueError("invalid class-prefix export boundary")
     reader = Reader(memoryview(package.data)[:end], start, package.path)
     refs = [reader.compact() for _ in range(6)]
-    if refs[0] != 0 or package.name(refs[4]) != "Object":
-        raise ValueError("unexpected root-class prefix identity")
+    if refs[0] != export.super_index or package.name(refs[4]) != name:
+        raise ValueError("unexpected class-prefix identity")
     reader.bytes(8)  # Original line and text-position fields.
     if reader.i32() != 0:
-        raise ValueError("root-class script bytecode is outside this reader")
+        raise ValueError("class script bytecode is outside this reader")
     reader.bytes(8 + 8 + 2 + 4)  # Probe/ignore masks, label offset, state flags.
     offset = reader.pos
     flags = reader.u32()
@@ -57,6 +75,65 @@ def read_root_class_flags(package):
         sourceOffset=offset,
         prefixBytes=reader.pos - start,
         prefixSHA256=hashlib.sha256(package.data[start : reader.pos]).hexdigest(),
+    )
+
+
+def static_actor_loading_bits(engine, core, engine_package, core_package):
+    """Derive only allocation/localization bits across the original class chain.
+
+    Registration may precede serialized flag replacement. Include both sources
+    and inherited alternatives; they must agree on every consumed bit. This
+    does not infer a complete current class word or script execution state.
+    """
+    mesh = loading_bits(engine, core, engine_package, core_package)
+    saved_actor = read_zero_script_class_flags(engine_package, "Actor", "Core.Object")
+    saved_static = read_zero_script_class_flags(
+        engine_package, "StaticMeshActor", "Engine.Actor"
+    )
+    assert engine.exported(ACTOR_CLASS) == 0x10C1C4C8
+    assert engine.exported(STATIC_ACTOR_CLASS) == 0x10DDC900
+    for at, op, args in [
+        (0x1083B612, "push", "0x800"),
+        (0x1083B617, "push", "0x3bc"),
+        (0x1083B61E, "mov", "ecx, 0x10c1c4c8"),
+        (0x1084982B, "push", "0x10c1c4c8"),
+        (0x10849830, "push", "0"),
+        (0x10849832, "push", "0x3f8"),
+        (0x10849839, "mov", "ecx, 0x10ddc900"),
+    ]:
+        engine.instruction(at, op, args)
+    added = core.data[core.offset(0x101358C5) + 2]
+    native_actor = engine.u32(0x1083B612 + 1) | added
+    native_static = engine.data[engine.offset(0x10849830) + 1] | added
+    inherited = mesh["evidence"]["inheritanceMask"]
+    roots = {mesh["evidence"]["nativeRootFlags"], mesh["evidence"]["root"]["flags"]}
+    actors = {native_actor, saved_actor["flags"]}
+    actors |= {flags | (root & inherited) for flags in list(actors) for root in roots}
+    variants = {native_static, saved_static["flags"]}
+    variants |= {
+        flags | (parent & inherited) for flags in list(variants) for parent in actors
+    }
+    mask = 0x428  # Existing allocation tests plus AActor.PostLoad's class test.
+    values = {flags & mask for flags in variants}
+    if len(values) != 1:
+        raise ValueError("class loading alternatives disagree on consumed actor bits")
+    return dict(
+        sourceClass="Engine.StaticMeshActor",
+        scope="ordinary-native-registration-and-package",
+        mask=mask,
+        value=values.pop(),
+        sources=mesh["sources"],
+        evidence=dict(
+            root=mesh["evidence"]["root"],
+            actor=saved_actor,
+            staticActor=saved_static,
+            nativeRootFlags=mesh["evidence"]["nativeRootFlags"],
+            nativeActorFlags=native_actor,
+            nativeStaticActorFlags=native_static,
+            inheritanceMask=inherited,
+            actorVariants=sorted(actors),
+            staticActorVariants=sorted(variants),
+        ),
     )
 
 
@@ -142,6 +219,52 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
     read = lambda va, n: bytes(engine.data[engine.offset(va) : engine.offset(va) + n])
     blocks = []
     for label, start, end, bindings, imports in [
+        (
+            "Actor",
+            0x1083B5B0,
+            0x1083B629,
+            [
+                (
+                    0x1083B5C9,
+                    0x11D8D790,
+                    0x11D8D78C,
+                    "import",
+                    "?StaticConstructor@UObject@@QAEXXZ",
+                ),
+                (0x1083B5E5, 0x10A72EAC, 0x10A72E98, "export", "GPackage"),
+                (0x1083B61F, 0x10C1C4C8, 0x10C1C4D8, "export", ACTOR_CLASS),
+            ],
+            [
+                (0x1083B5C0, "??0FGuid@@QAE@KKKK@Z"),
+                (0x1083B5D8, "?StaticConfigName@UObject@@SAPBGXZ"),
+                (0x1083B604, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+                (0x1083B60B, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+                (0x1083B623, CLASS_CTOR),
+            ],
+        ),
+        (
+            "StaticMeshActor",
+            0x108497D0,
+            0x10849844,
+            [
+                (
+                    0x108497E9,
+                    0x11D8D790,
+                    0x11D8D78C,
+                    "import",
+                    "?StaticConstructor@UObject@@QAEXXZ",
+                ),
+                (0x10849805, 0x10A72EAC, 0x10A72E98, "export", "GPackage"),
+                (0x1084982C, 0x10C1C4C8, 0x10C1C4D8, "export", ACTOR_CLASS),
+                (0x1084983A, 0x10DDC900, 0x10DDC910, "export", STATIC_ACTOR_CLASS),
+            ],
+            [
+                (0x108497E0, "??0FGuid@@QAE@KKKK@Z"),
+                (0x108497F8, "?StaticConfigName@UObject@@SAPBGXZ"),
+                (0x10849824, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+                (0x1084983E, CLASS_CTOR),
+            ],
+        ),
         (
             "Primitive",
             0x10846B70,
@@ -255,7 +378,7 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
     )
     core.instruction(0x101C80AF, "call", "0x1010268a")
     core.instruction(0x1010268A, "jmp", "0x10135860")
-    # Root UClass bypasses tagged UObject properties. The six compact fields
+    # UClass objects bypass tagged UObject properties. The six compact fields
     # precede two ints, zero script size and the UState scalar fields.
     anchors = [
         (0x1015EA2F, "cmp", "ecx, 0x1027d770"),
@@ -311,20 +434,21 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
         limits=[
             "Native registration and pinned original packages; external class mutation and custom descriptors are excluded.",
             "Source correspondence, not execution of the full class registry. Class defaults/configuration target separate object storage.",
-            "Only allocation bits 0x408 are exported as known current state; no complete class word is inferred.",
+            "Only consumed resource/actor loading bits are derived; no complete current class word or script execution state is inferred.",
             "Supplemental correspondence does not authenticate an archive or restore the protected runtime.",
         ],
     )
 
 
-def read_owned_loading_bits():
+def read_owned_loading_bits(*, actor=False):
     """Read this edition's owned inputs; no supplemental lookup or downloads."""
     from pathlib import Path
     from check_tutorial_quest_native import Image
     from l2lib import load_package
 
     root = Path(__file__).resolve().parents[2] / "assets/interlude/system"
-    return loading_bits(
+    derive = static_actor_loading_bits if actor else loading_bits
+    return derive(
         Image(root / "engine.dll", ENGINE_SHA, True),
         Image(root / "Core.dll", CORE_SHA),
         load_package(root / "Engine.u")[0],

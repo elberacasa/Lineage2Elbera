@@ -1,6 +1,132 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { collectLevelActorAssignments } from "../js/actor-loading.js";
+import {
+  applyActorBooleanTags,
+  collectLevelActorAssignments,
+} from "../js/actor-loading.js";
+
+function booleanFixture() {
+  return {
+    archive: { loading: true, saving: false, persistent: true },
+    layout: [
+      {
+        offset: "0x64",
+        mask: 15,
+        fields: [
+          { name: "ordinary", mask: 1, propertyFlags: 0 },
+          { name: "native", mask: 2, propertyFlags: 0x1000 },
+          { name: "transient", mask: 4, propertyFlags: 0x2000 },
+          { name: "saveExcluded", mask: 8, propertyFlags: 0x20000000 },
+        ],
+      },
+    ],
+    words: { "0x64": { mask: 0xfffffff0, value: 0xa5a5a5a0 } },
+    tags: ["ordinary", "native", "transient", "saveExcluded"].map((name) => ({
+      name,
+      value: true,
+    })),
+  };
+}
+
+test("persistent Boolean loading retains unknown bits and skips native/transient tags", () => {
+  const input = booleanFixture();
+  const before = structuredClone(input);
+  const result = applyActorBooleanTags(input);
+  assert.equal(result.status, "ready");
+  assert.deepEqual(result.groups, {
+    "0x64": { mask: 0xfffffff9, value: 0xa5a5a5a9 },
+  });
+  assert.deepEqual(result.skipped, [1, 2]);
+  assert.deepEqual(input, before);
+  assert.ok(Object.isFrozen(result.groups["0x64"]));
+  assert.ok(Object.isFrozen(result.groups) && Object.isFrozen(result.skipped));
+});
+
+test("nonpersistent and saving modes keep their separate source gates", () => {
+  const input = booleanFixture();
+  input.archive.persistent = false;
+  input.archive.saving = true;
+  const result = applyActorBooleanTags(input);
+  assert.deepEqual(result.skipped, [1, 3]);
+  assert.deepEqual(result.groups["0x64"], {
+    mask: 0xfffffff5,
+    value: 0xa5a5a5a5,
+  });
+  input.archive.loading = false;
+  assert.deepEqual(applyActorBooleanTags(input).groups, input.words);
+});
+
+test("repeated admitted tags preserve order, including the high Boolean bit", () => {
+  const input = booleanFixture();
+  input.layout = [
+    {
+      offset: "0x64",
+      mask: 0x80000000,
+      fields: [{ name: "high", mask: 0x80000000, propertyFlags: 0 }],
+    },
+  ];
+  input.words["0x64"] = { mask: 0x7fffffff, value: 0x12345678 };
+  input.tags = [
+    { name: "high", value: true },
+    { name: "high", value: false },
+  ];
+  assert.deepEqual(applyActorBooleanTags(input).groups["0x64"], {
+    mask: 0xffffffff,
+    value: 0x12345678,
+  });
+  input.tags.reverse();
+  assert.deepEqual(applyActorBooleanTags(input).groups["0x64"], {
+    mask: 0xffffffff,
+    value: 0x92345678,
+  });
+});
+
+test("invalid Boolean inputs never expose partial writes", () => {
+  for (const corrupt of [
+    (input) => {
+      input.layout[0].offset = "0x064";
+    },
+    (input) => {
+      input.layout[0].offset = "0x65";
+    },
+    (input) => {
+      delete input.archive.loading;
+    },
+    (input) => {
+      input.archive.persistent = 1;
+    },
+    (input) => {
+      input.tags.push({ name: "unknown", value: true });
+    },
+    (input) => {
+      input.tags.push({ name: "ordinary", value: 1 });
+    },
+    (input) => {
+      input.layout[0].fields[1].mask = 1;
+    },
+    (input) => {
+      input.layout[0].fields[1].mask = 3;
+    },
+    (input) => {
+      input.layout[0].fields[1].propertyFlags = -1;
+    },
+    (input) => {
+      input.words["0x64"].value |= 1;
+    },
+    (input) => {
+      delete input.tags[1];
+    },
+    (input) => {
+      input.layout[0].mask = 0;
+    },
+  ]) {
+    const input = booleanFixture();
+    corrupt(input);
+    const result = applyActorBooleanTags(input);
+    assert.equal(result.status, "unsupported");
+    assert.equal(result.groups, undefined);
+  }
+});
 
 function fixture() {
   return {

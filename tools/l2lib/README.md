@@ -24,6 +24,11 @@ this is not a claim that every client format or behavior is recovered.
 
 ## API overview
 
+`qualified_ref(package, reference)` returns the complete package/group/object
+identity for a nonnull import or export. It rejects cycles and invalid or null
+references. This helper is available in standalone Core builds; the world
+exporter reuses it. It does not resolve a saved reference into a live object.
+
 ```python
 from l2lib import (load_package, parse_texture, extract_texture_rgba,
                    resolve_material, mesh_material_slots, write_png)

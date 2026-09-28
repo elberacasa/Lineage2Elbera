@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from l2lib import L2Error
 from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation, check_actor_transform, check_actor_flags, check_actor_references, check_level_actor_order
-from static_mesh_class_source import read_root_class_flags
+from static_mesh_class_source import read_root_class_flags, read_zero_script_class_flags
 
 
 def compact(n):
@@ -367,6 +367,7 @@ class QualificationTest(unittest.TestCase):
         geometry = mesh_body(Reader(body()), retain_sweep_data=True)
         audit.geometry = {'Fixture.Mesh': geometry}
         audit.level_binding = {'scope': 'authored-fixture'}
+        audit.actor_class_loading = {'scope': 'authored-class-bits'}
         rows = [{'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
                  'exportRef': 8, 'savedLevelSlots': [1, 3],
                  'savedReferences': {'scope': 'authored-fixture'},
@@ -382,6 +383,7 @@ class QualificationTest(unittest.TestCase):
              'savedTransform': {'scope': 'authored-fixture'}, 'savedCollisionFlags': {'scope': 'authored-fixture'}}])
         self.assertEqual(source['classDefaults'], audit.defaults)
         self.assertEqual(source['savedLevelBinding'], audit.level_binding)
+        self.assertEqual(source['actorClassLoading'], audit.actor_class_loading)
         self.assertIs(source['meshes']['Fixture.Mesh'], geometry)
         self.assertNotIn('actors', source)
         rows.append({'name': 'Unknown', 'issues': ['unknown'], 'meshIssues': []})
@@ -430,6 +432,29 @@ class RootClassPrefixTest(unittest.TestCase):
             with self.assertRaises(ValueError): read_root_class_flags(package)
         with self.assertRaisesRegex(ValueError, 'bytecode'):
             read_root_class_flags(self.fixture(script_size=1))
+
+    def test_named_actor_prefix_requires_both_serialized_and_export_superclasses(self):
+        package = self.fixture()
+        package.exports[0].super_index = -1
+        package.data = package.data[:5] + compact(-1) + package.data[6:]
+        package.name = lambda n: 'Actor'
+        package.export_name = lambda ex: 'Actor'
+        parent = SimpleNamespace(name='Object', package_index=-2)
+        outer = SimpleNamespace(name='Core', package_index=0)
+        package.resolve_ref = lambda ref: {-1: parent, -2: outer}[ref]
+        package.import_name = lambda obj: obj.name
+        result = read_zero_script_class_flags(package, 'Actor', 'Core.Object')
+        self.assertEqual(result['flags'], 0x12345678)
+        self.assertEqual(result['sourceOffset'], len(package.data)-4)
+        with self.assertRaisesRegex(ValueError, 'superclass'):
+            read_zero_script_class_flags(package, 'Actor', 'Engine.Object')
+        with self.assertRaisesRegex(ValueError, 'superclass'):
+            read_zero_script_class_flags(package, 'Actor', None)
+        with self.assertRaisesRegex(ValueError, 'named class'):
+            read_zero_script_class_flags(package, 'Other', 'Core.Object')
+        package.data = package.data[:5] + compact(0) + package.data[6:]
+        with self.assertRaisesRegex(ValueError, 'identity'):
+            read_zero_script_class_flags(package, 'Actor', 'Core.Object')
 
 
 class MeshLoadTailTest(unittest.TestCase):

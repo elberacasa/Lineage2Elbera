@@ -160,14 +160,26 @@ def qualify_packed_property_tags(core, comparison_core):
         ("tag archive operator, all normal returns", 0x10132F10, 0x10133161),
         ("tag value application, including Boolean", 0x10131090, 0x10131137),
         ("tagged-property caller", 0x101346E0, 0x10134CD8),
+        ("property admission, both returns", 0x1010B6D0, 0x1010B717),
+        ("property declaration serializer, ordinary return", 0x10170820, 0x101708B6),
         ("byte archive operator", 0x101307E0, 0x101307F9),
         ("word archive operator", 0x10130800, 0x10130819),
         ("dword archive operator", 0x10130820, 0x10130839),
+        ("unsigned dword archive operator", 0x10108C50, 0x10108C69),
         ("size selector targets", 0x101331D0, 0x101331F4),
         ("size selector table", 0x101331F4, 0x10133265),
     ]:
         raw = bytes(core.data[core.offset(start) : core.offset(start) + end - start])
         assert raw == comparison_core.read(start, end - start)
+        if label in (
+            "property admission, both returns",
+            "property declaration serializer, ordinary return",
+            "unsigned dword archive operator",
+        ):
+            rows = list(core.dis.disasm(raw, start))
+            assert rows[0].address == start and rows[-1].address + rows[-1].size == end
+            assert all(a.address + a.size == b.address for a, b in zip(rows, rows[1:]))
+            assert rows[-1].mnemonic == "ret"
         blocks.append(
             dict(
                 label=label,
@@ -183,6 +195,8 @@ def qualify_packed_property_tags(core, comparison_core):
         (0x10102D8D, 0x101307E0),
         (0x10102DE2, 0x10130800),
         (0x10102DFB, 0x10130820),
+        (0x101017CB, 0x1010B6D0),
+        (0x10102E05, 0x10108C50),
     ]:
         core.instruction(thunk, "jmp", hex(target))
         raw = bytes(core.data[core.offset(thunk) : core.offset(thunk) + 5])
@@ -196,9 +210,24 @@ def qualify_packed_property_tags(core, comparison_core):
     )
     tagged = "?SerializeTaggedProperties@UStruct@@UAEXAAVFArchive@@PAEPAVUClass@@@Z"
     assert core.exported(tagged, True) == comparison_core.body(tagged) == 0x101346E0
+    for symbol, body in [
+        ("?ShouldSerializeValue@UProperty@@QBEHAAVFArchive@@@Z", 0x1010B6D0),
+        ("?Serialize@UProperty@@UAEXAAVFArchive@@@Z", 0x10170820),
+    ]:
+        assert core.exported(symbol, True) == comparison_core.body(symbol) == body
     anchors = [
         (0x10134778, "call", "0x1010380a"),
         (0x10134B1C, "call", "0x10104467"),
+        (0x10134A29, "call", "0x101017cb"),
+        (0x10134A30, "jne", "0x10134af7"),
+        (0x1010B6D0, "mov", "eax, dword ptr [ecx + 0x48]"),
+        (0x1010B6D3, "test", "eax, 0x1000"),
+        (0x1010B6DA, "test", "eax, 0x2000"),
+        (0x1010B6E5, "cmp", "dword ptr [ecx + 0x1c], 0"),
+        (0x1010B6EB, "test", "eax, 0x20000000"),
+        (0x1010B6F2, "cmp", "dword ptr [ecx + 0x14], 0"),
+        (0x10170856, "lea", "ebx, [esi + 0x48]"),
+        (0x10170868, "call", "0x10102e05"),
         (0x10132F8E, "cmp", "al, 0xa"),
         (0x10132FA2, "and", "eax, 0x70"),
         (0x1013302F, "test", "byte ptr [ebx], 0x80"),

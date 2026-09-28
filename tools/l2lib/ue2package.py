@@ -53,12 +53,31 @@ the flag (AmbientSoundObject, LevelSummary) begin at their properties.
 """
 
 import os
+from pathlib import Path
 import shutil
 import struct
 import subprocess
 import tempfile
 
 PACKAGE_TAG = 0x9E2A83C1
+
+
+def qualified_ref(package, reference):
+    """Preserve the complete package/outer chain of a nonnull object reference."""
+    parts, seen, last_import = [], set(), False
+    while reference:
+        if reference in seen:
+            raise ValueError('cyclic object outer chain')
+        seen.add(reference)
+        obj = package.resolve_ref(reference)
+        last_import = reference < 0
+        parts.append(package.import_name(obj) if last_import else package.export_name(obj))
+        reference = obj.package_index
+    if not parts:
+        raise ValueError('null object reference')
+    if not last_import:
+        parts.append(Path(package.path).stem)
+    return '.'.join(reversed(parts))
 
 # UE2 EObjectFlags: the object's body starts with a serialised FStateFrame
 RF_HAS_STACK = 0x02000000

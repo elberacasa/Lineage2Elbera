@@ -28,6 +28,35 @@ def call_at(address):
 
 
 class StaticBoundsBoundaryTest(unittest.TestCase):
+    def test_not_inverts_full_word_without_changing_comparison_flags(self):
+        instruction = next(
+            Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex("f7d2"), 0x9000)
+        )
+        for value in (0, 0xFFFFFFFF, 0x80000001):
+            m = machine()
+            m.registers.update(edx=value, eax=0x12345678)
+            m.carry, m.zero, m.less = True, False, True
+            before = dict(m.memory)
+            self.assertEqual(m.step(instruction), 0x9002)
+            self.assertEqual(m.registers["edx"], value ^ 0xFFFFFFFF)
+            self.assertEqual(m.registers["eax"], 0x12345678)
+            self.assertEqual((m.carry, m.zero, m.less), (True, False, True))
+            self.assertEqual(m.memory, before)
+
+    def test_set_equal_cl_preserves_upper_ecx_and_other_registers(self):
+        instruction = next(
+            Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex("0f94c1"), 0x9000)
+        )
+        for zero in (False, True):
+            m = machine()
+            m.registers.update(ecx=0xAB1234FF, eax=0xDEADBEEF)
+            m.carry, m.zero, m.less = True, zero, False
+            m.step(instruction)
+            self.assertEqual(m.registers["ecx"], 0xAB123400 | int(zero))
+            self.assertEqual(m.read("cl"), int(zero))
+            self.assertEqual(m.registers["eax"], 0xDEADBEEF)
+            self.assertEqual((m.carry, m.zero, m.less), (True, zero, False))
+
     def test_set_equal_writes_only_al_and_preserves_comparison_flags(self):
         # Authored SETE AL used by the Core IsA null-target branch.
         instruction = next(

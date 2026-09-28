@@ -2,6 +2,29 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Static actor class flags and property loading — 28 September 2026
+
+Recovered the consumed StaticMeshActor class mask0x428 from original native
+registration, package prefixes and inheritance. Full superclass identities are
+checked. The shared qualified-reference helper now belongs to l2lib, avoiding
+a world-exporter import from the class reader and preserving standalone use.
+
+The browser loading module now applies original Boolean property admission and
+value writes to explicit incoming known-bit words. 128 native comparisons
+cover 9,792 tags, 3,861 writes and 2,072 skips, including repeated tags and
+unknown padding. All 2,922 original static actor inputs exercise this entry
+with source default bits and explicit persistent-load modes; no saved override
+in this collision subset is skipped and no values change. Reference resolution,
+script frames, default copying, current registries and level startup remain
+separate joins. This is component progress, not an Online map repair or goal
+completion. Private originals, generated inputs and raw receipts remain local.
+
+Validation: 20 browser-module, 58 record and 16 interpreter cases pass; the
+isolated Core build passes 28 tests. Three deliberate property-mask/mode/value
+mutations are rejected by the native comparison. Completed offline Giran
+startup was visually inspected with no captured errors; it still reports no
+audited static collision surfaces. All 17 README images remain in place.
+
 ## Original level assignment and saved actor references — 28 September 2026
 
 The active continuation implements both ULevel.PostLoad world-assignment loops
