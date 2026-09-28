@@ -8,9 +8,11 @@ from the rendered mesh.
 
 This component does not yet return a collision result. The separate
 [triangle component](native-static-triangle-evidence.md) now preserves original
-world preparation and clipping. Tree traversal, material callbacks, current
-actor/cache lifetime and live walking remain unfinished. The existing world
-scene and legacy ray picker are unchanged.
+world preparation and clipping. The subsequent
+[mesh component](native-static-mesh-evidence.md) joins tree traversal and final
+hits with explicit material responses. Current actor/cache lifetime and live
+walking remain unfinished. The existing world scene and legacy ray picker are
+unchanged.
 
 ## Browser contract
 
