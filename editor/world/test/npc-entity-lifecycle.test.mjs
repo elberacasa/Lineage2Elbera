@@ -5,6 +5,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import * as THREE from '../vendor/three.module.min.js';
+import {planInitialNpcWait,createInitialNpcWait,advanceInitialNpcWait} from '../js/npcwaitanim.js';
+import {createOriginalPosePlayback} from '../js/sourcepose-playback.js';
+import {selectNotifySound} from '../js/animnotify-clock.js';
+import {createNativeRandom} from '../js/native-random.js';
+import {fixture as waitFixture,sound} from './fixtures/npc-wait.mjs';
 
 const source=fs.readFileSync(new URL('../js/entities.js',import.meta.url),'utf8');
 const begin=source.indexOf('class NpcEntity {');
@@ -20,19 +25,22 @@ const plain=value=>JSON.parse(JSON.stringify(value));
 function harness({holdManifest=false}={}) {
   const scene=new THREE.Group(),jobs=[],materials=[],warnings=[],mixers=[],timers=new Map();
   const manifest=deferred(),titles=deferred();let timerId=0;
-  const modelRows=[{id:'Authored9',gltf:'nine.gltf'},{id:'Authored10',gltf:'ten.gltf'}];
+  const modelRows=[{id:'Authored9',gltf:'nine.gltf'},{id:'Authored10',gltf:'ten.gltf'},
+    {id:'Authored18342',gltf:'starter-gremlin.gltf'},{id:'Authored20001',gltf:'gremlin.gltf'},{id:'Authored20091',gltf:'fox.gltf'}];
   if(!holdManifest)manifest.resolve(modelRows);
   class Mixer extends THREE.AnimationMixer {
     constructor(root){super(root);this.stops=0;this.uncached=[];mixers.push(this);}
     stopAllAction(){this.stops++;return super.stopAllAction();}
     uncacheRoot(root){this.uncached.push(root);return super.uncacheRoot(root);}
   }
+  const sounds=[],audio={nativeRandom:createNativeRandom(0),playAt:(...args)=>sounds.push(args)};
   const context={THREE:{...THREE,AnimationMixer:Mixer},L2_TO_M:.01,NPC_SPEED:1.6,MOVE_TICK_S:.1,
+    planInitialNpcWait,createInitialNpcWait,advanceInitialNpcWait,createOriginalPosePlayback,selectNotifySound,audio,
     NAME_COLOR:'#fff',npcColor:()=>new THREE.Color(0),labelScale:()=>1,
     l2ToThree:(x,y,z,out=new THREE.Vector3())=>out.set(x*.01,z*.01,-y*.01),l2HeadingToThreeYaw:()=>0,
     makeLabel:text=>{const label=new THREE.Object3D();label.userData.nameplate={text};return label;},
     titleFor:row=>row ? {text:row,color:null}:null,npcTitles:()=>titles.promise,
-    monsterManifest:()=>manifest.promise,npcMeshes:async()=>({9:{mesh:'Authored9',type:'Monster'},10:{mesh:'Authored10',type:'Folk'}}),
+    monsterManifest:()=>manifest.promise,npcMeshes:async()=>Object.fromEntries([9,10,18342,20001,20091].map(id=>[id,{mesh:`Authored${id}`,type:'Monster'}])),
     npcVisualMeta:async()=>({}),npcVisualScale:()=>({x:1,y:1,z:1}),GLTFLoader:class {},
     loadNpcAnimationModel:(npcId,entry)=>{const work=deferred();jobs.push({npcId,entry,...work});return work.promise;},
     applyOriginalNpcMaterials:(npcId,entry,gltf)=>{const work=deferred();materials.push({npcId,entry,gltf,...work});return work.promise;},
@@ -42,8 +50,8 @@ function harness({holdManifest=false}={}) {
   const classes=source.slice(begin).replace('export class EntityManager','class EntityManager');
   const {EntityManager,NpcEntity}=vm.runInNewContext(source.slice(mapBegin,mapEnd)+classes+'\n({EntityManager,NpcEntity});',context);
   const manager=new EntityManager(scene,[]);
-  const add=msg=>{manager.addNpc(msg,{heightAtWorld:()=>0});return manager.getEntity(msg.id);};
-  return{scene,manager,NpcEntity,add,jobs,materials,warnings,mixers,timers,titles,manifest,modelRows};
+  const add=(msg,tile='17_25')=>{manager.addNpc(msg,{def:{tile},heightAtWorld:()=>0});return manager.getEntity(msg.id);};
+  return{scene,manager,NpcEntity,add,jobs,materials,warnings,mixers,timers,titles,manifest,modelRows,audio,sounds};
 }
 function model() {
   const root=new THREE.Group(),texture=new THREE.Texture({close(){assert.fail('cached image closed');}});
@@ -57,6 +65,109 @@ async function adopt(h,job=0) {
   await flush();const loaded=model();h.jobs[job].resolve(loaded);await flush();
   h.materials.find(row=>row.gltf===loaded.gltf).resolve();await flush();return loaded;
 }
+
+// Synthetic one-bone source keys with exact profile identities. These exercise
+// the real planner/clock/pose/entity together, not original asset correctness.
+function sourceModel(npcId=20001) {
+  const loaded=model(),f=waitFixture(npcId),bone=new THREE.Bone();
+  bone.name='Root';loaded.root.add(bone);
+  const bones=[{name:'Root',parent:0}];
+  f.source.record.sourceFiles=Object.freeze({...f.sources});
+  f.source.catalog.bones=bones;
+  Object.assign(f.source.skeleton,{modelId:f.source.catalog.modelId,meshRef:f.source.catalog.meshRef,
+    animationRef:f.source.catalog.animationRef,animationBones:bones,trackBindings:[0],
+    bones:[{...bones[0],position:[0,0,0],orientation:[0,0,0,1]}]});
+  for(const sequence of f.source.catalog.sequences) {
+    Object.assign(sequence.movement,{duration:10,tracks:[{flags:0,times:[0,10],
+      quaternions:[[0,0,0,1],[0,0,0,1]],positions:[[10,0,0],[110,0,0]]}]});
+    const note=sound(.2);note.soundInfo.random=100;sequence.notifies=[note];
+  }
+  loaded.gltf.animations=[new THREE.AnimationClip('idle',1,
+    [new THREE.VectorKeyframeTrack('Root.position',[0,1],[50,0,0,60,0,0])])];
+  loaded.originalSource=f.source;
+  return {...loaded,packet:packet({...f.raw,x:-71000,y:258000,z:-3100}),bone};
+}
+async function adoptSource(h,loaded,job=0) {
+  await flush();h.jobs[job].resolve(loaded);await flush();h.materials.find(row=>row.gltf===loaded.gltf).resolve();await flush();
+}
+
+test('actual NPC loop uses original normalized frames, independent per actor, and shared sound draw order',async()=>{
+  const h=harness(),a=sourceModel(18342),b=sourceModel(20091);
+  b.packet.id=8;b.packet.combat=1;
+  const first=h.add(a.packet),second=h.add(b.packet);
+  await adoptSource(h,a);await adoptSource(h,b,1);
+  assert.equal(first.originalWaitStatus.status,'ready');assert.equal(second.originalWaitStatus.sequence,'atkwait');
+  assert.equal(first.originalWaitStatus.frame,Math.fround(.0001));
+  assert.equal(a.bone.matrixAutoUpdate,false);assert.equal(first.current,null);
+  first.waitSoundEnabled=false;first.update(.5,null);
+  assert.equal(h.audio.nativeRandom.draws,1);assert.equal(h.sounds.length,0);
+  assert.equal(first.originalWaitStatus.lastNotify.soundDecision.randomValue,38);
+  assert.equal(second.originalWaitStatus.frame,Math.fround(.0001),'another actor did not advance');
+  second.update(.5,null);
+  assert.equal(h.audio.nativeRandom.draws,2);assert.equal(h.sounds.length,1);
+  assert.equal(second.originalWaitStatus.lastNotify.soundDecision.randomValue,7719);
+  assert.ok(Math.abs(a.bone.matrix.elements[12]-(.1+first.originalWaitStatus.frame))<1e-6);
+  const guard=h.sounds[0][2].isCurrent;
+  h.manager.remove(8);assert.equal(guard(),false);assert.equal(b.bone.matrixAutoUpdate,true);
+  assert.equal(second.originalWaitStatus.notifyCount,1,'retired inspector status retains observed events');
+  assert.equal(second.originalWaitStatus.status,'unsupported','retained observation does not claim ongoing source playback');
+  assert.equal(a.bone.matrixAutoUpdate,false,'other actor retains source ownership');
+  h.manager.clear();assert.equal(a.bone.matrixAutoUpdate,true);
+});
+
+test('NPC unported transitions retire before pending model adoption and never re-admit the same actor',async()=>{
+  const transitions=[
+    (h,n)=>n.attackFlash(),(h,n)=>n.skillFlash(),(h,n)=>n.socialFlash(),
+    (h,n)=>n.die(),(h,n)=>n.revive(),(h,n)=>h.add(n.originalNpcInfo ? {...packet(),...n.originalNpcInfo} : packet()),
+    (h,n)=>h.manager.setWaitType(n.id,4),(h,n)=>h.manager.setMoveMode(n.id,true),
+    (h,n)=>h.manager.move({id:n.id,x:0,y:0,z:0,tx:100,ty:0,tz:0},null),
+    (h,n)=>h.manager.place({id:n.id,x:0,y:0,z:0},null),
+    (h,n)=>h.manager.retireNpcWait(n.id,'incoming-attack'),
+  ];
+  for(const transition of transitions) for(const pending of [true,false]) {
+    const h=harness(),loaded=sourceModel(),npc=h.add(loaded.packet);
+    if(!pending)await adoptSource(h,loaded);
+    transition(h,npc);
+    if(pending)await adoptSource(h,loaded);
+    assert.equal(npc.originalWait,null);assert.equal(npc._initialWaitEligible,false);
+    npc.target=null;npc.dead=false;npc._startOriginalWait();
+    assert.equal(npc.originalWait,null,'resetting compatibility flags cannot recreate native history');
+    assert.equal(loaded.bone.matrixAutoUpdate,true);assert.equal(h.audio.nativeRandom.draws,0);
+    h.manager.clear();
+  }
+});
+
+test('fresh same-ID replacement may start a new source loop; stale actor and queued sound stay retired',async()=>{
+  const h=harness(),a=sourceModel(),old=h.add(a.packet);await adoptSource(h,a);
+  old.update(.5,null);const guard=h.sounds[0][2].isCurrent;
+  h.manager.remove(old.id);const b=sourceModel(),fresh=h.add(b.packet);await adoptSource(h,b,1);
+  assert.equal(fresh.originalWaitStatus.status,'ready');assert.notEqual(fresh,old);assert.equal(guard(),false);
+  old.update(1,null);assert.equal(h.audio.nativeRandom.draws,1);
+  fresh.update(.5,null);assert.equal(h.audio.nativeRandom.draws,2);
+  h.manager.clear();
+});
+
+test('invalid source pose leaves converted playback usable, without a hidden stopped mixer',async()=>{
+  const h=harness(),loaded=sourceModel();loaded.originalSource.catalog.sequences[0].movement.tracks=[];
+  const npc=h.add(loaded.packet);await adoptSource(h,loaded);
+  assert.equal(npc.originalWaitStatus.status,'unsupported');assert.equal(npc.modelLoadError,null);
+  assert.equal(npc.current,npc.actions.idle);npc.update(.1,null);
+  assert.equal(loaded.bone.matrixAutoUpdate,true);assert.ok(loaded.bone.position.x>50);
+  assert.equal(h.audio.nativeRandom.draws,0);h.manager.clear();
+});
+
+test('initial source loop is not generalized beyond the audited source level',async()=>{
+  for(const tile of [null,'22_22']) {
+    const h=harness(),loaded=sourceModel(),npc=h.add(loaded.packet,tile);await adoptSource(h,loaded);
+    assert.equal(npc.originalWaitStatus.reason,'unverified-initial-source-level');
+    npc.update(.5,null);assert.equal(h.audio.nativeRandom.draws,0);
+    assert.equal(loaded.bone.matrixAutoUpdate,true);h.manager.clear();
+  }
+  const h=harness(),loaded=sourceModel();loaded.packet.x=80000;loaded.packet.y=140000;
+  const npc=h.add(loaded.packet);await adoptSource(h,loaded);
+  assert.equal(npc.originalWaitStatus.reason,'unverified-initial-source-level','old displayed tile cannot admit a foreign packet');
+  h.manager.clear();
+});
 
 test('raw NpcInfo snapshots replace only own received fields, retaining zero independently of compatibility fallbacks',async()=>{
   const h=harness({holdManifest:true}),msg=packet({waitType:0,speedMul:0,collisionRadius:0,collisionHeight:0});

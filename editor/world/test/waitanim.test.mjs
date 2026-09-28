@@ -3,9 +3,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {createNativeRandom} from '../js/native-random.js';
 import {waitSequence,createWaitSequence,advanceWaitPlayback} from '../js/waitanim.js';
 import {createCastPlayback,advanceCastPlayback,closeSourceLoop} from '../js/castplayback.js';
-import {directNotifySound} from '../js/animnotify-clock.js';
+import {selectNotifySound} from '../js/animnotify-clock.js';
 const THREE=await import('../vendor/three.module.min.js');
 const f=Math.fround;
 function table() {
@@ -56,7 +57,7 @@ test('terminal sample uses actual source endpoint and unsupported successor stay
 const source=fs.readFileSync(new URL('../js/character.js',import.meta.url),'utf8');
 const begin=source.indexOf('  cancelCast('),end=source.indexOf('  /**\n   * One attack swing',begin);
 assert.ok(begin>=0 && end>begin,'actual Character wait-method boundary');
-function harness() {
+function harness(sharedAudio=null) {
  const sounds=[],model=new THREE.Group(),bone=new THREE.Bone();bone.name='sourceBone';model.add(bone);
  const mixer=new THREE.AnimationMixer(model),t=table(),actions={};
  for(const [clip,base] of [['sitDown',10],['sit',20],['standUp',30],['idle',40]]) {
@@ -64,11 +65,12 @@ function harness() {
   const values=times.flatMap(time=>[base+time,0,0]);
   actions[clip]=mixer.clipAction(new THREE.AnimationClip(clip,1,[new THREE.VectorKeyframeTrack('sourceBone.position',times,values)]));
  }
+ const audio=sharedAudio || {nativeRandom:createNativeRandom(0),playAt:(...args)=>sounds.push(args)};
  const proto=vm.runInNewContext(`class C {${source.slice(begin,end)}};C.prototype`,{waitSequence,createWaitSequence,advanceWaitPlayback,
-  createCastPlayback,advanceCastPlayback,closeSourceLoop,directNotifySound,performance:{now:()=>0},
-  audio:{playAt:(...args)=>sounds.push(args)}});
+  createCastPlayback,advanceCastPlayback,closeSourceLoop,selectNotifySound,performance:{now:()=>0},
+  audio});
  const ch=Object.assign(Object.create(proto),{group:model,model,mixer,actions,waitTable:t,modelId:'fixture',stance:'hand',speedMul:1.1,waitType:1,sitting:false});
- return {ch,bone,sounds,step(dt){ch._advanceWaitSchedule(dt);mixer.update(dt);ch._applySourceTween(ch.nativeWait);}};
+ return {ch,bone,sounds,audio,step(dt){ch._advanceWaitSchedule(dt);mixer.update(dt);ch._applySourceTween(ch.nativeWait);}};
 }
 test('actual Character plays Sit then SitWait and Stand then source idle; duplicate packets do not restart',()=>{
  const h=harness();assert.equal(h.ch.setWaitType(0).status,'ready');
@@ -127,6 +129,7 @@ test('wait observer cancellation blocks the remaining batch and stale phase adop
  h.ch.onWaitNotify=detail=>{observed.push(detail.notify.sound);h.ch.cancelCast();};
  assert.equal(h.ch.setWaitType(0).status,'ready');h.step(.4);
  assert.deepEqual(observed,['First']);assert.deepEqual(h.sounds.map(s=>s[0]),['First']);
+ assert.equal(h.audio.nativeRandom.draws,1,'retiring the channel prevents the remaining batch from drawing');
  assert.equal(h.ch.nativeWait,null);assert.equal(h.ch.lastWaitPhase,undefined);
  assert.equal(h.sounds[0][2].isCurrent(),false);
 });
@@ -193,4 +196,125 @@ test('same-tick successor tween starts at the displayed last transition pose',()
  assert.ok(Math.abs(h.ch.lastWaitPhase.tweenProgress-.5)<.000002);
  // Original transition endpoint x=11; successor frame zero x=20.
  assert.ok(Math.abs(h.bone.position.x-15.5)<.00002,'must not wrap to transition frame zero or retain the previous tick');
+});
+
+// Actual Character dispatch + actual AudioEngine async ownership. Only the
+// browser audio nodes/buffer fetch are synthetic; no audio or game assets are
+// used. Authored seed and event times test call order, not native seed history.
+const audioSource=fs.readFileSync(new URL('../js/audio.js',import.meta.url),'utf8');
+const SharedAudioEngine=vm.runInNewContext(
+ audioSource.replace(/^import .*;$/gm,'').replace(/^export /gm,'')+'\nAudioEngine;',
+ {THREE,createBrowserRandom:()=>createNativeRandom(0),L2_TO_M:.01,
+  localStorage:{getItem:()=>null,setItem(){}},console});
+const flushAudio=()=>new Promise(resolve=>setImmediate(resolve));
+function sharedAudioFixture() {
+ const engine=new SharedAudioEngine(),loads=[],starts=[];
+ const node=()=>({connect(other){return other;},disconnect(){}});
+ engine.ctx={state:'running',currentTime:0,
+  createGain:()=>({...node(),gain:{value:0}}),
+  createBufferSource:()=>({...node(),playbackRate:{value:1},start(){starts.push(this.buffer);}})};
+ engine.ready=true;
+ engine.buses.sfx={...node(),gain:{value:1,setTargetAtTime(value){this.value=value;}}};
+ engine._panner=()=>node();
+ engine._buffer=ref=>new Promise(resolve=>loads.push({ref,resolve}));
+ return {engine,loads,starts};
+}
+function randomSound(t,ref,threshold=100) {
+ const notify=waitReviewSound(t,ref);notify.soundInfo.random=threshold;return notify;
+}
+function startRandomWait(h,notifies) {
+ h.ch.waitTable.clips.fixture.idle.notifies=notifies;
+ assert.equal(h.ch.setWaitType(1,{snapshot:true,initial:true}).status,'ready');
+}
+
+test('two actual Characters share dispatch-order RNG through mute, zero threshold and deferred audio',async()=>{
+ const audio=sharedAudioFixture(),a=harness(audio.engine),b=harness(audio.engine),observed=[];
+ assert.equal(a.audio,b.audio);assert.equal(a.audio.nativeRandom,b.audio.nativeRandom);
+ for(const [label,h] of [['a',a],['b',b]]) h.ch.onWaitNotify=event=>observed.push({
+  actor:label,ref:event.notify.sound,draw:event.soundDecision?.randomValue,status:event.soundDecision?.status});
+ startRandomWait(a,[randomSound(.05,'Fixture.Muted'),randomSound(.15,'Fixture.LateA')]);
+ startRandomWait(b,[randomSound(.05,'Fixture.Zero',0),randomSound(.15,'Fixture.LateB')]);
+ a.ch.waitSoundEnabled=false;
+ a.step(.1); // Native method is dispatched despite caller playback being muted.
+ assert.equal(audio.engine.nativeRandom.draws,1);assert.equal(audio.loads.length,0);
+ b.step(.1); // Signed threshold zero still follows exactly one native draw.
+ assert.equal(audio.engine.nativeRandom.draws,2);assert.equal(audio.loads.length,0);
+ b.step(.2);
+ a.ch.waitSoundEnabled=true;a.step(.2);
+ assert.deepEqual(observed,[
+  {actor:'a',ref:'Fixture.Muted',draw:38,status:'ready'},
+  {actor:'b',ref:'Fixture.Zero',draw:7719,status:'filtered'},
+  {actor:'b',ref:'Fixture.LateB',draw:21238,status:'ready'},
+  {actor:'a',ref:'Fixture.LateA',draw:2437,status:'ready'},
+ ]);
+ assert.deepEqual(audio.loads.map(row=>row.ref),['Fixture.LateB','Fixture.LateA']);
+ assert.equal(audio.starts.length,0);assert.equal(audio.engine.nativeRandom.draws,4);
+ // Reverse completion order cannot move, repeat, or reseed the dispatch draw.
+ audio.loads[1].resolve({ref:'Fixture.LateA'});await flushAudio();
+ audio.loads[0].resolve({ref:'Fixture.LateB'});await flushAudio();
+ assert.deepEqual(audio.starts.map(buffer=>buffer.ref),['Fixture.LateA','Fixture.LateB']);
+ assert.equal(audio.engine.nativeRandom.draws,4);
+});
+
+test('actual audio mixer mute and locked context do not skip Character draws or redraw on unlock',async()=>{
+ const audio=sharedAudioFixture(),a=harness(audio.engine),b=harness(audio.engine);
+ startRandomWait(a,[randomSound(.05,'Fixture.BusMuted')]);
+ startRandomWait(b,[randomSound(.05,'Fixture.Locked')]);
+ audio.engine.setVolume('sfx',0);assert.equal(audio.engine.buses.sfx.gain.value,0);
+ a.step(.1);assert.equal(audio.engine.nativeRandom.draws,1);assert.equal(audio.loads.length,1);
+ audio.engine.ctx.state='suspended';
+ b.step(.1);assert.equal(audio.engine.nativeRandom.draws,2);assert.equal(audio.loads.length,1);
+ audio.engine.ctx.state='running';
+ audio.loads[0].resolve({ref:'Fixture.BusMuted'});await flushAudio();
+ assert.deepEqual(audio.starts.map(buffer=>buffer.ref),['Fixture.BusMuted']);
+ assert.equal(audio.engine.buses.sfx.gain.value,0);assert.equal(audio.engine.nativeRandom.draws,2);
+ b.step(0);assert.equal(audio.loads.length,1);assert.equal(audio.engine.nativeRandom.draws,2);
+});
+
+test('retired wait audio is suppressed after async completion without consuming another shared draw',async()=>{
+ const audio=sharedAudioFixture(),a=harness(audio.engine),b=harness(audio.engine);
+ startRandomWait(a,[randomSound(.05,'Fixture.Retired')]);
+ startRandomWait(b,[randomSound(.05,'Fixture.Current')]);
+ a.step(.1);b.step(.1);assert.equal(audio.engine.nativeRandom.draws,2);
+ a.ch.cancelCast();
+ audio.loads[0].resolve({ref:'Fixture.Retired'});audio.loads[1].resolve({ref:'Fixture.Current'});
+ await flushAudio();
+ assert.deepEqual(audio.starts.map(buffer=>buffer.ref),['Fixture.Current']);
+ assert.equal(audio.engine.nativeRandom.draws,2);
+ a.step(.5);assert.equal(audio.engine.nativeRandom.draws,2,'cancelled channel has no further dispatch');
+});
+
+test('actual unreached/null/unknown-class and rejected wait callbacks consume no RNG',()=>{
+ const audio=sharedAudioFixture();
+ const unreached=harness(audio.engine);startRandomWait(unreached,[randomSound(.5,'Fixture.Later')]);
+ unreached.step(.1);assert.equal(audio.engine.nativeRandom.draws,0);
+ unreached.ch.cancelCast();unreached.step(1);assert.equal(audio.engine.nativeRandom.draws,0);
+ const nullObject=harness(audio.engine);startRandomWait(nullObject,[{...randomSound(.05,'Fixture.Null'),objectRef:0}]);
+ nullObject.step(.1);assert.equal(nullObject.ch.lastWaitNotify.dispatch,'null');
+ assert.equal(nullObject.ch.lastWaitNotify.soundDecision,null);assert.equal(audio.engine.nativeRandom.draws,0);
+ const unknown=harness(audio.engine);startRandomWait(unknown,[{...randomSound(.05,'Fixture.Unknown'),classPath:'Fixture.SoundSubclass'}]);
+ unknown.step(.1);assert.equal(unknown.ch.lastWaitNotify.soundDecision.reason,'unported-sound-notify-class');
+ assert.equal(audio.engine.nativeRandom.draws,0);
+ const script=harness(audio.engine);script.ch.waitTable.clips.fixture.idle.notifies=[{...randomSound(.05,'Fixture.Script'),function:'UnknownScript'}];
+ assert.equal(script.ch.setWaitType(1,{snapshot:true,initial:true}).status,'unsupported');
+ script.step(.1);assert.equal(audio.engine.nativeRandom.draws,0);
+ const rejectedBatch=harness(audio.engine);
+ startRandomWait(rejectedBatch,[randomSound(.05,'Fixture.BeforeUnsupported'),{...randomSound(.06,'Fixture.BoneScale'),isBoneScale:true}]);
+ rejectedBatch.step(.1);
+ assert.equal(rejectedBatch.ch.lastWaitError.reason,'unresolved-native-notify-removal');
+ assert.equal(audio.engine.nativeRandom.draws,0,'clock rejects the entire batch before actual Character dispatch');
+ assert.equal(audio.loads.length,0);
+});
+
+test('a dispatched base Sound still draws before an unsupported direct/surface branch',()=>{
+ const audio=sharedAudioFixture(),surface=harness(audio.engine),missing=harness(audio.engine);
+ const a=randomSound(.05,null);a.soundInfo.status='source-surface';
+ startRandomWait(surface,[a]);surface.step(.1);
+ assert.equal(surface.ch.lastWaitNotify.soundDecision.reason,'unported-sound-notify-branch');
+ assert.equal(surface.ch.lastWaitNotify.soundDecision.randomValue,38);
+ const b=randomSound(.05,'Fixture.Missing');delete b.soundInfo;
+ startRandomWait(missing,[b]);missing.step(.1);
+ assert.equal(missing.ch.lastWaitNotify.soundDecision.reason,'missing-original-random-threshold');
+ assert.equal(missing.ch.lastWaitNotify.soundDecision.randomValue,7719);
+ assert.equal(audio.engine.nativeRandom.draws,2);assert.equal(audio.loads.length,0);
 });

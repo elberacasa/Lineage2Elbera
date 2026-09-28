@@ -2,6 +2,45 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Live original NPC waiting milestone — 27 September 2026
+
+On `codex/native-npc-event-playback`, the normal entity loader now drives a
+bounded initial Wait/AtkWait for independently verified NPC IDs 18342, 20001
+and 20091. Both the displayed terrain and received NPC coordinates must be on
+the audited source tile 17_25. Complete raw packet/state/source inputs are
+required; unsupported state changes retire the source loop without re-admitting
+that actor. Movement, combat, damage, skill, social, death, respawn, later NPC
+snapshots and removal all invalidate pending source audio/pose ownership.
+
+Original sparse keys use the existing native clock and hierarchy evaluator.
+Player and NPC Sound notifies share the recovered integer generator and signed
+gate; every dispatched base Sound consumes a draw, including Random0/100 and
+muted/unavailable audio. Browser entropy, context lifetime, resource-ready
+scheduling and unported random consumers remain explicit platform limits.
+Native movement transitions, world placement, lighting and full skinning are
+still incomplete. The full browser-port goal remains active.
+
+Elbera Tools now exposes live NPC frames, event counts, sound-gate outcomes and
+retirement reasons in the existing World inspection panel. Real online starter
+Gremlins demonstrated advancing Wait frames, admitted/filtered sound events and
+individual movement retirement; fresh-page reconnect repeated the result.
+Manual 18342 play/pause/restore still works. No new browser errors; existing
+unhandled PlaySound packet warnings remain. The curated live screenshot is
+`docs/img/elbera-tools-live-npc-events.jpg`; all earlier README images remain.
+
+Verification: 162 focused Node tests, 106 gateway portable tests, 20 NPC native
+tool fixtures and nine sound verifier fixtures passed. Original-input checks
+also passed, including the browser-module RNG differential and independently
+framed 6,519-row NPC table. The standalone NPC Source candidate passes 103
+checks across its same 43 text files; the published 0.1.0 archive is unchanged.
+Private regeneration added 18342 to the selected index while both NPC bundles
+and all fourteen player bundles remained byte-identical.
+
+Next: preserve original playback through movement and return-to-wait, resolve
+world-entry/resource scheduling without invented catch-up, then extend the
+verified class/transition domain. Initial waiting is a milestone, not full NPC
+animation, a completed test server or completion of the browser client.
+
 Goal: a faithful browser-playable Lineage 2 Interlude port, with no installed player client, progressing toward a small test server.
 
 Binding goal constraint (owner, 26 September 2026): always stay true to OFFICIAL

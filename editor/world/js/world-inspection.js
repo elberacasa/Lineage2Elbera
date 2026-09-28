@@ -29,7 +29,7 @@ export function installWorldInspection({ visit, readState, compare, measure }) {
   if (!request) return null;
   const panel = document.createElement('section');
   panel.setAttribute('aria-label', 'World inspection');
-  panel.style.cssText = 'position:fixed;top:64px;right:12px;z-index:10000;width:290px;max-width:calc(100vw - 48px);padding:14px;border:1px solid #87939b;border-radius:8px;background:#101923f5;color:#eef3f6;font:13px/1.4 system-ui;box-shadow:0 3px 18px #0008';
+  panel.style.cssText = 'position:fixed;top:64px;right:12px;z-index:10000;width:290px;max-width:calc(100vw - 48px);max-height:calc(100vh - 110px);overflow:auto;padding:14px;border:1px solid #87939b;border-radius:8px;background:#101923f5;color:#eef3f6;font:13px/1.4 system-ui;box-shadow:0 3px 18px #0008';
   const title = document.createElement('strong');
   title.textContent = 'Elbera Tools — World inspection';
   const controls = document.createElement('fieldset');
@@ -69,6 +69,15 @@ export function installWorldInspection({ visit, readState, compare, measure }) {
   });
   controls.append(label, reset, comparison);
   panel.append(title, controls, note, status, probe, measurement);
+  const npcDetails = document.createElement('details'), npcSummary = document.createElement('summary');
+  npcSummary.textContent = 'Live original NPC events';
+  const npcReadout = document.createElement('pre');
+  npcReadout.setAttribute('aria-label','Original NPC playback');
+  npcReadout.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.5 monospace;max-height:220px;overflow:auto';
+  const npcLimit = document.createElement('p');
+  npcLimit.style.cssText='font-size:11px;color:#bdcbd7';
+  npcLimit.textContent='Initial Gremlin/Fox waits only. Other transitions, native random history, placement and full rendering parity remain unresolved.';
+  npcDetails.append(npcSummary,npcReadout,npcLimit); panel.append(npcDetails);
   document.body.append(panel);
   let pending = false, failure = '', disposed = false;
   const number = value => Number.isFinite(value) ? String(Math.round(value * 100) / 100) : 'unknown';
@@ -84,6 +93,11 @@ export function installWorldInspection({ visit, readState, compare, measure }) {
       `Native diagonal: ${s.nativeDiagonal || 'unverified'}`,
       s.sourceRules, pending ? 'Loading viewpoint…' : '', failure].filter(Boolean).join('\n');
     if (status.textContent !== text) status.textContent = text;
+    const npcText = (s.npcWait || []).map(row => `${row.npcId} · ${row.name}\n${row.status === 'ready'
+      ? `${row.sequence} · frame ${number(row.frame)} · ${row.notifyCount} events`
+      : `${row.status}: ${row.reason}${row.sequence ? `\nPrevious ${row.sequence} · ${row.notifyCount} events` : ''}`}\n${row.lastNotify ? `Last event ${row.lastNotify.index}: ${row.lastNotify.soundDecision?.status || 'null object'}` : ''}`)
+      .join('\n\n') || 'No NPCs currently loaded.';
+    if (npcReadout.textContent !== npcText) npcReadout.textContent = npcText;
   }
   async function run(action, restore) {
     if (pending || readState().online) { restore(); refresh(); return; }

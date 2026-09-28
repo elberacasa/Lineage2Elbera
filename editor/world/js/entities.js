@@ -19,6 +19,10 @@ import { skillAgentBinding } from './skillvfx-binding.js';
 import { npcVisualMeta, npcVisualScale } from './npcvisual.js';
 import { loadNpcAnimationModel } from './npcanimations.js';
 import { applyOriginalNpcMaterials } from './npcmaterials.js';
+import { planInitialNpcWait, createInitialNpcWait, advanceInitialNpcWait } from './npcwaitanim.js';
+import { createOriginalPosePlayback } from './sourcepose-playback.js';
+import { selectNotifySound } from './animnotify-clock.js';
+import { audio } from './audio.js';
 
 let _playerCastMetadata = null;
 let _playerCastMetadataPending = null;
@@ -236,12 +240,21 @@ class DropEntity {
 }
 
 class NpcEntity {
-  constructor(msg) {
+  constructor(msg, {sourceLevel=null}={}) {
     const { id, npcId, name, level, runSpeed, walkSpeed, speedMul, running,
       pAtkSpd, atkSpdMul, collisionRadius, collisionHeight, dead } = msg;
     this.captureOriginalNpcInfo(msg);
     this._retired = false;
     this._upgradeGeneration = 0;
+    this._initialWaitEligible = true;
+    this._waitGeneration = 0;
+    this._waitPoseEpoch = 0;
+    this._initialSourceLevel = sourceLevel;
+    // Tile naming follows the existing world coordinate convention. Retain
+    // the received location separately from the compatibility placement.
+    this._initialPacketLevel = Number.isInteger(msg.x) && Number.isInteger(msg.y)
+      ? `${20 + Math.floor(msg.x / 32768)}_${18 + Math.floor(msg.y / 32768)}` : null;
+    this.originalWaitStatus = {status:'pending',reason:'waiting-for-original-resources'};
     this.id = id;
     this.kind = 'npc';
     this.npcId = npcId;
@@ -300,6 +313,7 @@ class NpcEntity {
   // Each complete NpcInfo replaces it; absence is unknown, not an old value or
   // a synthesized neutral equipment bank/multiplier.
   captureOriginalNpcInfo(msg) {
+    if (this.originalNpcInfo) this._retireOriginalWait('subsequent-npc-info');
     const immutableCopy = value => {
       if (!value || typeof value !== 'object') return value;
       return Object.freeze(Array.isArray(value) ? value.map(immutableCopy)
@@ -311,6 +325,80 @@ class NpcEntity {
       if (Object.prototype.hasOwnProperty.call(msg, key)) snapshot[key] = immutableCopy(msg[key]);
     }
     this.originalNpcInfo = Object.freeze(snapshot);
+  }
+
+  // Translate the verified fresh constructor/channel values into state owned
+  // by this browser actor. Admission ends at the first unported state change;
+  // an empty later packet cannot recreate the missing transition history.
+  _startOriginalWait() {
+    if (!this._initialWaitEligible || this._retired || this.dead || this.target) return;
+    // The source zone/volume callback census currently covers Talking Island
+    // 17_25 only. Do not generalize its startup preservation to other maps.
+    if (this._initialSourceLevel !== '17_25' || this._initialPacketLevel !== '17_25') {
+      this.originalWaitStatus = {status:'unsupported',reason:'unverified-initial-source-level'};
+      return;
+    }
+    const startup = {
+      userItemBankMode:0,userFallbackItem:0,curWeaponType:0,
+      lobby:false,ride:false,fishing:false,abnormalStates:[],
+      swimWait:'None',swimAttackWait:'None',damageAct:false,spineRotation:false,
+      channelCount:1,channelBaseBone:0,channelSpecialMode:0,channelNotifyDisabled:0,
+      rootLock:0,referenceOverride:0,modifierCounts:[0,0,0,0],
+    };
+    const plan = planInitialNpcWait(this.originalNpcInfo,this.originalSource,startup,
+      this.originalSource?.record?.sourceFiles);
+    this.originalWaitStatus = plan.status === 'ready' ? {status:'pending'} : plan;
+    if (plan.status !== 'ready') return;
+    let pose;
+    try {
+      pose = createOriginalPosePlayback(this.monsterRoot,this.originalSource);
+      const selected = pose.select(plan);
+      if (selected.status !== 'ready') throw new Error(selected.reason);
+      const channel = createInitialNpcWait(plan);
+      if (!channel) throw new Error('missing-original-npc-wait-channel');
+      this.mixer.stopAllAction(); this.current = null;
+      const applied = pose.apply(channel.frame,{epoch:++this._waitPoseEpoch});
+      if (applied.status !== 'ready') throw new Error(applied.reason);
+      // Browser scheduling begins when verified resources are ready. This
+      // does not reconstruct elapsed native loading time or skipped events.
+      this.originalWait = {channel,pose,generation:this._waitGeneration};
+      this.originalWaitStatus = {status:'ready',sequence:plan.seq,frame:channel.frame,notifyCount:0};
+    } catch (error) {
+      pose?.stop();
+      this._retireOriginalWait(error.message);
+      this._play('idle',0);
+    }
+  }
+
+  _retireOriginalWait(reason) {
+    this._initialWaitEligible = false;
+    this._waitGeneration = (this._waitGeneration || 0) + 1;
+    const active = this.originalWait;
+    active?.pose.stop();
+    this.originalWait = null;
+    this.originalWaitStatus = {...this.originalWaitStatus,status:'unsupported',reason};
+    if (active && !this._retired && this.actions) this._play(this.dead ? 'die' : 'idle',0);
+  }
+
+  _advanceOriginalWait(dt) {
+    const state = this.originalWait;
+    const step = advanceInitialNpcWait(state.channel,dt);
+    if (step.status !== 'ready') { this._retireOriginalWait(step.reason); return; }
+    for (const event of step.events) {
+      const notify = state.channel.plan.notifies[event.index];
+      const sound = event.dispatch === 'object' ? selectNotifySound(notify,audio.nativeRandom) : null;
+      this.originalWaitStatus.notifyCount++;
+      this.originalWaitStatus.lastNotify = {index:event.index,frame:event.frame,soundDecision:sound};
+      // Dispatch consumes the shared random stream even when muted or before
+      // browser audio unlock. Delayed buffer decoding must not replay a retired
+      // actor's event or consume another draw.
+      if (sound?.status === 'ready' && this.waitSoundEnabled !== false) audio.playAt(sound.ref,this.group.position,
+        {volume:sound.volume,radius:sound.radius,isCurrent:()=>!this._retired
+          && this.originalWait === state && this._waitGeneration === state.generation && this.waitSoundEnabled !== false});
+    }
+    const applied = state.pose.apply(step.frame,{epoch:++this._waitPoseEpoch});
+    if (applied.status !== 'ready') { this._retireOriginalWait(applied.reason); return; }
+    this.originalWaitStatus.frame = step.frame;
   }
 
   _removeCapsules() {
@@ -327,6 +415,7 @@ class NpcEntity {
   retire() {
     if (this._retired) return;
     this._retired = true;
+    this._retireOriginalWait('entity-removed');
     this._upgradeGeneration = (this._upgradeGeneration || 0) + 1;
     clearTimeout(this._attackTimer); clearTimeout(this._fadeTimer);
     this._attackTimer = this._fadeTimer = null;
@@ -438,6 +527,7 @@ class NpcEntity {
       this.actions = actions;
       adopted = true;
       this._play(this.dead ? 'die' : 'idle', 0);
+      this._startOriginalWait();
       if (this.dead) this._finishDeath();      // died while loading
     } catch (e) {
       if (current()) {
@@ -484,12 +574,14 @@ class NpcEntity {
   // authored speed and returned to idle after `max(300, duration - 100)` ms,
   // two numbers with no source at all.
   attackFlash() {
+    this._retireOriginalWait('attack-transition');
     if (!this.actions || this.dead) return;
     this._playTimed('attack', this.atkSpdMul);
   }
 
   // M4: skill cast visual — monsters prefer their 'special' clip
   skillFlash() {
+    this._retireOriginalWait('skill-transition');
     if (!this.actions || this.dead) return;
     this._playTimed('special', this.atkSpdMul);
   }
@@ -503,6 +595,7 @@ class NpcEntity {
   // compatibility path plays only an available bound action; unresolved
   // original selectors stay an explicit parity gap.
   socialFlash() {
+    this._retireOriginalWait('social-transition');
     if (!this.actions || this.dead) return null;
     if (!this.actions.social) return null;
     this._playTimed('social', 1);
@@ -525,6 +618,7 @@ class NpcEntity {
 
   die() {
     if (this._retired) return;
+    this._retireOriginalWait('death-transition');
     this.dead = true;
     this.target = null;
     if (this.actions) this._play('die', 0.15, true);
@@ -547,6 +641,7 @@ class NpcEntity {
 
   revive() {
     if (this._retired) return;
+    this._retireOriginalWait('revive-transition');
     this.dead = false;
     clearTimeout(this._fadeTimer);
     this.group.traverse(o => {
@@ -561,7 +656,11 @@ class NpcEntity {
 
   update(dt, terrain) {
     if (this._retired) return;
-    if (this.mixer) this.mixer.update(dt);
+    if (this._initialWaitEligible && (this.target || this.dead)) {
+      this._retireOriginalWait(this.dead ? 'death-transition' : 'movement-transition');
+    }
+    if (this.originalWait) this._advanceOriginalWait(dt);
+    else if (this.mixer) this.mixer.update(dt);
     if (!this.target || this.dead) return;
     const pos = this.group.position;
     const dx = this.target.x - pos.x, dz = this.target.z - pos.z;
@@ -752,7 +851,7 @@ export class EntityManager {
     // A new template on the same object ID cannot inherit the old model or
     // pending upgrade. Also retire a different entity kind/pending player.
     if (existing || this.pending.has(id)) this.remove(id);
-    const npc = new NpcEntity(msg);
+    const npc = new NpcEntity(msg,{sourceLevel:terrain?.def?.tile});
     // type (Monster/Folk) resolves with the async npcgrp fetch
     npcMeshes().then(map => {
       if (npc._retired || this.entities.get(id) !== npc) return;
@@ -906,6 +1005,8 @@ export class EntityManager {
   // Broadcasts can race the async model load: state for a pending id is
   // deferred and applied when the spawn lands.
   setWaitType(id, waitType) {
+    const npc = this.entities.get(id);
+    if (npc?.kind === 'npc') { npc._retireOriginalWait('wait-type-transition'); return; }
     if (waitType !== 0 && waitType !== 1) return; // special wait types unported
     const e = this.entities.get(id);
     if (!e) {
@@ -943,6 +1044,7 @@ export class EntityManager {
       e.forcedMoveAnim = running ? 'run' : 'walk';
       if (e.target) e.moveAnim = e.forcedMoveAnim;
     } else {
+      e._retireOriginalWait?.('move-mode-transition');
       e.running = !!running;
     }
   }
@@ -1048,6 +1150,11 @@ export class EntityManager {
 
   getEntity(id) { return this.entities.get(id); }
 
+  retireNpcWait(id, reason) {
+    const entity = this.entities.get(id);
+    if (entity?.kind === 'npc') entity._retireOriginalWait(reason);
+  }
+
   // MoveToLocation: "this creature is at (x,y,z) and is walking to
   // (tx,ty,tz)". The origin half used to be dropped by the gateway; it is the
   // server's own statement of where the creature IS, so the drawn body starts
@@ -1055,6 +1162,7 @@ export class EntityManager {
   move(msg, terrain) {
     const e = this.entities.get(msg.id);
     if (!e) return;
+    e._retireOriginalWait?.('movement-transition');
     if (msg.x != null && msg.y != null && msg.z != null) {
       const here = l2ToThree(msg.x, msg.y, msg.z);
       e.group.position.x = here.x;
@@ -1075,6 +1183,7 @@ export class EntityManager {
   place(msg, terrain) {
     const e = this.entities.get(msg.id);
     if (!e) return;
+    e._retireOriginalWait?.('placement-transition');
     const p = l2ToThree(msg.x || 0, msg.y || 0, msg.z || 0);
     e.group.position.x = p.x;
     e.group.position.z = p.z;

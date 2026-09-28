@@ -15,7 +15,7 @@ const { Vector3 } = await import('three');
 const { installCombatFeedback } = await import('../js/combat.js');
 
 function fixture(t, { from = [0, 0, 0], to = [1, 0, 0] } = {}) {
-  const handlers = new Map(), sent = [], calls = [];
+  const handlers = new Map(), sent = [], calls = [], retired = [], lifecycle = [];
   const pawn = { group: { position: new Vector3(...to), rotation: { y: 0 } } };
   const other = { group: { position: new Vector3(2, 0, 1), rotation: { y: 0 } } };
   const ch = {
@@ -25,13 +25,16 @@ function fixture(t, { from = [0, 0, 0], to = [1, 0, 0] } = {}) {
     clearTarget() { calls.push('clear'); this.target = null; },
   };
   const net = {
-    on(op, fn) { handlers.set(op, fn); },
+    on(op, fn) { assert.equal(handlers.has(op), false, `only one ${op} handler`); handlers.set(op, fn); },
     _emit(op, msg) { handlers.get(op)?.(msg); },
     send(op, fields) { sent.push({ op, ...fields }); return true; },
   };
   const state = installCombatFeedback(net, {
     combat: { clearTarget() {} },
-    entities: { getEntity: id => id === 2 ? pawn : id === 3 ? other : null },
+    entities: {
+      getEntity(id) { lifecycle.push(['lookup',id]); return id === 2 ? pawn : id === 3 ? other : null; },
+      retireNpcWait(id,reason) { retired.push([id,reason]); lifecycle.push(['retire',id]); },
+    },
     character: () => ch, selfId: () => 1,
     onSelfMoveToPawn(msg) { calls.push(['approach', msg]); },
     onSelfStopMove(msg) { calls.push(['stop', msg, ch.target]); },
@@ -40,7 +43,7 @@ function fixture(t, { from = [0, 0, 0], to = [1, 0, 0] } = {}) {
   const approach = distance => net._emit('moveToPawn', {
     id: 1, targetId: 2, distance, x: -1000, y: 2000, z: 10,
   });
-  return { ch, pawn, other, net, state, sent, calls, approach };
+  return { ch, pawn, other, net, state, sent, calls, retired, lifecycle, approach };
 }
 
 test('inside the received distance retires an old visual walk without moving to the pawn', t => {
@@ -103,5 +106,40 @@ test('self stop observation retains its existing post-clear order and ignores re
   f.net._emit('stopMove', msg);
   assert.deepEqual(f.calls, ['clear', ['stop', msg, null]]);
   assert.equal(f.ch.target, null);
+  assert.deepEqual(f.sent, []);
+});
+
+
+test('remote approach retires the initial NPC loop before target lookup, including missing targets', t => {
+  const f = fixture(t);
+  for (const targetId of [2,999]) {
+    f.lifecycle.length=0;
+    f.net._emit('moveToPawn', {id:3,targetId,distance:100});
+    assert.deepEqual(f.lifecycle[0], ['retire',3]);
+    assert.ok(f.lifecycle.some(row=>row[0]==='lookup' && row[1]===targetId));
+  }
+  assert.deepEqual(f.retired, [[3,'move-to-pawn-transition'],[3,'move-to-pawn-transition']]);
+  assert.deepEqual(f.sent, []);
+});
+
+test('both combat mode messages retire initial NPC playback without changing the existing combat set', t => {
+  const f = fixture(t);
+  f.net._emit('autoAttack', {id:3,on:true});
+  assert.equal(f.state.inCombat.has(3),true);
+  f.net._emit('autoAttack', {id:3,on:false});
+  assert.equal(f.state.inCombat.has(3),false);
+  assert.deepEqual(f.retired, [[3,'combat-mode-transition'],[3,'combat-mode-transition']]);
+  assert.deepEqual(f.calls, []);
+  assert.deepEqual(f.sent, []);
+});
+
+test('remote stop retires initial NPC playback before the self-only handler returns', t => {
+  const f = fixture(t);
+  const target=f.ch.target;
+  f.net._emit('stopMove', {id:3});
+  f.net._emit('stopMove', {id:999});
+  assert.deepEqual(f.retired, [[3,'stop-move-transition'],[999,'stop-move-transition']]);
+  assert.equal(f.ch.target,target);
+  assert.deepEqual(f.calls, []);
   assert.deepEqual(f.sent, []);
 });

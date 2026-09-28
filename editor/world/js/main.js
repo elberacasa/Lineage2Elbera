@@ -1102,6 +1102,7 @@ function skillCasterVoiceIndex(id) {
   return ordinaryPlayerVoiceMeshType(actor.modelId);
 }
 net.on('skillLaunch', (msg) => {
+  entities.retireNpcWait(msg.targetId, 'incoming-skill');
   skillBar.finishCast(msg.skillId);
   if (skillFx.associate(msg)) return;
   skillFx.handle(msg).catch(error => console.warn('Skill effect:', error));
@@ -1147,13 +1148,13 @@ net.on('socialAction', (msg) => {
 // ChangeWaitType broadcast (gateway op changeWait{id, waitType}): sit/stand
 // toggle state — waitType 0 = sitting, 1 = standing (aCis ChangeWaitType).
 net.on('changeWait', (msg) => {
+  entities.setWaitType(msg.id, msg.waitType);
   if (msg.waitType !== 0 && msg.waitType !== 1) return; // special wait types unported
   if (msg.id === selfId) {
     selfSitting = msg.waitType === 0;
     if (selfSitting) cancelFineNavigation('sitting');
     if (character) character.setWaitType(msg.waitType);
   }
-  entities.setWaitType(msg.id, msg.waitType);
 });
 // ChangeMoveType broadcast (walk/run toggle) — authoritative for remotes.
 net.on('changeMove', (msg) => entities.setMoveMode(msg.id, msg.running));
@@ -1782,6 +1783,7 @@ net.on('selfStatus', (msg) => {
 });
 net.on('attack', (msg) => {
   entities.attackFlash(msg.id);
+  entities.retireNpcWait(msg.targetId, 'incoming-attack');
   // damage float over the victim (self included: the op carries targetId)
   const pos = entityHeadPos(msg.targetId);
   if (pos) combat.damage(pos, msg);
@@ -2333,6 +2335,8 @@ function inspectionState() {
   const drawn = terrain._drawnGroundL2(x, y, sampled == null ? null : sampled * 100, p.y * 100);
   const ground = terrain.heightAtWorld(p.x, p.z, p.y);
   return { online, tile: currentTile, xyz: [x, y, p.y * 100],
+    npcWait:[...entities.entities.values()].filter(entity => entity.kind === 'npc').slice(0,12).map(entity => ({
+        npcId:entity.npcId,name:entity.name,...entity.originalWaitStatus})),
     groundZ: ground == null ? null : ground * 100, renderedZ: drawn,
     nativeDiagonal: terrain.surface?.edgeTurn ? 'original mask: set B–C, clear A–D' : null,
     sourceRules: terrain.surface

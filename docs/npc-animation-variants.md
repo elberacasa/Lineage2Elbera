@@ -10,9 +10,12 @@ builds the bounded clip supplements below. `--selectors-only` recovers the
 qualified per-NPC source fields and sequence timing without changing model
 assets. The same fresh collector now supplies the separate
 [NPC sparse-source transport and manual inspector](original-npc-animation-runtime.md)
-for Gremlin and fox. Automatic native NPC playback remains off; transporting
-selectors does not establish state/event admission. Values are decoded afresh
-on each build, rather than supplied by these documentation tables.
+for Gremlin IDs 18342/20001 and fox 20091. A separate bounded
+[initial Wait/AtkWait integration](native-npc-animation-evidence.md#bounded-browser-initial-loop)
+now joins those inputs to explicit fresh state on Talking Island tile `17_25`,
+original clocks/keys and Sound selection. Transporting selectors alone does not
+establish that admission.
+Values are decoded afresh on each build, rather than supplied by these tables.
 
 | Original class | Original field | Sequence in the mesh's bound animation set |
 | --- | --- | --- |
@@ -98,9 +101,9 @@ independent selectors, including corpse-specific `WaitAnimName` values.
 With local original Interlude inputs available:
 
 ```sh
-python3 tools/anim/build_npc_variants.py --selectors-only --npc 20001 20091 \
+python3 tools/anim/build_npc_variants.py --selectors-only --npc 18342 20001 20091 \
   --output tmp/restart-audit/npc-animation-audit/selectors.json
-python3 tools/anim/build_npc_variants.py --selectors-only --npc 20001 20091 \
+python3 tools/anim/build_npc_variants.py --selectors-only --npc 18342 20001 20091 \
   --output tmp/restart-audit/npc-animation-audit/selectors.json --check
 python3 -S -m unittest discover -s tools/anim -p test_build_npc_variants.py
 ```
@@ -108,7 +111,7 @@ python3 -S -m unittest discover -s tools/anim -p test_build_npc_variants.py
 `--check` freshly reads the inputs and compares exact output bytes; it writes
 nothing. The first command writes only the requested private catalog. Without
 `--npc`, the tool attempts every original NPC record; the fresh source check
-for this checkpoint covers Gremlin 20001 and fox 20091, not the whole roster.
+for this checkpoint covers Gremlin IDs 18342/20001 and fox 20091, not the whole roster.
 Without `--output`, the selector destination is the ignored
 `assets/gamedata/npcselectors.json`. No original files, generated catalogs or
 raw audit extracts belong in the public tool distribution.
@@ -144,7 +147,7 @@ Fresh original results illustrate why the distinction matters:
 
 | NPC | Serialized animation object | Ordinary localized names | Source timing examples |
 | --- | --- | --- | --- |
-| Gremlin 20001 | `LineageMonsters.gremlin_anim` | Wait, walk, run, atkwait, atk01, death, deathwait | Wait 61 frames; walk 23; run 17; atk01 55; death 64; deathwait 1; each rate 30. |
+| Gremlin 18342 / 20001 | `LineageMonsters.gremlin_anim` | Wait, walk, run, atkwait, atk01, death, deathwait | Wait 61 frames; walk 23; run 17; atk01 55; death 64; deathwait 1; each rate 30. |
 | Fox 20091 | `LineageMonsters.Fox_anim` | Wait, walk, run, atkwait, atk01, death, deathwait | Wait 61 frames; walk 31; run 21; atk01 55; death 43; deathwait 1; each rate 30. |
 
 For both classes all three localized attack-name arrays point to `atk01` at
@@ -176,13 +179,21 @@ selector exporter verifies the data chain above, not these native bodies.
 Movement rates also have source rate arrays and native modifiers. Sequence
 `rate` is the original clip rate, not a substitute for those runtime values.
 The source transport now retains every Gremlin/fox sequence and verifies the
-existing models' triangle geometry and bone identities for manual inspection.
-Their differing skin influences remain explicitly unverified. Automatic live
-source playback still requires proven stance/state inputs: original packet-tail
-interpretation and summon/event-type 2 admission are unresolved. In particular,
-initial dead NPCs need the original corpse-wait selector rather than an
-immediate death transition. Native attack choice, playback/blend clocks and
-the current authored corpse fade remain separate gaps.
+existing models' triangle geometry and bone identities. The bounded initial
+Wait/AtkWait path separately checks source fingerprints and complete raw state;
+the original spawn-event table miss closes mode 2 for these three IDs only.
+The separately recovered [18342 identity](native-npc-animation-evidence.md#edition-and-exact-source-domain)
+is not a display-name alias or an assertion that its differing final source
+DWORD has no other consumers.
+
+The original GPU influence inputs are now preserved, without claiming full
+native bind/deformation parity. Subsequent NpcInfo and handled movement, action
+and state transitions retire the initial path rather than fabricating re-entry.
+Its resource-ready start does not reconstruct native loading or lazy-loader history.
+Initial dead NPCs still need the original corpse-wait selector instead of an
+immediate death transition.
+General attack choice, transitions/blend clocks and the current authored corpse
+fade remain separate gaps.
 
 ## Remaining fidelity gaps
 

@@ -10,14 +10,17 @@ Animation `AnimNotify_Sound` objects form a separate timed sound path.
 ```sh
 python3 tools/ui/check_cast_sound_native.py --check
 python3 tools/ui/check_cast_sound_native.py --json
+python3 tools/ui/check_cast_sound_native.py --rng-only --check
 python3 -m unittest discover -s tools/ui -p test_cast_sound_native.py
 python3 -m unittest discover -s tools/anim -p test_pawnanim_source.py
 python3 tools/anim/build_pawnanim.py --check
 ```
 
-The native verifier checks 131 original instruction anchors, freshly parses all
-1,398 sound records and verifies named voice stores and original Sound-notify
-defaults. Its five synthetic tests need no game assets. The ordinary model join
+The native verifier checks 131 original sound instruction anchors, freshly parses
+all 1,398 sound records and verifies named voice stores and original Sound-notify
+defaults. It also checks 55 retained RNG/gate anchors and compares the actual
+browser explicit-state RNG and sound selector with interpreted native slices.
+Its nine synthetic tests need no game assets. The ordinary model join
 also requires original `chargrp.dat` and the locally built character-creation
 metadata. Original DLL bytes are
 decoded only in memory; the tool neither runs nor emits original code. Output
@@ -26,6 +29,7 @@ is provenance and recovered rules, not the private sound catalog.
 | Private input under `assets/interlude/system/` | SHA-256 |
 | --- | --- |
 | `engine.dll` | `07b24af4ab55e4230d0a7949df5b07565319e62a1b20f38fefb16ebe54821ad0` |
+| `Core.dll` | `9462f87a5e77d21865e2e00264efd44df25feb47aa78f8a72e9cf66ce4e919bf` |
 | `Engine.u` | `9b04ff5cb4258e84dfa8efbdd85d9121f3bdcb5822a9a21ca69d200d05a69761` |
 | `skillsoundgrp.dat` | `14c9df542ccb0b342f1fd091b7177438cdf3705fb43581d0fc69b6c9ceeb14f5` |
 | `chargrp.dat` | `2bb52de25ef3558f51e458c0095efcd9c509dfd5b5695a269f268b5f235fbc0f` |
@@ -167,9 +171,12 @@ be described as browser lifecycle safeguards, not invented native timing.
 Original reflected fields place Sound, Volume, Radius and Random at
 `+0x38/+0x3c/+0x40/+0x44`; source types are object, float, int and int. A common
 gate compares a signed integer remainder modulo 100 with Random and returns
-when the remainder is greater than or equal to Random. The imported RNG body
-is erased. **Random 100 always passes** for any signed remainder; no random
-selection needs to be invented for that case.
+when the remainder is greater than or equal to Random. The callsite has six
+NOPs in the recovered owned Engine copy. The separately pinned supplemental
+comparison below identifies `Core.appRand`; its owned Core body is retained.
+**Random 100 always passes but still consumes a draw**, as does Random 0.
+The draw occurs before the Sound-null and actor tests. Dropping draws for
+later unsupported sound branches changes the shared stream order.
 
 With a non-null Sound, the ordinary direct branch plays that exact reference at
 the actor's Location, dividing Volume by 255. It passes nonzero Radius directly;
@@ -196,11 +203,102 @@ properties. Original class-default provenance is stored once at
 false class predicates. Subclass defaults are not guessed.
 
 The rebuilt original sequence table contains 2,189 direct and 336 surface Sound
-entries. Other sequences contain authored probability values besides 100 and
-must remain unsupported until their RNG semantics are implemented. The audited
+entries. Other sequences contain authored Random values besides 100; the
+explicit-state integer implementation and gate below now cover that arithmetic.
+Surface selection, subclasses and complete RNG event history remain separate
+admission requirements. The audited
 exported ordinary cast/magic/special-attack/pickup aliases contained 770 direct
 Sound entries, all with Radius 30 and inherited Random 100; their authored
 volumes are preserved. These are metadata counts, not an audio parity claim.
+
+## Sound-notify integer RNG and seed boundary
+
+The default command remains **owned inputs only**. `--rng-only` omits the sound
+DAT/model joins and requires the owned Engine/Core plus Node for the actual
+browser-module comparison. An explicit supplemental comparison can additionally
+bind the erased callsite:
+
+```sh
+python3 tools/ui/check_cast_sound_native.py --rng-only --check \
+  --comparison-engine /path/to/separately-obtained/engine.dll \
+  --comparison-core /path/to/separately-obtained/Core.dll
+```
+
+Both optional inputs are hash-pinned. They are never downloaded, bundled,
+executed or treated as authenticated vendor originals. See the
+[supplemental-copy boundary](supplemental-engine-evidence.md). Their required
+SHA-256 values are Engine
+`508974c711f207402719e92737e211a2f029c95c2f68fc0e1c31fcbb9dbb232d`
+and Core
+`d83449b1cdf0ac717a98be9289caab03cb507324a696ef449e31369e28416639`.
+
+Addresses in this subsection are **absolute VAs**. Owned SoundNotify
+`0x106be964..0x106be986` corresponds exactly to supplemental
+`0x106be924..0x106be946`, with only the declared six-NOP/indirect-call site
+changed. That call names `Core.?appRand@@YAHXZ`. Default mode reports the
+owned call identity as unresolved; it still independently checks the retained
+Core algorithm and Engine modulo gate. Supplying the comparison establishes
+this specific correspondence, not restoration of protected imports generally.
+
+Owned `appRand` at `0x1012d7e0` jumps to `0x1017d36d`. After obtaining a CRT
+record from `0x10180a25`, the retained code reads and writes record `+0x14`:
+
+```text
+nextState = (state × 214013 + 2531011) modulo 2^32
+result    = (nextState >>> 16) & 32767
+admit     = (result modulo 100) < signed original Random
+```
+
+The return range is 0..32767, so the native signed `IDIV 100` remainder is
+nonnegative on this path. Random is a signed integer, with no percentage clamp:
+values at most zero reject; values at least 100 admit. The finite output domain
+has 328 preimages for remainders 0..67 and 327 for 68..99. These counts do not
+establish active-stream uniformity or an exact event probability.
+
+Named `appRandInit` at `0x1012d7f0` jumps to `0x1017d360` and stores its input
+DWORD in the same returned record. `appFrand` at `0x1012d800` directly calls
+the same integer generator, then divides by 32767.0. These methods share state
+when the accessor returns the same record; the proof does not assign separate
+streams to actors or claim one process-wide stream.
+
+The new-record initializer at `0x101808ef` writes seed 1 at `+0x14`. That is
+**not the active sound seed**. Two exact supplemental Engine blocks identify
+other seed inputs:
+
+- The checked `UEngine::Init` block uses zero when `GIsBenchmarking` is nonzero, otherwise
+  the low 32 bits returned by `RDTSC`, and calls `appRandInit`. Its single
+  relocated IAT data operand is explicitly named and checked. The complete
+  retained prefix has only the initial EBX zero write, including partial and
+  implicit register effects; the conclusion also uses the normal callee-saved
+  x86 EBX contract, not transitive execution of every earlier call.
+- `FL2ReplayManager::ResetBMData` passes zero to `appRandInit`. This proves the
+  named method's operation without inventing when it runs in a session.
+
+The record accessor includes selected indirect storage functions. Full
+thread/fiber dispatch, applicable seed, reseed timing and all other consumers
+are not reconstructed. A timestamp, actor ID, reconnect count or constant 1
+cannot reconstruct the native sound sequence.
+
+The actual browser `createNativeRandom(seed)` preserves the unsigned state
+transition. `selectNotifySound` requires an admitted base Sound-class event,
+consumes one draw, compares the signed threshold, and only then admits the
+supported direct-sound branch. Missing threshold data and unsupported surface
+or audio branches retain the consumed draw. Derived classes stay explicit
+unsupported inputs. Unreached/disabled notifications must not call this helper.
+One browser-owned context shared by actors/channels is a platform adaptation;
+`createBrowserRandom` uses browser cryptographic entropy because browser code
+cannot read the original `RDTSC` value. Neither that entropy nor context lifetime
+is certified as an identical native seed/storage policy. Other RNG consumers
+are not all ported, so exact cross-client event history is not claimed.
+
+The original-input checker runs 1,029 states through 8,232 retained generator
+instructions, four setter cases, the default-record store, and 10,400 signed
+gates through 52,000 retained instructions. Its browser differential imports the
+actual JS modules and compares 2,208 raw draws plus 1,173 selection calls using
+69 explicit synthetic seeds. It checks exact state/draw counts, thresholds,
+refusal order and results against the retained instructions. The optional
+comparison checks three Engine blocks and nine complete identical Core ranges.
+No entropy generator or live event sequence is used as native seed evidence.
 
 ## Original grouped references and existing audio exports
 
@@ -237,6 +335,6 @@ not load the detailed audit receipt. This establishes source
 identity and exact export-filename mapping, **not codec/content parity** with
 the original waveforms. The lossy audio conversion was not rerun by this audit.
 
-Compressed/audio-driver behavior, foot-surface selection, probabilistic
-notifies, AttackItem/AttackVoice and native effect lifecycle remain separate
+Compressed/audio-driver behavior, foot-surface selection, complete probabilistic
+event history, AttackItem/AttackVoice and native effect lifecycle remain separate
 checks. A resolved reference does not prove browser playback or audibility.

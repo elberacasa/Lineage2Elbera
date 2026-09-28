@@ -85,8 +85,8 @@ export function advanceAnimationChannel(input) {
   return { status:'ready', frame, rate, remaining, discarded, advancements, events };
 }
 
-/** Proven direct Sound only. Current ordinary casts use Random=100; other
- * probabilities and physical-surface selection require further native work. */
+/** Read-only metadata predicate for unconditional direct Sound records.
+ * Dispatch must use selectNotifySound: even Random=100 consumes a draw. */
 export function directNotifySound(notify) {
   const info=notify?.soundInfo;
   if (notify?.classPath !== 'Engine.AnimNotify_Sound' || !notify.isSound
@@ -94,4 +94,31 @@ export function directNotifySound(notify) {
     || !finite(info.volume) || !finite(info.radius) || info.radius <= 0
     || typeof notify.sound !== 'string' || !notify.sound) return null;
   return { ref:notify.sound, volume:info.volume, radius:info.radius };
+}
+
+/** Dispatch gate for the exact base Sound class. The draw precedes the
+ * threshold and direct/surface/audio branches, including thresholds 0/100.
+ * One caller-owned context must be shared across actors and source channels.
+ * Metadata inspection and unreached/disabled events must not call this. */
+export function selectNotifySound(notify, random) {
+  if (notify?.classPath !== 'Engine.AnimNotify_Sound' || notify.isSound !== true) {
+    return {status:'unsupported',reason:'unported-sound-notify-class'};
+  }
+  if (typeof random?.nextInt !== 'function') return {status:'unsupported',reason:'missing-random-context'};
+  const value = random.nextInt(), info = notify.soundInfo;
+  if (!Number.isInteger(value) || value < 0 || value > 32767) {
+    return {status:'unsupported',reason:'invalid-native-random-result'};
+  }
+  const threshold = info?.random;
+  if (!Number.isInteger(threshold) || threshold < -0x80000000 || threshold > 0x7fffffff) {
+    return {status:'unsupported',reason:'missing-original-random-threshold',randomValue:value};
+  }
+  // Preserve the original integer modulo (including its small source bias).
+  // Thresholds are signed original fields, never clamped percentages.
+  if (value % 100 >= threshold) return {status:'filtered',randomValue:value};
+  if (info?.status !== 'source-direct' || !finite(info.volume) || !finite(info.radius)
+      || info.radius <= 0 || typeof notify.sound !== 'string' || !notify.sound) {
+    return {status:'unsupported',reason:'unported-sound-notify-branch',randomValue:value};
+  }
+  return {status:'ready',ref:notify.sound,volume:info.volume,radius:info.radius,randomValue:value};
 }

@@ -1,9 +1,10 @@
 # Browser port: path to a small test server
 
-Updated 27 September 2026. Public foundations and the original hair inspector
-are on `main`; current attachment and source-build work continues on
-`codex/native-hair-attachment`. The older local research branch
-is preserved separately and is not a publication branch.
+Updated 27 September 2026. The current implementation checkpoint is bounded
+original NPC initial-wait playback; browser acceptance is tracked separately.
+The older local research branch is preserved separately and is not a
+publication branch. The [coverage inventory](PORT-COVERAGE.md) records the
+broader published milestones and remaining gaps.
 
 ## Product and scope
 
@@ -110,6 +111,21 @@ blocks. Its provenance and the protected copy's runtime restoration remain
 unverified; this evidence guides the next transform comparison rather than
 claiming finished attachment. See
 [native-hair-attachment-evidence.md](native-hair-attachment-evidence.md).
+
+Gremlin IDs 18342/20001 and Fox 20091 created on verified Talking Island tile
+`17_25` now have a bounded initial Wait/AtkWait implementation using original
+selectors, sparse keys, the
+original channel clock and Sound-notify random gating. It starts when matching
+private resources are ready and retires on unsupported movement/action/state
+changes, without re-admitting the same entity. The shared RNG's browser
+seed/lifetime, resource-ready scheduling,
+unreconstructed native lazy-loader history, world placement, lighting and full
+GPU bind/deformation fidelity remain explicit limits. The manual NPC inspector
+still uses its separate timeline without event dispatch. See
+[native NPC evidence](native-npc-animation-evidence.md); this
+initial-loop browser check passed for real starter Gremlins, including event
+dispatch, movement retirement and reconnect. See the
+[live check and loading-order limitation](original-npc-animation-runtime.md#live-world-check).
 
 Offline review is available at
 `/?dev=1&inspect=1&checkpoint=giran-border`. The **Previous terrain repairs**

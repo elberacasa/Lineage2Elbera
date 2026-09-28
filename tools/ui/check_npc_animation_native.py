@@ -88,6 +88,121 @@ def enter_event_lookup(rows, npc_id):
     return row if row is not None and row['spawn_type'] != 0 else None
 
 
+def npc_record_spans(data, expected_rows, selected_ids):
+    """Independently frame fresh NPC records and cross-check the public decoder.
+
+    Returns offsets/hashes only. Equal sharedPayloadSHA256 values establish
+    byte equality after the ID and before the final DWORD, not a display-name
+    alias or a claim about the final word's native consumer semantics.
+    """
+    sys.path.insert(0, str(ROOT/'tools/dat'))
+    from extract_gamedata import SkillReader, TRAILER
+    if not isinstance(data, bytes) or not data.endswith(TRAILER):
+        raise ValueError('npcgrp: missing SafePackage trailer')
+    if (not isinstance(selected_ids, (list, tuple)) or not selected_ids
+            or any(type(key) is not int or not 0 <= key <= 0xffffffff for key in selected_ids)
+            or len(set(selected_ids)) != len(selected_ids)):
+        raise ValueError('npcgrp: unique selected DWORD IDs required')
+    reader = SkillReader(data[:-len(TRAILER)], 'npcgrp framing')
+
+    def count(width, compact=False):
+        value = reader.compact_int() if compact else reader.u32()
+        if not 0 <= value <= (len(reader.data)-reader.pos)//width:
+            raise ValueError('npcgrp: array count exceeds payload')
+        return value
+
+    def strings():
+        return [reader.ustr() for _ in range(count(4))]
+
+    try:
+        record_count = reader.u32()
+        if not isinstance(expected_rows, list) or record_count != len(expected_rows):
+            raise ValueError('npcgrp: decoded record count disagrees')
+        spans, seen = {}, set()
+        for expected in expected_rows:
+            start = reader.pos
+            row = {'npc_id':reader.u32(), 'class_name':reader.ustr(), 'mesh_name':reader.ustr()}
+            for key in ('textures', 'textures_second'):
+                row[key] = strings()
+            row['property_list'] = [reader.u32() for _ in range(count(4, True))]
+            row['npc_speed'] = reader.f32()
+            for key in ('unk_1', 'attack_sound', 'defense_sound', 'damage_sound'):
+                row[key] = strings()
+            decoration_at = reader.pos
+            row['deco_effect'] = [{'effect':reader.ustr(), 'scale':reader.f32()} for _ in range(count(8))]
+            row['unk_2'] = [reader.u32() for _ in range(count(4, True))]
+            row['attack_effect'], row['unk_3'] = reader.ustr(), reader.u32()
+            for key in ('sound_vol', 'sound_radius', 'sound_random'):
+                row[key] = reader.f32()
+            row['quest_be'] = reader.u32()
+            final_at = reader.pos
+            row['class_lim'] = reader.u32()  # Existing decoder label, not an independently named native property.
+            if row != expected or row['npc_id'] in seen:
+                raise ValueError('npcgrp: decoder disagreement or duplicate identifier')
+            seen.add(row['npc_id'])
+            if row['npc_id'] in selected_ids:
+                spans[str(row['npc_id'])] = {
+                    'span':[start, reader.pos], 'SHA256':hashlib.sha256(data[start:reader.pos]).hexdigest(),
+                    'sharedPayloadSHA256':hashlib.sha256(data[start+4:final_at]).hexdigest(),
+                    'decoCountOffset':decoration_at, 'decoCount':len(row['deco_effect']),
+                    'finalWordOffset':final_at, 'finalWord':row['class_lim']}
+        if not reader.done() or set(spans) != {str(key) for key in selected_ids}:
+            raise ValueError('npcgrp: unconsumed payload or missing selected identifier')
+        return spans
+    except (EOFError, UnicodeError, struct.error) as error:
+        raise ValueError('npcgrp: malformed or truncated record') from error
+
+
+def verify_starter_gremlin(engine, data, selectors):
+    """Separately keyed original profile; never infer an ID from a mesh/name."""
+    from extract_gamedata import parse_npcgrp
+    rows = parse_npcgrp(data)
+    assert len(rows) == 6519
+    decoded_hash = hashlib.sha256(data).hexdigest()
+    assert decoded_hash == 'e35ac3be4fbf94e02d38a1f3584dbe073569941374ac13c9a4ffafd9a5372e04'
+    assert selectors['sources']['system/npcgrp.dat'] == 'f551a0f9a0d6765bd783d8f55b1847ba2d5e17acb9a50ae4268c11e1f13d3e8c'
+    spans = npc_record_spans(data, rows, [18342, 20001])
+    first, second = [next(row for row in rows if row['npc_id'] == key) for key in (18342, 20001)]
+    differences = {key:[first[key],second[key]] for key in first if first[key] != second[key]}
+    assert differences == {'npc_id':[18342,20001], 'class_lim':[0,1]}
+    assert spans['18342']['sharedPayloadSHA256'] == spans['20001']['sharedPayloadSHA256']
+    assert first['class_name'] == second['class_name'] == 'LineageMonster.gremlin'
+    assert first['mesh_name'] == second['mesh_name'] == 'LineageMonsters.gremlin_m00'
+    assert first['deco_effect'] == second['deco_effect'] == []
+    assert selectors['npcs']['18342'] == selectors['npcs']['20001']
+    assert selectors['npcs']['18342']['status'] == 'source-animation'
+    anchors = [
+        (0x1043abea,'mov','edi, 1'), (0x1043ac1d,'call','0x10313449'),
+        (0x1043ac2f,'mov','dword ptr [esi + 8], edi'),
+        (0x104873ee,'cmp','dword ptr [edi + 8], 0'), (0x104873f2,'je','0x104879f8'),
+        (0x1046577c,'lea','eax, [esi + 0xd8]'), (0x10465784,'call','0x1030599d'),
+        (0x10465789,'add','esi, 0xdc'), (0x1046578f,'push','esi'),
+        (0x10465790,'push','edi'), (0x10465791,'call','0x1030599d'),
+        (0x10484385,'add','esi, 0x14'), (0x10484389,'mov','ecx, dword ptr [0x10b3e0c8]'),
+        (0x1048438f,'call','0x10307a77'), (0x10484398,'mov','ecx, dword ptr [eax + 0x24]'),
+        (0x104656ed,'lea','eax, [esi + 0x9c]'), (0x104656f5,'call','0x1030599d'),
+        (0x1062d174,'cmp','dword ptr [eax + 0x9c], ecx'), (0x1062d19a,'jge','0x1062d415'),
+    ]
+    for anchor in anchors:
+        engine.instruction(*anchor)
+    assert engine.exported('?Serialize@FL2NpcData@@QAEXAAVFArchive@@H@Z', True) == 0x104654f0
+    assert engine.exported('?GetNpcMeshName@User@@QAE?AVFName@@XZ', True) == 0x10484350
+    assert engine.exported('?SetPawnResource@User@@QAEXXZ', True) == 0x104872f0
+    assert engine.exported('?GL2GameData@@3VFL2GameData@@A') + 0x1838 == 0x10b3e0c8
+    return {'status':'verified-separate-source-profile', 'ownedAnchors':len(anchors),
+        'npcDatDecodedSHA256':decoded_hash, 'recordCount':len(rows), 'recordSpans':spans,
+        'rowDifferences':differences, 'allOtherRecordBytesEqual':True,
+        'qualifiedClassMeshAncestrySelectorsEqual':True, 'decorationCount':0,
+        'nativeFields':{'freshNpcInfoUserDiscriminator':'User+8=1; SetPawnResource tests this field',
+            'npcDataFinalDWORD':'FL2NpcData+dc; class_lim is the decoder label only',
+            'meshLookup':'actual User+14 NPC key -> FL2NpcData+24',
+            'decorationCount':'FL2NpcData+9c'},
+        'limits':['No assertion that FL2NpcData+dc is unused by other native consumers.',
+            'This profile does not alias NPC IDs by display name or select a different table key.',
+            'Constructor/callback preservation, deferred resource loading and placement remain separate proofs.',
+            'No extension of the bounded source17_25 fresh-state domain or later-state playback admission.']}
+
+
 def verify_spawn_enter_event(engine, candidate):
     """Fresh original binary table only; return proof metadata, never rows."""
     from check_hair_attachment_native import compare_call_block
@@ -193,11 +308,11 @@ def verify_spawn_enter_event(engine, candidate):
     assert decoded_hash=='cd0819ef32fdb3828a7c1fd855865ccdba3cde1b856f69a5cd55291366f20d5a'
     rows=parse_enter_event_table(data)
     assert len(rows)==1152 and len(data)==125689
-    assert all(not any(row['id']==npc_id for row in rows) and enter_event_lookup(rows,npc_id) is None for npc_id in (20001,20091))
+    assert all(not any(row['id']==npc_id for row in rows) and enter_event_lookup(rows,npc_id) is None for npc_id in (18342,20001,20091))
     return {'status':'verified-fresh-binary-table-miss','ownedAnchors':len(anchors),
         'sourceSHA256':source_hash,'decodedSHA256':decoded_hash,'decodedBytes':len(data),'recordCount':len(rows),
         'interpretedLookupCases':native_lookup_cases,
-        'sourceIds':{'20001':'absent','20091':'absent'},'missingLookup':'null; no key-zero fallback',
+        'sourceIds':{'18342':'absent','20001':'absent','20091':'absent'},'missingLookup':'null; no key-zero fallback',
         'spawnResult':'early return before data-driven effect/rise/animation/sound branches',
         'serializer':serializer,'mapConstructor':constructor,'append':append,
         'methodSHA256':{name:hashlib.sha256(read(a,b-a)).hexdigest() for name,a,b in [
@@ -601,13 +716,17 @@ def verify(comparison_engine, comparison_core):
     sys.path[:0] = [str(ROOT/'tools/dat'), str(ROOT/'tools/anim')]
     from build_meta import original_item_tables
     from build_npc_variants import recover_selectors
+    from extract_gamedata import decrypt
     tables, item_sources = original_item_tables()
     groups = absent_zero_item_ids({label:[r['object_id'] for r in tables[name]] for label,name in [
         ('weapon','weapongrp.json'),('armor','armorgrp.json'),('etc','etcitemgrp.json')]})
     with tempfile.TemporaryDirectory(prefix='elbera-npc-evidence-') as temporary:
-        selectors = recover_selectors(temporary, [20001,20091])
+        selectors = recover_selectors(temporary, [18342,20001,20091])
+        npc_data = decrypt('npcgrp.dat', temporary)
+    starter_gremlin = verify_starter_gremlin(engine, npc_data, selectors)
     source_domain = {}
     for npc_id, class_name, mesh_name, animation_name in [
+        ('18342','LineageMonster.gremlin','LineageMonsters.gremlin_m00','LineageMonsters.gremlin_anim'),
         ('20001','LineageMonster.gremlin','LineageMonsters.gremlin_m00','LineageMonsters.gremlin_anim'),
         ('20091','LineageMonster.fox','LineageMonsters.fox_m00','LineageMonsters.Fox_anim'),
     ]:
@@ -633,6 +752,7 @@ def verify(comparison_engine, comparison_core):
         itemKeyZero={'interpretedLookupCases':lookup_cases,'originalTables':groups,'sources':item_sources,'mapConstructor':map_constructor,'append':append,
             'scope':'Fresh original table load only; source key0 absent, native lookup miss returns null. Runtime table mutation excluded.'},
         sourceDomain=source_domain,sourcePackages=selectors['sources'],
+        starterGremlin=starter_gremlin,
         spawnEnterEvent=spawn_event,
         freshInstance={'status':allocation['status'],'ownedEngine':allocation['ownedEngine'],
             'ownedCore':allocation['ownedCore'],'supplementalEngine':allocation['supplementalEngine'],
@@ -661,7 +781,9 @@ def main():
     result=verify(args.comparison_engine,args.comparison_core)
     if args.check:
         print(f"Elbera NPC initial-animation inputs: {result['ownedAnchors']} Engine anchors; "
-              f"{result['ownedCoreAnchors']} Core anchors; 2 source NPCs; "
+              f"{result['ownedCoreAnchors']} Core anchors; {len(result['sourceDomain'])} source NPCs; "
+              f"{result['starterGremlin']['ownedAnchors']} starter-profile anchors; "
+              f"{result['starterGremlin']['recordCount']} independently framed NPC records; "
               f"{result['spawnEnterEvent']['ownedAnchors']} additional event/order anchors; "
               f"{result['spawnEnterEvent']['recordCount']} unique original spawn-event records; "
               "Gremlin/Fox event miss verified; live neutral-state admission unresolved.")

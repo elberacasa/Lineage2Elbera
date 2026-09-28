@@ -65,6 +65,11 @@ test('source records retain per-NPC class selectors when two actors share one so
   assert.equal(other.npc.className,'ToyClasses.Corpse');
   assert.equal(originalNpcSourceRecord(f.index,125,f.entry),null);
   assert.equal(originalNpcSourceRecord(null,123,f.entry),null);
+  f.index.sources={'Synthetic.u':'a'.repeat(64)};
+  const sources=f.record().sourceFiles;
+  f.index.sources['Synthetic.u']='b'.repeat(64);
+  assert.equal(sources['Synthetic.u'],'a'.repeat(64));
+  assert.equal(Object.isFrozen(sources),true,'runtime admission retains its own source provenance');
 });
 
 test('qualified identities, artifact bindings and explicit proof limits cannot be substituted',()=>{
