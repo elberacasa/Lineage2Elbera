@@ -97,8 +97,9 @@ known actor is allowed.
 
 The browser requires removal before changing an existing member's bounds or
 mode. This admission guard prevents unsupported stale membership; it is not an
-additional original game rule. The full AddActor wrapper, which removes existing
-membership before updating bounds under its own gates, remains separate.
+additional original game rule. The [ordinary AddActor wrapper](native-actor-admission-evidence.md)
+now composes these operations with explicit actor, level and primitive-method
+state, removing existing membership under its original gates.
 Unknown identities and malformed input fail without changing membership.
 Successful browser storage is assumed; native allocation failure and exception
 behavior are outside scope.
@@ -169,9 +170,10 @@ duplicate parent membership. Mutation copies and raw receipts remain private.
 ## Remaining integration
 
 This closes bounded geometry and membership operations, not live spatial
-discovery. Full AddActor admission and updates, current primitive bounding boxes,
-level flags, ordered query traversal, candidate filtering and primitive dispatch
-must still be joined. [Cached mesh collision](native-static-mesh-cache-evidence.md)
+discovery. The ordinary update component now joins admission, generic or supplied
+primitive bounds and level-mode selection. Live input bindings, overridden
+primitive bounds, ordered query traversal, candidate filtering and primitive
+dispatch remain unfinished. [Cached mesh collision](native-static-mesh-cache-evidence.md)
 and [level sweeps](native-level-sweep-adapters-evidence.md) are adjacent components,
 not evidence that those joins already work.
 

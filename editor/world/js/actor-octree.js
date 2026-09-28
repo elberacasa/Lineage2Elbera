@@ -1,19 +1,31 @@
 /** Original FOctreeNode insertion, redistribution and actor membership removal.
  * Finite PC53/RNE, native axes/units, successful browser storage only. The caller
- * supplies the current node volume, expanded actor bounds and source mode bit.
- * This does not establish AddActor admission, live level state or query hits.
+ * supplies current source state. The ordinary update wrapper joins bounds and
+ * membership with explicit virtual responses; live population/query hits remain
+ * separate. See docs/native-actor-octree-evidence.md for the lower-level API.
  */
 import {
   octreeChildVolume,
   octreeBoxContainsVolume,
   octreeIntersectedChildren,
   octreeSingleChild,
+  prepareOctreeActorBounds,
 } from "./actor-octree-geometry.js";
 
 const states = new WeakMap();
 const freeze = Object.freeze;
 const scope = "original-actor-octree-membership";
 const profile = { arithmeticProfile: "pc53-rne" };
+const uint = (v) => Number.isInteger(v) && v >= 0 && v <= 0xffffffff;
+const vector = (v) =>
+  Array.isArray(v) &&
+  v.length === 3 &&
+  [0, 1, 2].every(
+    (i) =>
+      typeof v[i] === "number" &&
+      Number.isFinite(v[i]) &&
+      Object.is(Math.fround(v[i]), v[i]),
+  );
 const ready = (fields = {}) => freeze({ status: "ready", scope, ...fields });
 const fail = (reason) => freeze({ status: "unsupported", scope, reason });
 const node = (volume, path) => ({ volume, path, actors: [], children: null });
@@ -90,6 +102,7 @@ export function insertActorOctree(tree, input) {
   const state = states.get(tree);
   if (
     !state ||
+    state.updating ||
     input?.identity == null ||
     typeof input.singleNode !== "boolean"
   )
@@ -130,11 +143,107 @@ export function insertActorOctree(tree, input) {
 export function removeActorOctree(tree, identity) {
   const state = states.get(tree);
   const actor = state?.actors.get(identity);
-  if (!actor) return fail("known tree and actor identity required");
+  if (!actor || state.updating)
+    return fail("known idle tree and actor identity required");
+  remove(actor);
+  return ready();
+}
+
+function remove(actor) {
   for (const current of actor.nodes)
     current.actors = current.actors.filter((entry) => entry !== actor);
   actor.nodes = [];
-  return ready();
+}
+
+/** Normal FCollisionOctree.AddActor, with current external fields and explicit
+ * synchronous virtual-method responses. The tree must use the original root
+ * volume. GLog is admitted as null; assertion/exception behavior is unported.
+ * Sparse writes are returned even after an unsupported later stage. The caller
+ * must apply those writes and must not interpret unsupported as a clear route.
+ */
+export function updateActorOctree(tree, input) {
+  const state = states.get(tree);
+  if (!state || state.updating || input?.identity == null)
+    return fail("known idle tree and explicit actor identity required");
+  if (
+    state.root.volume.halfExtent !== 360448 ||
+    state.root.volume.center.some((v) => !Object.is(v, 0))
+  )
+    return fail("AddActor requires the original initialized root volume");
+  const writes = {};
+  const result = (status, fields) =>
+    freeze({ status, scope, ...fields, writes: freeze({ ...writes }) });
+  const unknown = (reason) => result("unsupported", { reason });
+  if (!uint(input.flags2f8) || !(input.flags2f8 & 1))
+    return unknown(
+      "source AddActor collision-flag assertion precondition required",
+    );
+  if (!uint(input.flags64)) return unknown("unknown source actor flags64");
+  let actor = state.actors.get(input.identity);
+  if (!actor) {
+    actor = { identity: input.identity, nodes: [] };
+    state.actors.set(input.identity, actor);
+  }
+  if (input.flags64 & 0x80) return result("ready", { disposition: "skipped" });
+  if (!uint(input.flags2e4)) return unknown("unknown source actor flags2e4");
+  if (input.flags2e4 & 0x4000)
+    return result("ready", { disposition: "skipped" });
+  state.updating = true;
+  try {
+    if (actor.nodes.length) {
+      // Full RemoveActor consumes both locations on this ordinary path. With
+      // finite vectors and null GLog its comparisons have no membership gate.
+      if (!vector(input.location) || !vector(input.storedLocation))
+        return unknown(
+          "current and stored locations required before native membership removal",
+        );
+      remove(actor);
+    }
+    if (typeof input.getPrimitive !== "function")
+      return unknown("missing current primitive method");
+    const selected = input.getPrimitive(input.identity);
+    if (selected?.status !== "ready" || selected.primitiveIdentity == null)
+      return unknown("unresolved or null current primitive");
+    if (typeof input.getPrimitiveBounds !== "function")
+      return unknown("missing primitive bounding-box method");
+    const response = input.getPrimitiveBounds(
+      selected.primitiveIdentity,
+      input.identity,
+    );
+    if (response?.status !== "ready")
+      return unknown("unresolved primitive bounding-box response");
+    const prepared = prepareOctreeActorBounds({
+      ...profile,
+      primitiveBounds: response.bounds,
+    });
+    if (prepared.status !== "ready") return unknown(prepared.reason);
+    actor.box = writes.cachedBounds = prepared.bounds;
+    writes.cachedCenter = prepared.center;
+    writes.cachedExtent = prepared.extent;
+    if (!prepared.rootOverlap)
+      return result("ready", { disposition: "outside-root" });
+    if (!uint(input.flags74)) return unknown("unknown source actor flags74");
+    let singleNode;
+    if (input.level === null) singleNode = true;
+    else if (uint(input.level?.infoFlags554))
+      singleNode = Boolean(input.level.infoFlags554 & 2);
+    else
+      return unknown(
+        "explicit null level or current LevelInfo infoFlags554 required",
+      );
+    actor.singleNode = singleNode;
+    writes.flags74 =
+      (singleNode ? input.flags74 | 0x100 : input.flags74 & ~0x100) >>> 0;
+    insert(state.root, actor);
+    if (!vector(input.location))
+      return unknown("finite current actor location required for source store");
+    writes.storedLocation = freeze([...input.location]);
+    return result("ready", { disposition: "inserted" });
+  } catch {
+    return unknown("source virtual-method response failed");
+  } finally {
+    state.updating = false;
+  }
 }
 
 /** Immutable diagnostic paths and source array order; opaque identities retain
