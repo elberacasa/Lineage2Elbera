@@ -2,6 +2,27 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original actor blocking and ordered movement selection — 27 September 2026
+
+A finite browser component now implements original IsBlockedBy, its direct
+brush/encroacher checks, terminating Base traversal and MoveActor's ordered
+blocking-result scan. It preserves both directional flags, conditional class
+calls, repeated queries and the identity of the first selected record. Unknown
+consumed source state remains unsupported.
+
+Seventeen portable tests run without game files. The source checker compares the
+actual module with 6,600 retained-code cases, including 300 fully composed
+blocking/selection cases, and seven bounded supplemental source comparisons.
+Virtual subclass responses remain explicit inputs; the checker does not run a
+native binary or claim to observe live actor state.
+
+The component connects the contract between actual ordered collision results
+and the existing movement arithmetic. Normal spatial-provider population,
+static meshes, movement callbacks and walking response remain unfinished. The
+README gallery is preserved; this milestone adds no new visual layout or
+screenshot. The new Elbera Tools verifier is available in the repository, not
+yet in the existing standalone release archives.
+
 ## Composed source sweeps and movement arithmetic — 27 September 2026
 
 The original BSP, terrain and PointRegion modules now connect to the level
