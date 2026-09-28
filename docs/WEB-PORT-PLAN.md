@@ -17,7 +17,10 @@ explicit current box. The source decoder recovers saved mesh version eight
 for 480 per-map records through exact export ends. The admitted PostLoad branch
 preserves the box, but current object initialization/flags still need to be
 joined to saved state. Then current actors must populate the original query
-components; the main world still uses the older collision loader. Rendered
+components; the main world still uses the older collision loader. The ordinary
+mesh constructor is now checked in 128 retained-instruction cases: it preserves
+incoming flags and the version slot. Allocation/class-default and serialization
+effects remain to be joined, rather than treating construction as a full reset. Rendered
 mesh recentering remains provisional.
 
 ## Product and scope

@@ -28,6 +28,44 @@ def call_at(address):
 
 
 class StaticBoundsBoundaryTest(unittest.TestCase):
+    def test_add_with_carry_preserves_unsigned_wrap_and_signed_branch_flags(self):
+        instruction = next(
+            Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex("11d8"), 0x9000)
+        )
+        # ADC EAX, EBX: result, carry, zero and signed-less flag.
+        for a, b, carry, value, carry_out, zero, less in [
+            (0xFFFFFFFF, 0, True, 0, True, True, False),
+            (0x7FFFFFFF, 0, True, 0x80000000, False, False, False),
+            (0x80000000, 0xFFFFFFFF, False, 0x7FFFFFFF, True, False, True),
+            (0x80000000, 0xFFFFFFFF, True, 0x80000000, True, False, True),
+        ]:
+            m = machine()
+            m.registers.update(eax=a, ebx=b)
+            m.carry = carry
+            self.assertEqual(m.step(instruction), 0x9002)
+            self.assertEqual(
+                (m.registers["eax"], m.carry, m.zero, m.less),
+                (value, carry_out, zero, less),
+            )
+
+    def test_unsigned_multiply_returns_both_words_and_source_carry(self):
+        instruction = next(
+            Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex("f7e1"), 0x9000)
+        )
+        for a, b, low, high in [
+            (0xFFFFFFFF, 0xFFFFFFFF, 1, 0xFFFFFFFE),
+            (0x80000000, 2, 0, 1),
+            (123, 0, 0, 0),
+        ]:
+            m = machine()
+            m.registers.update(eax=a, ecx=b, ebx=0x1234)
+            m.step(instruction)
+            self.assertEqual(
+                (m.registers["eax"], m.registers["edx"], m.carry),
+                (low, high, bool(high)),
+            )
+            self.assertEqual((m.registers["ecx"], m.registers["ebx"]), (b, 0x1234))
+
     def test_forward_repeated_word_stores_write_only_the_requested_cells(self):
         m = machine()
         m.registers.update(ecx=3, edi=0x3000, eax=0x12345678)

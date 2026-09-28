@@ -135,9 +135,10 @@ python3 -m unittest discover -s tools/ui -p test_static_actor_bounds_native.py
 ```
 
 Ten browser-module tests cover rounding, corner extrema, validity, signed-zero
-ties, lazy field reads, unknown inputs, and actor removal/reentry. Eight
+ties, lazy field reads, unknown inputs, and actor removal/reentry. Ten
 interpreter tests cover method arguments, return buffers, stack cleanup,
-unknown targets, opaque padding, repeated stores and PostLoad admission guards.
+unknown targets, opaque padding, repeated stores, unsigned multiplication,
+carry/overflow and PostLoad admission guards.
 The related 89 browser-module tests pass.
 Local deliberate mutations of the invalid-box rule, cylinder flag, intermediate
 rounding and equal-maximum comparison are rejected by the original comparison.
@@ -226,8 +227,51 @@ current fields. No box is recomputed from rendered geometry.
 
 Seven added portable tests cover these boundaries, empty arrays, unsigned
 flags, signed zero, mutation isolation and a composed bounds/tree query. The
-53 related browser tests and eight bounds-interpreter tests pass. The original
+53 related browser tests and ten bounds-interpreter tests pass. The original
 2,600 tree/final-hit comparisons remain a separate regression check.
+
+## Ordinary mesh construction
+
+The same Elbera command now also executes **128 constructor cases** against
+retained instructions. The input is authored incoming object storage and
+explicit, nonaliasing current global counters. No browser constructor or
+complete fresh-load recipe is claimed by these cases.
+
+The original `UStaticMesh` constructor calls `UPrimitive`, `UObject`, and the
+embedded stream/array constructors. The comparison establishes that:
+
+- Header words `+0x04..+0x30`, including object flags at `+0x1c`, are preserved.
+- The mesh-version field `+0x1dc` and the other checked untouched tail fields
+  retain their incoming values. The constructor does **not** initialize the
+  entire mesh to zero or establish its saved version.
+- The primitive box and sphere initialize to zero; box validity becomes zero
+  while adjacent padding stays unchanged. Serialization writes the boxes later.
+- Embedded arrays initialize empty. Seven streams consume the explicit
+  `GMakeCacheIDIndex` counter using the original integer arithmetic, including
+  low-word carry and full 64-bit wrap. These checks do not infer its startup value.
+- Fields `+0x1f4/+0x1f8` become `0xffffffff`; the source return value, stack,
+  exception-chain pointer and saved registers are preserved as required.
+
+The added run covers **117,144 instructions at 568 addresses**, reported as
+`construction` separately from PostLoad and bounding-box comparisons. It
+includes low/high counter boundaries, random 64-bit counters, both ordinary
+construction-counter comparison outcomes and varied incoming header bits.
+The existing successful storage provider is reused; no DLL executes.
+
+Source qualification compares eleven Engine regions: the mesh/primitive
+constructors, their embedded helpers, and the complete 52-byte integer-product
+helper. Six Core constructor bodies match byte for byte. Every changed direct
+call is tied to a separately compared helper or bound thunk; the global counter
+operand is tied to its independently named Core export. Erased imports are
+individually bound. The JSON report includes the source spans and the current
+constructor qualifier's fingerprint. Only ten exception-handler entry bytes
+are compared; complete unwind/exception behavior remains outside scope.
+
+This closes the ordinary **constructor preservation** dependency. Incoming
+allocation flags, class registration/defaults, archive side effects and reused
+objects remain separate. Supplying a constructor with saved flags would still
+skip the original allocation/loading rules. These results therefore do not
+enable automatic adoption of saved boxes as live world bounds.
 
 ## Next integration boundary
 

@@ -2,6 +2,30 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original mesh constructor preservation — 28 September 2026
+
+The existing Elbera bounds checker now executes the complete normal mesh
+constructor and its embedded stream/array helpers in 128 authored cases.
+Source execution preserves the incoming UObject header and mesh-version slot;
+it initializes the primitive box/sphere and arrays, advances seven stream IDs
+with original 64-bit carry/wrap, and writes the two original terminal fields.
+It does not zero the entire object or derive current flags from saved exports.
+
+Eleven Engine regions and six Core bodies are qualified with explicit helper,
+import and global-operand bindings. The source run adds 117,144 instructions
+at 568 addresses. Two portable integer-instruction cases bring the interpreter
+suite to ten; the previous 600 bounds, 288 actor updates and 600 browser PostLoad
+comparisons still pass. No runtime JS/UI changed, so no new browser or Online
+acceptance is claimed. The reusable checker remains outside current standalone
+archives; private original inputs, disassembly and receipts stay local.
+
+The next loading dependency is allocation/class-default and serialization
+effects. Private research has decoded the original Core.Object class prefix
+and native header-property flags, and compared native class-registration
+prefixes. Those partial findings are not yet current live resource state.
+Continue joining the original loader to the existing world queries; the full
+browser-client goal remains active and incomplete.
+
 ## Browser mesh PostLoad and resource preparation — 28 September 2026
 
 The existing static-mesh module now performs the recovered version-eight-and-
