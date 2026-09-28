@@ -35,8 +35,10 @@ other original MoveActor argument values.
 An existing level collector can use `sweep.query.start/end`, but still needs
 the exact source extent, flags, source actor, caller level and live providers.
 MoveActor then performs additional ordered actor/base/blocking checks before
-the selected result is supplied here. An arbitrary first collision is not an
-admitted replacement for those checks.
+the selected result is supplied here. The [finite actor-blocking component](native-actor-blocking-evidence.md)
+now implements those checks with explicit source state and class callbacks. It
+still requires the actual query result order and live participant bindings. An
+arbitrary first collision is not an admitted replacement for those checks.
 
 `hitWrites` is deliberately sparse. For selected Time=1 this slice does not
 write Time; for Time<1 it writes only Time. Actor, point, normal, Item,
