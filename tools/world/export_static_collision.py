@@ -286,6 +286,13 @@ def class_defaults(*, retain_collision_fields=False):
             layout=transform_layout,
             defaults={field['name']: values[field['name']] for field in transform_layout},
             scope='decoded declared class defaults; not live actor transforms')
+        attached, inner = actor_attached_layout(pkg)
+        if 'Attached' in values:
+            raise ValueError('nonempty or tagged Attached class default requires array loading')
+        evidence[-1]['collisionAttached'] = dict(
+            layout=attached, inner=inner, defaultCount=0,
+            defaultOrigin='zero-initialized-class-default',
+            scope='declared empty class-default array; native copying checked separately')
         reference_layout = actor_reference_layout(pkg)
         references = {
             field['name']: dict(reference=0, qualified=None, package=Path(pkg.path).stem,
@@ -340,15 +347,36 @@ def actor_declaration(pkg, ref, owner_ref):
     pkg.name(r.compact())  # Validate the category FName, even though unused here.
     kind, name = pkg.class_name_of(ex), pkg.export_name(ex)
     reference = None
-    if kind in ('StructProperty', 'ByteProperty', 'ObjectProperty'):
+    if kind in ('StructProperty', 'ByteProperty', 'ObjectProperty', 'ArrayProperty'):
         encoded = r.compact()
         reference = qualified_ref(pkg, encoded) if encoded else None
-    elif kind not in ('IntProperty', 'FloatProperty', 'BoolProperty'):
+    elif kind not in ('IntProperty', 'FloatProperty', 'BoolProperty', 'NameProperty'):
         raise ValueError('unsupported actor declaration kind: ' + kind)
     if dimension != 1 or r.pos != end:
         raise ValueError('unsupported actor declaration size')
     return dict(name=name, kind=kind, next=nxt, propertyFlags=flags,
                 reference=reference, exportRef=ref, exportSHA256=sha(pkg.data[start:end]))
+
+
+def actor_attached_layout(pkg):
+    """Read the array and its separate element declaration; their flags differ."""
+    matches = [ex for ex in pkg.exports
+               if qualified_ref(pkg, ex.index + 1) == 'Engine.Actor.Attached'
+               and pkg.class_name_of(ex) == 'ArrayProperty']
+    if len(matches) != 1:
+        raise ValueError('ambiguous Actor Attached declaration')
+    ex = matches[0]
+    if qualified_ref(pkg, ex.package_index) != 'Engine.Actor':
+        raise ValueError('Attached declaration has wrong owner')
+    field = actor_declaration(pkg, ex.index + 1, ex.package_index)
+    children = [child for child in pkg.exports if child.package_index == ex.index + 1
+                and qualified_ref(pkg, child.index + 1) == field['reference']]
+    if len(children) != 1:
+        raise ValueError('ambiguous Attached element declaration')
+    inner = actor_declaration(pkg, children[0].index + 1, ex.index + 1)
+    if inner['kind'] != 'ObjectProperty' or inner['reference'] != 'Engine.Actor':
+        raise ValueError('unsupported Attached element type')
+    return field, inner
 
 
 def actor_reference_layout(pkg):
@@ -546,6 +574,14 @@ def actor_record(pkg, ex, inherited, *, retain_source_transform=False, boolean_l
                                   end=ex.serial_offset + ex.serial_size)
     if end != ex.serial_offset + ex.serial_size:
         result['issues'].append('actor-properties-trailing-bytes'); return result
+    if retain_state_frame:
+        start = ex.serial_offset + off
+        result['savedActorLoading'] = dict(scope='saved-actor-loading-inputs',
+            fileVersion=pkg.file_version, sourceOffset=start, sourceBytes=end-start,
+            sourceSHA256=sha(pkg.data[start:end]),
+            attachedOverrideCount=sum(p['name'] == 'Attached' for p in props),
+            tags=[{key: tag[key] for key in ('name', 'type', 'index', 'struct')}
+                  for tag in props])
     if reference_defaults is not None:
         overrides = saved_reference_overrides(pkg, props, reference_defaults)
         result['savedReferences'] = dict(
@@ -967,7 +1003,7 @@ class Audit:
             'meshes': {k: self.geometry[k] for k in sorted({r['mesh'] for r in selected})},
             'references': [{k: r[k] for k in ('name', 'mesh', 'exportRef', 'exportSHA256',
                 'savedTransform', 'savedCollisionFlags', 'savedReferences',
-                'savedLevelSlots', 'savedStateFrame')} for r in selected],
+                'savedLevelSlots', 'savedStateFrame', 'savedActorLoading')} for r in selected],
             'limits': [
                 'Saved source geometry, not live actor/cache state or a collision query.',
                 'savedLocalBounds is the later serialized mesh field; baseSerializedBounds preserves the overwritten primitive record. PostLoad/current mutations remain separate.',

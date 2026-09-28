@@ -867,6 +867,10 @@ def qualify_static_actor_loading(engine, core, comparison_engine, comparison_cor
         "?PostLoad@UObject@@UAEXXZ": (0x10163C60, 0x10163CB8),
         "?GetClass@UObject@@QBEPAVUClass@@XZ": (0x1010A1E0, 0x1010A1E4),
         "?SetFlags@UObject@@QAEXK@Z": (0x1010A210, 0x1010A21A),
+        "?CopyCompleteValue@UArrayProperty@@UBEXPAX0PAVUObject@@@Z": (
+            0x1016FE90,
+            0x1016FF66,
+        ),
     }
     ctor_imports = {
         0x10328B4F: "??0UObject@@QAE@XZ",
@@ -1056,11 +1060,89 @@ def qualify_static_actor_loading(engine, core, comparison_engine, comparison_cor
             vtables.append(dict(table=table, slot=hex(slot), method=method))
     engine.instruction(0x103062C1, "jmp", "0x10328b30")
     engine.instruction(0x1030B9A1, "jmp", "0x106773b0")
+    array_table = core.exported("??_7UArrayProperty@@6B@")
+    array_copy = core.exported(
+        "?CopyCompleteValue@UArrayProperty@@UBEXPAX0PAVUObject@@@Z"
+    )
+    assert (
+        core.u32(array_table + 0xA8)
+        == comparison_core.u32(
+            comparison_core.exports["??_7UArrayProperty@@6B@"] + 0xA8
+        )
+        == array_copy
+    )
+    # Realloc and its allocator call are qualified by the membership verifier.
+    core.instruction(0x1016FEB9, "call", "0x101031d9")
+    core.instruction(0x1016FEC1, "test", "dword ptr [ecx + 0x48], 0x400000")
+    core.instruction(0x1016FF56, "call", "0x1017ac60")
+    core.instruction(0x1015FBFF, "call", "0x1017ac60")
+    core.instruction(0x1015FC32, "call", "0x101022e3")
+    # The retained typed-copy sequence binds Attached between AttachTag and
+    # RelativeLocation. Its array helper is internal, not a named export.
+    typed = raw(engine, 0x103B68EF, 0x103B69CA)
+    assert typed == comparison_engine.read(0x103B68EF, len(typed))
+    engine.instruction(0x103083C3, "jmp", "0x1032bef0")
+    assert raw(engine, 0x103083C3, 0x103083C8) == comparison_engine.read(0x103083C3, 5)
+    engine.instruction(0x103B6967, "lea", "edx, [ebp + 0x1f0]")
+    engine.instruction(0x103B696D, "lea", "ecx, [ebx + 0x1f0]")
+    engine.instruction(0x103B6978, "call", "0x103083c3")
+    sys.path[:0] = [str(ROOT / "tools/world"), str(ROOT / "tools")]
+    from l2lib import load_package
+    from export_static_collision import actor_attached_layout, actor_declaration
+
+    package_path = ROOT / "assets/interlude/system/Engine.u"
+    assert hashlib.sha256(package_path.read_bytes()).hexdigest() == PACKAGE_SHA
+    package, _ = load_package(package_path)
+    attached, inner = actor_attached_layout(package)
+    assert attached["propertyFlags"] == 0x400002 and inner["propertyFlags"] == 0
+    owner = package.exports[attached["exportRef"] - 1].package_index
+    (start_ref,) = [
+        ex.index + 1
+        for ex in package.exports
+        if ex.package_index == owner and package.export_name(ex) == "Location"
+    ]
+    chain, ref = [], start_ref
+    for expected in [
+        "Location",
+        "Rotation",
+        "Velocity",
+        "Acceleration",
+        "AttachTag",
+        "Attached",
+        "RelativeLocation",
+    ]:
+        record = actor_declaration(package, ref, owner)
+        assert record["name"] == expected
+        chain.append(record)
+        ref = record["next"]
+    attached_proof = dict(
+        layout=attached,
+        inner=inner,
+        chain=chain,
+        typedCopy=dict(
+            start="0x103b68ef",
+            end="0x103b69ca",
+            SHA256=hashlib.sha256(typed).hexdigest(),
+            internalArrayHelper=dict(thunk="0x103083c3", body="0x1032bef0"),
+        ),
+        vtable=hex(array_table),
+        copyTarget=hex(array_copy),
+        offset="0x1f0",
+        limits=[
+            "Empty decoded default array and no saved override only. Memory allocation/copy providers remain explicit."
+        ],
+    )
     return dict(
         engineBlocks=blocks,
         coreBlocks=core_blocks,
         importTargets=import_targets,
-        thunkTargets={"0x103062c1": "0x10328b30", "0x1030b9a1": "0x106773b0"},
+        thunkTargets={
+            "0x103062c1": "0x10328b30",
+            "0x1030b9a1": "0x106773b0",
+            hex(engine.exported("?PostLoad@AActor@@UAEXXZ")): "0x1052f570",
+            hex(array_copy): "0x1016fe90",
+        },
+        attached=attached_proof,
         vtables=vtables,
         actorCounters={hex(iat): core.exported(symbol) for _, iat, symbol in bindings},
         limits=[

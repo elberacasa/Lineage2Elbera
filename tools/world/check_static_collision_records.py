@@ -363,6 +363,41 @@ def check_properties(package, export, native_offset):
     )
 
 
+def check_actor_loading(package, export, saved):
+    """Check the whole saved tag census used to admit a fresh actor header."""
+    offset = actor_prop_offset(package, export)
+    if offset is None:
+        raise ValueError("unsupported actor property framing")
+    start, end = (
+        export.serial_offset + offset,
+        export.serial_offset + export.serial_size,
+    )
+    tags, actual = read_props_ordered(package, start, end=end)
+    expected = dict(
+        scope="saved-actor-loading-inputs",
+        fileVersion=package.file_version,
+        sourceOffset=start,
+        sourceBytes=end - start,
+        sourceSHA256=hashlib.sha256(package.data[start:end]).hexdigest(),
+        attachedOverrideCount=sum(t["name"] == "Attached" for t in tags),
+        tags=[
+            {key: t[key] for key in ("name", "type", "index", "struct")} for t in tags
+        ],
+    )
+    if actual != end or saved != expected:
+        raise ValueError("saved actor loading census differs from original properties")
+    return dict(
+        tags=len(tags),
+        attachedOverrides=expected["attachedOverrideCount"],
+        nativeHeaderTags=[
+            t["name"]
+            for t in tags
+            if t["name"].lower()
+            in ("objectinternal", "objectflags", "outer", "name", "class")
+        ],
+    )
+
+
 def check_arrays(source, data):
     """Re-encode decoded records and compare original payload and lazy framing."""
     tree = data["collisionTree"]
@@ -612,7 +647,7 @@ def check_reference_preparation(audit, actors):
     script = r"""
 import {pathToFileURL} from 'node:url';
 const url=pathToFileURL(process.argv[1]);
-const {prepareStaticActorProperties,resolvePackageReference}=await import(url);
+const {prepareFreshStaticActor,resolvePackageReference}=await import(url);
 const {prepareFreshStaticMeshTree}=await import(new URL('./static-mesh-tree.js',url));
 let raw='';for await(const part of process.stdin)raw+=part;
 const input=JSON.parse(raw), objects=new Map(), resources=new Map();
@@ -654,7 +689,7 @@ for(const [name,record] of Object.entries(input.defaults)){
  defaults[name]=result.value;
 }
 const records=input.actors.map(actor=>{
- const result=prepareStaticActorProperties({defaults:input.actorDefaults,source:actor,
+ const result=prepareFreshStaticActor({defaults:input.actorDefaults,source:actor,classLoading:input.classLoading,
   resolvedReferenceDefaults:defaults,resolveReference});
  if(result.status!=='ready')throw Error(actor.name+': '+result.reason);
  const references=Object.fromEntries(Object.entries(result.references).map(([name,object])=>[name,object===null?null:object.identity]));
@@ -665,6 +700,7 @@ const records=input.actors.map(actor=>{
    return data.getUint32(0,true);})]));
  return {actor:actor.name,references,preparedMesh:result.references.StaticMesh.identity,
   transformWords,groups:result.groups,
+  loadingFlags:result.loadingFlags,postLoadWrites:result.postLoadWrites,attached:result.attached,
   skipped:result.skipped.references.map(i=>actor.savedReferences.tags[i].name),
   skippedTransformTags:result.skipped.transforms,
   skippedBooleanTags:result.skipped.booleans};
@@ -681,6 +717,7 @@ process.stdout.write(JSON.stringify({records,uniqueObjects:objects.size,prepared
                 layout=declarations["layout"],
                 defaults=declarations["defaults"],
                 actorDefaults=audit.defaults[-1],
+                classLoading=audit.actor_class_loading,
             )
         ),
         text=True,
@@ -695,6 +732,12 @@ process.stdout.write(JSON.stringify({records,uniqueObjects:objects.size,prepared
     if [row["actor"] for row in output["records"]] != [row["name"] for row in selected]:
         raise ValueError("browser reference preparation changed the actor list")
     for actor, loaded in zip(selected, output["records"]):
+        if (
+            loaded["attached"] != []
+            or loaded["postLoadWrites"]["swayRotationOrig"]
+            != actor["savedTransform"]["fields"]["rotation"]
+        ):
+            raise ValueError("fresh actor PostLoad result differs from source inputs")
         for name, value in actor["savedTransform"]["fields"].items():
             fmt = (
                 "<3i" if name == "rotation" else "<f" if name == "drawScale" else "<3f"
@@ -741,6 +784,7 @@ process.stdout.write(JSON.stringify({records,uniqueObjects:objects.size,prepared
         ),
         runtimeSHA256=hashlib.sha256(runtime.read_bytes()).hexdigest(),
         propertyFamiliesJoined=["transforms", "Booleans", "references"],
+        lifecycleScope="fresh collision fields through bounded original actor PostLoad; no level population or gameplay",
         records=output["records"],
     )
 
@@ -771,6 +815,7 @@ def verify(tile, *, fresh_class_flags=None):
         if len(matches) != 1:
             raise ValueError("ambiguous saved actor transform identity")
         if "savedStateFrame" in actor:
+            check_actor_loading(audit.pkg, matches[0], actor["savedActorLoading"])
             actor_frames.append(
                 dict(
                     actor=actor["name"],

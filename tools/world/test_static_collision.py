@@ -1,5 +1,6 @@
 """Portable Elbera Tools collision serialization tests; no proprietary inputs."""
 import struct
+import hashlib
 from pathlib import Path
 import unittest
 from copy import deepcopy
@@ -11,7 +12,7 @@ from check_static_collision_records import check_arrays, check_bounds, check_loa
 from static_mesh_class_source import read_root_class_flags, read_zero_script_class_flags
 from convert import read_map_actor_frame, actor_prop_offset
 from export_static_collision import saved_actor_frame
-from check_static_collision_records import check_actor_frame
+from check_static_collision_records import check_actor_frame, check_actor_loading
 
 
 def compact(n):
@@ -411,6 +412,7 @@ class QualificationTest(unittest.TestCase):
         audit.reference_bindings = lambda rows: {'scope': 'authored-bindings'}
         rows = [{'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
                  'exportRef': 8, 'savedLevelSlots': [1, 3],
+                 'savedActorLoading': {'scope': 'authored-fixture'},
                  'savedStateFrame': {'scope': 'authored-fixture'},
                  'savedReferences': {'scope': 'authored-fixture'},
                  'issues': [], 'meshIssues': [], 'position': [1, 2, 3], 'scale': [1, 1, 1],
@@ -421,6 +423,7 @@ class QualificationTest(unittest.TestCase):
         self.assertEqual(source['references'], [
             {'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
              'exportRef': 8, 'savedLevelSlots': [1, 3],
+             'savedActorLoading': {'scope': 'authored-fixture'},
              'savedStateFrame': {'scope': 'authored-fixture'},
              'savedReferences': {'scope': 'authored-fixture'},
              'savedTransform': {'scope': 'authored-fixture'}, 'savedCollisionFlags': {'scope': 'authored-fixture'}}])
@@ -448,6 +451,30 @@ class ActorStateFrameTest(unittest.TestCase):
         pkg = SimpleNamespace(data=raw, path='Authored.unr',
             resolve_ref=lambda ref: imports[ref], import_name=lambda obj: obj.name)
         return pkg, ex, prefix
+
+    def test_actor_loading_census_checks_order_duplicate_tags_and_exact_bytes(self):
+        pkg, ex, prefix = self.fixture()
+        raw = b'\x01\xa2\x80\x80ABCD\x01\x22EFGH\x02\x22IJKL\0'
+        pkg.data = pkg.data[:ex.serial_offset] + prefix + raw
+        ex.serial_size = len(prefix) + len(raw)
+        pkg.name = lambda n: ['None', 'Attached', 'ObjectFlags'][n]
+        pkg.file_version = 123
+        start = ex.serial_offset + len(prefix)
+        saved = dict(scope='saved-actor-loading-inputs', fileVersion=123,
+            sourceOffset=start, sourceBytes=len(raw), sourceSHA256=hashlib.sha256(raw).hexdigest(),
+            attachedOverrideCount=2, tags=[
+                dict(name='Attached', type=2, index=128, struct=None),
+                dict(name='Attached', type=2, index=0, struct=None),
+                dict(name='ObjectFlags', type=2, index=0, struct=None)])
+        self.assertEqual(check_actor_loading(pkg, ex, saved),
+            dict(tags=3, attachedOverrides=2, nativeHeaderTags=['ObjectFlags']))
+        for key, value in [('tags', saved['tags'][::-1]), ('sourceBytes', len(raw)-1),
+                           ('sourceSHA256', '0'*64), ('attachedOverrideCount', 0), ('fileVersion', 122)]:
+            altered = deepcopy(saved); altered[key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                check_actor_loading(pkg, ex, altered)
+        pkg.data = pkg.data[:-2] + b'Q\0'
+        with self.assertRaises(ValueError): check_actor_loading(pkg, ex, saved)
 
     def test_variable_width_references_and_raw_dword_round_trip(self):
         for reference in (-2, -64, -8192, -1048576):

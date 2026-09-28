@@ -2,6 +2,29 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Fresh static-actor collision lifecycle — 28 September 2026
+
+Continued from merged PR54. The existing actor-loading module now joins the
+three property families with source flag stages, empty Attached initialization
+and bounded original PostLoad. Mesh resource loading shares the flag function.
+Unknown actor flag bits stay unknown; SwayRotationOrig comes from loaded Rotation.
+Source records retain the complete bounded tag census, and the independent
+checker verifies it against original bytes before preparation.
+
+128 original-instruction comparisons cover InitProperties, the specialized
+empty array copy, constructor and flag/PostLoad stages, preserving unrelated
+storage and unknown bits. Supplied CDO/payload and memory-provider boundaries
+remain explicit. All 2,922 Talking Island/Giran actor records pass the fresh
+entry and retain 480 prepared mesh records. Portable validation: 65 browser
+module cases, 64 record cases and 18 interpreter cases.
+
+Next: connect this consumed collision state to source level population and
+known-bit actor admission, then feed existing world queries. Full default/archive
+execution, script state, LevelInfo collision mode and live Online verification
+are still outstanding. This is an initialization component, not a map repair
+or completion of the full browser client. Public documentation and existing
+README images are preserved; original inputs and raw receipts remain private.
+
 ## Joined actor property initialization — 28 September 2026
 
 PR53 is merged and its branch/PR/merged-head checks passed. The existing
