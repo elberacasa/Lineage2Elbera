@@ -1,4 +1,4 @@
-/** Original actor Boolean loading and ULevel.PostLoad world assignment.
+/** Original actor property loading and ULevel.PostLoad world assignment.
  * Inputs describe current object registries, class ancestry and outer identities.
  * Saved exports alone do not establish those inputs. No class-name guessing or
  * missing-reference fallback. See docs/native-static-actor-bounds-evidence.md.
@@ -20,6 +20,184 @@ function dense(value) {
   for (let i = 0; i < value.length; i++)
     if (!Object.hasOwn(value, i)) return false;
   return true;
+}
+
+/** Copy decoded dimension-one transform defaults, then admit tags in source
+ * order. Vector/Rotator components retain their Float32/int32 representation;
+ * no renderer axis conversion, combined scale or trigonometry belongs here.
+ * This consumes validated archive values, not raw tagged or binary archives.
+ */
+export function applyActorTransformTags(input) {
+  const resultScope = "original-actor-transform-loading";
+  const fields = new Map(),
+    values = new Map(),
+    skipped = [];
+  const finite = (value) =>
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    Object.is(Math.fround(value), value);
+  const kinds = new Map([
+    ["Location", ["StructProperty", "Core.Object.Vector"]],
+    ["Rotation", ["StructProperty", "Core.Object.Rotator"]],
+    ["DrawScale", ["FloatProperty", null]],
+    ["DrawScale3D", ["StructProperty", "Core.Object.Vector"]],
+    ["PrePivot", ["StructProperty", "Core.Object.Vector"]],
+  ]);
+  try {
+    const require = (condition, reason) => {
+      if (!condition) throw Error(reason);
+    };
+    const archive = input?.archive;
+    require(archive?.loading === true &&
+      archive.saving === false &&
+      typeof archive.persistent ===
+        "boolean", "explicit loading archive required");
+    require(dense(input.layout) &&
+      dense(input.tags), "dense declarations and tags required");
+    const copy = (field, value) => {
+      if (field.kind === "FloatProperty") {
+        require(finite(value), "finite Float32 default or tag required");
+        return value;
+      }
+      require(dense(value) &&
+        value.length === 3 &&
+        value.every(
+          field.reference === "Core.Object.Rotator" ? sint : finite,
+        ), "three original Vector or Rotator components required");
+      return freeze([...value]);
+    };
+    for (const field of input.layout) {
+      const type = kinds.get(field?.name);
+      require(type &&
+        field.kind === type[0] &&
+        field.reference === type[1] &&
+        uint(field.propertyFlags) &&
+        !fields.has(
+          field.name,
+        ), "unique original transform declarations required");
+      require(input.defaults &&
+        Object.hasOwn(
+          input.defaults,
+          field.name,
+        ), "explicit source transform defaults required");
+      fields.set(field.name, field);
+      values.set(field.name, copy(field, input.defaults[field.name]));
+    }
+    require(fields.size ===
+      kinds.size, "all five transform declarations required");
+    for (let index = 0; index < input.tags.length; index++) {
+      const tag = input.tags[index],
+        field = fields.get(tag?.name);
+      require(field, "declared transform tag required");
+      if (propertySkipped(field.propertyFlags, archive)) {
+        skipped.push(index);
+        continue;
+      }
+      values.set(field.name, copy(field, tag.value));
+    }
+    return freeze({
+      status: "ready",
+      scope: resultScope,
+      values: freeze(Object.fromEntries(values)),
+      skipped: freeze(skipped),
+    });
+  } catch (error) {
+    return freeze({
+      status: "unsupported",
+      scope: resultScope,
+      reason: error.message,
+    });
+  }
+}
+
+/** Join the consumed StaticMeshActor property families using one persistent
+ * archive mode and the same object resolver. No partial actor escapes failure.
+ * This is a property initialization boundary; native object headers, PostLoad,
+ * level assignment and gameplay writes remain separate lifecycle operations.
+ * Inputs must stay stable. The resolver must not inspect or mutate an actor
+ * being deserialized: cross-family archive interleaving is outside this entry.
+ */
+export function prepareStaticActorProperties(input) {
+  const resultScope = "original-static-actor-properties";
+  const archive = { loading: true, saving: false, persistent: true };
+  const defaults = input?.defaults;
+  const source = input?.source;
+  const groups = defaults?.collisionBooleans?.layout;
+  const referencesLayout = defaults?.collisionReferences?.layout;
+  const groupOffsets = dense(groups)
+    ? groups.map((group) => group?.offset)
+    : null;
+  const referenceNames = dense(referencesLayout)
+    ? referencesLayout.map((field) => field?.name)
+    : null;
+  if (
+    !dense(groupOffsets) ||
+    groupOffsets.length !== 4 ||
+    !["0x64", "0x74", "0x2e4", "0x2f8"].every((key) =>
+      groupOffsets.includes(key),
+    ) ||
+    !dense(referenceNames) ||
+    referenceNames.length !== 7 ||
+    ![
+      "StaticMesh",
+      "Owner",
+      "Level",
+      "XLevel",
+      "Mesh",
+      "Brush",
+      "AntiPortal",
+    ].every((key) => referenceNames.includes(key))
+  ) {
+    return freeze({
+      status: "unsupported",
+      scope: resultScope,
+      reason: "all consumed Boolean groups and reference declarations required",
+    });
+  }
+  const transform = applyActorTransformTags({
+    archive,
+    layout: defaults?.collisionTransforms?.layout,
+    defaults: defaults?.collisionTransforms?.defaults,
+    tags: source?.savedTransform?.tags,
+  });
+  if (transform.status !== "ready")
+    return freeze({ ...transform, scope: resultScope });
+  const booleans = applyActorBooleanTags({
+    archive,
+    layout: defaults?.collisionBooleans?.layout,
+    words: defaults?.collisionBooleans?.defaultGroups,
+    tags: source?.savedCollisionFlags?.tags,
+  });
+  if (booleans.status !== "ready")
+    return freeze({ ...booleans, scope: resultScope });
+  const references = applyActorReferenceTags({
+    archive,
+    layout: defaults?.collisionReferences?.layout,
+    defaults: input?.resolvedReferenceDefaults,
+    tags: source?.savedReferences?.tags,
+    resolveReference: input?.resolveReference,
+  });
+  if (references.status !== "ready")
+    return freeze({ ...references, scope: resultScope });
+  const values = transform.values;
+  return freeze({
+    status: "ready",
+    scope: resultScope,
+    transform: freeze({
+      location: values.Location,
+      rotation: values.Rotation,
+      drawScale: values.DrawScale,
+      drawScale3D: values.DrawScale3D,
+      prePivot: values.PrePivot,
+    }),
+    groups: booleans.groups,
+    references: references.references,
+    skipped: freeze({
+      transforms: transform.skipped,
+      booleans: booleans.skipped,
+      references: references.skipped,
+    }),
+  });
 }
 
 /** Apply already validated Boolean tags to supplied actor words in tag order.

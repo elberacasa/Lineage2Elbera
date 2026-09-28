@@ -9,6 +9,7 @@ import hashlib
 import json
 from pathlib import Path
 import random
+import struct
 
 from check_actor_octree_admission_native import (
     ROOT,
@@ -42,6 +43,7 @@ from actor_transform_source import (
     qualify_level_actor_loading,
     qualify_actor_state_frames,
     qualify_actor_reference_loading,
+    qualify_actor_transform_loading,
 )
 from static_collision_source import (
     qualify_static_postload,
@@ -225,6 +227,27 @@ def qualify(program, core, candidate, candidate_core):
     actor_fields = qualify_actor_collision_fields(
         e, core, candidate, candidate_core, engine_package
     )
+    transform_loading = qualify_actor_transform_loading(
+        core,
+        candidate_core,
+        engine_package.path,
+        ROOT / "assets/interlude/system/Core.u",
+    )
+    for block in transform_loading["coreBlocks"]:
+        start, end = int(block["start"], 16), int(block["end"], 16)
+        PreparationProgram.add(
+            program,
+            core,
+            start,
+            end,
+            bytes(core.data[core.offset(start) : core.offset(end)]),
+        )
+    program.membership_targets.update(
+        {
+            int(at, 16): int(target, 16)
+            for at, target in transform_loading["thunkTargets"].items()
+        }
+    )
     level_population = qualify_level_actor_population(e, candidate)
     level_loading = qualify_level_actor_loading(e, core, candidate, candidate_core)
     for image, blocks in [
@@ -294,6 +317,7 @@ def qualify(program, core, candidate, candidate_core):
         actorClassLoading=actor_class_loading,
         actorStateFrames=actor_state_frames,
         actorReferenceLoading=actor_reference_loading,
+        actorTransformLoading=transform_loading,
         propertyLoading=property_loading,
         staticBounds=dict(
             normalComparison=proof,
@@ -380,6 +404,34 @@ class StaticBoundsMachine(AdmissionMachine):
         self.invoke(0x106F5CC0, mesh)
 
     def step(self, i):
+        if i.address in (0x10171600, 0x10170E30):
+            # Original 4-byte archive Serialize virtual call. The private
+            # fixture supplies bytes at this boundary, not a native file handle.
+            assert self.registers["ecx"] == self.transform_archive
+            assert self.registers["eax"] == 0xA80000
+            sp = self.registers["esp"]
+            destination, size = self.memory[sp], self.memory[sp + 4]
+            assert size == 4 and self.transform_payload
+            self.memory[destination] = self.transform_payload.pop(0)
+            self.transform_reads.append(destination)
+            self.registers["esp"] += 8
+            self.visited.append(i.address)
+            return i.address + i.size
+        if i.address == 0x10172824:
+            # Struct metadata is supplied already loaded. Verify the precise
+            # Preload target and leave that metadata unchanged.
+            assert self.registers["ecx"] == self.transform_archive
+            assert self.registers["edx"] == 0xA80010
+            assert self.memory[self.registers["esp"]] == self.transform_struct
+            self.registers["esp"] += 4
+            self.visited.append(i.address)
+            return i.address + i.size
+        if i.address == 0x10133625:
+            assert self.registers["ecx"] == self.transform_archive
+            assert self.registers["edx"] == 0xA80028
+            self.registers["eax"] = len(self.transform_reads) * 4
+            self.visited.append(i.address)
+            return i.address + i.size
         if i.address in (0x1014B304, 0x1014B362):
             # Exact IndexToObject factory boundary, with supplied synchronous
             # replies. Do not pretend to execute construction or import lookup.
@@ -1609,6 +1661,203 @@ process.stdout.write(JSON.stringify(JSON.parse(raw).map(applyActorBooleanTags)))
     )
 
 
+def actor_transform_loading_cases(program, runtime):
+    """Run source property gates, struct dispatch/iteration and scalar stores.
+
+    Incoming default values and linked reflection metadata are explicit. This
+    does not execute allocation, whole class-default construction or archive I/O.
+    """
+    rng = random.Random(0x5452414E)
+    proof = program.receipt["actorTransformLoading"]
+    offsets = dict(
+        Location=0x1B8,
+        Rotation=0x1C8,
+        DrawScale=0x27C,
+        DrawScale3D=0x280,
+        PrePivot=0x28C,
+    )
+    rows, expected, visited = [], [], set()
+    steps = tag_count = skipped_count = read_count = 0
+    for case in range(128):
+        layout = [dict(field) for field in proof["layout"]]
+        if case >= 64:
+            for index, field in enumerate(layout):
+                field["propertyFlags"] = (rng.getrandbits(32) & ~0x20003000) | (
+                    (0x1000 if index & 1 else 0)
+                    | (0x2000 if index & 2 else 0)
+                    | (0x20000000 if index & 4 else 0)
+                )
+
+        def value(field):
+            if field["name"] == "Rotation":
+                return [rng.randrange(-0x80000000, 0x80000000) for _ in range(3)]
+            scalar = lambda: (
+                -0.0 if rng.randrange(8) == 0 else rng.randrange(-100000, 100001) / 16.0
+            )
+            return (
+                scalar()
+                if field["kind"] == "FloatProperty"
+                else [scalar() for _ in range(3)]
+            )
+
+        def words(field, v):
+            values = v if isinstance(v, list) else [v]
+            fmt = "<i" if field["name"] == "Rotation" else "<f"
+            return [struct.unpack("<I", struct.pack(fmt, part))[0] for part in values]
+
+        defaults = {field["name"]: value(field) for field in layout}
+        tags = [dict(name=field["name"], value=value(field)) for field in layout]
+        rng.shuffle(tags)
+        tags += [dict(name=field["name"], value=value(field)) for field in layout[::2]]
+        archive = dict(loading=True, saving=False, persistent=bool(case & 1))
+        m = StaticBoundsMachine(program)
+        actor, ar, prop, struct_ptr, property_class, children = (
+            0x200000,
+            0x300000,
+            0x400000,
+            0x500000,
+            0x600000,
+            0x700000,
+        )
+        initial = {actor + off: rng.getrandbits(32) for off in range(0, 0x400, 4)}
+        m.memory.update(initial)
+        m.transform_archive = ar
+        m.transform_struct = struct_ptr
+        m.transform_reads = []
+        m.memory.update(
+            {
+                ar: 0xA90000,
+                0xA90004: 0xA80000,
+                0xA90010: 0xA80010,
+                0xA90028: 0xA80028,
+                ar + 4: 123,
+                ar + 0x10: 1,
+                ar + 0x14: 0,
+                ar + 0x1C: int(archive["persistent"]),
+                property_class + 0x4A4: 0x8000,
+            }
+        )
+        tables = {}
+        for row in proof["vtables"]:
+            table, slot, target = (
+                int(row[k], 16) for k in ("address", "slot", "target")
+            )
+            m.memory[table + slot] = target
+            tables[row["name"]] = table
+        fields = {field["name"]: field for field in layout}
+        consumed = set()
+        for field in layout:
+            for index, word in enumerate(words(field, defaults[field["name"]])):
+                address = actor + offsets[field["name"]] + index * 4
+                m.memory[address] = word
+                consumed.add(address)
+        skipped = []
+        for index, tag in enumerate(tags):
+            field = fields[tag["name"]]
+            m.memory[prop + 0x48] = field["propertyFlags"]
+            m.invoke(0x1010B6D0, prop, [ar])
+            if not m.registers["eax"]:
+                skipped.append(index)
+                continue
+            payload = words(field, tag["value"])
+            m.transform_payload = list(payload)
+            destination = actor + offsets[field["name"]]
+            before = len(m.transform_reads)
+            if field["kind"] == "FloatProperty":
+                m.invoke(0x101715F0, prop, [ar, destination, 4])
+            else:
+                name = "Rotator" if field["name"] == "Rotation" else "Vector"
+                native_name = next(
+                    row["index"] for row in proof["nativeNames"] if row["name"] == name
+                )
+                m.memory.update(
+                    {
+                        prop + 0x78: struct_ptr,
+                        struct_ptr: tables["??_7UStruct@@6B@"],
+                        struct_ptr + 0x20: native_name,
+                        struct_ptr + 0x34: 0,
+                        struct_ptr + 0x48: children,
+                    }
+                )
+                for component, declaration in enumerate(
+                    proof["componentLayouts"][name]
+                ):
+                    ptr = children + component * 0x100
+                    m.memory.update(
+                        {
+                            ptr: tables[
+                                (
+                                    "??_7UIntProperty@@6B@"
+                                    if name == "Rotator"
+                                    else "??_7UFloatProperty@@6B@"
+                                )
+                            ],
+                            ptr + 0x20: component + 1000,
+                            ptr + 0x24: property_class,
+                            ptr + 0x38: ptr + 0x100 if component < 2 else 0,
+                            ptr + 0x40: 1,
+                            ptr + 0x44: 4,
+                            ptr + 0x48: declaration["propertyFlags"],
+                            ptr + 0x54: component * 4,
+                        }
+                    )
+                m.invoke(0x101727D0, prop, [ar, destination, 12])
+            assert not m.transform_payload
+            assert m.transform_reads[before:] == [
+                destination + off * 4 for off in range(len(payload))
+            ]
+        assert {at: m.memory[at] for at in initial if at not in consumed} == {
+            at: word for at, word in initial.items() if at not in consumed
+        }
+        rows.append(dict(layout=layout, defaults=defaults, tags=tags, archive=archive))
+        expected.append(
+            dict(
+                status="ready",
+                scope="original-actor-transform-loading",
+                skipped=skipped,
+                words={
+                    field["name"]: [
+                        m.memory[actor + offsets[field["name"]] + n * 4]
+                        for n in range(1 if field["kind"] == "FloatProperty" else 3)
+                    ]
+                    for field in layout
+                },
+            )
+        )
+        visited.update(m.visited)
+        steps += len(m.visited)
+        tag_count += len(tags)
+        skipped_count += len(skipped)
+        read_count += len(m.transform_reads)
+    script = r"""
+const {applyActorTransformTags}=await import(new URL('./actor-loading.js',process.argv[1]));
+let raw='';for await(const part of process.stdin)raw+=part;
+const word=(value,integer)=>{const b=new DataView(new ArrayBuffer(4));
+ if(integer)b.setInt32(0,value,true);else b.setFloat32(0,value,true);return b.getUint32(0,true);};
+process.stdout.write(JSON.stringify(JSON.parse(raw).map(input=>{
+ const r=applyActorTransformTags(input);if(r.status!=='ready')return r;
+ const words=Object.fromEntries(Object.entries(r.values).map(([name,value])=>[name,
+  (Array.isArray(value)?value:[value]).map(v=>word(v,name==='Rotation'))]));
+ return {status:r.status,scope:r.scope,skipped:r.skipped,words};
+})));
+"""
+    actual = browser_outputs(script, rows, Path(runtime))
+    assert (
+        actual == expected
+    ), "browser actor transform loading differs from source instructions"
+    return dict(
+        cases=len(rows),
+        tags=tag_count,
+        skipped=skipped_count,
+        scalarReads=read_count,
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        signedZeroAndInt32BitsPreserved=True,
+        unrelatedActorStoragePreserved=True,
+        scope="source gates/struct dispatch/field iteration/scalar writes; supplied defaults, reflection metadata and archive bytes",
+    )
+
+
 def actor_reference_loading_cases(program, runtime):
     """Compare ordinary default copies, property gates, index routing and writes.
 
@@ -1759,6 +2008,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
     actor_fields = actor_field_cases(program)
     actor_boolean_loading = actor_boolean_loading_cases(program, runtime)
     actor_reference_loading = actor_reference_loading_cases(program, runtime)
+    actor_transform_loading = actor_transform_loading_cases(program, runtime)
     level_population = level_population_cases(program)
     level_loading = level_loading_cases(program, runtime)
     construction = constructor_cases(program)
@@ -1828,6 +2078,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         actorFields=actor_fields,
         actorBooleanLoading=actor_boolean_loading,
         actorReferenceLoading=actor_reference_loading,
+        actorTransformLoading=actor_transform_loading,
         levelPopulation=level_population,
         levelLoading=level_loading,
         freshLoading=fresh_loading,

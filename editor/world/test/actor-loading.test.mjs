@@ -3,9 +3,190 @@ import test from "node:test";
 import {
   applyActorBooleanTags,
   applyActorReferenceTags,
+  applyActorTransformTags,
+  prepareStaticActorProperties,
   collectLevelActorAssignments,
   resolvePackageReference,
 } from "../js/actor-loading.js";
+
+function transformFixture() {
+  return {
+    archive: { loading: true, saving: false, persistent: true },
+    layout: [
+      "Location",
+      "Rotation",
+      "DrawScale",
+      "DrawScale3D",
+      "PrePivot",
+    ].map((name) => ({
+      name,
+      kind: name === "DrawScale" ? "FloatProperty" : "StructProperty",
+      reference:
+        name === "DrawScale"
+          ? null
+          : name === "Rotation"
+            ? "Core.Object.Rotator"
+            : "Core.Object.Vector",
+      propertyFlags: 3,
+    })),
+    defaults: {
+      Location: [1, -0, 3],
+      Rotation: [-2147483648, 0, 2147483647],
+      DrawScale: 2,
+      DrawScale3D: [1, -2, 3],
+      PrePivot: [0, 0, 0],
+    },
+    tags: [
+      { name: "DrawScale", value: 3 },
+      { name: "PrePivot", value: [-0, 4, 5] },
+      { name: "DrawScale", value: -2 },
+    ],
+  };
+}
+
+test("transform loading preserves original components, repeated tags and copied defaults", () => {
+  const input = transformFixture(),
+    before = structuredClone(input);
+  const result = applyActorTransformTags(input);
+  assert.equal(result.status, "ready");
+  assert.deepEqual(result.values, {
+    ...input.defaults,
+    DrawScale: -2,
+    PrePivot: [-0, 4, 5],
+  });
+  assert.deepEqual(result.skipped, []);
+  assert.notEqual(result.values.Location, input.defaults.Location);
+  assert.ok(Object.isFrozen(result.values.PrePivot));
+  input.tags[1].value[1] = 999;
+  assert.equal(result.values.PrePivot[1], 4);
+  input.tags[1].value[1] = 4;
+  assert.deepEqual(input, before);
+});
+
+test("transform property gate skips payload access and preserves persistent defaults", () => {
+  const input = transformFixture();
+  input.layout[2].propertyFlags |= 0x1000;
+  input.layout[4].propertyFlags |= 0x2000;
+  for (const tag of input.tags) delete tag.value;
+  const result = applyActorTransformTags(input);
+  assert.equal(result.status, "ready");
+  assert.deepEqual(result.values, input.defaults);
+  assert.deepEqual(result.skipped, [0, 1, 2]);
+  input.archive.persistent = false;
+  assert.equal(applyActorTransformTags(input).status, "unsupported");
+});
+
+test("invalid transform inputs never yield partially loaded fields", () => {
+  for (const corrupt of [
+    (input) => input.tags.push({ name: "Location", value: [Infinity, 0, 0] }),
+    (input) => input.tags.push({ name: "Rotation", value: [0, 0, 2147483648] }),
+    (input) => (input.defaults.Location[0] = 0.1),
+    (input) => delete input.defaults.Location[1],
+    (input) => delete input.defaults.PrePivot,
+    (input) => input.layout.pop(),
+    (input) => (input.layout[0].reference = "Vector"),
+    (input) => (input.layout[0].propertyFlags = -1),
+    (input) => input.tags.push({ name: "Velocity", value: [0, 0, 0] }),
+    (input) => (input.archive.loading = false),
+  ]) {
+    const input = transformFixture();
+    corrupt(input);
+    const result = applyActorTransformTags(input);
+    assert.equal(result.status, "unsupported");
+    assert.equal(result.values, undefined);
+  }
+});
+
+function propertiesFixture() {
+  const transforms = transformFixture(),
+    references = referenceFixture(),
+    booleans = booleanFixture();
+  for (const name of ["Owner", "Mesh", "Brush", "AntiPortal"]) {
+    references.layout.push({ name, kind: "ObjectProperty", propertyFlags: 3 });
+    references.defaults[name] = null;
+  }
+  for (const offset of ["0x74", "0x2e4", "0x2f8"]) {
+    booleans.layout.push({ offset, mask: 0, fields: [] });
+    booleans.words[offset] = { mask: 0, value: 0 };
+  }
+  return {
+    defaults: {
+      collisionTransforms: {
+        layout: transforms.layout,
+        defaults: transforms.defaults,
+      },
+      collisionBooleans: {
+        layout: booleans.layout,
+        defaultGroups: booleans.words,
+      },
+      collisionReferences: { layout: references.layout },
+    },
+    source: {
+      savedTransform: { tags: transforms.tags },
+      savedCollisionFlags: { tags: booleans.tags },
+      savedReferences: { tags: references.tags },
+    },
+    resolvedReferenceDefaults: references.defaults,
+    resolveReference: references.resolveReference,
+    mesh: references.mesh,
+    level: references.level,
+  };
+}
+
+test("joined properties retain mesh identity, transform operands and known Boolean bits", () => {
+  const input = propertiesFixture(),
+    result = prepareStaticActorProperties(input);
+  assert.equal(result.status, "ready");
+  assert.equal(result.references.StaticMesh, input.mesh);
+  assert.equal(result.references.Level, input.level);
+  assert.equal(result.references.XLevel, null);
+  assert.deepEqual(result.transform, {
+    location: [1, -0, 3],
+    rotation: [-2147483648, 0, 2147483647],
+    drawScale: -2,
+    drawScale3D: [1, -2, 3],
+    prePivot: [-0, 4, 5],
+  });
+  assert.deepEqual(
+    result.groups,
+    applyActorBooleanTags({
+      ...booleanFixture(),
+      layout: input.defaults.collisionBooleans.layout,
+      words: input.defaults.collisionBooleans.defaultGroups,
+    }).groups,
+  );
+  assert.deepEqual(result.skipped.references, [2]);
+  assert.equal(result.objectFlags, undefined);
+});
+
+test("joined loading rejects incomplete input before resolving objects", () => {
+  for (const corrupt of [
+    (input) => (input.defaults.collisionBooleans.layout = {}),
+    (input) => (input.defaults.collisionReferences.layout = {}),
+    (input) => delete input.defaults.collisionBooleans,
+    (input) => input.defaults.collisionReferences.layout.pop(),
+    (input) =>
+      input.source.savedTransform.tags.push({ name: "DrawScale", value: NaN }),
+    (input) =>
+      input.source.savedCollisionFlags.tags.push({
+        name: "undeclared",
+        value: true,
+      }),
+  ]) {
+    const input = propertiesFixture();
+    corrupt(input);
+    let calls = 0;
+    input.resolveReference = () => {
+      calls++;
+      throw Error("must not resolve after earlier invalid fields");
+    };
+    const result = prepareStaticActorProperties(input);
+    assert.equal(result.status, "unsupported");
+    assert.equal(result.references, undefined);
+    assert.equal(result.transform, undefined);
+    assert.equal(calls, 0);
+  }
+});
 
 function referenceFixture() {
   const mesh = { identity: "Objects.Home.Box" },

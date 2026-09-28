@@ -168,6 +168,13 @@ def check_actor_flags(package, export, saved, defaults, layout):
         raise ValueError(
             "actor Boolean record differs from original properties/defaults"
         )
+    ordered = [
+        dict(name=tag["name"], value=tag["boolval"])
+        for tag in tags
+        if tag["name"] in values
+    ]
+    if saved.get("tags") != ordered:
+        raise ValueError("saved Boolean tag order differs from original properties")
     return dict(groups=groups, overrideCount=len(overrides))
 
 
@@ -244,6 +251,7 @@ def check_actor_transform(package, export, saved, defaults):
     if actual != end:
         raise ValueError("actor transform properties exceed export")
     checked = []
+    fields_by_name = {}
     for key, name, fmt, kind, structure in [
         ("location", "Location", "<3f", 10, "Vector"),
         ("rotation", "Rotation", "<3i", 10, "Rotator"),
@@ -252,6 +260,7 @@ def check_actor_transform(package, export, saved, defaults):
         ("prePivot", "PrePivot", "<3f", 10, "Vector"),
     ]:
         value = saved["fields"][key]
+        fields_by_name[name] = (value, fmt)
         raw = (
             struct.pack(fmt, *value)
             if isinstance(value, list)
@@ -287,6 +296,31 @@ def check_actor_transform(package, export, saved, defaults):
                 SHA256=hashlib.sha256(raw).hexdigest(),
             )
         )
+    ordered = [
+        dict(name=tag["name"], value=fields_by_name[tag["name"]][0])
+        for tag in tags
+        if tag["name"] in fields_by_name
+    ]
+    if len(saved.get("tags", [])) != len(ordered):
+        raise ValueError("saved transform tag count differs from original properties")
+    for actual, expected in zip(saved["tags"], ordered):
+        if actual.get("name") != expected["name"]:
+            raise ValueError(
+                "saved transform tag order differs from original properties"
+            )
+        fmt = fields_by_name[expected["name"]][1]
+
+        def packed(value):
+            return (
+                struct.pack(fmt, *value)
+                if isinstance(value, list)
+                else struct.pack(fmt, value)
+            )
+
+        if packed(actual["value"]) != packed(expected["value"]):
+            raise ValueError(
+                "saved transform tag value differs from original properties"
+            )
     return checked
 
 
@@ -578,7 +612,7 @@ def check_reference_preparation(audit, actors):
     script = r"""
 import {pathToFileURL} from 'node:url';
 const url=pathToFileURL(process.argv[1]);
-const {applyActorReferenceTags,resolvePackageReference}=await import(url);
+const {prepareStaticActorProperties,resolvePackageReference}=await import(url);
 const {prepareFreshStaticMeshTree}=await import(new URL('./static-mesh-tree.js',url));
 let raw='';for await(const part of process.stdin)raw+=part;
 const input=JSON.parse(raw), objects=new Map(), resources=new Map();
@@ -620,13 +654,20 @@ for(const [name,record] of Object.entries(input.defaults)){
  defaults[name]=result.value;
 }
 const records=input.actors.map(actor=>{
- const result=applyActorReferenceTags({layout:input.layout,defaults,tags:actor.savedReferences.tags,
-  archive:{loading:true,saving:false,persistent:true},resolveReference});
+ const result=prepareStaticActorProperties({defaults:input.actorDefaults,source:actor,
+  resolvedReferenceDefaults:defaults,resolveReference});
  if(result.status!=='ready')throw Error(actor.name+': '+result.reason);
  const references=Object.fromEntries(Object.entries(result.references).map(([name,object])=>[name,object===null?null:object.identity]));
  if(!result.references.StaticMesh?.resource)throw Error('actor has no prepared mesh resource');
+ const transformWords=Object.fromEntries(Object.entries(result.transform).map(([name,value])=>[name,
+  (Array.isArray(value)?value:[value]).map(v=>{const data=new DataView(new ArrayBuffer(4));
+   if(name==='rotation')data.setInt32(0,v,true);else data.setFloat32(0,v,true);
+   return data.getUint32(0,true);})]));
  return {actor:actor.name,references,preparedMesh:result.references.StaticMesh.identity,
-  skipped:result.skipped.map(i=>actor.savedReferences.tags[i].name)};
+  transformWords,groups:result.groups,
+  skipped:result.skipped.references.map(i=>actor.savedReferences.tags[i].name),
+  skippedTransformTags:result.skipped.transforms,
+  skippedBooleanTags:result.skipped.booleans};
 });
 process.stdout.write(JSON.stringify({records,uniqueObjects:objects.size,preparedMeshes:resources.size,factoryCalls:factories.length}));
 """
@@ -639,6 +680,7 @@ process.stdout.write(JSON.stringify({records,uniqueObjects:objects.size,prepared
                 bindings=bindings,
                 layout=declarations["layout"],
                 defaults=declarations["defaults"],
+                actorDefaults=audit.defaults[-1],
             )
         ),
         text=True,
@@ -653,6 +695,27 @@ process.stdout.write(JSON.stringify({records,uniqueObjects:objects.size,prepared
     if [row["actor"] for row in output["records"]] != [row["name"] for row in selected]:
         raise ValueError("browser reference preparation changed the actor list")
     for actor, loaded in zip(selected, output["records"]):
+        for name, value in actor["savedTransform"]["fields"].items():
+            fmt = (
+                "<3i" if name == "rotation" else "<f" if name == "drawScale" else "<3f"
+            )
+
+            def packed(v):
+                return (
+                    struct.pack(fmt, *v) if isinstance(v, list) else struct.pack(fmt, v)
+                )
+
+            if packed(value) != struct.pack(
+                "<" + "I" * len(loaded["transformWords"][name]),
+                *loaded["transformWords"][name]
+            ):
+                raise ValueError("loaded transform differs from retained source fields")
+        if loaded["groups"] != actor["savedCollisionFlags"]["groups"]:
+            raise ValueError("loaded Boolean groups differ from retained source fields")
+        if loaded["skippedTransformTags"] or loaded["skippedBooleanTags"]:
+            raise ValueError(
+                "original map contains a skipped transform or Boolean override"
+            )
         expected = {
             name: field["qualified"]
             for name, field in actor["savedReferences"]["fields"].items()
@@ -677,6 +740,7 @@ process.stdout.write(JSON.stringify({records,uniqueObjects:objects.size,prepared
             Counter(name for row in output["records"] for name in row["skipped"])
         ),
         runtimeSHA256=hashlib.sha256(runtime.read_bytes()).hexdigest(),
+        propertyFamiliesJoined=["transforms", "Booleans", "references"],
         records=output["records"],
     )
 
