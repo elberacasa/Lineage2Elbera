@@ -160,16 +160,18 @@ putting every displayed prop into a raycast would be unjustified.
 `StaticMeshActor` exports using the existing derived actor header and exact
 end-of-export property framing. It resolves inherited, declared-field-checked
 class defaults using the shared `OriginalClasses` parser. It admits only the
-strict supported domain: static/colliding/blocking actors with both extent
-trace flags enabled, no cylinder override or nonzero PrePivot, explicit
+strict supported domain: static/colliding/blocking actors with nonzero-extent
+tracing enabled (zero-extent eligibility is retained separately), no cylinder override or nonzero PrePivot, explicit
 placement, source file version 123 with validated ordinary or saved-end lazy
 collision arrays, null simple CollisionModel, and
 all collision-referenced materials explicitly enabling collision. Unreferenced
 disabled material slots do not add geometry and no longer reject the mesh. Unsupported inputs fail instead of
 substituting the render mesh. Missing ordinary zero-valued actor properties
 retain the original class default semantics; no per-actor guessed dimension is
-introduced. Rotation and scale use the existing world placement basis; exact
-native transform rounding remains unported.
+introduced. Rotation and scale in the legacy ray sidecar use the existing
+world placement basis. The separately verified
+[original actor matrices](native-actor-transforms-evidence.md) are not yet wired
+into that legacy placement path.
 
 The native source chain is checked by `verify_static_mesh()` in the existing
 picking verifier. `UStaticMesh::Serialize` selects its legacy ordinary arrays
@@ -181,10 +183,13 @@ are consumed as vertex indices by the actual box/triangle checker at
 `+78` with stride 24; the fourth supplies material lookup. Both native tree
 queries begin at node zero (`0x10703496`, `0x10703504`). The extractor validates
 node framing/indices and requires every emitted triangle to be reachable
-from that root. The compact-index import itself remains protected/unbound;
-its serialization interpretation is additionally checked against the complete
+from that root. In this owned-only proof the compact-index import remains
+protected/unbound; its serialization interpretation is additionally checked against the complete
 original array framing and the independent UEViewer format reader, not an
-assertion that the protected import has been recovered.
+assertion that the protected import has been recovered. The later
+[static-record qualifier](native-static-sweep-evidence.md#source-qualification)
+binds it using explicit supplemental images and exactly matched blocks. It also
+adds original-array byte round trips; it does not restore the owned binary.
 
 The first local activation covered original map `17_25` actors
 `StaticMeshActor140` and `StaticMeshActor141`:
@@ -459,10 +464,12 @@ published by this evidence.
 Limits remain explicit. Six-NOP recovered Engine import sites do not prove
 the erased `Ver`/`LicenseeVer`/`IsLoading` call identities. The branch's stored
 format is established by surviving control flow, named archive/element methods,
-and complete original payload framing. The compact-index import is not newly
-recovered. Native lazy paging/cache lifetime, full mesh serialization, actor
-transform rounding and nonzero-extent collision sweep behavior remain separate
-from this offline geometry decoder.
+and complete original payload framing. This owned-only check does not recover
+the compact-index import; the later supplemental binding is documented above.
+Native lazy paging/cache lifetime, full mesh serialization and collision results
+remain separate from this offline geometry decoder. Original matrix arithmetic
+and nonzero query preparation now have their own bounded components; live
+integration is unfinished.
 
 ### Local adoption and online regression
 

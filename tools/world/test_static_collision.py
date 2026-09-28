@@ -6,6 +6,7 @@ from export_static_collision import Reader, mesh_body, qualified_ref, eligible_m
 from types import SimpleNamespace
 from unittest.mock import patch
 from l2lib import L2Error
+from check_static_collision_records import check_arrays
 
 
 def compact(n):
@@ -18,7 +19,7 @@ def compact(n):
     return bytes(out)
 
 
-def body(*, index=3, collision_model=0, nodes=True, lazy=False, origin=0):
+def body(*, index=3, collision_model=0, nodes=True, lazy=False, origin=0, planes=None):
     # One rendered triangle, plus a distinct collision-only triangle.
     vertices = [(0, 0, 0), (10, 0, 0), (0, 10, 0), (0, 0, 20)]
     out = bytearray(bytes(41) + compact(0) + bytes(25) + compact(4))
@@ -28,7 +29,8 @@ def body(*, index=3, collision_model=0, nodes=True, lazy=False, origin=0):
     out += compact(collision_model)
     triangle_array = bytearray(compact(2))
     for face in [(0, 1, 2, 0), (0, 1, index, 0)]:
-        triangle_array += bytes(64) + b''.join(map(compact, face))
+        triangle_array += (bytes(64) if planes is None else struct.pack('<16f', *planes))
+        triangle_array += b''.join(map(compact, face))
     node_array = bytearray(compact(2 if nodes else 0))
     for links in [(0, 1, -1, -1), (1, -1, -1, -1)]:
         node_array += b''.join(map(compact, links)) + struct.pack('<6fB', 0, 0, 0, 10, 10, 20, 1)
@@ -39,6 +41,59 @@ def body(*, index=3, collision_model=0, nodes=True, lazy=False, origin=0):
 
 
 class StaticCollisionTest(unittest.TestCase):
+    def test_source_array_round_trip_preserves_ordinary_and_lazy_bytes(self):
+        for lazy in (False, True):
+            raw = body(lazy=lazy, planes=[-0.0] + [float(i) for i in range(15)])
+            parsed = mesh_body(Reader(raw), lazy_collision=lazy, export_end=len(raw),
+                               retain_sweep_data=True)
+            spans = check_arrays(raw, parsed)
+            self.assertEqual(len(spans), 2)
+            self.assertEqual(spans[-1]['start'] + spans[-1]['bytes'], len(raw))
+            parsed['collisionTree']['trianglePlanes'][0][0] = 0.0
+            with self.assertRaisesRegex(ValueError, 'differ from original bytes'):
+                check_arrays(raw, parsed)
+
+    def test_source_array_round_trip_rejects_changed_tree_and_saved_end(self):
+        raw = body(lazy=True)
+        parsed = mesh_body(Reader(raw), lazy_collision=True, export_end=len(raw),
+                           retain_sweep_data=True)
+        parsed['collisionTree']['nodes'][0]['links'][1] = -1
+        with self.assertRaisesRegex(ValueError, 'differ from original bytes'):
+            check_arrays(raw, parsed)
+        parsed['collisionTree']['nodes'][0]['links'][1] = 1
+        damaged = bytearray(raw)
+        struct.pack_into('<i', damaged, parsed['collisionOffset'], len(raw))
+        with self.assertRaisesRegex(ValueError, 'saved end'):
+            check_arrays(damaged, parsed)
+
+    def test_sweep_records_preserve_planes_links_bounds_and_signed_zero(self):
+        values = [-0.0, 2.0, -3.0, 17.0] + [float(i) for i in range(12)]
+        expected = struct.pack('<16f', *values)
+        for lazy in (False, True):
+            raw = body(lazy=lazy, planes=values)
+            parsed = mesh_body(Reader(raw), lazy_collision=lazy, export_end=len(raw),
+                               retain_sweep_data=True)
+            tree = parsed['collisionTree']
+            self.assertEqual(len(tree['trianglePlanes']), 2)
+            for plane in tree['trianglePlanes']:
+                self.assertEqual(struct.pack('<16f', *plane), expected)
+            self.assertEqual(tree['nodes'], [
+                {'links': [0, 1, -1, -1], 'bounds': [0, 0, 0, 10, 10, 20], 'valid': 1},
+                {'links': [1, -1, -1, -1], 'bounds': [0, 0, 0, 10, 10, 20], 'valid': 1},
+            ])
+            self.assertEqual(parsed['materials'], [0, 0])
+
+    def test_nonfinite_plane_is_not_admitted_as_sweep_data_or_normalized(self):
+        for value in (float('inf'), float('-inf'), float('nan')):
+            raw = body(planes=[value] + [0.0] * 15)
+            with self.assertRaisesRegex(ValueError, 'nonfinite source collision plane'):
+                mesh_body(Reader(raw), retain_sweep_data=True)
+            # The old ray-only contract never consumes these plane records.
+            self.assertNotIn('collisionTree', mesh_body(Reader(raw)))
+
+    def test_default_ray_export_does_not_silently_grow_a_sweep_payload(self):
+        self.assertNotIn('collisionTree', mesh_body(Reader(body())))
+
     def test_collision_only_geometry_is_retained(self):
         parsed = mesh_body(Reader(body()))
         self.assertEqual(parsed['indices'], [0, 1, 2, 0, 1, 3])
@@ -158,9 +213,30 @@ class QualificationTest(unittest.TestCase):
 
     def test_explicit_selection_never_silently_emits_a_partial_selection(self):
         audit = Audit.__new__(Audit)
+        audit.retain_sweep_data = False
         rows = [{'name': 'good', 'issues': [], 'meshIssues': []},
                 {'name': 'bad', 'issues': ['unsupported flag'], 'meshIssues': []}]
         with self.assertRaisesRegex(ValueError, 'bad'): audit.output(rows)
+
+    def test_sweep_source_output_cannot_replace_a_live_ray_sidecar(self):
+        audit = Audit.__new__(Audit)
+        audit.retain_sweep_data = True
+        audit.tile, audit.sources, audit.proof = 'synthetic', {}, {}
+        geometry = mesh_body(Reader(body()), retain_sweep_data=True)
+        audit.geometry = {'Fixture.Mesh': geometry}
+        rows = [{'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
+                 'issues': [], 'meshIssues': [], 'position': [1, 2, 3], 'scale': [1, 1, 1]}]
+        with self.assertRaisesRegex(ValueError, 'separate private source output'):
+            audit.output(rows)
+        source = audit.sweep_output(rows)
+        self.assertEqual(source['references'], [
+            {'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture'}])
+        self.assertIs(source['meshes']['Fixture.Mesh'], geometry)
+        self.assertNotIn('actors', source)
+        rows.append({'name': 'Unknown', 'issues': ['unknown'], 'meshIssues': []})
+        with self.assertRaises(ValueError):
+            audit.sweep_output(rows)
+        self.assertEqual(len(audit.sweep_output(rows, all_supported=True)['references']), 1)
 
 
 class ActorAdmissionTest(unittest.TestCase):
