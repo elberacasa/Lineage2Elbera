@@ -27,6 +27,7 @@ const SHEET_DIR = '/ui/font/';
 let _fonts = null;
 const _sheets = new Map();      // font name -> HTMLImageElement
 const _tinted = new Map();      // `${font}|${color}` -> tinted sheet canvas
+const _labels = new WeakMap(); // element -> last key and owned canvas
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -186,8 +187,13 @@ export const Font = {
   set(el, text, opts = {}) {
     const key = `${text}|${opts.font || 'small'}|${opts.color || '#fff'}`
       + `|${opts.shadow ? 's' : ''}`;
-    if (el.__l2text === key) return;
-    el.__l2text = key;
-    el.replaceChildren(Font.canvas(text, opts));
+    const previous = _labels.get(el);
+    // Session/window resets may remove the canvas without changing its text.
+    // Reuse only the exact contents we rendered, not a stale text-only cache.
+    if (previous?.key === key && el.childNodes.length === 1
+        && el.firstChild === previous.canvas) return;
+    const canvas = Font.canvas(text, opts);
+    el.replaceChildren(canvas);
+    _labels.set(el, { key, canvas });
   },
 };
