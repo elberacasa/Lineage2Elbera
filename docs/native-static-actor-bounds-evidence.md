@@ -997,3 +997,47 @@ surfaces loaded; this checkpoint makes no visual map-repair claim. Live level po
 LevelInfo collision mode, camera/walking queries and Online acceptance remain
 unfinished. Repository Elbera Tools gains these checks; existing standalone
 archives remain unchanged. Original files and raw receipts stay private.
+
+
+## Ordered level collision population
+
+`populateLevelActorCollision` in the existing actor-loading module connects the
+qualified fresh-hash loop (`105cabe8..105cac20`) to actual browser actor admission.
+It takes an explicit `freshHash: true`, a dense **current** actor array and
+synchronous `readActorFlags(identity)` / `addActor(identity)` providers. Null
+slots are skipped; duplicate identities retain their original order. Only the
+known collision bit is read. Each admission must apply its sparse writes before
+the next slot. An unsupported result preserves the call ledger and completed
+slot count; it does not establish a clear route or undo earlier source writes.
+
+The original-code checker now executes the level loop through real AddActor,
+static-mesh bounding boxes and octree membership in **64 joined scenarios**:
+**959 AddActor calls**, **1,413,660 instructions** and **1,753 addresses**. It
+compares call order, tree contents, cached boxes/centers/extents, stored locations
+and partial mode-word writes. Native actor words contain unrelated random bits;
+the browser receives only the established subsets. Repeated slots see completed
+writes. The source array and native unconsumed bits remain unchanged.
+
+The static bounding-box consumer now needs only owner `+0x2f8` bit `0x100`;
+admission and queries similarly consume their exact known masks. Inherited
+browser guards that rejected reversed box endpoints and negative cached extents
+have been removed: original invalid auxiliary-box replacement can preserve those
+values. Sorting or replacing them would change the source comparisons. Geometry
+and query differentials now cover these cases. The transform serializer fixture
+also corrects the Location offset to source-bound `+0x1bc`; `+0x1b8` is the
+preceding PhysicsVolume reference, not Location.
+
+These cases supply the current level array, actor/level fields, matrix and model
+method replies, successful storage and PC53/RNE arithmetic. They do **not** load
+a real map or prove the current LevelInfo mode. Fresh actor/mesh preparation,
+full level startup and concrete primitive hit dispatch still need the world
+integration. Existing private native-check commands above reproduce the joined
+cases; receipts include runtime dependency fingerprints.
+
+Portable coverage for the affected loading, octree, bounds, mesh and sweep
+modules is 115 cases. The associated octree and static-bounds interpreter suites
+have 35 cases and require Capstone, but no game files. The completed offline
+Giran startup was visually inspected with no captured errors; it still reports
+no audited static surfaces loaded. Online movement and map repair remain open.
+This adds repository Elbera Tools checks; the existing standalone archives and
+public screenshot set are unchanged. Original inputs and raw receipts stay private.

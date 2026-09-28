@@ -11,10 +11,9 @@ const vector = (v) =>
   Array.isArray(v) && v.length === 3 && [0, 1, 2].every((i) => finite(v[i]));
 const volume = (v) =>
   vector(v?.center) && finite(v.halfExtent) && v.halfExtent >= 0;
-const box = (v) =>
-  vector(v?.min) &&
-  vector(v.max) &&
-  v.min.every((value, i) => value <= v.max[i]);
+// Native FBox storage can have reversed endpoints after an invalid auxiliary
+// box replaces a mesh box. Preserve the source comparisons; do not sort it.
+const box = (v) => vector(v?.min) && vector(v.max);
 const fail = (reason) => freeze({ status: "unsupported", scope, reason });
 const ready = (result) => freeze({ status: "ready", scope, ...result });
 const admitted = (input) => input?.arithmeticProfile === "pc53-rne";
@@ -96,7 +95,6 @@ export function octreeSegmentIntersectsBox(input) {
     !vector(input.start) ||
     !vector(input.center) ||
     !vector(input.extent) ||
-    input.extent.some((v) => v < 0) ||
     !vector(input.direction) ||
     !Array.isArray(input.reciprocal) ||
     input.reciprocal.length !== 3

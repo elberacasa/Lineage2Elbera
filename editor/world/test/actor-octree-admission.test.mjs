@@ -12,6 +12,8 @@ import {
   prepareGenericPrimitiveBounds,
 } from "../js/actor-primitive-bounds.js";
 
+import { populateLevelActorCollision } from "../js/actor-loading.js";
+
 const profile = { arithmeticProfile: "pc53-rne" };
 const volume = { center: [0, 0, 0], halfExtent: 360448 };
 const create = () => createActorOctree({ ...profile, volume }).tree;
@@ -241,4 +243,78 @@ test("invalid preconditions and reentrant mutations fail without silently changi
     }),
   );
   assert.equal(r.status, "ready");
+});
+
+test("level population joins partial source flags to actor admission without inventing padding", () => {
+  const tree = create(),
+    fields = new Map();
+  for (const id of ["a", "b", "skipped"])
+    fields.set(
+      id,
+      input({
+        identity: id,
+        flags2f8: { mask: 1, value: 1 },
+        flags64: { mask: 0x80, value: id === "skipped" ? 0x80 : 0 },
+        flags2e4: { mask: 0x4000, value: 0 },
+        flags74: { mask: 0x80000001, value: 0x80000001 },
+        level: { infoFlags554: { mask: 2, value: 0 } },
+      }),
+    );
+  const result = populateLevelActorCollision({
+    freshHash: true,
+    actors: ["a", null, "b", "a", "skipped"],
+    readActorFlags: (id) => fields.get(id).flags2f8,
+    addActor: (id) => {
+      const actor = fields.get(id),
+        response = updateActorOctree(tree, actor);
+      Object.assign(actor, response.writes);
+      return response;
+    },
+  });
+  assert.equal(result.status, "ready");
+  assert.deepEqual(inspectActorOctree(tree).nodes[0].actors, ["b", "a"]);
+  assert.deepEqual(fields.get("a").flags74, {
+    mask: 0x80000101,
+    value: 0x80000001,
+  });
+  assert.deepEqual(fields.get("skipped").flags74, {
+    mask: 0x80000001,
+    value: 0x80000001,
+  });
+  fields.get("a").level.infoFlags554 = { mask: 2, value: 2 };
+  const updated = updateActorOctree(tree, fields.get("a"));
+  assert.equal(updated.status, "ready");
+  assert.deepEqual(updated.writes.flags74, {
+    mask: 0x80000101,
+    value: 0x80000101,
+  });
+});
+
+test("admission consumes only required bits and establishes a previously unknown mode bit", () => {
+  const partial = input({
+    flags2f8: { mask: 1, value: 1 },
+    flags64: { mask: 0x80, value: 0 },
+    flags2e4: { mask: 0x4000, value: 0 },
+    flags74: { mask: 0, value: 0 },
+    level: null,
+  });
+  assert.deepEqual(updateActorOctree(create(), partial).writes.flags74, {
+    mask: 0x100,
+    value: 0x100,
+  });
+  for (const field of ["flags2f8", "flags64", "flags2e4"]) {
+    const result = updateActorOctree(create(), {
+      ...partial,
+      [field]: { mask: 0, value: 0 },
+    });
+    assert.equal(result.status, "unsupported");
+    assert.deepEqual(result.writes, {});
+  }
+  const result = updateActorOctree(create(), {
+    ...partial,
+    level: { infoFlags554: { mask: 1, value: 0 } },
+  });
+  assert.equal(result.status, "unsupported");
+  assert.ok(result.writes.cachedBounds);
+  assert.equal(result.writes.flags74, undefined);
 });

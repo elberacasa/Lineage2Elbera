@@ -331,6 +331,7 @@ def fixtures(program):
         (0.0, 1.0),
         (1.0, 2.0),
         (-1.0, 1.0),
+        (1.0, -1.0),
     ]
     for x in intervals:
         for y in intervals:
@@ -382,7 +383,10 @@ def fixtures(program):
             dict(
                 start=[f32(rng.uniform(-100, 100)) for _ in range(3)],
                 center=[f32(rng.uniform(-100, 100)) for _ in range(3)],
-                extent=[f32(rng.uniform(0, 50)) for _ in range(3)],
+                extent=[
+                    f32(rng.uniform(0, 50)) * (-1 if j % 2 and i == j % 3 else 1)
+                    for i in range(3)
+                ],
                 direction=direction,
                 reciprocal=[f32(1 / v) if v else None for v in direction],
             )
@@ -410,13 +414,15 @@ def bounds_fixtures(program):
             center[axis] = v
             bounds.append(dict(min=center[:], max=center[:]))
     bounds += [dict(min=[-0.0, 0.0, -0.0], max=[0.0, -0.0, 0.0])]
-    for _ in range(1000):
+    for index in range(1000):
         values = [
             sorted(
                 [f32(rng.uniform(-500000, 500000)), f32(rng.uniform(-500000, 500000))]
             )
             for _ in range(3)
         ]
+        if index % 2:
+            values[index % 3].reverse()
         bounds.append(dict(min=[v[0] for v in values], max=[v[1] for v in values]))
     for b in bounds:
         result, m = native_bounds(program, b)

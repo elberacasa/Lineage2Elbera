@@ -103,6 +103,23 @@ test("cylinder flag bypasses every mesh and virtual-method input", () => {
     },
   });
   assert.deepEqual(r.bounds, { min: [-2, -1, -2], max: [4, 5, 8], valid: 1 });
+  assert.deepEqual(
+    prepareStaticMeshBounds({
+      ...profile,
+      ownerFlags2f8: { mask: 0x100, value: 0x100 },
+      location: [1, 2, 3],
+      collisionRadius: 2,
+      collisionHeight: 4,
+    }).bounds,
+    r.bounds,
+  );
+  assert.equal(
+    prepareStaticMeshBounds({
+      ...profile,
+      ownerFlags2f8: { mask: 1, value: 1 },
+    }).status,
+    "unsupported",
+  );
 });
 
 test("ordinary path reads the box and model after LocalToWorld returns", () => {

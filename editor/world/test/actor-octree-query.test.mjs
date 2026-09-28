@@ -223,3 +223,39 @@ test("a primitive miss never adopts scratch writes and unknown result fields sta
   });
   assert.equal(unknown.status, "unsupported");
 });
+
+test("query consumes only its trace bit and preserves negative cached extents", () => {
+  for (const padding of [1, 20]) {
+    const { tree, actors, input } = fixture(["a"]),
+      actor = actors.get("a");
+    const update = updateActorOctree(tree, {
+      identity: "a",
+      flags2f8: { mask: 1, value: 1 },
+      flags64: { mask: 0x80, value: 0 },
+      flags2e4: { mask: 0x4000, value: 0 },
+      flags74: actor.flags74,
+      storedLocation: actor.storedLocation,
+      location: [0, 0, 0],
+      level: null,
+      getPrimitive: () => ({ status: "ready", primitiveIdentity: "a" }),
+      getPrimitiveBounds: () => ({
+        status: "ready",
+        bounds: { min: [10, -5, -5], max: [-10, 5, 5] },
+      }),
+    });
+    assert.equal(update.status, "ready");
+    Object.assign(actor, update.writes, {
+      flags2f8: { mask: 0x40, value: 0x40 },
+    });
+    const result = queryActorOctree(tree, {
+      ...input,
+      extent: [padding, 1, 1],
+    });
+    assert.equal(result.status, "ready");
+    assert.equal(result.hits.length, padding === 1 ? 0 : 1);
+    actor.flags2f8 = { mask: 1, value: 1 };
+    const unresolved = queryActorOctree(tree, { ...input, currentTag: 2 });
+    assert.equal(unresolved.status, "unsupported");
+    assert.equal(unresolved.writes.actorTags.length, 1);
+  }
+});

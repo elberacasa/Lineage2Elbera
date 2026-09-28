@@ -510,12 +510,17 @@ class StaticBoundsMachine(AdmissionMachine):
             assert self.registers["ecx"] == self.population_provider
             sp = self.registers["esp"]
             self.population_events.append([self.registers["ebx"], self.memory[sp]])
+            if hasattr(self, "population_rows"):
+                self.current = self.population_rows[self.memory[sp]]
+                return MembershipMachine.step(self, i)
             # Supplied synchronous AddActor response. Its internal mutation is
             # covered separately; it must not change the array in this fixture.
             self.registers.update(eax=0xA5A5A5A5, ecx=0x5A5A5A5A, edx=0x12345678)
             self.registers["esp"] += 4
             self.visited.append(i.address)
             return i.address + i.size
+        if i.address in (0x10602CE3, 0x10602CFE) and hasattr(self, "population_rows"):
+            self.population_mode_writes.add(self.registers["ebx"])
         if i.address in (0x1052F5B3, 0x1052F5F3):
             raise AssertionError("unadmitted actor localization or attached-array path")
         if i.address == 0x1015E68F:
@@ -725,6 +730,195 @@ def level_population_cases(program):
         nullSlots=nulls,
         repeatedNonNullSlots=repeated,
         scope="stable supplied current array; AddActor callback boundary, not map loading",
+    )
+
+
+POPULATION_SCRIPT = r"""
+import fs from 'node:fs';
+const helper=await import(process.argv[1]);
+const api=await import(new URL('./actor-octree.js',process.argv[1]));
+const loading=await import(new URL('./actor-loading.js',process.argv[1]));
+const val=h=>Buffer.from(h,'hex').readFloatLE();
+const bits=v=>{const b=Buffer.alloc(4);b.writeFloatLE(v);return b.toString('hex');};
+const decode=v=>Array.isArray(v)?v.map(decode):v&&typeof v==='object'?Object.fromEntries(Object.entries(v).map(([k,x])=>[k,decode(x)])):typeof v==='string'&&/^[0-9a-f]{8}$/.test(v)?val(v):v;
+const ready=r=>{if(r.status!=='ready')throw Error(JSON.stringify(r));return r;};
+const profile={arithmeticProfile:'pc53-rne'};
+const encodeBox=b=>({min:b.min.map(bits),max:b.max.map(bits)});
+const cases=decode(JSON.parse(fs.readFileSync(0,'utf8')));
+process.stdout.write(JSON.stringify(cases.map(c=>{
+ const {tree}=ready(api.createActorOctree({...profile,volume:{center:[0,0,0],halfExtent:360448}}));
+ const fields=new Map(c.rows.map(r=>[r.identity,{...r,
+  cachedBounds:{min:[0,0,0],max:[0,0,0]},cachedCenter:[0,0,0],cachedExtent:[0,0,0],storedLocation:[0,0,0]}]));
+ const result=ready(loading.populateLevelActorCollision({freshHash:true,actors:c.actors,
+  readActorFlags:id=>id===c.levelInfo?{mask:1,value:0}:fields.get(id).ownerFlags2f8,
+  addActor:id=>{
+   const row=fields.get(id);
+   const response=api.updateActorOctree(tree,{...row,flags2f8:row.ownerFlags2f8,
+    getPrimitive:()=>helper.selectActorPrimitive({primitive104:null,primitive38:row.primitiveIdentity}),
+    getPrimitiveBounds:(primitive,owner)=>{
+     if(primitive!==row.primitiveIdentity||owner!==id)throw Error('wrong primitive dispatch');
+     return helper.prepareStaticMeshBounds({...row,...profile,ownerIdentity:id,
+      collisionModel:row.auxiliary===null?null:0x400000,
+      readLocalToWorld:()=>({status:'ready',matrix:row.matrix}),
+      getCollisionModelBounds:()=>({status:'ready',bounds:row.auxiliary})});
+    }});
+   Object.assign(row,response.writes);return response;
+  }}));
+ const {nodes,memberships}=ready(api.inspectActorOctree(tree));
+ const caches=[...fields].map(([identity,r])=>({identity,flags74:r.flags74,
+  cachedBounds:encodeBox(r.cachedBounds),cachedCenter:r.cachedCenter.map(bits),
+  cachedExtent:r.cachedExtent.map(bits),storedLocation:r.storedLocation.map(bits)}));
+ return {nodes,memberships,caches,completedSlots:result.completedSlots,calls:result.calls.map(r=>[r.index,r.identity])};
+})));
+"""
+
+
+def joined_level_population_cases(program, runtime):
+    """Execute the original level loop THROUGH AddActor and static bounds.
+
+    Incoming current actor fields, LevelInfo mode and LocalToWorld/auxiliary
+    replies are supplied. Native words contain random unknown padding; the
+    browser sees only required bits and returns partial mode-word writes.
+    """
+    rng = random.Random(0x504F5055)
+    proof, source_rows = program.receipt["levelPopulation"], fixture_rows()
+    cases, answers, visited, steps, call_count = [], [], set(), 0, 0
+    for case in range(64):
+        m = StaticBoundsMachine(program)
+        level, provider, root, storage, info = (
+            0x700000,
+            0x710000,
+            0x100000,
+            0x720000,
+            0x740000,
+        )
+        m.population_provider, m.population_rows, m.population_mode_writes = (
+            provider,
+            {},
+            set(),
+        )
+        m.invoke(0x10601A10, root)
+        m.invoke(0x108464A0)
+        actors = [0x200000 + i * 0x1000 for i in range(8)]
+        refs = [info, *actors, None, actors[1], actors[0]]
+        refs += [rng.choice([None, *actors]) for _ in range(case % 17)]
+        mode = rng.getrandbits(32)
+        table = int(proof["vtable"]["address"], 16)
+        stable = {
+            level + 0x38: storage,
+            level + 0x3C: len(refs),
+            level + 0x120: provider,
+            provider: table,
+            provider + 4: root,
+            table + 8: int(proof["vtable"]["target"], 16),
+            info + 0x554: mode,
+            info + 0x2F8: rng.getrandbits(32) & ~1,
+        }
+        stable.update({storage + i * 4: ref or 0 for i, ref in enumerate(refs)})
+        rows, flags = [], {}
+        for i, actor in enumerate(actors):
+            row = dict(source_rows[case * 8 + i])
+            # These are authored current response fixtures, not map defaults.
+            flags2f8 = (
+                (rng.getrandbits(32) & ~0x101)
+                | row["ownerFlags2f8"]
+                | (0 if i == 7 else 1)
+            )
+            flags64 = (rng.getrandbits(32) & ~0x80) | (0x80 if i == 6 else 0)
+            flags2e4 = (rng.getrandbits(32) & ~0x4000) | (0x4000 if i == 5 else 0)
+            flags74, mask74 = rng.getrandbits(32), (
+                rng.getrandbits(32) if case % 3 else 0
+            )
+            flags[actor] = (flags74, mask74)
+            primitive = 0x300000 + i * 0x1000
+            setup_actor(m, row, actor, primitive)
+            # Ordinary static actors select StaticMesh at +38, not Mesh +104.
+            m.memory.update(
+                {
+                    actor + 0x104: 0,
+                    actor + 0x38: primitive,
+                    actor + 0x64: flags64,
+                    actor + 0x2E4: flags2e4,
+                    actor + 0x2F8: flags2f8,
+                    actor + 0x74: flags74,
+                    actor + 0xE4: 0 if case % 4 == 1 else level,
+                }
+            )
+            m.invoke(0x101091F0, actor + 0x168)
+            for off in (0x174, 0x180, 0x190, 0x19C, 0x33C):
+                m.memory.update({actor + off + j * 4: 0.0 for j in range(3)})
+            m.population_rows[actor] = row
+            rows.append(
+                dict(
+                    row,
+                    identity=actor,
+                    primitiveIdentity=primitive,
+                    ownerFlags2f8=dict(mask=0x101, value=flags2f8 & 0x101),
+                    flags64=dict(mask=0x80, value=flags64 & 0x80),
+                    flags2e4=dict(mask=0x4000, value=flags2e4 & 0x4000),
+                    flags74=dict(mask=mask74, value=flags74 & mask74),
+                    level=(
+                        None
+                        if case % 4 == 1
+                        else dict(infoFlags554=dict(mask=2, value=mode & 2))
+                    ),
+                )
+            )
+        m.memory.update(stable)
+        m.registers.update(esi=level, edi=0, ebp=0x800000)
+        sp = m.registers["esp"]
+        m.execute_until(int(proof["start"], 16), int(proof["stop"], 16))
+        assert m.registers["esp"] == sp
+        assert {at: m.memory[at] for at in stable} == stable
+        identities = {actor: actor for _, actor in m.population_events}
+        state = snapshot(m, root, identities)
+        state["memberships"] = [
+            dict(identity=k, nodes=v) for k, v in state["memberships"].items()
+        ]
+        caches = []
+        for actor in actors:
+            initial, known = flags[actor]
+            assert m.memory[actor + 0x74] & ~0x100 == initial & ~0x100
+            if actor in m.population_mode_writes:
+                known |= 0x100
+            values = lambda off: [m.memory[actor + off + i * 4] for i in range(3)]
+            caches.append(
+                hexes(
+                    dict(
+                        identity=actor,
+                        flags74=dict(mask=known, value=m.memory[actor + 0x74] & known),
+                        cachedBounds=dict(min=values(0x174), max=values(0x180)),
+                        cachedCenter=values(0x190),
+                        cachedExtent=values(0x19C),
+                        storedLocation=values(0x33C),
+                    )
+                )
+            )
+        cases.append(dict(rows=rows, actors=refs, levelInfo=info))
+        answers.append(
+            dict(
+                state,
+                caches=caches,
+                completedSlots=len(refs),
+                calls=m.population_events,
+            )
+        )
+        visited.update(m.visited)
+        steps += len(m.visited)
+        call_count += len(m.population_events)
+    actual = browser_outputs(POPULATION_SCRIPT, hexes(cases), Path(runtime))
+    assert len(actual) == len(answers)
+    for index, (a, b) in enumerate(zip(actual, answers)):
+        assert a == b, ("joined level population", index, a, b)
+    return dict(
+        cases=len(cases),
+        addActorCalls=call_count,
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        browserStateCompared=True,
+        unknownBitsPreserved=True,
+        sourceArrayPreserved=True,
+        scope="current level loop through AddActor, static bounds and membership; supplied current fields/matrix/model replies, not map startup",
     )
 
 
@@ -1882,7 +2076,7 @@ def actor_transform_loading_cases(program, runtime):
     rng = random.Random(0x5452414E)
     proof = program.receipt["actorTransformLoading"]
     offsets = dict(
-        Location=0x1B8,
+        Location=0x1BC,
         Rotation=0x1C8,
         DrawScale=0x27C,
         DrawScale3D=0x280,
@@ -2222,6 +2416,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
     actor_reference_loading = actor_reference_loading_cases(program, runtime)
     actor_transform_loading = actor_transform_loading_cases(program, runtime)
     level_population = level_population_cases(program)
+    joined_population = joined_level_population_cases(program, runtime)
     level_loading = level_loading_cases(program, runtime)
     construction = constructor_cases(program)
     fresh_loading = fresh_loading_cases(program, runtime)
@@ -2293,6 +2488,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         actorReferenceLoading=actor_reference_loading,
         actorTransformLoading=actor_transform_loading,
         levelPopulation=level_population,
+        joinedLevelPopulation=joined_population,
         levelLoading=level_loading,
         freshLoading=fresh_loading,
         freshActorLoading=fresh_actor_loading,
@@ -2377,6 +2573,7 @@ def main():
                         "actorBooleanLoading",
                         "actorReferenceLoading",
                         "levelPopulation",
+                        "joinedLevelPopulation",
                         "levelLoading",
                         "freshLoading",
                         "freshActorLoading",

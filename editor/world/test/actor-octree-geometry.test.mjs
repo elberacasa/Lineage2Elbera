@@ -144,7 +144,7 @@ test("unsupported geometry and profiles do not become ready collision answers", 
   ]) {
     assert.equal(fn().status, "unsupported");
     assert.equal(
-      fn(query({ min: [1, 0, 0], max: [0, 1, 1] })).status,
+      fn(query({ min: [NaN, 0, 0], max: [0, 1, 1] })).status,
       "unsupported",
     );
     assert.equal(
@@ -160,9 +160,23 @@ test("unsupported geometry and profiles do not become ready collision answers", 
     "unsupported",
   );
   assert.equal(
-    octreeSegmentIntersectsBox(broad({ extent: [-1, 1, 1] })).status,
-    "unsupported",
+    octreeSegmentIntersectsBox(broad({ extent: [-1, 1, 1] })).intersects,
+    false,
   );
+});
+
+test("reversed source endpoints retain native child decisions without sorting", () => {
+  const q = query({ min: [1, 1, 1], max: [-1, -1, -1] });
+  assert.equal(octreeBoxContainsVolume(q).contains, false);
+  assert.deepEqual(octreeIntersectedChildren(q).children, []);
+  assert.equal(octreeSingleChild(q).child, 7);
+  const result = prepareOctreeActorBounds({
+    arithmeticProfile,
+    primitiveBounds: { min: [10, 0, 0], max: [-10, 0, 0] },
+  });
+  assert.equal(result.status, "ready");
+  assert.ok(result.bounds.min[0] > result.bounds.max[0]);
+  assert.ok(result.extent[0] < 0);
 });
 
 test("actor bounds retain the source expansion and intermediate stores", () => {
