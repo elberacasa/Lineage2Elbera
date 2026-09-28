@@ -410,6 +410,54 @@ support external class mutation, custom defaults or replacement classes.
 The main world still uses the older collision loader; live actor population,
 placement and complete resolved-object lifecycle remain unfinished.
 
+## Actor construction and saved transform inputs
+
+The same Elbera bounds verifier now executes ordinary `AStaticMeshActor`
+construction, its `AActor` parent and their named Core helpers in **192 authored
+storage cases**. It compares every supplied DWORD, the object/actor counters,
+callee-saved registers and stack restoration. The constructor preserves
+incoming property storage, including transforms, collision fields and no-init
+arrays. Its writes are the vtable and the four words beginning at actor `+3a0`;
+the latter follow the original texture-modification helper. This is not a
+zero-initialized allocation or recovered class-default object.
+
+Another **192 PostLoad cases** execute the original Actor and UObject methods
+with object bit `0x100` clear, class bit `0x20` clear, an empty attached-actor
+array and explicit nonaliasing references. UObject sets object flag `0x20000000`;
+Actor copies the three rotation words from `+1c8` to `+2d0` and sets `+5c` bit
+`0x40`. Nonnull `+278` and its nonnull `+60` reference receive object flag `1`.
+The check does not infer further meanings for those referenced objects. All
+other supplied actor words survive. Unsupported localization and attached-array
+paths stop the interpreter rather than treating erased calls as no-ops.
+
+The run adds **46,080 constructor instructions at 185 addresses** and
+**15,424 PostLoad instructions at 84 addresses**. Source qualification adds
+five Engine regions and eight exact Core bodies, with 41 named imports,
+four counter-operand bindings and Actor/StaticMeshActor vtable bindings.
+`AActor.Serialize` is compared as source correspondence only: its loading
+branch delegates tagged property application to UObject; no archive is executed
+in these new actor cases. Exception/unwind paths remain excluded. The helper
+lives in the existing `actor_transform_source.py`, whose hash is recorded.
+
+The private sweep export now retains `savedTransform` for selected actors:
+`location`, `rotation`, **separate** `drawScale` and `drawScale3D`, and `prePivot`,
+each identified as a map property or inherited class default. PrePivot's
+original Vector declaration and the existing zero-plus-parent class-default
+path qualify an absent tagged override; a caller without that default is
+rejected. The legacy combined `scale` must not feed the native matrix API.
+Signed-zero bits survive raw-property round trips. The same record-checker
+command checks **986 Talking Island and 1,936 Giran transform records**; the
+existing conservative collision selection is unchanged.
+
+These results deliberately stop short of declaring saved transforms to be live
+actor state. Current class flags, archive application, linked references,
+level membership and later lifecycle changes still need to be joined. The main
+browser has not switched collision loaders. Forty-seven portable record tests
+and twelve interpreter tests pass; prior mesh/bounds comparisons still pass.
+No runtime JS/UI changed, and no new screenshot or Online acceptance is claimed.
+Original files and raw receipts remain private; the reusable checker remains
+repository source outside the current standalone tool archives.
+
 ## Next integration boundary
 
 `localBounds` must be the **current native mesh field**, not a box recomputed

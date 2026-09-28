@@ -28,6 +28,28 @@ def call_at(address):
 
 
 class StaticBoundsBoundaryTest(unittest.TestCase):
+    def test_unadmitted_actor_paths_never_treat_erased_calls_as_noops(self):
+        for at in (0x1052F5B3, 0x1052F5F3):
+            m = machine()
+            instruction = next(Cs(CS_ARCH_X86, CS_MODE_32).disasm(b"\x90", at))
+            with self.assertRaisesRegex(AssertionError, "unadmitted actor"):
+                m.step(instruction)
+            self.assertEqual(m.visited, [])
+
+    def test_low_byte_register_store_preserves_upper_word_and_flags(self):
+        m = machine()
+        m.registers.update(eax=0x12345678, edi=0x3000)
+        m.memory[0x3000] = 0x11223344
+        m.carry, m.zero, m.less = True, False, True
+        # Authored MOV AL, 0xab; MOV byte ptr [EDI+1], AL.
+        for instruction in Cs(CS_ARCH_X86, CS_MODE_32).disasm(
+            bytes.fromhex("b0ab884701"), 0x9000
+        ):
+            m.step(instruction)
+        self.assertEqual(m.registers["eax"], 0x123456AB)
+        self.assertEqual(m.memory[0x3000], 0x1122AB44)
+        self.assertEqual((m.carry, m.zero, m.less), (True, False, True))
+
     def test_add_with_carry_preserves_unsigned_wrap_and_signed_branch_flags(self):
         instruction = next(
             Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex("11d8"), 0x9000)

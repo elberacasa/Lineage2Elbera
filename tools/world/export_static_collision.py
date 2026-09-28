@@ -259,6 +259,17 @@ def class_defaults():
     scale3 = values['DrawScale3D']
     assert scale3[0] == 'Vector'
     values['DrawScale3D'] = list(struct.unpack('<3f', bytes.fromhex(scale3[1])))
+    pivot = values.get('PrePivot')
+    if pivot is None:
+        values['PrePivot'] = [0.0, 0.0, 0.0]
+        evidence[-1]['prePivotDefault'] = {
+            'value': [0.0, 0.0, 0.0],
+            'source': 'zero-initialized-class-default; no inherited tagged override',
+            'field': fields['PrePivot']}
+    else:
+        if pivot[0] != 'Vector' or len(bytes.fromhex(pivot[1])) != 12:
+            raise ValueError('unsupported PrePivot class default')
+        values['PrePivot'] = list(struct.unpack('<3f', bytes.fromhex(pivot[1])))
     return values, evidence, catalog.sources
 
 
@@ -266,7 +277,7 @@ def actor_field_evidence(pkg):
     """Read original declared field identities and linked collision-bool order."""
     names = ['CollisionHeight', 'bCollideActors', 'bCollideWorld', 'bBlockActors',
              'bBlockPlayers', 'bProjTarget', 'bBlockZeroExtentTraces',
-             'bBlockNonZeroExtentTraces', 'bAutoAlignToTerrain', 'Rotation']
+             'bBlockNonZeroExtentTraces', 'bAutoAlignToTerrain', 'Rotation', 'PrePivot']
     records = {}
     for name in names:
         matches = [e for e in pkg.exports if pkg.export_name(e) == name
@@ -279,13 +290,13 @@ def actor_field_evidence(pkg):
         next_field = qualified_ref(pkg, r.compact())
         dimension, flags, category = r.u32(), r.u32(), pkg.name(r.compact())
         kind = pkg.class_name_of(ex)
-        expected = 'StructProperty' if name == 'Rotation' else (
+        expected = 'StructProperty' if name in ('Rotation', 'PrePivot') else (
             'FloatProperty' if name == 'CollisionHeight' else 'BoolProperty')
         if kind != expected or dimension != 1 or flags not in (1, 3):
             raise ValueError('unsupported Actor field layout: ' + name)
-        struct_type = qualified_ref(pkg, r.compact()) if name == 'Rotation' else None
-        if name == 'Rotation' and struct_type != 'Core.Object.Rotator':
-            raise ValueError('unsupported Actor Rotation type')
+        struct_type = qualified_ref(pkg, r.compact()) if expected == 'StructProperty' else None
+        if expected == 'StructProperty' and struct_type != ('Core.Object.Rotator' if name == 'Rotation' else 'Core.Object.Vector'):
+            raise ValueError('unsupported Actor struct type: ' + name)
         if r.pos != ex.serial_offset + ex.serial_size:
             raise ValueError('trailing Actor field bytes')
         records[name] = {'kind': kind, 'next': next_field, 'flags': flags,
@@ -326,7 +337,7 @@ def eligible_materials(materials, referenced):
             raise ValueError('collision-referenced material is not explicitly enabled')
 
 
-def actor_record(pkg, ex, inherited):
+def actor_record(pkg, ex, inherited, *, retain_source_transform=False):
     name = pkg.export_name(ex)
     result = {'name': name, 'issues': [], 'class': pkg.class_name_of(ex)}
     if result['class'] != 'StaticMeshActor' or qualified_ref(pkg, ex.class_index) != 'Engine.StaticMeshActor':
@@ -386,6 +397,32 @@ def actor_record(pkg, ex, inherited):
         result['issues'].append('invalid-transform')
     result.update(mesh=mesh, position=position, rotation=rotation, rotationSource=rotation_source, scale=scale,
                   exportSHA256=sha(pkg.data[ex.serial_offset:ex.serial_offset+ex.serial_size]))
+    if retain_source_transform:
+        # Preserve separate source operands. The legacy combined scale above
+        # loses the original multiplication/store order and is not this input.
+        fields = dict(location=position, rotation=rotation,
+                      drawScale=values.get('DrawScale'), drawScale3D=values.get('DrawScale3D'),
+                      prePivot=values.get('PrePivot'))
+        native_names = dict(location='Location', rotation='Rotation', drawScale='DrawScale',
+                            drawScale3D='DrawScale3D', prePivot='PrePivot')
+        malformed = any(reason in result['issues']
+                        for name in native_names.values()
+                        for reason in ('malformed-property:' + name, 'duplicate-property:' + name))
+        scalars = [fields['drawScale']]
+        for name in ('location', 'rotation', 'drawScale3D', 'prePivot'):
+            value = fields[name]
+            if not isinstance(value, list) or len(value) != 3:
+                malformed = True
+            else:
+                scalars.extend(value)
+        if malformed or any(type(v) not in (int, float) or not math.isfinite(v) for v in scalars):
+            result['issues'].append('unsupported-source-transform')
+        else:
+            result['savedTransform'] = {
+                'scope': 'saved-map-and-class-defaults',
+                'fields': {k: list(v) if isinstance(v, list) else v for k, v in fields.items()},
+                'origins': {k: 'map-property' if name in seen else 'inherited-class-default'
+                            for k, name in native_names.items()}}
     return result
 
 
@@ -539,7 +576,8 @@ class Audit:
             exports = selected
         rows = []
         for ex in exports:
-            try: row = actor_record(self.pkg, ex, self.inherited)
+            try: row = actor_record(self.pkg, ex, self.inherited,
+                                   retain_source_transform=self.retain_sweep_data)
             except (L2Error, ValueError, IndexError, struct.error) as error:
                 row = {'name': self.pkg.export_name(ex), 'issues': [str(error)]}
             row['meshIssues'] = self.mesh(row['mesh'])['issues'] if row.get('mesh') else []
@@ -589,14 +627,16 @@ class Audit:
         return {
             'format': 'l2-static-sweep-source-v1', 'tile': self.tile,
             'sources': self.sources, 'nativeProof': self.proof,
+            'classDefaults': self.defaults,
             'meshes': {k: self.geometry[k] for k in sorted({r['mesh'] for r in selected})},
-            'references': [{k: r[k] for k in ('name', 'mesh', 'exportSHA256')} for r in selected],
+            'references': [{k: r[k] for k in ('name', 'mesh', 'exportSHA256', 'savedTransform')} for r in selected],
             'limits': [
                 'Saved source geometry, not live actor/cache state or a collision query.',
                 'savedLocalBounds is the later serialized mesh field; baseSerializedBounds preserves the overwritten primitive record. PostLoad/current mutations remain separate.',
                 'loadTail preserves saved fields by native offset and an opaque lazy-array span. References are encoded package indices, not resolved objects; field 0x1dc is the signed saved version, not proof of current state.',
                 'Node links and bounds and triangle planes retain source order; no tree rebuild or plane normalization.',
                 'Current actor matrices, query state and owner/material callbacks must be supplied separately.',
+                'savedTransform preserves separate original operands and their map/default origins; it is not current actor state or a renderer matrix.',
                 'Existing conservative actor/material selection gates remain in force.',
                 'Original-derived private data; never include in public source or tool bundles.',
             ],

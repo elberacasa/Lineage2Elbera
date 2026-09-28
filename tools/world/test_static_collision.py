@@ -7,7 +7,7 @@ from export_static_collision import Reader, mesh_body, mesh_load_tail, qualified
 from types import SimpleNamespace
 from unittest.mock import patch
 from l2lib import L2Error
-from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation
+from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation, check_actor_transform
 from static_mesh_class_source import read_root_class_flags
 
 
@@ -363,15 +363,19 @@ class QualificationTest(unittest.TestCase):
         audit = Audit.__new__(Audit)
         audit.retain_sweep_data = True
         audit.tile, audit.sources, audit.proof = 'synthetic', {}, {}
+        audit.defaults = [{'class': 'authored-default-evidence'}]
         geometry = mesh_body(Reader(body()), retain_sweep_data=True)
         audit.geometry = {'Fixture.Mesh': geometry}
         rows = [{'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
-                 'issues': [], 'meshIssues': [], 'position': [1, 2, 3], 'scale': [1, 1, 1]}]
+                 'issues': [], 'meshIssues': [], 'position': [1, 2, 3], 'scale': [1, 1, 1],
+                 'savedTransform': {'scope': 'authored-fixture'}}]
         with self.assertRaisesRegex(ValueError, 'separate private source output'):
             audit.output(rows)
         source = audit.sweep_output(rows)
         self.assertEqual(source['references'], [
-            {'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture'}])
+            {'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
+             'savedTransform': {'scope': 'authored-fixture'}}])
+        self.assertEqual(source['classDefaults'], audit.defaults)
         self.assertIs(source['meshes']['Fixture.Mesh'], geometry)
         self.assertNotIn('actors', source)
         rows.append({'name': 'Unknown', 'issues': ['unknown'], 'meshIssues': []})
@@ -544,11 +548,35 @@ class MeshLoadTailTest(unittest.TestCase):
 
 
 class ActorAdmissionTest(unittest.TestCase):
-    def actor(self, extra=(), *, inherited_rotation=True):
+    def test_transform_round_trip_rejects_signed_zero_origin_and_scale_changes(self):
+        scale = compact(1) + bytes([0x24]) + struct.pack('<f', 3.25)
+        pivot = compact(2) + bytes([0x3a]) + compact(3) + struct.pack('<3f', -0., 7, -12)
+        raw = scale + pivot + compact(0)
+        package = SimpleNamespace(data=raw, path='authored.unr',
+            name=lambda n: ['None', 'DrawScale', 'PrePivot', 'Vector'][n])
+        export = SimpleNamespace(serial_offset=0, serial_size=len(raw))
+        defaults = dict(Location=[1., 2., 3.], Rotation=[0, 0, 0], DrawScale3D=[1., 1., 1.])
+        saved = dict(scope='saved-map-and-class-defaults', fields=dict(
+            location=[1., 2., 3.], rotation=[0, 0, 0], drawScale=3.25,
+            drawScale3D=[1., 1., 1.], prePivot=[-0., 7., -12.]),
+            origins=dict(location='inherited-class-default', rotation='inherited-class-default',
+                         drawScale3D='inherited-class-default', drawScale='map-property', prePivot='map-property'))
+        with patch('check_static_collision_records.actor_prop_offset', return_value=0):
+            self.assertEqual(len(check_actor_transform(package, export, saved, defaults)), 5)
+            for mutate in [lambda s: s['fields']['prePivot'].__setitem__(0, 0.),
+                           lambda s: s['fields'].__setitem__('drawScale', 6.5),
+                           lambda s: s['fields']['rotation'].__setitem__(0, 1),
+                           lambda s: s['origins'].__setitem__('drawScale', 'inherited-class-default')]:
+                changed = deepcopy(saved); mutate(changed)
+                with self.assertRaises(ValueError):
+                    check_actor_transform(package, export, changed, defaults)
+
+    def actor(self, extra=(), *, inherited_rotation=True, source=False, inherited_pivot=True):
         inherited = {name: True for name in ('bStatic', 'bCollideActors', 'bBlockActors',
             'bBlockPlayers', 'bBlockZeroExtentTraces', 'bBlockNonZeroExtentTraces')}
         inherited.update(DrawScale=1, DrawScale3D=[1, 1, 1])
         if inherited_rotation: inherited['Rotation'] = [0, 0, 0]
+        if inherited_pivot: inherited['PrePivot'] = [0., 0., 0.]
         props = [{'name': 'StaticMesh', 'type': 5, 'raw': compact(-1)},
                  {'name': 'Location', 'type': 10, 'struct': 'Vector', 'raw': struct.pack('<3f', 100, -200, 300)}]
         props.extend(extra)
@@ -561,8 +589,47 @@ class ActorAdmissionTest(unittest.TestCase):
         ex = SimpleNamespace(serial_offset=0, serial_size=7, class_index=-2)
         with patch('export_static_collision.actor_prop_offset', return_value=0), \
              patch('export_static_collision.read_props_ordered', return_value=(props, 7)):
-            row = actor_record(pkg, ex, inherited)
+            row = actor_record(pkg, ex, inherited, retain_source_transform=source)
         return row, inherited
+
+    def test_source_transform_preserves_separate_scale_pivot_signed_zero_and_origins(self):
+        props = [
+            {'name': 'DrawScale', 'type': 4, 'raw': struct.pack('<f', -3.125)},
+            {'name': 'DrawScale3D', 'type': 10, 'struct': 'Vector', 'raw': struct.pack('<3f', .3, 2, 4)},
+            {'name': 'PrePivot', 'type': 10, 'struct': 'Vector', 'raw': struct.pack('<3f', -0., 12, -7)},
+        ]
+        row, inherited = self.actor(props, source=True)
+        saved = row['savedTransform']
+        self.assertEqual(saved['scope'], 'saved-map-and-class-defaults')
+        self.assertEqual(saved['fields']['drawScale'], -3.125)
+        self.assertEqual(struct.pack('<3f', *saved['fields']['drawScale3D']), props[1]['raw'])
+        self.assertEqual(struct.pack('<3f', *saved['fields']['prePivot']), props[2]['raw'])
+        self.assertNotIn('scale', saved['fields'])
+        self.assertEqual(saved['origins']['prePivot'], 'map-property')
+        self.assertEqual(saved['origins']['rotation'], 'inherited-class-default')
+        self.assertIn('nonzero-prepivot', row['issues'])  # Legacy ray gate unchanged.
+        saved['fields']['rotation'][0] = 77
+        self.assertEqual(inherited['Rotation'], [0, 0, 0])
+        self.assertNotIn('savedTransform', self.actor(props)[0])
+
+    def test_source_transform_requires_explicit_default_and_valid_unique_properties(self):
+        row, _ = self.actor(source=True, inherited_pivot=False)
+        self.assertIn('unsupported-source-transform', row['issues'])
+        self.assertNotIn('savedTransform', row)
+        valid = {'name': 'DrawScale', 'type': 4, 'raw': struct.pack('<f', 2)}
+        for props in ([valid, valid], [dict(valid, index=1)],
+                      [dict(valid, raw=struct.pack('<f', float('nan'))) ]):
+            row, _ = self.actor(props, source=True)
+            self.assertIn('unsupported-source-transform', row['issues'])
+            self.assertNotIn('savedTransform', row)
+
+    def test_source_transform_uses_copied_known_pivot_default(self):
+        row, inherited = self.actor(source=True)
+        saved = row['savedTransform']
+        self.assertEqual(saved['fields']['prePivot'], [0., 0., 0.])
+        self.assertEqual(saved['origins']['prePivot'], 'inherited-class-default')
+        saved['fields']['prePivot'][0] = 99
+        self.assertEqual(inherited['PrePivot'], [0., 0., 0.])
 
     def test_omitted_rotation_uses_verified_class_default_without_mutating_it(self):
         row, inherited = self.actor()
