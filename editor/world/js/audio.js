@@ -14,7 +14,8 @@
 // gap: original quest feedback includes stereo PCM, and the native driver
 // preserves its channels. tools/audio/export_quest_sounds.py preserves those
 // originals separately. Do not substitute the mono files for their native
-// playback path; manual driver attenuation is still under investigation.
+// playback path. The ordinary packet adapter admits a bounded same-pawn
+// stereo path; complete driver/mixer behavior remains unported.
 //
 // Distance model. The data tables carry a volume and a radius per sound
 // (`sound_vol`/`sound_radius` in npcgrp, `spell_vols`/`spell_rads` in
@@ -47,15 +48,10 @@
 //     fdivrp                  ; -> volume * (R*M - d) / (R*M)
 //     ... clamp(x, 0, 1) ... alSourcef(src, AL_GAIN /*0x100A*/, x)
 //
-// Two things follow, and neither was true of what this file used to do:
-//
-//   1. The multiplier is 50, not 25. A monster's 250 reaches 125 m, an
-//      ambient's 80 reaches 40 m, a skill's 40 reaches 20 m.
-//   2. The falloff is LINEAR to zero at the radius — gain = 1 - d/(R*50) —
-//      and the client writes it to AL_GAIN itself rather than letting OpenAL
-//      attenuate. So the Web Audio equivalent is distanceModel 'linear' with
-//      refDistance 0 and rolloffFactor 1, which evaluates to exactly the same
-//      expression. It is NOT the inverse-square curve this file used to use.
+// This is one manual AL_GAIN term, not the complete OpenAL output. Init also
+// writes the configured AL_ROLLOFF_FACTOR (0.5 in the supplied local profile).
+// The historical mono PannerNode path below therefore remains provisional;
+// matching this term alone does not establish final attenuation equivalence.
 //
 // The 80.0 default is the same number worldaudio.js already falls back to for
 // an AmbientSoundObject that omits SoundRadius; that was a guess when it was
@@ -76,6 +72,7 @@
 import * as THREE from 'three';
 import { L2_TO_M } from './coords.js';
 import { createBrowserRandom } from './native-random.js';
+import { NativePacketAudio } from './native-packet-audio.js';
 
 const BASE = '/audio';
 const MANIFEST_URL = `${BASE}/manifest.json`;
@@ -123,6 +120,8 @@ export class AudioEngine {
     this._music = null;              // { source, gain, name }
     this._ambient = new Map();       // key -> { source, gain }
     this._unlockBound = null;
+    this.nativePacketAudio = null;
+    this.lastPacketSound = null;
   }
 
   // ---- lifecycle --------------------------------------------------------
@@ -147,6 +146,8 @@ export class AudioEngine {
     window.addEventListener('pointerdown', this._unlockBound, { passive: true });
     window.addEventListener('keydown', this._unlockBound);
 
+    await this._initNativePacketAudio();
+
     try {
       const res = await fetch(MANIFEST_URL);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -158,6 +159,57 @@ export class AudioEngine {
       return false;
     }
     return true;
+  }
+
+  async _initNativePacketAudio() {
+    try {
+      const read = async url => {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response;
+      };
+      const [profile, metadata] = await Promise.all([
+        read(`${BASE}/native-profile.json`).then(r => r.json()),
+        read(`${BASE}/quest-sounds.json`).then(r => r.json()),
+      ]);
+      if (metadata.format !== 'l2-interlude-quest-sounds-v1') throw new Error('Unsupported original sound metadata');
+      if (metadata.source?.SHA256 !== 'e16cd1701b485f4b76de4938af5674699b8622cb6e0c418c2c313044c485365d') {
+        throw new Error('Unsupported original sound bank');
+      }
+      const buffers = new Map();
+      await Promise.all(Object.entries(metadata.sounds).map(async ([key, info]) => {
+        if (!/^\/audio\/quest\/quest_(accept|middle|finish|itemget|tutorial)\.wav$/.test(info.url)) {
+          throw new Error('Unexpected original stereo URL');
+        }
+        const bytes = await read(info.url).then(r => r.arrayBuffer());
+        const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)),
+          byte => byte.toString(16).padStart(2, '0')).join('');
+        if (hash !== info.SHA256) throw new Error('Original stereo WAV hash differs');
+        buffers.set(key, await this.ctx.decodeAudioData(bytes));
+      }));
+      this.nativePacketAudio = new NativePacketAudio({ context: this.ctx, profile, sounds: metadata.sounds, buffers });
+      if (!this.nativePacketAudio.ready) throw new Error(this.nativePacketAudio.failure);
+    } catch (error) {
+      this.nativePacketAudio?.dispose();
+      this.nativePacketAudio = null;
+      console.warn('[audio] original packet audio unavailable:', error.message);
+    }
+  }
+
+  playPacketSound(packet, frame) {
+    const result = this.nativePacketAudio?.play(packet, frame)
+      ?? { status: 'unsupported', reason: 'original-packet-audio-unavailable' };
+    this.lastPacketSound = result;
+    return result;
+  }
+
+  packetAudioState() {
+    return {
+      ready: !!this.nativePacketAudio?.ready,
+      sources: this.nativePacketAudio?.voices.length ?? 0,
+      active: this.nativePacketAudio?.voices.filter(v => v.soundId !== 0).length ?? 0,
+      last: this.lastPacketSound,
+    };
   }
 
   resume() {

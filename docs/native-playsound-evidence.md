@@ -1,14 +1,20 @@
 # Original PlaySound and quest audio evidence
 
-Elbera Tools preserves the original `0x98` packet and four original stereo quest
-sounds. **Browser quest playback remains unsupported in this checkpoint.** The
-packet decoder and lossless export do not certify the original audio lifecycle.
-An optional pinned comparison now binds the radius and controller type-query
-imports in exactly corresponding code. Calls after scene-node construction,
-the full voice lifetime and mixer behavior still require recovery/integration.
-The browser now has source-checked priority, voice-selection and ordered-stop
-components, tested independently of playback with explicit snapshots. They are
-not yet wired to live audio.
+Elbera Tools preserves the original `0x98` packet and five original stereo
+quest/tutorial sounds. The browser now connects the bounded mode-zero path to
+its verified priority/selection/stop components and real Web Audio sources.
+The admitted path uses an explicit current self-pawn viewport, predecoded
+stereo buffers and the supplied EAX-disabled profile. This is partial audio
+integration, not complete driver or gameplay parity.
+
+[Open the local audio inspector](../editor/world/test/packet-audio.html) after
+starting the asset server. It offers audible offline replay, session retirement
+and an actual Web Audio PCM comparison. It never connects to a game server.
+
+![Elbera Tools packet-audio inspector comparing original stereo samples](img/elbera-tools-packet-audio.png)
+
+*Actual tool capture. The same-pawn state is a labeled fixture; these results
+are not evidence of a live quest or the Windows driver's audible output.*
 
 ## Reproduce
 
@@ -20,10 +26,13 @@ and never execute the client or access an account.
 python3 tools/ui/check_playsound_native.py --check
 python3 tools/audio/export_quest_sounds.py
 python3 tools/audio/export_quest_sounds.py --check
+python3 tools/audio/native_audio_profile.py
+python3 tools/audio/native_audio_profile.py --check
+python3 -m unittest discover -s tools/audio -p test_native_audio_profile.py
 python3 -m unittest discover -s tools/ui -p test_playsound_native.py
 python3 -m unittest discover -s tools/audio -p test_quest_sounds.py
 node --test gateway/test/playsound-packets.test.js
-node --test editor/world/test/native-audio-voices.test.mjs
+node --test editor/world/test/native-audio-voices.test.mjs editor/world/test/native-packet-audio.test.mjs
 python3 tools/ui/check_playsound_native.py --check --voice-selection
 python3 tools/ui/check_playsound_native.py --check --priority --stop
 ```
@@ -79,7 +88,7 @@ separate paths and are outside this implementation.
 
 ## Exact original stereo assets
 
-The four unique original Sound exports are grouped under `ItemSound.Quest`.
+The five unique original Sound exports are grouped under `ItemSound.Quest`.
 The configured server uses the short references in this table; matching each
 unique package/leaf is checked, without inventing a general name resolver.
 
@@ -89,9 +98,10 @@ unique package/leaf is checked, without inventing a general name resolver.
 | `ItemSound.quest_middle` | `ItemSound.Quest.quest_middle` | 55,936 | 223,788 |
 | `ItemSound.quest_finish` | `ItemSound.Quest.quest_finish` | 157,440 | 629,804 |
 | `ItemSound.quest_itemget` | `ItemSound.Quest.quest_itemget` | 46,464 | 185,900 |
+| `ItemSound.quest_tutorial` | `ItemSound.Quest.quest_tutorial` | 53,376 | 213,548 |
 
-All four contain complete PCM WAV containers at export byte nine: two channels,
-22,050 Hz, 16 bits. The exporter preserves all **1,192,368 bytes**, including
+All five contain complete PCM WAV containers at export byte nine: two channels,
+22,050 Hz, 16 bits. The exporter preserves all **1,405,916 bytes**, including
 both channels. `/audio/quest-sounds.json` records full original references,
 source bank/export/WAV SHA-256 hashes, format, frames and URLs of the form
 `/audio/quest/quest_finish.wav`. It provides no mono fallback.
@@ -157,16 +167,15 @@ The portable gain tests are exact-real algebra witnesses and regression checks
 for the nonzero assertion. They are explicitly **not** native floating-point
 emulation, execution evidence, or proof of the missing radius import. The
 conditional dry-stereo contract requires the same valid pawn at both snapshots,
-finite nonzero R, ordinary flags-zero PCM, and no EAX processing. Those
-conditions have not all been established from the current recovered inputs, so
-the verifier reports `conditional-reduction-only` and browser playback remains
-disabled. The optional comparison closes the two import identities within its
+finite nonzero R, ordinary flags-zero PCM, and no EAX processing. The general source verifier retains `conditional-reduction-only`: it does not
+execute callbacks or observe a live original viewport. The bounded browser
+adapter below supplies its own explicit same-pawn state; it does not claim to
+close that whole-program evidence boundary. The optional comparison closes the two import identities within its
 documented correspondence boundary. It does not close the remaining conditions.
 
-No invented radius, positional adapter, gain constant or generic UI-sound
-fallback has been added. Full mixer behavior, EAX/reverb, alternate viewports,
-voice allocation/lifetime and modes one/two remain outside this checkpoint.
-The bounded voice-selection component below does not close those gaps. The verifier pins
+The packet adapter does not substitute a generic UI sound or mono fallback.
+Full mixer behavior, EAX/reverb, alternate viewports, shared allocation across
+all game sounds and modes one/two remain outside this checkpoint. The verifier pins
 source identities and instructions; it does not claim that the original client
 was executed or that browser audio parity has been demonstrated.
 
@@ -297,10 +306,8 @@ interpreter's byte handling, signed branch, wraparound, comparison flags and
 refusal of calls/NOPs. These checks do not execute a native DLL or establish
 the original client's live pool/history.
 
-The selector remains an integration component. Priority and ordered stopping
-are covered below; pool initialization, live updates and execution of the stop
-operations still need integration with the ordinary packet path. The remaining
-scene-node state, mixer and EAX boundaries above still apply.
+The selector is now used by the bounded packet adapter below. The remaining
+scene-node, shared-driver, mixer and EAX boundaries still apply.
 
 ## Priority and ordered stopping
 
@@ -363,6 +370,81 @@ executable plan. Fields with unresolved meanings retain offset names.
 
 The tool and runtime have 20 and 15 portable tests, respectively. Four corrupted
 in-memory source views (priority shift/floor, stream mask and stop-call slot)
-are rejected; original files are never modified. Full pool initialization,
-PCM/source creation, per-frame voice updates, callback side effects and the
-browser operation executor remain necessary before claiming audible parity.
+are rejected; original files are never modified. These arithmetic/operation
+checks remain distinct from the platform execution described below.
+
+
+## Supplied profile and bounded browser execution
+
+`tools/audio/native_audio_profile.py` pins the existing ALAudio/Core images
+plus these encrypted configuration inputs. It emits only selected audio
+settings and fingerprints to ignored `assets/audio/native-profile.json`.
+It does not publish decrypted configuration or read saved `Option.ini`.
+
+| Supplied configuration | SHA-256 | Selected inputs |
+| --- | --- | --- |
+| ALAudio.int, protocol 111 | `25f4e583409d798cd10cdca79eb8620395ca383a50cdecedd2ab3d501eba803c` | AmbientSound: UseAmbientSlot=true, AmbientSoundSlot=16 |
+| l2.ini, protocol 413 | `377ff9e4a08d3657781d218e192dcdf1fba34348812e213d8613d6c609cf177c` | ALAudio.ALAudioSubsystem: Channels=32, UseEAX=false, Rolloff=0.5 |
+
+These are supplied local settings, **not authenticated retail defaults**.
+The selected literal parser rejects missing/duplicate entries and is not a
+complete emulation of Core's configuration getters. Those virtual getter
+implementations remain unbound here.
+
+Original Init at `0x1000c600` reads SoundVolume from `[Audio]` in Option.ini.
+When the getter fails, `0x1000c665` loads the retained Float32 constant at
+`0x100409bc`: **0.800000011920929**. A new browser profile without saved native
+options uses that branch; the earlier SoundVolume in l2.ini is overwritten.
+User volume controls and native option persistence remain unported.
+
+Init caps Channels at 32, creates sources individually, stops on allocation
+error, appends zeroed 92-byte records and preserves each source handle. Named
+loader requests bind `alGenSources`, `alSourcef`, `alSourcePlay` and
+`alGetSourcei`. Browser GainNodes and BufferSourceNodes replace OpenAL handles;
+allocation failures retain only successfully created outputs. They do not
+simulate hardware allocation failures or execute the original driver.
+The counter starts from the retained zero data word; this does not establish
+all indirect native writes or prior session history. Reset preserves the
+browser context's counter.
+
+With the supplied 32-source/16-split profile, ordinary class-zero sounds use
+slots 16–31. Actual packet dispatch requires a running AudioContext, a current
+entered self pawn and a fully decoded matching stereo source. The loader
+checks the bank fingerprint and every WAV digest. The ordinary same-pawn
+frame has source, view target and audio position at the pawn; camera orbit is
+not substituted for the audio position. Native gain is then the stored sound
+volume. Other audio-position branches stay unsupported.
+
+The adapter executes stop-before-detach, preserves ID consumption on selection
+rejection, follows the current pawn and updates priority each frame. Browser
+`ended` events mark completion; the next update retires the voice. A retired
+node's callback cannot end its replacement. Disconnect/world-entry generation
+changes stop old voices. This session ownership and browser event timing are
+platform adaptations, not a proof of original SetViewport or callback timing.
+
+Verification on 28 September 2026:
+
+- 31 packet/component/lifecycle tests and 25 portable Python tests pass.
+  The previous 544 selector, 688 priority and 240 stop instruction comparisons
+  still pass with the five-source extraction.
+- The installed web-game runner reached ordinary Online character creation
+  with 32 allocated sources and no captured errors. This creator remains a
+  custom UI and therefore an explicit official-client parity gap.
+- Real AudioContext replay started an original stereo cue in slot 16 and
+  released it on completion; explicit retirement stops/detaches active voices.
+- OfflineAudioContext rendering at 22,050 Hz matched **702,848 / 702,848**
+  left/right samples against decoded source × recovered Float32 gain.
+  This tests browser PCM scheduling/channel/gain behavior, not speakers,
+  output-device resampling, OS mixing or original OpenAL/EAX output.
+- Normal Online entry as the saved beginner character identified actual
+  `ItemSound.quest_tutorial` and mode-two `tutorial_voice_006` packets; opening
+  the tutorial produced `tutorial_voice_007`. Entry-time PCM was refused while
+  the scene was loading, and both speech requests remain unsupported. This
+  did **not** verify a successful live quest-sound delivery.
+
+The ported packet pool is currently separate from historical combat/world
+sound paths, which still use provisional buses and mono conversion. Shared
+voice competition, source-mode globals, complete settings/mixer, streams,
+EAX, alternate view targets, entry-time scheduling and general sound lookup
+remain open. The new tool is delivered in repository source; the existing
+Core/NPC Source release archives are unchanged.

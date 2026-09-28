@@ -2,6 +2,35 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Bounded original packet audio integration — 28 September 2026
+
+Connected mode-zero packets to the recovered priority/selection/stop components
+with an explicit same-pawn frame. The filtered profile exporter pins supplied
+configuration and original Init; a new user's absent SoundVolume option yields
+the original Float32 0.8 fallback. Exact stereo WAVs are hash-checked before
+browser decoding. Five original cues now include quest_tutorial, discovered
+in real Online entry. No mono or generic sound fallback was added.
+
+Elbera Tools now includes a browser audio replay and sample verifier. At the
+original rate, all 702,848 left/right samples match decoded source × recovered
+gain. Real browser playback allocates the expected voice and retires it on
+completion/session reset. 31 targeted JavaScript and 25 portable Python tests
+pass; all previous native arithmetic/stop comparisons remain passing. The
+normal Online smoke reaches creation with a ready 32-source pool.
+
+A separate normal saved-character login showed the tutorial and identified
+mode-two tutorial_voice_006/007. Those speech requests remain unsupported;
+the entry-time quest_tutorial sound is currently refused while scene loading.
+The observed packets are not a successful live quest-audio acceptance test.
+Historical combat/world audio still bypasses this pool. Settings, complete
+mixer/EAX, shared voice competition, alternate view targets and entry-time
+ordering remain explicit gaps. See docs/native-playsound-evidence.md.
+
+Next: close entry-time ownership/scheduling and tutorial speech from original
+sources, then prove the live quest/tutorial sound journey. Continue the full
+beginner route and connect collision/animation components where it fails;
+more isolated component checks alone do not establish playable fidelity.
+
 ## Original sound priority and stop operations — 28 September 2026
 
 The existing native audio component now includes original priority calculation

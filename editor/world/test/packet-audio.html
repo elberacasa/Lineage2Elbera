@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Elbera Tools — Original packet audio</title>
+<style>
+  body { max-width:1000px; margin:40px auto; padding:0 24px; background:#20262b; color:#eee; font:15px/1.6 system-ui; }
+  a { color:#e7c887; } h1 { font-weight:500; } small,.muted { color:#adb6bc; }
+  button,select { font:inherit; color:inherit; background:#303a42; border:1px solid #64717a; padding:8px 12px; border-radius:4px; }
+  button { cursor:pointer; } button:disabled { opacity:.5; cursor:default; }
+  table { width:100%; border-collapse:collapse; margin:24px 0; font-variant-numeric:tabular-nums; }
+  td,th { padding:10px; text-align:left; border-bottom:1px solid #475058; } th { color:#e7c887; }
+  pre { white-space:pre-wrap; overflow-wrap:anywhere; padding:16px; background:#161c21; }
+  #status { min-height:24px; color:#e7c887; }
+</style>
+<script type="importmap">{"imports":{"three":"../vendor/three.module.min.js"}}</script>
+<p><a href="index.html">Elbera Tools</a> / Audio evidence</p>
+<h1>Original packet audio</h1>
+<p>Five original stereo PCM sources through the browser's packet-audio module.
+  This is an offline replay with an explicit same-pawn fixture, not a live quest or native-driver execution.</p>
+<p id="profile" class="muted">Loading the private source profile…</p>
+<label>Source <select id="sound" disabled></select></label>
+<button id="play" disabled>Replay mode zero</button>
+<button id="stop" disabled>Retire session</button>
+<button id="verify" disabled>Verify rendered PCM</button>
+<p id="status" role="status">Loading exact source buffers…</p>
+<table><thead><tr><th>Original source</th><th>Channels</th><th>Rate</th><th>Frames</th><th>PCM check</th></tr></thead><tbody id="sources"></tbody></table>
+<pre id="state" aria-label="Current audio state"></pre>
+<p class="muted">The PCM check renders at each source's own sample rate, then compares every left/right sample with the decoded source multiplied by the recovered sound gain. It does not measure speakers, OS mixing, resampling, EAX or other game sounds. Legacy combat/world audio still uses a separate provisional path.</p>
+<p><a href="https://github.com/elberacasa/Lineage2Elbera/blob/main/docs/native-playsound-evidence.md">Sources, reproduction and remaining limits</a></p>
+<script type="module">
+import { AudioEngine } from '../js/audio.js';
+import { NativePacketAudio } from '../js/native-packet-audio.js';
+const engine = new AudioEngine();
+const select = document.querySelector('#sound');
+const status = document.querySelector('#status');
+const frame = { owner:'offline-replay-pawn', epoch:1, location:[0,0,0],
+  viewTargetLocation:[0,0,0], audioLocation:[0,0,0] };
+const packet = () => ({ soundType:0, sound:select.value });
+const verification = { status:'not-run', sources:0, samples:0 };
+const state = () => JSON.stringify({ mode:'offline-packet-audio-replay', ...engine.packetAudioState(), verification });
+window.render_game_to_text = state;
+let timer;
+try {
+  await engine.init();
+  if (!engine.nativePacketAudio?.ready) throw new Error('Private audio profile/source exports unavailable. See the reproduction guide.');
+  const metadata = await fetch('/audio/quest-sounds.json').then(r => r.json());
+  const profile = engine.nativePacketAudio.profile;
+  document.querySelector('#profile').textContent = `Supplied Interlude profile · ${engine.nativePacketAudio.voices.length} sources · split ${profile.splitCount} · Float32 SoundVolume ${profile.soundVolume} · EAX disabled`;
+  const cells = new Map();
+  for (const [key, info] of Object.entries(metadata.sounds)) {
+    select.add(new Option(info.sourceReference, key));
+    const row = document.createElement('tr');
+    for (const value of [info.sourceReference, info.channels, info.sampleRate, info.frames, 'Not run']) {
+      const cell = document.createElement('td'); cell.textContent = value; row.append(cell);
+    }
+    cells.set(key, row.lastElementChild); document.querySelector('#sources').append(row);
+  }
+  for (const control of document.querySelectorAll('button,select')) control.disabled = false;
+  status.textContent = 'Ready. Replay uses a real AudioContext; verification renders offline.';
+  timer = setInterval(() => {
+    engine.nativePacketAudio.update(frame);
+    document.querySelector('#state').textContent = state();
+  }, 50); // Diagnostic refresh only; the game updates on its rendering loop.
+  document.querySelector('#play').onclick = async () => {
+    await engine.ctx.resume();
+    const result = engine.playPacketSound(packet(), frame);
+    status.textContent = result.status === 'playing'
+      ? `Started ${result.ref}, voice ${result.voiceIndex}, ID ${result.soundId}.`
+      : `${result.status}: ${result.reason}`;
+  };
+  document.querySelector('#stop').onclick = () => {
+    engine.nativePacketAudio.reset(); frame.epoch++;
+    status.textContent = 'Session retired: active sources stopped and detached; counter preserved.';
+  };
+  document.querySelector('#verify').onclick = async event => {
+    event.target.disabled = true;
+    Object.assign(verification, {status:'running', sources:0, samples:0});
+    try {
+      for (const [key, info] of Object.entries(metadata.sounds)) {
+        const context = new OfflineAudioContext(2, info.frames, info.sampleRate);
+        const response = await fetch(info.url);
+        if (!response.ok) throw new Error(`Source unavailable: ${key}`);
+        const bytes = await response.arrayBuffer();
+        const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2,'0')).join('');
+        if (hash !== info.SHA256) throw new Error(`Source hash differs: ${key}`);
+        const buffer = await context.decodeAudioData(bytes);
+        if (buffer.length !== info.frames || buffer.numberOfChannels !== 2) throw new Error(`Decoded format differs: ${key}`);
+        // Offline contexts start suspended and have no autoplay permission.
+        // This explicit test adapter admits scheduling before startRendering.
+        const adapter = { state:'running', destination:context.destination,
+          createGain:() => context.createGain(), createBufferSource:() => context.createBufferSource() };
+        const audio = new NativePacketAudio({ context:adapter, profile,
+          sounds:{[key]:info}, buffers:new Map([[key,buffer]]) });
+        try {
+          const played = audio.play({ soundType:0, sound:key }, frame);
+          if (played.status !== 'playing') throw new Error(`Scheduling failed: ${key}`);
+          const rendered = await context.startRendering();
+          let mismatches = 0, nonzero = 0;
+          for (let channel=0; channel<2; channel++) {
+            const source = buffer.getChannelData(channel), actual = rendered.getChannelData(channel);
+            for (let i=0; i<source.length; i++) {
+              if (actual[i] !== Math.fround(source[i] * played.gain)) mismatches++;
+              if (actual[i] !== 0) nonzero++;
+            }
+          }
+          if (mismatches || !nonzero) throw new Error(`${key}: ${mismatches} sample differences; ${nonzero} nonzero samples`);
+          cells.get(key).textContent = `${info.frames * 2} / ${info.frames * 2} exact`;
+          verification.sources++; verification.samples += info.frames * 2;
+        } finally { audio.dispose(); }
+      }
+      status.textContent = 'PASS — all stereo samples match source × recovered gain at the original sample rate.';
+      verification.status = 'pass';
+    } catch (error) { verification.status = 'fail'; status.textContent = `FAIL — ${error.message}`; }
+    finally { event.target.disabled = false; }
+  };
+} catch (error) { status.textContent = error.message; }
+window.addEventListener('pagehide', () => { clearInterval(timer); engine.nativePacketAudio?.dispose(); engine.ctx?.close(); });
+</script>
+</html>
