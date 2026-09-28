@@ -129,6 +129,9 @@ def qualify_static_records(engine, core, comparison_engine, comparison_core):
         supplementalEngineSHA256=comparison_engine.sha,
         supplementalCoreSHA256=comparison_core.sha,
         engineBlocks=blocks,
+        boundsLoader=qualify_static_bounds_loader(
+            engine, core, comparison_engine, comparison_core
+        ),
         coreBlocks=core_blocks,
         anchors=anchors,
         limits=[
@@ -136,5 +139,177 @@ def qualify_static_records(engine, core, comparison_engine, comparison_core):
             "ByteOrderSerialize delegates to supplied archive virtual Serialize; archive loading/lifetime is outside this proof.",
             "The decoded records do not establish current actor/cache state, material callbacks or collision results.",
             "Supplemental correspondence does not authenticate the archive or repair the owned image.",
+        ],
+    )
+
+
+def qualify_static_bounds_loader(engine, core, comparison_engine, comparison_core):
+    """Bind the file-123 prefix that writes the same mesh box twice.
+
+    This is a static serializer proof. Allocation, native archive execution,
+    the remainder of mesh loading and post-load state are not inferred here.
+    """
+    version = "?Ver@FArchive@@QAEHXZ"
+    object_serialize = "?Serialize@UObject@@UAEXAAVFArchive@@@Z"
+    blocks = []
+
+    def block(label, start, end, delta, imports=(), direct=()):
+        raw = bytes(engine.data[engine.offset(start) : engine.offset(end)])
+        rows = list(engine.dis.disasm(raw, start))
+        assert rows[0].address == start and rows[-1].address + rows[-1].size == end
+        assert all(a.address + a.size == b.address for a, b in zip(rows, rows[1:]))
+        proof = compare_call_block(
+            raw,
+            comparison_engine.read(start + delta, len(raw)),
+            owned_va=start,
+            candidate_va=start + delta,
+            sites=[(at - start, ("core.dll", symbol)) for at, symbol in imports],
+            direct_calls=[at - start for at in direct],
+            imports=comparison_engine.imports,
+        )
+        blocks.append(
+            dict(
+                label=label,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(raw).hexdigest(),
+                comparison=proof,
+            )
+        )
+
+    for symbol, owned, candidate in [
+        ("?Serialize@UPrimitive@@UAEXAAVFArchive@@@Z", 0x10645810, 0x106457D0),
+        ("?Serialize@UStaticMesh@@UAEXAAVFArchive@@@Z", 0x106F7A80, 0x106F7A40),
+        ("?PostLoad@UStaticMesh@@UAEXXZ", 0x106F5CC0, 0x106F5C80),
+    ]:
+        assert engine.exported(symbol, True) == owned
+        assert comparison_engine.body(symbol) == candidate
+    thunks = []
+    for at, target, delta in [
+        (0x10311293, 0x10645810, -64),
+        (0x10308DF5, 0x105E98F0, -64),
+        (0x1030A41B, 0x106F7910, -64),
+        (0x10308A17, 0x103EC2E0, 0),
+    ]:
+        engine.instruction(at, "jmp", hex(target))
+        other = list(engine.dis.disasm(comparison_engine.read(at, 5), at))
+        assert (
+            len(other) == 1
+            and other[0].mnemonic == "jmp"
+            and other[0].op_str == hex(target + delta)
+        )
+        thunks.append(
+            dict(
+                address=hex(at),
+                ownedTarget=hex(target),
+                comparisonTarget=hex(target + delta),
+            )
+        )
+    block(
+        "UPrimitive normal serializer",
+        0x10645831,
+        0x10645878,
+        -64,
+        [(0x1064583E, object_serialize)],
+        [0x1064584D, 0x10645856],
+    )
+    block(
+        "UStaticMesh serializer through second box",
+        0x106F7AA1,
+        0x106F7B0F,
+        -64,
+        [(0x106F7AAD, version), (0x106F7ABB, object_serialize), (0x106F7ACA, version)],
+        [0x106F7AC3, 0x106F7AE4, 0x106F7AED, 0x106F7AFE, 0x106F7B07],
+    )
+    sphere_calls = [
+        0x105E990C,
+        0x105E991A,
+        0x105E9928,
+        0x105E9933,
+        0x105E9941,
+        0x105E994F,
+        0x105E995D,
+    ]
+    block(
+        "sphere serializer",
+        0x105E98F0,
+        0x105E9968,
+        -64,
+        [(0x105E98F8, version)] + [(at, BYTE_ORDER) for at in sphere_calls],
+    )
+    block(
+        "section array normal serializer",
+        0x106F7931,
+        0x106F7A03,
+        -64,
+        [
+            (0x106F7941, "?CountBytes@FArray@@QAEXAAVFArchive@@H@Z"),
+            (0x106F7949, "?IsLoading@FArchive@@QAEHXZ"),
+            (0x106F7958, COMPACT_INDEX),
+            (0x106F7978, "?Empty@FArray@@QAEXHH@Z"),
+            (0x106F79C1, COMPACT_INDEX),
+        ],
+        [0x106F7989, 0x106F7997, 0x106F799E, 0x106F79AF, 0x106F79E0],
+    )
+    block("section version branch", 0x103EC2FA, 0x103EC315, 0, [(0x103EC304, version)])
+    block("section file112 branch", 0x103EC39F, 0x103EC3AE, 0, [(0x103EC39F, version)])
+    section_calls = [
+        0x103EC4EC,
+        0x103EC4FA,
+        0x103EC508,
+        0x103EC516,
+        0x103EC524,
+        0x103EC532,
+    ]
+    block(
+        "section file112+ fields",
+        0x103EC4DD,
+        0x103EC54C,
+        0,
+        [(at, BYTE_ORDER) for at in section_calls],
+    )
+    block("post-load Build gate only", 0x106F6197, 0x106F61A7, -64, direct=[0x106F61A2])
+    build = "?Build@UStaticMesh@@QAEXXZ"
+    assert engine.exported(build) == comparison_engine.exports[build] == 0x1030C851
+    anchors = [
+        (0x10645844, "lea", "eax, [esi + 0x50]"),
+        (0x10645848, "add", "esi, 0x34"),
+        (0x106F7AB6, "cmp", "eax, 0x55"),
+        (0x106F7AD0, "cmp", "eax, 0x5c"),
+        (0x106F7AF5, "lea", "edx, [esi + 0x34]"),
+        (0x106F7AF9, "lea", "eax, [esi + 0x60]"),
+        (0x105E98FE, "cmp", "eax, 0x3d"),
+        (0x103EC30A, "cmp", "eax, 0x5c"),
+        (0x103EC3A5, "cmp", "eax, 0x70"),
+        (0x103EC4E4, "push", "4"),
+        (0x106F6197, "cmp", "dword ptr [esi + 0x1dc], 8"),
+    ] + [
+        (at, "push", "2")
+        for at in [0x103EC4F2, 0x103EC500, 0x103EC50E, 0x103EC51C, 0x103EC52A]
+    ]
+    for row in anchors:
+        engine.instruction(*row)
+    assert core.exported(version, True) == comparison_core.body(version) == 0x10108B80
+    raw = bytes(core.data[core.offset(0x10108B80) : core.offset(0x10108B84)])
+    assert raw == comparison_core.read(0x10108B80, 4)
+    core.instruction(0x10108B80, "mov", "eax, dword ptr [ecx + 4]")
+    core.instruction(0x10108B83, "ret", "")
+    return dict(
+        fileVersion=123,
+        meshFieldOffset="0x34",
+        boxWriteOrder=["baseSerializedBounds", "savedLocalBounds"],
+        boxBytes=25,
+        sphereBytes=16,
+        sectionBytes=14,
+        engineBlocks=blocks,
+        thunks=thunks,
+        anchors=anchors,
+        archiveVersionGetter=dict(
+            start="0x10108b80", end="0x10108b84", SHA256=hashlib.sha256(raw).hexdigest()
+        ),
+        limits=[
+            "File123 serializer prefix and byte widths, not full native loading or allocation.",
+            "The separate PostLoad gate invokes Build when its signed field is below 8; neither full PostLoad nor Build is executed.",
+            "Saved bounds do not establish post-load or current actor state.",
         ],
     )

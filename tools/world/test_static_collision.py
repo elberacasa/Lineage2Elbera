@@ -6,7 +6,7 @@ from export_static_collision import Reader, mesh_body, qualified_ref, eligible_m
 from types import SimpleNamespace
 from unittest.mock import patch
 from l2lib import L2Error
-from check_static_collision_records import check_arrays
+from check_static_collision_records import check_arrays, check_bounds
 
 
 def compact(n):
@@ -19,10 +19,12 @@ def compact(n):
     return bytes(out)
 
 
-def body(*, index=3, collision_model=0, nodes=True, lazy=False, origin=0, planes=None):
+def body(*, index=3, collision_model=0, nodes=True, lazy=False, origin=0, planes=None, base_bounds=None, saved_bounds=None, sections=0):
     # One rendered triangle, plus a distinct collision-only triangle.
     vertices = [(0, 0, 0), (10, 0, 0), (0, 10, 0), (0, 0, 20)]
-    out = bytearray(bytes(41) + compact(0) + bytes(25) + compact(4))
+    base = bytes(25) if base_bounds is None else struct.pack('<6fB', *base_bounds)
+    saved = bytes(25) if saved_bounds is None else struct.pack('<6fB', *saved_bounds)
+    out = bytearray(base + bytes(16) + compact(sections) + bytes(sections * 14) + saved + compact(4))
     for v in vertices: out += struct.pack('<6f', *v, 0, 0, 1)
     out += bytes(4) + compact(0) + bytes(4) + compact(0) + bytes(4) + compact(0)
     out += compact(3) + struct.pack('<3H', 0, 1, 2) + bytes(4) + compact(0) + bytes(4)
@@ -41,6 +43,59 @@ def body(*, index=3, collision_model=0, nodes=True, lazy=False, origin=0, planes
 
 
 class StaticCollisionTest(unittest.TestCase):
+    def test_later_saved_box_replaces_distinct_primitive_record_with_exact_spans(self):
+        origin = 137
+        first = [-7., -8., -9., 10., 11., 12., 0]
+        second = [-0., -2., -3., 4., 5., 6., 255]
+        for lazy in (False, True):
+            raw = b'X' * origin + body(lazy=lazy, origin=origin,
+                base_bounds=first, saved_bounds=second, sections=65)
+            parsed = mesh_body(Reader(raw, origin), lazy_collision=lazy,
+                export_end=len(raw), retain_sweep_data=True)
+            self.assertEqual(parsed['nativeBodyOffset'], origin)
+            self.assertEqual(parsed['baseSerializedBounds']['min'], first[:3])
+            saved = parsed['savedLocalBounds']
+            self.assertEqual(saved['valid'], 255)
+            self.assertEqual(saved['sourceOffset'], origin+41+len(compact(65))+65*14)
+            self.assertEqual(struct.pack('<6fB', *saved['min'], *saved['max'], saved['valid']),
+                             struct.pack('<6fB', *second))
+            self.assertEqual(len(check_bounds(raw, parsed)), 2)
+            self.assertEqual(len(check_arrays(raw, parsed)), 2)
+
+    def test_box_round_trip_rejects_changed_values_validity_hash_and_offsets(self):
+        raw = body(base_bounds=[-0., 0., 0., 1., 2., 3., 1],
+                   saved_bounds=[4., 5., 6., 7., 8., 9., 0], sections=1)
+        for name, change in [
+            ('baseSerializedBounds', lambda b: b['min'].__setitem__(0, 0.)),
+            ('savedLocalBounds', lambda b: b.update(valid=1)),
+            ('savedLocalBounds', lambda b: b.update(sourceSHA256='0'*64)),
+            ('savedLocalBounds', lambda b: b.update(sourceOffset=0)),
+            ('baseSerializedBounds', lambda b: b.update(sourceBytes=24)),
+        ]:
+            parsed = mesh_body(Reader(raw), retain_sweep_data=True)
+            change(parsed[name])
+            with self.assertRaises(ValueError): check_bounds(raw, parsed)
+        parsed = mesh_body(Reader(raw), retain_sweep_data=True)
+        damaged = bytearray(raw); damaged[41] = 0  # wrong section count, same records
+        with self.assertRaisesRegex(ValueError, 'span differs'):
+            check_bounds(damaged, parsed)
+
+    def test_nonfinite_saved_boxes_remain_unsupported_without_changing_ray_contract(self):
+        for name in ('base_bounds', 'saved_bounds'):
+            for value in (float('inf'), float('-inf'), float('nan')):
+                raw = body(**{name: [value, 0., 0., 1., 1., 1., 0]})
+                with self.assertRaisesRegex(ValueError, 'nonfinite serialized mesh bounds'):
+                    mesh_body(Reader(raw), retain_sweep_data=True)
+                parsed = mesh_body(Reader(raw))
+                self.assertNotIn('savedLocalBounds', parsed)
+                self.assertEqual(parsed['indices'], [0, 1, 2, 0, 1, 3])
+
+    def test_truncated_prefix_cannot_borrow_the_next_export_for_a_box(self):
+        raw = body(sections=1)
+        for boundary in (24, 41+1+14+24):
+            with self.assertRaises(L2Error):
+                mesh_body(Reader(raw), export_end=boundary, retain_sweep_data=True)
+
     def test_source_array_round_trip_preserves_ordinary_and_lazy_bytes(self):
         for lazy in (False, True):
             raw = body(lazy=lazy, planes=[-0.0] + [float(i) for i in range(15)])
@@ -92,7 +147,9 @@ class StaticCollisionTest(unittest.TestCase):
             self.assertNotIn('collisionTree', mesh_body(Reader(raw)))
 
     def test_default_ray_export_does_not_silently_grow_a_sweep_payload(self):
-        self.assertNotIn('collisionTree', mesh_body(Reader(body())))
+        parsed = mesh_body(Reader(body()))
+        for key in ['collisionTree', 'nativeBodyOffset', 'baseSerializedBounds', 'savedLocalBounds']:
+            self.assertNotIn(key, parsed)
 
     def test_collision_only_geometry_is_retained(self):
         parsed = mesh_body(Reader(body()))

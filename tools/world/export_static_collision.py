@@ -62,6 +62,17 @@ def finish_collision_array(r, payload, block):
     r.pos = block['savedEnd']
 
 
+def serialized_box(r):
+    """Preserve a finite original FBox and its decoded-package byte span."""
+    offset = r.pos
+    raw = r.bytes(25)
+    values = struct.unpack('<6fB', raw)
+    if not all(math.isfinite(value) for value in values[:6]):
+        raise ValueError('nonfinite serialized mesh bounds')
+    return dict(min=list(values[:3]), max=list(values[3:6]), valid=values[6],
+                sourceOffset=offset, sourceBytes=25, sourceSHA256=sha(raw))
+
+
 def mesh_body(r, *, lazy_collision=False, export_end=None, retain_sweep_data=False):
     """Native file123 body: legacy arrays or licensee>=17 saved-end arrays.
 
@@ -76,9 +87,19 @@ def mesh_body(r, *, lazy_collision=False, export_end=None, retain_sweep_data=Fal
         if type(export_end) is not int or not r.pos <= export_end <= len(r.data):
             raise ValueError('invalid original export boundary')
         r = Reader(memoryview(r.data)[:export_end], r.pos, r.path)
-    r.bytes(41)  # UPrimitive FBox and FSphere
+    body_offset = r.pos
+    if retain_sweep_data:
+        base_bounds = serialized_box(r)
+    else:
+        r.bytes(25)
+    r.bytes(16)  # UPrimitive FSphere, file version >61
     r.bytes(count(r) * 14)  # sections
-    r.bytes(25)  # saved render bounds
+    # UStaticMesh.Serialize writes the same +0x34 field again after sections.
+    # This later saved box does not establish later PostLoad/current state.
+    if retain_sweep_data:
+        saved_bounds = serialized_box(r)
+    else:
+        r.bytes(25)
     vertices = [list(struct.unpack('<6f', r.bytes(24))[:3]) for _ in range(count(r))]
     r.i32()  # vertex stream revision
     for _ in range(2):
@@ -143,6 +164,8 @@ def mesh_body(r, *, lazy_collision=False, export_end=None, retain_sweep_data=Fal
                 renderOnlyTriangleCount=sum((b-a).values()))
     if retain_sweep_data:
         result['collisionTree'] = dict(trianglePlanes=planes, nodes=node_records)
+        result.update(nativeBodyOffset=body_offset, baseSerializedBounds=base_bounds,
+                      savedLocalBounds=saved_bounds)
     return result
 
 
@@ -491,6 +514,7 @@ class Audit:
             'references': [{k: r[k] for k in ('name', 'mesh', 'exportSHA256')} for r in selected],
             'limits': [
                 'Saved source geometry, not live actor/cache state or a collision query.',
+                'savedLocalBounds is the later serialized mesh field; baseSerializedBounds preserves the overwritten primitive record. PostLoad/current mutations remain separate.',
                 'Node links and bounds and triangle planes retain source order; no tree rebuild or plane normalization.',
                 'Current actor matrices, query state and owner/material callbacks must be supplied separately.',
                 'Existing conservative actor/material selection gates remain in force.',
