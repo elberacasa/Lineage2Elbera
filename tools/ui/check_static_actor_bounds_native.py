@@ -30,7 +30,10 @@ from actor_octree_admission_machine import AdmissionMachine, PartialWord
 from actor_octree_machine import MembershipMachine, snapshot
 from check_static_sweep_native import PreparationProgram, IDENTITY
 from check_hair_attachment_native import compare_call_block
-from static_collision_source import qualify_static_postload
+from static_collision_source import (
+    qualify_static_postload,
+    qualify_static_mesh_constructor,
+)
 
 METHOD = "?GetCollisionBoundingBox@UStaticMesh@@UBE?AVFBox@@PBVAActor@@@Z"
 LOCAL = "?LocalToWorld@AActor@@UBE?AVFMatrix@@XZ"
@@ -117,6 +120,33 @@ def qualify(program, core, candidate, candidate_core):
     program.import_targets.update(
         {int(at, 16): int(row["target"], 16) for at, row in postload["imports"].items()}
     )
+    constructor = qualify_static_mesh_constructor(e, core, candidate, candidate_core)
+    for image, blocks in [
+        (e, constructor["engineBlocks"]),
+        (core, constructor["coreBlocks"]),
+    ]:
+        for block in blocks:
+            start, end = int(block["start"], 16), int(block["end"], 16)
+            PreparationProgram.add(
+                program,
+                image,
+                start,
+                end,
+                bytes(image.data[image.offset(start) : image.offset(end)]),
+            )
+    program.import_targets.update(
+        {
+            int(at, 16): int(target, 16)
+            for at, target in constructor["importTargets"].items()
+        }
+    )
+    program.membership_targets.update(
+        {
+            int(at, 16): int(target, 16)
+            for at, target in constructor["thunkTargets"].items()
+        }
+    )
+    program.cache_id_global = int(constructor["cacheIdGlobal"], 16)
     program.receipt = dict(
         prerequisites=prior,
         staticBounds=dict(
@@ -131,6 +161,7 @@ def qualify(program, core, candidate, candidate_core):
             ],
         ),
         staticPostLoad=postload,
+        staticConstructor=constructor,
     )
     return program
 
@@ -183,6 +214,28 @@ class StaticBoundsMachine(AdmissionMachine):
         self.invoke(0x106F5CC0, mesh)
 
     def step(self, i):
+        if i.mnemonic == "adc":
+            dest, source = i.op_str.split(", ")
+            a, b = self.read(dest) & 0xFFFFFFFF, self.read(source) & 0xFFFFFFFF
+            total = a + b + int(self.carry)
+            value = total & 0xFFFFFFFF
+            self.flags(
+                value, total > 0xFFFFFFFF, bool(~(a ^ b) & (a ^ value) & 0x80000000)
+            )
+            self.write(dest, value)
+            self.visited.append(i.address)
+            return i.address + i.size
+        if i.mnemonic == "mul":
+            product = (self.registers["eax"] & 0xFFFFFFFF) * (
+                self.read(i.op_str) & 0xFFFFFFFF
+            )
+            self.registers["eax"] = product & 0xFFFFFFFF
+            self.registers["edx"] = product >> 32
+            # The admitted product helper consumes no undefined arithmetic
+            # flags. Its caller immediately replaces them with ADD/ADC.
+            self.carry = bool(product >> 32)
+            self.visited.append(i.address)
+            return i.address + i.size
         if i.mnemonic in ("rep stosd", "rep stosb"):
             # Explicit ordinary ABI profile: direction flag clear. Preserve
             # unknown surrounding bytes, as with the existing byte stores.
@@ -315,6 +368,97 @@ def native_one(program, row):
     m.invoke(0x106FE700, 0x300000, [0x600000, 0x200000])
     assert m.registers["eax"] == 0x600000
     return dict(bounds=hexes(m.box(0x600000)), events=m.bound_events), m
+
+
+def constructor_cases(program):
+    """Execute source construction with authored incoming storage and counters.
+
+    A constructor is not zero-initialization: the unconsumed incoming header,
+    version and tail fields must survive. Allocation/CDO and archive loading
+    are intentionally not supplied by this check.
+    """
+    rng = random.Random(0x4D455348)
+    counts, visited = 0, set()
+    edges = [0, 1, 0xFFFFFFFF, 0x100000000, 0xFFFFFFFFFFFFFFF9, 0xFFFFFFFFFFFFFFFF]
+    for index in range(128):
+        m = StaticBoundsMachine(program)
+        mesh = 0x300000
+        initial = {mesh + offset: rng.getrandbits(32) for offset in range(0, 0x1FC, 4)}
+        m.memory.update(initial)
+        counter = edges[index] if index < len(edges) else rng.getrandbits(64)
+        cache = program.cache_id_global
+        current_count, total_count = rng.randrange(100000), rng.randrange(100000)
+        peak = current_count + (20 if index % 2 else 0)
+        m.memory.update(
+            {
+                0x11D8D900: cache,
+                cache: counter & 0xFFFFFFFF,
+                cache + 4: counter >> 32,
+                0x103307E8: current_count,
+                0x103307EC: total_count,
+                0x103307F0: peak,
+            }
+        )
+        saved_registers = {
+            name: rng.getrandbits(32) for name in ("ebx", "esi", "edi", "ebp")
+        }
+        m.registers.update(saved_registers)
+        m.invoke(0x106F72F0, mesh)
+        assert m.registers["eax"] == mesh
+        assert {name: m.registers[name] for name in saved_registers} == saved_registers
+        assert {at: m.memory[at] for at in range(mesh + 4, mesh + 0x34, 4)} == {
+            at: initial[at] for at in range(mesh + 4, mesh + 0x34, 4)
+        }
+        # None of these current fields is initialized by the ordinary ctor.
+        for offset in [*range(0x178, 0x1C4, 4), *range(0x1DC, 0x1F4, 4)]:
+            assert m.memory[mesh + offset] == initial[mesh + offset]
+        assert m.memory[mesh] == program.engine.exported("??_7UStaticMesh@@6B@")
+        assert m.box(mesh + 0x34) == dict(min=[0.0] * 3, max=[0.0] * 3, valid=0)
+        assert m.memory[mesh + 0x4C] & 0xFFFFFF00 == initial[mesh + 0x4C] & 0xFFFFFF00
+        assert [m.memory[mesh + offset] for offset in range(0x50, 0x60, 4)] == [0.0] * 4
+        for offset in [
+            0x60,
+            0x78,
+            0x94,
+            0xB0,
+            0xC0,
+            0xD8,
+            0xF4,
+            0x110,
+            0x12C,
+            0x13C,
+            0x154,
+            0x16C,
+            0x1D0,
+        ]:
+            assert [m.memory[mesh + offset + j * 4] for j in range(3)] == [0, 0, 0]
+        for number, offset in enumerate([0x6C, 0x88, 0xA4, 0xCC, 0xE8, 0x104, 0x120]):
+            value = (
+                ((counter + number) << 8) + (0xE1 if number < 5 else 0xE2)
+            ) & 0xFFFFFFFFFFFFFFFF
+            assert m.memory[mesh + offset + 4] == value & 0xFFFFFFFF
+            assert m.memory[mesh + offset + 8] == value >> 32
+            assert m.memory[mesh + offset + 0x18] == 0
+        assert (
+            m.memory[cache] | (m.memory[cache + 4] << 32)
+            == (counter + 7) & 0xFFFFFFFFFFFFFFFF
+        )
+        assert m.memory[0x103307E8] == current_count + 1
+        assert m.memory[0x103307EC] == total_count + 1
+        assert m.memory[0x103307F0] == max(peak, current_count + 1)
+        assert m.memory[mesh + 0x1F4] == m.memory[mesh + 0x1F8] == 0xFFFFFFFF
+        assert not m.blocks
+        counts += len(m.visited)
+        visited.update(m.visited)
+    return dict(
+        cases=128,
+        instructions=counts,
+        uniqueInstructions=len(visited),
+        headerPreserved=True,
+        currentVersionPreserved=True,
+        initializedStreams=7,
+        directionFlag="clear",
+    )
 
 
 def native_postload_one(program, row, index):
@@ -601,6 +745,7 @@ def load_program(engine, core, comparison_engine, comparison_core):
 
 def verify(engine, core, comparison_engine, comparison_core, runtime):
     program = load_program(engine, core, comparison_engine, comparison_core)
+    construction = constructor_cases(program)
     rows = fixture_rows()
     expected = []
     visited = set()
@@ -661,6 +806,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         dispositions=counts,
         instructions=steps,
         uniqueInstructions=len(visited),
+        construction=construction,
         postLoad=dict(
             cases=len(rows),
             instructions=postload_steps,
@@ -672,6 +818,9 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         source=program.receipt,
         runtimeSHA256=hashlib.sha256(Path(runtime).read_bytes()).hexdigest(),
         verifierSHA256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        constructorQualifierSHA256=hashlib.sha256(
+            Path(__file__).with_name("static_collision_source.py").read_bytes()
+        ).hexdigest(),
         runtimeDependenciesSHA256={
             name: hashlib.sha256((Path(runtime).parent / name).read_bytes()).hexdigest()
             for name in [
@@ -688,6 +837,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
             "Finite authored inputs, PC53/RNE and supplied current matrices/auxiliary boxes; not live placement.",
             "FBox padding remains partially unknown; only numeric coordinates and validity byte are compared.",
             "PostLoad cases supply current version>=8, flags &0x100 clear, valid nonaliasing storage and successful allocation with direction flag clear. Saved data does not prove those current conditions.",
+            "Constructor cases supply incoming object storage and nonaliasing current counters; class registration/CDO, allocation flags and archive effects are not executed or inferred.",
         ],
     )
 
@@ -725,6 +875,7 @@ def main():
                         "dispositions",
                         "instructions",
                         "uniqueInstructions",
+                        "construction",
                         "postLoad",
                     ]
                 }

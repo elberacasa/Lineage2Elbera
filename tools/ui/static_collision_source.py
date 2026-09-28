@@ -9,6 +9,7 @@ import struct
 
 from check_tutorial_quest_native import ENGINE_SHA
 from check_supplemental_engine import CORE_SHA, CANDIDATE_ENGINE_SHA, CANDIDATE_CORE_SHA
+from check_supplemental_engine import compare_method
 from check_hair_attachment_native import compare_call_block
 
 BYTE_ORDER = "?ByteOrderSerialize@FArchive@@QAEAAV1@PAXH@Z"
@@ -622,5 +623,221 @@ def qualify_static_postload(engine, core, comparison_engine, comparison_core):
             "Current signed version>=8 and current UObject flags &0x100 clear only; saved export flags do not establish current flags.",
             "Older conversion/Build, LoadLocalized, exceptions and allocator failures are not admitted.",
             "Engine SEH prefix is retained for stack effects only; exception handlers are not compared or executed.",
+        ],
+    )
+
+
+def qualify_static_mesh_constructor(engine, core, comparison_engine, comparison_core):
+    """Bind the normal mesh constructor and its embedded stream/array helpers.
+
+    This does not infer incoming allocation flags, class defaults, archive
+    effects or later state. The caller supplies valid distinct object/global
+    storage. Exception handlers are compared only at their ordinary entry.
+    """
+    assert (engine.sha, core.sha, comparison_engine.sha, comparison_core.sha) == (
+        ENGINE_SHA,
+        CORE_SHA,
+        CANDIDATE_ENGINE_SHA,
+        CANDIDATE_CORE_SHA,
+    )
+    e, p = engine, comparison_engine
+    read = lambda va, n: bytes(e.data[e.offset(va) : e.offset(va) + n])
+    array = "??0FArray@@QAE@XZ"
+    sized_array = "??0FArray@@IAE@HH@Z"
+    index_array = "??0?$TArray@G@@QAE@XZ"
+    cache_id = "?GMakeCacheIDIndex@@3_KA"
+    # Endpoints include complete returns. Labels identify containing fields;
+    # they do not invent meanings for the individual render streams.
+    regions = [
+        ("mesh", 0x106F72F0, 0x106F744A, -64),
+        ("primitive", 0x10331310, 0x10331371, 0),
+        ("stream+6c", 0x103ADAC0, 0x103ADB78, 0),
+        ("streams+88/a4", 0x10683FE0, 0x10684098, -64),
+        ("stream+cc", 0x103AE0B0, 0x103AE168, 0),
+        ("stream+e8", 0x1039EBD0, 0x1039EC88, 0),
+        ("buffers+104/120", 0x10680F40, 0x10680FF2, -64),
+        ("lazy+148", 0x106F68B0, 0x106F6915, -64),
+        ("lazy+160", 0x106F6B90, 0x106F6BF5, -64),
+        ("lazy+1c4", 0x106F6E70, 0x106F6ED8, -64),
+    ]
+    by_start = {start: (end, delta) for _, start, end, delta in regions}
+    thunks = {
+        0x1030B4C4: 0x10331310,
+        0x10313BD8: 0x103ADAC0,
+        0x1030150A: 0x10683FE0,
+        0x1030B343: 0x103AE0B0,
+        0x10310DF2: 0x1039EBD0,
+        0x10310712: 0x10680F40,
+        0x1030DC92: 0x106F68B0,
+        0x1030BF0F: 0x106F6B90,
+        0x1031327D: 0x106F6E70,
+    }
+    for thunk, body in thunks.items():
+        e.instruction(thunk, "jmp", hex(body))
+        other = p.read(thunk, 5)
+        assert other[0] == 0xE9
+        assert (
+            thunk + 5 + struct.unpack_from("<i", other, 1)[0]
+            == body + by_start[body][1]
+        )
+    for symbol, body in [
+        ("??0UStaticMesh@@QAE@XZ", 0x106F72F0),
+        ("??0UPrimitive@@QAE@XZ", 0x10331310),
+    ]:
+        assert e.exported(symbol, True) == body
+        assert p.body(symbol) == body + by_start[body][1]
+    imports = {
+        0x106F732A: array,
+        0x106F738E: array,
+        0x106F73E3: array,
+        0x1033132D: "??0UObject@@QAE@XZ",
+        0x10331346: "??0FBox@@QAE@H@Z",
+        0x10331351: "??0FSphere@@QAE@H@Z",
+        0x103ADB0F: array,
+        0x1068402F: array,
+        0x103AE0FF: array,
+        0x1039EC1F: array,
+        0x10680F89: index_array,
+        0x106F68DD: sized_array,
+        0x106F6BBD: sized_array,
+        0x106F6EA0: sized_array,
+    }
+    global_sites = [
+        0x103ADB1C,
+        0x103ADB44,
+        0x1068403C,
+        0x10684064,
+        0x103AE10C,
+        0x103AE134,
+        0x1039EC2C,
+        0x1039EC54,
+        0x10680F96,
+        0x10680FBE,
+    ]
+    multiply_sites = [0x103ADB2F, 0x1068404F, 0x103AE11F, 0x1039EC3F, 0x10680FA9]
+    mesh_calls = [
+        0x106F7310,
+        0x106F7338,
+        0x106F734E,
+        0x106F736F,
+        0x106F739F,
+        0x106F73AF,
+        0x106F73BF,
+        0x106F73CF,
+        0x106F73F6,
+        0x106F7408,
+        0x106F741A,
+    ]
+    # Both branches of the compiler's integer product helper, including ret 16.
+    multiply = read(0x107A6660, 0x34)
+    assert multiply == p.read(0x107A6620, 0x34)
+    blocks = []
+    for label, start, end, delta in regions:
+        original = read(start, end - start)
+        normalized = bytearray(original)
+        other = p.read(start + delta, len(original))
+        bindings = []
+        for at in global_sites:
+            if not start <= at < end:
+                continue
+            offset = at - start
+            assert struct.unpack_from("<I", normalized, offset)[0] == 0x11D8D900
+            assert struct.unpack_from("<I", other, offset)[0] == 0x11D8D8FC
+            assert p.imports[0x11D8D8FC] == ("core.dll", cache_id)
+            struct.pack_into("<I", normalized, offset, 0x11D8D8FC)
+            bindings.append(dict(address=hex(at), kind="named-global", symbol=cache_id))
+        for at in mesh_calls + multiply_sites:
+            if not start <= at < end:
+                continue
+            offset = at - start
+            assert original[offset] == other[offset] == 0xE8
+            left = at + 5 + struct.unpack_from("<i", original, offset + 1)[0]
+            right = at + delta + 5 + struct.unpack_from("<i", other, offset + 1)[0]
+            if at in multiply_sites:
+                assert (left, right) == (0x107A6660, 0x107A6620)
+            else:
+                assert left == right and left in thunks
+            normalized[offset : offset + 5] = other[offset : offset + 5]
+            bindings.append(
+                dict(
+                    address=hex(at),
+                    kind="qualified-helper",
+                    ownedTarget=hex(left),
+                    comparisonTarget=hex(right),
+                )
+            )
+        for at, symbol in imports.items():
+            if start <= at < end:
+                assert original[at - start : at - start + 6] == b"\x90" * 6
+                assert p.imported_call(at + delta) == ("core.dll", symbol)
+        handler_pair = (
+            struct.unpack_from("<I", original, 3)[0],
+            struct.unpack_from("<I", other, 3)[0],
+        )
+        proof = compare_method(
+            bytes(normalized),
+            other,
+            start,
+            start + delta,
+            p.imported_call,
+            read,
+            p.read,
+            handler_pair,
+        )
+        rows = list(e.dis.disasm(original, start))
+        assert sum(i.size for i in rows) == len(original)
+        assert rows[-1].mnemonic == "ret" and rows[-1].address + rows[-1].size == end
+        blocks.append(
+            dict(
+                label=label,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(original).hexdigest(),
+                comparison=proof,
+                explicitBindings=bindings,
+            )
+        )
+    blocks.append(
+        dict(
+            label="integer product",
+            start="0x107a6660",
+            end="0x107a6694",
+            SHA256=hashlib.sha256(multiply).hexdigest(),
+        )
+    )
+    core_blocks = []
+    for symbol, start, end in [
+        ("??0UObject@@QAE@XZ", 0x1015C420, 0x1015C44D),
+        (array, 0x101091F0, 0x101091FD),
+        ("??0FBox@@QAE@H@Z", 0x101177A0, 0x101177DB),
+        ("??0FSphere@@QAE@H@Z", 0x1010DBF0, 0x1010DC02),
+        (index_array, 0x10113590, 0x101135CC),
+        (sized_array, 0x10109280, 0x101092A3),
+    ]:
+        assert core.exported(symbol, True) == comparison_core.body(symbol) == start
+        raw = bytes(core.data[core.offset(start) : core.offset(end)])
+        assert raw == comparison_core.read(start, end - start)
+        core_blocks.append(
+            dict(
+                symbol=symbol,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(raw).hexdigest(),
+            )
+        )
+    cache_global = core.exported(cache_id)
+    assert cache_global == comparison_core.exports[cache_id]
+    return dict(
+        engineBlocks=blocks,
+        coreBlocks=core_blocks,
+        importTargets={
+            hex(at): hex(core.exported(symbol, True)) for at, symbol in imports.items()
+        },
+        thunkTargets={hex(at): hex(target) for at, target in thunks.items()},
+        cacheIdGlobal=hex(cache_global),
+        limits=[
+            "Normal constructor bodies and explicit current counters; allocation/class defaults and serialization are separate.",
+            "Named erased imports and exact helper correspondence do not restore the owned binary or authenticate the supplemental archive.",
+            "Only ten handler entry bytes are compared; exceptions and complete unwind graphs are outside scope.",
         ],
     )
