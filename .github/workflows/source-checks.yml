@@ -56,7 +56,7 @@ jobs:
           node --test editor/world/test/static-triangle.test.mjs
           node --test editor/world/test/static-mesh-tree.test.mjs editor/world/test/static-hit.test.mjs
           node --test editor/world/test/static-mesh-cache.test.mjs
-          node --test editor/world/test/actor-octree-geometry.test.mjs editor/world/test/actor-octree.test.mjs
+          node --test editor/world/test/actor-octree*.test.mjs
           python3 -m unittest discover -s tools/ui -p test_static_sweep_native.py
           python3 -m unittest discover -s tools/ui -p test_static_triangle_native.py
           python3 -m unittest discover -s tools/ui -p test_static_mesh_native.py

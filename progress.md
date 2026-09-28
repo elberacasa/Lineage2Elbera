@@ -2,6 +2,30 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original actor admission and updates — 28 September 2026
+
+The browser joins ordinary AddActor gates, current primitive bounds, numeric
+cache writes, level-mode selection and octree membership. Both early skip gates
+leave prior membership untouched. Out-of-root bounds remove prior membership
+and update the numeric cache while preserving mode and stored location. The
+ordinary actor selector and generic primitive box are reusable source helpers;
+generic one-unit padding precedes the distinct octree 4.2 expansion.
+
+Elbera Tools compares 935 operations across 43 sequences with retained code:
+558 insertions, 255 skips, 118 root rejections and four explicit removals.
+The composed run executes 626,446 instructions at 1,300 addresses and verifies
+membership at the primitive-method boundary, not only final state. Nine deliberate
+gate/order/mode/padding/priority mistakes are rejected. The earlier 2,239
+membership snapshots still pass; related portable tests total 23 browser and
+13 interpreter cases. FBox validity-byte writes preserve unknown padding.
+
+Current actor/level fields, finite PC53/RNE, null GLog and successful storage
+are explicit conditions. Non-generic bounding boxes remain supplied responses.
+Live population, ordered actor-query traversal, primitive dispatch and walking
+remain unfinished; the full-client goal is active. Public documentation is
+updated, README images and standalone archives retained, and private inputs and
+raw receipts excluded. [Contracts and reproduction](docs/native-actor-admission-evidence.md).
+
 ## Original actor bounds and octree membership — 28 September 2026
 
 The browser now preserves the source actor-box expansion, cached center/extent
