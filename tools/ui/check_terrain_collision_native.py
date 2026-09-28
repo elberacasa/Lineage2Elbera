@@ -44,6 +44,34 @@ def put(m, p, v):
     m.memory.update({p + 4 * i: f32(x) for i, x in enumerate(v)})
 
 
+RESULT_OFFSETS = tuple(range(0, 0x30, 4))
+RESULT_FLOATS = (8, 12, 16, 20, 24, 28, 36)
+RESULT_SEED = {offset: 1000 + offset for offset in RESULT_OFFSETS}
+
+
+class ResultMemory(dict):
+    """Observe actual interpreted writes to the caller's 48-byte hit record.
+
+    Unique initial sentinels keep unchanged fields visible. Writes are logged
+    even if they happen to store the value already present in memory.
+    """
+
+    def __init__(self, values, result):
+        super().__init__(values)
+        self.result = result
+        self.writes = []
+        self.recording = False
+
+    def __setitem__(self, address, value):
+        super().__setitem__(address, value)
+        if self.recording and self.result <= address < self.result + 0x30:
+            self.writes.append((address - self.result, value))
+
+    def update(self, values):
+        for address, value in values.items():
+            self[address] = value
+
+
 class TerrainArithmetic(Arithmetic):
     def read(self, operand):
         if operand == "cl":
@@ -193,7 +221,15 @@ class TerrainEvaluator:
             m.image = before
 
     def quad(
-        self, vertices, start, end, extent, edge=False, inverted=False, prior=None
+        self,
+        vertices,
+        start,
+        end,
+        extent,
+        edge=False,
+        inverted=False,
+        prior=None,
+        record=None,
     ):
         self.vertices = vertices
         frame = 0x200000
@@ -228,6 +264,15 @@ class TerrainEvaluator:
                 edx=0,
             ),
         )
+        m.memory = ResultMemory(m.memory, result)
+        m.memory.update(
+            {result + offset: value for offset, value in RESULT_SEED.items()}
+        )
+        m.memory[result + 4] = 0
+        if record is not None:
+            m.memory.update(
+                {result + offset: value for offset, value in record.items()}
+            )
         for p, v in [
             (frame + 0x54, end),
             (frame + 0x60, start),
@@ -237,8 +282,13 @@ class TerrainEvaluator:
         if prior:
             m.memory[result + 4] = terrain
             put(m, result + 8, prior)
+        m.memory.recording = True
         self.run(m, 0x10721111, 0x10722117, stops=(0x107210A0,))
         assert not m.stack, m.stack
+        self.result_writes = m.memory.writes
+        self.result_snapshot = {
+            offset: m.memory[result + offset] for offset in RESULT_OFFSETS
+        }
         if not m.memory[frame - 0x50]:
             return None
         return dict(
@@ -300,12 +350,13 @@ class ComposedEvaluator(CellEvaluator):
                 self.edges[y * self.width + x],
                 self.inverted,
                 prior,
+                record={offset: m.memory[result + offset] for offset in RESULT_OFFSETS},
             )
+            # Apply precisely the actual interpreted quad writes, including
+            # Material=NULL, rather than reconstructing a generic hit record.
+            for offset, value in self.q.result_writes:
+                m.memory[result + offset] = value
         if out:
-            m.memory[result + 4] = 0x300000
-            put(m, result + 8, out["point"])
-            put(m, result + 0x14, out["normal"])
-            m.memory[result + 0x24] = out["time"]
             self.best = out
         m.registers["eax"] = int(out is not None)
         m.registers["esp"] += 0x38
@@ -357,6 +408,10 @@ class ComposedEvaluator(CellEvaluator):
                 edx=0,
             ),
         )
+        m.memory = ResultMemory(m.memory, result)
+        m.memory.update(
+            {result + offset: value for offset, value in RESULT_SEED.items()}
+        )
         # Execute the exact Engine transform/direction prefix, including
         # retained Core implementations at the qualified erased-call sites.
         m.memory.update(
@@ -368,6 +423,7 @@ class ComposedEvaluator(CellEvaluator):
             (frame + 0x6C, extent),
         ]:
             put(m, p, v)
+        m.memory.recording = True
         self.run(m, 0x107226CB, 0x10722753)
         assert not m.stack
         # Nonzero extent takes the pinned no-sector-allocation branch.
@@ -378,6 +434,10 @@ class ComposedEvaluator(CellEvaluator):
         self.run(m, 0x107228B5, 0x107228BA)
         self.run(m, 0x107228BA, 0x10722ED8, stops=(0x10722973,))
         self.visited.update(self.q.visited)
+        self.result_writes = m.memory.writes
+        self.result_snapshot = {
+            offset: m.memory[result + offset] for offset in RESULT_OFFSETS
+        }
         return self.best, self.cells
 
 
@@ -626,6 +686,15 @@ def source_evidence(engine, core, candidate=None, companion=None):
         (0x107210F6, "call", "0x1030b2e9"),
         (0x107A66B2, "fstp", "qword ptr [esp]"),
         (0x107A66B5, "cvttsd2si", "eax, qword ptr [esp]"),
+        (0x10722A18, "mov", "dword ptr [ecx + 4], ebx"),
+        (0x10721880, "fst", "dword ptr [edi + 0x24]"),
+        (0x107218BE, "fst", "dword ptr [edi + 0x24]"),
+        (0x10721943, "mov", "dword ptr [edi + 0x2c], 0"),
+        (0x1072194A, "mov", "dword ptr [edi + 4], ebx"),
+        (0x10721FD2, "fst", "dword ptr [edi + 0x24]"),
+        (0x10722010, "fst", "dword ptr [edi + 0x24]"),
+        (0x107220A7, "mov", "dword ptr [edi + 0x2c], 0"),
+        (0x107220AE, "mov", "dword ptr [edi + 4], ebx"),
     ]
     for a, op, args in anchors:
         engine.instruction(a, op, args)
@@ -720,9 +789,32 @@ def runtime_comparison(engine, core, cases):
             s["visibility"],
             s["inverted"],
         )
+        offsets = {offset for offset, _ in evaluator.result_writes}
+        entered = bool(evaluator.result_writes)
+        if hit:
+            assert offsets == {4, 8, 12, 16, 20, 24, 28, 36, 44}, offsets
+            assert evaluator.result_snapshot[4] == 0x300000
+            assert evaluator.result_snapshot[44] == 0
+        elif entered:
+            assert evaluator.result_writes == [(4, 0)], evaluator.result_writes
+        else:
+            assert evaluator.result_snapshot == RESULT_SEED
+        # Next(+0), Item(+20 hex), node(+28 hex) are never written in this
+        # admitted primitive path, including its successful triangle branches.
+        for offset in (0, 0x20, 0x28):
+            assert evaluator.result_snapshot[offset] == RESULT_SEED[offset]
         expected.append(
             {
                 "cells": cells,
+                "enteredTraversal": entered,
+                "resultRecord": [
+                    (
+                        bits(evaluator.result_snapshot[offset])
+                        if offset in RESULT_FLOATS
+                        else evaluator.result_snapshot[offset]
+                    )
+                    for offset in RESULT_OFFSETS
+                ],
                 "hit": (
                     {
                         "point": list(map(bits, hit["point"])),
@@ -758,7 +850,13 @@ const sources=wire.sources.map(s=>{const r=prepareTerrainSweep(s);if(r.status!==
 console.log(JSON.stringify(wire.cases.map(c=>{
  const r=traceTerrainSweep(sources[c.source],c.start,c.end,c.extent);
  if(r.status!=='ready')throw Error(JSON.stringify(r));
- return {cells:r.cells,hit:r.hit?{point:r.hit.point.map(bits),normal:r.hit.normal.map(bits),time:bits(r.hit.time)}:null};
+ const record=Array.from({length:12},(_,i)=>1000+4*i);
+ if(r.enteredTraversal)record[1]=0;
+ if(r.hit){record[1]=0x300000;record.splice(2,3,...r.hit.point);record.splice(5,3,...r.hit.normal);record[9]=r.hit.time;record[11]=0}
+ const floatIndices=new Set([2,3,4,5,6,7,9]);
+ return {cells:r.cells,enteredTraversal:r.enteredTraversal,
+ resultRecord:record.map((v,i)=>floatIndices.has(i)?bits(v):v),
+ hit:r.hit?{point:r.hit.point.map(bits),normal:r.hit.normal.map(bits),time:bits(r.hit.time)}:null};
 })));
 """
     process = subprocess.run(
@@ -781,6 +879,11 @@ console.log(JSON.stringify(wire.cases.map(c=>{
     return {
         "cases": len(cases),
         "hits": sum(r["hit"] is not None for r in expected),
+        "untouchedMisses": sum(not r["enteredTraversal"] for r in expected),
+        "actorClearOnlyMisses": sum(
+            r["enteredTraversal"] and not r["hit"] for r in expected
+        ),
+        "resultWrites": "actual interpreted stores; full 48-byte sentinel record compared",
         "retainedInstructionAddresses": len(evaluator.visited),
     }
 

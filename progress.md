@@ -2,6 +2,45 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original level collector and BSP regions — 27 September 2026
+
+The ordinary level collector now preserves BSP/attached-level/terrain/actor
+phase order with explicit source callbacks. It distinguishes the caller's
+Model from the current Model used for terrain region admission, retains all
+64 resolved zone slots including repeats, and preserves scratch fields left
+behind by misses or rejected terrain regions. Actor copying stops at 64 while
+later providers still run. World scratch overflow is unsupported instead of
+silently dropping participants. Source sorting and shortening are reused.
+
+The new PointRegion module follows the original BSP front/back selection,
+Float32 plane-distance store, final leaf/zone writes and null-zone fallback.
+Serialized operands are bound to the original Model/node/zone serializers.
+A nonempty tree with zero saved zones still requires explicit runtime slot
+zero; a missing slot never becomes an invented null default.
+
+Elbera Tools compares 260 authored collector scenes with retained instructions:
+743 results, 941 callback invocations and 671 collector instruction addresses,
+plus sparse scratch and capacity checks. PointRegion adds 312 original-method
+comparisons and 32 fresh saved-map probes from Talking Island/Giran. Those map
+probes use explicit diagnostic actor tokens, not observed live identities.
+The optional pinned comparison names the attached-level gate GIsL2Seamless;
+its live value remains required source state. The source boundary, callback
+limits and reproducible commands are documented in the
+[collector](docs/native-level-query-evidence.md) and
+[region](docs/native-bsp-region-evidence.md) guides.
+
+Terrain now exposes whether it reached the original result-writing stage.
+Early outer misses leave the result untouched; later misses clear Actor only.
+The verifier records actual instruction writes against sentinel fields. This
+closes a primitive adapter distinction without fabricating Item/node values.
+All 109 combined portable collision tests pass; the terrain differential
+distinguishes 61 hits, seven untouched misses and 32 Actor-clear-only misses.
+
+Live provider population, zone/terrain lifecycle, static/transformed primitives
+and MoveActor/floor/step/ledge response still need integration. Existing
+gameplay queries have not been replaced by partial collision coverage. The
+full official browser-client goal remains active and incomplete.
+
 ## Original terrain, actor cylinders and level result operations — 27 September 2026
 
 Three more collision components are now implemented against original Interlude

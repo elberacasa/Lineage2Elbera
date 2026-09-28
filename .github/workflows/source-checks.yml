@@ -49,7 +49,7 @@ jobs:
           node --test editor/world/test/bsp-collision.test.mjs
       - name: Original terrain, cylinder and level collision fixtures
         run: |
-          node --test editor/world/test/terrain-collision.test.mjs editor/world/test/cylinder-collision.test.mjs editor/world/test/level-collision.test.mjs
+          node --test editor/world/test/terrain-collision.test.mjs editor/world/test/cylinder-collision.test.mjs editor/world/test/level-collision.test.mjs editor/world/test/level-query.test.mjs editor/world/test/bsp-region.test.mjs
           python3 -m unittest discover -s tools/ui -p test_cylinder_collision_native.py
           python3 -m unittest discover -s tools/world -p test_export_terrain_collision.py
       - name: Original animation keys and interpolation fixtures

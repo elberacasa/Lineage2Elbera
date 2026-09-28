@@ -705,7 +705,7 @@ console.log(JSON.stringify(JSON.parse(fs.readFileSync(0,'utf8')).map(c => {
     }
     result["limits"] = [
         "authored primitive hit/identity fixtures, not a native client run or live world sweep",
-        "whole MultiLineCheck participant discovery, admission and callback composition remain unported",
+        "live MultiLineCheck participant/provider admission and gameplay integration remain unresolved; a separate collector checks explicit callbacks",
         "sort is the pinned retained Core implementation, not a generic stable language sort",
         "shortening models finite Float64 intermediates and original Float32 stores; sqrt is a mathematical boundary",
         "filter requires actual Model node/surface identity and raw Actor+0x2e4 flags; raw bit has no inferred property name",

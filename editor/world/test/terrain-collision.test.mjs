@@ -69,6 +69,24 @@ test('native outer rejection uses dimensions minus two, without invented seam ce
   assert.equal(down(grid(), [1, 1, 1], -1, 30).visited, 0);
 });
 
+test('result-write stage distinguishes untouched outer misses from Actor-clearing traversal', () => {
+  const outside = down(grid(), [1, 1, 1], 300, 30);
+  assert.equal(outside.status, 'ready'); assert.equal(outside.blocked, false);
+  assert.equal(outside.enteredTraversal, false);
+  const source = grid(); source.visibility.fill(false);
+  const hidden = down(source);
+  assert.equal(hidden.blocked, false); assert.equal(hidden.enteredTraversal, true);
+  source.visibility.fill(true); source.deleteMe = true;
+  assert.equal(down(source).enteredTraversal, true);
+  const backward = traceTerrainSweep(grid(), [30, 30, -100], [30, 30, 100], [24, 24, 50]);
+  assert.equal(backward.blocked, false); assert.equal(backward.enteredTraversal, true);
+  const hit = down(grid());
+  assert.equal(hit.blocked, true); assert.equal(hit.enteredTraversal, true);
+  const unknown = traceTerrainSweep(grid(), [0, 0, 3e38], [0, 0, -3e38], [1, 1, 1]);
+  assert.equal(unknown.status, 'unsupported');
+  assert.equal(Object.hasOwn(unknown, 'enteredTraversal'), false);
+});
+
 test('Extent.Y is not substituted for the source Extent.X arithmetic', () => {
   assert.deepEqual(down(grid(), [24, 1, 50]), down(grid(), [24, 9000, 50]));
 });
