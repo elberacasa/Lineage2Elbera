@@ -6,6 +6,10 @@ shortening and final single-hit filtering against retained Interlude
 instructions. The browser module does not yet discover collision participants,
 compose a full level query, or drive the game's movement/camera.
 
+The separate [level collector](native-level-query-evidence.md) now composes
+explicit primitive/region/provider callbacks. It preserves these operations
+and the original phase order; live scene admission remains unfinished.
+
 This work complements the [BSP sweep](bsp-collision-source.md) and
 [camera investigation](native-camera-evidence.md). The separate mouse-picking
 `L2MultiLineCheck` path is not interchangeable with ordinary `MultiLineCheck`.
@@ -142,7 +146,8 @@ implemented by the three operations above:
 
 - World participation uses flag `0x04` and the caller's actual LevelInfo/model.
   Attached-level participation has a separate live global gate and ordered
-  level list. The global's identity and runtime value must not be guessed.
+  level list. The later collector check qualifies the name `GIsL2Seamless`;
+  its runtime value remains an explicit input and must not be guessed.
 - Terrain examines resolved zone slots `0..63`, enabled zone bit `0x04` at
   `+0x3d8`, and each zone's terrain array in order. Flag `0x100` skips terrain.
   A primitive hit must pass the current Model's `PointRegion` test against its

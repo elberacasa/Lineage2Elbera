@@ -128,9 +128,9 @@ export function traceTerrainSweep(source, start, end, extent, { flags = 0 } = {}
       || extent.some(x => x < 0) || !extent.some(x => x > 0))
     return unsupported('invalid-nonzero-extent-sweep');
   const model = checked.model, cells = [];
-  let hit = null;
+  let hit = null, enteredTraversal = false;
   const ready = () => ({ status: 'ready', scope: SCOPE, blocked: hit !== null,
-    hit, visited: cells.length, cells });
+    enteredTraversal, hit, visited: cells.length, cells });
   try {
     const a = transform(start, model.inverseCoords), b = transform(end, model.inverseCoords);
     const transformedX = transform(extent, model.inverseCoords, true)[0];
@@ -142,6 +142,11 @@ export function traceTerrainSweep(source, start, end, extent, { flags = 0 } = {}
       if ((s[axis] < 0 && e[axis] < 0) || (s[axis] > size - 2 && e[axis] > size - 2))
         return ready();
     }
+    // Native 0x10722a18 clears Result.Actor here, before cell conversion.
+    // An earlier ready miss leaves the caller's entire hit record untouched.
+    // Once entered, a miss clears Actor only; a hit also writes point/normal/
+    // time/Material(NULL). Item and node fields remain caller-owned values.
+    enteredTraversal = true;
     const cell = (value, size) => {
       // Native integer conversion outside signed DWORD range has a separate
       // exception/indefinite-result contract; do not imitate it with JS clamp.

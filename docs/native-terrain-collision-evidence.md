@@ -50,11 +50,14 @@ or restore calls in the owned image.
 | Optional comparison Engine | `508974c711f207402719e92737e211a2f029c95c2f68fc0e1c31fcbb9dbb232d` |
 | Optional comparison Core | `d83449b1cdf0ac717a98be9289caab03cb507324a696ef449e31369e28416639` |
 
-The checkpoint has **14 portable tests** and **100 synthetic actual-module
+The checkpoint has **15 portable tests** and **100 synthetic actual-module
 comparisons**, exercising 2,165 retained instruction addresses. The comparison
 covers exact Float32 bits of final point, normal and time, and exact visited
 cell order. Fixtures include slopes, both diagonals, inverted surfaces,
 hidden cells, forward/reverse traversal, and signed-zero normal components.
+The verifier also tracks actual result writes against unique sentinels and
+compares the complete 48-byte record after each query. This checks untouched
+fields as well as successful hit values.
 The verifier evaluates the retained Engine transform/direction prefix, Core
 coordinate helpers, nonzero-extent gate, candidate-cell loops and both triangle
 arithmetic branches. Prepared vertex and bitmap access is an explicit adapter;
@@ -140,6 +143,25 @@ inspection diagnostics; the native differential checks cell traversal and
 final point/normal/time, not every diagnostic independently. Actor, Item and
 Material fields are not fabricated by this primitive API. Caller hit-record
 association and world aggregation remain separate.
+
+Every ready result also exposes `enteredTraversal`, which identifies the
+native caller-record write stage. An outer-bounds rejection returns `false`
+and leaves the entire caller record untouched. At `0x10722a18`, after those
+bounds checks and before integer cell conversion, the native method clears
+only `Result.Actor` (`+0x04`); the metadata becomes `true`. A later miss,
+including hidden or deleted quads, therefore clears Actor only. A hit also
+writes Location (`+0x08`), Normal (`+0x14`), Time (`+0x24`), and Material
+(`+0x2c`, null in this admitted no-material path), then sets Actor to the
+terrain receiver. The caller must supply that receiver's identity.
+Next (`+0x00`), Item (`+0x20`) and node (`+0x28`) remain untouched.
+
+The two triangle branches' Material/Actor stores are pinned at
+`0x10721943/0x1072194a` and `0x107220a7/0x107220ae`. The checker propagates
+their actual interpreted writes into the same sentinel record used by the
+outer traversal; it does not infer those writes solely from a hit boolean.
+Unsupported results have no write-stage contract. Missing TerrainMap/vertices
+are still unsupported API inputs, even though the native early exits precede
+all result writes. Callers must not turn that unknown input into a clear world.
 
 The admitted path rejects owner transforms, flags `0x80000` (alternate
 original coordinates/bitmaps) and `0x1000` (material lookup), zero extent,
