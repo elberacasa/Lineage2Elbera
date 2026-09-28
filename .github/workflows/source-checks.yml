@@ -53,6 +53,8 @@ jobs:
         run: |
           node --test editor/world/test/terrain-collision.test.mjs editor/world/test/cylinder-collision.test.mjs editor/world/test/level-collision.test.mjs editor/world/test/level-query.test.mjs editor/world/test/bsp-region.test.mjs
           node --test editor/world/test/level-sweep-adapters.test.mjs editor/world/test/moveactor-arithmetic.test.mjs editor/world/test/actor-blocking.test.mjs editor/world/test/actor-transforms.test.mjs
+          node --test editor/world/test/actor-trace.test.mjs
+          python3 -m unittest discover -s tools/ui -p test_actor_trace_native.py
           python3 -m unittest discover -s tools/ui -p test_gmath_table.py
           node --test editor/world/test/static-sweep.test.mjs
           node --test editor/world/test/static-triangle.test.mjs

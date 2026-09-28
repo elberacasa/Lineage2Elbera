@@ -1,8 +1,9 @@
 # Browser port: path to a small test server
 
 Updated 28 September 2026. Recent source work joins original collision
-components through actor admission and nonzero query traversal. Live world and
-movement integration remain unfinished; numerical comparisons are not playtest
+components through actor admission, nonzero query traversal and original
+actor/pawn trace filtering. Live world and movement integration remain
+unfinished; numerical comparisons are not playtest
 acceptance.
 The older local research branch is preserved separately and is not a
 publication branch. The [coverage inventory](PORT-COVERAGE.md) records the
@@ -137,10 +138,14 @@ panel offers `giran-plaza` and `giran-statue` measured checkpoints.
 ## Ordered milestones and acceptance
 
 The immediate priority is to turn the recovered components into verified player
-behavior. First capture a fresh Online beginner-journey baseline and name its
-actual blockers. Then connect current actor fields, concrete primitive methods
-and level queries before changing camera or walking behavior. Verify those joins
-on representative real routes, alongside player/mob movement, attack and death
+behavior. The latest Online baseline reached the Newbie Helper, defeated a
+Gremlin, advanced to level 2 and retained progress after reconnect. The gemstone
+objective remains incomplete, and attempted body clicks exposed targeting and
+placement as investigation priorities. Connect current actor fields, concrete
+primitive methods and level queries before changing camera or walking behavior.
+The recovered [trace filters](native-actor-trace-evidence.md) are one part of
+that join; their explicit inputs do not establish live placement. Verify those
+joins on representative real routes, alongside player/mob movement, attack and death
 transitions. Continue through the complete beginner journey and operational
 gates below. A decoder or synthetic comparison is evidence for a component,
 not a replacement for that live acceptance pass.

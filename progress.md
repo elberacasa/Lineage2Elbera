@@ -2,6 +2,28 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original actor and pawn trace filters — 28 September 2026
+
+The existing collision module now implements ordinary AActor and APawn
+ShouldTrace, preserving category priority, exact DWORD results, source/controller
+exclusion, loader arguments and fields read after helpers. The Elbera checker
+compares 8,028 authored cases against retained instructions: 254,701 steps at
+199 addresses. Twelve portable browser-module tests include actual actor-tree,
+generic-bounds and cylinder joins; four interpreter tests need no client files.
+The 74 related browser tests and prior 6,600 blocking comparisons pass.
+Five deliberate flag/result/call mutations are rejected. A browser startup
+smoke reached the offline world with 42 tutorial voice buffers and no captured
+errors; its screenshots were inspected. This is startup regression coverage,
+not an Online collision acceptance run.
+
+This closes a component gap, not live placement. Original pawn flags can admit
+pawns to 0x86 traces, so treating spawn collision as static-only is unjustified.
+Current native fields, resource responses, complete actor membership, static
+primitive methods and spawn/world placement remain next dependencies. The
+browser still has provisional mesh recentering and feet-based actor positions;
+no targeting or full-map fix is claimed. This headless tool is repository source,
+outside existing standalone release archives. The full-port goal remains active.
+
 ## Reconnect restores unchanged status labels — 28 September 2026
 
 An ordinary beginner playtest reached the Newbie Helper, defeated a Gremlin

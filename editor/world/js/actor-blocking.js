@@ -1,4 +1,4 @@
-/** Elbera Tools — finite original actor blocking and MoveActor hit selection.
+/** Elbera Tools — finite original actor tracing, blocking and hit selection.
  * Explicit source fields and virtual predicate results only. No actor registry,
  * physics, class inference, spatial query or movement side effects supplied.
  */
@@ -62,6 +62,132 @@ const encroacher = (actor, helpers) => {
   if (physics === 14) return true;
   return physics === 13 && !pred(helpers, "isKConstraint", actor);
 };
+
+const byte = (actor, name) => {
+  const value = bits(actor, name);
+  if (value > 255) unknown(`source ${name} must be a byte`);
+  return value;
+};
+const traceFlags = (flags) => {
+  if (!uint(flags)) unknown("explicit trace flags DWORD required");
+  return flags;
+};
+const traceSource = (source) => {
+  if (source === undefined) unknown("explicit source actor or null required");
+  if (source !== null) identity(source);
+  return source;
+};
+
+/** Ordinary AActor::ShouldTrace (1052fe70). These source fields and method
+ * responses must be current; a rendered object does not establish them. Keep
+ * conditional reads/calls in native order, including source.IsBlockedBy(actor).
+ */
+export function actorShouldTrace(input) {
+  return ready(() => {
+    const { actor, flags, helpers } = input ?? {};
+    const level = field(actor, "levelIdentity");
+    if (level !== null) {
+      const info = call(helpers, "getLevelInfo", level);
+      if (info === null || typeof info === "boolean")
+        unknown("nonnull current LevelInfo identity required");
+      if (
+        identity(actor) !== info &&
+        !(bits(actor, "flags2e4") & 2) &&
+        traceFlags(flags) & 0x100
+      )
+        return { value: 0 };
+    }
+    traceFlags(flags);
+    const source = traceSource(input.source);
+    if (source !== null && bits(source, "bits74") & 0x10) return { value: 0 };
+    if (
+      bits(actor, "bits74") & 0x10 &&
+      source !== null &&
+      !pred(helpers, "isPawn", source)
+    )
+      return { value: 0 };
+    if (flags & 0x8000) return { value: (bits(actor, "bits74") >>> 2) & 1 };
+    if (flags & 0x2000) {
+      if (
+        field(actor, "primitive38") !== null &&
+        byte(actor, "drawTypeByte35") === 8
+      )
+        return { value: 1 };
+      if (
+        field(actor, "primitive104") !== null &&
+        byte(actor, "drawTypeByte35") === 2
+      )
+        return { value: 1 };
+    }
+    if (flags & 0x100) return { value: (bits(actor, "flags2e4") >>> 1) & 1 };
+    if (bits(actor, "bits74") & 2) return { value: flags & 0x80 };
+    if (!(flags & 0x10)) return { value: 0 };
+    if (flags & 0x20) {
+      const collision = bits(actor, "collisionBits");
+      return {
+        value: Number(!!(collision & 0x10) || (collision & 0x0c) === 0x0c),
+      };
+    }
+    if (flags & 0x40)
+      return {
+        value: Number(
+          source !== null &&
+            predicate(
+              call(helpers, "isBlockedBy", identity(source), identity(actor)),
+            ),
+        ),
+      };
+    return { value: 1 };
+  });
+}
+
+/** APawn::ShouldTrace (10617740). Loader response remains an explicit method
+ * boundary, with the original pawn overload's second argument 1. Subclasses
+ * with other overrides must not be routed here by a browser type guess.
+ */
+export function pawnShouldTrace(input) {
+  return ready(() => {
+    const { actor, flags, helpers } = input ?? {};
+    const source = traceSource(input?.source);
+    if (source !== null) {
+      if (identity(source) === identity(actor)) return { value: 0 };
+      const controller = field(actor, "controllerIdentity");
+      if (controller !== null && identity(source) === controller)
+        return { value: 0 };
+    }
+    traceFlags(flags);
+    if (!(flags & 0x10000)) {
+      const controller = field(actor, "controllerIdentity");
+      if (controller !== null) {
+        const state = call(helpers, "readController", controller);
+        if (bits(state, "flags41c") & 1) return { value: 0 };
+      }
+    }
+    if (
+      source !== null &&
+      bits(source, "flags64") & 2 &&
+      bits(actor, "flags678") & 8
+    )
+      return { value: 0 };
+    if (predicate(call(helpers, "checkLoadingResource", identity(actor), 1)))
+      return { value: 0 };
+    if (!(bits(actor, "flags2e4") & 2) && flags & 0x100) return { value: 0 };
+    if (
+      bits(actor, "bits74") & 0x10 &&
+      source !== null &&
+      !pred(helpers, "isPawn", source)
+    )
+      return { value: 0 };
+    if (flags & 0x8000) return { value: (bits(actor, "bits74") >>> 2) & 1 };
+    if (
+      flags & 0x2000 &&
+      field(actor, "primitive38") !== null &&
+      byte(actor, "drawTypeByte35") === 8
+    )
+      return { value: 1 };
+    return { value: flags & (bits(actor, "flags678") & 2 ? 0x86 : 1) };
+  });
+}
 
 /** Ordinary AActor::IsBasedOn includes the receiver itself and follows Base.
  * Null is explicit; missing/cyclic links never become an invented false result.
