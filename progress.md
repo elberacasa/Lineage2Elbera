@@ -2,6 +2,24 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Reconnect restores unchanged status labels — 28 September 2026
+
+An ordinary beginner playtest reached the Newbie Helper, defeated a Gremlin
+with the attack shortcut and received configured-server rewards: 145 EXP,
+10 SP and 43 Adena, reaching level 2. A fresh connection retained the level
+and currency. No tutorial gemstone appeared in the inspected quest inventory;
+that objective and complete camera/NPC/combat acceptance remain unfinished.
+
+The reconnect exposed disappearing CP/HP/MP/EXP labels. Status clear removed
+their canvases, but the shared bitmap-font cache skipped unchanged values on
+re-entry. The cache now reuses text only while its exact canvas remains the
+element's sole content. This repairs browser DOM ownership without changing
+source glyphs, game values or native layout claims. Three portable regression
+tests include the actual StatusWnd clear/update path; 54 related tests pass.
+Live entry/disconnect/re-entry restored all four labels with unchanged values
+and no captured browser warnings/errors. Remaining targeting/navigation and
+native UI parity gaps are not certified by this limited run.
+
 ## Original tutorial speech connected — 28 September 2026
 
 Mode-two packets now populate the recovered controller request, with signed
