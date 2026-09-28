@@ -2,6 +2,31 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Native class loading bits — 28 September 2026
+
+The sweep exporter now decodes the two class bits consumed by fresh mesh
+allocation from original native registrations, inheritance and the saved
+Core.Object class prefix. It emits a known-bit mask and value rather than
+inventing a complete current class word. The browser accepts this evidence
+when no explicit diagnostic class word is supplied, rejecting incomplete or
+mismatched metadata. All 480 checked meshes on Talking Island/Giran now prepare
+without the previous diagnostic flag override. Main-world integration remains
+unfinished; this is not a live map repair.
+
+The existing bounds verifier adds source bindings for two native registration
+prefixes and 26 Core regions, and compares both browser input forms in its
+256 original flag cases. The root prefix has portable variable-width,
+truncation and unsupported-layout checks. Forty-four related Node tests,
+43 portable exporter/record tests and ten interpreter tests pass. Existing
+600 bounds, 288 actor updates, 600 PostLoad and 128 constructor cases pass.
+The installed browser runner reached the offline world; the completed screenshot
+and state were inspected, with no captured errors. No Online acceptance claim.
+
+Original inputs and raw receipts stay private; all 17 README images remain.
+Next: connect prepared mesh resources and source actor state to the existing
+world population/query path. The full browser-client goal remains active and
+incomplete.
+
 ## Fresh static-mesh resource preparation — 28 September 2026
 
 The existing browser mesh module now prepares fresh original records through

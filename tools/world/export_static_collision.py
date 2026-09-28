@@ -456,6 +456,9 @@ class Audit:
         from check_picking_native import verify_static_mesh
         self.tile, self.proof = tile, verify_static_mesh()
         self.retain_sweep_data = retain_sweep_data
+        if retain_sweep_data:
+            from static_mesh_class_source import read_owned_loading_bits
+            self.class_loading = read_owned_loading_bits()
         source = ROOT / 'assets/interlude/maps' / (tile + '.unr')
         self.pkg, _ = load_package(source)
         self.inherited, self.defaults, sources = class_defaults()
@@ -506,6 +509,8 @@ class Audit:
                     licensee_version=pkg.licensee_version,
                     export_end=ex.serial_offset + ex.serial_size)
                 data.update(sourceClass=source_class, savedProperties=saved_properties)
+                if source_class == self.class_loading['sourceClass']:
+                    data['classLoading'] = self.class_loading
             referenced = sorted(set(data['materials']))
             if not self.retain_sweep_data:
                 del data['materials']

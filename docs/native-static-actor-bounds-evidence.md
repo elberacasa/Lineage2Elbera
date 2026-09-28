@@ -283,8 +283,9 @@ PostLoad/tree API:
 const prepared = prepareFreshStaticMeshTree(originalRecords, { classFlags });
 ```
 
-`classFlags` is required current native class state. The browser does **not** yet
-derive it from class registration, and a missing value is unsupported. This
+The explicit `classFlags` argument supplies current native class state for
+component comparisons. Without it, the entry requires the source-derived
+`classLoading` mask described below; missing evidence is unsupported. This
 entry is limited to a freshly allocated, resolved `Engine.StaticMesh`, file
 version 123, ordinary native class defaults and admitted saved properties.
 Reuse, custom templates, external default-object changes, script stacks and
@@ -358,6 +359,57 @@ no captured errors; it does not exercise the new entry through the live world.
 The reusable tools remain repository source outside the current standalone
 archives. Original inputs, raw listings and per-record receipts stay private.
 
+## Source-derived class loading bits
+
+The optional sweep exporter now adds `classLoading`, derived from the pinned
+native Object → Primitive → StaticMesh registration declarations and the
+original Core/Engine class packages. The browser can therefore call
+`prepareFreshStaticMeshTree(originalRecords)` without a diagnostic class word.
+The explicit `classFlags` argument remains available for component comparisons.
+
+The record carries a known-bit mask **0x408** and its decoded value. These are
+exactly the two class bits consumed by this preparation path: allocation's
+0x8 branch and configuration/localization's 0x400 branch. Both are clear in
+the qualified native chain. Other class bits are not supplied as current state.
+Missing masks, unresolved consumed bits, mismatched class identities, unknown
+scope and values outside the known mask are rejected rather than defaulted.
+
+The native UClass constructor adds 0x12 to its declared flags. Registration
+inherits the parent's flags through mask 0x000f86ec. The root's native
+constructor flags and its saved Core.u class flags differ, but neither supplies
+either consumed bit through this hierarchy. Engine.u has no serialized Class
+replacement for Primitive or StaticMesh. The root reader follows the bounded
+zero-script file-123 prefix through the actual ClassFlags field, preserving
+variable-width compact fields and rejecting truncated or unsupported layouts.
+
+Elbera's existing bounds verifier now binds two Engine registration prefixes,
+six explicit operand bindings, nine named imports and 26 exact Core regions,
+including constructor, registration, Link, Bind, PostLoad and root-prefix
+serialization. Twenty-two additional instruction anchors qualify prefix
+layout and the State table's boundary before the ClassFlags slot. The added
+helper is `tools/ui/static_mesh_class_source.py`; its hash is included in the
+verification receipt. The existing 256 native flag comparisons exercise both
+explicit-word and source-known-bit browser input forms.
+
+The two additional owned packages are required at their original local paths:
+
+| Input | SHA-256 |
+| --- | --- |
+| `assets/interlude/system/Engine.u` | `9b04ff5cb4258e84dfa8efbdd85d9121f3bdcb5822a9a21ca69d200d05a69761` |
+| `assets/interlude/system/Core.u` | `de5f0ee0a773327bce13c96622fd3c654cff7db88b9be065d1232590c140fda0` |
+
+The usual bounds-verifier command above reproduces the source qualification.
+`python3 tools/world/check_static_collision_records.py 17_25 22_22 --check`
+now also checks browser preparation using decoded class metadata by default;
+Node.js is required. All 480 per-map records pass without a diagnostic override.
+`--fresh-class-flags` remains an explicitly labeled diagnostic override.
+
+This is scoped to ordinary native registration and the pinned original
+packages/descriptors. It does not execute the full native class registry or
+support external class mutation, custom defaults or replacement classes.
+The main world still uses the older collision loader; live actor population,
+placement and complete resolved-object lifecycle remain unfinished.
+
 ## Next integration boundary
 
 `localBounds` must be the **current native mesh field**, not a box recomputed
@@ -365,8 +417,8 @@ from rendered vertices. The [source exporter](native-static-sweep-evidence.md#sa
 retains both serialized writes with exact offsets and hashes; the later box
 overwrites the first. Both records agree for all 480 checked per-map meshes.
 Saved mesh version eight and the bounded PostLoad path above are now qualified.
-Fresh initialization now has the bounded entry above, but current native class
-state, resolved-object lifecycle and later mutations remain separate. Source
+Fresh initialization now has the bounded entry above, but complete class state,
+resolved-object lifecycle and later mutations remain separate. Source
 bytes alone still do not establish live current bounds.
 
 Live actor population, original current transforms/flags, concrete primitive

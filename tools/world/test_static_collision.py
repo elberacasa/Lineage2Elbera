@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from l2lib import L2Error
 from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation
+from static_mesh_class_source import read_root_class_flags
 
 
 def compact(n):
@@ -275,6 +276,8 @@ class QualificationTest(unittest.TestCase):
             export_name=lambda e: e.name, import_name=lambda e: e.name)
         audit = Audit.__new__(Audit)
         audit.retain_sweep_data = sweep
+        audit.class_loading = dict(sourceClass='Engine.StaticMesh',
+            scope='ordinary-native-registration', mask=0x408, value=0)
         audit.packages, audit.meshes, audit.geometry = {'Fixture': pkg}, {}, {}
         return audit
 
@@ -309,7 +312,10 @@ class QualificationTest(unittest.TestCase):
         self.assertEqual(result['records'][0]['vertexCount'], 4)
         with self.assertRaisesRegex(ValueError, 'class config/localized'):
             check_fresh_preparation(audit.geometry, 0x400)
-        for invalid in (None, True, -1, 0x100000000, '0'):
+        from_source = check_fresh_preparation(audit.geometry)
+        self.assertEqual(from_source['records'], result['records'])
+        self.assertEqual(from_source['classStateEvidence'], 'decoded original native-registration loading bits')
+        for invalid in (True, -1, 0x100000000, '0'):
             with self.assertRaises(ValueError):
                 check_fresh_preparation(audit.geometry, invalid)
 
@@ -372,6 +378,48 @@ class QualificationTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             audit.sweep_output(rows)
         self.assertEqual(len(audit.sweep_output(rows, all_supported=True)['references']), 1)
+
+
+class RootClassPrefixTest(unittest.TestCase):
+    def fixture(self, *, flags=0x12345678, friendly=1, script_size=0):
+        raw = b'head!' + b''.join(compact(v) for v in (0, -65, 0, 130, friendly, 0))
+        raw += struct.pack('<iii', 17, 29, script_size) + bytes(22) + struct.pack('<I', flags)
+        ex = SimpleNamespace(serial_offset=5, serial_size=len(raw)-5,
+                             super_index=0, object_flags=0)
+        return SimpleNamespace(file_version=123, path='authored.u', data=raw,
+            exports=[ex], class_name_of=lambda e: 'Class', export_name=lambda e: 'Object',
+            name=lambda n: 'Object' if n == friendly else 'Other')
+
+    def test_class_prefix_tracks_variable_width_fields_without_guessing_offsets(self):
+        for friendly in (1, 128, 16385):
+            package = self.fixture(friendly=friendly)
+            result = read_root_class_flags(package)
+            self.assertEqual(result['flags'], 0x12345678)
+            self.assertEqual(result['sourceOffset'], len(package.data)-4)
+            self.assertEqual(result['prefixBytes'], len(package.data)-5)
+
+    def test_class_prefix_cannot_borrow_the_following_export(self):
+        package = self.fixture()
+        end = len(package.data)
+        package.data += bytes(128)
+        for boundary in range(6, end):
+            package.exports[0].serial_size = boundary-5
+            with self.assertRaises((ValueError, L2Error)):
+                read_root_class_flags(package)
+
+    def test_unknown_root_layouts_fail_instead_of_supplying_class_bits(self):
+        for mutation in (
+            lambda p: setattr(p, 'file_version', 122),
+            lambda p: setattr(p.exports[0], 'super_index', 1),
+            lambda p: setattr(p.exports[0], 'object_flags', 0x02000000),
+            lambda p: setattr(p, 'name', lambda n: 'Other'),
+            lambda p: p.exports.append(p.exports[0]),
+        ):
+            package = self.fixture()
+            mutation(package)
+            with self.assertRaises(ValueError): read_root_class_flags(package)
+        with self.assertRaisesRegex(ValueError, 'bytecode'):
+            read_root_class_flags(self.fixture(script_size=1))
 
 
 class MeshLoadTailTest(unittest.TestCase):

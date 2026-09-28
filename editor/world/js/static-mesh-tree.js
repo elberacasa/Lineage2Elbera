@@ -144,6 +144,21 @@ export function prepareLoadedStaticMeshTree(source, current) {
  * saved export flags never serve as current flags without these transitions.
  */
 export function prepareFreshStaticMeshTree(source, { classFlags } = {}) {
+  if (classFlags === undefined) {
+    const declared = source?.classLoading;
+    if (
+      declared?.scope !== "ordinary-native-registration" ||
+      declared.sourceClass !== source?.sourceClass ||
+      !uint(declared.mask) ||
+      !uint(declared.value) ||
+      (declared.mask & 0x408) !== 0x408 ||
+      (declared.value & ~declared.mask) !== 0
+    )
+      return fail("source-qualified native class loading bits required");
+    // This path consumes only 0x8 and 0x400. Other class bits remain unknown;
+    // the decoded mask must establish every bit that allocation reads.
+    classFlags = declared.value & 0x408;
+  }
   if (!uint(classFlags)) return fail("current native class flags required");
   if (classFlags & 0x400)
     return fail("class config/localized initialization is unresolved");

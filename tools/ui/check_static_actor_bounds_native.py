@@ -30,6 +30,7 @@ from actor_octree_admission_machine import AdmissionMachine, PartialWord
 from actor_octree_machine import MembershipMachine, snapshot
 from check_static_sweep_native import PreparationProgram, IDENTITY
 from check_hair_attachment_native import compare_call_block
+from static_mesh_class_source import qualify_registration, loading_bits
 from static_collision_source import (
     qualify_static_postload,
     qualify_static_mesh_constructor,
@@ -149,6 +150,15 @@ def qualify(program, core, candidate, candidate_core):
     )
     program.cache_id_global = int(constructor["cacheIdGlobal"], 16)
     loading = qualify_static_mesh_fresh_load(e, core, candidate, candidate_core)
+    registration = qualify_registration(e, core, candidate, candidate_core)
+    from l2lib import load_package
+
+    class_loading = loading_bits(
+        e,
+        core,
+        load_package(ROOT / "assets/interlude/system/Engine.u")[0],
+        load_package(ROOT / "assets/interlude/system/Core.u")[0],
+    )
     for block in loading["coreBlocks"]:
         start, end = int(block["start"], 16), int(block["end"], 16)
         PreparationProgram.add(
@@ -170,6 +180,8 @@ def qualify(program, core, candidate, candidate_core):
     program.receipt = dict(
         prerequisites=prior,
         freshLoading=loading,
+        classRegistration=registration,
+        classLoading=class_loading,
         staticBounds=dict(
             normalComparison=proof,
             body=body,
@@ -773,6 +785,10 @@ const rows=JSON.parse(fs.readFileSync(0,'utf8'));
 process.stdout.write(JSON.stringify(rows.map(({source,classFlags})=>{
  const r=api.prepareFreshStaticMeshTree(source,{classFlags});
  if(r.status!=='ready')throw Error(JSON.stringify(r));
+ const fromSource=api.prepareFreshStaticMeshTree(source);
+ if(JSON.stringify(fromSource.loadingFlags)!==JSON.stringify(r.loadingFlags)||
+    JSON.stringify(fromSource.postLoadWrites)!==JSON.stringify(r.postLoadWrites))
+   throw Error('source class bits differ from explicit current class state');
  return {loadingFlags:r.loadingFlags,writes:r.postLoadWrites};
 })));
 """
@@ -795,6 +811,12 @@ def fresh_loading_cases(program, runtime):
         class_flags = rng.getrandbits(32) & ~0x400
         source = dict(
             sourceClass="Engine.StaticMesh",
+            classLoading=dict(
+                sourceClass="Engine.StaticMesh",
+                scope="ordinary-native-registration",
+                mask=0x408,
+                value=class_flags & 0x408,
+            ),
             fileVersion=123,
             savedProperties=dict(
                 savedExportFlags=flags,
@@ -895,6 +917,7 @@ def fresh_loading_cases(program, runtime):
             program.receipt["freshLoading"]["declarations"]
         ),
         classFlags="explicit current input",
+        classInputForms=["explicit current word", "source-known allocation bits"],
         archivePayload="supplied boundary",
     )
 
@@ -978,6 +1001,9 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         verifierSHA256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         constructorQualifierSHA256=hashlib.sha256(
             Path(__file__).with_name("static_collision_source.py").read_bytes()
+        ).hexdigest(),
+        classQualifierSHA256=hashlib.sha256(
+            Path(__file__).with_name("static_mesh_class_source.py").read_bytes()
         ).hexdigest(),
         runtimeDependenciesSHA256={
             name: hashlib.sha256((Path(runtime).parent / name).read_bytes()).hexdigest()
