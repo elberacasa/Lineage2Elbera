@@ -55,9 +55,11 @@ jobs:
           node --test editor/world/test/static-sweep.test.mjs
           node --test editor/world/test/static-triangle.test.mjs
           node --test editor/world/test/static-mesh-tree.test.mjs editor/world/test/static-hit.test.mjs
+          node --test editor/world/test/static-mesh-cache.test.mjs
           python3 -m unittest discover -s tools/ui -p test_static_sweep_native.py
           python3 -m unittest discover -s tools/ui -p test_static_triangle_native.py
           python3 -m unittest discover -s tools/ui -p test_static_mesh_native.py
+          python3 -m unittest discover -s tools/ui -p test_static_mesh_cache_native.py
           python3 -m unittest discover -s tools/world -p test_static_collision.py
           python3 -m unittest discover -s tools/ui -p test_cylinder_collision_native.py
           python3 -m unittest discover -s tools/world -p test_export_terrain_collision.py

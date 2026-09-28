@@ -36,6 +36,9 @@ const store = (v) => {
 };
 const freeze = (a) => Object.freeze(a);
 
+/** Allows cache acquisition to reject foreign/unprepared geometry up front. */
+export const isPreparedStaticMeshTree = (model) => models.has(model);
+
 /** Snapshot the existing exporter record format once, without deriving planes,
  * rebuilding the tree or inferring placements/material identities. Shared
  * descendants are allowed; a cycle cannot complete the native traversal.
@@ -454,6 +457,25 @@ export function traceStaticMeshCollision(model, input) {
     );
   const tree = traceStaticMeshTree(model, { ...input, time: 1 });
   if (tree.status !== "ready") return fail(tree.reason);
+  return finishStaticMeshCollision(tree, input);
+}
+
+/** Finish the wrapper after the query's cache token has been released. The
+ * supplied-cache convenience entry above has no token to release itself.
+ */
+export function finishStaticMeshCollision(tree, input) {
+  const scope = "original-static-mesh-collision";
+  const fail = (reason) => freeze({ status: "unsupported", scope, reason });
+  if (
+    tree?.status !== "ready" ||
+    tree.scope !== "original-static-mesh-tree" ||
+    typeof tree.hit !== "boolean" ||
+    !tree.writes?.result ||
+    input?.arithmeticProfile !== "pc53-rne-math-sqrt" ||
+    input.actorIdentity == null ||
+    input.meshIdentity == null
+  )
+    return fail("original tree result and explicit source identities required");
   let result = { time: 1, ...tree.writes.result };
   if (tree.hit) {
     const adjusted = adjustStaticMeshHit({
