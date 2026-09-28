@@ -5,7 +5,10 @@ import {
   prepareStaticMeshTree,
   traceStaticMeshTree,
   traceStaticMeshCollision,
+  postLoadStaticMesh,
+  prepareLoadedStaticMeshTree,
 } from "../js/static-mesh-tree.js";
+import { prepareStaticMeshBounds } from "../js/actor-primitive-bounds.js";
 
 const identity = () => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 const mesh = () => ({
@@ -51,6 +54,137 @@ const trace = (source = mesh(), a = input(source)) => {
   assert.equal(r.status, "ready", r.reason);
   return r;
 };
+
+const loadedState = (extra = {}) => ({
+  objectFlags: 0x000f0004,
+  meshVersion: 8,
+  vertexCount: 3,
+  vertexArray: { count: 2, capacity: 4 },
+  localBounds: { min: [-0, -2, -3], max: [10, 20, 30], valid: 0 },
+  ...extra,
+});
+
+test("PostLoad returns original sparse resets without mutating unrelated resource state", () => {
+  const current = loadedState({ resourceIdentity: "authored-mesh" });
+  const before = structuredClone(current);
+  const r = postLoadStaticMesh(current);
+  assert.equal(r.status, "ready", r.reason);
+  assert.deepEqual(r.writes, {
+    objectFlags: 0x200f0004,
+    field1e4: 0,
+    field1e8: 0,
+    field1ec: 0,
+    vertexArray: { count: 3, capacity: 3, words: [0, 0, 0] },
+  });
+  assert.deepEqual(current, before);
+  assert.equal(Object.hasOwn(r.writes, "localBounds"), false);
+  assert.equal(Object.isFrozen(r.writes.vertexArray.words), true);
+});
+
+test("zero vertices remove previous array capacity and source flags retain unsigned bits", () => {
+  const r = postLoadStaticMesh(
+    loadedState({ objectFlags: 0xfffffeff, vertexCount: 0 }),
+  );
+  assert.equal(r.status, "ready", r.reason);
+  assert.equal(r.writes.objectFlags, 0xfffffeff);
+  assert.deepEqual(r.writes.vertexArray, { count: 0, capacity: 0, words: [] });
+});
+
+test("localized path stops after the superclass flag without reading mesh fields", () => {
+  const r = postLoadStaticMesh({
+    objectFlags: 0x100,
+    get meshVersion() {
+      throw Error("unreached mesh version");
+    },
+    get vertexArray() {
+      throw Error("unreached array");
+    },
+  });
+  assert.equal(r.status, "unsupported");
+  assert.deepEqual(r.writes, { objectFlags: 0x20000100 });
+});
+
+test("legacy minus-one and other older versions preserve their different reset boundaries", () => {
+  assert.deepEqual(
+    postLoadStaticMesh(loadedState({ meshVersion: -1 })).writes,
+    { objectFlags: 0x200f0004 },
+  );
+  for (const version of [-2147483648, 0, 6, 7]) {
+    const r = postLoadStaticMesh(loadedState({ meshVersion: version }));
+    assert.equal(r.status, "unsupported");
+    assert.deepEqual(r.writes, {
+      objectFlags: 0x200f0004,
+      field1e4: 0,
+      field1e8: 0,
+      field1ec: 0,
+    });
+  }
+});
+
+test("missing or invalid current state never silently becomes a fresh mesh", () => {
+  for (const extra of [
+    { objectFlags: undefined },
+    { objectFlags: -1 },
+    { meshVersion: undefined },
+    { meshVersion: 0x80000000 },
+    { meshVersion: 8.5 },
+    { vertexCount: -1 },
+    { vertexCount: 1000001 },
+    { vertexArray: undefined },
+    { vertexArray: { count: 2, capacity: 1 } },
+    { vertexArray: { count: 0 } },
+  ]) {
+    const r = postLoadStaticMesh(loadedState(extra));
+    assert.equal(r.status, "unsupported");
+    assert.equal(Object.hasOwn(r.writes, "vertexArray"), false);
+  }
+});
+
+test("loaded geometry joins post-load state, original bounds and the actual collision tree", () => {
+  const source = mesh(),
+    current = loadedState({ vertexCount: 999 });
+  const loaded = prepareLoadedStaticMeshTree(source, current);
+  assert.equal(loaded.status, "ready", loaded.reason);
+  assert.equal(loaded.postLoadWrites.vertexArray.count, source.vertices.length);
+  assert.deepEqual(loaded.localBounds, current.localBounds);
+  assert.notEqual(loaded.localBounds, current.localBounds);
+  assert.equal(Object.is(loaded.localBounds.min[0], -0), true);
+  current.localBounds.min[0] = 500;
+  const box = prepareStaticMeshBounds({
+    arithmeticProfile: "pc53-rne",
+    ownerFlags2f8: 0,
+    ownerIdentity: "actor",
+    localBounds: loaded.localBounds,
+    collisionModel: null,
+    readLocalToWorld: () => ({ status: "ready", matrix: identity() }),
+  });
+  assert.equal(box.status, "ready", box.reason);
+  assert.deepEqual(box.bounds.max, [10, 20, 30]);
+  const query = traceStaticMeshTree(loaded.model, input(source));
+  assert.equal(query.status, "ready", query.reason);
+  assert.equal(query.hit, true);
+});
+
+test("saved metadata does not qualify missing current state or repair an invalid box", () => {
+  const source = {
+    ...mesh(),
+    objectFlags: 0x000f0004,
+    loadTail: { fields: { "0x1dc": { value: 8 } } },
+    savedLocalBounds: loadedState().localBounds,
+  };
+  for (const current of [
+    undefined,
+    loadedState({ objectFlags: undefined }),
+    loadedState({ localBounds: undefined }),
+    loadedState({
+      localBounds: { min: [NaN, 0, 0], max: [1, 1, 1], valid: 1 },
+    }),
+  ])
+    assert.equal(
+      prepareLoadedStaticMeshTree(source, current).status,
+      "unsupported",
+    );
+});
 function secondTriangle(source, z) {
   source.vertices.push([0, 0, z], [10, 0, z], [0, 10, z]);
   source.indices.push(3, 4, 5);

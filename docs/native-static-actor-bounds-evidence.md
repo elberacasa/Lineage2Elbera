@@ -150,8 +150,9 @@ is not yet included in the existing standalone release archives.
 
 ## Bounded PostLoad path
 
-The same command now interprets `UStaticMesh.PostLoad` before another **600
-bounding-box queries**. These authored cases supply a current signed mesh
+The same command now compares the browser's `postLoadStaticMesh` with
+`UStaticMesh.PostLoad` before another **600 bounding-box queries**. These
+authored cases supply a current signed mesh
 version of at least eight, current UObject flags with `0x100` clear, valid
 nonaliasing array storage, successful allocation and a clear direction flag.
 They vary vertex counts, existing array sizes, object flags and mesh versions.
@@ -161,8 +162,12 @@ Original instructions preserve the local box, set UObject's `0x20000000` flag,
 clear mesh fields `+0x1e4/+0x1e8/+0x1ec`, and replace array `+0xd8` with one
 zeroed four-byte element per source vertex. The array calls are **FArray.Empty
 and FArray.AddZeroed**. They do not rebuild the box in this admitted branch.
-All mesh fields outside that explicit write set remain unchanged in the
-fixtures; subsequent bounds results match the prior browser comparisons.
+All modeled mesh fields outside that explicit write set remain unchanged in the
+fixtures. The JavaScript sparse writes match the interpreted object flag,
+three reset fields, array count/capacity and every zeroed element. Subsequent
+bounds results match the prior browser comparisons. The JSON receipt reports
+`postLoad.browserStateCompared: true` and fingerprints the tree module and
+its imported collision helpers.
 This adds 764,694 interpreted instructions at 676 addresses, reported separately
 from the 600 original bounds cases and 288 actor updates.
 
@@ -179,8 +184,50 @@ This does not establish the current conditions from saved exports. UObject's
 older mesh conversion/Build, failures and exceptions. The decoder now recovers
 saved version eight for all 480 examined per-map records; the object-loading
 and current-flag boundary still needs to be joined before those records can
-be treated as live current bounds. No runtime game or browser layout changed
-in this source-check milestone, and no new playtest or screenshot is claimed.
+be treated as live current bounds. The browser component has changed; the
+main world's collision loader does not yet call it. No Online acceptance or
+visual correction is claimed.
+
+### Browser resource preparation
+
+The existing `static-mesh-tree.js` now exports:
+
+```js
+const postLoad = postLoadStaticMesh({
+  objectFlags,             // current unsigned UObject flags
+  meshVersion,             // current signed field +0x1dc
+  vertexCount,             // current vertex-stream count
+  vertexArray: { count, capacity }, // current array +0xd8
+});
+
+const loaded = prepareLoadedStaticMeshTree(originalRecords, {
+  objectFlags,
+  meshVersion,
+  vertexArray: { count, capacity },
+  localBounds: { min, max, valid },
+});
+```
+
+`postLoadStaticMesh` returns immutable sparse `writes` and leaves its input
+unchanged. An unsupported result retains writes reached before that boundary:
+the object flag is set before localized loading, and version `-1` stops before
+the three field resets while other versions below eight stop afterward. Callers
+must preserve those writes and the unsupported status. Missing current flags
+produce no writes. The successful-storage browser profile admits at most
+1,000,000 vertices; this allocation cap is **not an original game limit**.
+
+`prepareLoadedStaticMeshTree` first validates/snapshots the original collision
+records and current box, then performs PostLoad with the actual vertex-stream
+count. It returns `model`, an owned immutable `localBounds`, and
+`postLoadWrites`. This joins resource preparation to the existing bounds/tree
+APIs; it does not execute the original archive or constructor. Saved export
+flags, `loadTail` metadata and `savedLocalBounds` cannot silently supply missing
+current fields. No box is recomputed from rendered geometry.
+
+Seven added portable tests cover these boundaries, empty arrays, unsigned
+flags, signed zero, mutation isolation and a composed bounds/tree query. The
+53 related browser tests and eight bounds-interpreter tests pass. The original
+2,600 tree/final-hit comparisons remain a separate regression check.
 
 ## Next integration boundary
 
