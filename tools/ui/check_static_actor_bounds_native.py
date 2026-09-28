@@ -30,7 +30,11 @@ from actor_octree_admission_machine import AdmissionMachine, PartialWord
 from actor_octree_machine import MembershipMachine, snapshot
 from check_static_sweep_native import PreparationProgram, IDENTITY
 from check_hair_attachment_native import compare_call_block
-from static_mesh_class_source import qualify_registration, loading_bits
+from static_mesh_class_source import (
+    qualify_registration,
+    loading_bits,
+    static_actor_loading_bits,
+)
 from actor_transform_source import (
     qualify_static_actor_loading,
     qualify_actor_collision_fields,
@@ -41,6 +45,7 @@ from static_collision_source import (
     qualify_static_postload,
     qualify_static_mesh_constructor,
     qualify_static_mesh_fresh_load,
+    qualify_packed_property_tags,
 )
 
 METHOD = "?GetCollisionBoundingBox@UStaticMesh@@UBE?AVFBox@@PBVAActor@@@Z"
@@ -160,12 +165,25 @@ def qualify(program, core, candidate, candidate_core):
     from l2lib import load_package
 
     engine_package = load_package(ROOT / "assets/interlude/system/Engine.u")[0]
+    core_package = load_package(ROOT / "assets/interlude/system/Core.u")[0]
     class_loading = loading_bits(
         e,
         core,
         engine_package,
-        load_package(ROOT / "assets/interlude/system/Core.u")[0],
+        core_package,
     )
+    actor_class_loading = static_actor_loading_bits(
+        e, core, engine_package, core_package
+    )
+    property_loading = qualify_packed_property_tags(core, candidate_core)
+    for start, end in [(0x1010B6D0, 0x1010B717), (0x10131090, 0x10131137)]:
+        PreparationProgram.add(
+            program,
+            core,
+            start,
+            end,
+            bytes(core.data[core.offset(start) : core.offset(end)]),
+        )
     for block in loading["coreBlocks"]:
         start, end = int(block["start"], 16), int(block["end"], 16)
         PreparationProgram.add(
@@ -254,6 +272,8 @@ def qualify(program, core, candidate, candidate_core):
         freshLoading=loading,
         classRegistration=registration,
         classLoading=class_loading,
+        actorClassLoading=actor_class_loading,
+        propertyLoading=property_loading,
         staticBounds=dict(
             normalComparison=proof,
             body=body,
@@ -291,13 +311,16 @@ class StaticBoundsMachine(AdmissionMachine):
         self.current = None
 
     def read(self, operand):
-        if operand == "al":
-            return self.registers["eax"] & 255
+        if operand in ("al", "cl"):
+            return self.registers[{"al": "eax", "cl": "ecx"}[operand]] & 255
         return super().read(operand)
 
     def write(self, operand, value, floating=False):
-        if operand == "al":
-            self.registers["eax"] = (self.registers["eax"] & 0xFFFFFF00) | (value & 255)
+        if operand in ("al", "cl"):
+            register = {"al": "eax", "cl": "ecx"}[operand]
+            self.registers[register] = (self.registers[register] & 0xFFFFFF00) | (
+                value & 255
+            )
             return
         return super().write(operand, value, floating)
 
@@ -336,8 +359,12 @@ class StaticBoundsMachine(AdmissionMachine):
         self.invoke(0x106F5CC0, mesh)
 
     def step(self, i):
-        if i.mnemonic == "sete" and i.op_str == "al":
-            self.write("al", int(self.zero))
+        if i.mnemonic == "not" and i.op_str in self.registers:
+            self.write(i.op_str, ~self.read(i.op_str) & 0xFFFFFFFF)
+            self.visited.append(i.address)
+            return i.address + i.size
+        if i.mnemonic == "sete" and i.op_str in ("al", "cl"):
+            self.write(i.op_str, int(self.zero))
             self.visited.append(i.address)
             return i.address + i.size
         if i.address in (0x105CD6C7, 0x105CD735):
@@ -770,6 +797,7 @@ def actor_loading_cases(program):
     actor, mesh, reference60, cls = 0x200000, 0x300000, 0x400000, 0x900000
     table = program.engine.exported("??_7AStaticMeshActor@@6B@")
     actor_counters = program.receipt["actorLoading"]["actorCounters"]
+    class_bits = program.receipt["actorClassLoading"]
     for index in range(192):
         m = StaticBoundsMachine(program)
         initial = {actor + off: rng.getrandbits(32) for off in range(0, 0x400, 4)}
@@ -829,7 +857,8 @@ def actor_loading_cases(program):
             {
                 actor + 0x1C: rng.getrandbits(32) & ~0x100,
                 actor + 0x24: cls,
-                cls + 0x4A4: rng.getrandbits(32) & ~0x20,
+                cls + 0x4A4: (rng.getrandbits(32) & ~class_bits["mask"])
+                | class_bits["value"],
                 actor + 0x278: mesh if index % 3 else 0,
                 actor + 0x1F4: 0,
                 mesh + 0x1C: rng.getrandbits(32),
@@ -864,6 +893,9 @@ def actor_loading_cases(program):
         postload_visited.update(m.visited)
     return dict(
         cases=192,
+        classLoadingBits={
+            key: class_bits[key] for key in ("mask", "value", "sourceClass", "scope")
+        },
         suppliedStorageBytes=0x400,
         construction=dict(
             instructions=constructor_steps,
@@ -877,7 +909,7 @@ def actor_loading_cases(program):
             referenceForms=["null", "reference278", "reference278-and-reference60"],
         ),
         limits=[
-            "Authored incoming storage/counters/current flags; no allocation/CDO/archive or live actor state derived.",
+            "Incoming storage/counters/object flags remain authored. Only class mask0x428 comes from original loading metadata; no allocation/CDO/archive or live actor state is derived.",
             "Object 0x100 and class 0x20 clear, empty attached array, nonaliasing references; SEH ordinary stack effects only.",
         ],
     )
@@ -1152,7 +1184,7 @@ def native_admission(program, operations):
                 writes=sorted(writes),
                 disposition=disposition,
                 boundsEvents=m.bound_events,
-                admissionEvents=[r for r in m.admission_events if r[0] != "remove"]
+                admissionEvents=[r for r in m.admission_events if r[0] != "remove"],
             )
         )
     return answers, m
@@ -1400,10 +1432,141 @@ def fresh_loading_cases(program, runtime):
     )
 
 
+def actor_boolean_loading_cases(program, runtime):
+    """Run the actual property gate and Boolean writer, including both returns.
+
+    Complete native words contain random unknown bits; the browser receives
+    only the supplied known subset. Compare that subset and every native write.
+    """
+    rng = random.Random(0x50524F50)
+    rows, expected, visited, steps = [], [], set(), 0
+    tags_checked = writes = rejected = 0
+    source_layout = program.receipt["actorFields"]["booleanLayout"]
+    for case in range(128):
+        # Half the cases retain all 82 original declaration masks/flags. The
+        # other half exercise every admission-bit combination and every Boolean bit slot.
+        layout = (
+            source_layout
+            if case < 64
+            else [
+                dict(
+                    offset="0x64",
+                    mask=0xFFFFFFFF,
+                    fields=[
+                        dict(
+                            name=f"authored{n}",
+                            mask=1 << n,
+                            propertyFlags=(rng.getrandbits(32) & ~0x20003000)
+                            | (0x1000 if n & 1 else 0)
+                            | (0x2000 if n & 2 else 0)
+                            | (0x20000000 if n & 4 else 0),
+                        )
+                        for n in range(32)
+                    ],
+                )
+            ]
+        )
+        archive = dict(
+            loading=bool(case & 1), saving=bool(case & 2), persistent=bool(case & 4)
+        )
+        m = StaticBoundsMachine(program)
+        actor, prop, ar, tag_ptr = 0x200000, 0x300000, 0x400000, 0x500000
+        m.memory.update({actor + n: rng.getrandbits(32) for n in range(0, 0x400, 4)})
+        fields, words, known = {}, {}, {}
+        for group in layout:
+            offset = int(group["offset"], 16)
+            mask = rng.getrandbits(32)
+            known[group["offset"]] = mask
+            words[group["offset"]] = dict(
+                mask=mask, value=m.memory[actor + offset] & mask
+            )
+            fields.update({f["name"]: (f, offset) for f in group["fields"]})
+        m.memory.update(
+            {
+                ar + 0x10: int(archive["loading"]),
+                ar + 0x14: int(archive["saving"]),
+                ar + 0x1C: int(archive["persistent"]),
+            }
+        )
+        tags = [dict(name=name, value=bool(rng.getrandbits(1))) for name in fields]
+        rng.shuffle(tags)
+        tags += [dict(name=t["name"], value=not t["value"]) for t in tags[::3]]
+        skipped = []
+        initial = {
+            at: value for at, value in m.memory.items() if actor <= at < actor + 0x400
+        }
+        last_values = dict(initial)
+        for index, tag in enumerate(tags):
+            field, offset = fields[tag["name"]]
+            m.memory.update(
+                {
+                    prop + 0x48: field["propertyFlags"],
+                    prop + 0x24: 0x10338240,
+                    prop + 0x78: field["mask"],
+                    tag_ptr: 0x8000 if tag["value"] else 0,
+                }
+            )
+            before = len(m.visited)
+            m.invoke(0x1010B6D0, prop, [ar])
+            admitted = m.registers["eax"]
+            assert admitted in (0, 1)
+            if admitted:
+                m.invoke(0x10131090, tag_ptr, [ar, prop, actor + offset, 0])
+            else:
+                skipped.append(index)
+            did_write = any(at in (0x101310F8, 0x10131101) for at in m.visited[before:])
+            if did_write:
+                key = hex(offset)
+                known[key] |= field["mask"]
+                writes += 1
+                assert (
+                    last_values[actor + offset] ^ m.memory[actor + offset]
+                ) & ~field["mask"] == 0
+                last_values[actor + offset] = m.memory[actor + offset]
+            assert {at: m.memory[at] for at in initial} == last_values
+        rows.append(dict(layout=layout, words=words, tags=tags, archive=archive))
+        expected.append(
+            dict(
+                status="ready",
+                scope="original-actor-boolean-loading",
+                skipped=skipped,
+                groups={
+                    key: dict(mask=mask, value=m.memory[actor + int(key, 16)] & mask)
+                    for key, mask in known.items()
+                },
+            )
+        )
+        tags_checked += len(tags)
+        rejected += len(skipped)
+        visited.update(m.visited)
+        steps += len(m.visited)
+    script = r"""
+const { applyActorBooleanTags } = await import(new URL('./actor-loading.js', process.argv[1]));
+let raw=''; for await (const part of process.stdin) raw+=part;
+process.stdout.write(JSON.stringify(JSON.parse(raw).map(applyActorBooleanTags)));
+"""
+    actual = browser_outputs(script, rows, Path(runtime))
+    assert len(actual) == len(expected)
+    for index, (a, b) in enumerate(zip(actual, expected)):
+        assert a == b, ("actor Boolean loading", index, a, b)
+    return dict(
+        cases=len(rows),
+        tags=tags_checked,
+        writes=writes,
+        rejected=rejected,
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        scope="supplied archive modes, declarations and incoming known bits",
+        preservedUnwrittenBits=True,
+        repeatedTags=True,
+    )
+
+
 def verify(engine, core, comparison_engine, comparison_core, runtime):
     program = load_program(engine, core, comparison_engine, comparison_core)
     actor_loading = actor_loading_cases(program)
     actor_fields = actor_field_cases(program)
+    actor_boolean_loading = actor_boolean_loading_cases(program, runtime)
     level_population = level_population_cases(program)
     level_loading = level_loading_cases(program, runtime)
     construction = constructor_cases(program)
@@ -1471,6 +1634,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         construction=construction,
         actorLoading=actor_loading,
         actorFields=actor_fields,
+        actorBooleanLoading=actor_boolean_loading,
         levelPopulation=level_population,
         levelLoading=level_loading,
         freshLoading=fresh_loading,
@@ -1552,6 +1716,7 @@ def main():
                         "construction",
                         "actorLoading",
                         "actorFields",
+                        "actorBooleanLoading",
                         "levelPopulation",
                         "levelLoading",
                         "freshLoading",

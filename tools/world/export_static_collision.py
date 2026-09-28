@@ -22,7 +22,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / 'tools'), str(ROOT / 'tools/dat'), str(ROOT / 'tools/ui')]
-from l2lib import L2Error, Reader, load_package, read_properties, encode_compact
+from l2lib import L2Error, Reader, load_package, read_properties, encode_compact, qualified_ref
 from convert import actor_prop_offset, read_props_ordered
 from export_npc_visuals import OriginalClasses, terminal_defaults
 
@@ -302,6 +302,9 @@ def class_defaults(*, retain_collision_fields=False):
                     raise ValueError('non-Boolean actor class default: ' + name)
         evidence[-1]['collisionBooleans'] = dict(
             layout=layout, zeroInitialized=zero_names,
+            defaultGroups={group['offset']: dict(mask=group['mask'], value=sum(
+                field['mask'] for field in group['fields'] if values[field['name']]))
+                for group in layout},
             scope='declared-class-default-bits; not current actor state')
     return values, evidence, catalog.sources
 
@@ -461,21 +464,6 @@ def actor_field_evidence(pkg):
             raise ValueError('unsupported collision field order')
     return records
 
-
-
-def qualified_ref(pkg, reference):
-    """Preserve every original outer/group; never choose by duplicate leaf name."""
-    parts, seen, last_import = [], set(), False
-    while reference:
-        if reference in seen: raise ValueError('cyclic object outer chain')
-        seen.add(reference)
-        obj = pkg.resolve_ref(reference)
-        last_import = reference < 0
-        parts.append(pkg.import_name(obj) if last_import else pkg.export_name(obj))
-        reference = obj.package_index
-    if not parts: raise ValueError('null mesh reference')
-    if not last_import: parts.append(Path(pkg.path).stem)
-    return '.'.join(reversed(parts))
 
 
 def eligible_materials(materials, referenced):
@@ -673,6 +661,7 @@ class Audit:
         if retain_sweep_data:
             from static_mesh_class_source import read_owned_loading_bits
             self.class_loading = read_owned_loading_bits()
+            self.actor_class_loading = read_owned_loading_bits(actor=True)
         source = ROOT / 'assets/interlude/maps' / (tile + '.unr')
         self.pkg, _ = load_package(source)
         if retain_sweep_data:
@@ -819,6 +808,7 @@ class Audit:
             'format': 'l2-static-sweep-source-v1', 'tile': self.tile,
             'sources': self.sources, 'nativeProof': self.proof,
             'classDefaults': self.defaults,
+            'actorClassLoading': self.actor_class_loading,
             'savedLevelBinding': self.level_binding,
             'meshes': {k: self.geometry[k] for k in sorted({r['mesh'] for r in selected})},
             'references': [{k: r[k] for k in ('name', 'mesh', 'exportRef', 'exportSHA256',

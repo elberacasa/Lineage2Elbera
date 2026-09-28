@@ -460,6 +460,51 @@ process.stdout.write(JSON.stringify(rows));
     )
 
 
+def check_boolean_preparation(actors, layout, defaults):
+    """Exercise actual saved tags with explicit persistent-load/CDO inputs.
+
+    Native differential verification is separate. This does not establish later
+    lifecycle state, class-default copying, reference resolution or map admission.
+    """
+    runtime = Path(__file__).resolve().parents[2] / "editor/world/js/actor-loading.js"
+    selected = [row for row in actors if "savedCollisionFlags" in row]
+    script = r"""
+import { pathToFileURL } from 'node:url';
+const { applyActorBooleanTags } = await import(pathToFileURL(process.argv[1]));
+let raw=''; for await (const part of process.stdin) raw+=part;
+const input=JSON.parse(raw);
+const results=input.actors.map(actor=>{
+  const tags=Object.entries(actor.savedCollisionFlags.overrides).map(([name,value])=>({name,value}));
+  const result=applyActorBooleanTags({layout:input.layout,words:input.defaults,tags,
+    archive:{loading:true,saving:false,persistent:true}});
+  if(result.status!=='ready') throw Error(actor.name+': '+result.reason);
+  return {actor:actor.name, groups:result.groups, skipped:result.skipped.map(i=>tags[i].name),
+    differsFromSaved:Object.keys(result.groups).some(key=>result.groups[key].value!==actor.savedCollisionFlags.groups[key].value)};
+});
+process.stdout.write(JSON.stringify(results));
+"""
+    result = subprocess.run(
+        ["node", "--input-type=module", "-e", script, str(runtime)],
+        input=json.dumps(dict(actors=selected, layout=layout, defaults=defaults)),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode:
+        raise ValueError("browser Boolean preparation failed: " + result.stderr.strip())
+    records = json.loads(result.stdout)
+    if [row["actor"] for row in records] != [row["name"] for row in selected]:
+        raise ValueError("browser Boolean preparation changed the source actor list")
+    return dict(
+        cases=len(records),
+        scope="source defaults and saved tags under explicit persistent-loading modes; not live state",
+        skippedTags=dict(Counter(name for row in records for name in row["skipped"])),
+        differsFromSaved=sum(row["differsFromSaved"] for row in records),
+        runtimeSHA256=hashlib.sha256(runtime.read_bytes()).hexdigest(),
+        records=records,
+    )
+
+
 def verify(tile, *, fresh_class_flags=None):
     audit = Audit(tile, retain_sweep_data=True)
     actors = audit.actors()
@@ -578,6 +623,12 @@ def verify(tile, *, fresh_class_flags=None):
         actorReferences=actor_references,
         levelActorOrder=level_order,
         classDefaults=audit.defaults,
+        actorClassLoading=audit.actor_class_loading,
+        persistentBooleanPreparation=check_boolean_preparation(
+            actors,
+            audit.boolean_layout,
+            audit.defaults[-1]["collisionBooleans"]["defaultGroups"],
+        ),
         meshes=len(records),
         triangles=sum(row["triangles"] for row in records),
         nodes=sum(row["nodes"] for row in records),
@@ -600,7 +651,7 @@ def verify(tile, *, fresh_class_flags=None):
         freshPreparation=check_fresh_preparation(audit.geometry, fresh_class_flags),
         limits=[
             "Actor transform operands round-trip saved properties or qualified class defaults; current actor state and matrices are not inferred.",
-            "Actor Boolean records preserve declared saved/default bits and map overrides; padding, transient-property loading and current lifecycle writes remain unqualified.",
+            "Actor Boolean records preserve declared saved/default bits and map overrides. Browser preparation exercises the qualified property gate under explicit persistent-load modes and incoming class-default bits; padding and later lifecycle writes are not inferred.",
             "Actor reference records re-encode original map tags and retain full package/group identities and qualified class-default origins. Current reference resolution and transient tag application are not inferred.",
             "Level arrays and audited export slots round-trip source order, including null/repeated references; later loading and population changes are not inferred.",
             "Exact decoded-package array byte round trip, including compact-index encoding and lazy saved ends.",
@@ -628,6 +679,7 @@ def main():
         report = verify(tile, fresh_class_flags=args.fresh_class_flags)
         if args.check:
             fresh = report["freshPreparation"]
+            booleans = report["persistentBooleanPreparation"]
             actor_count = len(report["actorTransforms"])
             actor_flags = len(report["actorFlags"])
             actor_references = len(report["actorReferences"])
@@ -648,11 +700,15 @@ def main():
                     "meshDuplicateTagRecords",
                     "selection",
                     "levelActorOrder",
+                    "actorClassLoading",
                 ]
             }
             report["actorTransformRecords"] = actor_count
             report["actorFlagRecords"] = actor_flags
             report["actorReferenceRecords"] = actor_references
+            report["persistentBooleanPreparation"] = {
+                k: v for k, v in booleans.items() if k != "records"
+            }
             if fresh is not None:
                 report["freshPreparation"] = {
                     k: v for k, v in fresh.items() if k != "records"

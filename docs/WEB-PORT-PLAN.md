@@ -41,9 +41,14 @@ Both original Level.PostLoad actor assignment loops now match the browser in
 192 cases with 1,875 ordered writes, preserving class/outer checks and the
 PlayerController exclusion. Saved reference recovery also checks all 20,454
 fields across the same 2,922 actors, keeping qualified mesh/level identities
-and default origins. Current registry population, transient-property application
-and LevelInfo collision mode still need the loading join before world queries
-can use these records.
+and default origins. The Boolean property gate and writer now match 9,792
+original tag operations.
+All 2,922 saved actor inputs preserve the same known bits under explicit
+persistent-load modes; none of their saved overrides in these groups is
+skipped. Source registration/package evidence also supplies StaticMeshActor
+class mask0x428 without inventing the rest of its word. Current reference
+resolution, script frames, registry population and LevelInfo collision mode
+still need the loading join before world queries can use these records.
 
 Next: feed these prepared mesh resources and original actor fields into the
 existing world-query components, preserving unresolved lifecycle boundaries. Validate

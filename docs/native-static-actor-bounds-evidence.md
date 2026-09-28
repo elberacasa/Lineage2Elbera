@@ -622,7 +622,7 @@ python3 -m unittest discover -s tools/world -p test_static_collision.py
 python3 -m unittest discover -s tools/ui -p test_static_actor_bounds_native.py
 ```
 
-Six browser-module cases, 57 portable record cases and 14 bounds-interpreter
+Ten browser-module cases, 58 portable record cases and 16 bounds-interpreter
 cases pass without original files. They cover ordering, lazy input consumption,
 nulls, unresolved ancestry, duplicate/malformed references, preserved group
 names and SETE's low-byte/flag behavior. The existing private record and bounds
@@ -634,6 +634,78 @@ inspector still reported no audited static surfaces loaded. This verifies
 startup only. No new Online query, map repair or UI screenshot is claimed.
 These additions remain repository Elbera Tools, outside the existing standalone
 release archives; original inputs and generated records stay private.
+
+## Static actor class bits and Boolean loading
+
+`static_mesh_class_source.py` now derives the consumed StaticMeshActor class
+mask `0x428` (allocation `0x408` and Actor.PostLoad `0x20`) with value zero.
+The owned Engine/Core DLLs and Engine.u/Core.u use the pinned editions above.
+Native Actor and StaticMeshActor registration prefixes are compared at
+`1083b5b0..1083b629` and `108497d0..10849844`, with named class, parent,
+constructor and import bindings. Core's native class constructor adds `0x12`;
+its inheritance mask is `0xf86ec`. The zero-script class reader checks the
+complete superclass identity in both the export and serialized prefix, rejects
+script bytecode rather than assuming its stored size, and retains the exact
+flag offset and prefix hash.
+
+Actor's native/saved flag alternatives are `0x812`/`0x813`; StaticMeshActor's
+are `0x12`/`0x212`. Their ordinary inherited alternatives agree on the consumed
+mask. This supplies those bits in the 192 actor PostLoad checks; other bits
+and object state remain explicit inputs. It is not a complete current class
+word or script-execution state. External class mutation, custom descriptors
+and full registry execution remain outside this evidence. Supplemental byte
+correspondence does not authenticate the archive or restore a protected client.
+
+The browser's existing `actor-loading.js` also exports `applyActorBooleanTags`.
+It takes linked `layout`, incoming `words` with explicit known-bit masks,
+ordered Boolean `tags`, and explicit `archive.loading`, `archive.saving` and
+`archive.persistent` booleans. It returns new `groups` and the indices of
+`skipped` tags. Source order and repeated tags are preserved. Unwritten bits
+remain unchanged and unknown padding stays unknown. Invalid inputs return
+`unsupported` without exposing partially written groups.
+
+The source binding covers the complete `UProperty.ShouldSerializeValue`
+method (`1010b6d0..1010b717`, including both returns), its named thunk and
+actual call in `UStruct.SerializeTaggedProperties`. UProperty.Serialize binds
+the declaration flags at `+0x48` to the saved DWORD serializer. The original
+rules are:
+
+- Flag `0x1000`: skip the property.
+- Flag `0x2000` with a persistent archive: skip it.
+- Flag `0x20000000` while saving: skip it.
+- Otherwise admit it; the Boolean value writer changes the actor word only
+  while loading, using the tag's high bit and the declaration's linked mask.
+
+The existing bounds verifier now interprets that gate and the original
+Boolean writer (`10131090..10131137`) in **128 comparisons covering 9,792
+tags, 3,861 writes and 2,072 skips**. Half the cases retain all 82 original
+field declarations; half exercise every tested flag combination and bit slot.
+The comparison executes 396,461 instructions at 65 addresses. Complete native
+words include random unknown bits; only the supplied known subset is exposed
+to the browser, and every unwritten native bit is checked. This is a bounded
+composition of the two methods, not execution of the entire archive loader.
+
+The private record command now exercises actual saved overrides with the
+source class-default bits and explicit persistent-load modes:
+
+```sh
+python3 tools/world/check_static_collision_records.py 17_25 22_22 --check
+```
+
+All **2,922 actor inputs** pass; none of their overrides in these four Boolean
+groups is skipped, and their results equal the previously retained saved
+bits. This resolves the property-gate question for that subset without
+claiming a map correction. The output includes `persistentBooleanPreparation`
+and its runtime hash; the sweep sidecar retains shared `defaultGroups` and
+source-derived `actorClassLoading`. Reference properties, script frames,
+class-default copying, later lifecycle writes and level startup still require
+their own join before live collision can consume the data.
+
+The complete-reference helper now lives in `l2lib.qualified_ref`, removing the
+class reader's dependency on the world exporter. It remains source-only and
+is exercised in the isolated Core kit; released archive versions are unchanged.
+The native verifier/runtime remain repository Elbera Tools. Original files,
+generated records and raw receipts are not release inputs.
 
 ## Next integration boundary
 
