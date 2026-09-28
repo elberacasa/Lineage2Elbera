@@ -75,8 +75,9 @@ python3 -m unittest discover -s tools/world -p test_static_collision.py
 Eleven browser cases cover rounding, signed zero, exact-zero adjustment,
 nonzero small deltas, negative scale, composing source matrices and explicit
 failure boundaries. Four interpreter cases cover integer flags, partial status
-writes, unknown calls and bounded execution. Twenty-five exporter/record tests
-cover source framing, qualification and round trips. CI runs all three sets.
+writes, unknown calls and bounded execution. Twenty-nine exporter/record tests
+cover source framing, qualification and round trips, including four new cases
+for both serialized mesh boxes and their byte boundaries. CI runs all three sets.
 
 The original-input differential reads pinned owned Engine.dll/Core.dll and
 requires explicit comparison images:
@@ -116,6 +117,41 @@ ordered node links, six bounds values and the validity byte. It also records
 source/export hashes and actor-to-mesh references. Planes are not normalized;
 the tree is not rebuilt. Signed zero is retained in the decoded records.
 
+### Saved mesh bounds
+
+Each mesh now also retains `nativeBodyOffset`, `baseSerializedBounds` and
+`savedLocalBounds`. Each box contains `min`, `max`, the original `valid` byte,
+`sourceOffset`, `sourceBytes: 25` and `sourceSHA256` for the exact decoded-package
+span. Coordinates must be finite; signed zero and every validity-byte value
+are retained. No normalization, vertex-derived replacement or validity repair
+is performed.
+
+The loader first serializes UPrimitive's box at mesh `+0x34`, followed by its
+16-byte sphere. After the compact-counted 14-byte sections, UStaticMesh writes
+another box to **the same field**. `savedLocalBounds` is this later saved value.
+The former parser's “saved render bounds” comment did not distinguish that
+overwrite. Default ray output still consumes neither box; complete sorted JSON output
+matches the previous exporter exactly for both checked maps.
+
+The record checker independently recovers both offsets from the native-body
+start and section count, re-encodes all coordinates/validity and checks the
+original bytes and SHA-256. It rejects shifted spans, changed values, hashes,
+validity and signed-zero loss. Original export boundaries prevent a truncated
+record from borrowing bytes from the next object.
+
+Both records match each other for all 193 checked meshes on `17_25` and all
+287 on `22_22`: **960 box records across 480 per-map mesh records**. These are
+not necessarily 480 globally distinct meshes. Choosing between the two boxes
+therefore does not explain a sizing difference in this checked subset.
+The source distinction still matters for correct extraction and other inputs.
+
+A separately qualified PostLoad block checks the signed field at `+0x1dc`
+against eight and invokes `UStaticMesh.Build` when it is lower. This does not
+establish the field's value for these saved meshes, execute Build or prove the
+absence of later changes. **Saved bounds are not yet qualified current bounds.**
+The [runtime static-box helper](native-static-actor-bounds-evidence.md) still
+requires the current mesh field and owner state.
+
 This mode uses exclusive creation and never changes a scene or legacy ray
 sidecar. It cannot be combined with `--emit`, `--audit` or `--references-only`.
 `--all-supported` explicitly selects the existing conservative actor/material
@@ -127,7 +163,7 @@ Current matrices and owner/material callbacks remain separate required state.
 include them in public tool archives or treat them as observed live actor state.
 
 A read-only checker freshly decodes the maps, re-encodes each admitted triangle
-and node array, and compares every byte with the original package, including
+and node array, plus both saved boxes, and compares every byte with the original package, including
 compact indices and lazy saved-end framing:
 
 ```sh
@@ -172,6 +208,28 @@ operand loads bind the compact-index serializer. ByteOrderSerialize delegates
 to the supplied archive's virtual Serialize. These are static bindings, not
 numerical execution of archive I/O. The earlier owned-only picking proof still
 cannot name those protected imports without the explicit supplemental images.
+
+The same command now includes `serializers.boundsLoader`, qualifying eight
+additional Engine regions for the file-123 prefix and its serializers:
+
+| Region | Owned range, exclusive end |
+| --- | --- |
+| UPrimitive normal serializer | `10645831..10645878` |
+| UStaticMesh prefix through second box | `106f7aa1..106f7b0f` |
+| Sphere serializer, both version branches | `105e98f0..105e9968` |
+| Section-array normal serializer | `106f7931..106f7a03` |
+| Section version branches | `103ec2fa..103ec315`, `103ec39f..103ec3ae` |
+| Section file-112-and-later fields | `103ec4dd..103ec54c` |
+| PostLoad Build gate only | `106f6197..106f61a7` |
+
+Named exports and direct thunks bind the serializer chain. Erased calls are
+matched to named Core imports; the four-byte `FArchive.Ver` getter at
+`10108b80..10108b84` is compared byte for byte. The section branch serializes
+one four-byte field and five two-byte fields. File123 selects that branch and
+the four-component sphere branch. The existing FBox serializer establishes six
+four-byte coordinates and one validity byte. These are static code bindings;
+archive I/O, allocation, legacy file versions, the rest of Serialize and the
+full PostLoad/Build methods are outside this added proof.
 
 All four binary inputs must match the fingerprints in the
 [actor-transform evidence](native-actor-transforms-evidence.md#source-bindings-and-edition).

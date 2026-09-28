@@ -150,9 +150,11 @@ is not yet included in the existing standalone release archives.
 ## Next integration boundary
 
 `localBounds` must be the **current native mesh field**, not a box recomputed
-from rendered vertices. Loader investigation has identified two serialized
-writes to that field; their exact source binding and extraction are the next
-step. Saved bytes alone will still not establish later post-load mutations.
+from rendered vertices. The [source exporter](native-static-sweep-evidence.md#saved-mesh-bounds) now
+retains both serialized writes with exact offsets and hashes; the later box
+overwrites the first. Both records agree for all 480 checked per-map meshes.
+A qualified PostLoad gate can call Build, so source bytes alone still do not
+establish later post-load mutations or current bounds.
 
 Live actor population, original current transforms/flags, concrete primitive
 query dispatch, auxiliary model implementations and movement callbacks remain

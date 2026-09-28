@@ -11,9 +11,9 @@ broader published milestones and remaining gaps.
 
 The [static actor bounds checkpoint](native-static-actor-bounds-evidence.md)
 now compares 600 original box results and 288 composed updates. The next
-placement dependency is recovering the effective serialized mesh box and
-following its later mutations, then supplying current actors to the original
-query components. Rendered mesh recentering remains provisional.
+placement dependency is following post-load mesh state and supplying current
+actors to the original query components. Both saved boxes are now retained with
+byte provenance; their loader overwrite is qualified. Rendered mesh recentering remains provisional.
 
 ## Product and scope
 

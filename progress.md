@@ -2,6 +2,27 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original serialized static-mesh bounds — 28 September 2026
+
+The existing collision exporter now retains both original boxes with exact
+source offsets, hashes and validity bytes in its optional sweep output. Source
+qualification establishes that UPrimitive and UStaticMesh write the same field;
+the later box is the effective serialized value. Eight Engine regions and the
+Core archive-version getter bind the prefix, sphere, sections and a separate
+PostLoad Build gate. They do not execute full loading or establish current bounds.
+
+Fresh checks compare 960 boxes across 480 per-map mesh records on 17_25/22_22,
+plus all previous triangle/node arrays. The two boxes agree for every checked
+mesh, so selecting one over the other does not explain sizing problems there.
+Four new portable boundary/mutation cases bring the exporter suite to 29; all
+800 original sweep comparisons pass. Default ray output matches the previous
+exporter exactly on both maps. No scenes or client inputs were rewritten.
+
+Next: extract the mesh state needed to decide the PostLoad path, qualify the
+current box, and join saved/current actor fields with source transforms and
+collision-tree population. The full-client goal remains active; neither source
+metadata nor a passing round trip proves playable maps or corrected placement.
+
 ## Original static-mesh actor bounds — 28 September 2026
 
 The existing primitive helper now implements the original static-mesh bounding
