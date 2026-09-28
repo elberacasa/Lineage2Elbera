@@ -2,11 +2,12 @@
 import struct
 from pathlib import Path
 import unittest
-from export_static_collision import Reader, mesh_body, qualified_ref, eligible_materials, Audit, flattened_reference_collisions, actor_record
+from copy import deepcopy
+from export_static_collision import Reader, mesh_body, mesh_load_tail, qualified_ref, eligible_materials, Audit, flattened_reference_collisions, actor_record
 from types import SimpleNamespace
 from unittest.mock import patch
 from l2lib import L2Error
-from check_static_collision_records import check_arrays, check_bounds
+from check_static_collision_records import check_arrays, check_bounds, check_load_tail
 
 
 def compact(n):
@@ -148,7 +149,7 @@ class StaticCollisionTest(unittest.TestCase):
 
     def test_default_ray_export_does_not_silently_grow_a_sweep_payload(self):
         parsed = mesh_body(Reader(body()))
-        for key in ['collisionTree', 'nativeBodyOffset', 'baseSerializedBounds', 'savedLocalBounds']:
+        for key in ['collisionTree', 'nativeBodyOffset', 'baseSerializedBounds', 'savedLocalBounds', 'loadTail']:
             self.assertNotIn(key, parsed)
 
     def test_collision_only_geometry_is_retained(self):
@@ -294,6 +295,127 @@ class QualificationTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             audit.sweep_output(rows)
         self.assertEqual(len(audit.sweep_output(rows, all_supported=True)['references']), 1)
+
+
+class MeshLoadTailTest(unittest.TestCase):
+    def fixture(self, licensee=17, *, origin=37, version=8, reference=-129,
+                opaque=b'\x01opaque synthetic bytes'):
+        # Authored bytes exercise framing; the opaque payload is not a raw
+        # triangle fixture and must never be described as decoded triangles.
+        prefix = b''
+        if licensee >= 6:
+            prefix += struct.pack('<I', 0xffffffff) + compact(-65) + compact(130)
+            prefix += struct.pack('<2I', 0x80000000, 0x7fc00001)
+        if licensee >= 7: prefix += struct.pack('<2I', 7, 8)
+        if licensee >= 11: prefix += struct.pack('<I', 11)
+        if licensee >= 13: prefix += struct.pack('<I', 13)
+        if licensee >= 14: prefix += struct.pack('<2I', 14, 15)
+        if licensee >= 15: prefix += struct.pack('<I', 16)
+        saved_end = origin + len(prefix) + 4 + len(opaque)
+        raw = bytes(origin) + prefix + struct.pack('<i', saved_end) + opaque
+        raw += struct.pack('<i', version) + compact(reference) + struct.pack('<I', 0xff800000)
+        return raw, origin, origin+len(prefix)
+
+    def parse(self, raw, origin, licensee=17):
+        return mesh_load_tail(Reader(raw, origin), file_version=123,
+                              licensee_version=licensee, export_end=len(raw))
+
+    def check(self, raw, origin, tail, licensee=17):
+        return check_load_tail(raw, dict(loadTail=tail, fileVersion=123, licenseeVersion=licensee),
+                               array_end=origin, export_end=len(raw))
+
+    def test_signed_version_references_and_unknown_word_bits_are_preserved(self):
+        for version in (-2147483648, -1, 0, 7, 8, 2147483647):
+            raw, origin, _ = self.fixture(version=version)
+            tail = self.parse(raw, origin)
+            self.assertEqual(tail['fields']['0x1dc']['value'], version)
+            self.assertEqual(tail['fields']['0x198']['value'], -65)
+            self.assertEqual(tail['fields']['0x19c']['value'], 130)
+            self.assertEqual(tail['fields']['0x1f0']['value'], -129)
+            self.assertEqual(tail['fields']['0x194']['value'], 0xffffffff)
+            self.assertEqual(tail['fields']['0x1a4']['value'], 0x7fc00001)
+            self.assertEqual(tail['fields']['0x1e0']['value'], 0xff800000)
+            self.assertEqual(self.check(raw, origin, tail)['savedMeshVersion'], version)
+
+    def test_each_licensee_gate_and_exact_export_end(self):
+        for licensee, count in [(0, 3), (5, 3), (6, 8), (7, 10), (10, 10),
+                                (11, 11), (12, 11), (13, 12), (14, 14),
+                                (15, 15), (16, 15), (17, 15), (65535, 15)]:
+            raw, origin, _ = self.fixture(licensee)
+            reader = Reader(raw + b'next export', origin)
+            tail = mesh_load_tail(reader, file_version=123,
+                                 licensee_version=licensee, export_end=len(raw))
+            self.assertEqual(reader.pos, len(raw))
+            self.assertEqual(len(tail['fields']), count)
+            self.assertEqual(tail['sourceOffset'] + tail['sourceBytes'], len(raw))
+            self.check(raw, origin, tail, licensee)
+
+    def test_lazy_payload_is_opaque_and_saved_end_controls_final_field(self):
+        for opaque in (b'\x00', bytes(range(256)), b'\xff' * 129):
+            raw, origin, _ = self.fixture(opaque=opaque)
+            tail = self.parse(raw, origin)
+            lazy = tail['lazyArray1c4']
+            self.assertEqual(lazy['payload']['sourceBytes'], len(opaque))
+            self.assertEqual(lazy['savedEnd'], tail['fields']['0x1dc']['sourceOffset'])
+            self.assertNotIn('count', lazy)
+            self.assertEqual(self.check(raw, origin, tail)['opaqueLazyPayloadBytes'], len(opaque))
+
+    def test_no_truncated_tail_can_borrow_from_next_export(self):
+        raw, origin, _ = self.fixture()
+        for end in range(origin+1, len(raw)):
+            reader = Reader(raw + bytes(200), origin)
+            with self.assertRaises((ValueError, L2Error)):
+                mesh_load_tail(reader, file_version=123, licensee_version=17, export_end=end)
+            self.assertEqual(reader.pos, origin)
+        with self.assertRaisesRegex(ValueError, 'does not end'):
+            self.parse(raw + b'\x00', origin)
+
+    def test_invalid_saved_ends_versions_and_boundaries_are_rejected(self):
+        raw, origin, lazy = self.fixture()
+        for end in (-1, 0, lazy, lazy+4, len(raw), len(raw)+1):
+            damaged = bytearray(raw)
+            struct.pack_into('<i', damaged, lazy, end)
+            with self.assertRaises((ValueError, L2Error)):
+                self.parse(damaged, origin)
+        for file_version, licensee in [(122, 17), (124, 17), (123.0, 17), (123, -1),
+                                      (123, 65536), (123, True), (123, 17.5)]:
+            with self.assertRaisesRegex(ValueError, 'source version'):
+                mesh_load_tail(Reader(raw, origin), file_version=file_version,
+                               licensee_version=licensee, export_end=len(raw))
+        for end in (None, True, -1, origin, len(raw)+1):
+            with self.assertRaisesRegex(ValueError, 'export boundary'):
+                mesh_load_tail(Reader(raw, origin), file_version=123,
+                               licensee_version=17, export_end=end)
+
+    def test_noncanonical_reference_encoding_is_not_silently_normalized(self):
+        raw, origin, _ = self.fixture(0, reference=0)
+        damaged = raw[:-5] + b'\x40\x00' + raw[-4:]
+        with self.assertRaisesRegex(ValueError, 'noncanonical'):
+            self.parse(damaged, origin, 0)
+
+    def test_round_trip_rejects_field_span_hash_payload_and_boundary_changes(self):
+        raw, origin, _ = self.fixture()
+        original = self.parse(raw, origin)
+        for mutate in [
+            lambda t: t['fields']['0x1dc'].update(value=7),
+            lambda t: t['fields']['0x1f0'].update(encoding='i32'),
+            lambda t: t['fields']['0x194'].update(sourceOffset=0),
+            lambda t: t['fields']['0x194'].update(sourceBytes=3),
+            lambda t: t['fields']['0x194'].update(sourceSHA256='0'*64),
+            lambda t: t['fields'].pop('0x1bc'),
+            lambda t: t['fields'].update(unknown={}),
+            lambda t: t['lazyArray1c4'].update(savedEnd=0),
+            lambda t: t['lazyArray1c4']['payload'].update(sourceSHA256='0'*64),
+            lambda t: t.update(sourceBytes=1),
+        ]:
+            tail = deepcopy(original)
+            mutate(tail)
+            with self.assertRaises(ValueError): self.check(raw, origin, tail)
+        damaged = bytearray(raw)
+        damaged[original['lazyArray1c4']['payload']['sourceOffset']] ^= 1
+        with self.assertRaises(ValueError): self.check(damaged, origin, original)
+        with self.assertRaisesRegex(ValueError, 'span differs'):
+            self.check(raw, origin+1, original)
 
 
 class ActorAdmissionTest(unittest.TestCase):

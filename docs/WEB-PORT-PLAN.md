@@ -10,10 +10,12 @@ publication branch. The [coverage inventory](PORT-COVERAGE.md) records the
 broader published milestones and remaining gaps.
 
 The [static actor bounds checkpoint](native-static-actor-bounds-evidence.md)
-now compares 600 original box results and 288 composed updates. The next
-placement dependency is following post-load mesh state and supplying current
-actors to the original query components. Both saved boxes are now retained with
-byte provenance; their loader overwrite is qualified. Rendered mesh recentering remains provisional.
+now compares 600 original box results, 288 composed updates and 600 bounded
+PostLoad-to-bounds cases. The source decoder recovers saved mesh version eight
+for 480 per-map records through exact export ends. The admitted PostLoad branch
+preserves the box, but current object initialization/flags still need to be
+joined to saved state. Then current actors must populate the original query
+components. Rendered mesh recentering remains provisional.
 
 ## Product and scope
 

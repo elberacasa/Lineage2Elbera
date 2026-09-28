@@ -30,6 +30,7 @@ from actor_octree_admission_machine import AdmissionMachine, PartialWord
 from actor_octree_machine import MembershipMachine, snapshot
 from check_static_sweep_native import PreparationProgram, IDENTITY
 from check_hair_attachment_native import compare_call_block
+from static_collision_source import qualify_static_postload
 
 METHOD = "?GetCollisionBoundingBox@UStaticMesh@@UBE?AVFBox@@PBVAActor@@@Z"
 LOCAL = "?LocalToWorld@AActor@@UBE?AVFMatrix@@XZ"
@@ -100,6 +101,22 @@ def qualify(program, core, candidate, candidate_core):
         e.instruction(*anchor)
     program.static_bounds_thunk = e.exported(METHOD)
     program.local_thunk = e.exported(LOCAL)
+    postload = qualify_static_postload(e, core, candidate, candidate_core)
+    for image, blocks in [
+        (e, postload["engineBlocks"]),
+        (core, postload["coreBlocks"]),
+    ]:
+        for block in blocks:
+            start, end = int(block["start"], 16), int(block["end"], 16)
+            raw = bytes(image.data[image.offset(start) : image.offset(end)])
+            PreparationProgram.add(program, image, start, end, raw)
+    start, end = 0x106F5CC0, 0x106F5CE1
+    postload["ordinaryFrame"] = PreparationProgram.add(
+        program, e, start, end, bytes(e.data[e.offset(start) : e.offset(end)])
+    )
+    program.import_targets.update(
+        {int(at, 16): int(row["target"], 16) for at, row in postload["imports"].items()}
+    )
     program.receipt = dict(
         prerequisites=prior,
         staticBounds=dict(
@@ -113,6 +130,7 @@ def qualify(program, core, candidate, candidate_core):
                 "Supplemental correspondence does not authenticate archive origin.",
             ],
         ),
+        staticPostLoad=postload,
     )
     return program
 
@@ -147,7 +165,39 @@ class StaticBoundsMachine(AdmissionMachine):
             valid=valid & 255,
         )
 
+    def postload(self, mesh):
+        version, flags = self.memory[mesh + 0x1DC], self.memory[mesh + 0x1C]
+        assert (
+            type(version) is int and 8 <= version <= 0x7FFFFFFF
+        ), "unadmitted mesh version"
+        assert (
+            type(flags) is int and 0 <= flags <= 0xFFFFFFFF and not flags & 0x100
+        ), "unadmitted current object flags"
+        count = self.memory[mesh + 0x7C]
+        assert type(count) is int and 0 <= count <= 0x100000, "unadmitted vertex count"
+        self.array(mesh + 0xD8)  # explicit, valid supplied storage
+        ptr, capacity = self.memory[mesh + 0xD8], self.memory[mesh + 0xE0]
+        assert (
+            not capacity or ptr + capacity * 4 <= mesh or mesh + 0x1F4 <= ptr
+        ), "mesh aliases array storage"
+        self.invoke(0x106F5CC0, mesh)
+
     def step(self, i):
+        if i.mnemonic in ("rep stosd", "rep stosb"):
+            # Explicit ordinary ABI profile: direction flag clear. Preserve
+            # unknown surrounding bytes, as with the existing byte stores.
+            width = 4 if i.mnemonic == "rep stosd" else 1
+            count = self.registers["ecx"]
+            assert type(count) is int and 0 <= count <= 0x100000
+            for _ in range(count):
+                self.write(
+                    "dword ptr [edi]" if width == 4 else "byte ptr [edi]",
+                    self.registers["eax"] & (0xFFFFFFFF if width == 4 else 255),
+                )
+                self.registers["edi"] += width
+            self.registers["ecx"] = 0
+            self.visited.append(i.address)
+            return i.address + i.size
         if i.address in (0x106FE764, 0x106FE7BB):
             sp = self.registers["esp"]
             dest = self.memory[sp]
@@ -263,6 +313,48 @@ def native_one(program, row):
     m = StaticBoundsMachine(program)
     setup_actor(m, row)
     m.invoke(0x106FE700, 0x300000, [0x600000, 0x200000])
+    assert m.registers["eax"] == 0x600000
+    return dict(bounds=hexes(m.box(0x600000)), events=m.bound_events), m
+
+
+def native_postload_one(program, row, index):
+    """Execute PostLoad before the same bounds query with explicit current state."""
+    m = StaticBoundsMachine(program)
+    mesh = 0x300000
+    m.memory.update({mesh + offset: 0x13579BDF for offset in range(0, 0x1F4, 4)})
+    setup_actor(m, row, mesh=mesh)
+    flags = [0, 0x000F0004, 0x20000000, 0xFFFFFEFF][index % 4]
+    count = [0, 1, 2, 7, 64, 257][index % 6]
+    old_count = [0, 1, 9, 3, 16][index % 5]
+    capacity = old_count + (index % 3)
+    ptr = m.allocate(capacity * 4)
+    m.memory.update({ptr + i * 4: 0xA5A5A5A5 for i in range(capacity)})
+    m.memory.update(
+        {
+            mesh + 0x1C: flags,
+            mesh + 0x1DC: [8, 9, 0x7FFFFFFF][(index // 6) % 3],
+            mesh + 0x7C: count,
+            mesh + 0xD8: ptr,
+            mesh + 0xDC: old_count,
+            mesh + 0xE0: capacity,
+        }
+    )
+    before = {at: value for at, value in m.memory.items() if mesh <= at < mesh + 0x1F4}
+    m.postload(mesh)
+    expected = {
+        **before,
+        mesh + 0x1C: flags | 0x20000000,
+        mesh + 0xD8: m.memory[mesh + 0xD8],
+        mesh + 0xDC: count,
+        mesh + 0xE0: count,
+        mesh + 0x1E4: 0,
+        mesh + 0x1E8: 0,
+        mesh + 0x1EC: 0,
+    }
+    assert {at: m.memory[at] for at in before} == expected
+    assert m.array(mesh + 0xD8) == [0] * count
+    assert hexes(m.box(mesh + 0x34)) == hexes(row["localBounds"])
+    m.invoke(0x106FE700, mesh, [0x600000, 0x200000])
     assert m.registers["eax"] == 0x600000
     return dict(bounds=hexes(m.box(0x600000)), events=m.bound_events), m
 
@@ -489,6 +581,12 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
     assert len(actual) == len(expected)
     for n, (a, b) in enumerate(zip(actual, expected)):
         assert a == b, (n, rows[n], a, b)
+    postload_steps, postload_visited = 0, set()
+    for n, row in enumerate(rows):
+        result, m = native_postload_one(program, row, n)
+        assert result == expected[n], ("PostLoad bounds", n, result, expected[n])
+        postload_steps += len(m.visited)
+        postload_visited.update(m.visited)
     sequences = admission_fixtures()
     joined = []
     counts = {}
@@ -523,6 +621,13 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         dispositions=counts,
         instructions=steps,
         uniqueInstructions=len(visited),
+        postLoad=dict(
+            cases=len(rows),
+            instructions=postload_steps,
+            uniqueInstructions=len(postload_visited),
+            boundsUnchanged=True,
+            directionFlag="clear",
+        ),
         source=program.receipt,
         runtimeSHA256=hashlib.sha256(Path(runtime).read_bytes()).hexdigest(),
         verifierSHA256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
@@ -537,6 +642,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         limits=[
             "Finite authored inputs, PC53/RNE and supplied current matrices/auxiliary boxes; not live placement.",
             "FBox padding remains partially unknown; only numeric coordinates and validity byte are compared.",
+            "PostLoad cases supply current version>=8, flags &0x100 clear, valid nonaliasing storage and successful allocation with direction flag clear. Saved data does not prove those current conditions.",
         ],
     )
 
@@ -574,6 +680,7 @@ def main():
                         "dispositions",
                         "instructions",
                         "uniqueInstructions",
+                        "postLoad",
                     ]
                 }
                 if a.check

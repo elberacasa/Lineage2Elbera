@@ -22,7 +22,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / 'tools'), str(ROOT / 'tools/dat'), str(ROOT / 'tools/ui')]
-from l2lib import L2Error, Reader, load_package, read_properties
+from l2lib import L2Error, Reader, load_package, read_properties, encode_compact
 from convert import actor_prop_offset, read_props_ordered
 from export_npc_visuals import OriginalClasses, terminal_defaults
 
@@ -167,6 +167,63 @@ def mesh_body(r, *, lazy_collision=False, export_end=None, retain_sweep_data=Fal
         result.update(nativeBodyOffset=body_offset, baseSerializedBounds=base_bounds,
                       savedLocalBounds=saved_bounds)
     return result
+
+
+def mesh_load_tail(r, *, file_version, licensee_version, export_end):
+    """Recover file123's remaining saved fields without interpreting raw triangles.
+
+    Native field offsets identify unknown words; they are not asset meanings.
+    The original lazy loader seeks an absolute saved end. Preserve that opaque
+    span's hash rather than pretending to decode it. This is serialized state,
+    not a replacement for UStaticMesh.PostLoad or object-reference resolution.
+    """
+    if type(file_version) is not int or file_version != 123 or type(licensee_version) is not int or not 0 <= licensee_version <= 65535:
+        raise ValueError('unsupported mesh load-tail source version')
+    if type(export_end) is not int or not 0 <= r.pos < export_end <= len(r.data):
+        raise ValueError('invalid mesh load-tail export boundary')
+    original = r
+    r = Reader(memoryview(r.data)[:export_end], r.pos, r.path)
+    start, fields = r.pos, {}
+
+    def span(offset, end):
+        return dict(sourceOffset=offset, sourceBytes=end-offset,
+                    sourceSHA256=sha(r.data[offset:end]))
+
+    def field(offset, encoding='u32'):
+        at = r.pos
+        if encoding == 'compact-reference':
+            value = r.compact()
+            if bytes(r.data[at:r.pos]) != encode_compact(value):
+                raise ValueError('noncanonical mesh load-tail reference')
+        else:
+            value = r.i32() if encoding == 'i32' else r.u32()
+        fields[hex(offset)] = dict(encoding=encoding, value=value, **span(at, r.pos))
+
+    if licensee_version >= 6:
+        field(0x194)
+        field(0x198, 'compact-reference')
+        field(0x19c, 'compact-reference')
+        field(0x1a0)
+        field(0x1a4)
+    for minimum, offsets in [(7, [0x1a8, 0x1ac]), (11, [0x1b0]),
+                             (13, [0x1b4]), (14, [0x1b8, 0x1bc]), (15, [0x1c0])]:
+        if licensee_version >= minimum:
+            for offset in offsets:
+                field(offset)
+    lazy_start = r.pos
+    saved_end = r.i32()
+    if not r.pos < saved_end <= export_end:
+        raise ValueError('invalid mesh load-tail lazy saved end')
+    lazy = dict(savedEnd=saved_end, **span(lazy_start, saved_end),
+                payload=span(r.pos, saved_end))
+    r.pos = saved_end
+    field(0x1dc, 'i32')
+    field(0x1f0, 'compact-reference')
+    field(0x1e0)
+    if r.pos != export_end:
+        raise ValueError('mesh load-tail does not end at original export boundary')
+    original.pos = r.pos
+    return dict(**span(start, r.pos), fields=fields, lazyArray1c4=lazy)
 
 
 def class_defaults():
@@ -432,6 +489,10 @@ class Audit:
             data = mesh_body(r, lazy_collision=pkg.licensee_version >= 17,
                              export_end=ex.serial_offset + ex.serial_size,
                              retain_sweep_data=self.retain_sweep_data)
+            if self.retain_sweep_data:
+                data['loadTail'] = mesh_load_tail(r, file_version=pkg.file_version,
+                    licensee_version=pkg.licensee_version,
+                    export_end=ex.serial_offset + ex.serial_size)
             referenced = sorted(set(data['materials']))
             if not self.retain_sweep_data:
                 del data['materials']
@@ -515,6 +576,7 @@ class Audit:
             'limits': [
                 'Saved source geometry, not live actor/cache state or a collision query.',
                 'savedLocalBounds is the later serialized mesh field; baseSerializedBounds preserves the overwritten primitive record. PostLoad/current mutations remain separate.',
+                'loadTail preserves saved fields by native offset and an opaque lazy-array span. References are encoded package indices, not resolved objects; field 0x1dc is the signed saved version, not proof of current state.',
                 'Node links and bounds and triangle planes retain source order; no tree rebuild or plane normalization.',
                 'Current actor matrices, query state and owner/material callbacks must be supplied separately.',
                 'Existing conservative actor/material selection gates remain in force.',

@@ -75,9 +75,10 @@ python3 -m unittest discover -s tools/world -p test_static_collision.py
 Eleven browser cases cover rounding, signed zero, exact-zero adjustment,
 nonzero small deltas, negative scale, composing source matrices and explicit
 failure boundaries. Four interpreter cases cover integer flags, partial status
-writes, unknown calls and bounded execution. Twenty-nine exporter/record tests
-cover source framing, qualification and round trips, including four new cases
-for both serialized mesh boxes and their byte boundaries. CI runs all three sets.
+writes, unknown calls and bounded execution. Thirty-six exporter/record tests
+cover source framing, qualification and round trips, including both saved boxes,
+licensee tail gates, signed versions, opaque lazy spans and exact export ends.
+CI runs all three sets.
 
 The original-input differential reads pinned owned Engine.dll/Core.dll and
 requires explicit comparison images:
@@ -146,11 +147,36 @@ therefore does not explain a sizing difference in this checked subset.
 The source distinction still matters for correct extraction and other inputs.
 
 A separately qualified PostLoad block checks the signed field at `+0x1dc`
-against eight and invokes `UStaticMesh.Build` when it is lower. This does not
-establish the field's value for these saved meshes, execute Build or prove the
-absence of later changes. **Saved bounds are not yet qualified current bounds.**
+against eight and invokes `UStaticMesh.Build` when it is lower. The tail recovery
+below now establishes a saved value of eight for all 480 checked mesh records.
+The [bounded PostLoad check](native-static-actor-bounds-evidence.md#bounded-postload-path)
+preserves the box under explicit current-state conditions. It does not prove
+those conditions for live objects. **Saved bounds are not yet live current bounds.**
 The [runtime static-box helper](native-static-actor-bounds-evidence.md) still
 requires the current mesh field and owner state.
+
+### Saved load tail
+
+The optional source output also contains `loadTail`: exact span/hash, `fields`
+keyed by native field offset, and `lazyArray1c4`. File version 123 is required.
+The decoder follows the original licensee gates at 6, 7, 11, 13, 14 and 15,
+preserves compact object-reference indices, and seeks the lazy array's absolute
+saved end before reading `+0x1dc`, `+0x1f0` and `+0x1e0`. It must finish exactly
+at the original export end. Truncation, invalid ends, trailing bytes and
+noncanonical reference encodings are rejected.
+
+`+0x1dc` is retained as a signed 32-bit version; unknown four-byte fields remain
+unsigned words so every bit survives without assigning an unsupported meaning.
+References are saved indices, not resolved pointers. `lazyArray1c4` records its
+header, saved end and opaque payload spans/hashes. It does **not** report a
+triangle count or claim to decode that payload's elements.
+
+The record checker re-encodes the declared fields, verifies the original lazy
+header and hashes the opaque span. It derives the tail start from the checked
+collision arrays and requires the source export's exact end. Both maps retain
+their previous admitted geometry counts, and `savedMeshVersions` reports
+`8: 193` for `17_25` and `8: 287` for `22_22`. These are saved-state observations,
+not evidence that native loading, callbacks or PostLoad ran in the browser.
 
 This mode uses exclusive creation and never changes a scene or legacy ray
 sidecar. It cannot be combined with `--emit`, `--audit` or `--references-only`.
@@ -163,8 +189,9 @@ Current matrices and owner/material callbacks remain separate required state.
 include them in public tool archives or treat them as observed live actor state.
 
 A read-only checker freshly decodes the maps, re-encodes each admitted triangle
-and node array, plus both saved boxes, and compares every byte with the original package, including
-compact indices and lazy saved-end framing:
+and node array, both saved boxes and the decoded load-tail fields. It compares
+their original bytes and separately checks the opaque tail payload's hash,
+including compact indices and lazy saved-end framing:
 
 ```sh
 python3 tools/world/check_static_collision_records.py 17_25 22_22 --check
@@ -228,8 +255,23 @@ matched to named Core imports; the four-byte `FArchive.Ver` getter at
 one four-byte field and five two-byte fields. File123 selects that branch and
 the four-component sphere branch. The existing FBox serializer establishes six
 four-byte coordinates and one validity byte. These are static code bindings;
-archive I/O, allocation, legacy file versions, the rest of Serialize and the
-full PostLoad/Build methods are outside this added proof.
+archive I/O, allocation and legacy file versions remain outside this proof.
+
+`serializers.loadTail` adds ten Engine regions and seven byte-identical Core
+bodies. It binds the licensee/version gates, three four-byte serializers, two
+reference helpers and the lazy load/end-seek path. The ULinkerLoad **FArchive
+subobject** vtable binds reference slot `+0x18` to its object operator and seek
+slot `+0x3c` to its protected `Seek` method. The object operator reads a compact
+index from `GetReader` before `IndexToObject`; Seek forwards to the same reader's
+seek slot. `Ver`, `LicenseeVer`, `IsLoading` and `IsSaving` getters are matched
+individually. All region addresses, source hashes and allowed import/operand
+correspondences are in the private receipt.
+
+This is static framing evidence. Reader selection, reference resolution,
+lazy callbacks, archive I/O and the raw lazy elements are not executed. The
+separate [bounds checker](native-static-actor-bounds-evidence.md#bounded-postload-path)
+interprets the admitted version-eight-and-later PostLoad path; older conversion
+and Build remain outside its scope.
 
 All four binary inputs must match the fingerprints in the
 [actor-transform evidence](native-actor-transforms-evidence.md#source-bindings-and-edition).

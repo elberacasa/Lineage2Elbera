@@ -135,9 +135,10 @@ python3 -m unittest discover -s tools/ui -p test_static_actor_bounds_native.py
 ```
 
 Ten browser-module tests cover rounding, corner extrema, validity, signed-zero
-ties, lazy field reads, unknown inputs, and actor removal/reentry. Four
+ties, lazy field reads, unknown inputs, and actor removal/reentry. Eight
 interpreter tests cover method arguments, return buffers, stack cleanup,
-unknown targets and opaque padding. The related 89 browser-module tests pass.
+unknown targets, opaque padding, repeated stores and PostLoad admission guards.
+The related 89 browser-module tests pass.
 Local deliberate mutations of the invalid-box rule, cylinder flag, intermediate
 rounding and equal-maximum comparison are rejected by the original comparison.
 
@@ -147,14 +148,49 @@ not an Online world-collision acceptance run. No new interface screenshot is
 claimed for this headless component. This Elbera tool is repository source and
 is not yet included in the existing standalone release archives.
 
+## Bounded PostLoad path
+
+The same command now interprets `UStaticMesh.PostLoad` before another **600
+bounding-box queries**. These authored cases supply a current signed mesh
+version of at least eight, current UObject flags with `0x100` clear, valid
+nonaliasing array storage, successful allocation and a clear direction flag.
+They vary vertex counts, existing array sizes, object flags and mesh versions.
+The existing allocation provider and instruction interpreter are reused.
+
+Original instructions preserve the local box, set UObject's `0x20000000` flag,
+clear mesh fields `+0x1e4/+0x1e8/+0x1ec`, and replace array `+0xd8` with one
+zeroed four-byte element per source vertex. The array calls are **FArray.Empty
+and FArray.AddZeroed**. They do not rebuild the box in this admitted branch.
+All mesh fields outside that explicit write set remain unchanged in the
+fixtures; subsequent bounds results match the prior browser comparisons.
+This adds 764,694 interpreted instructions at 676 addresses, reported separately
+from the 600 original bounds cases and 288 actor updates.
+
+Source binding compares four normal Engine regions at
+`106f5ce1..106f5cfc`, `106f603b..106f605c`, `106f60f5..106f6102` and
+`106f61a7..106f61f3` with their independently named supplemental counterparts.
+The ordinary SEH prefix is retained for stack effects only. UObject.PostLoad
+(`10163c60..10163cb8`), FArray.Empty (`101091c0..101091db`) and FArray.AddZeroed
+(`10109110..1010917c`) match the pinned Core image byte for byte. Reallocation
+reuses the existing qualified membership helper. Unknown targets still fail.
+
+This does not establish the current conditions from saved exports. UObject's
+`0x100` branch invokes the named `LoadLocalized` method and is excluded, as are
+older mesh conversion/Build, failures and exceptions. The decoder now recovers
+saved version eight for all 480 examined per-map records; the object-loading
+and current-flag boundary still needs to be joined before those records can
+be treated as live current bounds. No runtime game or browser layout changed
+in this source-check milestone, and no new playtest or screenshot is claimed.
+
 ## Next integration boundary
 
 `localBounds` must be the **current native mesh field**, not a box recomputed
 from rendered vertices. The [source exporter](native-static-sweep-evidence.md#saved-mesh-bounds) now
 retains both serialized writes with exact offsets and hashes; the later box
 overwrites the first. Both records agree for all 480 checked per-map meshes.
-A qualified PostLoad gate can call Build, so source bytes alone still do not
-establish later post-load mutations or current bounds.
+Saved mesh version eight and the bounded PostLoad path above are now qualified.
+Current object initialization/flags and later mutations remain separate; source
+bytes alone still do not establish live current bounds.
 
 Live actor population, original current transforms/flags, concrete primitive
 query dispatch, auxiliary model implementations and movement callbacks remain

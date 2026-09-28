@@ -28,6 +28,66 @@ def call_at(address):
 
 
 class StaticBoundsBoundaryTest(unittest.TestCase):
+    def test_forward_repeated_word_stores_write_only_the_requested_cells(self):
+        m = machine()
+        m.registers.update(ecx=3, edi=0x3000, eax=0x12345678)
+        m.memory.update({0x2FFC: 7, 0x300C: 9})
+        instruction = next(
+            Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex("f3ab"), 0x9000)
+        )
+        self.assertEqual(m.step(instruction), 0x9002)
+        self.assertEqual([m.memory[0x3000 + i * 4] for i in range(3)], [0x12345678] * 3)
+        self.assertEqual((m.memory[0x2FFC], m.memory[0x300C]), (7, 9))
+        self.assertEqual((m.registers["ecx"], m.registers["edi"]), (0, 0x300C))
+
+    def test_forward_repeated_byte_stores_preserve_unknown_surrounding_bytes(self):
+        m = machine()
+        m.registers.update(ecx=3, edi=0x3003, eax=0x123456AB)
+        instruction = next(
+            Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex("f3aa"), 0x9000)
+        )
+        m.step(instruction)
+        self.assertEqual(m.memory[0x3000], PartialWord(0xAB000000, 0xFF000000))
+        self.assertEqual(m.memory[0x3004], PartialWord(0xABAB, 0xFFFF))
+        self.assertEqual((m.registers["ecx"], m.registers["edi"]), (0, 0x3006))
+        with self.assertRaises(AssertionError):
+            m.read("byte ptr [0x3006]")
+
+    def test_zero_count_string_store_never_touches_the_null_destination(self):
+        for code in ("f3ab", "f3aa"):
+            m = machine()
+            m.registers.update(ecx=0, edi=0)
+            before = dict(m.memory)
+            m.step(
+                next(Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex(code), 0x9000))
+            )
+            self.assertEqual(m.memory, before)
+            self.assertEqual(m.registers["edi"], 0)
+
+    def test_postload_rejects_unqualified_versions_flags_and_storage_before_execution(
+        self,
+    ):
+        for version, flags, count in [
+            (7, 0, 1),
+            (-1, 0, 1),
+            (0x80000000, 0, 1),
+            (8, 0x100, 1),
+            (8, -1, 1),
+            (8, 0, -1),
+        ]:
+            m = machine()
+            m.memory.update({0x201DC: version, 0x2001C: flags, 0x2007C: count})
+            with self.assertRaises(AssertionError):
+                m.postload(0x20000)
+            self.assertEqual(m.visited, [])
+        m = machine()
+        m.memory.update(
+            {0x201DC: 8, 0x2001C: 0, 0x2007C: 1, 0x200D8: 0, 0x200DC: 1, 0x200E0: 0}
+        )
+        with self.assertRaises(AssertionError):
+            m.postload(0x20000)
+        self.assertEqual(m.visited, [])
+
     def test_transform_reply_preserves_float_bits_and_callee_cleanup(self):
         m = machine()
         # Authored method reply, including a signed zero; never inferred identity.
