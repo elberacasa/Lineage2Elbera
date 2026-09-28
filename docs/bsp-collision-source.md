@@ -43,11 +43,34 @@ absolute byte spans account for every prefix section and the remaining tail.
 The decoder now bounds each model reader to that export, so adjacent package
 bytes cannot satisfy a truncated model read.
 
-The renderer's existing model selection is retained: the unique `UModel`
-with `NumZones > 0`. That structural selection is not a new proof of the
-runtime `Level.Model` pointer. The remainder after `RootOutside/Linked` is
-fingerprinted and counted, but this exporter does not decode its render and
-lightmap data. Collision-bound/leaf-hull stream semantics also remain raw.
+The exporter selects the **actual serialized `ULevel.Model` reference**. It
+requires one qualified `Engine.Level`, reads its bounded ordinary saved prefix
+(two actor-reference arrays and FURL for version123/licensee≥23), then resolves
+the local qualified `Engine.Model` reference. A noncanonical prefix, wrong
+class, truncated export or mismatched supplied model is rejected. It records
+the Level export/prefix hashes and the exact model-reference byte span under
+`source.levelBinding`.
+
+The original `ULevel::Serialize` writes field `+0xc0` through the archive object
+reference operator. `ULevel::MultiLineCheck` reads that same field for the world
+BSP collision receiver. An optional check verifies 41 owned Engine/Core
+instruction anchors and 10 direct bindings; a separately pinned supplemental
+Engine adds 10 exact block comparisons for erased archive operation names.
+This binds the saved source field, not a later runtime reassignment or captured
+original process. No DLL is executed.
+
+```sh
+python3 tools/world/export_bsp_collision.py 17_25 --check --native-binding-check
+python3 tools/world/export_bsp_collision.py 17_25 --check --native-binding-check --comparison-engine /path/to/pinned/engine.dll
+```
+
+Fresh 17_25 and 22_22 checks select references 1756 (`Model315`) and 1576
+(`Model505`) respectively. Those match the earlier `NumZones>0` heuristic,
+and all geometry fields remain unchanged. Earlier staged exports are retained
+as historical private inputs; new stages include the stronger binding receipt.
+The remaining UModel render/lightmap tail is fingerprinted, not decoded.
+Collision-bound/leaf-hull words stay raw in this exporter; the browser sweep
+module interprets them separately.
 
 ## Checked local samples
 
@@ -74,7 +97,8 @@ Original archive SHA256:
 - `22_22.unr`: `74d86d7cd503700494650fa25e237295f9bb37b194419fc67ef5eaf5effe8e6e`
 
 Private staged receipts are under `tmp/restart-audit/bsp-17_25-source` and
-`tmp/restart-audit/bsp-22_22-source`. The seven portable tests cover raw-field
+`tmp/restart-audit/bsp-22_22-source`. The eleven portable tests cover serialized Level.Model selection, wrong-class
+and truncated/noncanonical Level prefixes, supplied-model mismatch, and raw-field
 preservation, 64-bit mask fidelity, inactive versus active stale vertices,
 both surface layouts, truncated export boundaries, invalid/cyclic graphs,
 nonfinite inputs, bad references and unsafe staging destinations. Three

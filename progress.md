@@ -2,6 +2,46 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original BSP extent sweep and inspector — 27 September 2026
+
+The no-owner world UModel component now composes original hull orientation,
+saved planes, bounds, pair/axis bevel construction, interval adoption, segment
+length and final hit adjustment. Repeated hull order and early rejection are
+preserved. The native wrapper decision is separate from the retained hit
+record. Unsupported data/arithmetic remains unknown; no terrain or actor
+result, native walking response or camera adoption is claimed.
+
+The BSP exporter now follows the actual serialized Level.Model reference,
+replacing its unique-zoned-model heuristic. Fresh Talking Island and Giran
+checks select the same models and retain every previously staged geometry
+field. Original serializer and runtime receiver share Level+0xc0; later
+runtime reassignment is not observed. Native checks distinguish retained owned
+instructions from explicitly pinned supplemental import correspondence.
+
+Elbera Tools now has an offline BSP inspector using that same module. Its
+portable box fixture contains no original game assets; local source exports
+stay in the browser. Inputs, bounds, query projection, adjusted hit and unknown
+states are visible. Normal browser controls verified blocked/clear/invalid
+queries, local original loading, changed-input invalidation and a narrow layout.
+A Talking Island diagnostic query matches the independently interpreted source
+result, including signed-zero normal components. The curated README screenshot
+uses only the synthetic fixture, and all previous gallery images are preserved.
+
+Validation so far: 43 portable runtime cases, 11 exporter cases, 64 source bevel
+sets/441 exact-bit planes, 90 composed synthetic queries and 49 original-map
+probes across 17_25/22_22. The original-map probes yielded 37 hits / 948 plane clips;
+these authored probes are not an original running-client capture or a full-map
+playability claim. Float64/x87 and mathematical square-root limits remain
+explicit. Peer review corrected sparse-array admission and the screenshot file
+extension. The source-only BSP Inspector kit passes eight packaging tests and all 43
+portable runtime tests after isolated extraction; ten source-free verifier
+tests also pass. Public CI includes these checks. Final publication review
+remains separate from source arithmetic evidence.
+
+Next: complete terrain/actor/adjacent-level query aggregation and the original
+MoveActor/floor/step response before replacing gameplay collision or enabling
+native walking-to-Wait transitions. The full browser-client goal stays active.
+
 ## Remote stopping and original movement inputs — 27 September 2026
 
 Remote NPCs and players now discard an obsolete browser movement route when

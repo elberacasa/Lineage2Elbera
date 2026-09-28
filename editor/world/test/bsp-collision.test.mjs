@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { prepareBspPrimary, traceBspPrimary, decodeBspLeafHull, clipBspSweepPlane,
   selectBspSweepBranches, collectBspSweepHulls, bspSweepBoundsPlanes,
-  adoptBspSweepInterval, adjustBspSweepTime, selectBspSweepBevelAxes } from '../js/bsp-collision.js';
+  adoptBspSweepInterval, adjustBspSweepTime, selectBspSweepBevelAxes,
+  bspSweepSegmentMetric, bspSweepBevelPlanes, prepareBspSweep, traceBspSweep } from '../js/bsp-collision.js';
 
 const node = (overrides = {}) => ({ plane: [1, 0, 0, 0], back: -1, front: -1,
   numVertices: 4, flags: 0, ...overrides });
@@ -100,16 +101,33 @@ const word = value => {
 const bounds = [-10, -20, -30, 10, 20, 30].map(word);
 const hullSource = words => ({ nodes: [node({ collisionBound: 0 }), node()], leafHulls: words });
 
-test('leaf-hull words preserve native operation flag and six float bounds', () => {
+test('leaf-hull words preserve raw references, original plane orientation and six float bounds', () => {
   const source = hullSource([0x40000001, 0, -1, ...bounds]);
   const result = decodeBspLeafHull(source, 0);
   assert.equal(result.scope, 'bsp-leaf-hull-record');
   assert.deepEqual(result.hull, { offset: 0, nextOffset: 9,
-    planes: [{ nodeIndex: 1, requiresNativePlaneOperation: true },
-      { nodeIndex: 0, requiresNativePlaneOperation: false }],
+    planes: [{ nodeIndex: 1, requiresNativePlaneOperation: true, plane: [-1, -0, -0, -0] },
+      { nodeIndex: 0, requiresNativePlaneOperation: false, plane: [1, 0, 0, 0] }],
     min: [-10, -20, -30], max: [10, 20, 30] });
-  assert.equal(result.hull.planes[0].plane, undefined, 'unknown orientation must not become an admitted plane');
+  assert.notEqual(result.hull.planes[0].plane, source.nodes[1].plane);
   assert.equal(decodeBspLeafHull({ nodes: [node({ collisionBound: -1 })], leafHulls: [] }, 0).hull, null);
+});
+
+test('native hull flip negates W and signed zeros without mutating the source node', () => {
+  const source=hullSource([0x40000001,1,-1,...bounds]);
+  source.nodes[1].plane=[-0,1,0,-12];
+  const result=decodeBspLeafHull(source,0);
+  assert.deepEqual(result.hull.planes.map(p=>p.plane),[[0,-1,-0,12],[-0,1,0,-12]]);
+  assert.deepEqual(source.nodes[1].plane,[-0,1,0,-12]);
+  source.nodes[1].plane[3]=99;
+  assert.equal(result.hull.planes[0].plane[3],12,'decoded planes are independent snapshots');
+});
+
+test('unusable original hull planes cannot become collision planes', () => {
+  for(const plane of [undefined,[0,0,0,1],[1,0,0,NaN],[1,0,0,0.1]]){
+    const source=hullSource([0x40000001,-1,...bounds]);source.nodes[1].plane=plane;
+    assert.equal(decodeBspLeafHull(source,0).reason,'invalid-source-hull-plane');
+  }
 });
 
 test('leaf framing rejects malformed boundaries and respects native 64-plane cap', () => {
@@ -262,10 +280,15 @@ test('wrapper time adjustment uses supplied native metric and source two-stage c
   assert.equal(long.hit, undefined);
 });
 
-test('unknown native metric and unsupported arithmetic never substitute geometric ray length', () => {
-  for (const nativeMetric of [undefined, 0, -1, Infinity, .1])
+test('invalid metric refuses a hit while zero and tiny source lengths retain native clamps', () => {
+  for (const nativeMetric of [undefined, -0, -1, Infinity, .1])
     assert.equal(adjustBspSweepTime({ time: .5, nativeMetric }).status, 'unsupported');
-  assert.equal(adjustBspSweepTime({ time: .5, nativeMetric: Math.fround(1e-45) }).reason, 'nonfinite-time-bounds');
+  for (const nativeMetric of [0, Math.fround(1e-45)]) {
+    const adjusted = adjustBspSweepTime({ time: .5, nativeMetric });
+    assert.equal(adjusted.status, 'ready');
+    assert.equal(adjusted.backoff, Infinity);
+    assert.equal(adjusted.time, 0);
+  }
 });
 
 test('bevel admission needs opposite axis signs and positive projected alignment', () => {
@@ -314,4 +337,98 @@ test('bevel admission refuses unresolved references, non-Float32 planes and deri
   const large = Math.fround(3e38);
   assert.equal(selectBspSweepBevelAxes({ planeA: [1, large, 0, 0], planeB: [-1, large, 0, 0] }).reason,
     'nonfinite-bevel-dot');
+});
+
+test('source segment metric retains stored subtraction and square-root return', () => {
+  assert.equal(bspSweepSegmentMetric([0, 0, 0], [3, 4, 0]).metric, 5);
+  const tiny = Math.fround(1e-40);
+  assert.equal(bspSweepSegmentMetric([0, 0, 0], [tiny, 0, 0]).metric, tiny,
+    'the squared sum is not rounded to Float32 before sqrt');
+  const stored = bspSweepSegmentMetric([16777216, 0, 0], [16777217, 0, 0]);
+  assert.deepEqual(stored.delta, [0, 0, 0], 'source endpoints are stored Float32');
+  assert.equal(stored.metric, 0);
+  assert.equal(bspSweepSegmentMetric([-3e38, 0, 0], [3e38, 0, 0]).status, 'unsupported');
+});
+
+test('bevel construction retains source pair order and fails explicitly on degenerate admitted pairs', () => {
+  const result = bspSweepBevelPlanes([[1, 1, 3, 7], [-1, -1, 3, -8], [1, -1, 3, 2]]);
+  assert.equal(result.status, 'ready');
+  assert.deepEqual(result.bevels.map(b => [b.pair, b.axis]),
+    [[[1, 0], 'x'], [[1, 0], 'y'], [[2, 0], 'y'], [[2, 1], 'x']]);
+  const small = Math.fround(.0001);
+  assert.equal(bspSweepBevelPlanes([[small, 1, 0, 1], [-small, 1, 0, 1]]).reason,
+    'degenerate-bevel-intersection');
+  assert.equal(bspSweepBevelPlanes([[1, 0, 0, NaN]]).reason, 'invalid-oriented-planes');
+});
+
+// Synthetic geometry, not a sample of official game values. The production
+// native checker separately interprets original instructions against runtime.
+const box = () => ({ rootOutside: 1,
+  nodes: [[1, 0, 0, 10], [-1, 0, 0, 10], [0, 1, 0, 10], [0, -1, 0, 10],
+    [0, 0, 1, 10], [0, 0, -1, 10]].map(plane => node({ plane, collisionBound: 0 })),
+  leafHulls: [0, 1, 2, 3, 4, 5, -1, ...[-10, -10, -10, 10, 10, 10].map(word)] });
+
+test('complete extent sweep clips hull plus bounds, adjusts time, and retains the entry normal', () => {
+  const result = traceBspSweep(box(), [20, 0, 0], [0, 0, 0], [1, 1, 1]);
+  assert.equal(result.status, 'ready'); assert.equal(result.blocked, true);
+  assert.deepEqual(result.hit.normal, [1, 0, 0]);
+  assert.ok(result.hit.rawTime > .45 && result.hit.rawTime < .46,
+    'the asymmetric native X bound is stricter than the saved plane');
+  assert.ok(result.hit.time < result.hit.rawTime);
+  assert.ok(result.hit.point[0] > 10.9);
+  assert.equal(result.clippedPlanes, 12);
+  assert.equal(result.hit.nodeIndex, undefined, 'the wrapper does not assign a hit node index');
+});
+
+test('complete extent sweep distinguishes stationary containment, misses and unsupported data', () => {
+  for (const [start, end] of [[[20, 0, 0], [30, 0, 0]], [[0, 0, 0], [0, 0, 0]],
+    [[20, 30, 0], [0, 30, 0]]]) {
+    const result = traceBspSweep(box(), start, end, [1, 1, 1]);
+    assert.equal(result.status, 'ready'); assert.equal(result.blocked, false);
+    assert.equal(result.hit, null);
+  }
+  assert.equal(traceBspSweep(box(), [20, 0, 0], [0, 0, 0], [0, 0, 0]).reason,
+    'invalid-nonzero-extent-sweep');
+  const broken = box(); broken.leafHulls.pop();
+  assert.equal(traceBspSweep(broken, [20, 0, 0], [0, 0, 0], [1, 1, 1]).reason,
+    'truncated-hull-bounds');
+});
+
+test('wrapper can retain a hit record at time one while returning clear', () => {
+  const end = [91, 0, 0];
+  const result = traceBspSweep(box(), [100, 0, 0], end, [80, 1, 1]);
+  assert.equal(result.status, 'ready');
+  assert.equal(result.blocked, false);
+  assert.equal(result.hit.time, 1);
+  assert.ok(result.hit.rawTime > 1);
+  assert.deepEqual(result.hit.point, end);
+});
+
+test('prepared extent model snapshots planes, references and bounds independently of source mutation', () => {
+  const source = box(), snapshot = prepareBspSweep(source);
+  const before = traceBspSweep(snapshot.model, [20, 0, 0], [0, 0, 0], [1, 1, 1]);
+  source.nodes[0].plane[3] = 100; source.nodes[0].collisionBound = -1;
+  source.leafHulls[0] = 99; source.leafHulls[7] = word(100);
+  assert.deepEqual(traceBspSweep(snapshot.model, [20, 0, 0], [0, 0, 0], [1, 1, 1]), before);
+  assert.ok(Object.isFrozen(snapshot.model.nodes[0].plane));
+  assert.ok(Object.isFrozen(snapshot.model.leafHulls));
+  assert.equal(prepareBspSweep(snapshot.model).model, snapshot.model);
+});
+
+test('flagged references produce the same full sweep as explicitly oriented source planes', () => {
+  const source = box(), flagged = box();
+  flagged.nodes[1].plane = [1, -0, -0, -10];
+  flagged.leafHulls[1] = 0x40000001;
+  assert.deepEqual(traceBspSweep(flagged, [-20, 0, 0], [0, 0, 0], [1, 1, 1]),
+    traceBspSweep(source, [-20, 0, 0], [0, 0, 0], [1, 1, 1]));
+});
+
+
+test('sparse reusable API inputs stay unknown instead of becoming empty geometry or clear sweeps', () => {
+  for (const planes of [Array(1), [[1, , , 0]]])
+    assert.equal(bspSweepBevelPlanes(planes).reason, 'invalid-oriented-planes');
+  assert.equal(prepareBspPrimary(model([node({ plane: [1, , , 0] })])).status, 'unsupported');
+  assert.equal(traceBspSweep({ rootOutside: 1, nodes: [], leafHulls: [] },
+    Array(3), [1, 2, 3], [1, 1, 1]).status, 'unsupported');
+  assert.equal(bspSweepBoundsPlanes({ min: Array(3), max: [1, 1, 1] }).status, 'unsupported');
 });

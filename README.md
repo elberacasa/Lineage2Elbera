@@ -62,6 +62,7 @@ browser behavior and focused verification.
 | **Native transform research** | Ordinary and dynamic hair paths distinguished; retained coordinate arithmetic checked. A separately pinned comparison copy identifies missing imports within exactly matched code blocks. | [Attachment evidence](docs/native-hair-attachment-evidence.md) · [Comparison scope](docs/supplemental-engine-evidence.md) |
 | **Original animation and skeletons** | All **1,367** player sequences and **14** original face skeletons have lossless runtime bundles. Live wait, sit, stand and cast schedules use original keys, fresh-instance initialization and transitions from evaluated source poses. | [Live playback guide](docs/original-animation-runtime.md) · [Cache evidence](docs/native-pose-cache-evidence.md) · [Fresh instances](docs/native-pose-allocation-evidence.md) |
 | **NPC animation recovery** | All **16** original Gremlin and Fox sequences and **34 events** are inspectable. A bounded live path plays their initial Wait/AtkWait from original keys and sound events on Talking Island, including starter Gremlin **18342**. Normal Online entry now waits for the correct map and verified model; no manual map selection is needed. Unported transitions retire that path. Original GPU weight lanes are preserved for **1,746 vertices**; complete skinning, movement and combat animation remain unfinished. | [NPC source inspector](docs/original-npc-animation-runtime.md) · [Skin input evidence](docs/native-npc-skin-evidence.md) · [Native state evidence](docs/native-npc-animation-evidence.md) |
+| **Original BSP collision** | A composed world BSP extent sweep now includes oriented hulls, bevels and original hit adjustment. Its Elbera inspector uses the same module with portable fixtures or local source exports; camera and walking integration remain unfinished. | [Sweep evidence](docs/native-camera-evidence.md#world-bsp-extent-sweep) · [Level.Model source binding](docs/bsp-collision-source.md) |
 | **Movement recovery** | Remote StopMove cancels the old browser route without applying an unsupported position or heading snap. Elbera Tools checks the original handler and conditional correction boundary; native physics and movement-to-wait animation remain in progress. | [Movement and stopping evidence](docs/native-grounding-evidence.md#stopmove-retire-a-canceled-route-without-inventing-a-teleport) |
 | **Original sound selection** | Recovered the original integer generator and signed sound gate. Player and admitted NPC events share one browser context, preserving draw order through mute and delayed loading. Browser seed/storage policy and unported native consumers remain explicit limits. | [Native sound evidence and verifier](docs/native-cast-sound-evidence.md#sound-notify-integer-rng-and-seed-boundary) |
 | **Quest progression** | *Letters of Love* completed through server interactions; the reward survived reconnect and appeared in the browser inventory. | [Quest playtest](docs/quest-completion-playtest.md) |
@@ -99,6 +100,22 @@ supported scope and unresolved cases.
 *Direct browser captures, September 26–27, 2026. These tools run offline;
 recipe fixtures do not grant items, and a static asset view does not verify
 animation. [Capture details](docs/img/README.md).*
+
+<details>
+<summary><strong>New: original BSP collision inspector</strong></summary>
+
+![Elbera Tools BSP inspector showing a blocked synthetic extent sweep, candidate bounds and the adjusted hit](docs/img/elbera-tools-bsp-sweep.jpg)
+
+Inspect the original collision component independently of rendered geometry.
+The page displays explicit query inputs, traversed nodes, tested hulls and an
+adjusted hit; changing an input clears stale results. The pictured fixture is
+synthetic and needs no client assets. Local original exports can be inspected
+without uploading them. Terrain, actors and native movement response remain
+outside this world BSP component.
+[Source evidence and reproduction](docs/native-camera-evidence.md#world-bsp-extent-sweep)
+· [Standalone inspector guide](tools/release/BSP-README.md).
+
+</details>
 
 <details>
 <summary><strong>New: original animation and source-skeleton preview</strong></summary>

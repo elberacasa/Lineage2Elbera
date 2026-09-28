@@ -2,12 +2,15 @@
 """Elbera Tools: original world BSP primary ray and runtime arithmetic check.
 
 python3 tools/ui/check_bsp_camera_native.py --check
+python3 tools/ui/check_bsp_camera_native.py --check --comparison-engine /local/supplemental/engine.dll
 
-Requires the owner's pinned Engine/Core DLLs, capstone and Node. Interprets
-retained arithmetic, the single-plane box-sweep helper, and no-owner candidate
-traversal against JavaScript. Bounds-plane calls capture arguments only;
-candidate traversal models only its verified self-recursion. Never executes
-the DLLs or writes source assets. Float64 approximates extended intermediates,
+Requires the owner's pinned Engine/Core DLLs, capstone and Node. The optional
+pinned supplemental image closes only explicit named-call correspondences; it
+is not authenticated original import restoration. Interprets
+retained arithmetic and the finite no-owner BSP tree/leaf/bevel/wrapper path
+against actual JavaScript. Isolated slice checks retain their narrower scope;
+the separate composition check joins them with explicit call/frame adapters.
+Never executes the DLLs or writes source assets. Float64 approximates extended intermediates,
 with Float32 stores preserved. No isolated primitive is a complete camera trace.
 """
 import argparse
@@ -98,7 +101,15 @@ def run_sweep_slice(image, machine, start, end, *, stop=None, on_call=None, max_
         elif op in ('fld', 'fldz', 'fld1'):
             machine.stack.insert(0, machine.read(args[0]) if op == 'fld' else 0. if op == 'fldz' else 1.)
         elif op in ('fst', 'fstp'):
-            machine.write(args[0], machine.stack[0], floating=True)
+            if args[0].startswith('qword ptr '):
+                machine.memory[machine.address(args[0])] = float(machine.stack[0])
+            else:
+                try:
+                    machine.write(args[0], machine.stack[0], floating=True)
+                except OverflowError:
+                    # Native masked Float32 overflow stores signed Infinity.
+                    assert args[0].startswith('dword ptr ')
+                    machine.write(args[0], math.copysign(float('inf'), machine.stack[0]), floating=True)
             if op == 'fstp': machine.stack.pop(0)
         elif op == 'fxch':
             index = int(args[0][3:-1])
@@ -106,7 +117,7 @@ def run_sweep_slice(image, machine, start, end, *, stop=None, on_call=None, max_
         elif op == 'fchs': machine.stack[0] = -machine.stack[0]
         elif op in ('fcom', 'fcomp', 'fcompp'):
             a, b = machine.stack[0], machine.stack[1] if op == 'fcompp' else machine.read(args[0])
-            assert math.isfinite(a) and math.isfinite(b), 'comparison outside finite verifier domain'
+            assert not math.isnan(a) and not math.isnan(b), 'NaN comparison outside verifier domain'
             machine.status = 0x4000 if a == b else 0x100 if a < b else 0
             if op != 'fcom': del machine.stack[:2 if op == 'fcompp' else 1]
         elif op in ('fmul', 'fmulp', 'fadd', 'faddp', 'fsub', 'fsubr', 'fsubp', 'fsubrp', 'fdiv', 'fdivr'):
@@ -118,7 +129,8 @@ def run_sweep_slice(image, machine, start, end, *, stop=None, on_call=None, max_
             elif op.startswith('fadd'): value = a + b
             elif op.startswith('fsubr'): value = b - a
             elif op.startswith('fsub'): value = a - b
-            elif op == 'fdivr': value = b / a
+            elif op == 'fdivr':
+                value = b / a if a != 0 else float('nan') if b == 0 else math.copysign(float('inf'), b * math.copysign(1, a))
             elif b != 0: value = a / b
             else: value = float('nan') if a == 0 else math.copysign(float('inf'), a * math.copysign(1, b))
             machine.write(target, value)
@@ -375,7 +387,8 @@ def verify_sweep_candidates_bounds(engine):
     core.instruction(0x1010d780, 'mov', 'eax, dword ptr [esp + 4]')
     core.instruction(0x1010d7a2, 'ret', '4')
     for address in (0x1010d786, 0x1010d78d, 0x1010d795, 0x1010d79d): core.instruction(address, 'fchs', '')
-    # This is a candidate ABI, deliberately not an asserted binding of the NOP.
+    # This owned-only slice supplies the compatible export. The optional
+    # verify_sweep_call_bindings result checks the exact named correspondence.
     flip_body = core.data[core.offset(0x1010d780):core.offset(0x1010d7a5)]
     assert hashlib.sha256(flip_body).hexdigest() == '96f66fdcc588cbe0005298a7cfe87f66d04e3ab899d7a050906c127d0be7a9f8'
     rng = random.Random(0x748191)
@@ -438,7 +451,7 @@ console.log(JSON.stringify({branches:cases.branches.map(selectBspSweepBranches),
                              'candidateBodySHA256': hashlib.sha256(flip_body).hexdigest(),
                              'limit': 'compatible ABI and operation are not evidence of the actual NOP target'},
             'limits': ['candidate selection and emitted bounds only, never a world hit or clear-ray proof',
-                       'flagged plane binding, bevel helpers and final wrapper remain unresolved',
+                       'this candidate/bounds slice does not bind flagged planes or execute bevel/wrapper helpers; see separate composition evidence',
                        'no-owner finite Float64 approximation of x87 with original Float32 stores']}
 
 
@@ -466,8 +479,9 @@ def native_interval_adoption(image, case):
 def native_time_adjustment(image, case):
     """Run retained wrapper and its actual directly-bound clamp helper.
 
-    The unresolved preceding metric-returning call is NOT emulated: the
-    fixture supplies its explicit stored Float32 result at local -0xf4.
+    The preceding metric producer is checked separately; this slice starts
+    with its explicit stored Float32 result at local -0xf4. Zero/tiny metrics
+    follow masked IEEE division/overflow, without a fabricated length floor.
     """
     from check_cast_scheduler_native import Arithmetic
     frame, result, sp = 0x100000, 0x200000, 0x300000
@@ -551,7 +565,7 @@ console.log(JSON.stringify({adoptions:cases.adoptions.map(adoptBspSweepInterval)
     return {'anchors': len(anchors), 'ranges': [{'start': hex(a), 'end': hex(b), 'sha256': c} for a, b, c in ranges],
             'adoptionCases': len(admissions), 'adjustmentCases': len(adjustments),
             'boundHelper': {'stub': '0x10307743', 'body': '0x103704b0', 'operation': 'finite-float-clamp'},
-            'limits': ['completed interval is a fixture input; unresolved hull/bevel work is not bypassed',
+            'limits': ['completed interval is a fixture input; this isolated check does not execute hull/bevel construction',
                        'nativeMetric is an explicit fixture value, not a recovered segment-length binding',
                        'time only; hit position, material and complete world/camera trace remain separate']}
 
@@ -653,12 +667,660 @@ console.log(JSON.stringify(JSON.parse(fs.readFileSync(0,'utf8')).map(clipBspSwee
             'anchors': len(anchors), 'arithmeticCases': len(cases),
             'visitedInstructions': len(visited), 'totalHelperInstructions': len(entire_helper),
             'ranges': [{'start': hex(a), 'end': hex(b), 'sha256': c} for a, b, c in ranges],
-            'limits': ['flagged hull-plane operation and owner transforms unverified',
-                       'tree admission and bounds are separate slices; bevel planes, final adoption and wrapper bias unported',
+            'limits': ['this plane-only slice does not resolve flagged-plane calls or owner transforms',
+                       'tree, bounds, bevels, adoption and wrapper are checked separately in the composition result',
                        'finite Float64 approximation of x87, not universal native precision parity']}
 
 
-def verify():
+def native_sweep_segment_metric(engine, core, start, end):
+    """Retained delta/Size/store blocks; appSqrt is an explicit math boundary."""
+    from check_cast_scheduler_native import Arithmetic
+    state, sp, vector = 0x100000, 0x300000, 0x400000
+    memory = {sp + 0x24 + i * 4: x for i, x in enumerate(end)}
+    memory.update({sp + 0x30 + i * 4: x for i, x in enumerate(start)})
+    m = Arithmetic(engine, memory, [], {'esi': state, 'esp': sp})
+    run_sweep_slice(engine, m, 0x10746369, 0x107463e3)
+    assert m.registers['ecx'] == state + 0x5ec and not m.stack
+    assert [m.memory[state + 0x5d4 + i * 4] for i in range(3)] == end
+    assert [m.memory[state + 0x5e0 + i * 4] for i in range(3)] == start
+    delta = [m.memory[state + 0x5ec + i * 4] for i in range(3)]
+    size = Arithmetic(core, {vector + i * 4: x for i, x in enumerate(delta)}, [],
+                      {'ecx': vector, 'esp': sp})
+    run_sweep_slice(core, size, 0x1010ca20, 0x1010ca3f)
+    squared = size.memory[size.registers['esp']]
+    assert not size.stack and math.isfinite(squared) and squared >= 0
+    # Explicit named appSqrt mathematical boundary; no native CRT execution.
+    size.stack.insert(0, math.sqrt(squared))
+    run_sweep_slice(core, size, 0x1010ca44, 0x1010ca4f)
+    assert len(size.stack) == 1 and size.registers['esp'] == sp
+    m.stack.insert(0, size.stack[0])
+    run_sweep_slice(engine, m, 0x107463e9, 0x107463ef)
+    return {'delta': delta, 'metric': m.memory[state + 0x5f8]}
+
+
+BSP_BOUND_IMPORTS = {
+    0x10746d06: ('size2', '?SizeSquared@FVector@@QBEMXZ'),
+    0x10746e44: ('divide', '??KFVector@@QBE?AV0@M@Z'),
+    0x10746e5f: ('normalize', '?Normalize@FVector@@QAEHXZ'),
+    0x1074897c: ('unsafe', '?UnsafeNormal@FVector@@QBE?AV1@XZ'),
+    0x10748b64: ('unsafe', '?UnsafeNormal@FVector@@QBE?AV1@XZ'),
+    0x10748d27: ('unsafe', '?UnsafeNormal@FVector@@QBE?AV1@XZ'),
+}
+
+
+def bound_bsp_import(site, code):
+    """Only the six separately matched erased sites may enter a named helper."""
+    if site not in BSP_BOUND_IMPORTS or code != b'\x90' * 6:
+        raise ValueError('unknown or changed BSP erased-call site')
+    return BSP_BOUND_IMPORTS[site][0]
+
+
+class BspSweepEvaluator:
+    """Finite call/frame adapter around run_sweep_slice, not another CPU VM.
+
+    Interprets saved-plane/bounds clipping, the whole bevel loop and its exact
+    bound Core calls. sqrt remains an explicit finite mathematical boundary.
+    Intersection SEH setup/cleanup is outside the block: its four pointer
+    arguments and saved callee registers are modeled explicitly.
+    """
+    def __init__(self, engine, core):
+        from check_cast_scheduler_native import Arithmetic
+        self.engine, self.core = engine, core
+        self.ranges = {
+            'leaf': (engine, 0x10748436, 0x107485fb),
+            'bevel': (engine, 0x10748815, 0x10748e10),
+            'intersection': (engine, 0x10746ca9, 0x10746e7c),
+            'multiply': (engine, 0x103301a0, 0x103301c5),
+            'size2': (core, 0x1010ca60, 0x1010ca81),
+            'divide': (core, 0x1010c6d0, 0x1010c6ff),
+            'normalize': (core, 0x1010cb20, 0x1010cb92),
+            'unsafe': (core, 0x1010ccb0, 0x1010cd07),
+        }
+        self.code = {}
+        for key, (image, start, end) in self.ranges.items():
+            rows = list(image.dis.disasm(image.data[image.offset(start):image.offset(end)], start))
+            cursor = start
+            for row in rows:
+                assert row.address == cursor
+                cursor += row.size
+            assert cursor == end
+            self.code[key] = {row.address: row for row in rows}
+        self.visited, self.sqrt_calls = set(), 0
+
+        class Machine(Arithmetic):
+            def read(self, operand):
+                if operand in ('al', 'dl'):
+                    return self.registers['eax' if operand == 'al' else 'edx'] & 255
+                return super().read(operand)
+        self.machine = Machine
+
+    def run(self, m, key, clip=None):
+        image, start, end = self.ranges[key]
+        prior, pc = m.image, start
+        m.image = image
+        try:
+            for _ in range(30000):
+                if (pc == end or key == 'leaf' and pc == 0x10748815 or key in ('bevel', 'leaf') and pc == 0x10748e9d
+                        or key == 'intersection' and pc in (0x10746d48, 0x10746e6a)):
+                    return pc
+                instruction = self.code[key][pc]
+                self.visited.add(pc)
+                op, args = instruction.mnemonic, instruction.op_str.split(', ')
+                nxt = pc + instruction.size
+                if pc in BSP_BOUND_IMPORTS:
+                    raw = bytes(image.data[image.offset(pc):image.offset(pc) + 6])
+                    self.invoke(m, bound_bsp_import(pc, raw), clip)
+                    nxt = pc + 6
+                elif op == 'call':
+                    target = int(args[0], 0)
+                    if target == 0x10309831:
+                        self.invoke(m, 'multiply', clip)
+                    elif target == 0x10303837:
+                        saved = {r: m.registers[r] for r in ('esp', 'ebp', 'ebx', 'esi', 'edi')}
+                        sp = m.registers['esp']; frame = sp - 0x100
+                        m.registers.update(ebp=frame, esp=frame - 0x80)
+                        for n in range(4): m.memory[frame + 8 + 4*n] = m.memory[sp + 4*n]
+                        self.run(m, 'intersection', clip)
+                        m.registers.update(saved)
+                    elif target == 0x1030a182:
+                        assert clip is not None, 'plane clip callback required'
+                        sp = m.registers['esp']; pointer = m.memory[sp]
+                        m.last_clip_node = m.memory[sp + 4]
+                        m.clip_site = pc
+                        plane = [m.memory[pointer + 4*n] for n in range(4)]
+                        if not all(map(math.isfinite, plane)):
+                            raise ValueError('nonfinite native bevel plane outside evaluator domain')
+                        m.registers['eax'] = int(clip(plane, m))
+                        m.registers['esp'] += 8
+                    elif target == 0x10104840:
+                        value = m.memory[m.registers['esp']]
+                        if not math.isfinite(value) or value <= 0:
+                            raise ValueError('nonfinite UnsafeNormal/sqrt domain; never skip a plane')
+                        m.stack.insert(0, math.sqrt(value)); self.sqrt_calls += 1
+                    else:
+                        raise AssertionError(f'unbound BSP call at {pc:#x}: {target:#x}')
+                elif op == 'ret':
+                    m.registers['esp'] += 4 + int(instruction.op_str or '0', 0)
+                    return pc
+                elif op == 'pop':
+                    m.write(args[0], m.memory[m.registers['esp']]); m.registers['esp'] += 4
+                elif op == 'wait' or op == 'nop' and pc == 0x1074847f:
+                    pass  # This exact saved-plane loop byte is alignment, not a six-NOP call.
+                elif pc == 0x10748489:
+                    assert op == 'and' and args == ['ecx', '0xbfffffff']
+                    value = m.read(args[0]) & m.read(args[1]); m.write(args[0], value); m.compare(value, 0)
+                elif op == 'fdivrp':
+                    index = int(args[0][3:-1]); a, b = m.stack[0], m.stack[index]
+                    assert math.isfinite(a) and math.isfinite(b) and b != 0
+                    m.stack[index] = a / b; m.stack.pop(0)
+                elif op.startswith('j'):
+                    take = {'jmp': True, 'je': m.flags.get('z'), 'jne': not m.flags.get('z'),
+                            'jl': m.flags.get('s'), 'jle': m.flags.get('s') or m.flags.get('z'),
+                            'jp': m.flags.get('p'), 'jnp': not m.flags.get('p')}[op]
+                    if take: nxt = int(args[0], 0)
+                else:
+                    run_sweep_slice(image, m, pc, nxt, max_steps=2)
+                pc = nxt
+            raise AssertionError('bounded BSP evaluator did not return')
+        finally:
+            m.image = prior
+
+    def invoke(self, machine, key, clip):
+        machine.registers['esp'] -= 4
+        machine.memory[machine.registers['esp']] = 0xdead0000
+        self.run(machine, key, clip)
+
+    def _state(self, planes):
+        state, sp = 0x100000, 0x400000
+        memory = {state + 0x5c: len(planes)}
+        for j, plane in enumerate(planes):
+            memory.update({state + 0xd0 + j*16 + i*4: x for i, x in enumerate(plane)})
+            memory[state + 0x4d0 + j*4] = sum(
+                (1 if x < 0 else 2 if x > 0 else 0) << (2*i) for i, x in enumerate(plane[:3]))
+        registers = dict(esp=sp, edi=state, eax=0, ecx=0, edx=0, ebx=0, esi=0, ebp=0)
+        return self.machine(self.engine, memory, [], registers), state, sp
+
+    def bevels(self, planes, reject_at=None):
+        machine, _, sp = self._state(planes)
+        result = []
+        def capture(plane, current):
+            assert current.last_clip_node == -1
+            result.append({'pair': [current.memory[sp + 0x30], current.memory[sp + 0x2c]],
+                'axis': {0x10748a37: 'x', 0x10748c17: 'y', 0x10748dc2: 'z'}[current.clip_site], 'plane': plane})
+            return len(result) != reject_at
+        stop = self.run(machine, 'bevel', capture)
+        if stop == 0x10748e10: assert not machine.stack
+        return result, stop
+
+    def clip_hull(self, refs, planes, bounds, start, end, extent, time):
+        machine, state, _ = self._state(planes)
+        result, indices = 0x600000, 0x700000
+        machine.memory.update({state: result, state + 4: 0, state + 8: 0,
+                               state + 0x5d0: indices, result + 0x24: time})
+        for offset, values in [(0x4c, extent), (0x5e0, start), (0x5d4, end), (0x6c, bounds)]:
+            machine.memory.update({state + offset + i*4: x for i, x in enumerate(values)})
+        machine.memory.update({indices + i*4: ref for i, ref in enumerate(refs)})
+        clips = []
+        def clip(plane, current):
+            r = native_plane_interval(self.engine, {'plane': plane, 'start': start, 'end': end,
+                'extent': extent, 'enter': current.memory[state + 0x88], 'exit': current.memory[state + 0x8c],
+                'normal': [current.memory[state + 0x60 + i*4] for i in range(3)]})
+            current.memory.update({state + 0x88: r['enter'], state + 0x8c: r['exit']})
+            current.memory.update({state + 0x60 + i*4: x for i, x in enumerate(r['normal'])})
+            clips.append(r['continues'])
+            return r['continues']
+        stop = self.run(machine, 'leaf', clip)
+        if stop == 0x10748815: stop = self.run(machine, 'bevel', clip)
+        if stop == 0x10748e9d: return None, len(clips)
+        assert stop == 0x10748e10 and not machine.stack
+        result = native_interval_adoption(self.engine, {
+            'enter': machine.memory[state + 0x88], 'exit': machine.memory[state + 0x8c],
+            'normal': [machine.memory[state + 0x60 + i*4] for i in range(3)]})
+        return result if result['adopted'] else None, len(clips)
+
+
+def native_sweep_final_location(image, case):
+    """Retained adopted-hit finalizer; caller supplies the already adjusted time.
+
+    This is not a hull oracle. The directly following wrapper decision returns
+    clear when Time==1; all callers here restrict time to the native clamp [0,1].
+    Profiling/destruction between the two retained slices is not interpreted.
+    """
+    from check_cast_scheduler_native import Arithmetic
+    frame, result = 0x100000, 0x200000
+    assert 0 <= case['time'] <= 1
+    memory = {result + 0x24: case['time']}
+    for offset, values in [(0x4c, case['end']), (0x58, case['start'])]:
+        memory.update({frame + offset + i * 4: value for i, value in enumerate(values)})
+    machine = Arithmetic(image, memory, [case['time']], {'ebp': frame, 'esi': result})
+    run_sweep_slice(image, machine, 0x107497a7, 0x1074983d)
+    assert not machine.stack
+    point = [machine.memory[result + offset] for offset in (8, 0xc, 0x10)]
+    run_sweep_slice(image, machine, 0x10749853, 0x1074987c, stop=(0x10749864, 0x1074987c))
+    assert not machine.stack and machine.registers['esi'] in (0, 1)
+    return {'point': point, 'clear': bool(machine.registers['esi'])}
+
+
+def verify_sweep_call_bindings(engine, comparison_engine=None):
+    from check_tutorial_quest_native import Image, ROOT
+    from check_skillanim_native import CORE_SHA
+    from check_cast_scheduler_native import Arithmetic, f32
+    from check_hair_attachment_native import compare_call_block
+    from check_supplemental_engine import CANDIDATE_ENGINE_SHA
+    from supplemental_pe import PEImage
+    candidate = PEImage(comparison_engine, CANDIDATE_ENGINE_SHA) if comparison_engine else None
+    core = Image(ROOT / 'assets/interlude/system/core.dll', CORE_SHA)
+    read = lambda image, va, n: bytes(image.data[image.offset(va):image.offset(va) + n])
+    bits = lambda x: struct.unpack('<I', struct.pack('<f', x))[0]
+    from_bits = lambda x: struct.unpack('<f', struct.pack('<I', x))[0]
+    blocks = []
+    for lo, hi, site, symbol, digest in [
+        (0x10745635, 0x1074566e, 0x10745650, '?Flip@FPlane@@QBE?AV1@XZ',
+         'f17c2cfc8df394f3dc8e04f4c6cdf54cbac1e7afe9ff77e22d23f6b8a3a6520a'),
+        (0x10746369, 0x107463ef, 0x107463e3, '?Size@FVector@@QBEMXZ',
+         '1261c56b456e3504451ad099c14087e7cc81b9ad8aa4e0e6bd5bb243de9ce8e0'),
+    ]:
+        raw = read(engine, lo, hi - lo)
+        assert hashlib.sha256(raw).hexdigest() == digest
+        assert read(engine, site, 6) == b'\x90' * 6
+        row = {'range': [hex(lo), hex(hi)], 'ownedSHA256': digest,
+               'site': hex(site), 'symbol': symbol, 'binding': 'unresolved-without-comparison'}
+        if candidate:
+            row.update(compare_call_block(raw, candidate.read(lo - 0x40, hi - lo),
+                owned_va=lo, candidate_va=lo - 0x40,
+                sites=[(site - lo, ('core.dll', symbol))], direct_calls=[], imports=candidate.imports))
+            row['binding'] = 'exact-qualified-supplemental-correspondence'
+        blocks.append(row)
+    final_ranges = []
+    for lo, hi in [(0x107497a7, 0x1074983d), (0x10749853, 0x10749864), (0x1074987a, 0x1074987c)]:
+        raw = read(engine, lo, hi - lo)
+        row = {'range': [hex(lo), hex(hi)], 'ownedSHA256': hashlib.sha256(raw).hexdigest()}
+        if candidate:
+            row.update(compare_call_block(raw, candidate.read(lo - 0x40, hi - lo),
+                owned_va=lo, candidate_va=lo - 0x40, sites=[], direct_calls=[], imports=candidate.imports))
+        final_ranges.append(row)
+    engine.instruction(0x10749873, 'mov', 'eax, esi')
+    engine.instruction(0x1074988b, 'mov', 'eax, esi')
+    engine.instruction(0x107498b6, 'mov', 'eax, 1')  # No adopted hull: clear.
+    bodies = []
+    for symbol, lo, hi, digest in [
+        ('?Flip@FPlane@@QBE?AV1@XZ', 0x1010d780, 0x1010d7a5,
+         '96f66fdcc588cbe0005298a7cfe87f66d04e3ab899d7a050906c127d0be7a9f8'),
+        ('?Size@FVector@@QBEMXZ', 0x1010ca20, 0x1010ca50,
+         'eff8ee1827b63fe97f8c8a9a07d298a63207f2cbad5dbd5fd16679671df42110'),
+    ]:
+        assert core.exported(symbol, True) == lo
+        assert hashlib.sha256(read(core, lo, hi - lo)).hexdigest() == digest
+        bodies.append({'symbol': symbol, 'range': [hex(lo), hex(hi)], 'SHA256': digest})
+    assert core.exported('?appSqrt@@YANN@Z') == 0x10104840
+    assert core.exported('?appSqrt@@YANN@Z', True) == 0x1012d790
+    core.instruction(0x1010ca3f, 'call', '0x10104840')
+    core.instruction(0x1012d790, 'fld', 'qword ptr [esp + 4]')
+    core.instruction(0x1012d794, 'jmp', '0x1017cb60')
+    for va, op, args in [
+        (0x103121d9, 'jmp', '0x10746310'),
+        (0x10749708, 'lea', 'ecx, [ebp - 0x6ec]'), (0x1074970e, 'call', '0x103121d9'),
+        (0x10746330, 'mov', 'esi, ecx'), (0x107463c5, 'lea', 'ecx, [esi + 0x5ec]'),
+        (0x107463e9, 'fstp', 'dword ptr [esi + 0x5f8]'), (0x10749751, 'fld', 'dword ptr [ebp - 0xf4]'),
+        (0x1074563e, 'test', 'dword ptr [ecx + eax*4], 0x40000000'),
+        (0x10745645, 'je', '0x1074566e'), (0x1074564d, 'push', 'edx'), (0x1074564e, 'mov', 'ecx, edi'),
+    ]:
+        engine.instruction(va, op, args)
+    assert -0x6ec + 0x5f8 == -0xf4
+
+    rng = random.Random(0x745650)
+    planes = [[0., -0., 1., -1.], [-0., 0., -1., 1.],
+              [from_bits(1), from_bits(0x80000001), from_bits(0x7f7fffff), from_bits(0xff7fffff)],
+              [1., 2., 3., 4.], [-1., -2., -3., -4.]]
+    planes += [[f32(rng.uniform(-300000, 300000)) for _ in range(4)] for _ in range(128)]
+    expected_planes = []
+    for plane in planes:
+        src, out, sp = 0x100000, 0x200000, 0x300000
+        memory = {src + i * 4: x for i, x in enumerate(plane)}; memory[sp + 4] = out
+        m = Arithmetic(core, memory, [], {'ecx': src, 'esp': sp})
+        run_sweep_slice(core, m, 0x1010d780, 0x1010d7a2)
+        assert m.registers['eax'] == out and not m.stack
+        result = [bits(m.memory[out + i * 4]) for i in range(4)]
+        assert result == [bits(x) ^ 0x80000000 for x in plane]
+        expected_planes.append(result)
+    code = """
+import fs from 'node:fs';
+import {decodeBspLeafHull} from './editor/world/js/bsp-collision.js';
+const data=JSON.parse(fs.readFileSync(0,'utf8')),view=new DataView(new ArrayBuffer(4));
+const from=b=>{view.setUint32(0,b,true);return view.getFloat32(0,true)};
+const bits=x=>{view.setFloat32(0,x,true);return view.getUint32(0,true)};
+console.log(JSON.stringify(data.map(p=>{
+ const r=decodeBspLeafHull({nodes:[{collisionBound:0,plane:p.map(from)}],
+  leafHulls:[0x40000000,-1,0,0,0,0,0,0]},0);
+ if(r.status!=='ready')throw Error(JSON.stringify(r));
+ return r.hull.planes[0].plane.map(bits);
+})));
+"""
+    actual = json.loads(subprocess.run(['node', '--input-type=module', '-e', code], cwd=ROOT,
+        input=json.dumps([list(map(bits, p)) for p in planes]), text=True, capture_output=True, check=True).stdout)
+    assert actual == expected_planes
+    metric_cases = [([0., 0., 0.], [0., 0., 0.]), ([-0., 0., -0.], [0., -0., 0.]),
+        ([0., 0., 0.], [3., 4., 12.]),
+        ([300000., -300000., -3750.], [300000.03125, -299999.96875, -3750.000244140625]),
+        ([0., 0., 0.], [from_bits(1), from_bits(0x80000001), 0.]),
+        ([0., 0., 0.], [f32(1e30), f32(-1e30), f32(1e-30)])]
+    metric_cases += [([f32(rng.uniform(-300000, 300000)) for _ in range(3)],
+                     [f32(rng.uniform(-300000, 300000)) for _ in range(3)]) for _ in range(128)]
+    expected_metrics = []
+    for start, end in metric_cases:
+        native = native_sweep_segment_metric(engine, core, start, end)
+        expected_metrics.append({'delta': list(map(bits, native['delta'])), 'metric': bits(native['metric'])})
+    # +0 metric is a genuine stationary segment. Tiny positive metrics also
+    # exercise masked Float32 bound overflow, without inventing a length floor.
+    adjustment_cases = [{'time': t, 'nativeMetric': metric}
+        for t in [-1., -0., 0., f32(.1), f32(.5), 1., 2.]
+        for metric in [0., from_bits(1), f32(1e-38), f32(.1), 100.]]
+    expected_adjustments = [{k: bits(v) for k, v in native_time_adjustment(engine, c).items()}
+                            for c in adjustment_cases]
+    for c, expected in zip(adjustment_cases, expected_adjustments):
+        if c['nativeMetric'] == 0:
+            assert expected == {'lower': bits(float('inf')), 'upper': bits(float('inf')),
+                                'backoff': bits(float('inf')), 'time': bits(0.)}
+    code = """
+import fs from 'node:fs';
+import {bspSweepSegmentMetric,adjustBspSweepTime} from './editor/world/js/bsp-collision.js';
+const data=JSON.parse(fs.readFileSync(0,'utf8')),view=new DataView(new ArrayBuffer(4));
+const from=b=>{view.setUint32(0,b,true);return view.getFloat32(0,true)};
+const bits=x=>{view.setFloat32(0,x,true);return view.getUint32(0,true)};
+console.log(JSON.stringify({metrics:data.metrics.map(c=>{
+ const r=bspSweepSegmentMetric(c.start.map(from),c.end.map(from));
+ if(r.status!=='ready'||r.scope!=='bsp-sweep-segment-metric')throw Error(JSON.stringify(r));
+ return {delta:r.delta.map(bits),metric:bits(r.metric)};
+}),adjustments:data.adjustments.map(c=>{
+ const r=adjustBspSweepTime({time:from(c.time),nativeMetric:from(c.nativeMetric)});
+ if(r.status!=='ready')throw Error(JSON.stringify(r));
+ return Object.fromEntries(['lower','upper','backoff','time'].map(k=>[k,bits(r[k])]));
+})}));
+"""
+    payload = {'metrics': [{'start': list(map(bits, a)), 'end': list(map(bits, b))} for a, b in metric_cases],
+               'adjustments': [{k: bits(v) for k, v in c.items()} for c in adjustment_cases]}
+    actual = json.loads(subprocess.run(['node', '--input-type=module', '-e', code], cwd=ROOT,
+        input=json.dumps(payload), text=True, capture_output=True, check=True).stdout)
+    assert actual['metrics'] == expected_metrics
+    assert actual['adjustments'] == expected_adjustments
+    # Exercise the actual trace result without duplicating its finalizer. Hull
+    # time is explicitly the stage input here; full hull differential is separate.
+    final_cases = [{'start': [f32(x), f32(y), f32(z)], 'end': [f32(-x), f32(y), f32(z)],
+                    'extent': [f32(.1), f32(.1), 5.]}
+                   for x in [1., 10., 100.] for y, z in [(0., 0.), (2., -3.), (-9., 17.)]]
+    code = """
+import fs from 'node:fs';
+import {traceBspSweep} from './editor/world/js/bsp-collision.js';
+const data=JSON.parse(fs.readFileSync(0,'utf8')),view=new DataView(new ArrayBuffer(4));
+const word=x=>{view.setFloat32(0,x,true);return view.getInt32(0,true)};
+const source={rootOutside:1,nodes:[{plane:[1,0,0,0],front:-1,back:-1,
+ numVertices:4,flags:0,collisionBound:0}],leafHulls:[0,-1,...[-1000,-1000,-1000,1000,1000,1000].map(word)]};
+console.log(JSON.stringify(data.map(c=>traceBspSweep(source,c.start,c.end,c.extent))));
+"""
+    final_results = json.loads(subprocess.run(['node', '--input-type=module', '-e', code], cwd=ROOT,
+        input=json.dumps(final_cases), text=True, capture_output=True, check=True).stdout)
+    assert len(final_results) == len(final_cases)
+    for case, result in zip(final_cases, final_results):
+        assert result['status'] == 'ready' and result['hit'] is not None, result
+        native = native_sweep_final_location(engine, {**case, 'time': result['hit']['time']})
+        assert list(map(bits, native['point'])) == list(map(bits, result['hit']['point']))
+        assert native['clear'] is (not result['blocked'])
+    # Exact clear endpoint is independent of whether a synthetic hull happens
+    # to emit Time==1; verify the retained comparison/return branch explicitly.
+    endpoint = native_sweep_final_location(engine, {'start': [1., 2., 3.], 'end': [4., 6., 8.], 'time': 1.})
+    assert endpoint == {'point': [4., 6., 8.], 'clear': True}
+    return {'binding': 'qualified-supplemental' if candidate else 'unresolved-without-comparison',
+        'comparisonEngineSHA256': candidate.sha if candidate else None, 'coreSHA256': CORE_SHA,
+        'blocks': blocks, 'coreBodies': bodies, 'actualRuntimePlaneCases': len(planes),
+        'actualRuntimeMetricCases': len(metric_cases), 'actualRuntimeZeroTinyAdjustmentCases': len(adjustment_cases),
+        'finalLocationRanges': final_ranges, 'actualRuntimeFinalStageCases': len(final_cases),
+        'finalStageScope': 'actual JS trace adjusted time is the explicit stage input; not a full hull oracle',
+        'metric': {'input': 'componentwise Float32(end-start)', 'operation': 'Core.FVector.Size',
+            'stores': 'binary64 squared sum to named appSqrt; binary32 result to state+5f8 = wrapper frame-f4'},
+        'limits': ['Supplemental correspondence is not authentication or restored owned imports.',
+            'Metric sqrt remains an explicit CRT/FPU mathematical boundary; no native DLL execution.',
+            'Masked zero-division/overflow yields IEEE Infinity; arbitrary process FPU state is not certified.',
+            'This call-binding/final-stage check alone is not the separate full no-owner BSP composition; no walking/camera admission.']}
+
+
+def decode_sweep_hull_fixture(source, index):
+    """Decode the already-proven signed-DWORD leaf framing for native fixtures.
+
+    Reject malformed input before it reaches synthetic interpreter memory. This
+    does not replace the runtime decoder or infer a source map identity.
+    """
+    raw, nodes = source['leafHulls'], source['nodes']
+    if type(index) is not int or not 0 <= index < len(raw):
+        raise ValueError('invalid leaf-hull offset')
+    refs, cursor = [], index
+    while cursor < len(raw) and raw[cursor] != -1:
+        ref = raw[cursor]
+        if type(ref) is not int or not 0 <= ref <= 0x7fffffff or len(refs) == 64:
+            raise ValueError('invalid or oversized leaf-hull reference sequence')
+        if (ref & 0xbfffffff) >= len(nodes):
+            raise ValueError('missing leaf-hull plane')
+        refs.append(ref); cursor += 1
+    if cursor == len(raw) or type(raw[cursor]) is not int or cursor + 7 > len(raw):
+        raise ValueError('missing leaf-hull terminator/bounds')
+    words = raw[cursor + 1:cursor + 7]
+    if any(type(x) is not int or not -0x80000000 <= x <= 0x7fffffff for x in words):
+        raise ValueError('bounds must be original signed DWORDs')
+    bounds = [struct.unpack('<f', struct.pack('<i', x))[0] for x in words]
+    if not all(map(math.isfinite, bounds)) or any(bounds[i] > bounds[i+3] for i in range(3)):
+        raise ValueError('nonfinite or reversed hull bounds')
+    planes = []
+    for ref in refs:
+        plane = nodes[ref & 0xbfffffff]['plane']
+        if len(plane) != 4 or not all(type(x) in (int, float) and math.isfinite(x) for x in plane):
+            raise ValueError('invalid hull plane')
+        planes.append([-x for x in plane] if ref & 0x40000000 else list(plane))
+    return refs, planes, bounds
+
+
+def native_sweep_query(evaluator, case):
+    """Compose retained no-owner tree/leaf/wrapper slices for one finite query."""
+    engine = evaluator.engine
+    traversal = native_hull_candidates(engine, case)
+    time, record, count = 2., None, 0
+    for candidate in traversal['candidates']:
+        refs, planes, bounds = decode_sweep_hull_fixture(case['source'], candidate['collisionBound'])
+        adopted, clipped = evaluator.clip_hull(refs, planes, bounds,
+            case['start'], case['end'], case['extent'], time)
+        count += clipped
+        if adopted:
+            record, time = adopted, adopted['time']
+    hit, blocked = None, False
+    if record:
+        metric = native_sweep_segment_metric(engine, evaluator.core, case['start'], case['end'])['metric']
+        adjusted = native_time_adjustment(engine, {'time': time, 'nativeMetric': metric})
+        final = native_sweep_final_location(engine, {**case, 'time': adjusted['time']})
+        hit = {'rawTime': time, 'time': adjusted['time'], 'point': final['point'], 'normal': record['normal']}
+        blocked = not final['clear']
+    return {'blocked': blocked, 'hit': hit, 'visited': traversal['visited'],
+            'candidates': len(traversal['candidates']), 'clippedPlanes': count}
+
+
+def verify_sweep_composition(engine, comparison_engine=None):
+    from check_tutorial_quest_native import Image, ROOT
+    from check_skillanim_native import CORE_SHA
+    from check_cast_scheduler_native import f32
+    from check_hair_attachment_native import compare_call_block
+    from check_supplemental_engine import CANDIDATE_ENGINE_SHA
+    from supplemental_pe import PEImage
+    core = Image(ROOT / 'assets/interlude/system/core.dll', CORE_SHA)
+    candidate = PEImage(comparison_engine, CANDIDATE_ENGINE_SHA) if comparison_engine else None
+    read = lambda image, start, end: bytes(image.data[image.offset(start):image.offset(end)])
+    bits = lambda x: struct.unpack('<I', struct.pack('<f', x))[0]
+    word = lambda x: struct.unpack('<i', struct.pack('<f', x))[0]
+    blocks = []
+    for lo, hi, digest in [
+        (0x10748436, 0x107485fb, '6983a4a46bfc47158d0c4802984326e52b2acb4c8073388af2eb4d4d6b56a023'),
+        (0x10748815, 0x10748e10, '99990d55641f4b7eb9bb374322177893e9d8139ceadee64143c42fd4198eacd4'),
+        (0x10746ca9, 0x10746e7c, '58751ede26293c60241d52255c7430d07f2323d337277f76f0e3a1072b1923ea'),
+    ]:
+        raw = read(engine, lo, hi)
+        assert hashlib.sha256(raw).hexdigest() == digest
+        rows = list(engine.dis.disasm(raw, lo)); cursor = lo
+        for row in rows:
+            assert row.address == cursor
+            cursor += row.size
+        assert cursor == hi
+        calls = [row.address - lo for row in rows if row.mnemonic == 'call']
+        for row in rows:
+            if row.mnemonic == 'call':
+                assert bytes(row.bytes[:1]) == b'\xe8' and int(row.op_str, 0) in (0x10303837, 0x1030a182, 0x10309831)
+        sites = [(site-lo, ('core.dll', symbol)) for site, (_, symbol) in BSP_BOUND_IMPORTS.items() if lo <= site < hi]
+        for offset, _ in sites:
+            bound_bsp_import(lo + offset, raw[offset:offset+6])
+        report = {'range': [hex(lo), hex(hi)], 'ownedSHA256': digest,
+                  'binding': 'unresolved-without-comparison', 'declaredNamedCalls': len(sites)}
+        if candidate:
+            report.update(compare_call_block(raw, candidate.read(lo-0x40, hi-lo),
+                owned_va=lo, candidate_va=lo-0x40, sites=sites, direct_calls=calls, imports=candidate.imports))
+            report['binding'] = 'exact-qualified-supplemental-correspondence'
+        blocks.append(report)
+    bodies = []
+    for symbol, lo, hi, digest in [
+        ('?UnsafeNormal@FVector@@QBE?AV1@XZ', 0x1010ccb0, 0x1010cd07, '9f48a309c52ebdb8c77f283988fe4255f2a0df7cde4b158c6580476ea01a6adb'),
+        ('?SizeSquared@FVector@@QBEMXZ', 0x1010ca60, 0x1010ca81, '44d07f760d5090ff5dabf8e9b9b9f4b6146fcc257cf7f73016632acf7871f58c'),
+        ('??KFVector@@QBE?AV0@M@Z', 0x1010c6d0, 0x1010c6ff, '916f700ce2bcdc0fd1f39e67e7f74c8e35186e339a3ecc00429491a989ac978c'),
+        ('?Normalize@FVector@@QAEHXZ', 0x1010cb20, 0x1010cb92, 'b25deaaa4c169a8bc74ebe2f8c5ee8a48e79d6d5d91f18329cd1dc592cd3a011'),
+    ]:
+        assert core.exported(symbol, True) == lo
+        raw = read(core, lo, hi)
+        assert hashlib.sha256(raw).hexdigest() == digest
+        bodies.append({'symbol': symbol, 'range': [hex(lo), hex(hi)], 'SHA256': digest})
+    # Retained source CALL thunks, including the ignored intersection return.
+    for va, op, operands in [
+        (0x10309831, 'jmp', '0x103301a0'), (0x10303837, 'jmp', '0x10746c80'),
+        (0x1030a182, 'jmp', '0x10746460'),
+        (0x107496b0, 'mov', 'esi, dword ptr [ebp + 0x44]'),
+        (0x107496b3, 'fld', 'dword ptr [0x10884cf0]'), (0x107496b9, 'fstp', 'dword ptr [esi + 0x24]'),
+    ]:
+        engine.instruction(va, op, operands)
+    assert struct.unpack_from('<f', engine.data, engine.offset(0x10884cf0))[0] == 2.
+    scalar = read(engine, 0x103301a0, 0x103301c5)
+    scalar_sha = '4903304376d12fdb5280a47051655bac154927dd479baeacb2e0a88e641dd95d'
+    assert hashlib.sha256(scalar).hexdigest() == scalar_sha
+    if candidate:
+        assert scalar == candidate.read(0x103301a0, len(scalar))
+    core.instruction(0x10104840, 'jmp', '0x1012d790')
+    core.instruction(0x1012d790, 'fld', 'qword ptr [esp + 4]')
+    core.instruction(0x1012d794, 'jmp', '0x1017cb60')
+
+    # The final location is followed only by profiling, the bool decision and
+    # temporary FMatrix destruction. Prove this gap instead of assuming cleanup.
+    cleanup = []
+    for lo, hi, digest, sites, calls in [
+        (0x1074983d, 0x10749892, '8a21f4b1bb8f07473fa2fabf96a052cfbe589c19cf6748eea28012d7f0c2a1cb', [], [0x31, 0x49]),
+        (0x107453b0, 0x107453e5, '1ead9e5c1045722e7ed215a68c0f454e6501abdaabfc31d8ba950753ac51a89a', [], [0x21]),
+        (0x10745100, 0x10745152, 'f489bbff42b7d8696c6c4954c8aad12455ebe1b0817c7974fbcf838da9eddb54',
+         [(0x2b, ('core.dll', '??1FMatrix@@QAE@XZ')), (0x3c, ('core.dll', '??1FMatrix@@QAE@XZ'))], []),
+    ]:
+        raw = read(engine, lo, hi)
+        assert hashlib.sha256(raw).hexdigest() == digest
+        row = {'range': [hex(lo), hex(hi)], 'SHA256': digest}
+        if candidate:
+            # Profiling globals and SEH handler-address immediates differ in
+            # this separate build. Do not normalize them: their owned bytes
+            # stay pinned above; compare only the following ordinary suffix.
+            skip = 0x16 if lo == 0x1074983d else 7
+            row['comparisonRange'] = [hex(lo+skip), hex(hi)]
+            row.update(compare_call_block(raw[skip:], candidate.read(lo+skip-0x40, hi-lo-skip),
+                owned_va=lo+skip, candidate_va=lo+skip-0x40,
+                sites=[(o-skip, name) for o,name in sites],
+                direct_calls=[o-skip for o in calls], imports=candidate.imports))
+        cleanup.append(row)
+    engine.instruction(0x103099e4, 'jmp', '0x107453b0')
+    engine.instruction(0x10308bfc, 'jmp', '0x10745100')
+    assert core.exported('??1FMatrix@@QAE@XZ', True) == 0x101111e0
+    core.instruction(0x101111e0, 'ret', '')
+
+    evaluator = BspSweepEvaluator(engine, core)
+    rng = random.Random(0x748815)
+    sets = [[[1., 1., 1., 2.], [-1., 1., 1., 3.]], [[1., 1., 1., 2.], [1., -1., 1., 3.]],
+            [[1., 1., 1., 2.], [1., 1., -1., 3.]], []]
+    sets += [[[f32(rng.uniform(-2, 2)) for _ in range(3)] + [f32(rng.uniform(-200000, 200000))]
+              for _ in range(rng.randrange(2, 8))] for _ in range(60)]
+    expected = [evaluator.bevels(planes)[0] for planes in sets]
+    code = """
+import fs from 'node:fs';
+import {bspSweepBevelPlanes} from './editor/world/js/bsp-collision.js';
+const view=new DataView(new ArrayBuffer(4));
+const bits=x=>{view.setFloat32(0,x,true);return view.getUint32(0,true)};
+console.log(JSON.stringify(JSON.parse(fs.readFileSync(0,'utf8')).map(p=>{
+ const r=bspSweepBevelPlanes(p);if(r.status!=='ready')throw Error(JSON.stringify(r));
+ return r.bevels.map(x=>({...x,plane:x.plane.map(bits)}));
+})));
+"""
+    actual = json.loads(subprocess.run(['node', '--input-type=module', '-e', code], cwd=ROOT,
+        input=json.dumps(sets), text=True, capture_output=True, check=True).stdout)
+    assert actual == [[{**row, 'plane': list(map(bits, row['plane']))} for row in rows] for rows in expected]
+    # Every emitted plane can terminate the original loop immediately; failure
+    # is not a request to keep trying another axis or pair.
+    rejections = 0
+    for planes, rows in zip(sets[:12], expected[:12]):
+        for ordinal in range(1, len(rows)+1):
+            partial, stop = evaluator.bevels(planes, reject_at=ordinal)
+            assert partial == rows[:ordinal] and stop == 0x10748e9d
+            rejections += 1
+
+    def box(angle):
+        c, s = f32(math.cos(angle)), f32(math.sin(angle))
+        normals = [[c,s,0.], [-c,-s,0.], [-s,c,0.], [s,-c,0.], [0.,0.,1.], [0.,0.,-1.]]
+        nodes = [{'plane': n+[10.], 'front': -1, 'back': i+1 if i<5 else -1,
+                  'flags': 0, 'numVertices': 4, 'collisionBound': 0} for i,n in enumerate(normals)]
+        return {'rootOutside': 1, 'nodes': nodes,
+                'leafHulls': [0,1,2,3,4,5,-1,*map(word,[-20.,-20.,-10.,20.,20.,10.])]}
+    rng = random.Random(0x748436); cases = []
+    for angle in (0., .5, math.pi/4):
+        source = box(angle)
+        for start,end in [([-30.,0.,0.],[30.,0.,0.]), ([30.,0.,0.],[-30.,0.,0.]),
+                          ([0.,0.,0.],[0.,0.,0.]), ([25.,25.,30.],[24.,24.,29.]), ([-3.,-4.,25.],[3.,4.,-25.])]:
+            cases.append({'source': source, 'start': list(map(f32,start)), 'end': list(map(f32,end)),
+                          'extent': [f32(.1),f32(.1),5.]})
+        for _ in range(25):
+            cases.append({'source': source, 'start': [f32(rng.uniform(-40,40)) for _ in range(3)],
+                          'end': [f32(rng.uniform(-40,40)) for _ in range(3)],
+                          'extent': [f32(rng.uniform(.05,5)) for _ in range(3)]})
+    expected_queries = [native_sweep_query(evaluator, case) for case in cases]
+    code = """
+import fs from 'node:fs';
+import {traceBspSweep} from './editor/world/js/bsp-collision.js';
+const view=new DataView(new ArrayBuffer(4));
+const bits=x=>{view.setFloat32(0,x,true);return view.getUint32(0,true)};
+console.log(JSON.stringify(JSON.parse(fs.readFileSync(0,'utf8')).map(c=>{
+ const r=traceBspSweep(c.source,c.start,c.end,c.extent);if(r.status!=='ready')throw Error(JSON.stringify(r));
+ return {blocked:r.blocked,hit:r.hit&&{rawTime:bits(r.hit.rawTime),time:bits(r.hit.time),
+  point:r.hit.point.map(bits),normal:r.hit.normal.map(bits)},visited:r.visited,
+  candidates:r.candidates,clippedPlanes:r.clippedPlanes};
+})));
+"""
+    actual = json.loads(subprocess.run(['node', '--input-type=module', '-e', code], cwd=ROOT,
+        input=json.dumps(cases), text=True, capture_output=True, check=True).stdout)
+    def encoded(result):
+        hit = result['hit']
+        return {**result, 'hit': None if hit is None else {
+            'rawTime': bits(hit['rawTime']), 'time': bits(hit['time']),
+            'point': list(map(bits, hit['point'])), 'normal': list(map(bits, hit['normal']))}}
+    assert actual == list(map(encoded, expected_queries))
+    return {'binding': 'qualified-supplemental' if candidate else 'unresolved-without-comparison',
+        'comparisonEngineSHA256': candidate.sha if candidate else None, 'coreSHA256': CORE_SHA,
+        'blocks': blocks, 'coreBodies': bodies, 'scalarMultiplySHA256': scalar_sha,
+        'wrapperCleanup': cleanup, 'matrixDestructor': 'owned Core 0x101111e0 RET',
+        'actualRuntimeBevelSets': len(sets), 'actualRuntimeBevelPlanes': sum(map(len, expected)),
+        'nativeEarlyRejections': rejections, 'actualRuntimeQueries': len(cases),
+        'adoptedQueryHits': sum(r['hit'] is not None for r in expected_queries),
+        'actualNativePlaneClips': sum(r['clippedPlanes'] for r in expected_queries),
+        'retainedInstructionsExercised': len(evaluator.visited), 'sqrtCalls': evaluator.sqrt_calls,
+        'limits': ['Authored synthetic convex BSP models; no original map coverage claimed by this command.',
+            'Erased-call semantics remain conditional without the explicit pinned supplemental comparison.',
+            'Finite binary64 approximation of x87, explicit sqrt boundary; no DLL execution or CRT/FPU status parity.',
+            'Degenerate/nonfinite UnsafeNormal is unsupported, never silently skipped; intersection return is ignored by source.',
+            'No owner transforms, materials, actor/terrain/adjacent-world aggregation, floor policy or walking/camera admission.']}
+
+
+def verify(comparison_engine=None):
     from check_tutorial_quest_native import Image, ROOT, ENGINE_SHA
     from check_legacy_skill_effects_native import LinearX87, f32
     engine = Image(ROOT / 'assets/interlude/system/engine.dll', ENGINE_SHA, decode=True)
@@ -768,6 +1430,14 @@ console.log(JSON.stringify(cases.map(c=>traceBspPrimary({rootOutside:1,nodes:[
     candidates = verify_sweep_candidates_bounds(engine)
     adoption = verify_sweep_adoption_adjustment(engine)
     bevel_axes = verify_bevel_axis_selection(engine)
+    call_bindings = verify_sweep_call_bindings(engine, comparison_engine)
+    composition = verify_sweep_composition(engine, comparison_engine)
+    if comparison_engine:
+        candidates['flaggedPlane'].update(
+            status='qualified-supplemental-correspondence',
+            bindingEvidence=call_bindings['blocks'][0],
+            limit='Exact pinned supplemental correspondence; not authentication or restored owned imports')
+        candidates['limits'][1] = 'candidate/bounds slice alone does not complete bevels, owner transforms or the final wrapper'
     return {'tool': 'Elbera Tools', 'engineSHA256': ENGINE_SHA,
             'primaryBody': '0x10745bd0', 'nativeAnchors': len(anchors),
             'ranges': [{'start': hex(a), 'end': hex(b), 'sha256': c} for a, b, c in ranges],
@@ -776,16 +1446,19 @@ console.log(JSON.stringify(cases.map(c=>traceBspPrimary({rootOutside:1,nodes:[
             'nonzeroCandidatesAndBounds': candidates,
             'nonzeroAdoptionAndAdjustment': adoption,
             'nonzeroBevelAxisSelection': bevel_axes,
+            'nonzeroCallBindings': call_bindings,
+            'nonzeroComposition': composition,
             'limits': ['four finite no-owner arithmetic cases, not full native emulation',
                        'Float64 intermediates approximate native x87 extended precision',
-                       'wrapper hit backoff, material resolution and overall trace aggregation unported']}
+                       'no material/owner transforms or actor/terrain/adjacent-world aggregation; no full walking or camera claim']}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
+    parser.add_argument('--comparison-engine', help='Explicit pinned supplemental Engine DLL; not authenticated owned import restoration')
     args = parser.parse_args()
-    result = verify()
+    result = verify(args.comparison_engine)
     if args.check:
         print(f"Elbera Tools BSP primary PASS: {result['nativeAnchors']} native anchors, "
               f"{len(result['ranges'])} code ranges, {len(result['runtimeDifferentialCases'])} "
@@ -803,7 +1476,15 @@ def main():
               f"bevel admission {result['nonzeroBevelAxisSelection']['anchors']} anchors, "
               f"{result['nonzeroBevelAxisSelection']['cases']} pair/axis comparisons over "
               f"{result['nonzeroBevelAxisSelection']['retainedInstructionsExercised']} instructions; "
-              'flagged plane operation remains unresolved')
+              f"call bindings {result['nonzeroCallBindings']['binding']}: "
+              f"{result['nonzeroCallBindings']['actualRuntimePlaneCases']} planes, "
+              f"{result['nonzeroCallBindings']['actualRuntimeMetricCases']} metrics, "
+              f"{result['nonzeroCallBindings']['actualRuntimeZeroTinyAdjustmentCases']} zero/tiny/finite adjustments, "
+              f"{result['nonzeroCallBindings']['actualRuntimeFinalStageCases']} final stages; "
+              f"composition {result['nonzeroComposition']['actualRuntimeBevelSets']} bevel sets / "
+              f"{result['nonzeroComposition']['actualRuntimeBevelPlanes']} exact-bit planes, "
+              f"{result['nonzeroComposition']['actualRuntimeQueries']} full queries / "
+              f"{result['nonzeroComposition']['actualNativePlaneClips']} plane clips")
     else:
         print(json.dumps(result, indent=2))
 
