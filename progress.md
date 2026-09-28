@@ -2,6 +2,28 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original sound voice selection — 28 September 2026
+
+The browser now has a bounded ALAudio voice-selection component. It preserves
+independent sound-ID counter consumption/wraparound, identity replacement or
+refusal, strict priority/tie order and the two original pool partitions. All
+pool state is explicit: no capacity, initial counter or priority is invented.
+It returns selection plus counter writes without mutating the supplied pool;
+missing consumed state stays unsupported.
+
+The existing Elbera Tools PlaySound verifier compares the actual JavaScript
+with retained original ALAudio instructions. All 544 synthetic snapshots
+match (238 selected, 306 rejected; 35,007 interpreted instructions). Seven
+portable runtime tests and 13 sound-tool tests pass, including interpreter
+boundary checks; CI now includes both. These are component checks, not an
+audible combat or quest-sound result. No new UI or standalone toolkit release
+is claimed. See [reproduction and limits](docs/native-playsound-evidence.md).
+
+Next: recover original pool initialization, priority calculation and stopping/
+update behavior, then integrate the ordinary PlaySound packet path. Scene-node
+audio state, full mixer/EAX and source loading remain open. The full-client
+goal remains active; a tested selector does not complete audio or the port.
+
 ## Beginner combat/reconnect and sound binding — 28 September 2026
 
 The existing level-one Human Fighter entered Talking Island through Online,
