@@ -159,6 +159,15 @@ native `Next` reconstruction; array order expresses that list contract. The
 scratch constructor is checked separately, without claiming that the entire
 compiler constructor loop or exception/profiling prefix was interpreted.
 
+The optional native provider hooks also support a separate
+[composed adapter differential](native-level-sweep-adapters-evidence.md), using
+the actual BSP, terrain and PointRegion evaluators at those call boundaries.
+Its original-map mode adds conditional saved-source participant reconstruction;
+the collector's authored-provider regression remains unchanged. A
+[finite MoveActor arithmetic helper](native-moveactor-arithmetic-evidence.md)
+can prepare the query and consume an already selected hit, while preserving
+the separate actor-selection and callback requirements.
+
 This does not establish full native arithmetic for every x87 rounding case,
 loaded terrain membership, live actor state, static/transformed primitives,
 provider population or movement's MoveActor/floor/step/ledge response. Those

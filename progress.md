@@ -2,6 +2,40 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Composed source sweeps and movement arithmetic — 27 September 2026
+
+The original BSP, terrain and PointRegion modules now connect to the level
+collector through explicit participant adapters. Their sparse result writes
+remain intact across clear returns, terrain rejection and shortened queries.
+Thirteen portable tests cover these joins; the retained-source differential
+includes 48 authored cases. Actor spatial queries still require an actual provider.
+
+The new terrain-zone exporter reads qualified saved identities and the actual
+Level actor array, preserves all 64 fixed/resolved slots and distinguishes an
+absent saved terrain list from an empty one. Optional normal-build reconstruction
+checks constructor/serializer framing, UpdateTerrainArrays order, retained
+PointRegion results and the finite PostLoad location branch. It remains
+conditional source state, with explicit loading/mutation limits.
+
+Fresh Talking Island and Giran inputs add 116 composed diagnostic sweeps and 94
+results. Together with the authored cases, 164 queries/142 results/405 actual
+callbacks match the browser modules against retained instructions. The map
+queries explicitly supply diagnostic actor state and disable attached levels;
+they do not certify gameplay routes, live actors or every map.
+
+Finite MoveActor query padding and selected-hit backoff now use the recovered
+movement-direction extension and original Float32 stores. Seven portable tests
+and 735 original-code cases cover exact values, boundary behavior and Time-only
+writes. The resulting actor position is calculated from adjusted displacement,
+not copied from the collision point. Source actor filters, collision membership,
+bump/touch/zone effects, floor/step/ledge response and animation transitions
+remain necessary before this can replace gameplay movement.
+
+The public README retains its gallery and 17 images. Documentation/CI include
+the new reusable Elbera Tools components; no original files, generated assets,
+private receipts or runtime state are published. Existing standalone releases
+are unchanged. The full browser-client goal remains active and incomplete.
+
 ## Original level collector and BSP regions — 27 September 2026
 
 The ordinary level collector now preserves BSP/attached-level/terrain/actor
