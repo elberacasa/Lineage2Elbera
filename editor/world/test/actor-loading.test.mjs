@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  readKnownFlagBits,
+  writeKnownFlagBits,
+  populateLevelActorCollision,
   applyActorBooleanTags,
   applyActorReferenceTags,
   applyActorTransformTags,
@@ -11,6 +14,105 @@ import {
   collectLevelActorAssignments,
   resolvePackageReference,
 } from "../js/actor-loading.js";
+
+test("known flag reads require consumed bits and masked writes retain unknown padding", () => {
+  assert.equal(
+    readKnownFlagBits({ mask: 0x80000001, value: 0x80000001 }, 0x80000000),
+    0x80000000,
+  );
+  assert.equal(readKnownFlagBits({ mask: 1, value: 0 }, 1), 0);
+  assert.equal(readKnownFlagBits({ mask: 1, value: 0 }, 2), undefined);
+  assert.equal(readKnownFlagBits({ mask: 0, value: 1 }, 0), undefined);
+  assert.equal(readKnownFlagBits(undefined, 0), undefined);
+  assert.equal(readKnownFlagBits(0xffffffff, 0xffffffff), 0xffffffff);
+  assert.deepEqual(
+    writeKnownFlagBits({ mask: 0x80000001, value: 0x80000001 }, 0x100, 0),
+    { mask: 0x80000101, value: 0x80000001 },
+  );
+  assert.deepEqual(writeKnownFlagBits({ mask: 0, value: 0 }, 0x100, 0x100), {
+    mask: 0x100,
+    value: 0x100,
+  });
+  assert.equal(writeKnownFlagBits(0xffffffff, 0x100, 0), 0xfffffeff);
+  assert.equal(writeKnownFlagBits(0, 1, 2), undefined);
+});
+
+test("fresh level population preserves slots, duplicates and callback-visible flag changes", () => {
+  const fields = new Map([
+      ["a", { mask: 1, value: 1 }],
+      ["b", { mask: 1, value: 0 }],
+    ]),
+    seen = [];
+  const actors = [null, "a", "b", "a", null];
+  const result = populateLevelActorCollision({
+    freshHash: true,
+    actors,
+    readActorFlags: (id) => fields.get(id),
+    addActor: (id) => {
+      seen.push(id);
+      fields.set("b", { mask: 1, value: 1 });
+      return { status: "ready" };
+    },
+  });
+  assert.equal(result.status, "ready");
+  assert.equal(result.completedSlots, 5);
+  assert.deepEqual(result.calls, [
+    { index: 1, identity: "a" },
+    { index: 2, identity: "b" },
+    { index: 3, identity: "a" },
+  ]);
+  assert.deepEqual(seen, ["a", "b", "a"]);
+  assert.deepEqual(actors, [null, "a", "b", "a", null]);
+  assert.ok(Object.isFrozen(result.calls) && Object.isFrozen(result.calls[0]));
+});
+
+test("population failures keep completed admission effects and never report missing actors as clear", () => {
+  for (const failure of ["flags", "reply", "throw"]) {
+    const seen = [];
+    const result = populateLevelActorCollision({
+      freshHash: true,
+      actors: ["first", null, "second", "later"],
+      readActorFlags: (id) =>
+        id === "second" && failure === "flags"
+          ? { mask: 0, value: 0 }
+          : { mask: 1, value: 1 },
+      addActor: (id) => {
+        seen.push(id);
+        if (id === "second") {
+          if (failure === "throw") throw Error("provider");
+          return { status: "unsupported" };
+        }
+        return { status: "ready" };
+      },
+    });
+    assert.equal(result.status, "unsupported");
+    assert.equal(result.completedSlots, 2);
+    assert.deepEqual(
+      seen,
+      failure === "flags" ? ["first"] : ["first", "second"],
+    );
+    assert.equal(result.calls.length, seen.length);
+  }
+  for (const actors of [[undefined], new Array(1)])
+    assert.equal(
+      populateLevelActorCollision({
+        freshHash: true,
+        actors,
+        readActorFlags: () => 1,
+        addActor: () => ({ status: "ready" }),
+      }).status,
+      "unsupported",
+    );
+  assert.equal(
+    populateLevelActorCollision({
+      freshHash: false,
+      actors: [],
+      readActorFlags: () => 1,
+      addActor: () => ({ status: "ready" }),
+    }).status,
+    "unsupported",
+  );
+});
 
 function transformFixture() {
   return {

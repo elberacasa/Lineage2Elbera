@@ -6,7 +6,7 @@ thresholds, child order, single/multi-node insertion, redistribution and removal
 of repeated pointer entries. These are components with explicit source inputs;
 they do **not** yet populate the live game world or replace walking collision.
 
-Elbera Tools compares **5,565 geometry/bounds cases** and **2,239 ordered
+Elbera Tools compares **5,946 geometry/bounds cases** and **2,239 ordered
 membership snapshots across 60 sequences** with retained Engine/Core
 instructions. The membership run executes 1,872,517 instructions and reaches
 890 instruction addresses, including trees with up to 561 nodes. No native DLL
@@ -34,6 +34,13 @@ A volume is `{center: [x,y,z], halfExtent}`; a box is
 `{status: "ready", ...}`. Missing inputs, unsupported profiles or nonfinite
 consumed arithmetic return `{status: "unsupported", reason}` and never mean
 that a path is clear.
+
+Box endpoints need not be ordered. An invalid auxiliary model box can replace
+the mesh box while retaining reversed endpoints; the original octree compares
+those stored values without sorting them. Cached extents may consequently be
+negative. The component preserves those source comparisons and Float32 stores;
+it does not repair the box. The 5,946-case geometry/bounds comparison includes
+reversed intervals and negative broad-phase extents.
 
 ### Expanded actor bounds
 

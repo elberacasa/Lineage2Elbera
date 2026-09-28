@@ -373,6 +373,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
                 Path(__file__).with_name("actor_octree_membership_source.py"),
                 Path(__file__).with_name("check_actor_octree_native.py"),
                 runtime,
+                runtime.with_name("actor-loading.js"),
                 runtime.with_name("actor-primitive-bounds.js"),
                 runtime.with_name("actor-octree-geometry.js"),
             ]

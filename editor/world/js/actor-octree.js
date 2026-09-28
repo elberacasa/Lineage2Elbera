@@ -13,6 +13,7 @@ import {
   octreeSegmentIntersectsBox,
 } from "./actor-octree-geometry.js";
 import { createActorHashResult } from "./cylinder-collision.js";
+import { readKnownFlagBits, writeKnownFlagBits } from "./actor-loading.js";
 
 const states = new WeakMap();
 const freeze = Object.freeze;
@@ -171,20 +172,23 @@ export function updateActorOctree(tree, input) {
   const result = (status, fields) =>
     freeze({ status, scope, ...fields, writes: freeze({ ...writes }) });
   const unknown = (reason) => result("unsupported", { reason });
-  if (!uint(input.flags2f8) || !(input.flags2f8 & 1))
+  if (readKnownFlagBits(input.flags2f8, 1) !== 1)
     return unknown(
       "source AddActor collision-flag assertion precondition required",
     );
-  if (!uint(input.flags64)) return unknown("unknown source actor flags64");
+  const flags64 = readKnownFlagBits(input.flags64, 0x80);
+  if (flags64 === undefined)
+    return unknown("unknown source actor flags64 mask0x80");
   let actor = state.actors.get(input.identity);
   if (!actor) {
     actor = { identity: input.identity, nodes: [] };
     state.actors.set(input.identity, actor);
   }
-  if (input.flags64 & 0x80) return result("ready", { disposition: "skipped" });
-  if (!uint(input.flags2e4)) return unknown("unknown source actor flags2e4");
-  if (input.flags2e4 & 0x4000)
-    return result("ready", { disposition: "skipped" });
+  if (flags64) return result("ready", { disposition: "skipped" });
+  const flags2e4 = readKnownFlagBits(input.flags2e4, 0x4000);
+  if (flags2e4 === undefined)
+    return unknown("unknown source actor flags2e4 mask0x4000");
+  if (flags2e4) return result("ready", { disposition: "skipped" });
   state.updating = true;
   try {
     if (actor.nodes.length) {
@@ -219,18 +223,24 @@ export function updateActorOctree(tree, input) {
     writes.cachedExtent = prepared.extent;
     if (!prepared.rootOverlap)
       return result("ready", { disposition: "outside-root" });
-    if (!uint(input.flags74)) return unknown("unknown source actor flags74");
+    if (readKnownFlagBits(input.flags74, 0) === undefined)
+      return unknown("unknown source actor flags74 representation");
     let singleNode;
     if (input.level === null) singleNode = true;
-    else if (uint(input.level?.infoFlags554))
-      singleNode = Boolean(input.level.infoFlags554 & 2);
-    else
-      return unknown(
-        "explicit null level or current LevelInfo infoFlags554 required",
-      );
+    else {
+      const mode = readKnownFlagBits(input.level?.infoFlags554, 2);
+      if (mode === undefined)
+        return unknown(
+          "explicit null level or current LevelInfo mask0x2 required",
+        );
+      singleNode = Boolean(mode);
+    }
     actor.singleNode = singleNode;
-    writes.flags74 =
-      (singleNode ? input.flags74 | 0x100 : input.flags74 & ~0x100) >>> 0;
+    writes.flags74 = writeKnownFlagBits(
+      input.flags74,
+      0x100,
+      singleNode ? 0x100 : 0,
+    );
     insert(state.root, actor);
     if (!vector(input.location))
       return unknown("finite current actor location required for source store");
@@ -347,10 +357,7 @@ export function queryActorOctree(tree, input) {
       return result.intersects;
     };
     const expanded = (values) => {
-      ensure(
-        vector(values) && values.every((v) => v >= 0),
-        "current source cached extents required",
-      );
+      ensure(vector(values), "current source cached extents required");
       const size = values.map((v, i) => Math.fround(v + extent[i]));
       ensure(vector(size), "nonfinite expanded query extent");
       return size;
@@ -366,9 +373,12 @@ export function queryActorOctree(tree, input) {
         if (previousTag === tag) continue;
         tags.set(identity, tag);
         writes.actorTags.push(freeze({ identity, tag1b0: tag }));
-        ensure(uint(actor.flags2f8), "current source actor flags2f8 required");
-        if (!(actor.flags2f8 & 0x40) || identity === input.sourceActor)
-          continue;
+        const traceBit = readKnownFlagBits(actor.flags2f8, 0x40);
+        ensure(
+          traceBit !== undefined,
+          "current source actor flags2f8 mask0x40 required",
+        );
+        if (!traceBit || identity === input.sourceActor) continue;
         if (predicate("isOwnedBy", input.sourceActor, identity)) continue;
         if (!predicate("shouldTrace", identity, input.sourceActor, input.flags))
           continue;

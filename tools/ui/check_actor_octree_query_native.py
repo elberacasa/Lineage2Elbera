@@ -6,6 +6,7 @@ Actual source methods execute in a bounded interpreter, never as native DLLs.
 Virtual ShouldTrace/LineCheck responses and successful storage remain supplied.
 """
 import argparse
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -52,7 +53,7 @@ process.stdout.write(JSON.stringify(cases.map(c=>{
  return c.queries.map(q=>{
   const events=[];
   const r=ready(api.queryActorOctree(tree,{...q,maskedZeroDivision:true,
-   readActor:id=>({status:'ready',actor:actors.get(id)}),
+   readActor:id=>{const a=actors.get(id);return {status:'ready',actor:{...a,flags2f8:{mask:0x40,value:a.flags2f8&0x40}}};},
    isOwnedBy:(a,b)=>{events.push(['owned',a,b]);return isActorOwnedBy({actor:a,owner:b,ownerOf});},
    shouldTrace:(a,s,f)=>{events.push(['should',a,s,f]);return {status:'ready',value:q.trace[a]};},
    getPrimitive:id=>{const p=actors.get(id).primitive;events.push(['primitive',id,p]);return {status:'ready',primitiveIdentity:p};},
@@ -174,6 +175,26 @@ def fixtures():
                 queries=queries,
             )
         )
+    # The source AddActor path can retain an invalid auxiliary box with reversed
+    # endpoints. Query padding may leave a negative extent or make it positive.
+    for extent in (1.0, 20.0):
+        case = copy.deepcopy(cases[0])
+        case["actors"] = case["actors"][:1]
+        case["actors"][0]["tag1b0"] = 0
+        case["actors"][0]["bounds"] = dict(
+            min=[10.0, -5.0, -5.0], max=[-10.0, 5.0, 5.0]
+        )
+        case["insertions"] = ["actor0"]
+        case["queries"] = case["queries"][:1]
+        case["queries"][0].update(
+            currentTag=0,
+            sourceActor=None,
+            extent=[extent, 2.0, 3.0],
+            trace={"actor0": 1},
+        )
+        case["queries"][0]["lines"]["actor0"]["hit"] = True
+        case["queries"][0]["lines"] = {"actor0": case["queries"][0]["lines"]["actor0"]}
+        cases.append(case)
     return cases
 
 
@@ -370,6 +391,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
                 Path(__file__).with_name("actor_octree_machine.py"),
                 Path(__file__).with_name("check_actor_octree_native.py"),
                 runtime,
+                runtime.with_name("actor-loading.js"),
                 runtime.with_name("actor-blocking.js"),
                 runtime.with_name("actor-octree-geometry.js"),
                 runtime.with_name("cylinder-collision.js"),

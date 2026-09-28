@@ -2,6 +2,7 @@
  * Source offsets retain their identity; unresolved fields never become null.
  * Current geometry, actor transforms and overridden method replies are inputs.
  */
+import { readKnownFlagBits } from "./actor-loading.js";
 const scope = "original-actor-primitive-bounds";
 const freeze = Object.freeze;
 const fail = (reason) => freeze({ status: "unsupported", scope, reason });
@@ -59,9 +60,10 @@ export function transformOriginalBox(input) {
  * LocalToWorld and collision-model bounds retain explicit virtual dispatch.
  */
 export function prepareStaticMeshBounds(input) {
-  if (input?.arithmeticProfile !== "pc53-rne" || !uint(input.ownerFlags2f8))
+  const cylinder = readKnownFlagBits(input?.ownerFlags2f8, 0x100);
+  if (input?.arithmeticProfile !== "pc53-rne" || cylinder === undefined)
     return fail("explicit owner flags and arithmetic profile required");
-  if (input.ownerFlags2f8 & 0x100) {
+  if (cylinder) {
     const generic = prepareGenericPrimitiveBounds(input);
     if (generic.status !== "ready") return generic;
     return freeze({

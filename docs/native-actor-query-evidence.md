@@ -6,11 +6,11 @@ node visits, actor tags, ownership filtering, supplied virtual methods, hit
 collection and minimum-time selection. It uses the actual membership component,
 not a second reconstructed tree.
 
-Elbera Tools compares **600 queries across 100 sequences**, following **1,144
+Elbera Tools compares **602 queries across 102 sequences**, following **1,146
 original actor admissions**, against retained Interlude Engine/Core instructions.
-The run checks 3,302 candidate-tag writes, 283 returned hit records, callback
+The run checks 3,304 candidate-tag writes, 284 returned hit records, callback
 arguments/order, scratch initialization and final tag state. It executes
-4,104,967 instructions at 1,890 addresses, including 360 explicitly admitted
+4,107,045 instructions at 1,890 addresses, including 364 explicitly admitted
 masked zero divisions. These are authored component cases, not live world or
 walking evidence.
 
@@ -42,6 +42,14 @@ from current state, not an assumed zero.
 | `shouldTrace(candidate, sourceActor, flags)` | `{status: "ready", value}` with an unsigned DWORD predicate |
 | `getPrimitive(candidate)` | `{status: "ready", primitiveIdentity}` with a nonnull identity |
 | `lineCheck(primitiveIdentity, request)` | `{status: "ready", hit, writes}` with explicit boolean hit and source result-field writes |
+
+`flags2f8` accepts a complete unsigned DWORD or `{mask, value}` with the
+consumed `0x40` bit established. The comparison supplies only that bit to the
+browser, while the original interpreter retains the full native word. Unknown
+bits are never filled with zeros. A missing consumed bit fails after the
+original candidate-tag write. Cached actor extents may be negative after a
+reversed source box; the separate query extent remains nonnegative. Two added
+original-code cases cover the resulting miss and hit with different query sizes.
 
 The line request carries `actor`, `start`, `end`, `extent`, `flags`, `extra` and
 `initialResult`. The scratch record is the original constructor with Time zero,
@@ -111,7 +119,7 @@ python3 tools/ui/check_actor_octree_query_native.py \
 Owned files default to `assets/interlude/system/engine.dll` and `Core.dll`;
 `--engine`/`--core` override them. Without `--check`, the verifier reports source
 bindings, instruction coverage and file hashes. `--runtime-module` selects the
-actual alternate `actor-octree.js` beside its geometry, actor-blocking and
+actual alternate `actor-octree.js` beside its geometry, actor-loading, actor-blocking and
 cylinder-collision dependencies. Capstone 5.0.7 and Node are required.
 
 Qualification binds the common query preparation, nonzero branch, full normal
@@ -132,7 +140,8 @@ node --test editor/world/test/actor-octree*.test.mjs \
 python3 -m unittest discover -s tools/ui -p 'test_actor_octree*py'
 ```
 
-There are nine new browser and four new interpreter cases. Eight deliberate
+The query module has ten portable browser cases; the original milestone added
+four interpreter cases. Eight deliberate
 local mutations are rejected: ignored tags, reversed parent/child order, wrong
 candidate flags, encounter-order output, changed equal-time adoption, ignored
 first-hit mode and omitted broad-phase extent. Raw receipts and mutation copies
@@ -146,7 +155,7 @@ world. The separate [actor/pawn trace filters](native-actor-trace-evidence.md)
 now implement ordinary AActor and APawn ShouldTrace with explicit helper/state
 inputs. Portable joins exercise those filters with this tree and actual cylinder
 collision; they do not establish a live scene. This query exposes the method
-boundary for existing cylinder and cached-mesh collision components; the 600
+boundary for existing cylinder and cached-mesh collision components; the 602
 cases supply those responses and
 do not prove the concrete primitive join. Zero-extent queries are separate work.
 

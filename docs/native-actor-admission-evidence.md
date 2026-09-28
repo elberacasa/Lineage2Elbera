@@ -32,11 +32,17 @@ const result = updateActorOctree(tree, {
 });
 ```
 
-Flags are explicit unsigned DWORDs identified by original actor offsets. This
-API does not infer their values from rendered objects or emulator defaults.
+Flags are explicit unsigned DWORDs or partial `{mask, value}` words identified
+by original offsets. A partial value may contain only bits established by its
+mask. The shared loading helpers read only the consumed masks: actor `+0x2f8`
+bit `1`, `+0x64` bit `0x80`, `+0x2e4` bit `0x4000`, and LevelInfo `+0x554` bit
+`2`. Actor `+0x74` is only written here, so an empty known mask is valid. The
+write establishes bit `0x100` and retains every other known bit; unknown padding
+remains unknown. Complete numeric inputs retain their numeric output contract.
+No value is inferred from rendered objects or emulator defaults.
+
 `level: null` means the actor's Level reference is null. Otherwise `infoFlags554`
-is the current LevelInfo DWORD at `+0x554`; a missing LevelInfo is not a null
-Level. Current/stored locations are dense finite Float32 triples in native axes
+is the current LevelInfo word; a missing LevelInfo is not a null Level. Current/stored locations are dense finite Float32 triples in native axes
 and units. The arithmetic profile remains finite PC53/RNE, without a claim
 about a running native thread's control word.
 
@@ -126,7 +132,7 @@ python3 tools/ui/check_actor_octree_admission_native.py \
 Owned files default to `assets/interlude/system/engine.dll` and `Core.dll`;
 `--engine` and `--core` override them. Without `--check`, the tool returns source
 bindings, coverage and current file hashes. `--runtime-module` compares an
-alternate `actor-octree.js` beside its geometry, primitive-helper and
+alternate `actor-octree.js` beside its geometry, actor-loading, primitive-helper and
 cylinder-collision dependencies.
 Original files are read only when verification runs. Capstone 5.0.7 is required.
 

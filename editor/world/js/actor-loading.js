@@ -22,6 +22,88 @@ function dense(value) {
   return true;
 }
 
+function knownFlagWord(word) {
+  if (uint(word)) return { mask: 0xffffffff, value: word };
+  if (uint(word?.mask) && uint(word.value) && (word.value & ~word.mask) === 0)
+    return word;
+  return null;
+}
+
+/** Read only established bits, without promoting unknown padding to zero. */
+export function readKnownFlagBits(word, mask) {
+  const known = knownFlagWord(word);
+  if (!uint(mask) || !known || (known.mask & mask) >>> 0 !== mask)
+    return undefined;
+  return (known.value & mask) >>> 0;
+}
+
+/** A native masked write establishes its target bits and preserves the rest.
+ * Full words retain the existing numeric contract; partial words stay partial.
+ */
+export function writeKnownFlagBits(word, mask, value) {
+  const known = knownFlagWord(word);
+  if (!known || !uint(mask) || !uint(value) || (value & ~mask) !== 0)
+    return undefined;
+  const updated = ((known.value & ~mask) | value) >>> 0;
+  return uint(word)
+    ? updated
+    : freeze({ mask: (known.mask | mask) >>> 0, value: updated });
+}
+
+/** Original fresh-hash population loop in ULevel.SetActorCollision.
+ * The caller supplies the stable CURRENT actor array and a newly created hash.
+ * Each AddActor response must apply its writes before the next slot is read.
+ * Nulls are skipped; duplicates and callback-visible ordering are preserved.
+ * This does not load the array or infer level mode from saved map records.
+ */
+export function populateLevelActorCollision(input) {
+  const calls = [];
+  let completedSlots = 0;
+  const result = (status, reason) =>
+    freeze({
+      status,
+      scope: "original-level-collision-population",
+      completedSlots,
+      calls: freeze([...calls]),
+      ...(reason ? { reason } : {}),
+    });
+  if (
+    input?.freshHash !== true ||
+    !dense(input.actors) ||
+    typeof input.readActorFlags !== "function" ||
+    typeof input.addActor !== "function"
+  )
+    return result(
+      "unsupported",
+      "fresh hash, dense current actor array and synchronous providers required",
+    );
+  try {
+    for (let index = 0; index < input.actors.length; index++) {
+      const identity = input.actors[index];
+      if (identity === undefined)
+        return result("unsupported", "unknown current actor slot");
+      if (identity !== null) {
+        const collide = readKnownFlagBits(input.readActorFlags(identity), 1);
+        if (collide === undefined)
+          return result("unsupported", "current actor collision bit required");
+        if (collide) {
+          calls.push(freeze({ index, identity }));
+          const admission = input.addActor(identity);
+          if (admission?.status !== "ready")
+            return result(
+              "unsupported",
+              admission?.reason ?? "actor admission did not finish",
+            );
+        }
+      }
+      completedSlots++;
+    }
+    return result("ready");
+  } catch {
+    return result("unsupported", "actor population provider failed");
+  }
+}
+
 /** Common flag stages of a fresh referenced native object. The caller must
  * establish ordinary allocation, header-preserving serialization and successful
  * loading. These arithmetic stages do not execute a constructor or an archive.

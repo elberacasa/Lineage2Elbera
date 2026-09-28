@@ -59,9 +59,13 @@ references in one property entry. All 2,922 inputs pass that entry; 128 original
 serializer cases check transform gates, component order and exact scalar bits.
 The fresh actor entry now joins source flag stages, empty Attached default copying
 and bounded PostLoad, checked against 128 original-instruction cases and all
-2,922 source actors. Whole default-object/archive execution, script initialization,
-registry population and LevelInfo collision mode still need the lifecycle join
-before world queries can use these records.
+2,922 source actors. Ordered population now joins actual actor admission,
+static-mesh bounds and membership in 64 original-code scenarios covering 959
+AddActor calls. The shared consumers accept only the known flag bits they read;
+unknown padding stays unknown. Original reversed box endpoints are preserved.
+Whole default-object/archive execution, script initialization, the actual current
+level array and LevelInfo collision mode still need the lifecycle join before
+world queries can use these records.
 
 Next: feed these prepared mesh resources and original actor fields into the
 existing world-query components, preserving unresolved lifecycle boundaries. Validate

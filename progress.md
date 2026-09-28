@@ -2,6 +2,28 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Ordered collision population and partial flags — 28 September 2026
+
+PR55 is merged. The shared actor-loading module now preserves original current
+level order through actual admission, static bounds and membership. Known-mask
+flag reads/writes connect recovered state without inventing unknown padding.
+64 joined original-code scenarios cover 959 AddActor calls, 1,413,660 instructions
+and 1,753 addresses. Repeated slots see completed sparse writes.
+
+Inherited reversed-box and negative-cache-extent guards were inconsistent with
+original invalid auxiliary-box replacement; the browser now preserves those
+source values. Geometry/bounds checks pass 5,946 cases. Query checks pass 602
+queries after 1,146 admissions, including partial flags and reversed extents.
+The source transform serializer fixture now uses Location+0x1bc, distinct from
+PhysicsVolume+0x1b8. Portable validation: 115 browser and 35 interpreter cases.
+
+Offline Giran startup was visually inspected and has no captured errors, but
+still shows no audited static surfaces loaded. Next: actual current level array
+and LevelInfo mode, then feed the existing world-query components. Complete
+loading/lifecycle, subclass dispatch, Online movement and the remaining full
+client systems are unfinished. Goal active. Public docs and all 17 README images
+are preserved; original files, generated assets and raw receipts remain private.
+
 ## Fresh static-actor collision lifecycle — 28 September 2026
 
 Continued from merged PR54. The existing actor-loading module now joins the
