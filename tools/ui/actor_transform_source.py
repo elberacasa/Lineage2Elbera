@@ -24,6 +24,190 @@ def raw(image, a, b):
     return bytes(image.data[image.offset(a) : image.offset(b)])
 
 
+def qualify_actor_collision_fields(
+    engine, core, comparison_engine, comparison_core, package
+):
+    """Bind declared Boolean groups and primitive/level reference identities."""
+    sys.path[:0] = [
+        str(ROOT / "tools/world"),
+        str(ROOT / "tools"),
+        str(ROOT / "tools/dat"),
+    ]
+    from export_static_collision import actor_boolean_layout, actor_declaration
+
+    assert (engine.sha, core.sha, comparison_engine.sha, comparison_core.sha) == (
+        ENGINE_SHA,
+        CORE_SHA,
+        COMPARISON_SHA,
+        COMPARISON_CORE_SHA,
+    )
+    assert hashlib.sha256(package.path.read_bytes()).hexdigest() == PACKAGE_SHA
+    copy = "??0AActor@@QAE@ABV0@@Z"
+    assert engine.exported(copy, True) == comparison_engine.body(copy) == 0x103B60F0
+    layout = actor_boolean_layout(package)
+    blocks = []
+    for group, (offset, start, entry, end) in zip(
+        layout,
+        [
+            ("0x64", 0x103B6221, 0x103B6227, 0x103B635A),
+            ("0x74", 0x103B635A, 0x103B636F, 0x103B64C1),
+            ("0x2e4", 0x103B6B8B, 0x103B6B98, 0x103B6D52),
+            ("0x2f8", 0x103B6D76, 0x103B6D82, 0x103B6EE9),
+        ],
+    ):
+        assert group["offset"] == offset
+        data = raw(engine, start, end)
+        assert data == comparison_engine.read(start, len(data))
+        rows = list(engine.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data)
+        masks = [
+            int(row.op_str.split(", ")[1], 0) for row in rows if row.mnemonic == "and"
+        ]
+        assert masks == [field["mask"] for field in group["fields"]]
+        blocks.append(
+            dict(
+                offset=offset,
+                start=hex(start),
+                entry=hex(entry),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+                declaredMasks=masks,
+            )
+        )
+    symbol = "?Link@UBoolProperty@@UAEXAAVFArchive@@PAVUProperty@@@Z"
+    assert core.exported(symbol, True) == comparison_core.body(symbol) == 0x10173250
+    data = raw(core, 0x10173250, 0x101732F1)
+    assert data == comparison_core.read(0x10173250, len(data))
+    for at, op, args in [
+        (0x1017329D, "test", "dword ptr [edi + 0x78], 0x7fffffff"),
+        (0x101732A6, "mov", "eax, dword ptr [ebx + 0x54]"),
+        (0x101732A9, "mov", "dword ptr [esi + 0x54], eax"),
+        (0x101732AC, "mov", "ecx, dword ptr [edi + 0x78]"),
+        (0x101732AF, "add", "ecx, ecx"),
+        (0x101732C0, "add", "eax, 3"),
+        (0x101732C3, "and", "eax, 0xfffffffc"),
+        (0x101732C9, "mov", "dword ptr [esi + 0x78], 1"),
+        (0x101732D0, "mov", "dword ptr [esi + 0x44], 4"),
+    ]:
+        core.instruction(at, op, args)
+    owner = next(
+        e
+        for e in package.exports
+        if package.class_name_of(e) == "Class" and package.export_name(e) == "Actor"
+    )
+    owner_ref = owner.index + 1
+    chains = []
+    for fields, start, end in [
+        (
+            [
+                ("Physics", "ByteProperty", "Engine.Actor.EPhysics", 0x34),
+                ("DrawType", "ByteProperty", "Engine.Actor.EDrawType", 0x35),
+                ("StaticMesh", "ObjectProperty", "Engine.StaticMesh", 0x38),
+                ("Owner", "ObjectProperty", "Engine.Actor", 0x3C),
+            ],
+            0x103B6129,
+            0x103B6143,
+        ),
+        (
+            [
+                ("AttachType", "ByteProperty", "Engine.Actor.EAttachType", 0xDC),
+                ("Level", "ObjectProperty", "Engine.LevelInfo", 0xE0),
+                ("XLevel", "ObjectProperty", "Engine.Level", 0xE4),
+                ("LifeSpan", "FloatProperty", None, 0xE8),
+            ],
+            0x103B668E,
+            0x103B66BF,
+        ),
+        (
+            [
+                ("TimerRate", "FloatProperty", None, 0x100),
+                ("Mesh", "ObjectProperty", "Engine.Mesh", 0x104),
+                ("LastRenderTime", "FloatProperty", None, 0x108),
+            ],
+            0x103B66FB,
+            0x103B671F,
+        ),
+        (
+            [
+                (
+                    "StaticMeshInstance",
+                    "ObjectProperty",
+                    "Engine.StaticMeshInstance",
+                    0x274,
+                ),
+                ("Brush", "ObjectProperty", "Engine.Model", 0x278),
+                ("DrawScale", "FloatProperty", None, 0x27C),
+            ],
+            0x103B6A39,
+            0x103B6A5D,
+        ),
+        (
+            [
+                ("AmbientGlow", "ByteProperty", None, 0x2B4),
+                ("MaxLights", "ByteProperty", None, 0x2B5),
+                ("AntiPortal", "ObjectProperty", "Engine.ConvexVolume", 0x2B8),
+                ("CullDistance", "FloatProperty", None, 0x2BC),
+            ],
+            0x103B6AF0,
+            0x103B6B22,
+        ),
+    ]:
+        matches = [
+            e
+            for e in package.exports
+            if e.package_index == owner_ref and package.export_name(e) == fields[0][0]
+        ]
+        assert len(matches) == 1
+        ref, declarations = matches[0].index + 1, []
+        for name, kind, target, offset in fields:
+            row = actor_declaration(package, ref, owner_ref)
+            assert (row["name"], row["kind"], row["reference"]) == (name, kind, target)
+            declarations.append(dict(row, offset=hex(offset)))
+            ref = row["next"]
+        data = raw(engine, start, end)
+        assert data == comparison_engine.read(start, len(data))
+        rows = list(engine.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data)
+        # The typed copy chain consumes exactly these source field bases in
+        # declaration order. Destination offsets are checked independently.
+        sources = [
+            row.op_str.split("[ebp + ")[1].split("]")[0]
+            for row in rows
+            if "[ebp + " in row.op_str
+        ]
+        destinations = [
+            row.op_str.split("[ebx + ")[1].split("]")[0]
+            for row in rows
+            if "[ebx + " in row.op_str
+        ]
+        assert [int(s, 0) for s in sources] == [row[3] for row in fields]
+        assert [int(s, 0) for s in destinations] == [row[3] for row in fields]
+        chains.append(
+            dict(
+                declarations=declarations,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    return dict(
+        packageSHA256=PACKAGE_SHA,
+        booleanLayout=layout,
+        copyBlocks=blocks,
+        referenceChains=chains,
+        booleanLink=dict(
+            start="0x10173250",
+            end="0x101732f1",
+            SHA256=hashlib.sha256(raw(core, 0x10173250, 0x101732F1)).hexdigest(),
+        ),
+        limits=[
+            "Source field identities and declared bits only; padding is not assigned a value.",
+            "Copy slices and Link correspondence do not execute class layout, tagged loading, reference resolution or level membership.",
+            "Level is a LevelInfo reference; XLevel is a separate transient Level reference. Saved absence does not prove a null live XLevel.",
+        ],
+    )
+
+
 def qualify_static_actor_loading(engine, core, comparison_engine, comparison_core):
     """Bind ordinary actor construction and bounded PostLoad dependencies.
 

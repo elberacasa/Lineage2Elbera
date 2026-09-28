@@ -458,6 +458,64 @@ No runtime JS/UI changed, and no new screenshot or Online acceptance is claimed.
 Original files and raw receipts remain private; the reusable checker remains
 repository source outside the current standalone tool archives.
 
+## Declared actor flags and reference identities
+
+The same private sweep export now retains `savedCollisionFlags`, with a
+known-bit mask and value for each of four Actor words. The decoder follows
+linked property declarations from the pinned `Engine.u`, rather than export
+table order. It rejects foreign owners, cycles, arrays, truncated declarations
+and unsupported group endpoints. Explicit false map overrides survive; fields
+without a tagged default use the already qualified zero-plus-parent CDO path.
+Undeclared padding stays unknown.
+
+| Actor word | Declared Boolean fields | Known mask |
+| --- | --- | --- |
+| `+64` | 21 | `0x1fffff` |
+| `+74` | 23 | `0x7fffff` |
+| `+2e4` | 21 | `0x1fffff` |
+| `+2f8` | 17 | `0x1ffff` |
+
+The bounds verifier binds these **82 field identities** to four byte-identical
+regions of the original typed AActor copy constructor. It executes **512 copy
+cases**, checking source preservation, declared destination bits, untouched
+padding and neighboring words: 52,096 instructions at 407 addresses. These
+are copy slices with supplied inputs, not execution of class layout or map
+loading. The full normal `UBoolProperty.Link` body
+(`10173250..101732f1`) also matches the pinned companion; instruction anchors
+identify prior-bit shifting, offset reuse, four-byte alignment and initial mask.
+
+Five additional linked declaration/typed-copy chains resolve references that
+must not be conflated during world integration:
+
+| Actor field | Offset | Declared reference type |
+| --- | --- | --- |
+| StaticMesh | `+38` | `Engine.StaticMesh` |
+| Level | `+e0` | `Engine.LevelInfo` |
+| XLevel | `+e4` | `Engine.Level` |
+| Mesh | `+104` | `Engine.Mesh` |
+| Brush | `+278` | `Engine.Model` |
+| AntiPortal | `+2b8` | `Engine.ConvexVolume` |
+
+Thus the prior PostLoad `+278` object is Brush; its `+60` reference still has
+no further meaning assigned here. XLevel is transient in its declaration.
+An absent saved XLevel is not proof of a null current world. The checker
+records exact property flags and declaration fingerprints with the bindings.
+
+The existing bounds and record commands reproduce this milestone; there are
+no new dependencies. All **986 Talking Island and 1,936 Giran saved flag
+records** agree with decoded tags and inherited defaults. Transform counts,
+mesh preparation and conservative collision selection are unchanged.
+Fifty-two portable record tests and twelve interpreter tests pass. Authored
+fixtures check linked order, rejection boundaries, false overrides and padding
+mutations without original files.
+
+`savedCollisionFlags` remains saved-source evidence. Transient-property
+loading rules, current lifecycle writes, resolved references and level
+membership must be joined before it can supply current actor state. There is
+no new runtime JS/UI change, screenshot or Online map-repair claim. Original
+inputs and generated flag records remain private; these additions extend
+the existing repository tools, outside the current standalone archives.
+
 ## Next integration boundary
 
 `localBounds` must be the **current native mesh field**, not a box recomputed

@@ -25,6 +25,13 @@ the original native constructor. An inherited truncated InitProperties range
 has also been corrected through the final property-copy loop. Existing actor
 admission counts and default ray outputs remain unchanged.
 
+Actor recovery now adds 82 source-declared Boolean fields and their known-bit
+masks, checked in 512 original typed-copy cases. All 2,922 examined saved actor
+flag records agree with the decoded map/default fields. Reference bindings
+separate the mesh, collision brush, LevelInfo and transient world reference;
+saved values still need the native loading/lifecycle boundary before use as
+current actor state.
+
 Next: feed these prepared mesh resources and original actor fields into the
 existing world-query components, preserving unresolved lifecycle boundaries. Validate
 actual Online queries and placement before claiming a map repair. Rendered
