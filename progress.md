@@ -2,6 +2,30 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original static mesh traversal and final hits — 28 September 2026
+
+The browser now joins original nonzero mesh preparation, ordered tree traversal,
+triangle selection and final hit adjustment. It retains closest-hit pruning,
+once-per-query triangle tags, sparse cache writes and conditional material
+responses. Opaque source offsets remain explicit. The ordinary wrapper starts
+time at one and reports the tree's hit flag; source Normalize leaves very small
+normals unchanged instead of fabricating a replacement.
+
+Elbera Tools compares the actual modules with 2,600 retained-instruction cases:
+600 tree, 400 joined collision and 1,600 adopted-hit cases. The run covers
+6,190,848 instructions at 2,750 addresses, including preparation. Twenty-one
+browser fixtures and eight interpreter fixtures are added to portable CI.
+Deliberate traversal, query-tag, hit-bias and small-normal mutations are rejected.
+A separate private diagnostic passes 48 joined sweeps through eight freshly
+decoded Talking Island/Giran meshes, with exact original record round trips.
+Its matrices and query state are authored diagnostics, not live placements.
+
+Current cache acquisition/lifetime, actor membership, native material methods,
+alternate primitive branches and live walking remain unfinished. Supplied-state
+components do not complete the full-client goal. Existing README images and
+standalone archives are retained; the new verifier is a repository Elbera Tool.
+[Reproducible commands, source bindings and limits](docs/native-static-mesh-evidence.md).
+
 ## Original static triangle preparation and clipping — 28 September 2026
 
 The browser preserves original world-triangle construction, cache validity,

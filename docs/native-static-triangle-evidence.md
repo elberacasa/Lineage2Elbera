@@ -6,9 +6,11 @@ plane construction and interval writes. **5,200 comparisons** check the actual
 JavaScript module against retained original Engine/Core instructions. Of these,
 **500 compose scratch initialization, world geometry and clipping**.
 
-This is a collision component, not a complete mesh sweep or gameplay route.
-Whole-mesh traversal, material callbacks, current actor/cache lifetime, spatial
-admission and walking remain unfinished. Existing scene rendering is unchanged.
+This is a collision component. The subsequent
+[mesh traversal component](native-static-mesh-evidence.md) joins preparation,
+tree traversal and final hits with explicit material responses. Current
+actor/cache lifetime, spatial admission and walking remain unfinished. Existing
+scene rendering is unchanged.
 
 ## Browser contract
 
@@ -117,8 +119,9 @@ from the source qwords, not a browser tolerance.
 The ready result contains `keep` and `clipState`. **`keep` is an interval-helper
 return, not an adopted collision hit.** Earlier writes survive a later rejection;
 strict interval and entry comparisons preserve source ties. The original tree
-also checks `found`, selects a closest result and resolves its material. Those
-operations and the outer hit adjustment remain separate work.
+also checks `found`, selects a closest result and resolves its material. The
+[mesh component](native-static-mesh-evidence.md) now performs those stages and
+the outer hit adjustment with explicit current state and method responses.
 
 ## Reproducible verification
 
