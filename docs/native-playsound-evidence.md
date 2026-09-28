@@ -409,7 +409,8 @@ browser context's counter.
 
 With the supplied 32-source/16-split profile, ordinary class-zero sounds use
 slots 16–31. Actual packet dispatch requires a running AudioContext, a current
-entered self pawn and a fully decoded matching stereo source. The loader
+entered self pawn and a fully decoded matching stereo source. Logical entry
+can precede browser map/model readiness; see the entry-time check below. The loader
 checks the bank fingerprint and every WAV digest. The ordinary same-pawn
 frame has source, view target and audio position at the pawn; camera orbit is
 not substituted for the audio position. Native gain is then the stored sound
@@ -445,6 +446,49 @@ Verification on 28 September 2026:
 The ported packet pool is currently separate from historical combat/world
 sound paths, which still use provisional buses and mono conversion. Shared
 voice competition, source-mode globals, complete settings/mixer, streams,
-EAX, alternate view targets, entry-time scheduling and general sound lookup
-remain open. The new tool is delivered in repository source; the existing
+EAX, alternate view targets and general sound lookup remain open. The
+entry-time PCM issue was addressed in the follow-up below; native loading-order
+equivalence and speech scheduling are separate boundaries. The new tool is delivered in repository source; the existing
 Core/NPC Source release archives are unchanged.
+
+
+## Entry-time PCM and session ownership
+
+The first live entry check above exposed an overly broad browser admission
+check: it rejected the tutorial cue while map/model promises were pending,
+after EnterWorld had already supplied the self object and its actual position.
+The browser now admits that logical pawn immediately. Until this entry's
+rendered pose is adopted, the audio frame uses the latest authoritative origin;
+it never uses a requested destination or a previous scene/model's transform.
+After placement, it follows the current rendered pawn as before. Offline,
+disconnected, missing-pawn and character-menu states remain unavailable.
+
+This separates browser resource readiness from logical player ownership. It
+is not a claim about the Windows client's loader/packet-loop timing. No cue is
+queued for later playback, no coordinate is fabricated, and pre-entry gateway
+packets continue to be dropped. Generation changes retire old sources and
+clear both the latest result and the last successful playback receipt.
+
+The existing Elbera world inspector now has a **Live packet audio** disclosure
+at `/?dev=1&inspect=1&checkpoint=current`. It observes actual packet playback;
+it does not send sounds or stage the current-player checkpoint. Unsupported
+requests cannot overwrite the separate last-successful receipt, making mixed
+PCM/speech sequences diagnosable. These are observations, not success counters
+for whole-client parity.
+
+A normal saved-character entry on 28 September 2026 started the actual
+`ItemSound.quest_tutorial` packet in slot16, sound ID `4294967280`, with two
+channels and gain `0.800000011920929`. After completion the active count was
+zero and the successful receipt remained inspectable. Local disconnect
+cleared both receipts. Re-entry played a new cue in slot16 with ID
+`4294967264`, preserving the audio-context counter. No developer movement,
+injected packet or database edit
+was used. Browser warnings/errors were empty for that entry; it does not
+establish that mode-two speech is supported or that every entry requests it.
+
+37 current Online-lifecycle and packet-audio tests pass, including unresolved
+map/model promises, rendered-pose adoption, absent pawn state and disconnect.
+The installed web-game runner also reaches fresh Online creation without
+captured errors. Full quest delivery and speech remain separate acceptance
+work; controller request scheduling, interruption, fade and music interaction
+must be connected before tutorial voice playback is complete.

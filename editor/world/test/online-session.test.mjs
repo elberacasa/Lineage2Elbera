@@ -16,6 +16,7 @@ function slice(start, end) {
 const source = [
   slice('function cancelFineNavigation(', '\nfunction startFineNavigation('),
   slice('function resetOnlineSession()', "\nnet.on('open'"),
+  slice('function packetAudioFrame()', "\nnet.on('playSound'"),
   slice("net.on('close'", "\nnet.on('error'"),
   slice("net.on('enterWorld'", "\nnet.on('addPlayer'"),
   slice('function applySelfEquipment(', '\n// The retail shortcut bar'),
@@ -118,7 +119,8 @@ function harness() {
   for (const name of ['setSpeeds', 'setWeapon', 'setOffhand', 'setArmor', 'setAppearance', 'cancelAppearance']) old[name] = Character.prototype[name];
   const noop = () => {};
   const context = {
-    online: true, onlineGeneration: 1, worldEntryGeneration: 0, npcWorldEntry: null,
+    online: true, onlineGeneration: 1, worldEntryGeneration: 0, selfPlacementGeneration: null, npcWorldEntry: null,
+    L2_TO_M: 0.01, ccOverlay: null, csOverlay: null,
     characterLoadGeneration: 0, characterLoading: false,
     fineNavSync: null, fineNavFollower: null, selfServerPosition: {x:1,y:2,z:3}, moveQueue: [],
     clearTimeout: id => clearedNavTimers.push(id),
@@ -135,7 +137,7 @@ function harness() {
     setLoading: text => notices.push(text), setStatus: text => notices.push(text),
     chat: { addSystem: text => notices.push(text) },
     console: { error: (...args) => notices.push(args) },
-    net: { on: (name, fn) => { handlers[name] = fn; },
+    net: { connected: true, on: (name, fn) => { handlers[name] = fn; },
       connect: () => { connects++; }, disconnect: () => { disconnects++; } },
     questWnd: { reset: () => { questResets++; } },
     questMark: { resets: 0, reset() { this.resets++; } },
@@ -162,7 +164,7 @@ function harness() {
     skillWnd: { clears: 0, clear() { this.clears++; } }, charSheetData: { runSpeed: 120 },
     gameSound: { clear: noop, equips: [], weapons: [],
       equip(id) { this.equips.push(id); }, setWeapon(id) { this.weapons.push(id); } },
-    audio: { lastPacketSound: { status: 'playing' },
+    audio: { lastPacketSound: { status: 'playing' }, lastPlayedPacketSound: { ref: 'synthetic' },
       nativePacketAudio: { resets: 0, reset() { this.resets++; } } },
     lastRhand: null, selfAppearance: {}, onlineToggle: { checked: true },
     document: { getElementById: () => ({ classList: { contains: () => false } }) },
@@ -178,7 +180,7 @@ function harness() {
       const work = deferred(); sceneJobs.push({ ...work, tile, options }); await work.promise;
     },
   };
-  vm.runInNewContext(source + '\nglobalThis.runLoad = loadCharacter; globalThis.runOnline = setOnline;', context);
+  vm.runInNewContext(source + '\nglobalThis.runLoad = loadCharacter; globalThis.runOnline = setOnline; globalThis.audioFrame = packetAudioFrame;', context);
   return { context, handlers, jobs, sceneJobs, notices, hidden, old, children, clearedNavTimers,
     npcEntries, npcScenes, npcResets,
     trainer, get trainerResets() { return trainerResets; },
@@ -190,6 +192,35 @@ function harness() {
 }
 
 const clubPaperdoll = { rhand: 2370, lhand: 0, gloves: 0, chest: 10, legs: 0, feet: 0 };
+
+test('entry sound uses the received pawn position while map/model promises are pending', async () => {
+  const h = harness();
+  const entry = h.handlers.enterWorld({char:{id:41,name:'Fixture',race:2,x:100,y:20,z:30,heading:0}});
+  const pending = JSON.parse(JSON.stringify(h.context.audioFrame()));
+  assert.deepEqual(pending.location, [100,20,30]);
+  assert.equal(pending.owner, 41);
+  assert.equal(pending.epoch, '1:1');
+  assert.notEqual(h.context.selfPlacementGeneration, h.context.worldEntryGeneration);
+  h.sceneJobs[0].resolve(); await tick();
+  assert.deepEqual(Array.from(h.context.audioFrame().location), [100,20,30]);
+  h.jobs[0].work.resolve(); await entry;
+  assert.equal(h.context.selfPlacementGeneration, h.context.worldEntryGeneration);
+  h.context.character.group.position.copy({x:1.25,y:3,z:-2.5});
+  assert.deepEqual(Array.from(h.context.audioFrame().location), [125,250,300]);
+});
+
+test('audio frame never borrows a retired pose or uses a missing/disconnected pawn', () => {
+  const h = harness();
+  h.context.selfPlacementGeneration = -1;
+  assert.deepEqual(Array.from(h.context.audioFrame().location), [1,2,3]);
+  h.context.character = null;
+  assert.deepEqual(Array.from(h.context.audioFrame().location), [1,2,3]);
+  h.context.net.connected = false;
+  assert.equal(h.context.audioFrame(), null);
+  h.context.net.connected = true;
+  h.context.selfServerPosition = null;
+  assert.equal(h.context.audioFrame(), null);
+});
 
 test('latest self appearance replaces the entry snapshot during model loading', async () => {
   const h = harness();
@@ -412,6 +443,8 @@ test('session retirement clears pending origin refresh, active follower and cach
     assert.equal(h.context.pendingGoal,null);
     assert.equal(h.context.audio.nativePacketAudio.resets,1);
     assert.equal(h.context.audio.lastPacketSound,null);
+    assert.equal(h.context.audio.lastPlayedPacketSound,null);
+    assert.equal(h.context.audioFrame(),null);
   }
 });
 
