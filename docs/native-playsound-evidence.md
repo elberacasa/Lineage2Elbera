@@ -3,6 +3,9 @@
 Elbera Tools preserves the original `0x98` packet and four original stereo quest
 sounds. **Browser quest playback remains unsupported in this checkpoint.** The
 packet decoder and lossless export do not certify the original audio lifecycle.
+An optional pinned comparison now binds the radius and controller type-query
+imports in exactly corresponding code. Calls after scene-node construction,
+the full voice lifetime and mixer behavior still require recovery/integration.
 
 ## Reproduce
 
@@ -18,6 +21,18 @@ python3 -m unittest discover -s tools/ui -p test_playsound_native.py
 python3 -m unittest discover -s tools/audio -p test_quest_sounds.py
 node --test gateway/test/playsound-packets.test.js
 ```
+
+To check the additional bindings, supply both matching comparison images:
+
+```sh
+python3 tools/ui/check_playsound_native.py --check \
+  --comparison-engine /path/to/comparison/engine.dll \
+  --comparison-core /path/to/comparison/Core.dll
+```
+
+Both paths are required together. Unsupported fingerprints fail before any
+comparison; the original-only command retains its original unresolved result.
+See the [supplemental binding check](#supplemental-binding-check).
 
 The exporter compares every output byte with a fresh extraction in `--check`.
 Its default private receipt is `tmp/restart-audit/quest-sounds.json`. Original
@@ -46,8 +61,10 @@ In the original mode-zero branch (`0x1049dfd4`), the source actor is the current
 viewport controller's pawn and the supplied position is that pawn's Location.
 The handler consumes but ignores packet object flag, object ID, XYZ and delay
 in this branch. It calls the audio driver's `PlaySoundW` with volume `1`, pitch
-`1`, slot `0` and flags `0`. The radius comes from unresolved pointer slot
-`0x11d8dc10`; its binding/value remains unresolved. Modes one and two have
+`1`, slot `0` and flags `0`. The radius comes from pointer slot `0x11d8dc10`,
+unresolved in the owned image alone. The optional matched comparison binds it
+to Core's original `GAudioDefaultRadius`, whose retained value is `80`.
+Modes one and two have
 separate paths and are outside this implementation.
 
 ## Exact original stereo assets
@@ -95,8 +112,9 @@ call follows at `0x1058ffd4`. The constructor receives the viewport controller,
 delegates to `FCameraSceneNode`, and its controller/pawn branch copies
 Pawn.Location into node `+0x1bc` (`0x10655730–0x1065574f`), separately from camera
 coordinates at `+0x194`. The controller class identity is named, but the helper's
-type-query call at `0x1056b250` is six recovered NOPs. Its exact target and a
-complete indirect-write/callback audit remain outside this proof.
+type-query call at `0x1056b250` is six recovered NOPs in the owned image.
+The optional comparison binds that call to Core's `UObject::IsA`. A complete
+indirect-write/callback audit remains outside this proof.
 
 The following driver details are now independently pinned:
 
@@ -132,8 +150,8 @@ conditional dry-stereo contract requires the same valid pawn at both snapshots,
 finite nonzero R, ordinary flags-zero PCM, and no EAX processing. Those
 conditions have not all been established from the current recovered inputs, so
 the verifier reports `conditional-reduction-only` and browser playback remains
-disabled. Resolving the original radius slot and type-query target is the next
-source step; replacing either with a likely value/name is not a fix.
+disabled. The optional comparison closes the two import identities within its
+documented correspondence boundary. It does not close the remaining conditions.
 
 No invented radius, positional adapter, gain constant or generic UI-sound
 fallback has been added. Full mixer behavior, EAX/reverb, alternate viewports,
@@ -165,9 +183,51 @@ Core's separately named `GAudioDefaultRadius` and the driver's named import
 do not prove that this Engine slot points to that export. Assigning its value
 here would still be an unsupported substitution.
 
-The precise next step is to recover the code/data that writes the radius-slot
-pointer and establishes the camera helper's call target, with a named export
-or independently traced equivalent. Searching more radius consumers or
-repeating the dry-gain algebra cannot close those identities. The private
-receipt now includes the raw-roundtrip hashes and 29-address inventory in
-`bindingBoundary`; the status remains `unresolved` and playback stays disabled.
+The original-only receipt retains the raw-roundtrip hashes and 29-address
+inventory in `bindingBoundary`; its status remains `unresolved`. That result
+is distinct from the optional correspondence check below. Neither check
+executes or repairs the owned binary.
+
+## Supplemental binding check
+
+A fresh ordinary browser fight on 28 September produced two unhandled
+`playSound` events, making this an observed beginner-flow gap. The recorded
+warnings did not expose the sound references; they do not identify which of
+the four quest assets, or another sound, the server requested.
+
+The verifier compares these additional pinned inputs:
+
+| Comparison input | SHA-256 |
+| --- | --- |
+| Engine.dll | `508974c711f207402719e92737e211a2f029c95c2f68fc0e1c31fcbb9dbb232d` |
+| Core.dll | `d83449b1cdf0ac717a98be9289caab03cb507324a696ef449e31369e28416639` |
+
+Three blocks, totaling 417 bytes, match after only explicit named class/global
+relocations, named imported calls at erased sites, and unchanged direct-call
+targets are accounted for:
+
+| Owned interval (end excluded) | What the correspondence establishes |
+| --- | --- |
+| `0x1049dfd4..0x1049e0af` | Complete mode-zero lookup and driver dispatch; named Sound lookup/load/type imports and default-radius pointer |
+| `0x1056b240..0x1056b262` | Controller cast helper uses the named controller class and `UObject::IsA` |
+| `0x106556d1..0x10655775` | Camera node's separate audio-position choice and call to the matched cast helper |
+
+The comparison radius IAT slot `0x11d8dc0c` names
+`Core.?GAudioDefaultRadius@@3MA`. Both original Core files export identical
+four-byte Float32 `80` data. The verifier checks that data through each named
+export. It does not infer the radius from how the game sounds. The helper
+thunk at `0x10312445` is also checked, so a nearby `IsA` occurrence cannot stand
+in for the camera's actual call. Undeclared surrounding-byte differences fail.
+
+The receipt reports `matched-supplemental-bindings` separately from the still
+conditional dry-gain result. This is correspondence evidence, not archive
+authentication or proof of how the protected owned client restores its imports.
+No client files or decoded bytes are published.
+
+The next integration dependency is the state between camera-node construction
+and audio update. Named `FCameraSceneNode::UpdateMatrices` follows the audio
+position stores, and Draw calls `UViewport::IsDepthComplexity` and render-interface
+slot `+0x10` before Audio.Update. Their effects and any indirect writes must be
+accounted for before claiming that every update retains the same pawn snapshot.
+Original voice lifetime, source loading, mixer controls and EAX processing also
+remain separate. Browser playback is not enabled by this binding check alone.

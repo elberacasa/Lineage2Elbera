@@ -4,7 +4,7 @@ import unittest
 from fractions import Fraction
 
 from check_playsound_native import (absolute_load_references, dry_gain_witness,
-    radius_assertion_passes, recovered_span, wave_info)
+    radius_assertion_passes, recovered_span, verify, wave_info)
 
 
 def wave(channels=2, sample_data=b'\0\0\1\0', rate=22050):
@@ -63,6 +63,11 @@ class OrdinaryGainEvidenceTests(unittest.TestCase):
 
 
 class BindingBoundaryTests(unittest.TestCase):
+    def test_incomplete_comparison_pair_fails_before_private_inputs_are_read(self):
+        for engine, core in [('synthetic-engine', None), (None, 'synthetic-core')]:
+            with self.assertRaisesRegex(ValueError, 'supplied together'):
+                verify(engine, core)
+
     def test_unaligned_raw_recovery_preserves_neighbors_and_wraparound(self):
         source = b'abc' + b'\x90' * 6 + b'xyz'
         key = 0xfffffff1
