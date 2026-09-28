@@ -1056,11 +1056,14 @@ class GameSession extends EventEmitter {
         this.emit('socialAction', { id, actionId });
         break;
       }
-      case 0x2e: { // ChangeMoveType: D objectId, D running, D swimming
+      case 0x2e: { // Original ChangeMoveType: D objectId, D moveType, D Environment
         const id = r.readD();
         const running = r.readD();
-        r.readD(); // swimming
-        this.emit('changeMove', { id, running });
+        // Native OnChangeMoveType conditionally writes this signed value to
+        // Pawn.Environment (+0x778). Preserve the input, not an inferred swim
+        // flag or effective actor value: unchanged moveType skips that store.
+        const environmentRaw = r.readD();
+        this.emit('changeMove', { id, running, environmentRaw });
         break;
       }
       case 0x2f: { // ChangeWaitType: D objectId, D waitType (0 sit, 1 stand,

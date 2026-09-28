@@ -694,8 +694,9 @@ class NpcEntity {
     const speed = this.running
       ? (this.runSpeed || NPC_SPEED)
       : (this.walkSpeed || NPC_SPEED);
-    // Arrival is the server's rule, not a fixed epsilon: one CreatureMove tick
-    // of travel (see character.js MOVE_TICK_S), then snap to the destination.
+    // Compatibility arrival uses one configured server CreatureMove tick
+    // (see character.js MOVE_TICK_S). This is not the original client's
+    // ReachedDestination/collision predicate or proof of native stop timing.
     if (d <= speed * MOVE_TICK_S) {
       pos.x = this.target.x; pos.z = this.target.z;
       pos.y = terrain.heightAtWorld(pos.x, pos.z, pos.y) ?? pos.y;

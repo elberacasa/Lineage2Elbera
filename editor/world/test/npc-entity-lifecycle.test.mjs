@@ -4,12 +4,29 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {registerHooks} from 'node:module';
 import * as THREE from '../vendor/three.module.min.js';
 import {planInitialNpcWait,createInitialNpcWait,advanceInitialNpcWait} from '../js/npcwaitanim.js';
 import {createOriginalPosePlayback} from '../js/sourcepose-playback.js';
 import {selectNotifySound} from '../js/animnotify-clock.js';
 import {createNativeRandom} from '../js/native-random.js';
 import {fixture as waitFixture,sound} from './fixtures/npc-wait.mjs';
+
+registerHooks({resolve(specifier,context,nextResolve){
+  if(specifier==='three')return{url:new URL('../vendor/three.module.min.js',import.meta.url).href,shortCircuit:true};
+  return nextResolve(specifier,context);
+}});
+const {installCombatFeedback}=await import('../js/combat.js');
+
+function combatEvents(t,manager){
+  const handlers=new Map(),sent=[];
+  const net={on:(op,fn)=>handlers.set(op,fn),_emit:(op,msg)=>handlers.get(op)?.(msg),
+    send:(...args)=>{sent.push(args);return true;}};
+  const state=installCombatFeedback(net,{entities:manager,combat:{clearTarget(){}},
+    selfId:()=>1,character:()=>null});
+  t.after(()=>clearInterval(state._sweepTimer));
+  return{emit:net._emit,sent};
+}
 
 const source=fs.readFileSync(new URL('../js/entities.js',import.meta.url),'utf8');
 const begin=source.indexOf('class NpcEntity {');
@@ -93,6 +110,51 @@ function sourceModel(npcId=20001) {
 async function adoptSource(h,loaded,job=0) {
   await flush();h.jobs[job].resolve(loaded);await flush();h.materials.find(row=>row.gltf===loaded.gltf).resolve();await flush();
 }
+
+test('actual remote StopMove cancels traversal, retains pose/facing and accepts a later route',async t=>{
+  const h=harness(),loaded=sourceModel(),npc=h.add(loaded.packet);
+  const events=combatEvents(t,h.manager),terrain=terrainFor('17_25');
+  await adoptSource(h,loaded);
+  h.manager.move({id:npc.id,x:0,y:0,z:0,tx:1000,ty:0,tz:0},terrain);
+  npc.update(.1,terrain);
+  assert.ok(npc.target);assert.ok(npc.group.position.x>0);
+  const position=npc.group.position.clone(),yaw=npc.group.rotation.y,current=npc.current;
+  events.emit('stopMove',{id:npc.id,x:10000,y:-10000,z:9999,heading:32768});
+  assert.equal(npc.target,null);
+  assert.equal(npc.current,current,'stop handler does not invent a native Wait selection');
+  for(let i=0;i<20;i++)npc.update(.1,terrain);
+  assert.deepEqual(npc.group.position,position,'old route stays canceled across updates');
+  assert.equal(npc.group.rotation.y,yaw);
+  assert.equal(npc.originalWait,null);
+  assert.equal(npc._initialWaitEligible,false);
+  h.manager.move({id:npc.id,tx:2000,ty:0,tz:0},terrain);
+  npc.update(.1,terrain);
+  assert.ok(npc.group.position.x>position.x,'a later real command can move the actor');
+  assert.equal(npc.originalWait,null,'a later command cannot re-admit unknown original history');
+  assert.deepEqual(events.sent,[]);
+  h.manager.clear();
+});
+
+test('stop during initial source playback retires its clock and delayed sound without teleporting',async t=>{
+  const h=harness(),loaded=sourceModel(),npc=h.add(loaded.packet);
+  const events=combatEvents(t,h.manager);
+  await adoptSource(h,loaded);
+  npc.update(.5,null);
+  assert.equal(h.sounds.length,1);
+  const guard=h.sounds[0][2].isCurrent,draws=h.audio.nativeRandom.draws;
+  assert.equal(guard(),true);
+  const position=npc.group.position.clone();
+  events.emit('stopMove',{id:npc.id,x:0,y:0,z:0,heading:32768});
+  assert.equal(guard(),false);
+  assert.equal(npc.originalWait,null);
+  assert.equal(npc.originalWaitStatus.reason,'stop-move-transition');
+  npc.update(10,null);
+  assert.equal(h.audio.nativeRandom.draws,draws);
+  assert.deepEqual(npc.group.position,position);
+  assert.equal(loaded.bone.matrixAutoUpdate,true);
+  assert.deepEqual(events.sent,[]);
+  h.manager.clear();
+});
 
 test('actual NPC loop uses original normalized frames, independent per actor, and shared sound draw order',async()=>{
   const h=harness(),a=sourceModel(18342),b=sourceModel(20091);

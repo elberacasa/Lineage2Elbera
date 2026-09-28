@@ -16,8 +16,10 @@ const { installCombatFeedback } = await import('../js/combat.js');
 
 function fixture(t, { from = [0, 0, 0], to = [1, 0, 0] } = {}) {
   const handlers = new Map(), sent = [], calls = [], retired = [], lifecycle = [];
-  const pawn = { group: { position: new Vector3(...to), rotation: { y: 0 } } };
-  const other = { group: { position: new Vector3(2, 0, 1), rotation: { y: 0 } } };
+  const pawn = { kind: 'npc', target: new Vector3(10, 0, 10),
+    group: { position: new Vector3(...to), rotation: { y: 0 } } };
+  const other = { kind: 'npc', target: new Vector3(20, 0, 20),
+    group: { position: new Vector3(2, 0, 1), rotation: { y: 0 } } };
   const ch = {
     group: { position: new Vector3(...from) },
     target: new Vector3(99, 0, 99),
@@ -133,13 +135,55 @@ test('both combat mode messages retire initial NPC playback without changing the
   assert.deepEqual(f.sent, []);
 });
 
-test('remote stop retires initial NPC playback before the self-only handler returns', t => {
+test('remote stop retires initial NPC playback before looking up the remote actor', t => {
   const f = fixture(t);
   const target=f.ch.target;
   f.net._emit('stopMove', {id:3});
   f.net._emit('stopMove', {id:999});
   assert.deepEqual(f.retired, [[3,'stop-move-transition'],[999,'stop-move-transition']]);
+  assert.deepEqual(f.lifecycle, [['retire',3],['lookup',3],['retire',999],['lookup',999]]);
+  assert.equal(f.other.target,null);
   assert.equal(f.ch.target,target);
   assert.deepEqual(f.calls, []);
   assert.deepEqual(f.sent, []);
+});
+
+test('remote NPC stop cancels only its old route, preserving position, facing and local approach', t => {
+  const f = fixture(t);
+  f.approach(0);
+  const localTarget=f.ch.target,otherTarget=f.other.target;
+  const position=f.pawn.group.position.clone();
+  f.pawn.group.rotation.y=1.25;
+  f.net._emit('stopMove',{id:2,x:100000,y:-100000,z:9999,heading:32768});
+  assert.equal(f.pawn.target,null);
+  assert.deepEqual(f.pawn.group.position,position);
+  assert.equal(f.pawn.group.rotation.y,1.25);
+  assert.equal(f.other.target,otherTarget);
+  assert.equal(f.ch.target,localTarget);
+  assert.equal(f.state.approachingId,2);
+  assert.deepEqual(f.sent,[]);
+});
+
+test('remote player stop uses its existing movement cancellation without a self callback', t => {
+  const f = fixture(t);
+  let clears=0;
+  f.other.kind='player';
+  f.other.clearTarget=function(){clears++;this.target=null;};
+  f.net._emit('stopMove',{id:3,x:400,y:500,z:600,heading:12345});
+  assert.equal(clears,1);
+  assert.equal(f.other.target,null);
+  assert.deepEqual(f.other.group.position.toArray(),[2,0,1]);
+  assert.equal(f.other.group.rotation.y,0);
+  assert.deepEqual(f.calls,[]);
+  assert.deepEqual(f.sent,[]);
+});
+
+test('stop for a drop or absent actor leaves other movement alone', t => {
+  const f=fixture(t),before=f.other.target,local=f.ch.target;
+  f.other.kind='drop';
+  for(const id of [3,999])f.net._emit('stopMove',{id});
+  assert.equal(f.other.target,before);
+  assert.equal(f.ch.target,local);
+  assert.deepEqual(f.calls,[]);
+  assert.deepEqual(f.sent,[]);
 });

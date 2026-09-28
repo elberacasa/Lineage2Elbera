@@ -310,3 +310,64 @@ test('charSheet uses current UserInfo class rather than its base-class appearanc
   assert.deepEqual(errors, []);
   assert.equal(messages.filter(row => row.op === 'enterWorld').length, 1);
 });
+
+// Original 0x2e has three signed DWORDs. These are wire inputs: native
+// OnChangeMoveType skips Environment's store when the move mode is unchanged.
+// The gateway must not model that conditional actor state or deduplicate events.
+test('ChangeMoveType preserves raw mode and Environment on repeated and changed modes', () => {
+  const h = npcWireHarness(), decoded = [];
+  h.game.on('changeMove', row => decoded.push(row));
+  const inputs = [[0, 0], [0, 2147483647], [1, -2147483648], [1, -1], [257, 7]];
+  for (const [running, environmentRaw] of inputs) {
+    const data = Buffer.alloc(13); data[0] = 0x2e;
+    [123, running, environmentRaw].forEach((value, index) => data.writeInt32LE(value, 1 + index * 4));
+    h.game._onPacket(data);
+  }
+  const expected = inputs.map(([running, environmentRaw]) => ({ id: 123, running, environmentRaw }));
+  assert.deepEqual(h.errors, []);
+  assert.deepEqual(decoded, expected);
+  assert.deepEqual(h.messages, expected.map(row => ({ op: 'changeMove', ...row })));
+});
+
+test('truncated ChangeMoveType never publishes a partial or fabricated Environment', () => {
+  const bytes = Buffer.alloc(13); bytes[0] = 0x2e;
+  [123, 1, -17].forEach((value, index) => bytes.writeInt32LE(value, 1 + index * 4));
+  for (let length = 1; length < bytes.length; length++) {
+    const h = npcWireHarness(), decoded = [];
+    h.game.on('changeMove', row => decoded.push(row));
+    h.game._onPacket(bytes.subarray(0, length));
+    assert.equal(h.errors.length, 1, `truncated length ${length}`);
+    assert.deepEqual(decoded, []); assert.deepEqual(h.messages, []);
+  }
+});
+
+test('retired game sessions cannot publish ChangeMoveType inputs', () => {
+  const bytes = Buffer.alloc(13); bytes[0] = 0x2e;
+  [123, 1, -17].forEach((value, index) => bytes.writeInt32LE(value, 1 + index * 4));
+  for (const invalidate of [h => { h.bridge.closed = true; }, h => { h.bridge.game = new GameSession(); }]) {
+    const h = npcWireHarness(); invalidate(h); h.game._onPacket(bytes);
+    assert.deepEqual(h.errors, []); assert.deepEqual(h.messages, []);
+  }
+});
+
+test('StopMove preserves all signed wire fields and rejects retired-session position updates', () => {
+  const fields = { id: 123, x: -2147483648, y: 2147483647, z: -4567, heading: -1 };
+  const bytes = Buffer.alloc(21); bytes[0] = 0x47;
+  Object.values(fields).forEach((value, index) => bytes.writeInt32LE(value, 1 + index * 4));
+  const h = npcWireHarness(), positions = [];
+  h.bridge.selfId = fields.id;
+  h.bridge._notePos = (...args) => positions.push(args);
+  h.game._onPacket(bytes);
+  assert.deepEqual(h.errors, []);
+  assert.deepEqual(h.messages, [{ op: 'stopMove', ...fields }]);
+  assert.deepEqual(positions, [[fields.x, fields.y, fields.z, fields.heading]]);
+  for (const invalidate of [h => { h.bridge.closed = true; },
+    h => { h.bridge.game = new GameSession(); }, h => { h.game.closed = true; }]) {
+    const retired = npcWireHarness(), noted = [];
+    retired.bridge.selfId = fields.id;
+    retired.bridge._notePos = (...args) => noted.push(args);
+    invalidate(retired); retired.game._onPacket(bytes);
+    assert.deepEqual(retired.errors, []);
+    assert.deepEqual(retired.messages, []); assert.deepEqual(noted, []);
+  }
+});

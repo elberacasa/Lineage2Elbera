@@ -1623,8 +1623,11 @@ class Bridge {
     // broadcast. `id` is the creature entering/leaving auto-attack.
     game.on('autoAttack', (a) => this.send({ op: 'autoAttack', id: a.id, on: a.on }));
 
-    // StopMove (0x47): authoritative stop position + heading.
+    // StopMove (0x47): preserve all wire fields. The original client handler
+    // ignores heading and conditionally corrects position; receiving these
+    // values alone does not establish the browser's rendered pose/location.
     game.on('stopMove', (s) => {
+      if (this.closed || game.closed || this.game !== game) return;
       if (s.id === this.selfId) this._notePos(s.x, s.y, s.z, s.heading);
       this.send({ op: 'stopMove', id: s.id, x: s.x, y: s.y, z: s.z, heading: s.heading });
     });
@@ -1636,7 +1639,10 @@ class Bridge {
     // retain wire inputs without substituting a guessed local-player snap.
     game.on('changeWait', (c) => this.send({ op: 'changeWait', id: c.id, waitType: c.waitType,
       x: c.x, y: c.y, z: c.z }));
-    game.on('changeMove', (c) => this.send({ op: 'changeMove', id: c.id, running: c.running }));
+    game.on('changeMove', (c) => {
+      if (this.closed || game.closed || this.game !== game) return;
+      this.send({ op: 'changeMove', id: c.id, running: c.running, environmentRaw: c.environmentRaw });
+    });
   }
 
   _sendPartySnapshot() {

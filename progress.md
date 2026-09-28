@@ -2,6 +2,45 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Remote stopping and original movement inputs — 27 September 2026
+
+Remote NPCs and players now discard an obsolete browser movement route when
+StopMove arrives. Position and facing are preserved: the original handler
+ignores packet heading and runs guarded position correction before clearing
+its queue. Null browser target does not establish native zero velocity or a
+Wait transition. Converted movement animation can remain after the route
+stops; exact physics/collision and return-to-Wait are still unfinished.
+
+The gateway preserves ChangeMoveType’s previously discarded signed Environment
+input, including repeated modes. Source evidence distinguishes this received
+value from the effective Pawn field, which the native handler only updates
+when the mode changes. Closed/replaced sessions cannot publish these movement
+changes or stops, including obsolete self-position updates.
+
+Elbera Tools extends the existing grounding verifier with StopMove dispatch,
+complete handler stack-read verification and an optional pinned comparison
+for erased Size/Empty/GetStateFrame calls. Portable mutation tests need only
+the Python standard library; original-input checks remain separate. The owned
+Core Size result has a Float32 return store, not an assumed Math.hypot result.
+No original code, client binaries, generated assets or receipts are published.
+
+Verification: 12 standard-library grounding mutation cases and both native
+verification modes passed (94 grounding, 41 StopMove and 44 ChangeMoveType
+anchors; complete 32-instruction stop-handler read audit). The optional
+comparison matched four finite blocks and five owned Core return-store anchors.
+220 combined gateway/handler/entity/source-wait/entry/scene cases
+passed. The 40-case handler/entity subset reproduces four failures with the old
+handler, then passes with the fix. Normal browser Online entry through the
+updated local gateway loaded Talking Island and advancing original starter
+Gremlin waits; no new browser errors. This is an entry/rendering smoke check,
+not a captured remote StopMove proof or full native movement certification.
+The existing README gallery remains intact; the new entry capture stays local.
+
+Next: use the original controller polling, Role/Physics initialization,
+per-tick acceleration/velocity, collision result and yaw predicates to preserve
+source animation through ordinary movement and return-to-wait. The full
+browser-port goal remains active and incomplete.
+
 ## Normal Online entry joins NPC source resources — 27 September 2026
 
 The initial NPC source loop no longer permanently captures the previous offline
