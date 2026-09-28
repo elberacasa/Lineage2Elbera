@@ -193,8 +193,9 @@ A different edition is rejected. Supplemental correspondence qualifies the
 stated bindings; it does not authenticate the archive or restore the owned
 binary's erased imports.
 
-The next collision work remains source triangle/tree data, original finite
-sweeps and callbacks, actor spatial participation, and live cache/lifecycle
-integration. These repository tools are not yet included in the existing
+The subsequent [static preparation milestone](native-static-sweep-evidence.md)
+retains original triangle/tree records and implements the query's coordinate
+preparation. Collision results and callbacks, actor spatial participation, and
+live cache/lifecycle integration remain unfinished. These repository tools are not yet included in the existing
 standalone release kits. No game assets or new UI screenshots accompany this
 arithmetic milestone; the existing README gallery is preserved.

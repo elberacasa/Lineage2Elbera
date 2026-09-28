@@ -62,7 +62,7 @@ def finish_collision_array(r, payload, block):
     r.pos = block['savedEnd']
 
 
-def mesh_body(r, *, lazy_collision=False, export_end=None):
+def mesh_body(r, *, lazy_collision=False, export_end=None, retain_sweep_data=False):
     """Native file123 body: legacy arrays or licensee>=17 saved-end arrays.
 
     Saved ends are absolute positions in the decoded package, not relative to
@@ -94,9 +94,14 @@ def mesh_body(r, *, lazy_collision=False, export_end=None):
         raise ValueError('simple CollisionModel is not supported')
     collision_offset = r.pos
     triangles, triangle_block = collision_array(r, lazy_collision, 'triangles')
-    indices, materials = [], []
+    indices, materials, planes = [], [], []
     for _ in range(count(triangles)):
-        triangles.bytes(64)  # source triangle plane + three edge planes
+        raw_planes = triangles.bytes(64)  # source plane + three edge planes
+        if retain_sweep_data:
+            values = list(struct.unpack('<16f', raw_planes))
+            if not all(math.isfinite(value) for value in values):
+                raise ValueError('nonfinite source collision plane')
+            planes.append(values)
         face = [triangles.compact() for _ in range(4)]
         if any(i < 0 or i >= len(vertices) for i in face[:3]) or face[3] < 0:
             raise ValueError('invalid collision vertex/material index')
@@ -108,7 +113,7 @@ def mesh_body(r, *, lazy_collision=False, export_end=None):
     nodes = count(node_stream)
     if nodes == 0:
         raise ValueError('no native collision nodes')
-    tree = []
+    tree, node_records = [], []
     for _ in range(nodes):
         links = [node_stream.compact() for _ in range(4)]
         bounds = struct.unpack('<6f', node_stream.bytes(24)); valid = node_stream.u8()
@@ -116,6 +121,8 @@ def mesh_body(r, *, lazy_collision=False, export_end=None):
                 or not all(math.isfinite(x) for x in bounds) or valid != 1:
             raise ValueError('invalid source collision node')
         tree.append(links)
+        if retain_sweep_data:
+            node_records.append(dict(links=links, bounds=list(bounds), valid=valid))
     finish_collision_array(r, node_stream, node_block)
     reached, faces, pending = set(), set(), [0]
     while pending:
@@ -127,13 +134,16 @@ def mesh_body(r, *, lazy_collision=False, export_end=None):
     a = Counter(tuple(sorted(indices[i:i+3])) for i in range(0, len(indices), 3))
     b = Counter(tuple(sorted(render[i:i+3])) for i in range(0, len(render), 3))
     original.pos = r.pos
-    return dict(vertices=vertices, indices=indices, materials=materials,
+    result = dict(vertices=vertices, indices=indices, materials=materials,
                 collisionOffset=collision_offset, collisionNodeCount=nodes,
                 collisionArrayLayout='lazy-saved-end' if lazy_collision else 'ordinary',
                 collisionArrayBlocks=[block for block in (triangle_block, node_block) if block],
                 renderTriangleCount=len(render)//3, collisionTriangleCount=len(indices)//3,
                 collisionOnlyTriangleCount=sum((a-b).values()),
                 renderOnlyTriangleCount=sum((b-a).values()))
+    if retain_sweep_data:
+        result['collisionTree'] = dict(trianglePlanes=planes, nodes=node_records)
+    return result
 
 
 def class_defaults():
@@ -358,11 +368,12 @@ def reference_census(tiles):
 
 
 class Audit:
-    def __init__(self, tile):
+    def __init__(self, tile, *, retain_sweep_data=False):
         if not tile.replace('_', '').isdigit() or len(tile.split('_')) != 2:
             raise ValueError('invalid tile name')
         from check_picking_native import verify_static_mesh
         self.tile, self.proof = tile, verify_static_mesh()
+        self.retain_sweep_data = retain_sweep_data
         source = ROOT / 'assets/interlude/maps' / (tile + '.unr')
         self.pkg, _ = load_package(source)
         self.inherited, self.defaults, sources = class_defaults()
@@ -396,8 +407,11 @@ class Audit:
             if pkg.file_version != 123:
                 raise ValueError('unsupported-source-file-version:' + str(pkg.file_version))
             data = mesh_body(r, lazy_collision=pkg.licensee_version >= 17,
-                             export_end=ex.serial_offset + ex.serial_size)
-            referenced = sorted(set(data.pop('materials')))
+                             export_end=ex.serial_offset + ex.serial_size,
+                             retain_sweep_data=self.retain_sweep_data)
+            referenced = sorted(set(data['materials']))
+            if not self.retain_sweep_data:
+                del data['materials']
             record['referencedMaterials'] = referenced
             eligible_materials(mats, referenced)
             data.update(sourceExport=qualified, fileVersion=pkg.file_version,
@@ -446,6 +460,8 @@ class Audit:
                 'actors': rows, 'meshes': self.meshes}
 
     def output(self, rows, *, all_supported=False):
+        if self.retain_sweep_data:
+            raise ValueError('sweep records require the separate private source output')
         selected = [r for r in rows if not r['issues'] and not r['meshIssues']]
         if not selected or not all_supported and len(selected) != len(rows):
             reasons = {r['name']: r['issues'] + r['meshIssues'] for r in rows if r['issues'] or r['meshIssues']}
@@ -460,6 +476,27 @@ class Audit:
                 'limits': ['ray only: native nonzero extent sweep and hit bias unported',
                            'placement uses existing world basis; native rounding unported',
                            'only source-audited static actors; no moving props']}
+
+    def sweep_output(self, rows, *, all_supported=False):
+        """Original geometry records only; legacy placed rays are not a matrix source."""
+        if not self.retain_sweep_data:
+            raise ValueError('source collision records were not retained')
+        selected = [r for r in rows if not r['issues'] and not r['meshIssues']]
+        if not selected or not all_supported and len(selected) != len(rows):
+            raise ValueError('selected source collision actors are not supported')
+        return {
+            'format': 'l2-static-sweep-source-v1', 'tile': self.tile,
+            'sources': self.sources, 'nativeProof': self.proof,
+            'meshes': {k: self.geometry[k] for k in sorted({r['mesh'] for r in selected})},
+            'references': [{k: r[k] for k in ('name', 'mesh', 'exportSHA256')} for r in selected],
+            'limits': [
+                'Saved source geometry, not live actor/cache state or a collision query.',
+                'Node links and bounds and triangle planes retain source order; no tree rebuild or plane normalization.',
+                'Current actor matrices, query state and owner/material callbacks must be supplied separately.',
+                'Existing conservative actor/material selection gates remain in force.',
+                'Original-derived private data; never include in public source or tool bundles.',
+            ],
+        }
 
 
 def build(tile, names):
@@ -476,18 +513,30 @@ def main():
     selection.add_argument('--references-only', action='store_true', help='read-only reference census; tile "all" scans existing scene tiles')
     selection.add_argument('--all-supported', action='store_true', help='explicitly select every actor passing this source audit')
     p.add_argument('--emit', action='store_true', help='write private sidecar and reference in the one existing scene')
+    p.add_argument('--sweep-output', type=Path,
+                   help='create a separate private original collision-record file; does not change a scene')
     args = p.parse_args()
     if (args.audit or args.references_only) and args.emit:
         p.error('source censuses are read-only; use --all-supported to emit the passed set')
+    if args.sweep_output and (args.emit or args.audit or args.references_only):
+        p.error('--sweep-output requires an actor selection and cannot also emit or run a census')
     if args.references_only:
         tiles = (sorted(p.parent.name for p in (ROOT / 'assets/world').glob('*/scene.json'))
                  if args.tile == 'all' else [args.tile])
         report = reference_census(tiles)
         print(json.dumps(report, indent=2))
         return 1 if report['summary']['failedMaps'] else 0
-    audit = Audit(args.tile); rows = audit.actors(args.actor)
+    audit = Audit(args.tile, retain_sweep_data=bool(args.sweep_output)); rows = audit.actors(args.actor)
     if args.audit:
         print(json.dumps(audit.report(rows), indent=2)); return
+    if args.sweep_output:
+        data = audit.sweep_output(rows, all_supported=args.all_supported)
+        with args.sweep_output.open('x') as stream:
+            json.dump(data, stream, separators=(',', ':'))
+            stream.write('\n')
+        print(json.dumps({'tile': args.tile, 'meshes': len(data['meshes']),
+                          'references': len(data['references']), 'sweepOutput': str(args.sweep_output)}))
+        return
     data = audit.output(rows, all_supported=args.all_supported)
     output = ROOT / 'assets/world' / args.tile / 'static-collision.json'
     if args.emit:

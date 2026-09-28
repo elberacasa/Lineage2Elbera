@@ -2,6 +2,27 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original static sweep preparation and collision records — 28 September 2026
+
+The browser now prepares nonzero static-mesh queries using the original cached
+matrix, eight rounded box corners, strict bound comparisons, exact-zero delta
+adjustment and reciprocal stores. Eleven portable browser cases and four
+interpreter cases pass. The actual module matches 800 retained-instruction
+cases; deliberate extent-shortcut and small-delta-clamp mutations are rejected.
+
+The existing Elbera Tools exporter retains original triangle planes, material
+slots and ordered node records through an explicit private output mode. Its
+record checker freshly round-trips every array byte for 193 qualified meshes
+on 17_25 and 287 on 22_22. Twenty-five portable exporter/record tests pass.
+Supplemental exact-block evidence now binds the previously unresolved compact
+serializer operand without claiming owned-binary restoration or archive I/O
+execution. [Contracts and reproducible commands](docs/native-static-sweep-evidence.md).
+
+Triangle results, material callbacks, actor/cache lifecycle, spatial admission
+and walking remain unfinished. Existing scenes, README images and standalone
+archives are preserved; these new tools are repository source. No original
+assets or local receipts are published. The full browser-client goal continues.
+
 ## Original actor matrices and conditional sine recovery — 28 September 2026
 
 The browser now has a finite original actor-transform component, preserving
