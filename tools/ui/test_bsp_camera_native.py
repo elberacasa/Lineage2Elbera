@@ -146,6 +146,12 @@ class SweepInstructionBoundaryTests(unittest.TestCase):
             self.assertTrue(math.isinf(machine.stack[0]))
             self.assertEqual(math.copysign(1, machine.stack[0]), math.copysign(1, zero))
 
+    def test_divide_pop_keeps_operand_order_and_masked_zero_sign(self):
+        machine = instruction_case('fdivp', 'st(1)', StoreMachine([2., 8.]))
+        self.assertEqual(machine.stack, [4.])
+        machine = instruction_case('fdivp', 'st(1)', StoreMachine([-0., 4.]))
+        self.assertEqual(machine.stack, [-math.inf])
+
     def test_unknown_ops_calls_and_unbound_nops_are_not_silent(self):
         for op,args in [('nop',''),('call','0x1234'),('cpuid','')]:
             with self.assertRaises(AssertionError):

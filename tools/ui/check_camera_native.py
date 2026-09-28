@@ -203,7 +203,7 @@ def verify_native_override(engine, package):
                         'start': hex(a), 'end': hex(b), 'sha256': digest} for image, a, b, digest in ranges],
             'limits': ['native direction-vector import targets are unverified',
                        'special/volume/disabled-hitcheck camera branches not ported',
-                       'native nonzero-extent BSP/terrain/static primitives remain unported']}
+                       'no-owner BSP extent component is ported separately; complete terrain/static/level camera composition remains unported']}
 
 
 def read_defaults():

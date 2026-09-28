@@ -2,6 +2,44 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original terrain, actor cylinders and level result operations — 27 September 2026
+
+Three more collision components are now implemented against original Interlude
+inputs. Terrain follows the source cell traversal, triangle order, one-sided
+tests, unnormalized edge planes and hit backoff. Actor cylinders preserve
+unequal extent behavior, inside/touching distinctions and each caller's result
+record. The actor-hash result factory reproduces its original zero constructor;
+it is separate from the level collector's material-only scratch slots.
+
+Level operations now use the retained Core sort, including its nonstable tie
+order, instead of assuming a stable browser sort. BSP and terrain retain their
+different endpoint-shortening allowances and Float32 stores. SingleLineCheck
+filtering preserves the attached-level loop and raw source flags; missing
+node/surface/actor inputs remain explicit unsupported states.
+
+Elbera Tools provides reproducible original-instruction checks for the actual
+browser modules. Terrain validation covers 100 cases / 61 hits and 2,165
+retained instruction addresses. Fresh original inputs from Talking Island and
+Giran supply 65,536 vertices and 1,536 bound values each; 24 diagnostic sweeps
+produce 20 hits. Their explicit no-owner, not-deleted, present-map state is a
+diagnostic assumption, not an observed live actor. Cylinder validation covers
+2,277 cases / 1,138 hits plus the source result factory. Level validation covers
+138 sort cases / 23,973 source comparisons, 396 shortening cases and 500
+single-filter cases. The combined portable suites pass 81 browser-module tests
+and 28 Python checks, including 12 terrain-exporter cases. These are
+authored inputs evaluated against retained instructions, not an original
+running-client capture or a claim of complete world collision. Original input
+fingerprints, supplemental binding limits and reproduction commands are in the
+[terrain](docs/native-terrain-collision-evidence.md),
+[cylinder](docs/native-cylinder-collision-evidence.md) and
+[level](docs/native-level-collision-evidence.md) evidence documents.
+
+The source-only GitHub boundary and existing README gallery are preserved.
+Gameplay movement/camera have not been switched to an incomplete query. Next:
+join actual world/zone/actor participants, PointRegion terrain admission and
+static primitives, then the original MoveActor/floor/step/ledge response. The
+full browser-client goal remains active and incomplete.
+
 ## Original BSP extent sweep and inspector — 27 September 2026
 
 The no-owner world UModel component now composes original hull orientation,
