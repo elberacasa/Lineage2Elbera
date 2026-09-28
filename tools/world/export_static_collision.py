@@ -513,6 +513,9 @@ def actor_record(pkg, ex, inherited, *, retain_source_transform=False, boolean_l
         overrides = saved_reference_overrides(pkg, props, reference_defaults)
         result['savedReferences'] = dict(
             scope='saved-map-and-class-defaults',
+            tags=[dict(name=p['name'], reference=overrides[p['name']]['reference'],
+                       package=Path(pkg.path).stem)
+                  for p in props if p['name'] in overrides],
             fields={name: dict(overrides.get(name, value))
                     for name, value in reference_defaults.items()})
     values, mesh, position = dict(inherited), None, None
@@ -782,6 +785,95 @@ class Audit:
             rows.append(row)
         return rows
 
+    def reference_bindings(self, rows):
+        """Bind consumed saved package indices to exact original exports.
+
+        These are source identities for constructing browser objects, not a
+        snapshot of native pointers or proof that factories finished loading.
+        All nonnull packages must already be present in this source audit.
+        """
+        packages = {Path(self.pkg.path).stem: self.pkg, **self.packages}
+        result = {}
+        fields = [
+            field
+            for row in rows
+            if "savedReferences" in row
+            for field in row["savedReferences"]["fields"].values()
+        ]
+        for field in fields:
+            ref, package_name = field["reference"], field["package"]
+            if not ref:
+                continue  # IndexToObject(0) does not consume a package table.
+            package = packages.get(package_name)
+            if package is None:
+                raise ValueError("unloaded source reference package: " + package_name)
+            table = result.setdefault(
+                package_name,
+                dict(
+                    exportCount=len(package.exports),
+                    importCount=len(package.imports),
+                    references={},
+                ),
+            )
+            qualified = qualified_ref(package, ref)
+            if qualified != field["qualified"]:
+                raise ValueError("reference identity differs from source package")
+            if str(ref) in table["references"]:
+                continue
+            if ref > 0:
+                target, export = package, package.exports[ref - 1]
+            else:
+                imported = package.imports[-1 - ref]
+                import_class = (
+                    package.name(imported.class_package)
+                    + "."
+                    + package.name(imported.class_name)
+                )
+                target = packages.get(qualified.split(".")[0])
+                if target is None:
+                    raise ValueError("unloaded source import package: " + qualified)
+                # VerifyImport matches class name/package as well as object
+                # name/outer. Real packages contain Texture and StaticMesh
+                # exports with exactly the same qualified object name.
+                matches = [
+                    e
+                    for e in target.exports
+                    if e.class_index
+                    and qualified_ref(target, e.class_index).casefold()
+                    == import_class.casefold()
+                    and qualified_ref(target, e.index + 1).casefold()
+                    == qualified.casefold()
+                ]
+                if len(matches) != 1:
+                    raise ValueError(
+                        "missing or ambiguous full source import identity: "
+                        + qualified
+                        + " exports="
+                        + repr(
+                            [
+                                (e.index + 1, target.class_name_of(e), e.serial_size)
+                                for e in matches
+                            ]
+                        )
+                    )
+                export = matches[0]
+                if not export.object_flags & 4:
+                    raise ValueError(
+                        "source import requires unported private visibility handling"
+                    )
+            start, end = export.serial_offset, export.serial_offset + export.serial_size
+            if not 0 <= start < end <= len(target.data):
+                raise ValueError("reference target body outside source export")
+            binding = dict(
+                identity=qualified_ref(target, export.index + 1),
+                sourcePackage=Path(target.path).stem,
+                exportRef=export.index + 1,
+                classIdentity=qualified_ref(target, export.class_index),
+                exportSHA256=sha(target.data[start:end]),
+            )
+            table["references"][str(ref)] = binding
+        return result
+
     def report(self, rows):
         supported = [r for r in rows if not r['issues'] and not r['meshIssues']]
         used = {r['mesh'] for r in supported}
@@ -828,6 +920,7 @@ class Audit:
             'classDefaults': self.defaults,
             'actorClassLoading': self.actor_class_loading,
             'savedLevelBinding': self.level_binding,
+            'savedReferenceBindings': self.reference_bindings(selected),
             'meshes': {k: self.geometry[k] for k in sorted({r['mesh'] for r in selected})},
             'references': [{k: r[k] for k in ('name', 'mesh', 'exportRef', 'exportSHA256',
                 'savedTransform', 'savedCollisionFlags', 'savedReferences',

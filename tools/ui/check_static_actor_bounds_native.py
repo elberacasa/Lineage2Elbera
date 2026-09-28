@@ -41,6 +41,7 @@ from actor_transform_source import (
     qualify_level_actor_population,
     qualify_level_actor_loading,
     qualify_actor_state_frames,
+    qualify_actor_reference_loading,
 )
 from static_collision_source import (
     qualify_static_postload,
@@ -177,6 +178,22 @@ def qualify(program, core, candidate, candidate_core):
         e, core, engine_package, core_package
     )
     actor_state_frames = qualify_actor_state_frames(core, candidate_core)
+    actor_reference_loading = qualify_actor_reference_loading(core, candidate_core)
+    for block in actor_reference_loading["coreBlocks"]:
+        start, end = int(block["start"], 16), int(block["end"], 16)
+        PreparationProgram.add(
+            program,
+            core,
+            start,
+            end,
+            bytes(core.data[core.offset(start) : core.offset(end)]),
+        )
+    program.membership_targets.update(
+        {
+            int(a, 16): int(b, 16)
+            for a, b in actor_reference_loading["thunkTargets"].items()
+        }
+    )
     property_loading = qualify_packed_property_tags(core, candidate_core)
     for start, end in [(0x1010B6D0, 0x1010B717), (0x10131090, 0x10131137)]:
         PreparationProgram.add(
@@ -276,6 +293,7 @@ def qualify(program, core, candidate, candidate_core):
         classLoading=class_loading,
         actorClassLoading=actor_class_loading,
         actorStateFrames=actor_state_frames,
+        actorReferenceLoading=actor_reference_loading,
         propertyLoading=property_loading,
         staticBounds=dict(
             normalComparison=proof,
@@ -362,6 +380,32 @@ class StaticBoundsMachine(AdmissionMachine):
         self.invoke(0x106F5CC0, mesh)
 
     def step(self, i):
+        if i.address in (0x1014B304, 0x1014B362):
+            # Exact IndexToObject factory boundary, with supplied synchronous
+            # replies. Do not pretend to execute construction or import lookup.
+            assert self.registers["ecx"] == self.reference_linker
+            sp = self.registers["esp"]
+            index = self.memory[sp]
+            imported = i.address == 0x1014B362
+            kind = "import" if imported else "export"
+            if not imported:
+                assert self.memory[sp + 4] == 0
+            self.reference_events.append([kind, index])
+            self.registers["eax"] = self.reference_replies[kind][index]
+            self.registers["esp"] += 4 if imported else 8
+            self.visited.append(i.address)
+            return i.address + i.size
+        if i.address == 0x1016ED9E:
+            # SerializeItem's explicit archive callback. IndexToObject is
+            # interpreted separately above; compact archive I/O is not mocked
+            # as a complete native load.
+            assert self.registers["eax"] == 0xA70000
+            assert self.registers["ecx"] == self.reference_archive
+            sp = self.registers["esp"]
+            self.memory[self.memory[sp]] = self.reference_reply
+            self.registers["esp"] += 4
+            self.visited.append(i.address)
+            return i.address + i.size
         if i.mnemonic == "not" and i.op_str in self.registers:
             self.write(i.op_str, ~self.read(i.op_str) & 0xFFFFFFFF)
             self.visited.append(i.address)
@@ -1565,11 +1609,156 @@ process.stdout.write(JSON.stringify(JSON.parse(raw).map(applyActorBooleanTags)))
     )
 
 
+def actor_reference_loading_cases(program, runtime):
+    """Compare ordinary default copies, property gates, index routing and writes.
+
+    These are bounded composed stages. Factory replies and decoded indices are
+    supplied; native archive I/O, import discovery and allocation are not run.
+    """
+    rng = random.Random(0x52454653)
+    source_layout = program.receipt["actorFields"]["savedReferenceDeclarations"]
+    assert all(not f["propertyFlags"] & 0x400000 for f in source_layout)
+    rows, expected, visited = [], [], set()
+    steps, tag_count, copy_count, skipped_count, factory_count = 0, 0, 0, 0, 0
+    for case in range(128):
+        layout = [dict(f) for f in source_layout]
+        if case >= 64:
+            for index, field in enumerate(layout):
+                field["propertyFlags"] = (rng.getrandbits(32) & ~0x20403000) | (
+                    (0x1000 if index & 1 else 0)
+                    | (0x2000 if index & 2 else 0)
+                    | (0x20000000 if index & 4 else 0)
+                )
+        archive = dict(loading=True, saving=False, persistent=bool(case & 1))
+        m = StaticBoundsMachine(program)
+        actor, defaults_ptr, prop, ar, linker = (
+            0x200000,
+            0x210000,
+            0x300000,
+            0x400000,
+            0x500000,
+        )
+        export_replies = [0 if n == case % 5 else 0x600000 + n * 256 for n in range(5)]
+        import_replies = [0 if n == case % 4 else 0x700000 + n * 256 for n in range(4)]
+        m.reference_linker, m.reference_archive = linker, ar
+        m.reference_events = []
+        m.reference_replies = {"export": export_replies, "import": import_replies}
+        m.memory.update(
+            {
+                0x1023E8C4: case & 1,
+                0x1023E8CC: case & 2,
+                ar: 0xA71000,
+                0xA71018: 0xA70000,
+                ar + 0x10: 1,
+                ar + 0x14: 0,
+                ar + 0x1C: int(archive["persistent"]),
+                linker + 0x94: len(export_replies),
+                linker + 0x88: len(import_replies),
+                prop + 0x40: 1,
+            }
+        )
+        defaults, fields = {}, {}
+        for index, field in enumerate(layout):
+            offset = index * 4
+            value = rng.choice([0, 0x800000 + index * 256])
+            m.memory[defaults_ptr + offset] = value
+            m.memory[actor + offset] = 0xFFFFFFFF
+            m.memory[prop + 0x48] = field["propertyFlags"]
+            m.invoke(0x10171740, prop, [actor + offset, defaults_ptr + offset, actor])
+            assert m.memory[actor + offset] == value
+            defaults[field["name"]] = value or None
+            fields[field["name"]] = (field, offset)
+            copy_count += 1
+        initial_defaults = {
+            at: m.memory[at]
+            for at in range(defaults_ptr, defaults_ptr + len(layout) * 4, 4)
+        }
+        tags = [
+            dict(name=name, reference=rng.randrange(-4, 6), package="authored")
+            for name in fields
+        ]
+        tags += [
+            dict(tag, reference=-tag["reference"] if abs(tag["reference"]) < 5 else 0)
+            for tag in tags[::2]
+        ]
+        skipped = []
+        for index, tag in enumerate(tags):
+            field, offset = fields[tag["name"]]
+            m.memory[prop + 0x48] = field["propertyFlags"]
+            m.invoke(0x1010B6D0, prop, [ar])
+            if not m.registers["eax"]:
+                skipped.append(index)
+                continue
+            m.invoke(0x1014B290, linker, [tag["reference"]])
+            m.reference_reply = m.registers["eax"]
+            m.invoke(0x1016ED90, prop, [ar, actor + offset, 0])
+            assert m.memory[actor + offset] == m.reference_reply
+        assert {at: m.memory[at] for at in initial_defaults} == initial_defaults
+        rows.append(
+            dict(
+                layout=layout,
+                defaults=defaults,
+                tags=tags,
+                archive=archive,
+                exportReplies=export_replies,
+                importReplies=import_replies,
+            )
+        )
+        expected.append(
+            dict(
+                status="ready",
+                scope="original-actor-reference-loading",
+                references={
+                    name: m.memory[actor + offset] or None
+                    for name, (_, offset) in fields.items()
+                },
+                skipped=skipped,
+                factories=m.reference_events,
+            )
+        )
+        tag_count += len(tags)
+        skipped_count += len(skipped)
+        factory_count += len(m.reference_events)
+        steps += len(m.visited)
+        visited.update(m.visited)
+    script = r"""
+const {applyActorReferenceTags,resolvePackageReference}=await import(new URL('./actor-loading.js',process.argv[1]));
+let raw='';for await(const part of process.stdin)raw+=part;
+const results=JSON.parse(raw).map(row=>{
+ const factories=[];
+ const linker={exportCount:row.exportReplies.length,importCount:row.importReplies.length,
+  createExport(index,flags){if(flags!==0)throw Error('wrong export flags');factories.push(['export',index]);return {status:'ready',value:row.exportReplies[index]||null};},
+  createImport(index){factories.push(['import',index]);return {status:'ready',value:row.importReplies[index]||null};}};
+ return {...applyActorReferenceTags({...row,resolveReference:(pkg,ref)=>{
+  if(pkg!=='authored')throw Error('wrong package');return resolvePackageReference(linker,ref);
+ }}),factories};
+});
+process.stdout.write(JSON.stringify(results));
+"""
+    actual = browser_outputs(script, rows, Path(runtime))
+    assert len(actual) == len(expected)
+    for index, (a, b) in enumerate(zip(actual, expected)):
+        assert a == b, ("actor reference loading", index, a, b)
+    return dict(
+        cases=len(rows),
+        defaultCopies=copy_count,
+        tags=tag_count,
+        skipped=skipped_count,
+        factoryCalls=factory_count,
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        scope="supplied dimension-one defaults, decoded indices and factory replies; not a complete map load",
+        browserStateCompared=True,
+        defaultStoragePreserved=True,
+    )
+
+
 def verify(engine, core, comparison_engine, comparison_core, runtime):
     program = load_program(engine, core, comparison_engine, comparison_core)
     actor_loading = actor_loading_cases(program)
     actor_fields = actor_field_cases(program)
     actor_boolean_loading = actor_boolean_loading_cases(program, runtime)
+    actor_reference_loading = actor_reference_loading_cases(program, runtime)
     level_population = level_population_cases(program)
     level_loading = level_loading_cases(program, runtime)
     construction = constructor_cases(program)
@@ -1638,6 +1827,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         actorLoading=actor_loading,
         actorFields=actor_fields,
         actorBooleanLoading=actor_boolean_loading,
+        actorReferenceLoading=actor_reference_loading,
         levelPopulation=level_population,
         levelLoading=level_loading,
         freshLoading=fresh_loading,
@@ -1720,6 +1910,7 @@ def main():
                         "actorLoading",
                         "actorFields",
                         "actorBooleanLoading",
+                        "actorReferenceLoading",
                         "levelPopulation",
                         "levelLoading",
                         "freshLoading",

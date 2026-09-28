@@ -259,6 +259,43 @@ class StaticCollisionTest(unittest.TestCase):
 
 
 class QualificationTest(unittest.TestCase):
+    def test_source_reference_binding_selects_full_group_identity_and_exact_export(self):
+        def pkg(name, exports, imports, data):
+            return SimpleNamespace(path=name, exports=exports, imports=imports, data=data,
+                name=lambda index: ['Engine', 'StaticMesh', 'Texture'][index],
+                resolve_ref=lambda ref: exports[ref-1] if ref > 0 else imports[-ref-1],
+                export_name=lambda obj: obj.name, import_name=lambda obj: obj.name)
+        def obj(name, parent=0, **kw):
+            return SimpleNamespace(name=name, package_index=parent, **kw)
+        level = obj('Level', index=0, class_index=-5, serial_offset=0, serial_size=3)
+        map_pkg = pkg('Fixture.unr', [level], [obj('Box', -2, class_package=0, class_name=1), obj('Home', -3),
+            obj('Objects'), obj('Engine'), obj('LevelInfo', -4)], b'lvl')
+        meshes = pkg('Objects.usx', [obj('Home', index=0, class_index=0), obj('Town', index=1, class_index=0),
+            obj('Box', 1, index=2, class_index=-2, object_flags=4, serial_offset=0, serial_size=3),
+            obj('Box', 2, index=3, class_index=-2, object_flags=4, serial_offset=3, serial_size=3),
+            obj('Box', 1, index=4, class_index=-3, object_flags=4, serial_offset=3, serial_size=3)],
+            [obj('Engine'), obj('StaticMesh', -1), obj('Texture', -1)], b'onetwo')
+        audit = Audit.__new__(Audit)
+        audit.pkg, audit.packages = map_pkg, {'Objects': meshes}
+        fields = {'StaticMesh': dict(reference=-1, qualified='Objects.Home.Box', package='Fixture'),
+                  'Level': dict(reference=1, qualified='Fixture.Level', package='Fixture'),
+                  'Owner': dict(reference=0, qualified=None, package='Engine')}
+        rows = [{'savedReferences': {'fields': fields}}] * 2
+        result = audit.reference_bindings(rows)['Fixture']
+        self.assertEqual((result['exportCount'], result['importCount']), (1, 5))
+        binding = result['references']['-1']
+        self.assertEqual((binding['identity'], binding['exportRef'], binding['classIdentity']),
+                         ('Objects.Home.Box', 3, 'Engine.StaticMesh'))
+        self.assertEqual(result['references']['1']['identity'], 'Fixture.Level')
+        self.assertEqual(len(result['references']), 2)
+        meshes.exports[2].object_flags = 0
+        with self.assertRaisesRegex(ValueError, 'visibility'):
+            audit.reference_bindings(rows)
+        meshes.exports[2].object_flags = 4
+        fields['StaticMesh']['qualified'] = 'Objects.Box'
+        with self.assertRaisesRegex(ValueError, 'identity differs'):
+            audit.reference_bindings(rows)
+
     def mesh_fixture(self, *, sweep, repeated=False):
         # A complete authored export: one enabled material, native geometry,
         # and the file-123/licensee-zero tail. No original package is needed.
@@ -371,6 +408,7 @@ class QualificationTest(unittest.TestCase):
         audit.geometry = {'Fixture.Mesh': geometry}
         audit.level_binding = {'scope': 'authored-fixture'}
         audit.actor_class_loading = {'scope': 'authored-class-bits'}
+        audit.reference_bindings = lambda rows: {'scope': 'authored-bindings'}
         rows = [{'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
                  'exportRef': 8, 'savedLevelSlots': [1, 3],
                  'savedStateFrame': {'scope': 'authored-fixture'},
@@ -389,6 +427,7 @@ class QualificationTest(unittest.TestCase):
         self.assertEqual(source['classDefaults'], audit.defaults)
         self.assertEqual(source['savedLevelBinding'], audit.level_binding)
         self.assertEqual(source['actorClassLoading'], audit.actor_class_loading)
+        self.assertEqual(source['savedReferenceBindings'], {'scope': 'authored-bindings'})
         self.assertIs(source['meshes']['Fixture.Mesh'], geometry)
         self.assertNotIn('actors', source)
         rows.append({'name': 'Unknown', 'issues': ['unknown'], 'meshIssues': []})
@@ -734,7 +773,9 @@ class ActorAdmissionTest(unittest.TestCase):
             package='map', origin='map-property'))
         self.assertIsNone(overrides['Owner']['qualified'])
         self.assertNotIn('XLevel', overrides)
-        saved = dict(scope='saved-map-and-class-defaults', fields=defaults | overrides)
+        saved = dict(scope='saved-map-and-class-defaults', fields=defaults | overrides,
+                     tags=[dict(name='StaticMesh', package='map', reference=-1),
+                           dict(name='Owner', package='map', reference=0)])
         ex = SimpleNamespace(serial_offset=0, serial_size=8)
         with patch('check_static_collision_records.actor_prop_offset', return_value=0), \
              patch('check_static_collision_records.read_props_ordered', return_value=(tags, 8)):
@@ -745,7 +786,9 @@ class ActorAdmissionTest(unittest.TestCase):
                            lambda s: s['fields']['Owner'].update(origin='zero-initialized-class-default'),
                            lambda s: s['fields']['Owner'].update(package='defaults'),
                            lambda s: s['fields']['XLevel'].update(qualified=None),
-                           lambda s: s['fields'].pop('Owner')]:
+                           lambda s: s['fields'].pop('Owner'),
+                           lambda s: s['tags'].reverse(),
+                           lambda s: s['tags'][0].update(reference=-2)]:
                 damaged = deepcopy(saved); mutate(damaged)
                 with self.assertRaises(ValueError): check_actor_references(pkg, ex, damaged, defaults)
 
@@ -868,6 +911,9 @@ class ActorAdmissionTest(unittest.TestCase):
         row, _ = self.actor(reference_defaults=defaults,
                             extra=[dict(name='Level', type=5, raw=b'\0')])
         refs = row['savedReferences']['fields']
+        self.assertEqual(row['savedReferences']['tags'], [
+            dict(name='StaticMesh', reference=-1, package='synthetic'),
+            dict(name='Level', reference=0, package='synthetic')])
         self.assertEqual(refs['StaticMesh']['qualified'], 'Mesh')
         self.assertEqual(refs['Level']['origin'], 'map-property')
         self.assertEqual(refs['Mesh']['origin'], 'zero-initialized-class-default')

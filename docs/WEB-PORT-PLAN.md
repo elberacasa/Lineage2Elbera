@@ -49,9 +49,13 @@ skipped. Source registration/package evidence also supplies StaticMeshActor
 class mask0x428 without inventing the rest of its word. The shared map reader
 now decodes the complete supported saved actor frame within each export;
 all 2,922 frames round-trip against originals. Source correspondence separates
-that saved frame from the later execution reset. Current reference resolution,
-default copying, registry population and LevelInfo collision mode still need
-the loading join before world queries can use these records.
+that saved frame from the later execution reset. Reference loading now copies
+ordinary identities, applies the property gate and resolves signed package
+indices through explicit factories. The source checker joins all 2,922 actor
+inputs to 480 prepared mesh records. Import matching includes class package/name;
+a real lighthouse texture and mesh share the same full object name. Complete
+actor default construction, registry population and LevelInfo collision mode
+still need the loading join before world queries can use these records.
 
 Next: feed these prepared mesh resources and original actor fields into the
 existing world-query components, preserving unresolved lifecycle boundaries. Validate

@@ -769,6 +769,98 @@ startup and collision population remain integration work. Original packages,
 generated records and raw receipts stay private. These additions are repository
 Elbera Tools, outside the existing standalone release archives.
 
+## Reference loading and prepared mesh objects
+
+The existing `actor-loading.js` now joins ordinary reference defaults, the
+property admission gate and signed package-index lookup. `applyActorReferenceTags`
+takes dimension-one ObjectProperty declarations, already resolved default
+identities, ordered saved tags, explicit loading/persistent modes and a
+synchronous resolver. It copies ordinary reference identities unchanged,
+preserves repeated-tag order and does not resolve skipped payloads. Unknown
+references remain unsupported. A rejected actor exposes no partial result;
+object factories may already have run and are not rolled back.
+
+`resolvePackageReference` reproduces `ULinkerLoad.IndexToObject`: zero returns
+null without consuming tables; a positive reference checks export index
+`reference - 1` and calls `createExport(index, 0)`; a negative reference checks
+import index `-1 - reference` and calls `createImport(index)`. Only the selected
+table and factory are consumed. Factories supply explicit current replies;
+this function does not guess a class, look up a flattened mesh name, allocate
+native memory or silently turn an unresolved reply into null.
+
+The seven decoded collision-reference declarations have no `0x400000` flag,
+so their normal UObjectProperty default copies preserve the same object
+identity. The separate subobject-duplication path remains unsupported. XLevel
+has property flags `0x2002`: persistent tagged loading skips it, and the
+already implemented Level.PostLoad assignment supplies it later. Level remains
+a distinct LevelInfo reference. The Boolean and reference paths share the same
+property-skip predicate.
+
+The original-input bounds command now compares **128 cases**, with **896
+default copies, 1,408 tags, 352 skips and 896 factory calls**, against 92,968
+interpreted instructions at 129 addresses. Half retain the actual seven
+source declarations; the remainder vary admission flags. The comparisons
+preserve default storage, object identity, null replies and repeated lookup
+order. They compose ordinary copying, the property gate, IndexToObject and
+SerializeItem with explicit archive/factory replies; they do not execute a
+complete archive, object allocator or import-discovery sequence.
+
+Source correspondence binds these ordinary Core bodies and their named thunks:
+
+| Method | Range, end exclusive |
+| --- | --- |
+| UObjectProperty.SerializeItem | `1016ed90..1016eda3` |
+| UObjectProperty.CopySingleValue | `1016ed30..1016ed3f` |
+| UObjectProperty.CopyCompleteValue | `10171740..101717e9` |
+| ULinkerLoad.IndexToObject | `1014b290..1014b38f` |
+| ULinkerLoad.CreateImport | `1014b1a0..1014b230` |
+| FArray.IsValidIndex | `10108ec0..10108eda` |
+| ULinkerLoad.VerifyImport | `1014a8f0..1014af06` |
+| ULinkerLoad.GetExportClassName | `10148ae0..10148b36` |
+| ULinkerLoad.GetExportClassPackage | `10148a60..10148ac5` |
+
+The UObjectProperty vtable binds SerializeItem at `0x90` and copy methods at
+`0xa4`/`0xa8`; InitProperties calls the latter slot. The archive-reference slot
+is `0x18`. The editions, private-input commands and supplemental-authentication
+limits remain those listed above. Exception-handler tails are excluded.
+
+A real import ambiguity changed the source binding: Talking Island's
+`sp_lighthouse.sp_lighthouse001` names both a Texture and a StaticMesh export.
+The original VerifyImport compares class name **and class package**, alongside
+object name and outer identity. Source binding now checks that class identity
+before selecting a full qualified export. It requires a public imported export;
+private-visibility handling, outer fallback and general package discovery remain
+outside this source subset. Authored tests retain same-leaf groups and same-full-
+name/different-class exports to prevent either identity from being flattened.
+
+Private sweep output now keeps ordered `savedReferences.tags` and a
+`savedReferenceBindings` table: source package counts, consumed indices, exact
+target export/class identities and target-body hashes. The existing record
+checker validates tag order and exercises reference loading using a fresh
+source-linked object registry. Its StaticMesh objects contain resources made
+by the existing `prepareFreshStaticMeshTree` API, so repeated references reuse
+the same prepared object instead of creating unrelated mesh placeholders.
+
+The original `17_25`/`22_22` run checks **986/1,936 actors**, **193/287 prepared
+meshes** and **1,972/3,872 factory calls**. Each registry also contains its
+referenced LevelInfo identity. None of these actors saves an override for the
+transient XLevel. The result is a source-linked preparation check; it does not
+establish complete current LevelInfo state, native registry history, later
+writes or live collision participation.
+
+```sh
+node --test editor/world/test/actor-loading.test.mjs editor/world/test/static-actor-bounds.test.mjs
+python3 -m unittest discover -s tools/world -p test_static_collision.py
+python3 tools/world/check_static_collision_records.py 17_25 22_22 --check
+```
+
+The 26 browser-module, 63 portable record and 16 bounds-interpreter cases pass.
+Completed offline Giran startup was visually inspected without captured errors;
+its inspector still reports no audited static surfaces loaded. Main-world
+collision and walking have not been switched to this source preparation.
+These are repository Elbera Tools; private source exports and raw receipts are
+excluded from publication and existing standalone releases remain unchanged.
+
 ## Next integration boundary
 
 `localBounds` must be the **current native mesh field**, not a box recomputed

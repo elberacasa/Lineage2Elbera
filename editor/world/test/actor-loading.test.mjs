@@ -2,8 +2,170 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   applyActorBooleanTags,
+  applyActorReferenceTags,
   collectLevelActorAssignments,
+  resolvePackageReference,
 } from "../js/actor-loading.js";
+
+function referenceFixture() {
+  const mesh = { identity: "Objects.Home.Box" },
+    level = { identity: "Map.LevelInfo" };
+  const linker = {
+    exportCount: 1,
+    importCount: 1,
+    createExport(index, flags) {
+      assert.equal(index, 0);
+      assert.equal(flags, 0);
+      return { status: "ready", value: level };
+    },
+    createImport(index) {
+      assert.equal(index, 0);
+      return { status: "ready", value: mesh };
+    },
+  };
+  return {
+    archive: { loading: true, saving: false, persistent: true },
+    layout: [
+      { name: "StaticMesh", kind: "ObjectProperty", propertyFlags: 3 },
+      { name: "Level", kind: "ObjectProperty", propertyFlags: 2 },
+      { name: "XLevel", kind: "ObjectProperty", propertyFlags: 0x2002 },
+    ],
+    defaults: { StaticMesh: null, Level: null, XLevel: null },
+    tags: [
+      { name: "StaticMesh", package: "Map", reference: -1 },
+      { name: "Level", package: "Map", reference: 1 },
+      // An excluded transient payload must not try to resolve anything.
+      { name: "XLevel" },
+    ],
+    resolveReference(pkg, ref) {
+      assert.equal(pkg, "Map");
+      return resolvePackageReference(linker, ref);
+    },
+    mesh,
+    level,
+    linker,
+  };
+}
+
+test("reference loading preserves object identity and skips transient saved values", () => {
+  const input = referenceFixture();
+  const result = applyActorReferenceTags(input);
+  assert.equal(result.status, "ready");
+  assert.equal(result.references.StaticMesh, input.mesh);
+  assert.equal(result.references.Level, input.level);
+  assert.equal(result.references.XLevel, null);
+  assert.deepEqual(result.skipped, [2]);
+  assert.deepEqual(input.defaults, {
+    StaticMesh: null,
+    Level: null,
+    XLevel: null,
+  });
+  assert.ok(Object.isFrozen(result.references));
+  assert.equal(Object.isFrozen(input.mesh), false);
+});
+
+test("signed indices select only the consumed table and retain null factory replies", () => {
+  assert.equal(resolvePackageReference(undefined, 0).value, null);
+  const calls = [];
+  const linker = {
+    exportCount: 0x7fffffff,
+    importCount: 0x7fffffff,
+    createExport(index, flags) {
+      calls.push(["export", index, flags]);
+      return { status: "ready", value: null };
+    },
+    createImport(index) {
+      calls.push(["import", index]);
+      return { status: "ready", value: "object" };
+    },
+  };
+  assert.equal(resolvePackageReference(linker, 0x7fffffff).value, null);
+  assert.equal(resolvePackageReference(linker, -0x7fffffff).value, "object");
+  assert.deepEqual(calls, [
+    ["export", 0x7ffffffe, 0],
+    ["import", 0x7ffffffe],
+  ]);
+  delete linker.importCount;
+  assert.equal(resolvePackageReference(linker, 1).status, "ready");
+});
+
+test("bad package indices and unknown replies cannot become null references", () => {
+  const linker = referenceFixture().linker;
+  for (const ref of [2, -2, -0x80000000, 0x80000000, 0.5, NaN, undefined])
+    assert.equal(resolvePackageReference(linker, ref).status, "unsupported");
+  for (const reply of [
+    undefined,
+    { status: "unsupported" },
+    { status: "ready" },
+    { status: "ready", value: undefined },
+  ]) {
+    linker.createImport = () => reply;
+    const result = resolvePackageReference(linker, -1);
+    assert.equal(result.status, "unsupported");
+    assert.equal(Object.hasOwn(result, "value"), false);
+  }
+});
+
+test("repeated reference tags preserve order and nonpersistent transient writes", () => {
+  const input = referenceFixture();
+  input.archive.persistent = false;
+  input.tags[2] = { name: "XLevel", package: "Map", reference: 1 };
+  input.tags.push({ name: "StaticMesh", package: "Map", reference: 0 });
+  const result = applyActorReferenceTags(input);
+  assert.equal(result.status, "ready");
+  assert.equal(result.references.StaticMesh, null);
+  assert.equal(result.references.XLevel, input.level);
+  assert.deepEqual(result.skipped, []);
+});
+
+test("unresolved reference loading does not expose a partial actor", () => {
+  for (const change of [
+    (input) => delete input.defaults.Level,
+    (input) => (input.layout[0].propertyFlags |= 0x400000),
+    (input) => input.layout.push(input.layout[0]),
+    (input) => (input.layout[0].kind = "IntProperty"),
+    (input) => (input.archive.loading = false),
+    (input) => (input.archive.saving = true),
+    (input) => input.tags.push({ name: "unknown" }),
+    (input) =>
+      input.tags.push({ name: "StaticMesh", package: "Map", reference: 2 }),
+    (input) => delete input.tags[1],
+  ]) {
+    const input = referenceFixture();
+    change(input);
+    const result = applyActorReferenceTags(input);
+    assert.equal(result.status, "unsupported");
+    assert.equal(Object.hasOwn(result, "references"), false);
+  }
+});
+
+test("persistent reference loading composes with the later Level.PostLoad assignment", () => {
+  const input = referenceFixture();
+  const loaded = applyActorReferenceTags(input);
+  const world = { identity: "current-world" },
+    actor = { ...loaded.references };
+  assert.equal(actor.XLevel, null);
+  const writes = collectLevelActorAssignments({
+    level: { identity: world, outerIdentity: "Map" },
+    registry: [actor],
+    buffer: [],
+    objects: new Map([
+      [actor, { classIdentity: "StaticMeshActor", outerIdentity: "Map" }],
+    ]),
+    classParents: new Map([
+      ["StaticMeshActor", "Actor"],
+      ["Actor", null],
+    ]),
+    actorClass: "Actor",
+    playerControllerClass: "PlayerController",
+  });
+  assert.equal(writes.status, "ready");
+  for (const write of writes.assignments)
+    write.identity.XLevel = write.writes.xLevelIdentity;
+  assert.equal(actor.XLevel, world);
+  assert.equal(actor.Level, input.level);
+  assert.equal(actor.StaticMesh, input.mesh);
+});
 
 function booleanFixture() {
   return {
