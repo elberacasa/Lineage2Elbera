@@ -334,7 +334,8 @@ def actor_record(pkg, ex, inherited):
     off = actor_prop_offset(pkg, ex)
     if off is None:
         result['issues'].append('unsupported-actor-framing'); return result
-    props, end = read_props_ordered(pkg, ex.serial_offset + off)
+    props, end = read_props_ordered(pkg, ex.serial_offset + off,
+                                  end=ex.serial_offset + ex.serial_size)
     if end != ex.serial_offset + ex.serial_size:
         result['issues'].append('actor-properties-trailing-bytes'); return result
     values, mesh, position = dict(inherited), None, None
@@ -417,7 +418,8 @@ def reference_census(tiles):
                 try:
                     offset = actor_prop_offset(pkg, ex)
                     if offset is None: raise ValueError('unsupported-actor-framing')
-                    props, end = read_props_ordered(pkg, ex.serial_offset + offset)
+                    props, end = read_props_ordered(pkg, ex.serial_offset + offset,
+                                                  end=ex.serial_offset + ex.serial_size)
                     if end != ex.serial_offset + ex.serial_size:
                         raise ValueError('actor-properties-trailing-bytes')
                     fields = [p for p in props if p['name'] == 'StaticMesh' and p['type'] == 5]

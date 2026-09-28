@@ -70,15 +70,18 @@ require Capstone:
 node --test editor/world/test/static-sweep.test.mjs
 python3 -m unittest discover -s tools/ui -p test_static_sweep_native.py
 python3 -m unittest discover -s tools/world -p test_static_collision.py
+python3 -m unittest discover -s tools/world -p test_prop_identity.py
 ```
 
 Eleven browser cases cover rounding, signed zero, exact-zero adjustment,
 nonzero small deltas, negative scale, composing source matrices and explicit
 failure boundaries. Four interpreter cases cover integer flags, partial status
-writes, unknown calls and bounded execution. Thirty-six exporter/record tests
+writes, unknown calls and bounded execution. Thirty-seven exporter/record tests
 cover source framing, qualification and round trips, including both saved boxes,
 licensee tail gates, signed versions, opaque lazy spans and exact export ends.
-CI runs all three sets.
+The fifteen prop-reader/repair cases include extended indices, Boolean framing
+and bounded truncation. CI runs all four sets. Twelve terrain-collision and
+twelve terrain-zone cases also pass with the shared reader change.
 
 The original-input differential reads pinned owned Engine.dll/Core.dll and
 requires explicit comparison images:
@@ -103,6 +106,37 @@ explicit fields/frame state; it does not emulate the constructor's complete
 cache, statistics, exception or actor-lifetime paths.
 
 ## Original record extraction
+
+### Ordered saved properties
+
+The shared map reader now preserves all original one-, two- and four-byte array
+indices. Previously it consumed extended indices but returned zero, which could
+misidentify an array element as a scalar property. It also now reads Boolean
+values directly from the tag high bit without consuming value bytes. The size
+selector is still decoded and retained; it does not create a Boolean payload.
+Static-actor audits bound each stream to its own export, preventing truncated
+properties from borrowing the next export's bytes.
+
+The existing record checker adds `savedProperties` to each private receipt. It
+retains ordered tag identities, indices, sizes, Boolean values and payload
+hashes, with a hash of the complete tag span. Duplicate names and native header
+names stay visible even when the generic mesh decoder's dictionary collapses
+them. Both decoders must finish at the mesh's recovered native-body offset.
+That comparison checks framing; it is not execution of native property loading.
+
+On the supplied maps, all **480 per-map mesh records** have saved export flags
+`0x000f0004`, no duplicate tag names and no tags for `ObjectInternal`,
+`ObjectFlags`, `Outer`, `Name` or `Class`. Their mesh property array indices are
+zero. The **2,922 static-actor audit records** are unchanged by the reader fix:
+their **7,523 Boolean tags** already have saved size zero, and none of their
+array indices use an extended encoding. These findings do not explain existing
+placement defects. `savedExportFlags` remains saved metadata, not a substitute
+for current resource flags or the original construction/loading chain.
+
+The same read-only record command below reproduces the census summary; omit
+`--check` for private per-tag evidence. No assets or scenes are rewritten. The
+reader and checker remain Elbera repository tools, outside the current standalone
+release archives. No browser runtime or visual layout changes in this checkpoint.
 
 The existing exporter has an opt-in `--sweep-output` mode:
 
@@ -211,6 +245,22 @@ stream behavior, current cache state or collision results. Full receipts stay
 local and include every source fingerprint.
 
 ## Source qualification
+
+`serializers.packedPropertyTags` binds the shared reader to the pinned Core
+inputs listed below. Eight exact code/data regions include the tag operator
+(`10132f10..10133161`, all normal returns), its two size-selector tables, the
+tagged-property caller (`101346e0..10134cd8`), value application
+(`10131090..10131137`) and byte/word/dword archive helpers. Five exact thunks
+and seventeen instruction checks bind the calls, index masks/byte order and
+Boolean class identity. The two-byte index is high-seven-bits then low byte;
+the four-byte form is high-six-bits followed by three bytes in descending
+significance. Boolean application sets or clears the declared mask from the
+tag bit without calling a payload serializer.
+
+These checks establish retained framing behavior. Arbitrary compatibility
+conversions, archive callbacks, class initialization, malformed streams and
+current object flags are outside this claim. Supplemental byte correspondence
+does not authenticate a distribution or restore the protected client runtime.
 
 The preparation checker qualifies two Engine slices and four named Core bodies:
 

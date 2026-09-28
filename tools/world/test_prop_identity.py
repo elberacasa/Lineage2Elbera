@@ -77,6 +77,48 @@ def converter_fixture(packages, *, export_filter=lambda package, group: True):
 
 
 class PropIdentityTest(unittest.TestCase):
+    def properties(self, raw, **kwargs):
+        names = ['None', 'Field', 'Flag', 'Vector']
+        pkg = SimpleNamespace(path='authored.unr', data=raw, name=lambda n: names[n])
+        return c.read_props_ordered(pkg, 0, **kwargs)
+
+    def test_packed_indices_preserve_original_one_two_and_four_byte_order(self):
+        # Literal byte sequences from the source layout, no encoder round trip.
+        for encoded, expected in [(b'\x00', 0), (b'\x7f', 127),
+                (b'\x80\x80', 128), (b'\xbf\xff', 16383),
+                (b'\xc0\x00\x40\x00', 16384), (b'\xc1\x02\x03\x04', 16909060),
+                (b'\xff\xff\xff\xff', 1073741823)]:
+            with self.subTest(index=expected):
+                raw = b'\x01\xa2' + encoded + b'ABCD' + b'\x01\x22EFGH\0'
+                props, end = self.properties(raw)
+                self.assertEqual([p['index'] for p in props], [expected, 0])
+                self.assertEqual([p['raw'] for p in props], [b'ABCD', b'EFGH'])
+                self.assertEqual([p['name'] for p in props], ['Field', 'Field'])
+                self.assertEqual(end, len(raw))
+
+    def test_boolean_uses_tag_bit_without_reading_payload_or_array_index(self):
+        for bit in (0, 128):
+            for selector, size_bytes, size in [(0, b'', 1), (3, b'', 12),
+                    (5, b'\0', 0), (5, b'\xff', 255),
+                    (6, b'\x00\x01', 256), (7, b'\xff' * 4, 4294967295)]:
+                with self.subTest(bit=bit, selector=selector):
+                    raw = bytes([2, bit | selector << 4 | 3]) + size_bytes + b'\x01\x22ABCD\0'
+                    props, end = self.properties(raw)
+                    self.assertEqual(props[0], dict(name='Flag', type=3, size=size,
+                        struct=None, index=0, raw=b'', boolval=bool(bit)))
+                    self.assertEqual(props[1]['raw'], b'ABCD')
+                    self.assertEqual(end, len(raw))
+
+    def test_packed_export_bounds_cannot_borrow_next_export_bytes(self):
+        raw = b'\x01\xa2\xc1\x02\x03\x04ABCD\0'
+        for end in range(len(raw)):
+            with self.subTest(end=end), self.assertRaises(c.L2Error):
+                self.properties(raw, end=end)
+        self.assertEqual(self.properties(raw, end=len(raw))[1], len(raw))
+        for end in (-1, len(raw)+1, True, 1.5):
+            with self.assertRaisesRegex(c.L2Error, 'boundary'):
+                self.properties(raw, end=end)
+
     def test_object_reference_retains_legacy_fields_and_full_group(self):
         names = ['Objects', 'Town', 'Box', 'Core', 'StaticMesh']
         imports = [SimpleNamespace(object_name=0, package_index=0),

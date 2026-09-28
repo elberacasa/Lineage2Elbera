@@ -101,10 +101,19 @@ _SIZE_SEL = {0: 1, 1: 2, 2: 4, 3: 12, 4: 16}
 INTERIOR_TILES = frozenset(("19_16", "21_25", "25_21"))
 
 
-def read_props_ordered(pkg, pos):
+def read_props_ordered(pkg, pos, *, end=None):
     """Packed (UE1-style) property list starting at absolute offset `pos`.
-    Returns (props, end_pos); props keeps document order and array indices."""
-    r = Reader(pkg.data, pos, path=pkg.path)
+    Returns (props, end_pos); keeps duplicates and all 1/2/4-byte indices.
+
+    `end` bounds an export without borrowing bytes from its next neighbor.
+    Boolean values live in the tag's high bit and consume no value bytes.
+    Source bindings: static_collision_source.qualify_packed_property_tags.
+    """
+    boundary = len(pkg.data) if end is None else end
+    if (type(pos) is not int or type(boundary) is not int
+            or not 0 <= pos <= boundary <= len(pkg.data)):
+        raise L2Error("invalid packed property boundary")
+    r = Reader(memoryview(pkg.data)[:boundary], pos, path=pkg.path)
     props = []
     while True:
         name = pkg.name(r.compact())
@@ -129,10 +138,10 @@ def read_props_ordered(pkg, pos):
             if b < 128:
                 aidx = b
             elif b & 0x40:
-                r.bytes(3)
+                aidx = ((b & 0x3F) << 24) | (r.u8() << 16) | (r.u8() << 8) | r.u8()
             else:
-                r.bytes(1)
-        raw = r.bytes(ds)
+                aidx = ((b & 0x7F) << 8) | r.u8()
+        raw = b"" if ptype == 3 else bytes(r.bytes(ds))
         props.append(dict(name=name, type=ptype, size=ds, struct=sname,
                           index=aidx, raw=raw, boolval=is_arr))
     return props, r.pos
