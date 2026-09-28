@@ -140,10 +140,14 @@ remain private. Existing ordinary admission comparisons are retained separately.
 
 ## Remaining integration
 
-Live actor fields, provider/tag history, subclass ShouldTrace dispatch, primitive
-selection, current bounding boxes and lifecycle updates still need bindings to
-the browser world. This query exposes the method boundary for existing cylinder
-and cached-mesh collision components; the 600 cases supply those responses and
+Live actor fields, provider/tag history, subclass dispatch, primitive selection,
+current bounding boxes and lifecycle updates still need bindings to the browser
+world. The separate [actor/pawn trace filters](native-actor-trace-evidence.md)
+now implement ordinary AActor and APawn ShouldTrace with explicit helper/state
+inputs. Portable joins exercise those filters with this tree and actual cylinder
+collision; they do not establish a live scene. This query exposes the method
+boundary for existing cylinder and cached-mesh collision components; the 600
+cases supply those responses and
 do not prove the concrete primitive join. Zero-extent queries are separate work.
 
 The ordinary level collector can consume this linked-list order once its actual
