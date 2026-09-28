@@ -564,6 +564,77 @@ missing repeated slots, fabricated membership, changed counts/spans and wrong
 callback targets or receivers. No runtime JS/UI change or new screenshot is
 claimed; live population still needs current fields and loading evidence.
 
+## Level loading assignments and saved references
+
+The browser's `actor-loading.js` now reproduces the two actor assignment
+loops in `ULevel.PostLoad`. It traverses the current object registry and then
+the current object buffer, retaining null filtering, class ancestry, outer
+identity comparisons and repeated entries. Matching actors receive
+`XLevel(+e4) = Level` and collision query tag `+2cc = 0`. The original
+PlayerController cast excludes controllers with `+5ac & 0x100`; this check is
+not a Pawn or TerrainInfo test.
+
+```js
+const result = collectLevelActorAssignments({
+  level: { identity, outerIdentity },
+  registry, buffer,             // Dense arrays of identities or explicit nulls.
+  objects,                     // Map: identity -> current class/outer fields.
+  classParents,                // Map: class identity -> parent identity or null.
+  actorClass, playerControllerClass,
+});
+```
+
+Object records provide `classIdentity` and, when consumed, `outerIdentity` and
+`playerControllerFlags5ac`. The returned ordered `assignments` contain source
+list/index, actor identity and the two sparse writes. The caller applies the
+writes; the module does not mutate inputs. Missing or cyclic consumed class
+state returns `unsupported`, retaining earlier recovered writes. An absent
+field never becomes a null reference. Inputs must remain stable during the
+synchronous operation.
+
+The same bounds command compares **192 cases and 1,875 ordered assignments**
+against 337,380 interpreted instructions at 145 addresses. Every other supplied
+actor word and both source lists remain unchanged. Source qualification binds
+the named Level method, both global registry imports, Actor and PlayerController
+class exports, iterator/cast thunks, and the actual Core `GetOuter` and `IsA`
+bodies. The source loops are `105cd651..105cd747`, after UObject.PostLoad and
+before model/render/tile preparation. Class construction, registry population
+and later world reassignment remain separate boundaries.
+
+The existing private sweep exporter also adds `savedReferences`. Each of its
+seven fields—StaticMesh, Owner, Level, XLevel, Mesh, Brush and AntiPortal—retains
+the canonical package index, full qualified identity, source package and
+map/default origin. The linked declarations preserve property flags, including
+transient XLevel. Native copy-chain qualification checks those declarations
+against the previously recovered field offsets. Class references start from
+the qualified zero/parent default path and take ordered class overrides; the
+reader never uses a flattened leaf name as an identity.
+
+All **20,454 reference fields across 2,922 static actors** check against their
+original map tags or class defaults. Both maps explicitly save StaticMesh and
+Level. The other five references have zero class defaults with no saved map
+override. These are saved facts, not proof of current native pointers or of
+transient-property application. Legacy ray selection remains unchanged.
+
+```sh
+node --test editor/world/test/actor-loading.test.mjs
+python3 -m unittest discover -s tools/world -p test_static_collision.py
+python3 -m unittest discover -s tools/ui -p test_static_actor_bounds_native.py
+```
+
+Six browser-module cases, 57 portable record cases and 14 bounds-interpreter
+cases pass without original files. They cover ordering, lazy input consumption,
+nulls, unresolved ancestry, duplicate/malformed references, preserved group
+names and SETE's low-byte/flag behavior. The existing private record and bounds
+commands reproduce the original-input checks using the pinned editions above.
+
+The main browser collision loader still uses the earlier ray path. A browser
+startup check reached the offline Giran scene without captured errors; its
+inspector still reported no audited static surfaces loaded. This verifies
+startup only. No new Online query, map repair or UI screenshot is claimed.
+These additions remain repository Elbera Tools, outside the existing standalone
+release archives; original inputs and generated records stay private.
+
 ## Next integration boundary
 
 `localBounds` must be the **current native mesh field**, not a box recomputed

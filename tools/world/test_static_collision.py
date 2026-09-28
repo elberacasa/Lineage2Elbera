@@ -3,11 +3,11 @@ import struct
 from pathlib import Path
 import unittest
 from copy import deepcopy
-from export_static_collision import Reader, mesh_body, mesh_load_tail, qualified_ref, eligible_materials, Audit, flattened_reference_collisions, actor_record, actor_boolean_layout
+from export_static_collision import Reader, mesh_body, mesh_load_tail, qualified_ref, eligible_materials, Audit, flattened_reference_collisions, actor_record, actor_boolean_layout, saved_reference_overrides, actor_reference_layout
 from types import SimpleNamespace
 from unittest.mock import patch
 from l2lib import L2Error
-from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation, check_actor_transform, check_actor_flags, check_level_actor_order
+from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation, check_actor_transform, check_actor_flags, check_actor_references, check_level_actor_order
 from static_mesh_class_source import read_root_class_flags
 
 
@@ -369,6 +369,7 @@ class QualificationTest(unittest.TestCase):
         audit.level_binding = {'scope': 'authored-fixture'}
         rows = [{'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
                  'exportRef': 8, 'savedLevelSlots': [1, 3],
+                 'savedReferences': {'scope': 'authored-fixture'},
                  'issues': [], 'meshIssues': [], 'position': [1, 2, 3], 'scale': [1, 1, 1],
                  'savedTransform': {'scope': 'authored-fixture'}, 'savedCollisionFlags': {'scope': 'authored-fixture'}}]
         with self.assertRaisesRegex(ValueError, 'separate private source output'):
@@ -377,6 +378,7 @@ class QualificationTest(unittest.TestCase):
         self.assertEqual(source['references'], [
             {'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
              'exportRef': 8, 'savedLevelSlots': [1, 3],
+             'savedReferences': {'scope': 'authored-fixture'},
              'savedTransform': {'scope': 'authored-fixture'}, 'savedCollisionFlags': {'scope': 'authored-fixture'}}])
         self.assertEqual(source['classDefaults'], audit.defaults)
         self.assertEqual(source['savedLevelBinding'], audit.level_binding)
@@ -611,6 +613,76 @@ class ActorLayoutTest(unittest.TestCase):
 
 
 class ActorAdmissionTest(unittest.TestCase):
+    def test_reference_round_trip_preserves_groups_nulls_and_default_origins(self):
+        imports = [SimpleNamespace(name='Mesh', package_index=-2),
+                   SimpleNamespace(name='Group', package_index=-3),
+                   SimpleNamespace(name='Assets', package_index=0)]
+        pkg = SimpleNamespace(data=b'authored', path='map.unr',
+            resolve_ref=lambda ref: imports[-ref-1], import_name=lambda obj: obj.name)
+        tags = [dict(name='StaticMesh', type=5, index=0, struct=None, raw=compact(-1)),
+                dict(name='Owner', type=5, index=0, struct=None, raw=compact(0))]
+        default = dict(reference=-3, qualified='Assets', package='defaults', origin='Engine.Actor.default')
+        defaults = {name: dict(default) for name in ('StaticMesh', 'Owner', 'XLevel')}
+        overrides = saved_reference_overrides(pkg, tags, defaults)
+        self.assertEqual(overrides['StaticMesh'], dict(reference=-1, qualified='Assets.Group.Mesh',
+            package='map', origin='map-property'))
+        self.assertIsNone(overrides['Owner']['qualified'])
+        self.assertNotIn('XLevel', overrides)
+        saved = dict(scope='saved-map-and-class-defaults', fields=defaults | overrides)
+        ex = SimpleNamespace(serial_offset=0, serial_size=8)
+        with patch('check_static_collision_records.actor_prop_offset', return_value=0), \
+             patch('check_static_collision_records.read_props_ordered', return_value=(tags, 8)):
+            result = check_actor_references(pkg, ex, saved, defaults)
+            self.assertEqual(len(result), 3)
+            for mutate in [lambda s: s['fields']['StaticMesh'].update(qualified='Assets.Mesh'),
+                           lambda s: s['fields']['StaticMesh'].update(reference=-2),
+                           lambda s: s['fields']['Owner'].update(origin='zero-initialized-class-default'),
+                           lambda s: s['fields']['Owner'].update(package='defaults'),
+                           lambda s: s['fields']['XLevel'].update(qualified=None),
+                           lambda s: s['fields'].pop('Owner')]:
+                damaged = deepcopy(saved); mutate(damaged)
+                with self.assertRaises(ValueError): check_actor_references(pkg, ex, damaged, defaults)
+
+    def test_reference_decoder_rejects_duplicates_noncanonical_payloads_and_wrong_tags(self):
+        pkg = SimpleNamespace(path='map.unr')
+        tag = dict(name='Owner', type=5, index=0, struct=None, raw=b'\0')
+        for raw in (b'', b'\x40\0', b'\x80', b'\0\0', b'\x40'):
+            with self.assertRaises((ValueError, L2Error)):
+                saved_reference_overrides(pkg, [dict(tag, raw=raw)], {'Owner'})
+        for change in ({'type': 2}, {'index': 1}, {'struct': 'Vector'}):
+            with self.assertRaises(ValueError):
+                saved_reference_overrides(pkg, [dict(tag, **change)], {'Owner'})
+        with self.assertRaises(ValueError): saved_reference_overrides(pkg, [tag, tag], {'Owner'})
+        self.assertEqual(saved_reference_overrides(pkg, [tag], {'StaticMesh'}), {})
+
+    def test_reference_fields_preserve_declared_types_and_transient_flags(self):
+        names = ['None', 'Actor', 'StaticMesh', 'Owner', 'Level', 'XLevel', 'Mesh', 'Brush', 'AntiPortal']
+        imports = [SimpleNamespace(name=name, package_index=-8) for name in
+                   ('StaticMesh', 'Actor', 'LevelInfo', 'Level', 'Mesh', 'Model', 'ConvexVolume')]
+        imports.append(SimpleNamespace(name='Engine', package_index=0))
+        exports = [SimpleNamespace(index=0, name='Actor', kind='Class', package_index=0)]
+        data = bytearray()
+        for i, name in enumerate(names[2:]):
+            flags = 0x2000 if name == 'XLevel' else 1
+            raw = b'\0\0\0' + struct.pack('<II', 1, flags) + b'\0' + compact(-i-1)
+            exports.append(SimpleNamespace(index=i+1, name=name, kind='ObjectProperty', package_index=1,
+                serial_offset=len(data), serial_size=len(raw)))
+            data.extend(raw)
+        pkg = SimpleNamespace(exports=exports, data=bytes(data), path='Engine.u', name=lambda i: names[i],
+            class_name_of=lambda obj: obj.kind, export_name=lambda obj: obj.name,
+            resolve_ref=lambda ref: imports[-ref-1] if ref < 0 else exports[ref-1],
+            import_name=lambda obj: obj.name)
+        rows = actor_reference_layout(pkg)
+        self.assertEqual([r['name'] for r in rows], names[2:])
+        self.assertEqual(rows[3]['propertyFlags'], 0x2000)
+        self.assertEqual(rows[2]['reference'], 'Engine.LevelInfo')
+        self.assertEqual(rows[3]['reference'], 'Engine.Level')
+        exports[1].kind = 'ClassProperty'
+        with self.assertRaises(ValueError): actor_reference_layout(pkg)
+        exports[1].kind = 'ObjectProperty'
+        imports[0].name = 'Mesh'
+        with self.assertRaises(ValueError): actor_reference_layout(pkg)
+
     def test_level_order_round_trip_retains_null_repeats_and_absent_exports(self):
         refs = [3, 0, 1, 3, 2]
         first = struct.pack('<ii', 1, 1) + compact(4)
@@ -661,7 +733,7 @@ class ActorAdmissionTest(unittest.TestCase):
                     check_actor_transform(package, export, changed, defaults)
 
     def actor(self, extra=(), *, inherited_rotation=True, source=False, inherited_pivot=True,
-              boolean_layout=None, boolean_defaults=None):
+              boolean_layout=None, boolean_defaults=None, reference_defaults=None):
         inherited = {name: True for name in ('bStatic', 'bCollideActors', 'bBlockActors',
             'bBlockPlayers', 'bBlockZeroExtentTraces', 'bBlockNonZeroExtentTraces')}
         inherited.update(DrawScale=1, DrawScale3D=[1, 1, 1])
@@ -680,8 +752,23 @@ class ActorAdmissionTest(unittest.TestCase):
         ex = SimpleNamespace(serial_offset=0, serial_size=7, class_index=-2)
         with patch('export_static_collision.actor_prop_offset', return_value=0), \
              patch('export_static_collision.read_props_ordered', return_value=(props, 7)):
-            row = actor_record(pkg, ex, inherited, retain_source_transform=source, boolean_layout=boolean_layout)
+            row = actor_record(pkg, ex, inherited, retain_source_transform=source,
+                               boolean_layout=boolean_layout, reference_defaults=reference_defaults)
         return row, inherited
+
+    def test_actor_reference_output_keeps_absent_defaults_separate_from_explicit_null(self):
+        zero = dict(reference=0, qualified=None, package='Engine', origin='zero-initialized-class-default')
+        defaults = {name: dict(zero) for name in ('StaticMesh', 'Mesh', 'Level', 'XLevel')}
+        row, _ = self.actor(reference_defaults=defaults,
+                            extra=[dict(name='Level', type=5, raw=b'\0')])
+        refs = row['savedReferences']['fields']
+        self.assertEqual(refs['StaticMesh']['qualified'], 'Mesh')
+        self.assertEqual(refs['Level']['origin'], 'map-property')
+        self.assertEqual(refs['Mesh']['origin'], 'zero-initialized-class-default')
+        self.assertEqual(refs['XLevel'], zero)
+        refs['XLevel']['qualified'] = 'changed output'
+        self.assertEqual(defaults['XLevel'], zero)
+        self.assertNotIn('savedReferences', self.actor()[0])
 
     def test_saved_boolean_words_keep_known_masks_and_explicit_false_overrides(self):
         layout = [dict(offset='0x64', mask=0x30, fields=[dict(name='bStatic', mask=0x10), dict(name='bHidden', mask=0x20)])]

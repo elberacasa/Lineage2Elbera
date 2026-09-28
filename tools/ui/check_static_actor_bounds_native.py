@@ -35,6 +35,7 @@ from actor_transform_source import (
     qualify_static_actor_loading,
     qualify_actor_collision_fields,
     qualify_level_actor_population,
+    qualify_level_actor_loading,
 )
 from static_collision_source import (
     qualify_static_postload,
@@ -188,6 +189,32 @@ def qualify(program, core, candidate, candidate_core):
         e, core, candidate, candidate_core, engine_package
     )
     level_population = qualify_level_actor_population(e, candidate)
+    level_loading = qualify_level_actor_loading(e, core, candidate, candidate_core)
+    for image, blocks in [
+        (e, level_loading["engineBlocks"]),
+        (core, level_loading["coreBlocks"]),
+    ]:
+        for block in blocks:
+            start, end = int(block["start"], 16), int(block["end"], 16)
+            PreparationProgram.add(
+                program,
+                image,
+                start,
+                end,
+                bytes(image.data[image.offset(start) : image.offset(end)]),
+            )
+    program.import_targets.update(
+        {
+            int(at, 16): int(target, 16)
+            for at, target in level_loading["importTargets"].items()
+        }
+    )
+    program.membership_targets.update(
+        {
+            int(at, 16): int(target, 16)
+            for at, target in level_loading["thunkTargets"].items()
+        }
+    )
     start, end = int(level_population["start"], 16), int(level_population["end"], 16)
     PreparationProgram.add(
         program, e, start, end, bytes(e.data[e.offset(start) : e.offset(end)])
@@ -243,6 +270,7 @@ def qualify(program, core, candidate, candidate_core):
         actorLoading=actor_loading,
         actorFields=actor_fields,
         levelPopulation=level_population,
+        levelLoading=level_loading,
     )
     return program
 
@@ -259,6 +287,7 @@ class StaticBoundsMachine(AdmissionMachine):
         )
         self.bound_events = []
         self.population_events = []
+        self.level_loading_events = []
         self.current = None
 
     def read(self, operand):
@@ -307,6 +336,26 @@ class StaticBoundsMachine(AdmissionMachine):
         self.invoke(0x106F5CC0, mesh)
 
     def step(self, i):
+        if i.mnemonic == "sete" and i.op_str == "al":
+            self.write("al", int(self.zero))
+            self.visited.append(i.address)
+            return i.address + i.size
+        if i.address in (0x105CD6C7, 0x105CD735):
+            actor, level, frame = (self.registers[r] for r in ("esi", "edi", "ebp"))
+            first = i.address == 0x105CD6C7
+            nxt = super().step(i)
+            assert (
+                self.memory[actor + 0xE4] == level and self.memory[actor + 0x2CC] == 0
+            )
+            self.level_loading_events.append(
+                dict(
+                    source="registry" if first else "buffer",
+                    index=self.memory[frame - (0x28 if first else 0x14)],
+                    identity=actor,
+                    writes=dict(xLevelIdentity=level, collisionTag=0),
+                )
+            )
+            return nxt
         if i.address == 0x105CAC19:
             proof = self.source.receipt["levelPopulation"]
             assert self.registers["eax"] == int(proof["vtable"]["target"], 16)
@@ -528,6 +577,136 @@ def level_population_cases(program):
         nullSlots=nulls,
         repeatedNonNullSlots=repeated,
         scope="stable supplied current array; AddActor callback boundary, not map loading",
+    )
+
+
+def level_loading_cases(program, runtime):
+    """Compare both actual registry loops and class/outer helpers with browser writes."""
+    proof = program.receipt["levelLoading"]
+    actor_class = proof["classes"]["AActor"]["owned"]
+    controller_class = proof["classes"]["APlayerController"]["owned"]
+    parent_class, prop_class, subclass, unrelated = (
+        0xA90000,
+        0xAA0000,
+        0xAB0000,
+        0xAC0000,
+    )
+    parents = {
+        actor_class: parent_class,
+        parent_class: None,
+        prop_class: actor_class,
+        controller_class: actor_class,
+        subclass: controller_class,
+        unrelated: parent_class,
+    }
+    rng = random.Random(0x584C4556)
+    cases, expected, steps, visited = [], [], 0, set()
+    for index in range(192):
+        m = StaticBoundsMachine(program)
+        level, outer, foreign = 0x700000, 0x710000, 0x720000
+        pool = [0x200000 + j * 0x1000 for j in range(12)]
+        records, initial = [], {}
+        for j, identity in enumerate(pool):
+            cls = [
+                actor_class,
+                prop_class,
+                controller_class,
+                subclass,
+                unrelated,
+                None,
+            ][j % 6]
+            obj_outer = foreign if (j + index) % 5 == 0 else outer
+            flags = rng.getrandbits(32)
+            words = {identity + off: rng.getrandbits(32) for off in range(0, 0x600, 4)}
+            words.update(
+                {
+                    identity + 0x18: obj_outer,
+                    identity + 0x24: cls or 0,
+                    identity + 0x5AC: flags,
+                }
+            )
+            initial.update(words)
+            records.append(
+                dict(
+                    identity=identity,
+                    classIdentity=cls,
+                    outerIdentity=obj_outer,
+                    playerControllerFlags5ac=flags,
+                )
+            )
+        registry = [rng.choice([None, *pool]) for _ in range(index % 41)]
+        buffer = [rng.choice([None, *pool]) for _ in range(index % 23)]
+        if index % 8 == 1:
+            registry, buffer = [pool[1], None, pool[1], pool[2], pool[4]], [
+                pool[1],
+                pool[3],
+                None,
+                pool[5],
+            ]
+        m.memory.update(initial)
+        m.memory.update({level + 0x18: outer})
+        m.memory.update({cls + 0x34: parent or 0 for cls, parent in parents.items()})
+        registry_words = {level + 0x18: outer}
+        for iat, array, data, refs in [
+            (0x11D8D8FC, 0x900000, 0x910000, registry),
+            (0x11D8E324, 0x900020, 0x920000, buffer),
+        ]:
+            registry_words.update({iat: array, array: data, array + 4: len(refs)})
+            registry_words.update(
+                {data + slot * 4: ref or 0 for slot, ref in enumerate(refs)}
+            )
+        m.memory.update(registry_words)
+        m.registers.update(edi=level, ebp=0x800000, esp=0x7FFF00)
+        m.execute_until(0x105CD651, 0x105CD747)
+        assert m.registers["esp"] == 0x7FFF00
+        changed = dict(initial)
+        for event in m.level_loading_events:
+            changed.update(
+                {event["identity"] + 0xE4: level, event["identity"] + 0x2CC: 0}
+            )
+        assert {at: m.memory[at] for at in initial} == changed
+        assert {at: m.memory[at] for at in registry_words} == registry_words
+        steps += len(m.visited)
+        visited.update(m.visited)
+        cases.append(
+            dict(
+                level=dict(identity=level, outerIdentity=outer),
+                registry=registry,
+                buffer=buffer,
+                objects=records,
+                classParents=list(parents.items()),
+                actorClass=actor_class,
+                playerControllerClass=controller_class,
+            )
+        )
+        expected.append(m.level_loading_events)
+    script = r"""
+import fs from 'node:fs';
+const {collectLevelActorAssignments}=await import(process.argv[1]);
+const rows=JSON.parse(fs.readFileSync(0,'utf8'));
+process.stdout.write(JSON.stringify(rows.map(row=>{
+ row.objects=new Map(row.objects.map(obj=>[obj.identity,obj]));
+ row.classParents=new Map(row.classParents);
+ const result=collectLevelActorAssignments(row);
+ if(result.status!=='ready')throw Error(JSON.stringify(result));
+ return result.assignments;
+})));
+"""
+    module = Path(runtime).parent / "actor-loading.js"
+    actual = browser_outputs(script, cases, module)
+    assert (
+        actual == expected
+    ), "browser Level.PostLoad actor assignment differs from original loops"
+    return dict(
+        cases=len(cases),
+        assignments=sum(map(len, expected)),
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        browserStateCompared=True,
+        otherObjectWordsPreserved=True,
+        sourceListsPreserved=True,
+        runtimeSHA256=hashlib.sha256(module.read_bytes()).hexdigest(),
+        scope="current supplied registries/class ancestry/outer identities; not saved-to-current loading",
     )
 
 
@@ -1226,6 +1405,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
     actor_loading = actor_loading_cases(program)
     actor_fields = actor_field_cases(program)
     level_population = level_population_cases(program)
+    level_loading = level_loading_cases(program, runtime)
     construction = constructor_cases(program)
     fresh_loading = fresh_loading_cases(program, runtime)
     rows = fixture_rows()
@@ -1292,6 +1472,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         actorLoading=actor_loading,
         actorFields=actor_fields,
         levelPopulation=level_population,
+        levelLoading=level_loading,
         freshLoading=fresh_loading,
         postLoad=dict(
             cases=len(rows),
@@ -1317,6 +1498,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
             name: hashlib.sha256((Path(runtime).parent / name).read_bytes()).hexdigest()
             for name in [
                 "actor-octree.js",
+                "actor-loading.js",
                 "actor-octree-geometry.js",
                 "cylinder-collision.js",
                 "static-mesh-tree.js",
@@ -1371,6 +1553,7 @@ def main():
                         "actorLoading",
                         "actorFields",
                         "levelPopulation",
+                        "levelLoading",
                         "freshLoading",
                         "postLoad",
                     ]

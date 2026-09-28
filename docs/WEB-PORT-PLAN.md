@@ -37,6 +37,14 @@ Talking Island static exports have no saved actor slot despite passing the
 older collision selection. The population loop's original order and gates
 pass 256 interpreted cases; saved-to-current loading remains a separate step.
 
+Both original Level.PostLoad actor assignment loops now match the browser in
+192 cases with 1,875 ordered writes, preserving class/outer checks and the
+PlayerController exclusion. Saved reference recovery also checks all 20,454
+fields across the same 2,922 actors, keeping qualified mesh/level identities
+and default origins. Current registry population, transient-property application
+and LevelInfo collision mode still need the loading join before world queries
+can use these records.
+
 Next: feed these prepared mesh resources and original actor fields into the
 existing world-query components, preserving unresolved lifecycle boundaries. Validate
 actual Online queries and placement before claiming a map repair. Rendered
