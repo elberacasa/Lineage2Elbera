@@ -75,6 +75,7 @@
 
 import * as THREE from 'three';
 import { L2_TO_M } from './coords.js';
+import { createBrowserRandom } from './native-random.js';
 
 const BASE = '/audio';
 const MANIFEST_URL = `${BASE}/manifest.json`;
@@ -106,6 +107,11 @@ const STORE_KEY = 'l2vzla.audio';
 
 export class AudioEngine {
   constructor() {
+    // Shared by all ported animation Sound notifies in this browser context.
+    // Browser entropy is a seed adapter; other native RNG consumers and exact
+    // CRT execution-context/seed history remain separate parity work. Audio
+    // unlock, mute, buffer loading and reconnect do not create another stream.
+    this.nativeRandom = createBrowserRandom();
     this.ctx = null;
     this.manifest = null;
     this.ready = false;

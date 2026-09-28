@@ -4,8 +4,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {createNativeRandom} from '../js/native-random.js';
 import { createCastPlayback, advanceCastPlayback, closeSourceLoop } from '../js/castplayback.js';
-import { directNotifySound } from '../js/animnotify-clock.js';
+import { selectNotifySound } from '../js/animnotify-clock.js';
 
 const THREE = await import('../vendor/three.module.min.js');
 const source = fs.readFileSync(new URL('../js/character.js', import.meta.url), 'utf8');
@@ -13,7 +14,7 @@ const start = source.indexOf('  cancelCast(');
 const end = source.indexOf('  /**\n   * One attack swing', start);
 assert.ok(start >= 0 && end > start, 'actual Character cast-method boundary');
 const methods = audio => vm.runInNewContext(`class ReviewedCharacter {${source.slice(start, end)}}; ReviewedCharacter.prototype`, {
-  createCastPlayback, advanceCastPlayback, closeSourceLoop, directNotifySound, audio, performance: { now: () => 0 },
+  createCastPlayback, advanceCastPlayback, closeSourceLoop, selectNotifySound, audio: {...audio,nativeRandom:createNativeRandom(0)}, performance: { now: () => 0 },
 });
 
 function schedule({ frames = 2, rate = 1, tween = Math.fround(.2) } = {}) {

@@ -8,7 +8,7 @@ import { L2_TO_M } from './coords.js';
 import { equipWeapon, stanceFor } from './equipment.js';
 import { applyArmor, detachArmor } from './armor.js';
 import { createCastPlayback, advanceCastPlayback, closeSourceLoop } from './castplayback.js';
-import { directNotifySound } from './animnotify-clock.js';
+import { selectNotifySound } from './animnotify-clock.js';
 import { audio } from './audio.js';
 import { playerVisualScale } from './player-transform.js';
 import { pawnAnim } from './castanim.js';
@@ -577,8 +577,9 @@ export class Character {
       // elapsed is an observation at the end of this tick; native callbacks
       // see activeTime before MagicProcess adds the delta.
       this.castNotifyCount++; this.lastCastNotify=detail;
-      const sound=event.dispatch === 'object' && directNotifySound(notify);
-      if (sound && this.castSoundEnabled !== false) audio.playAt(sound.ref, this.group.position,
+      const sound=event.dispatch === 'object' && selectNotifySound(notify,audio.nativeRandom);
+      detail.soundDecision=sound || null;
+      if (sound?.status === 'ready' && this.castSoundEnabled !== false) audio.playAt(sound.ref, this.group.position,
         { volume:sound.volume, radius:sound.radius, isCurrent:()=>this.castGeneration === state.generation && this.castSoundEnabled !== false });
       this.onCastNotify?.(detail);
     }
@@ -740,8 +741,9 @@ export class Character {
         const notify = step.plan.notifies[event.index];
         this.lastWaitNotify = { ...event, notify, clip:step.plan.clip };
         this.waitNotifyCount++;
-        const sound = event.dispatch === 'object' && directNotifySound(notify);
-        if (sound && this.waitSoundEnabled !== false) audio.playAt(sound.ref, this.group.position,
+        const sound = event.dispatch === 'object' && selectNotifySound(notify,audio.nativeRandom);
+        this.lastWaitNotify.soundDecision=sound || null;
+        if (sound?.status === 'ready' && this.waitSoundEnabled !== false) audio.playAt(sound.ref, this.group.position,
           { volume:sound.volume, radius:sound.radius,
             isCurrent:()=>this.castGeneration === state.generation && this.waitSoundEnabled !== false });
         this.onWaitNotify?.(this.lastWaitNotify);

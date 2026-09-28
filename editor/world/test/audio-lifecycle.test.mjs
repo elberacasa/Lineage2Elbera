@@ -3,10 +3,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {createNativeRandom} from '../js/native-random.js';
 import * as THREE from '../vendor/three.module.min.js';
 const source=fs.readFileSync(new URL('../js/audio.js',import.meta.url),'utf8');
 const AudioEngine=vm.runInNewContext(source.replace(/^import .*;$/gm,'').replace(/^export /gm,'')+'\nAudioEngine;',
-  {THREE,L2_TO_M:.01,localStorage:{getItem:()=>null},console});
+  {THREE,createBrowserRandom:()=>createNativeRandom(0),L2_TO_M:.01,localStorage:{getItem:()=>null},console});
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function fixture() {
  const engine=new AudioEngine(),starts=[],panners=[],gains=[];

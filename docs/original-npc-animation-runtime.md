@@ -1,11 +1,14 @@
 # Elbera Tools: original NPC animation transport and inspection
 
-Gremlin 20001 and fox 20091 now have private bundles containing every sequence
-in their original bound animation objects. The normal NPC entity loader verifies
-and loads these inputs; the manual inspector can display the sparse source poses
-through that entity's existing model. **Automatic live native NPC playback is
-off.** Loading source data does not establish a live actor's complete native
-state, modifiers, animation transitions or event schedule.
+Gremlin IDs 18342/20001 and fox 20091 use two private bundles containing every
+sequence in their original bound animation objects. The normal NPC entity loader verifies
+and loads these inputs. Entities created with source terrain and received
+coordinates both on Talking Island tile `17_25` now have a bounded source-ready
+initial Wait/AtkWait path with the original clock, sparse keys and Sound random
+gate. Its [state admission and retirement limits](native-npc-animation-evidence.md#bounded-browser-initial-loop)
+remain explicit. Loading source data alone does not establish every live state
+or transition. The separate manual inspector still displays all sequences
+without native event dispatch.
 
 ## Inputs and reproducible generation
 
@@ -15,13 +18,13 @@ converted monster manifest/models under `editor/characters/monsters/`:
 
 ```sh
 # Fresh original decode and correspondence checks, without writing.
-python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime
+python3 tools/anim/export_source_tracks.py --npc 18342 20001 20091 --runtime
 # Generate the private selected set, then independently re-decode and compare.
-python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime --write
-python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime --check
+python3 tools/anim/export_source_tracks.py --npc 18342 20001 20091 --runtime --write
+python3 tools/anim/export_source_tracks.py --npc 18342 20001 20091 --runtime --check
 # Also retain the original stored GPU influence lanes, without rebuilding glTF.
-python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime --npc-skin --write
-python3 tools/anim/export_source_tracks.py --npc 20001 20091 --runtime --npc-skin --check
+python3 tools/anim/export_source_tracks.py --npc 18342 20001 20091 --runtime --npc-skin --write
+python3 tools/anim/export_source_tracks.py --npc 18342 20001 20091 --runtime --npc-skin --check
 ```
 
 The collector reuses [qualified selector recovery](npc-animation-variants.md):
@@ -31,6 +34,15 @@ identifies the animation export, including package and groups. No same-name
 animation guess or historical glTF alias supplies that identity. Original mesh
 bones and all original sparse animation keys are read afresh; the two package
 hashes and two export hashes remain separate, including for cross-package links.
+
+ID `18342` is an independent original row with the same qualified Gremlin
+class/mesh/animation/selector chain, not a display-name alias. Its differing
+final source DWORD is distinct from the fresh packet-created NPC discriminator;
+the [bounded provenance comparison](native-npc-animation-evidence.md#edition-and-exact-source-domain)
+does not claim all consumers of that word are resolved. The index preserves
+three NPC identities while sharing the two source mesh bundles.
+The three-ID regeneration and fresh comparison preserve both earlier bundle
+files byte for byte; only the selected NPC index gains the separately verified ID.
 
 This checkpoint uses these original input fingerprints; the private index
 records all contributing class packages and localization files as well:
@@ -65,7 +77,7 @@ than passing as the old set. `--check` compares fresh bytes and writes nothing.
 
 | NPC | Original mesh → animation | Mesh/animation bones | Base bundle / with GPU inputs |
 | --- | --- | --- | --- |
-| Gremlin 20001 | `LineageMonsters.gremlin_m00` → `LineageMonsters.gremlin_anim` | 55 / 55, all linked | 433,888 / 496,216 bytes |
+| Gremlin 18342 / 20001 | `LineageMonsters.gremlin_m00` → `LineageMonsters.gremlin_anim` | 55 / 55, all linked | 433,888 / 496,216 bytes |
 | Fox 20091 | `LineageMonsters.fox_m00` → `LineageMonsters.Fox_anim` | 40 / 40, all linked | 357,336 / 379,084 bytes |
 
 Both bundles retain eight sequences, including the one-frame `deathwait` and
@@ -162,8 +174,12 @@ parsing those same verified bytes. Immutable inputs may be shared; each actor
 gets a separate parsed scene and pose state. Rejected fetches are evicted for
 retry. Removed entities and replaced object IDs retire pending loads. An absent
 index or an NPC outside its selected set retains existing playback; a mismatched
-included entry cannot silently use different source bytes. Existing converted
-animation remains the live playback backend.
+included entry cannot silently use different source bytes. The verified index
+source fingerprints also feed the bounded initial-wait adapter. Its supported
+fresh Gremlin/Fox path uses original pose keys and clock; other states and
+retired initial loops retain the existing compatibility playback and its gaps.
+Resource-ready browser start time is not reconstructed native loading time or
+lazy-loader history. The source startup census does not admit other maps.
 
 ## Manual browser inspection
 
@@ -192,11 +208,36 @@ The page shows qualified identities, the animation-export hash and explicit
 weight/placement limits. **Original notifies** lists the selected sequence's
 events in their stored order, including exact normalized times, classes, object
 identities and raw sound fields with their source owners. Missing metadata is
-distinct from an original empty event array. Source inspection does not execute native stance
-selection, transitions, attack choice, notifies, effects or sounds. Recovered
-initial-wait [consumer evidence](native-npc-animation-evidence.md) is separate
-from a complete packet/event admission
-gate; no default tail values or assumed summon classification enable it here.
+distinct from an original empty event array. Source inspection does not execute
+native stance selection, transitions, attack choice, notifies, effects or sounds. The bounded
+initial-wait [entity integration](native-npc-animation-evidence.md) is separate
+from these manual controls; no default tail values or assumed summon
+classification enable gameplay dispatch in the inspector.
+
+## Live world check
+
+Open `/?dev=1&inspect=1&checkpoint=current` with the private preview and local
+game services running. Load scene **17_25**, then enable **Online** and enter a
+test character near the Talking Island starter Gremlins. Expand **Live original
+NPC events** in Elbera Tools. It shows received NPC identities, current source
+frames, event counts and sound-gate results; retired loops retain their last
+observation under an explicit unsupported-transition status.
+
+On 27 September 2026, real server NPC `18342` instances entered original Wait,
+advanced frames and dispatched Sound events with both admitted and filtered
+results. Server movement retired individual loops while other initial loops
+continued. A fresh-page reconnect repeated the result. The existing manual
+inspector also loaded `18342` and passed play/pause/restore. Neither page logged
+new errors; the live world's existing unhandled `playSound` packet warnings
+remain. This checks runtime dispatch and visible poses, not audible/native
+audio equivalence, complete animation transitions or original renderer parity.
+
+![Live starter Gremlin events and explicit movement retirement](img/elbera-tools-live-npc-events.jpg)
+
+Preloading the audited map is currently material: if an NPC arrives while a
+different terrain is still displayed, initial admission remains unavailable.
+Deferred world-entry/resource scheduling is unfinished; the browser does not
+invent catch-up events or re-admit that same actor after losing history.
 
 ## Portable checks and release boundary
 
@@ -206,6 +247,7 @@ These fixtures need no original game files, generated catalog or server:
 python3 -S -m unittest discover -s tools/anim -p test_export_source_tracks.py
 python3 -S -m unittest discover -s tools/anim -p test_build_npc_variants.py
 node --test editor/world/test/npcsourceanim.test.mjs editor/world/test/npc-source-skin.test.mjs editor/world/test/npc-source-inspection.test.mjs editor/world/test/npc-entity-lifecycle.test.mjs editor/world/test/npcanimations.test.mjs
+node --test editor/world/test/npcwaitanim.test.mjs editor/world/test/native-random.test.mjs editor/world/test/combat-approach.test.mjs editor/world/test/waitanim.test.mjs
 ```
 
 They cover strict source joins, Float32 transport, original notify-object decoding

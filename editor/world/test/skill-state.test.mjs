@@ -35,7 +35,7 @@ function metadata() {
 function harness() {
   let now = 1000, metaPromise = Promise.resolve(metadata()), timer = 0;
   const saved = new Map(), writes = [], casts = [], sounds = [], messages = [], handlers = {}, timers = new Map();
-  const navigationCancellations = [];
+  const navigationCancellations = [], npcWaitRetirements = [];
   const context = vm.createContext({ performance: { now: () => now },
     setTimeout: (fn, ms) => { timers.set(++timer, { fn, at: now + ms }); return timer; },
     clearTimeout: id => timers.delete(id),
@@ -49,7 +49,9 @@ function harness() {
     online: true, onlineGeneration: 1, selfId: 42,
     cancelFineNavigation: reason => navigationCancellations.push(reason),
     character: {modelId: 'human_fighter_m'}, ordinaryPlayerVoiceMeshType,
-    entities: { skillFlash() {}, cancelCast() {}, getEntity() {} }, skillFx: { prepareCast: () => null, associate: () => false, handle: async () => {}, cancel() {} }, entityHeadPos: () => null, gameSound: { cast: (...args) => sounds.push(args), launch: (...args) => sounds.push(args) },
+    entities: { skillFlash() {}, cancelCast() {}, getEntity() {},
+      retireNpcWait: (id, reason) => npcWaitRetirements.push([id, reason]) },
+    skillFx: { prepareCast: () => null, associate: () => false, handle: async () => {}, cancel() {} }, entityHeadPos: () => null, gameSound: { cast: (...args) => sounds.push(args), launch: (...args) => sounds.push(args) },
     net: { on: (op, fn) => { handlers[op] = fn; } },
   });
   vm.runInContext(barSource + '\nglobalThis.SkillBar = SkillBar;', context);
@@ -73,7 +75,7 @@ function harness() {
     + part("net.on('skillCast'", '// ExAutoSoulShot')
     + part('const ACTION_FEEDBACK_MS', '// L2 world tile name')
     + part("net.on('sysMsg'", '// --- M3 combat ops'), context);
-  return { context, bar, shortcut, panel, casts, sounds, messages, handlers, saved, writes, timers, navigationCancellations,
+  return { context, bar, shortcut, panel, casts, sounds, messages, handlers, saved, writes, timers, navigationCancellations, npcWaitRetirements,
     advance: ms => { now += ms; for (const [id, timer] of [...timers]) {
       if (timer.at <= now && timers.delete(id)) timer.fn();
     } },
@@ -243,7 +245,24 @@ test('launch sound receives exact gateway level and caster/target anchors', () =
   const h = harness();
   h.context.entityHeadPos = id => ({ actorId: id });
   h.handlers.skillLaunch({ op: 'skillLaunch', casterId: 42, targetId: 77, skillId: 1001, level: 3 });
+  assert.deepEqual(h.npcWaitRetirements, [[77, 'incoming-skill']]);
   assert.deepEqual(h.sounds, [[1001, { actorId: 77 }, { actorId: 42 }, 3, 0]]);
+});
+
+test('incoming skill retires its target before native association or absent-position early returns', () => {
+  const h = harness(), associations = [];
+  h.context.skillFx.associate = msg => {
+    associations.push({ targetId: msg.targetId, retired: h.npcWaitRetirements.map(row => [...row]) });
+    return msg.targetId === 77;
+  };
+  for (const targetId of [77, 88]) {
+    h.handlers.skillLaunch({ op: 'skillLaunch', casterId: 42, targetId, skillId: 1001, level: 1 });
+  }
+  assert.deepEqual(associations, [
+    { targetId: 77, retired: [[77, 'incoming-skill']] },
+    { targetId: 88, retired: [[77, 'incoming-skill'], [88, 'incoming-skill']] },
+  ]);
+  assert.deepEqual(h.sounds, [], 'unavailable positions do not suppress target retirement');
 });
 
 

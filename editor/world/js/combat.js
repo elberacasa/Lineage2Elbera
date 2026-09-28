@@ -228,6 +228,9 @@ export function installCombatFeedback(net, ctx) {
   const L2_TO_M = 0.01;
 
   net.on('moveToPawn', (msg) => {
+    // The initial source-only NPC loop cannot survive an unported movement
+    // transition, even if the target has not arrived in this browser yet.
+    entities.retireNpcWait(msg.id, 'move-to-pawn-transition');
     const me = selfId();
     if (msg.id === me) ctx.onSelfMoveToPawn?.(msg);
     // face the mover at its pawn either way — MoveToPawn is also how aCis
@@ -279,6 +282,7 @@ export function installCombatFeedback(net, ctx) {
   });
 
   net.on('autoAttack', (msg) => {
+    entities.retireNpcWait(msg.id, 'combat-mode-transition');
     if (msg.on) state.inCombat.add(msg.id);
     else state.inCombat.delete(msg.id);
     if (msg.id === selfId()) {
@@ -288,6 +292,7 @@ export function installCombatFeedback(net, ctx) {
   });
 
   net.on('stopMove', (msg) => {
+    entities.retireNpcWait(msg.id, 'stop-move-transition');
     const ch = character();
     if (msg.id === selfId() && ch) {
       state.approachingId = null;

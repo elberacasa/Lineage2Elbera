@@ -41,7 +41,8 @@ export function originalNpcSourceRecord(index, npcId, entry) {
     && Array.isArray(built.boneNodes) && built.boneNodes.length > 0
     && built.boneNodes.every(value => Number.isInteger(value) && value >= 0)
     && new Set(built.boneNodes).size === built.boneNodes.length, 'browser skeleton binding');
-  return { npcId, npc, model, modelId:npc.modelId };
+  return { npcId, npc, model, modelId:npc.modelId,
+    sourceFiles:Object.freeze({...index.sources}) };
 }
 
 async function digest(bytes) {

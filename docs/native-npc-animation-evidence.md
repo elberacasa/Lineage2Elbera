@@ -1,9 +1,13 @@
-# Original NPC initial-animation inputs
+# Original NPC initial-animation inputs and bounded playback
 
-Elbera Tools recovers the ordinary initial-loop inputs for the owned Interlude
-Gremlin and Fox. It does **not** yet establish unconditional live NPC playback
-admission. The browser's original-sequence inspector can use the source poses
-without claiming that a live actor is in the same neutral state.
+The browser now has a bounded initial Wait/AtkWait path for the owned Interlude
+Gremlin IDs `18342`/`20001` and Fox `20091` on Talking Island tile `17_25`.
+It joins qualified source selectors, the original channel clock, sparse keys
+and Sound-notify selection.
+It starts only after verified resources are ready and retires at unsupported
+state changes. This is an
+implementation milestone, not unconditional native NPC playback or full visual
+parity. The separate manual inspector still does not dispatch gameplay events.
 
 The checker is [check_npc_animation_native.py](../tools/ui/check_npc_animation_native.py).
 It reads local originals and explicitly supplied supplemental files; it never
@@ -19,9 +23,10 @@ python3 tools/ui/check_npc_animation_native.py \
 
 The original check verifies the existing 164 Engine and nine Core anchors,
 57 additional event/packet-order anchors, ten interpreted native hash-lookup
-cases, two freshly recovered NPC selector joins, and the existing fresh-instance
+cases, three freshly recovered NPC selector joins, 19 starter-profile anchors,
+6,519 independently framed NPC records, and the existing fresh-instance
 allocation proof. It also parses all 1,152 unique original spawn-event records
-through exact EOF. The portable suite has 15 cases. Passing these checks is
+through exact EOF. The portable suite has 20 cases. Passing these checks is
 evidence for the bounded statements below, not an NPC behavior or rendering
 parity certificate.
 
@@ -41,7 +46,7 @@ owned imports or authenticate the whole distribution.
 
 | NPC | Original class | Serialized mesh → animation |
 | --- | --- | --- |
-| 20001 | `LineageMonster.gremlin` | `LineageMonsters.gremlin_m00` → `LineageMonsters.gremlin_anim` |
+| 18342, 20001[^gremlin-18342] | `LineageMonster.gremlin` | `LineageMonsters.gremlin_m00` → `LineageMonsters.gremlin_anim` |
 | 20091 | `LineageMonster.fox` | `LineageMonsters.fox_m00` → `LineageMonsters.Fox_anim` |
 
 Both qualified ancestry chains continue through `LineageWarrior.LineagePawn`,
@@ -51,6 +56,19 @@ mesh/animation export hashes, source names and timings. A matching schema,
 mesh basename, NPC number, or legacy clip alias alone is insufficient to admit
 another source build/class. See [selector recovery](npc-animation-variants.md)
 and [original NPC transport](original-npc-animation-runtime.md).
+
+[^gremlin-18342]: ID `18342` is separately decoded and admitted by exact source
+    identity, not by display name or a mesh-only alias. Fresh decoding of the
+    complete 6,519-record `npcgrp.dat` table finds its row differs from `20001` only in `npc_id`
+    and the decoder's `class_lim` final DWORD (`0` versus `1`). The original
+    serializer stores that final word at `FL2NpcData+0xdc`
+    (`0x10465789–0x10465791`); the fresh NpcInfo decoder separately stores
+    `User+8=1` (`0x1043abea`, `0x1043ac2f`). Its qualified class, ancestry, mesh,
+    animation, selectors and zero decoration count match the Gremlin source
+    profile, and its own enter-event lookup misses. This bounded comparison
+    does not establish every consumer or meaning of the final DWORD. The base
+    native checker above now reproduces all three selector joins; the three-ID source
+    regeneration command is in the transport guide.
 
 ## Initial packet and loop
 
@@ -66,8 +84,8 @@ destinations using that convention rather than counting DWORDs blindly.
 | First fields 22/23/24 | Right/chest/left equipment fields `User+0xb4/+0xc0/+0xb8` |
 | First byte 25 | `Controller.WaitType+0x435` |
 | First byte 26 | `Controller.MoveType+0x434` |
-| First byte 27 | Nonzero sets controller `+0x41c` bit 2, used by the combat-wait branch |
-| First byte 28 | Nonzero sets controller `+0x41c` bit 1, used by the dead branch |
+| First byte 27 | Nonzero sets controller `+0x41c` mask `0x02`, used by the combat-wait branch |
+| First byte 28 | Nonzero sets controller `+0x41c` mask `0x01`, used by the dead branch |
 | First byte 29 | Fresh creation accepts 0 or 2; 2 calls `APawn::SpawnEnterEvent` after initial PlayAnim |
 | Three DWORDs after strings | `User+0xc`, `+0x194`, `+0x198`; retained as raw fields here |
 | Extension DWORD 0 | `Pawn+0x17d0`; installed server names this `abnormalEffect` |
@@ -116,7 +134,7 @@ not attest these conditions. `IsDamageAct` independently reads `Pawn+0x73c`
 bit 0; `IsSpineRotation` reads `+0x748` bit 0. Combat 1 is therefore not itself
 proof of either damage or spine modification.
 
-## Spawn event: closed table miss for these two templates
+## Spawn event: closed table miss for these three IDs
 
 The original `entereventgrp.dat` encrypted SHA256 is
 `748a0b56f4c92854ddd639945c40d1956601bbc78a034a79c15ffa415f6608f5`;
@@ -136,7 +154,7 @@ with nonzero `spawn_type`. Missing records return null; there is **no key-zero
 fallback**. The interpreted native lookup tests include collisions and an
 actual synthetic key-zero entry, which returns its own stored-value pointer.
 
-Neither 20001 nor 20091 is present in the 1,152-record original table. The
+IDs 18342, 20001 and 20091 are absent from the 1,152-record original table. The
 null-result branch at `0x1061cead` therefore returns before all data-driven
 effect, rise, animation and sound branches. This closes the original spawn-mode
 2 concern for these exact templates under a fresh original binary-table load.
@@ -150,7 +168,77 @@ bound individually; same-address IAT slots are not borrowed across files.
 Relocated exception-handler references have only the bounded entry comparison
 described by the checker, not a claim about complete unwind equivalence.
 
-## What remains before live admission
+## Bounded browser initial loop
+
+[npcwaitanim.js](../editor/world/js/npcwaitanim.js) requires the pinned original
+class/package/localization/table fingerprints, exact qualified mesh and animation
+exports, and a unique matching source selector/sequence. Its caller is the
+verified [NPC resource loader](../editor/world/js/npcsourceanim.js), which retains
+the index's source-file provenance. A generated schema or legacy clip label is
+not enough.
+
+Both the active source terrain at entity construction and the received NPC
+coordinates must identify tile `17_25`. The current source zone/volume callback
+census covers that map; the adapter does not generalize it to other maps.
+
+The first raw NPC snapshot must be complete and immutable: WaitType 1, explicit
+alive state, empty right/chest/left equipment, a positive finite Float32 movement
+multiplier, spawn mode 0 or 2, and the complete typed tail. The known incoming
+effect DWORD and two effect bytes must be zero. Other opaque tail words retain
+their raw values; the adapter does not assign them invented neutral meanings.
+
+The entity installs and tracks the recovered fresh constructor/channel inputs:
+empty fallback equipment and abnormal collection, no lobby/ride/fishing or
+damage/spine adjustment, original None swim overrides, one ordinary channel
+zero, and disabled root lock/reference override with empty modifier arrays.
+These are port-owned initial state, not observations of another native process
+or deductions from combat zero. Missing or changed inputs are unsupported.
+
+Combat zero selects the original `Wait`; nonzero selects `atkwait`, using the
+source frame counts above and `Float32(speedMul)`. The adapter reuses
+[waitanim.js](../editor/world/js/waitanim.js) and the existing
+[notify clock](native-animation-notify-evidence.md), including stored event
+order, remainder behavior and the four-advancement cap. It does not retime an
+exported glTF clip. The ordinary source-pose evaluator receives the clock's
+normalized frame and applies original sparse keys/reference fallbacks through
+the recovered current hierarchy.
+
+The initial zero-tween loop starts at `Float32(.0001)`, whereas the earlier
+script one-shot starts at `.001`. With a different repeat key, ordinary
+nonnegative GetFrame replaces sampled local q/p and unmatched reference rows;
+possible earlier shadow evaluation does not require pretending the cache was
+cold. Positive evaluation does **not** reconstruct negative-tween bookkeeping.
+Later negative transitions are outside this initial-loop adapter. See the
+[fallback](native-pose-fallback-evidence.md) and
+[cache](native-pose-cache-evidence.md) evidence.
+
+Browser scheduling starts when that entity's verified model is ready. It does
+not reconstruct elapsed native loading time, missed events, lazy-loader history
+or the exact native GTicks history. Movement/placement, MoveToPawn/StopMove,
+move/wait/combat-mode changes, attack/cast/social actions, incoming attack/skill
+launches, subsequent NpcInfo, death, revive and entity removal retire this source
+loop. Retirement restores the compatibility playback path and invalidates
+pending sound ownership; it does not invent the missing original transition.
+The same entity cannot re-enter the initial path
+from a later empty packet. A new entity has a new admission lifecycle.
+
+## Sound dispatch and remaining limits
+
+The supported Wait/AtkWait Sound records use the
+[recovered integer RNG and signed gate](native-cast-sound-evidence.md): one
+shared `audio.nativeRandom` context serves ported player and NPC Sound notifies.
+A dispatched base Sound draws before comparing `result % 100` with its original
+Random field, including thresholds 0 and 100. Muting or browser audio lock does
+not remove that draw. Unreached/null/unsupported-class callbacks do not draw;
+an admitted base Sound still draws before an unsupported direct/surface branch.
+Delayed audio decoding neither draws again nor starts a retired event.
+
+The integer recurrence is recovered; browser cryptographic seed selection and
+one browser context's lifetime are explicit platform adaptations. Other native
+RNG consumers, original thread/storage selection, seed and reseed history are
+not all reproduced. Matching each original client's sound-event sequence is
+not claimed. Original raw volume/radius remain separate from mixer, codec and
+audio-driver fidelity, and unresolved references do not gain substitute sounds.
 
 The [fresh allocation proof](native-pose-allocation-evidence.md) supplies a
 bounded ordinary CDO-template mesh-instance chain. It does not prove that a
@@ -160,21 +248,28 @@ face rotation from a sequence field; the disable path calls named
 `ClearBoneDirection`, which cannot add a modifier to a fresh empty array. This
 closes that specific concern, not every actor update.
 
-The abnormal-state collection still prevents an unconditional
-packet-to-neutral-pose claim. `CheckAbnormalState` reads the reverse array at
+An incoming zero mask still cannot justify re-admission of an old actor.
+`CheckAbnormalState` reads the reverse array at
 `Pawn+0x165c/+0x1660`, rather than directly testing the incoming mask.
 `UpdateAbnormalState` visits existing entries with the current `+0x17d0` mask
 before its zero-mask gate skips creation. Its direct caller is `APawn::Tick` at
 `0x105d4403`. A zero packet mask is consequently **not** an unconditional clear
-or proof of an empty collection. This checkpoint does not admit a fresh empty
-list from the entire allocation/default/template/callback lifecycle.
+or proof of an empty collection. The browser's bounded fresh state above is
+retired instead of claiming to reconstruct later collection mutations.
 
-Lobby, riding, fishing, swimming, damage/spine state, startup channels and other
-local modifiers remain separate actor-lifecycle conditions. The closed event
-table miss removes one specific unknown; automatic live NPC source playback
-remains disabled.
+General lobby, riding, fishing, swimming, damage/spine changes, additional
+channels, movement/attack/death/corpse transitions and effects remain separate
+work. Actor world placement and existing centering, lighting/materials, current
+browser inverse binds and full native GPU/CPU skinning remain provisional.
+Preserving original influence inputs does not certify the complete deformation.
 
-The gateway now preserves raw spawn mode and the complete optional tail.
-Unavailable/truncated tails remain unavailable, not invented zeros. The browser
-inspector is an explicit neutral source-pose comparison; native sound notifies,
-full NPC transitions, live state admission, and complete rendering remain open.
+The manual inspector remains a source-pose comparison with its own timeline and
+no event dispatch. Browser acceptance of the new entity path is recorded
+separately; this document does not turn portable tests into a live-play claim.
+
+Focused synthetic checks, without original assets or a server:
+
+```sh
+node --test editor/world/test/npcwaitanim.test.mjs editor/world/test/npc-entity-lifecycle.test.mjs
+node --test editor/world/test/waitanim.test.mjs editor/world/test/native-random.test.mjs editor/world/test/audio-lifecycle.test.mjs
+```

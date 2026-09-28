@@ -4,12 +4,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {createNativeRandom} from '../js/native-random.js';
 import * as THREE from '../vendor/three.module.min.js';
 import { createOriginalPosePlayback } from '../js/sourcepose-playback.js';
 import { sampleOriginalTrack } from '../js/nativetrack.js';
 import { waitSequence, createWaitSequence, advanceWaitPlayback } from '../js/waitanim.js';
 import { createCastPlayback, advanceCastPlayback, closeSourceLoop } from '../js/castplayback.js';
-import { directNotifySound } from '../js/animnotify-clock.js';
+import { selectNotifySound } from '../js/animnotify-clock.js';
 import { castSchedule } from '../js/castanim.js';
 
 const text = fs.readFileSync(new URL('../js/character.js', import.meta.url), 'utf8');
@@ -20,10 +21,11 @@ const terrain = { heightAtWorld: () => 0 };
 const near = (actual, expected, label = '') => assert.ok(Math.abs(actual - expected) < 1e-7,
   `${label}: ${actual} versus ${expected}`);
 function characterClass(extra = {}) {
+  if (extra.audio) extra.audio.nativeRandom ??= createNativeRandom(0);
   return vm.runInNewContext(text.slice(classStart).replace('export class Character', 'class Character') + '\nCharacter;', {
     THREE, waitSequence, createWaitSequence, advanceWaitPlayback,
-    createCastPlayback, advanceCastPlayback, closeSourceLoop, directNotifySound, createOriginalPosePlayback,
-    performance: { now: () => 0 }, audio: { playAt() {} },
+    createCastPlayback, advanceCastPlayback, closeSourceLoop, selectNotifySound, createOriginalPosePlayback,
+    performance: { now: () => 0 }, audio: { playAt() {}, nativeRandom:createNativeRandom(0) },
     DEFAULT_RUN_SPEED_L2: 115, DEFAULT_WALK_SPEED_L2: 80, L2_TO_M: .01,
     DEFAULT_ATK_SPD_MUL: 1, MOVE_TICK_S: .1, TURN_RATE: 10,
     ...extra,

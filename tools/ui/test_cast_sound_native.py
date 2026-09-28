@@ -1,8 +1,9 @@
 """Source-free adversarial tests for the original cast sound evidence tool."""
 import struct
 import unittest
+from types import SimpleNamespace
 
-from check_cast_sound_native import parse_source_rows, phase_layers, select_source_row, random_gate, match_model_records, TRAILER
+from check_cast_sound_native import parse_source_rows, phase_layers, select_source_row, random_gate, match_model_records, core_rand_step, RandomMachine, TRAILER
 
 
 def ustr(value):
@@ -60,6 +61,54 @@ class CastSoundTests(unittest.TestCase):
         self.assertFalse(random_gate(5,105))
         self.assertTrue(random_gate(0,-1))  # Signed IDIV, not Python modulo.
         with self.assertRaises(ValueError): random_gate(100,2**31)
+
+
+    def test_explicit_rng_state_preserves_unsigned_overflow_and_known_chain(self):
+        state = 1
+        actual = []
+        for _ in range(5):
+            state, value = core_rand_step(state)
+            actual.append((state, value))
+        self.assertEqual(actual, [(2745024,41),(3357800067,18467),(415139642,6334),
+                                  (3884216597,26500),(3403800452,19169)])
+        self.assertEqual(core_rand_step(0xffffffff), (2316998,35))
+        # State is explicitly supplied; none of these fixtures is a live seed.
+        for value in (None, True, False, -1, 1.0, 1 << 32, '1'):
+            with self.assertRaisesRegex(ValueError, 'explicit unsigned DWORD'):
+                core_rand_step(value)
+
+    def test_integer_interpreter_modulo32_and_logical_shift(self):
+        rows = [('imul','ecx, ecx, 0x343fd'),('add','ecx, 0x269ec3'),
+                ('mov','dword ptr [eax + 0x14], ecx'),('shr','ecx, 0x10'),('and','ecx, 0x7fff'),('ret','')]
+        instructions = [SimpleNamespace(address=i, size=1, mnemonic=op, op_str=args) for i,(op,args) in enumerate(rows)]
+        # The first two start states distinguish signed shift and missing u32
+        # truncation; expected words are independent fixed synthetic fixtures.
+        for old, word, output in [(1,2745024,41),(0xffffffff,2316998,35),
+                                  (0x80000000,2150014659,38),(0,2531011,38)]:
+            machine = RandomMachine({}, {'eax':0x2000,'ecx':old}, instructions)
+            self.assertEqual(machine.execute(0), 6)
+            self.assertEqual(machine.memory[0x2014], word)
+            self.assertEqual(machine.registers['ecx'], output)
+
+    def test_gate_interpreter_signed_division_and_inclusive_rejection(self):
+        rows = [('cdq',''),('mov','ecx, 0x64'),('idiv','ecx'),
+                ('cmp','edx, dword ptr [edi + 0x44]'),('jge','0x7'),('ret','')]
+        instructions = [SimpleNamespace(address=i, size=1, mnemonic=op, op_str=args) for i,(op,args) in enumerate(rows)]
+        for value, threshold, expected_remainder, rejected in [(-101,0,-1,False),
+                (-100,0,0,True),(0,0,0,True),(32767,67,67,True),(32767,68,67,False),
+                (41,-0x80000000,41,True),(41,0x7fffffff,41,False)]:
+            machine = RandomMachine({0x3044:threshold & 0xffffffff},
+                                    {'eax':value & 0xffffffff,'edi':0x3000}, instructions)
+            machine.execute(0, 7 if rejected else None)
+            remainder = machine.registers['edx']
+            if remainder & 0x80000000: remainder -= 1 << 32
+            self.assertEqual(remainder, expected_remainder)
+            self.assertEqual(not rejected, random_gate(threshold,value))
+
+    def test_integer_interpreter_never_executes_imports(self):
+        instruction = SimpleNamespace(address=0, size=6, mnemonic='call', op_str='dword ptr [0x1000]')
+        with self.assertRaises(AssertionError):
+            RandomMachine({}, {}, [instruction]).execute(0)
 
 
 if __name__ == '__main__':

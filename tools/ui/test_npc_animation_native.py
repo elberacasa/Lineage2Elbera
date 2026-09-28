@@ -6,7 +6,7 @@ import sys
 import unittest
 
 from check_npc_animation_native import (
-    absent_zero_item_ids, enter_event_lookup, field_argument_index, parse_enter_event_table,
+    absent_zero_item_ids, enter_event_lookup, field_argument_index, npc_record_spans, parse_enter_event_table,
 )
 
 
@@ -35,6 +35,81 @@ def event(identifier, spawn_type=1, text0='', sound='', effect='', animation='',
 
 def table(*records):
     return struct.pack('<I',len(records))+b''.join(records)+TRAILER
+
+
+def npc_record(identifier, final_word=0, speed=1.25, decoration=True):
+    """Entirely synthetic NPC row with nonempty arrays and distinct tail words."""
+    row = {'npc_id':identifier, 'class_name':'Test.Actor', 'mesh_name':'Test.Mesh',
+        'textures':['Test.Texture'], 'textures_second':[], 'property_list':[17,29],
+        'npc_speed':speed, 'unk_1':['opaque'], 'attack_sound':['Test.Sound'],
+        'defense_sound':[], 'damage_sound':[],
+        'deco_effect':[{'effect':'Test.Effect','scale':.5}] if decoration else [],
+        'unk_2':[41], 'attack_effect':'Test.Attack', 'unk_3':73,
+        'sound_vol':.25, 'sound_radius':64.5, 'sound_random':30.0,
+        'quest_be':91, 'class_lim':final_word}
+    strings = lambda values: struct.pack('<I',len(values))+b''.join(unicode_text(v) for v in values)
+    integers = lambda values: bytes([len(values)])+b''.join(struct.pack('<I',v) for v in values)
+    data = struct.pack('<I',identifier)+unicode_text(row['class_name'])+unicode_text(row['mesh_name'])
+    data += strings(row['textures'])+strings(row['textures_second'])+integers(row['property_list'])
+    data += struct.pack('<f',speed)
+    for key in ('unk_1','attack_sound','defense_sound','damage_sound'):
+        data += strings(row[key])
+    data += struct.pack('<I',len(row['deco_effect']))
+    for item in row['deco_effect']:
+        data += unicode_text(item['effect'])+struct.pack('<f',item['scale'])
+    data += integers(row['unk_2'])+unicode_text(row['attack_effect'])
+    data += struct.pack('<IfffII',row['unk_3'],row['sound_vol'],row['sound_radius'],row['sound_random'],row['quest_be'],final_word)
+    return data,row
+
+
+class NativeNpcRecordIdentity(unittest.TestCase):
+    def test_independent_framing_keeps_separate_ids_and_final_words(self):
+        first,a = npc_record(10,0)
+        second,b = npc_record(20,1)
+        spans = npc_record_spans(table(first,second),[a,b],[10,20])
+        self.assertEqual(spans['10']['span'],[4,4+len(first)])
+        self.assertEqual(spans['20']['span'],[4+len(first),4+len(first)+len(second)])
+        self.assertEqual(spans['10']['finalWordOffset'],len(first))
+        self.assertEqual([spans[str(key)]['finalWord'] for key in (10,20)],[0,1])
+        self.assertEqual(spans['10']['decoCount'],1)
+        self.assertNotEqual(spans['10']['SHA256'],spans['20']['SHA256'])
+        self.assertEqual(spans['10']['sharedPayloadSHA256'],spans['20']['sharedPayloadSHA256'])
+
+    def test_shared_payload_equality_is_byte_exact_including_float_sign(self):
+        first,a = npc_record(10,speed=0.0)
+        second,b = npc_record(20,speed=-0.0)
+        spans = npc_record_spans(table(first,second),[a,b],[10,20])
+        self.assertNotEqual(spans['10']['sharedPayloadSHA256'],spans['20']['sharedPayloadSHA256'])
+
+    def test_every_truncated_record_prefix_rejects_with_trailer(self):
+        record,row = npc_record(10)
+        for end in range(len(record)):
+            with self.subTest(end=end),self.assertRaises(ValueError):
+                npc_record_spans(table(record[:end]),[row],[10])
+
+    def test_identity_requires_exact_unique_rows_and_complete_consumption(self):
+        record,row = npc_record(10)
+        changed = {**row,'sound_random':31.0}
+        for data,rows,ids in [
+            (table(record),[changed],[10]), (table(record),[row,row],[10]),
+            (table(record,record),[row,row],[10]), (table(record),[row],[20]),
+            (table(record),[row],[10,10]), (table(record),[row],[True]),
+            (table(record),[row],[]), (table(record)[:-len(TRAILER)]+b'x'+TRAILER,[row],[10]),
+            (record,[row],[10]), (None,[row],[10]),
+        ]:
+            with self.subTest(ids=ids),self.assertRaises(ValueError):
+                npc_record_spans(data,rows,ids)
+
+    def test_negative_compact_and_oversized_string_array_counts_reject(self):
+        record,row = npc_record(10)
+        textures_at = 4+len(unicode_text(row['class_name']))+len(unicode_text(row['mesh_name']))
+        property_count_at = textures_at+4+len(unicode_text(row['textures'][0]))+4
+        oversized = record[:textures_at]+struct.pack('<I',0xffffffff)+record[textures_at+4:]
+        negative = record[:property_count_at]+b'\x81'+record[property_count_at+1:]
+        invalid_string = record[:4]+struct.pack('<i',-2)+record[8:]
+        for bad in (oversized,negative,invalid_string):
+            with self.subTest(record=bad),self.assertRaises(ValueError):
+                npc_record_spans(table(bad),[row],[10])
 
 
 class NativeNpcInputs(unittest.TestCase):

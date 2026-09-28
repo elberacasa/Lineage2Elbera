@@ -4,13 +4,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {createNativeRandom} from '../js/native-random.js';
 import * as THREE from '../vendor/three.module.min.js';
-import { directNotifySound } from '../js/animnotify-clock.js';
+import { selectNotifySound } from '../js/animnotify-clock.js';
 import { createCastPlayback, advanceCastPlayback, closeSourceLoop } from '../js/castplayback.js';
 
 const source=fs.readFileSync(new URL('../js/character.js',import.meta.url),'utf8');
 const Character=vm.runInNewContext(source.replace(/^import .*;$/gm,'').replace(/^export /gm,'')+'\nCharacter;',
-  {THREE,directNotifySound,audio:{playAt:()=>{}},L2_TO_M:.01,createCastPlayback,advanceCastPlayback,closeSourceLoop,performance:{now:()=>1000}});
+  {THREE,selectNotifySound,audio:{nativeRandom:createNativeRandom(0),playAt:()=>{}},L2_TO_M:.01,createCastPlayback,advanceCastPlayback,closeSourceLoop,performance:{now:()=>1000}});
 function phase(clip,due,loop=false){return {clip,slot:clip,notifies:[],frames:3,sourceRate:2,sourceEndpoint:1,sourceDuration:1.5,due,loop};}
 function schedule(phases,tween=.2){return {status:'ready',rate:1,tween,phases};}
 function fixture(){
