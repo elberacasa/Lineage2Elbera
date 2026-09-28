@@ -2,6 +2,30 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original actor matrices and conditional sine recovery — 28 September 2026
+
+The browser now has a finite original actor-transform component, preserving
+integer rotation indexing, PrePivot, per-axis scales, intermediate precision,
+source Float32 stores and the original determinant. It requires explicit
+current actor fields, a supplied table and the PC53/RNE arithmetic profile.
+Unknown state never becomes an identity transform.
+
+Elbera Tools qualifies the original matrix/cache bindings and interprets the
+Core GMath constructor plus its SSE2 sine kernel. It recovers all 16,384 table
+entries under an explicit CPU/OS/FPU profile; startup ordering is qualified,
+but the actual incoming floating-point state remains unobserved. No host sine
+or invented table is used. Optional generated output remains private.
+
+Twelve browser fixtures and nine portable interpreter fixtures pass. The
+actual browser module matches 1,400 retained-instruction cases, including 200
+with a freshly recovered table. These are arithmetic/source milestones;
+static triangle sweeps, material callbacks, live cache/spatial participation
+and walking integration remain unfinished. The full client goal is incomplete.
+See [source contract and reproducible commands](docs/native-actor-transforms-evidence.md).
+
+Existing README images and standalone releases are preserved. The new tools
+are available as repository source; this headless milestone adds no screenshot.
+
 ## Original actor blocking and ordered movement selection — 27 September 2026
 
 A finite browser component now implements original IsBlockedBy, its direct
