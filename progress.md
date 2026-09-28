@@ -2,6 +2,29 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original sound priority and stop operations — 28 September 2026
+
+The existing native audio component now includes original priority calculation
+and an ordered StopSound plan. Priority retains squared distance, the decoded
+Float32 floor, raw flag additions and every source store boundary. It requires
+the original view-target result explicitly and leaves unsupported arithmetic
+states unresolved. Stopping retains sound bookkeeping, stream conversion,
+OpenAL stop-before-detach and the selective voice reset; unrelated fields stay
+untouched. These components are not yet connected to live browser audio.
+
+The existing Elbera Tools verifier compares actual JavaScript against retained
+instructions: 688 priority cases and 240 stop cases pass, alongside the previous
+544 selector cases. The stop API slots are tied to original loader names;
+the stream import and controller view-target slots are named source bindings.
+Fifteen runtime and 20 tool tests pass. Four corrupted in-memory source views
+fail; no client binary is executed or modified. See
+[scope and reproduction](docs/native-playsound-evidence.md).
+
+Next: recover/configure the original voice pool, create sources and execute the
+ordered stop operations, then connect per-frame updates and the packet path.
+Callback-visible state, original mixer/EAX and actual audible feedback remain
+unverified. Full-client completion remains open.
+
 ## Original sound voice selection — 28 September 2026
 
 The browser now has a bounded ALAudio voice-selection component. It preserves

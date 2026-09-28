@@ -5,7 +5,7 @@ from fractions import Fraction
 from types import SimpleNamespace
 
 from check_playsound_native import (absolute_load_references, dry_gain_witness,
-    radius_assertion_passes, recovered_span, verify, VoiceMachine, wave_info)
+    radius_assertion_passes, recovered_span, verify, PriorityMachine, VoiceMachine, wave_info)
 
 
 def wave(channels=2, sample_data=b'\0\0\1\0', rate=22050):
@@ -136,6 +136,44 @@ class VoiceInterpreterTests(unittest.TestCase):
         for op, args in [('call', '0x1234'), ('nop', '')]:
             with self.assertRaises(AssertionError):
                 self.instruction(machine, op, args)
+
+
+class PriorityInterpreterTests(VoiceInterpreterTests):
+    def machine(self):
+        return PriorityMachine({0x2000: 0x11223344},
+                               {'ebx': 0x123456fe, 'ecx': 0x2000, 'eax': 0}, [])
+
+    def test_division_and_signed_integer_add_preserve_stack_order(self):
+        machine = self.machine()
+        machine.stack = [5.0, 7.0]
+        machine.memory[0x2000] = 2.0
+        self.instruction(machine, 'fdiv', 'dword ptr [ecx]')
+        machine.memory[0x2000] = 0xffffffff
+        self.instruction(machine, 'fiadd', 'dword ptr [ecx]')
+        self.assertEqual(machine.stack, [1.5, 7.0])
+        self.instruction(machine, 'shr', 'ebx, 2')
+        self.instruction(machine, 'and', 'ebx, 3')
+        self.assertEqual(machine.registers['ebx'], (0x123456fe >> 2) & 3)
+
+    def test_unordered_compare_is_finite_only_and_does_not_pop(self):
+        machine = self.machine()
+        machine.stack = [0.25, 0.5]
+        self.instruction(machine, 'fucom', 'st(1)')
+        self.assertEqual(machine.status, 0x100)
+        self.assertEqual(machine.stack, [0.25, 0.5])
+        machine.stack[0] = float('nan')
+        with self.assertRaises(AssertionError):
+            self.instruction(machine, 'fucom', 'st(1)')
+
+    def test_admitted_helper_call_and_return_balance_the_original_stack(self):
+        machine = self.machine()
+        machine.registers['esp'] = 0x3000
+        target = machine.step(SimpleNamespace(mnemonic='call', op_str='0x1000120d',
+                                              address=0x100080d3, size=5))
+        self.assertEqual(target, 0x1000120d)
+        self.assertEqual(machine.registers['esp'], 0x2ffc)
+        self.assertEqual(self.instruction(machine, 'ret', ''), 0x100080d8)
+        self.assertEqual(machine.registers['esp'], 0x3000)
 
 
 if __name__ == '__main__':
