@@ -17,6 +17,8 @@ gain. Real browser playback allocates the expected voice and retires it on
 completion/session reset. 31 targeted JavaScript and 25 portable Python tests
 pass; all previous native arithmetic/stop comparisons remain passing. The
 normal Online smoke reaches creation with a ready 32-source pool.
+The existing Online lifecycle fixture now provides the audio dependency and
+checks packet-audio retirement on both local disconnect and remote close.
 
 A separate normal saved-character login showed the tutorial and identified
 mode-two tutorial_voice_006/007. Those speech requests remain unsupported;
