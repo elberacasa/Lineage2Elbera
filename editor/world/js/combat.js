@@ -293,8 +293,20 @@ export function installCombatFeedback(net, ctx) {
 
   net.on('stopMove', (msg) => {
     entities.retireNpcWait(msg.id, 'stop-move-transition');
+    if (msg.id !== selfId()) {
+      const remote = entities.getEntity(msg.id);
+      // Cancel the obsolete browser route. Native StopMove clears controller
+      // orders, but does not directly zero Velocity or select Wait. Keep the
+      // current pose/facing here: OnStopMove never reads the wire heading, and
+      // its guarded position correction needs native collision/controller
+      // state this compatibility mover does not have. Do not use place().
+      // See docs/native-grounding-evidence.md.
+      if (remote?.kind === 'player') remote.clearTarget();
+      else if (remote?.kind === 'npc') remote.target = null;
+      return;
+    }
     const ch = character();
-    if (msg.id === selfId() && ch) {
+    if (ch) {
       state.approachingId = null;
       ch.clearTarget();
       ctx.onSelfStopMove?.(msg);

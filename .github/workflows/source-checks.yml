@@ -41,6 +41,7 @@ jobs:
         run: |
           python3 -m pip install capstone==5.0.7
           python3 -m unittest discover -s tools/ui -p test_supplemental_pe.py
+          python3 -m unittest discover -s tools/ui -p test_grounding_native.py
       - name: Original animation keys and interpolation fixtures
         run: |
           python3 -m unittest discover -s tools/anim -p test_pawnanim_source.py

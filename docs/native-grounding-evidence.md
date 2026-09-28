@@ -30,9 +30,17 @@ browser implementation must not apply this method's remote correction
 to the local player just because a ChangeWaitType packet has coordinates.
 
 The displacement helper at `0x18e384` is six erased import bytes. The
-surviving comparison does **not** distinguish distance from squared distance.
-The audit preserves the 200 constant without inventing a 200-unit snap
-radius. The unnamed controller/state gates also remain explicit limits.
+owned binary alone does **not** distinguish distance from squared distance.
+An optional, separately pinned Engine comparison now binds that call to
+`FVector::Size` within the matching displacement block. In that bounded
+comparison, correction requires a three-dimensional foot-point distance
+strictly greater than 200, not a squared distance or a planar browser gap.
+The owned Core method stores and reloads its result as Float32 before the
+comparison; a raw JavaScript `Math.hypot` is not a verified substitute.
+This is import correspondence, not authentication of the comparison copy
+or restoration of the owned executable. Without it, the helper remains
+unbound in the receipt. Controller and collision-state interpretation still
+limits browser use of the recovered gate.
 
 ## The ordinary remote branch uses an extent sweep
 
@@ -168,18 +176,92 @@ existing self-stop callback order:
 node --test editor/world/test/combat-approach.test.mjs
 ```
 
+## StopMove: retire a canceled route without inventing a teleport
+
+Original opcode `0x47` dispatches to decoder VA `0x104287a0`, preserving five
+DWORDs: object ID, X, Y, Z and heading. The named `OnStopMove` handler at VA
+`0x10491c80` receives the heading argument but never reads it. Its complete
+body is checked, including stack adjustment across the position-correction
+call; this is not an inference from a missing variable name.
+
+For an existing pawn/controller with controller `+0x41c` bit 0 clear, the
+handler calls `AdjustPawnLocation` **before** controller `StopMove`. Therefore
+a nonempty controller queue still prevents that correction. The viewport
+exclusion, original foot-point distance, cylinder sweep and `FarMoveActor`
+remain required; receiving packet XYZ does not authorize an unconditional
+position snap.
+
+Base `AController::StopMove` empties its movement queue, clears its associated
+target and latent action, zeros pawn acceleration and copies current rotation
+to desired rotation. It does **not directly zero velocity**, assign packet
+heading or select an animation. Selected direct field effects are reported;
+the verifier does not claim an exhaustive transitive state reset. The original
+physics tick and animation-state predicates must determine what follows.
+
+The browser previously retired original NPC playback but left remote movement
+targets active, so its next update continued the old route. The handler now
+cancels that route for a remote NPC or player. Current position and facing are
+preserved. Route cancellation sends no arrival packet and selects neither a
+replacement destination nor a source animation. The existing local-player
+callback order remains unchanged. A later
+real movement command can start a new route. Unknown IDs and dropped objects
+do not change another actor's movement.
+
+This repairs the compatibility mover's obsolete order; it does not equate a
+null browser target with native stationary state. Existing converted animation
+may still show a movement clip after the route stops. Original velocity,
+controller admission, collision, yaw and return-to-Wait remain explicit porting
+work; the source-only initial loop is retired instead of being restarted from
+unknown history.
+
+Portable checks exercise the actual handler and NPC update across stop and
+later movement, plus source-clock and delayed-sound retirement. They require
+neither original assets nor a running server:
+
+```sh
+node --test editor/world/test/combat-approach.test.mjs editor/world/test/npc-entity-lifecycle.test.mjs
+```
+
+## ChangeMoveType: preserve Environment without assigning a guessed state
+
+Opcode `0x2e` carries three signed DWORDs: object ID, move type and
+`Environment`. Native reflected property order and the typed property copy
+bind that final value to Pawn `+0x778`. The verifier joins the named Pawn copy
+constructor with nine reflected property names/types, then checks opcode
+dispatch and the complete decoder argument prefix. The handler compares the received move
+type before storing Environment: an unchanged mode returns without updating
+that field. The gateway now retains the third value as `environmentRaw`,
+including repeats and signed extremes, alongside the unchanged raw `running`
+field. The name describes the received input, not effective browser actor
+state; no swimming enum or native physics transition is fabricated.
+
+Closed or superseded gateway sessions cannot forward these changes or stops
+to a replacement session. Packet fixtures check all fields, truncation and
+session retirement. Browser source playback still retires on move-mode change;
+its full native Environment/physics lifecycle remains to be ported.
+
 ## Reproduce
 
-The checker verifies named methods, native call slots, 94 instruction
-anchors and four cases executing the original trace-seed arithmetic. It
-keeps detailed hashes in an ignored receipt and never emits original code.
-Original Interlude binaries/packages and Capstone are private prerequisites;
-no browser, login, server or asset regeneration is required.
+The checker verifies named methods, native call slots, the original
+trace-seed arithmetic, StopMove dispatch and the complete 32-instruction
+handler’s argument reads. The portable stack audit explores both sides of
+its branches and rejects incomplete decoding, unsupported instructions,
+unknown calls, stack-alias escapes and unbalanced returns. It is a bounded
+read audit, not a native emulator or a transitive callee proof.
+
+Receipts contain input/range hashes and limitations, never original code.
+`--check` requires the pinned Interlude Engine DLL, Engine package and Capstone.
+The optional comparison also requires the pinned owned Core DLL and an
+explicit comparison Engine path; neither DLL is executed. See the
+[comparison provenance and limits](supplemental-engine-evidence.md). No browser,
+login, server or asset regeneration is required.
 
 ```sh
 python3 tools/ui/check_grounding_native.py --check --output tmp/restart-audit/grounding/evidence.json
-python3 -m unittest discover -s tools/ui -p test_grounding_native.py
+python3 tools/ui/check_grounding_native.py --check --comparison-engine /path/to/pinned/engine.dll --output tmp/restart-audit/grounding/comparison.json
+python3 -S -m unittest discover -s tools/ui -p test_grounding_native.py
 ```
 
-The portable cases test input precision and rejection; they do not create
-synthetic collision results and call them original world evidence.
+The portable cases use only the Python standard library. They check input
+precision and deliberately mutated synthetic instruction records; they do
+not create synthetic collision results and call them original world evidence.
