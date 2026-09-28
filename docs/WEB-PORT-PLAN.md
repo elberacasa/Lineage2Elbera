@@ -1,7 +1,9 @@
 # Browser port: path to a small test server
 
-Updated 27 September 2026. The current implementation checkpoint is bounded
-original NPC initial-wait playback; browser acceptance is tracked separately.
+Updated 28 September 2026. Recent source work joins original collision
+components through actor admission and nonzero query traversal. Live world and
+movement integration remain unfinished; numerical comparisons are not playtest
+acceptance.
 The older local research branch is preserved separately and is not a
 publication branch. The [coverage inventory](PORT-COVERAGE.md) records the
 broader published milestones and remaining gaps.
@@ -133,6 +135,19 @@ toggle compares implementations, not an original-client reference. The same
 panel offers `giran-plaza` and `giran-statue` measured checkpoints.
 
 ## Ordered milestones and acceptance
+
+The immediate priority is to turn the recovered components into verified player
+behavior. First capture a fresh Online beginner-journey baseline and name its
+actual blockers. Then connect current actor fields, concrete primitive methods
+and level queries before changing camera or walking behavior. Verify those joins
+on representative real routes, alongside player/mob movement, attack and death
+transitions. Continue through the complete beginner journey and operational
+gates below. A decoder or synthetic comparison is evidence for a component,
+not a replacement for that live acceptance pass.
+
+Full-port scheduling remains uncertain while native behavior and major systems
+are unresolved. Track integrated, reproducible journeys and remaining blockers
+instead of deriving a completion percentage or launch date from test counts.
 
 | Milestone | Work | Evidence required to finish |
 | --- | --- | --- |

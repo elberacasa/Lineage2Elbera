@@ -172,8 +172,10 @@ duplicate parent membership. Mutation copies and raw receipts remain private.
 This closes bounded geometry and membership operations, not live spatial
 discovery. The ordinary update component now joins admission, generic or supplied
 primitive bounds and level-mode selection. Live input bindings, overridden
-primitive bounds, ordered query traversal, candidate filtering and primitive
-dispatch remain unfinished. [Cached mesh collision](native-static-mesh-cache-evidence.md)
+primitive bounds, zero-extent queries, live candidate filtering and concrete
+primitive dispatch remain unfinished. The [nonzero query component](native-actor-query-evidence.md)
+now traverses this membership with explicit method responses.
+[Cached mesh collision](native-static-mesh-cache-evidence.md)
 and [level sweeps](native-level-sweep-adapters-evidence.md) are adjacent components,
 not evidence that those joins already work.
 

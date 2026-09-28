@@ -7,6 +7,7 @@ consume an explicit override response, with caller/callee cleanup preserved.
 
 from collections import namedtuple
 import math
+import struct
 
 from actor_octree_machine import MembershipMachine
 from actor_octree_admission_source import ASSERT, LOG, NAME
@@ -37,6 +38,10 @@ class AdmissionMachine(MembershipMachine):
             at = self.address(operand)
             base, shift = at & ~3, (at & 3) * 8
             old = self.memory.get(base)
+            if isinstance(old, float):
+                # MOV can alias a previously stored Float32 stack cell. Byte
+                # stores change its bits, not the floating-point numeric value.
+                self.memory[base] = struct.unpack("<I", struct.pack("<f", old))[0]
             if old is None or isinstance(old, PartialWord):
                 prior = old or PartialWord(0, 0)
                 self.memory[base] = PartialWord(
