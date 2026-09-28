@@ -24,6 +24,238 @@ def raw(image, a, b):
     return bytes(image.data[image.offset(a) : image.offset(b)])
 
 
+def qualify_static_actor_loading(engine, core, comparison_engine, comparison_core):
+    """Bind ordinary actor construction and bounded PostLoad dependencies.
+
+    This does not supply class defaults, current class flags, linked actor
+    references or gameplay state. Constructors preserve incoming property
+    storage; their no-init helpers must not be replaced by zero initialization.
+    """
+    from check_supplemental_engine import compare_method
+
+    assert (engine.sha, core.sha, comparison_engine.sha, comparison_core.sha) == (
+        ENGINE_SHA,
+        CORE_SHA,
+        COMPARISON_SHA,
+        COMPARISON_CORE_SHA,
+    )
+    name = "??0FName@@QAE@XZ"
+    rotator = "??0FRotator@@QAE@XZ"
+    array = "??0FArray@@QAE@W4ENoInit@@@Z"
+    symbols = {
+        "??0UObject@@QAE@XZ": (0x1015C420, 0x1015C44D),
+        name: (0x10109D90, 0x10109D93),
+        rotator: (0x1010DED0, 0x1010DED3),
+        array: (0x10109200, 0x10109205),
+        "??0FBox@@QAE@XZ": (0x1010EF70, 0x1010EF73),
+        "?PostLoad@UObject@@UAEXXZ": (0x10163C60, 0x10163CB8),
+        "?GetClass@UObject@@QBEPAVUClass@@XZ": (0x1010A1E0, 0x1010A1E4),
+        "?SetFlags@UObject@@QAEXK@Z": (0x1010A210, 0x1010A21A),
+    }
+    ctor_imports = {
+        0x10328B4F: "??0UObject@@QAE@XZ",
+        0x10328C45: "??0FBox@@QAE@XZ",
+    }
+    for sites, symbol in [
+        (
+            [
+                0x10328B66,
+                0x10328B7E,
+                0x10328B8A,
+                0x10328B96,
+                0x10328BB9,
+                0x10328BDC,
+                0x10328BE8,
+                0x10328BF4,
+                0x10328C5D,
+                0x10328D12,
+            ],
+            name,
+        ),
+        (
+            [
+                0x10328B72,
+                0x10328C51,
+                0x10328C80,
+                0x10328CD6,
+                0x10328CE2,
+                0x10328CEE,
+                0x10328CFA,
+                0x10328D06,
+            ],
+            rotator,
+        ),
+        (
+            [
+                0x10328BA8,
+                0x10328BCB,
+                0x10328C06,
+                0x10328C1D,
+                0x10328C34,
+                0x10328C6F,
+                0x10328C97,
+                0x10328CAE,
+                0x10328CC5,
+                0x10328D24,
+                0x10328D3B,
+                0x10328D52,
+            ],
+            array,
+        ),
+    ]:
+        ctor_imports.update(dict.fromkeys(sites, symbol))
+    postload_imports = {
+        0x1052F59A: "?PostLoad@UObject@@UAEXXZ",
+        0x1052F5A2: "?GetClass@UObject@@QBEPAVUClass@@XZ",
+        0x1052F5B3: "?LoadLocalized@UObject@@QAEXXZ",
+        0x1052F5C5: "?SetFlags@UObject@@QAEXK@Z",
+        0x1052F5E0: "?SetFlags@UObject@@QAEXK@Z",
+    }
+    bindings = [
+        (0x10328D69, 0x11D8D768, "?GActorCurCount@UObject@@2HA"),
+        (0x10328D71, 0x11D8D764, "?GActorNewCount@UObject@@2HA"),
+        (0x10328D79, 0x11D8D768, "?GActorCurCount@UObject@@2HA"),
+        (0x10328D81, 0x11D8D760, "?GActorPeakCount@UObject@@2HA"),
+    ]
+    blocks, import_targets = [], {}
+    for symbol, start, end, handler, imports in [
+        (
+            "??0AActor@@QAE@XZ",
+            0x10328B30,
+            0x10328DA5,
+            (0x107F071C, 0x107F06DC),
+            ctor_imports,
+        ),
+        (
+            "??0AStaticMeshActor@@QAE@XZ",
+            0x103C2A40,
+            0x103C2A9E,
+            (0x10804CF7, 0x10804CB7),
+            {0x103C2A7E: array},
+        ),
+        (
+            "?PostLoad@AActor@@UAEXXZ",
+            0x1052F570,
+            0x1052F65D,
+            (0x1081A830, 0x1081A7F0),
+            postload_imports,
+        ),
+        (
+            "?Serialize@AActor@@UAEXAAVFArchive@@@Z",
+            0x10530750,
+            0x105307D6,
+            (0x1081A8F0, 0x1081A8B0),
+            {
+                0x1053077E: "?Serialize@UObject@@UAEXAAVFArchive@@@Z",
+                0x10530786: "?IsLoading@FArchive@@QAEHXZ",
+                0x10530792: "?IsSaving@FArchive@@QAEHXZ",
+            },
+        ),
+    ]:
+        assert engine.exported(symbol, True) == comparison_engine.body(symbol) == start
+        data = raw(engine, start, end)
+        candidate = bytearray(comparison_engine.read(start, end - start))
+        normalizations = []
+        for at, owned_iat, imported in bindings if start == 0x10328B30 else []:
+            offset = at - start
+            assert struct.unpack_from("<I", data, offset)[0] == owned_iat
+            assert struct.unpack_from("<I", candidate, offset)[0] == owned_iat - 4
+            assert comparison_engine.imports[owned_iat - 4] == ("core.dll", imported)
+            assert core.exported(imported) == comparison_core.exports[imported]
+            struct.pack_into("<I", candidate, offset, owned_iat)
+            normalizations.append(
+                dict(
+                    address=hex(at),
+                    ownedIAT=hex(owned_iat),
+                    candidateIAT=hex(owned_iat - 4),
+                    symbol=imported,
+                )
+            )
+        compared = compare_method(
+            data,
+            bytes(candidate),
+            start,
+            start,
+            comparison_engine.imported_call,
+            lambda va, size: raw(engine, va, va + size),
+            comparison_engine.read,
+            handler,
+        )
+        assert {
+            int(row["ownedVA"], 16): row["binding"][1]
+            for row in compared["differences"]
+            if row["kind"] == "named-import"
+        } == imports
+        for at, imported in imports.items():
+            if imported in symbols:
+                import_targets[hex(at)] = hex(symbols[imported][0])
+        blocks.append(
+            dict(
+                symbol=symbol,
+                start=hex(start),
+                end=hex(end),
+                comparison=compared,
+                operandBindings=normalizations,
+            )
+        )
+    helper = "?Clear@FTextureModifyinfo@@QAEXXZ"
+    assert engine.exported(helper) == comparison_engine.exports[helper] == 0x1030B9A1
+    assert engine.exported(helper, True) == 0x106773B0
+    assert comparison_engine.body(helper) == 0x10677370
+    data = raw(engine, 0x106773B0, 0x106773D8)
+    assert data == comparison_engine.read(0x10677370, len(data))
+    blocks.append(
+        dict(
+            symbol=helper,
+            start="0x106773b0",
+            end="0x106773d8",
+            comparisonStart="0x10677370",
+            SHA256=hashlib.sha256(data).hexdigest(),
+        )
+    )
+    core_blocks = []
+    for symbol, (start, end) in symbols.items():
+        assert core.exported(symbol, True) == comparison_core.body(symbol) == start
+        data = raw(core, start, end)
+        assert data == comparison_core.read(start, len(data))
+        core_blocks.append(
+            dict(
+                symbol=symbol,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    vtables = []
+    for table in ("??_7AActor@@6B@", "??_7AStaticMeshActor@@6B@"):
+        for slot, method in [
+            (0x2C, "?Serialize@AActor@@UAEXAAVFArchive@@@Z"),
+            (0x24, "?PostLoad@AActor@@UAEXXZ"),
+        ]:
+            assert engine.u32(engine.exported(table) + slot) == engine.exported(method)
+            assert (
+                comparison_engine.u32(comparison_engine.exports[table] + slot)
+                == comparison_engine.exports[method]
+            )
+            vtables.append(dict(table=table, slot=hex(slot), method=method))
+    engine.instruction(0x103062C1, "jmp", "0x10328b30")
+    engine.instruction(0x1030B9A1, "jmp", "0x106773b0")
+    return dict(
+        engineBlocks=blocks,
+        coreBlocks=core_blocks,
+        importTargets=import_targets,
+        thunkTargets={"0x103062c1": "0x10328b30", "0x1030b9a1": "0x106773b0"},
+        vtables=vtables,
+        actorCounters={hex(iat): core.exported(symbol) for _, iat, symbol in bindings},
+        limits=[
+            "Ordinary constructor storage is supplied; allocation, class defaults, tagged archive application and gameplay are not executed.",
+            "PostLoad execution requires object flags 0x100 and class flags 0x20 clear and an empty attached-actor array; current references remain supplied.",
+            "Serialize is source correspondence only; no native archive is executed.",
+            "SEH stack effects only. Ten-byte handler correspondence does not qualify complete exception/unwind paths.",
+        ],
+    )
+
+
 def qualify_actor_transforms(
     engine, core_image, comparison_engine, comparison_core, engine_package
 ):

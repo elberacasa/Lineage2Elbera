@@ -15,12 +15,74 @@ import subprocess
 
 from export_static_collision import (
     Audit,
+    actor_prop_offset,
     qualified_ref,
     Reader,
     count,
     read_props_ordered,
 )
 from l2lib import encode_compact, read_properties
+
+
+def check_actor_transform(package, export, saved, defaults):
+    """Round-trip each saved operand; defaults remain separately identified.
+
+    This checks record transport, not current fields or the actor lifecycle.
+    """
+    if saved.get("scope") != "saved-map-and-class-defaults":
+        raise ValueError("unknown actor transform scope")
+    off = actor_prop_offset(package, export)
+    if off is None:
+        raise ValueError("unsupported actor property framing")
+    end = export.serial_offset + export.serial_size
+    tags, actual = read_props_ordered(package, export.serial_offset + off, end=end)
+    if actual != end:
+        raise ValueError("actor transform properties exceed export")
+    checked = []
+    for key, name, fmt, kind, structure in [
+        ("location", "Location", "<3f", 10, "Vector"),
+        ("rotation", "Rotation", "<3i", 10, "Rotator"),
+        ("drawScale", "DrawScale", "<f", 4, None),
+        ("drawScale3D", "DrawScale3D", "<3f", 10, "Vector"),
+        ("prePivot", "PrePivot", "<3f", 10, "Vector"),
+    ]:
+        value = saved["fields"][key]
+        raw = (
+            struct.pack(fmt, *value)
+            if isinstance(value, list)
+            else struct.pack(fmt, value)
+        )
+        matches = [tag for tag in tags if tag["name"] == name]
+        if matches:
+            if len(matches) != 1:
+                raise ValueError("duplicate saved actor transform property")
+            tag = matches[0]
+            if (
+                saved["origins"][key] != "map-property"
+                or tag["type"] != kind
+                or tag["struct"] != structure
+                or tag["index"] != 0
+                or tag["raw"] != raw
+            ):
+                raise ValueError("actor transform differs from original property")
+        else:
+            expected = defaults[name]
+            original = (
+                struct.pack(fmt, *expected)
+                if isinstance(expected, list)
+                else struct.pack(fmt, expected)
+            )
+            if saved["origins"][key] != "inherited-class-default" or raw != original:
+                raise ValueError("actor transform differs from qualified default")
+        checked.append(
+            dict(
+                field=key,
+                origin=saved["origins"][key],
+                bytes=len(raw),
+                SHA256=hashlib.sha256(raw).hexdigest(),
+            )
+        )
+    return checked
 
 
 def check_properties(package, export, native_offset):
@@ -255,7 +317,29 @@ process.stdout.write(JSON.stringify(rows));
 
 def verify(tile, *, fresh_class_flags=None):
     audit = Audit(tile, retain_sweep_data=True)
-    report = audit.report(audit.actors())
+    actors = audit.actors()
+    report = audit.report(actors)
+    actor_transforms = []
+    for actor in actors:
+        if "savedTransform" not in actor:
+            continue
+        matches = [
+            e
+            for e in audit.pkg.exports
+            if audit.pkg.class_name_of(e) == "StaticMeshActor"
+            and audit.pkg.export_name(e) == actor["name"]
+        ]
+        if len(matches) != 1:
+            raise ValueError("ambiguous saved actor transform identity")
+        actor_transforms.append(
+            dict(
+                actor=actor["name"],
+                sourceExportSHA256=actor["exportSHA256"],
+                fields=check_actor_transform(
+                    audit.pkg, matches[0], actor["savedTransform"], audit.inherited
+                ),
+            )
+        )
     records, layouts = [], Counter()
     for name, data in sorted(audit.geometry.items()):
         package = audit.packages[name.split(".")[0]]
@@ -312,6 +396,8 @@ def verify(tile, *, fresh_class_flags=None):
         tile=tile,
         sources=audit.sources,
         selection=report["summary"],
+        actorTransforms=actor_transforms,
+        classDefaults=audit.defaults,
         meshes=len(records),
         triangles=sum(row["triangles"] for row in records),
         nodes=sum(row["nodes"] for row in records),
@@ -333,6 +419,7 @@ def verify(tile, *, fresh_class_flags=None):
         records=records,
         freshPreparation=check_fresh_preparation(audit.geometry, fresh_class_flags),
         limits=[
+            "Actor transform operands round-trip saved properties or qualified class defaults; current actor state and matrices are not inferred.",
             "Exact decoded-package array byte round trip, including compact-index encoding and lazy saved ends.",
             "Both serialized boxes are compared at offsets recovered through the primitive prefix and section count. The second overwrites the first saved field; post-load state is not established.",
             "Load-tail fields are re-encoded through the exact export end. The lazy payload is only span/hash checked; its elements are not decoded. References are encoded package indices, not resolved objects.",
@@ -358,6 +445,7 @@ def main():
         report = verify(tile, fresh_class_flags=args.fresh_class_flags)
         if args.check:
             fresh = report["freshPreparation"]
+            actor_count = len(report["actorTransforms"])
             report = {
                 key: report[key]
                 for key in [
@@ -376,6 +464,7 @@ def main():
                     "selection",
                 ]
             }
+            report["actorTransformRecords"] = actor_count
             if fresh is not None:
                 report["freshPreparation"] = {
                     k: v for k, v in fresh.items() if k != "records"

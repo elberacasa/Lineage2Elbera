@@ -2,6 +2,30 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Actor loading preservation and original transform operands — 28 September 2026
+
+PR46 published and merged source-derived native mesh loading bits; source and
+merged-main CI passed. The active continuation now verifies original static
+actor construction and bounded PostLoad in the existing Elbera bounds tool.
+192 construction cases preserve incoming property storage and check actual
+vtable/helper/counter writes; 192 PostLoad cases check flag/rotation writes and
+preservation under explicit current-state conditions. Localization and attached
+array paths remain unsupported. Original Serialize correspondence is qualified,
+but native archive application is not executed by these cases.
+
+The sweep exporter retains source location/rotation, separate scale operands
+and PrePivot with map/default origins. All 2,922 Talking Island/Giran actor
+transform records round-trip; the source collision selection is unchanged.
+47 portable record tests and 12 interpreter tests pass, alongside all previous
+mesh construction/loading/bounds/admission cases. No runtime JS/UI changed and
+no new Online or map-repair claim is made. Private original data and raw receipts
+stay local; all README images remain.
+
+Next: join original current actor flags, references and level membership to
+these prepared resources and transforms, then use the existing live world
+query path. Do not substitute render transforms or saved export flags for
+current native fields. The full browser-client goal remains active and incomplete.
+
 ## Native class loading bits — 28 September 2026
 
 The sweep exporter now decodes the two class bits consumed by fresh mesh

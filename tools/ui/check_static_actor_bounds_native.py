@@ -31,6 +31,7 @@ from actor_octree_machine import MembershipMachine, snapshot
 from check_static_sweep_native import PreparationProgram, IDENTITY
 from check_hair_attachment_native import compare_call_block
 from static_mesh_class_source import qualify_registration, loading_bits
+from actor_transform_source import qualify_static_actor_loading
 from static_collision_source import (
     qualify_static_postload,
     qualify_static_mesh_constructor,
@@ -177,6 +178,32 @@ def qualify(program, core, candidate, candidate_core):
         == candidate.exports[postload_symbol]
     )
     program.membership_targets[postload_thunk] = 0x106F5CC0
+    actor_loading = qualify_static_actor_loading(e, core, candidate, candidate_core)
+    for image, blocks in [
+        (e, actor_loading["engineBlocks"]),
+        (core, actor_loading["coreBlocks"]),
+    ]:
+        for block in blocks:
+            start, end = int(block["start"], 16), int(block["end"], 16)
+            PreparationProgram.add(
+                program,
+                image,
+                start,
+                end,
+                bytes(image.data[image.offset(start) : image.offset(end)]),
+            )
+    program.import_targets.update(
+        {
+            int(at, 16): int(target, 16)
+            for at, target in actor_loading["importTargets"].items()
+        }
+    )
+    program.membership_targets.update(
+        {
+            int(at, 16): int(target, 16)
+            for at, target in actor_loading["thunkTargets"].items()
+        }
+    )
     program.receipt = dict(
         prerequisites=prior,
         freshLoading=loading,
@@ -195,6 +222,7 @@ def qualify(program, core, candidate, candidate_core):
         ),
         staticPostLoad=postload,
         staticConstructor=constructor,
+        actorLoading=actor_loading,
     )
     return program
 
@@ -211,6 +239,17 @@ class StaticBoundsMachine(AdmissionMachine):
         )
         self.bound_events = []
         self.current = None
+
+    def read(self, operand):
+        if operand == "al":
+            return self.registers["eax"] & 255
+        return super().read(operand)
+
+    def write(self, operand, value, floating=False):
+        if operand == "al":
+            self.registers["eax"] = (self.registers["eax"] & 0xFFFFFF00) | (value & 255)
+            return
+        return super().write(operand, value, floating)
 
     def put_box(self, dest, box):
         self.memory.update(
@@ -247,6 +286,8 @@ class StaticBoundsMachine(AdmissionMachine):
         self.invoke(0x106F5CC0, mesh)
 
     def step(self, i):
+        if i.address in (0x1052F5B3, 0x1052F5F3):
+            raise AssertionError("unadmitted actor localization or attached-array path")
         if i.address == 0x1015E68F:
             self.before_postload_flags = self.memory[self.registers["esi"] + 0x1C]
         if i.mnemonic == "adc":
@@ -403,6 +444,131 @@ def native_one(program, row):
     m.invoke(0x106FE700, 0x300000, [0x600000, 0x200000])
     assert m.registers["eax"] == 0x600000
     return dict(bounds=hexes(m.box(0x600000)), events=m.bound_events), m
+
+
+def actor_loading_cases(program):
+    """Check exact actor storage preservation before resolving saved state.
+
+    These are supplied-storage cases, not a map loader. PostLoad's localization,
+    debug hook and attached-array mutation paths remain outside this contract.
+    """
+    rng = random.Random(0x41435452)
+    constructor_steps, postload_steps = 0, 0
+    constructor_visited, postload_visited = set(), set()
+    actor, mesh, reference60, cls = 0x200000, 0x300000, 0x400000, 0x900000
+    table = program.engine.exported("??_7AStaticMeshActor@@6B@")
+    actor_counters = program.receipt["actorLoading"]["actorCounters"]
+    for index in range(192):
+        m = StaticBoundsMachine(program)
+        initial = {actor + off: rng.getrandbits(32) for off in range(0, 0x400, 4)}
+        m.memory.update(initial)
+        counters = {}
+        for iat, address in actor_counters.items():
+            m.memory[int(iat, 16)] = address
+            counters[address] = rng.randrange(100000)
+        counters.update(
+            {
+                0x103307E8: rng.randrange(100000),
+                0x103307EC: rng.randrange(100000),
+                0x103307F0: rng.randrange(100000),
+            }
+        )
+        # Alternate both signed peak-counter branches without arithmetic overflow.
+        for current, peak in [
+            (0x103307E8, 0x103307F0),
+            (actor_counters["0x11d8d768"], actor_counters["0x11d8d760"]),
+        ]:
+            counters[peak] = counters[current] + (20 if index % 2 else 0)
+        m.memory.update(counters)
+        saved_registers = {
+            name: rng.getrandbits(32) for name in ("ebx", "esi", "edi", "ebp")
+        }
+        m.registers.update(saved_registers)
+        m.invoke(0x103C2A40, actor)
+        expected = initial | {
+            actor: table,
+            actor + 0x3A0: initial[actor + 0x3A0] & 0xFFFFFFF8,
+            actor + 0x3A4: 0xFFFFFFFF,
+            actor + 0x3A8: 1,
+            actor + 0x3AC: 1,
+        }
+        assert {at: m.memory[at] for at in initial} == expected, (
+            "actor constructor",
+            index,
+        )
+        assert m.registers["eax"] == actor
+        assert {name: m.registers[name] for name in saved_registers} == saved_registers
+        for current, total, peak in [
+            (0x103307E8, 0x103307EC, 0x103307F0),
+            (
+                actor_counters["0x11d8d768"],
+                actor_counters["0x11d8d764"],
+                actor_counters["0x11d8d760"],
+            ),
+        ]:
+            assert m.memory[current] == counters[current] + 1
+            assert m.memory[total] == counters[total] + 1
+            assert m.memory[peak] == max(counters[peak], counters[current] + 1)
+        constructor_steps += len(m.visited)
+        constructor_visited.update(m.visited)
+
+        # Explicit current fields: no inference from the constructor above.
+        m.memory.update(
+            {
+                actor + 0x1C: rng.getrandbits(32) & ~0x100,
+                actor + 0x24: cls,
+                cls + 0x4A4: rng.getrandbits(32) & ~0x20,
+                actor + 0x278: mesh if index % 3 else 0,
+                actor + 0x1F4: 0,
+                mesh + 0x1C: rng.getrandbits(32),
+                mesh + 0x60: reference60 if index % 3 == 2 else 0,
+                reference60 + 0x1C: rng.getrandbits(32),
+            }
+        )
+        before = {at: m.memory[at] for at in initial}
+        mesh_flags, reference_flags = (
+            m.memory[mesh + 0x1C],
+            m.memory[reference60 + 0x1C],
+        )
+        m.visited.clear()
+        m.invoke(0x1052F570, actor)
+        expected = before | {
+            actor + 0x1C: before[actor + 0x1C] | 0x20000000,
+            actor + 0x5C: before[actor + 0x5C] | 0x40,
+        }
+        expected.update(
+            {actor + 0x2D0 + i * 4: before[actor + 0x1C8 + i * 4] for i in range(3)}
+        )
+        assert {at: m.memory[at] for at in initial} == expected, (
+            "actor PostLoad",
+            index,
+        )
+        assert m.memory[mesh + 0x1C] == mesh_flags | (1 if index % 3 else 0)
+        assert m.memory[reference60 + 0x1C] == reference_flags | (
+            1 if index % 3 == 2 else 0
+        )
+        assert {name: m.registers[name] for name in saved_registers} == saved_registers
+        postload_steps += len(m.visited)
+        postload_visited.update(m.visited)
+    return dict(
+        cases=192,
+        suppliedStorageBytes=0x400,
+        construction=dict(
+            instructions=constructor_steps,
+            uniqueInstructions=len(constructor_visited),
+            allOtherSuppliedWordsPreserved=True,
+        ),
+        postLoad=dict(
+            instructions=postload_steps,
+            uniqueInstructions=len(postload_visited),
+            allOtherSuppliedWordsPreserved=True,
+            referenceForms=["null", "reference278", "reference278-and-reference60"],
+        ),
+        limits=[
+            "Authored incoming storage/counters/current flags; no allocation/CDO/archive or live actor state derived.",
+            "Object 0x100 and class 0x20 clear, empty attached array, nonaliasing references; SEH ordinary stack effects only.",
+        ],
+    )
 
 
 def constructor_cases(program):
@@ -924,6 +1090,7 @@ def fresh_loading_cases(program, runtime):
 
 def verify(engine, core, comparison_engine, comparison_core, runtime):
     program = load_program(engine, core, comparison_engine, comparison_core)
+    actor_loading = actor_loading_cases(program)
     construction = constructor_cases(program)
     fresh_loading = fresh_loading_cases(program, runtime)
     rows = fixture_rows()
@@ -987,6 +1154,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         instructions=steps,
         uniqueInstructions=len(visited),
         construction=construction,
+        actorLoading=actor_loading,
         freshLoading=fresh_loading,
         postLoad=dict(
             cases=len(rows),
@@ -1004,6 +1172,9 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         ).hexdigest(),
         classQualifierSHA256=hashlib.sha256(
             Path(__file__).with_name("static_mesh_class_source.py").read_bytes()
+        ).hexdigest(),
+        actorLoadingQualifierSHA256=hashlib.sha256(
+            Path(__file__).with_name("actor_transform_source.py").read_bytes()
         ).hexdigest(),
         runtimeDependenciesSHA256={
             name: hashlib.sha256((Path(runtime).parent / name).read_bytes()).hexdigest()
@@ -1060,6 +1231,7 @@ def main():
                         "instructions",
                         "uniqueInstructions",
                         "construction",
+                        "actorLoading",
                         "freshLoading",
                         "postLoad",
                     ]
