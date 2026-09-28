@@ -40,6 +40,7 @@ from actor_transform_source import (
     qualify_actor_collision_fields,
     qualify_level_actor_population,
     qualify_level_actor_loading,
+    qualify_actor_state_frames,
 )
 from static_collision_source import (
     qualify_static_postload,
@@ -175,6 +176,7 @@ def qualify(program, core, candidate, candidate_core):
     actor_class_loading = static_actor_loading_bits(
         e, core, engine_package, core_package
     )
+    actor_state_frames = qualify_actor_state_frames(core, candidate_core)
     property_loading = qualify_packed_property_tags(core, candidate_core)
     for start, end in [(0x1010B6D0, 0x1010B717), (0x10131090, 0x10131137)]:
         PreparationProgram.add(
@@ -273,6 +275,7 @@ def qualify(program, core, candidate, candidate_core):
         classRegistration=registration,
         classLoading=class_loading,
         actorClassLoading=actor_class_loading,
+        actorStateFrames=actor_state_frames,
         propertyLoading=property_loading,
         staticBounds=dict(
             normalComparison=proof,

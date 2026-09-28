@@ -45,7 +45,7 @@ def actor():
         + b"opaque tail"
     )
     return package(body + b"outside export"), NS(
-        class_index=-1, serial_offset=0, serial_size=len(body)
+        class_index=-1, object_flags=0x02000000, serial_offset=0, serial_size=len(body)
     )
 
 

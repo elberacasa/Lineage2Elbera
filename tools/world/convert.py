@@ -61,7 +61,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 from l2lib import (L2Error, Reader, TEXF_DXT1, load_package,  # noqa: E402
                    parse_texture, extract_texture_rgba, read_properties,
-                   resolve_material, write_png)
+                   resolve_material, write_png, read_state_frame, RF_HAS_STACK)
 import geodata  # noqa: E402  (tools/world sibling module)
 import light_extract  # noqa: E402  (tools/world sibling module)
 import terrain_topology  # noqa: E402  (tools/world sibling module)
@@ -147,36 +147,39 @@ def read_props_ordered(pkg, pos, *, end=None):
     return props, r.pos
 
 
-def actor_prop_offset(pkg, exp):
-    """Offset (from the export body start) of an actor's tagged property
-    list, DERIVED from the layout instead of searched for.
+def read_map_actor_frame(pkg, exp):
+    """Read the supported saved map frame, bounded by its own export.
 
-    docs/map-format.md §3.1: a scripted actor body is
-        cidx ClassIndex, cidx ClassIndex, i32 -1, i32 -1, byte[5], <props>
-    so the list starts at 2*len(cidx(ClassIndex)) + 13 — the "15 or 17"
-    in the doc is just that compact index being one or two bytes wide.
-    Everything before the property list is therefore checkable: both
-    compact indices must equal the export table's own ClassIndex and both
-    i32 must be -1. -> offset, or None when the bytes are not that layout
-    (native exports, and anything the doc does not describe).
-
-    Measured over all 100 converted maps (162,805 StaticMeshActor exports):
-    the check passes for every one, the offset is 15 for every one, and the
-    property list it points at consumes the body EXACTLY for 162,779 of
-    them (99.98%).
+    Reuse l2lib's serialized FStateFrame reader. The admitted map subset has
+    both node references equal to the actor class, probe mask -1 and code
+    offset -1. The intervening DWORD is preserved, never skipped or zeroed.
+    These are saved fields, not current execution state after InitExecution.
     """
     try:
-        r = Reader(pkg.data, exp.serial_offset, path=pkg.path)
-        if r.compact() != exp.class_index:
+        if not exp.object_flags & RF_HAS_STACK or exp.class_index == 0:
             return None
-        if r.compact() != exp.class_index:
+        start, end = exp.serial_offset, exp.serial_offset + exp.serial_size
+        if not 0 <= start < end <= len(pkg.data):
             return None
-        if r.i32() != -1 or r.i32() != -1:
+        r = Reader(memoryview(pkg.data)[start:end], path=pkg.path)
+        frame = read_state_frame(pkg, r)
+        if (frame.node != exp.class_index
+                or frame.state_node != exp.class_index
+                or frame.probe_mask != -1 or frame.offset != -1):
             return None
-        r.bytes(5)
-        return r.pos - exp.serial_offset
+        return frame
     except (L2Error, IndexError, struct.error):
         return None
+
+
+def actor_prop_offset(pkg, exp):
+    """Property offset for the supported saved actor frame, or None.
+
+    A compact code offset is decoded, not assumed to occupy the fifth skipped
+    byte. The separate find_prop_start fallback is not native-loading evidence.
+    """
+    frame = read_map_actor_frame(pkg, exp)
+    return frame.size if frame is not None else None
 
 
 def find_prop_start(pkg, exp, want_first=None, max_start=25):

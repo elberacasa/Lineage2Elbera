@@ -18,7 +18,7 @@ sys.path[:0] = [
     str(ROOT / p) for p in ("tools", "tools/world", "tools/dat", "tools/ui")
 ]
 from l2lib import Reader, load_package, read_model
-from convert import qualified_objref, read_props_ordered
+from convert import qualified_objref, read_props_ordered, read_map_actor_frame
 from export_bsp_collision import level_model_binding, export_model
 from export_terrain_collision import (
     export_bytes,
@@ -79,15 +79,9 @@ def decode_region(pkg, data):
 
 def actor_properties(pkg, ex):
     body = export_bytes(pkg, ex)
-    r = Reader(body)
-    require(
-        r.compact() == ex.class_index and r.compact() == ex.class_index,
-        "unsupported actor state-frame class",
-    )
-    require(r.i32() == -1 and r.i32() == -1, "unsupported actor state-frame masks")
-    word = r.u32()
-    require(r.compact() == -1, "unsupported actor state-frame offset")
-    start = r.pos
+    frame = read_map_actor_frame(pkg, ex)
+    require(frame is not None, "unsupported actor state-frame class, flags or body")
+    start = frame.size
     rows, end = read_props_ordered(
         SimpleNamespace(data=body, name=pkg.name, path=pkg.path), start
     )
@@ -95,7 +89,7 @@ def actor_properties(pkg, ex):
     return rows, {
         "exportSHA256": sha(body),
         "propertySpan": [start, end],
-        "stateFrameWord32": word,
+        "stateFrameWord32": frame.latent_action & 0xFFFFFFFF,
         "unparsedTailBytes": len(body) - end,
         "unparsedTailSHA256": sha(body[end:]),
     }

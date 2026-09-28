@@ -46,9 +46,12 @@ original tag operations.
 All 2,922 saved actor inputs preserve the same known bits under explicit
 persistent-load modes; none of their saved overrides in these groups is
 skipped. Source registration/package evidence also supplies StaticMeshActor
-class mask0x428 without inventing the rest of its word. Current reference
-resolution, script frames, registry population and LevelInfo collision mode
-still need the loading join before world queries can use these records.
+class mask0x428 without inventing the rest of its word. The shared map reader
+now decodes the complete supported saved actor frame within each export;
+all 2,922 frames round-trip against originals. Source correspondence separates
+that saved frame from the later execution reset. Current reference resolution,
+default copying, registry population and LevelInfo collision mode still need
+the loading join before world queries can use these records.
 
 Next: feed these prepared mesh resources and original actor fields into the
 existing world-query components, preserving unresolved lifecycle boundaries. Validate

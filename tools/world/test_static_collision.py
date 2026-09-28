@@ -9,6 +9,9 @@ from unittest.mock import patch
 from l2lib import L2Error
 from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation, check_actor_transform, check_actor_flags, check_actor_references, check_level_actor_order
 from static_mesh_class_source import read_root_class_flags, read_zero_script_class_flags
+from convert import read_map_actor_frame, actor_prop_offset
+from export_static_collision import saved_actor_frame
+from check_static_collision_records import check_actor_frame
 
 
 def compact(n):
@@ -370,6 +373,7 @@ class QualificationTest(unittest.TestCase):
         audit.actor_class_loading = {'scope': 'authored-class-bits'}
         rows = [{'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
                  'exportRef': 8, 'savedLevelSlots': [1, 3],
+                 'savedStateFrame': {'scope': 'authored-fixture'},
                  'savedReferences': {'scope': 'authored-fixture'},
                  'issues': [], 'meshIssues': [], 'position': [1, 2, 3], 'scale': [1, 1, 1],
                  'savedTransform': {'scope': 'authored-fixture'}, 'savedCollisionFlags': {'scope': 'authored-fixture'}}]
@@ -379,6 +383,7 @@ class QualificationTest(unittest.TestCase):
         self.assertEqual(source['references'], [
             {'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
              'exportRef': 8, 'savedLevelSlots': [1, 3],
+             'savedStateFrame': {'scope': 'authored-fixture'},
              'savedReferences': {'scope': 'authored-fixture'},
              'savedTransform': {'scope': 'authored-fixture'}, 'savedCollisionFlags': {'scope': 'authored-fixture'}}])
         self.assertEqual(source['classDefaults'], audit.defaults)
@@ -390,6 +395,82 @@ class QualificationTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             audit.sweep_output(rows)
         self.assertEqual(len(audit.sweep_output(rows, all_supported=True)['references']), 1)
+
+
+class ActorStateFrameTest(unittest.TestCase):
+    def fixture(self, *, reference=-2, word=0xFEDCBA98, code=-1):
+        prefix = compact(reference) * 2 + struct.pack('<III', 0xFFFFFFFF, 0xFFFFFFFF, word) + compact(code)
+        origin = 19
+        raw = b'X' * origin + prefix + b'\0' + b'next export'
+        ex = SimpleNamespace(class_index=reference, object_flags=0x02000000,
+            serial_offset=origin, serial_size=len(prefix) + 1)
+        imports = {-1: SimpleNamespace(name='Engine', package_index=0),
+                   reference: SimpleNamespace(name='StaticMeshActor', package_index=-1)}
+        pkg = SimpleNamespace(data=raw, path='Authored.unr',
+            resolve_ref=lambda ref: imports[ref], import_name=lambda obj: obj.name)
+        return pkg, ex, prefix
+
+    def test_variable_width_references_and_raw_dword_round_trip(self):
+        for reference in (-2, -64, -8192, -1048576):
+            for word in (0, 0x7FFFFFFF, 0x80000000, 0xFFFFFFFF):
+                with self.subTest(reference=reference, word=word):
+                    pkg, ex, prefix = self.fixture(reference=reference, word=word)
+                    frame = read_map_actor_frame(pkg, ex)
+                    self.assertEqual(actor_prop_offset(pkg, ex), len(prefix))
+                    self.assertEqual(frame.latent_action & 0xFFFFFFFF, word)
+                    saved = saved_actor_frame(pkg, ex)
+                    self.assertEqual(saved['classIdentity'], 'Engine.StaticMeshActor')
+                    self.assertEqual(check_actor_frame(pkg, ex, saved)['word28'], word)
+                    self.assertEqual(saved['sourceBytes'], len(prefix))
+                    self.assertNotIn('currentState', saved)
+
+    def test_partial_frames_cannot_borrow_following_export_bytes(self):
+        pkg, ex, prefix = self.fixture(reference=-8192)
+        for size in range(len(prefix)):
+            ex.serial_size = size
+            self.assertIsNone(read_map_actor_frame(pkg, ex))
+        for start, size in ((-1, len(prefix)), (len(pkg.data), 1), (19, len(pkg.data))):
+            ex.serial_offset, ex.serial_size = start, size
+            self.assertIsNone(read_map_actor_frame(pkg, ex))
+
+    def test_frame_subset_requires_flags_class_mask_and_decoded_code_offset(self):
+        for code in (0, 64, -65):
+            pkg, ex, _ = self.fixture(code=code)
+            self.assertIsNone(actor_prop_offset(pkg, ex))
+        pkg, ex, prefix = self.fixture()
+        ex.object_flags = 0
+        self.assertIsNone(read_map_actor_frame(pkg, ex))
+        ex.object_flags = 0x02000000
+        ex.class_index = 0
+        self.assertIsNone(read_map_actor_frame(pkg, ex))
+        ex.class_index = -2
+        for at in (0, 1, 2, 6):
+            damaged = bytearray(prefix)
+            damaged[at] ^= 1
+            pkg.data = b'X' * 19 + damaged + b'\0'
+            self.assertIsNone(read_map_actor_frame(pkg, ex))
+
+    def test_retained_fields_identity_and_span_mutations_are_rejected(self):
+        pkg, ex, _ = self.fixture()
+        original = saved_actor_frame(pkg, ex)
+        for key, changed in (
+            ('scope', 'current-frame'), ('savedExportFlags', 0),
+            ('classIdentity', 'Other.StaticMeshActor'), ('node', -3),
+            ('stateNode', -3), ('probeMaskWords', [0xFFFFFFFF, 0]),
+            ('word28', original['word28'] - 1), ('word28', True),
+            ('word28', 0x100000000), ('codeOffset', 0),
+            ('sourceOffset', 0), ('sourceBytes', 14), ('sourceBytes', 15.0),
+            ('probeMaskWords', [float(0xFFFFFFFF), 0xFFFFFFFF]),
+            ('sourceSHA256', '0' * 64),
+        ):
+            with self.subTest(key=key, changed=changed):
+                saved = deepcopy(original)
+                saved[key] = changed
+                with self.assertRaises(ValueError):
+                    check_actor_frame(pkg, ex, saved)
+        ex.serial_size = original['sourceBytes'] - 1
+        with self.assertRaises(ValueError):
+            check_actor_frame(pkg, ex, original)
 
 
 class RootClassPrefixTest(unittest.TestCase):
