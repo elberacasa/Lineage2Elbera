@@ -3,7 +3,7 @@
 
 Reads private original maps/packages through the existing audited exporter.
 Writes only a JSON evidence receipt to stdout, never assets or scene changes.
-The comparison covers saved boxes/arrays, not live state or native collision results.
+The comparison covers saved boxes/arrays/tail fields, not live state or native collision results.
 """
 import argparse
 from collections import Counter
@@ -73,6 +73,90 @@ def check_bounds(source, data):
     return spans
 
 
+def check_load_tail(source, data, *, array_end, export_end):
+    """Re-encode tail fields around a hash-checked, explicitly opaque payload."""
+    tail = data["loadTail"]
+    cursor = array_end
+    fields = tail["fields"]
+    licensee = data["licenseeVersion"]
+    if (
+        type(data["fileVersion"]) is not int
+        or data["fileVersion"] != 123
+        or type(licensee) is not int
+        or not 0 <= licensee <= 65535
+    ):
+        raise ValueError("unsupported mesh load-tail source version")
+
+    def check_span(record, offset, payload):
+        end = offset + len(payload)
+        if not 0 <= offset <= end <= export_end <= len(source):
+            raise ValueError("load-tail span exceeds original export")
+        if record["sourceOffset"] != offset or record["sourceBytes"] != len(payload):
+            raise ValueError("load-tail span differs from source layout")
+        if (
+            bytes(source[offset:end]) != payload
+            or hashlib.sha256(payload).hexdigest() != record["sourceSHA256"]
+        ):
+            raise ValueError("re-encoded load-tail differs from original bytes or hash")
+
+    expected = []
+    if licensee >= 6:
+        expected += [
+            ("0x194", "u32"),
+            ("0x198", "compact-reference"),
+            ("0x19c", "compact-reference"),
+            ("0x1a0", "u32"),
+            ("0x1a4", "u32"),
+        ]
+    for minimum, offsets in [
+        (7, [0x1A8, 0x1AC]),
+        (11, [0x1B0]),
+        (13, [0x1B4]),
+        (14, [0x1B8, 0x1BC]),
+        (15, [0x1C0]),
+    ]:
+        if licensee >= minimum:
+            expected += [(hex(offset), "u32") for offset in offsets]
+    final = [("0x1dc", "i32"), ("0x1f0", "compact-reference"), ("0x1e0", "u32")]
+    if set(fields) != {key for key, _ in expected + final}:
+        raise ValueError("load-tail fields differ from source version")
+
+    def encoded_fields(layout):
+        nonlocal cursor
+        for key, encoding in layout:
+            record = fields[key]
+            if record["encoding"] != encoding or type(record["value"]) is not int:
+                raise ValueError("load-tail field encoding differs from source")
+            payload = (
+                encode_compact(record["value"])
+                if encoding == "compact-reference"
+                else struct.pack("<i" if encoding == "i32" else "<I", record["value"])
+            )
+            check_span(record, cursor, payload)
+            cursor += len(payload)
+
+    encoded_fields(expected)
+    lazy = tail["lazyArray1c4"]
+    saved_end = lazy["savedEnd"]
+    if type(saved_end) is not int or not cursor + 4 < saved_end <= export_end:
+        raise ValueError("invalid load-tail lazy saved end")
+    opaque = bytes(source[cursor + 4 : saved_end])
+    check_span(lazy["payload"], cursor + 4, opaque)
+    check_span(lazy, cursor, struct.pack("<i", saved_end) + opaque)
+    cursor = saved_end
+    encoded_fields(final)
+    if cursor != export_end:
+        raise ValueError("load-tail does not end at original export boundary")
+    check_span(tail, array_end, bytes(source[array_end:cursor]))
+    return dict(
+        start=array_end,
+        bytes=cursor - array_end,
+        SHA256=tail["sourceSHA256"],
+        savedMeshVersion=fields["0x1dc"]["value"],
+        opaqueLazyPayloadBytes=len(opaque),
+    )
+
+
 def verify(tile):
     audit = Audit(tile, retain_sweep_data=True)
     report = audit.report(audit.actors())
@@ -95,6 +179,12 @@ def verify(tile):
         )
         spans = check_arrays(package.data, data)
         bounds = check_bounds(package.data, data)
+        tail = check_load_tail(
+            package.data,
+            data,
+            array_end=spans[-1]["start"] + spans[-1]["bytes"],
+            export_end=export.serial_offset + export.serial_size,
+        )
         layouts[data["collisionArrayLayout"]] += 1
         records.append(
             dict(
@@ -104,6 +194,7 @@ def verify(tile):
                 sourceExportSHA256=data["exportSHA256"],
                 arrays=spans,
                 bounds=bounds,
+                loadTail=tail,
                 overwrittenBoundsDiffer=bounds[0]["SHA256"] != bounds[1]["SHA256"],
             )
         )
@@ -121,10 +212,14 @@ def verify(tile):
         layouts=dict(layouts),
         boundsRecords=len(records) * 2,
         overwrittenBoundsDiffer=sum(row["overwrittenBoundsDiffer"] for row in records),
+        savedMeshVersions=dict(
+            Counter(str(row["loadTail"]["savedMeshVersion"]) for row in records)
+        ),
         records=records,
         limits=[
             "Exact decoded-package array byte round trip, including compact-index encoding and lazy saved ends.",
             "Both serialized boxes are compared at offsets recovered through the primitive prefix and section count. The second overwrites the first saved field; post-load state is not established.",
+            "Load-tail fields are re-encoded through the exact export end. The lazy payload is only span/hash checked; its elements are not decoded. References are encoded package indices, not resolved objects.",
             "Reads every geometry record admitted by existing class/version/material gates, including references from actors rejected by placement gates.",
             "Not native archive I/O execution, current actor/cache state, collision result parity or complete map coverage.",
             "Malformed/noncanonical compact streams and unsupported versions are outside this evidence.",
@@ -151,6 +246,7 @@ def main():
                     "layouts",
                     "boundsRecords",
                     "overwrittenBoundsDiffer",
+                    "savedMeshVersions",
                     "selection",
                 ]
             }

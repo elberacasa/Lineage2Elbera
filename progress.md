@@ -2,6 +2,31 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original mesh load tail and bounded PostLoad — 28 September 2026
+
+The existing Elbera collision exporter now recovers the saved mesh version and
+remaining file-123 fields through the exact original export end. Licensee gates,
+compact object-reference framing and the lazy-array end seek are source-bound.
+Unknown words retain their bits and field offsets; raw lazy data stays explicitly
+opaque. All 480 per-map mesh records on 17_25/22_22 contain saved version eight.
+The previous geometry admission counts and default ray outputs are unchanged.
+
+The existing bounds checker now executes the original version-eight-and-later
+PostLoad path under explicit current flags and valid-storage conditions, then
+checks 600 bounding-box results. It preserves the saved box, sets the original
+object flag, clears three legacy fields and resets the per-vertex array using
+FArray.Empty/AddZeroed. The added run covers 764,694 instructions at 676 addresses;
+600 prior bounds cases and 288 actor updates still pass. Thirty-six portable
+exporter tests, eight bounds-interpreter tests and 800 sweep comparisons pass.
+
+Current object initialization/flags, older conversion/Build and live population
+remain open. This is source recovery and bounded execution evidence, not a live
+map correction. No runtime UI, private assets or scenes changed. Existing
+screenshots remain; these reusable tools are repository source, outside the
+current standalone archives. Next: establish current loading conditions, join
+the existing actor/query components, and test placement in the Online world.
+The full-client goal remains active and incomplete.
+
 ## Original serialized static-mesh bounds — 28 September 2026
 
 The existing collision exporter now retains both original boxes with exact
