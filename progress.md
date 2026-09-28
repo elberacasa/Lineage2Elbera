@@ -2,6 +2,31 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Actor references joined to prepared source meshes — 28 September 2026
+
+The existing loading module now copies ordinary reference defaults, applies
+the shared property gate and routes signed package indices to explicit object
+factories. Persistent loading skips transient XLevel; Level.PostLoad writes it
+later. Source copying/index/property stages match 128 original cases covering
+896 default copies, 1,408 tags, 352 skips and 896 factory calls. Archive I/O,
+full import discovery and native factory execution remain explicit boundaries.
+
+The private source check now creates source-linked objects and uses the
+existing fresh mesh preparation for their actual resources. All 2,922 static
+actor inputs resolve to 480 per-map mesh records. A real lighthouse package
+has a Texture and StaticMesh with the same full name; matching now also checks
+the original import class package/name and public-export flag. Saved ordered
+tags and target export/class/body identities remain available in private sweep
+records. No generated source payload is public.
+
+Validation: 26 browser-module, 63 portable record and 16 interpreter cases;
+original reference/mesh preparation on both maps; original code correspondence
+and bounded interpretation. Completed offline Giran startup was visually
+inspected without captured errors, still showing no audited static surfaces.
+No Online map repair is claimed. All 17 README images remain. Next: complete
+fresh actor default/state construction and level collision startup, then feed
+these objects into the existing octree and world query components. Goal active.
+
 ## Bounded saved actor frames — 28 September 2026
 
 The map reader now reuses l2lib's state-frame decoder instead of blindly

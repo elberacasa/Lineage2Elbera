@@ -215,6 +215,17 @@ def check_actor_references(package, export, saved, defaults):
             ):
                 raise ValueError("actor reference differs from original property")
         checked.append(dict(name=name, **value))
+    ordered = [
+        dict(
+            name=tag["name"],
+            reference=saved["fields"][tag["name"]]["reference"],
+            package=Path(package.path).stem,
+        )
+        for tag in tags
+        if tag["name"] in defaults
+    ]
+    if saved.get("tags") != ordered:
+        raise ValueError("saved reference tag order differs from original properties")
     return checked
 
 
@@ -554,6 +565,122 @@ process.stdout.write(JSON.stringify(results));
     )
 
 
+def check_reference_preparation(audit, actors):
+    """Join saved references to prepared mesh objects using exact source exports.
+
+    This models a fresh browser registry for these inputs. It does not certify
+    a current native registry, complete import discovery or LevelInfo lifecycle.
+    """
+    runtime = Path(__file__).resolve().parents[2] / "editor/world/js/actor-loading.js"
+    declarations = audit.defaults[-1]["collisionReferences"]
+    selected = [row for row in actors if "savedReferences" in row]
+    bindings = audit.reference_bindings(selected)
+    script = r"""
+import {pathToFileURL} from 'node:url';
+const url=pathToFileURL(process.argv[1]);
+const {applyActorReferenceTags,resolvePackageReference}=await import(url);
+const {prepareFreshStaticMeshTree}=await import(new URL('./static-mesh-tree.js',url));
+let raw='';for await(const part of process.stdin)raw+=part;
+const input=JSON.parse(raw), objects=new Map(), resources=new Map();
+for(const [name,source] of Object.entries(input.geometry)){
+ const resource=prepareFreshStaticMeshTree(source);
+ if(resource.status!=='ready')throw Error(name+': '+resource.reason);
+ resources.set(name.toLowerCase(),resource);
+}
+for(const table of Object.values(input.bindings))for(const binding of Object.values(table.references)){
+ const key=binding.sourcePackage+':'+binding.exportRef;
+ if(objects.has(key)){
+  if(JSON.stringify(objects.get(key).binding)!==JSON.stringify(binding))throw Error('conflicting source export');
+  continue;
+ }
+ const object={identity:binding.identity,binding};
+ if(binding.classIdentity==='Engine.StaticMesh'){
+  object.resource=resources.get(binding.identity.toLowerCase());
+  if(!object.resource)throw Error('missing prepared source mesh: '+binding.identity);
+ }
+ objects.set(key,object);
+}
+const factories=[];
+function resolveReference(pkg,ref){
+ const table=input.bindings[pkg];
+ const resolve=(reference,kind,index)=>{
+  const binding=table?.references[reference];
+  if(!binding)return {status:'unsupported'};
+  factories.push([pkg,kind,index]);
+  return {status:'ready',value:objects.get(binding.sourcePackage+':'+binding.exportRef)};
+ };
+ return resolvePackageReference(table&&{exportCount:table.exportCount,importCount:table.importCount,
+  createExport:(index,flags)=>{if(flags!==0)throw Error('nonzero export flags');return resolve(index+1,'export',index);},
+  createImport:index=>resolve(-1-index,'import',index)},ref);
+}
+const defaults={};
+for(const [name,record] of Object.entries(input.defaults)){
+ const result=resolveReference(record.package,record.reference);
+ if(result.status!=='ready')throw Error('unresolved source default: '+name);
+ defaults[name]=result.value;
+}
+const records=input.actors.map(actor=>{
+ const result=applyActorReferenceTags({layout:input.layout,defaults,tags:actor.savedReferences.tags,
+  archive:{loading:true,saving:false,persistent:true},resolveReference});
+ if(result.status!=='ready')throw Error(actor.name+': '+result.reason);
+ const references=Object.fromEntries(Object.entries(result.references).map(([name,object])=>[name,object===null?null:object.identity]));
+ if(!result.references.StaticMesh?.resource)throw Error('actor has no prepared mesh resource');
+ return {actor:actor.name,references,preparedMesh:result.references.StaticMesh.identity,
+  skipped:result.skipped.map(i=>actor.savedReferences.tags[i].name)};
+});
+process.stdout.write(JSON.stringify({records,uniqueObjects:objects.size,preparedMeshes:resources.size,factoryCalls:factories.length}));
+"""
+    result = subprocess.run(
+        ["node", "--input-type=module", "-e", script, str(runtime)],
+        input=json.dumps(
+            dict(
+                actors=selected,
+                geometry=audit.geometry,
+                bindings=bindings,
+                layout=declarations["layout"],
+                defaults=declarations["defaults"],
+            )
+        ),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode:
+        raise ValueError(
+            "browser reference preparation failed: " + result.stderr.strip()
+        )
+    output = json.loads(result.stdout)
+    if [row["actor"] for row in output["records"]] != [row["name"] for row in selected]:
+        raise ValueError("browser reference preparation changed the actor list")
+    for actor, loaded in zip(selected, output["records"]):
+        expected = {
+            name: field["qualified"]
+            for name, field in actor["savedReferences"]["fields"].items()
+        }
+        # These maps have no transient override. Do not silently treat a new
+        # saved transient value as the loaded value if a future input adds one.
+        if {
+            name: value.casefold() if value else None
+            for name, value in loaded["references"].items()
+        } != {
+            name: value.casefold() if value else None
+            for name, value in expected.items()
+        }:
+            raise ValueError("loaded source references differ from retained inputs")
+    return dict(
+        cases=len(selected),
+        scope="fresh source-linked browser objects; current native registry and complete level lifecycle unproven",
+        uniqueObjects=output["uniqueObjects"],
+        preparedMeshes=output["preparedMeshes"],
+        factoryCalls=output["factoryCalls"],
+        skippedTags=dict(
+            Counter(name for row in output["records"] for name in row["skipped"])
+        ),
+        runtimeSHA256=hashlib.sha256(runtime.read_bytes()).hexdigest(),
+        records=output["records"],
+    )
+
+
 def verify(tile, *, fresh_class_flags=None):
     audit = Audit(tile, retain_sweep_data=True)
     actors = audit.actors()
@@ -691,6 +818,7 @@ def verify(tile, *, fresh_class_flags=None):
             audit.boolean_layout,
             audit.defaults[-1]["collisionBooleans"]["defaultGroups"],
         ),
+        persistentReferencePreparation=check_reference_preparation(audit, actors),
         meshes=len(records),
         triangles=sum(row["triangles"] for row in records),
         nodes=sum(row["nodes"] for row in records),
@@ -742,6 +870,7 @@ def main():
         if args.check:
             fresh = report["freshPreparation"]
             booleans = report["persistentBooleanPreparation"]
+            references = report["persistentReferencePreparation"]
             actor_frames = report["actorStateFrames"]
             actor_count = len(report["actorTransforms"])
             actor_flags = len(report["actorFlags"])
@@ -778,6 +907,9 @@ def main():
             )
             report["persistentBooleanPreparation"] = {
                 k: v for k, v in booleans.items() if k != "records"
+            }
+            report["persistentReferencePreparation"] = {
+                k: v for k, v in references.items() if k != "records"
             }
             if fresh is not None:
                 report["freshPreparation"] = {

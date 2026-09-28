@@ -7,6 +7,14 @@ const scope = "original-level-actor-assignment";
 const freeze = Object.freeze;
 const uint = (value) =>
   Number.isInteger(value) && value >= 0 && value <= 0xffffffff;
+const sint = (value) =>
+  Number.isInteger(value) && value >= -0x80000000 && value <= 0x7fffffff;
+const propertySkipped = (flags, archive) =>
+  !!(
+    flags & 0x1000 ||
+    (flags & 0x2000 && archive.persistent) ||
+    (flags & 0x20000000 && archive.saving)
+  );
 function dense(value) {
   if (!Array.isArray(value) || value.length > 0x7fffffff) return false;
   for (let i = 0; i < value.length; i++)
@@ -79,11 +87,7 @@ export function applyActorBooleanTags(input) {
         typeof tag.value ===
           "boolean", "validated declared Boolean tags required");
       const flags = field.propertyFlags;
-      if (
-        flags & 0x1000 ||
-        (flags & 0x2000 && archive.persistent) ||
-        (flags & 0x20000000 && archive.saving)
-      ) {
+      if (propertySkipped(flags, archive)) {
         skipped.push(index);
         continue;
       }
@@ -102,6 +106,112 @@ export function applyActorBooleanTags(input) {
     });
   } catch (error) {
     // Do not expose partially applied output after a later unsupported tag.
+    return freeze({
+      status: "unsupported",
+      scope: resultScope,
+      reason: error.message,
+    });
+  }
+}
+
+/** ULinkerLoad.IndexToObject: signed package index to the selected object
+ * factory. Factories own construction/cache state; saved names alone are not
+ * current objects. Counts and synchronous replies must remain stable.
+ */
+export function resolvePackageReference(linker, reference) {
+  const resultScope = "original-package-reference";
+  const fail = (reason) =>
+    freeze({ status: "unsupported", scope: resultScope, reason });
+  if (!sint(reference)) return fail("signed source package index required");
+  if (reference === 0)
+    return freeze({ status: "ready", scope: resultScope, value: null });
+  const imported = reference < 0;
+  const index = imported ? -1 - reference : reference - 1;
+  const count = linker?.[imported ? "importCount" : "exportCount"];
+  if (!sint(count) || count < 0 || index >= count)
+    return fail("source package reference outside selected table");
+  const method = imported ? "createImport" : "createExport";
+  if (typeof linker[method] !== "function")
+    return fail("current object factory required");
+  const reply = imported ? linker[method](index) : linker[method](index, 0);
+  if (
+    reply?.status !== "ready" ||
+    !Object.hasOwn(reply, "value") ||
+    reply.value === undefined
+  )
+    return fail("unresolved current object factory response");
+  return freeze({ status: "ready", scope: resultScope, value: reply.value });
+}
+
+/** Copy dimension-one ordinary reference defaults, then apply tagged loading.
+ * The caller supplies resolved default identities and a package-index resolver.
+ * Transient fields remain at their incoming defaults during persistent loading;
+ * the separate Level.PostLoad assignment writes XLevel later. Skipped payloads
+ * do not trigger resolution. Unknown output is never replaced with null.
+ */
+export function applyActorReferenceTags(input) {
+  const resultScope = "original-actor-reference-loading";
+  const references = new Map(),
+    fields = new Map(),
+    skipped = [];
+  try {
+    const require = (condition, reason) => {
+      if (!condition) throw Error(reason);
+    };
+    const archive = input?.archive;
+    require(archive?.loading === true &&
+      archive.saving === false &&
+      typeof archive.persistent ===
+        "boolean", "explicit loading archive required");
+    require(dense(input.layout) &&
+      dense(input.tags), "dense declarations and tags required");
+    for (const field of input.layout) {
+      require(typeof field?.name === "string" &&
+        field.name.length &&
+        !fields.has(field.name) &&
+        field.kind === "ObjectProperty" &&
+        uint(
+          field.propertyFlags,
+        ), "unique source object-reference declarations required");
+      // UObjectProperty.CopyCompleteValue can duplicate subobjects with this
+      // flag. The seven decoded collision references have it clear.
+      require(!(
+        field.propertyFlags & 0x400000
+      ), "subobject duplication requires its original copy path");
+      require(input.defaults &&
+        Object.hasOwn(input.defaults, field.name) &&
+        input.defaults[field.name] !==
+          undefined, "resolved reference defaults required");
+      fields.set(field.name, field);
+      references.set(field.name, input.defaults[field.name]);
+    }
+    for (let index = 0; index < input.tags.length; index++) {
+      const tag = input.tags[index],
+        field = fields.get(tag?.name);
+      require(field, "declared reference tag required");
+      if (propertySkipped(field.propertyFlags, archive)) {
+        skipped.push(index);
+        continue;
+      }
+      require(sint(tag.reference) &&
+        tag.package !== undefined &&
+        typeof input.resolveReference ===
+          "function", "decoded reference and current resolver required");
+      const reply = input.resolveReference(tag.package, tag.reference);
+      require(reply?.status === "ready" &&
+        Object.hasOwn(reply, "value") &&
+        reply.value !== undefined, "unresolved loaded reference");
+      references.set(field.name, reply.value);
+    }
+    return freeze({
+      status: "ready",
+      scope: resultScope,
+      references: freeze(Object.fromEntries(references)),
+      skipped: freeze(skipped),
+    });
+  } catch (error) {
+    // Factories may already have created objects; these are not rolled back.
+    // Do not expose a partially loaded actor as an admitted result.
     return freeze({
       status: "unsupported",
       scope: resultScope,

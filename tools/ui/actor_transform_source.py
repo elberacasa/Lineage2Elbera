@@ -120,6 +120,108 @@ def qualify_actor_state_frames(core, comparison):
     )
 
 
+def qualify_actor_reference_loading(core, comparison):
+    """Bind ordinary reference copying, property dispatch and signed index lookup.
+
+    Factory/cache replies remain explicit; this does not execute CreateExport,
+    VerifyImport or a complete loading archive. The separate frame qualification
+    binds the ULinkerLoad FArchive operator and compact-index boundary.
+    """
+    assert (core.sha, comparison.sha) == (CORE_SHA, COMPARISON_CORE_SHA)
+    symbols = [
+        (
+            "?SerializeItem@UObjectProperty@@UBEXAAVFArchive@@PAXH@Z",
+            0x1016ED90,
+            0x1016EDA3,
+        ),
+        (
+            "?CopySingleValue@UObjectProperty@@UBEXPAX0PAVUObject@@@Z",
+            0x1016ED30,
+            0x1016ED3F,
+        ),
+        (
+            "?CopyCompleteValue@UObjectProperty@@UBEXPAX0PAVUObject@@@Z",
+            0x10171740,
+            0x101717E9,
+        ),
+        ("?IndexToObject@ULinkerLoad@@AAEPAVUObject@@H@Z", 0x1014B290, 0x1014B38F),
+        ("?CreateImport@ULinkerLoad@@AAEPAVUObject@@H@Z", 0x1014B1A0, 0x1014B230),
+        ("?IsValidIndex@FArray@@QBEHH@Z", 0x10108EC0, 0x10108EDA),
+        ("?VerifyImport@ULinkerLoad@@QAEXH@Z", 0x1014A8F0, 0x1014AF06),
+        ("?GetExportClassName@ULinkerLoad@@QAE?AVFName@@H@Z", 0x10148AE0, 0x10148B36),
+        (
+            "?GetExportClassPackage@ULinkerLoad@@QAE?AVFName@@H@Z",
+            0x10148A60,
+            0x10148AC5,
+        ),
+    ]
+    blocks, thunks = [], {}
+    for symbol, start, end in symbols:
+        assert core.exported(symbol, True) == comparison.body(symbol) == start
+        thunk = core.exported(symbol)
+        assert comparison.exports[symbol] == thunk
+        core.instruction(thunk, "jmp", hex(start))
+        assert raw(core, thunk, thunk + 5) == comparison.read(thunk, 5)
+        data = raw(core, start, end)
+        rows = list(core.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data) and rows[-1].mnemonic == "ret"
+        assert data == comparison.read(start, len(data))
+        blocks.append(
+            dict(
+                symbol=symbol,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+        thunks[hex(thunk)] = hex(start)
+    vt = "??_7UObjectProperty@@6B@"
+    dispatch = []
+    for slot, symbol in [
+        (0x90, symbols[0][0]),
+        (0xA4, symbols[1][0]),
+        (0xA8, symbols[2][0]),
+    ]:
+        assert core.u32(core.exported(vt) + slot) == core.exported(symbol)
+        assert (
+            comparison.u32(comparison.exports[vt] + slot) == comparison.exports[symbol]
+        )
+        dispatch.append(dict(slot=hex(slot), symbol=symbol))
+    factory = "?CreateExport@ULinkerLoad@@AAEPAVUObject@@HK@Z"
+    assert core.exported(factory) == comparison.exports[factory] == 0x1010398B
+    assert core.exported(factory, True) == comparison.body(factory) == 0x10149660
+    for anchor in [
+        (0x1016ED9A, "mov", "eax, dword ptr [eax + 0x18]"),
+        (0x1016ED9E, "call", "eax"),
+        (0x10171758, "test", "dword ptr [ebp + 0x48], 0x400000"),
+        (0x1014B2CB, "call", "0x1010323d"),
+        (0x1014B304, "call", "0x1010398b"),
+        (0x1014B32A, "call", "0x1010323d"),
+        (0x1014B362, "call", "0x1010412e"),
+        (0x1015FC55, "mov", "edx, dword ptr [edx + 0xa8]"),
+        (0x1015FC5B, "call", "edx"),
+        (0x1014AAFD, "call", "0x101038a0"),
+        (0x1014AB04, "cmp", "ecx, dword ptr [esi + 4]"),
+        (0x1014AB11, "call", "0x10101e6a"),
+        (0x1014AB18, "cmp", "eax, dword ptr [esi]"),
+        (0x1014AB6B, "test", "byte ptr [edi + 0x10], 4"),
+    ]:
+        core.instruction(*anchor)
+    return dict(
+        coreBlocks=blocks,
+        thunkTargets=thunks,
+        propertyVtable=dict(symbol=vt, slots=dispatch),
+        exportFactory=dict(symbol=factory, thunk="0x1010398b", body="0x10149660"),
+        limits=[
+            "Ordinary reference-copy and index routing only; object factories/cache replies and decoded package indices are explicit boundaries.",
+            "The seven source collision references have property flag0x400000 clear. Subobject duplication is not replaced by pointer copying.",
+            "InitProperties and the loading archive are separately source-qualified; their complete execution is not claimed here.",
+            "VerifyImport correspondence binds class package/name comparisons; full import hashing, outer fallback, package discovery and visibility paths are not interpreted.",
+            "Assertions and exception handlers are outside the interpreted normal paths; supplemental correspondence is not archive authentication.",
+        ],
+    )
+
+
 def qualify_level_actor_loading(engine, core, comparison, comparison_core):
     """Bind both PostLoad actor-assignment loops and their actual type helpers."""
     assert (engine.sha, core.sha, comparison.sha, comparison_core.sha) == (
