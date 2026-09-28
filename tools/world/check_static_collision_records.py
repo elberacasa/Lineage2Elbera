@@ -9,7 +9,9 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+from pathlib import Path
 import struct
+import subprocess
 
 from export_static_collision import (
     Audit,
@@ -202,7 +204,51 @@ def check_load_tail(source, data, *, array_end, export_end):
     )
 
 
-def verify(tile):
+def check_fresh_preparation(geometry, class_flags):
+    """Exercise the actual browser API with a supplied diagnostic class state.
+
+    This is compatibility evidence for decoded records, not recovery of the
+    native class registry. No default class flags are invented here.
+    """
+    if type(class_flags) is not int or not 0 <= class_flags <= 0xFFFFFFFF:
+        raise ValueError("current class flags must be an unsigned DWORD")
+    runtime = (
+        Path(__file__).resolve().parents[2] / "editor/world/js/static-mesh-tree.js"
+    )
+    script = """
+import fs from 'node:fs';
+const {prepareFreshStaticMeshTree}=await import(process.argv[1]);
+const {geometry,classFlags}=JSON.parse(fs.readFileSync(0,'utf8'));
+const rows=Object.entries(geometry).map(([mesh,source])=>{
+ const r=prepareFreshStaticMeshTree(source,{classFlags});
+ if(r.status!=='ready')throw Error(`${mesh}: ${JSON.stringify(r)}`);
+ return {mesh,loadingFlags:r.loadingFlags,objectFlags:r.postLoadWrites.objectFlags,
+         vertexCount:r.postLoadWrites.vertexArray.count};
+});
+process.stdout.write(JSON.stringify(rows));
+"""
+    result = subprocess.run(
+        ["node", "--input-type=module", "-e", script, runtime.as_uri()],
+        input=json.dumps(dict(geometry=geometry, classFlags=class_flags)),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode:
+        raise ValueError("browser preparation failed: " + result.stderr.strip())
+    rows = json.loads(result.stdout)
+    if len(rows) != len(geometry):
+        raise ValueError("browser preparation omitted source records")
+    return dict(
+        cases=len(rows),
+        classFlags=class_flags,
+        classStateEvidence="explicit diagnostic input, not recovered runtime state",
+        runtimeSHA256=hashlib.sha256(runtime.read_bytes()).hexdigest(),
+        records=rows,
+    )
+
+
+def verify(tile, *, fresh_class_flags=None):
     audit = Audit(tile, retain_sweep_data=True)
     report = audit.report(audit.actors())
     records, layouts = [], Counter()
@@ -222,6 +268,15 @@ def verify(tile):
             ).hexdigest()
             == data["exportSHA256"]
         )
+        saved = check_properties(package, export, data["nativeBodyOffset"])
+        assert data["sourceClass"] == qualified_ref(package, export.class_index)
+        assert data["savedProperties"] == dict(
+            savedExportFlags=saved["savedExportFlags"],
+            tags=[
+                {key: tag[key] for key in ("name", "type", "index", "struct")}
+                for tag in saved["tags"]
+            ],
+        )
         spans = check_arrays(package.data, data)
         bounds = check_bounds(package.data, data)
         tail = check_load_tail(
@@ -240,9 +295,7 @@ def verify(tile):
                 arrays=spans,
                 bounds=bounds,
                 loadTail=tail,
-                savedProperties=check_properties(
-                    package, export, data["nativeBodyOffset"]
-                ),
+                savedProperties=saved,
                 overwrittenBoundsDiffer=bounds[0]["SHA256"] != bounds[1]["SHA256"],
             )
         )
@@ -273,6 +326,11 @@ def verify(tile):
             bool(row["savedProperties"]["duplicateNames"]) for row in records
         ),
         records=records,
+        freshPreparation=(
+            check_fresh_preparation(audit.geometry, fresh_class_flags)
+            if fresh_class_flags is not None
+            else None
+        ),
         limits=[
             "Exact decoded-package array byte round trip, including compact-index encoding and lazy saved ends.",
             "Both serialized boxes are compared at offsets recovered through the primitive prefix and section count. The second overwrites the first saved field; post-load state is not established.",
@@ -289,10 +347,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("tiles", nargs="+")
     parser.add_argument("--check", action="store_true")
+    parser.add_argument(
+        "--fresh-class-flags",
+        type=lambda value: int(value, 0),
+        help="also exercise browser fresh preparation with these explicit diagnostic class flags; not native class-state evidence",
+    )
     args = parser.parse_args()
     for tile in args.tiles:
-        report = verify(tile)
+        report = verify(tile, fresh_class_flags=args.fresh_class_flags)
         if args.check:
+            fresh = report["freshPreparation"]
             report = {
                 key: report[key]
                 for key in [
@@ -311,6 +375,10 @@ def main():
                     "selection",
                 ]
             }
+            if fresh is not None:
+                report["freshPreparation"] = {
+                    k: v for k, v in fresh.items() if k != "records"
+                }
         print(json.dumps(report, indent=None if args.check else 2))
 
 

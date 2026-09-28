@@ -273,6 +273,91 @@ objects remain separate. Supplying a constructor with saved flags would still
 skip the original allocation/loading rules. These results therefore do not
 enable automatic adoption of saved boxes as live world bounds.
 
+## Fresh resource preparation
+
+`static-mesh-tree.js` adds a fresh-resource entry that joins the recovered flag
+transitions, constructor-empty array, saved version and saved box to the existing
+PostLoad/tree API:
+
+```js
+const prepared = prepareFreshStaticMeshTree(originalRecords, { classFlags });
+```
+
+`classFlags` is required current native class state. The browser does **not** yet
+derive it from class registration, and a missing value is unsupported. This
+entry is limited to a freshly allocated, resolved `Engine.StaticMesh`, file
+version 123, ordinary native class defaults and admitted saved properties.
+Reuse, custom templates, external default-object changes, script stacks and
+class configuration/localization remain outside its contract.
+
+The optional sweep export now retains `sourceClass` and ordered
+`savedProperties`: saved export flags plus every tag's name, type, array index
+and struct identity. The runtime admits only the sixteen original top-level
+mesh declarations with their exact types, index zero and no duplicates. Unknown
+or converted tags remain unsupported. These declarations target native tail
+fields; `Materials` belongs at **+0x13c**, separate from sections at +0x60.
+The default ray export is unchanged.
+
+The unsigned flag stages are exposed in `loadingFlags` for inspection:
+
+| Stage | Recovered operation |
+| --- | --- |
+| CreateExport | `(savedFlags & 0x067f01a5) \| 0x01000200` |
+| Fresh allocation | Add `0x4000` when current class flags contain `0x8` |
+| Preload begins | Clear `0x200`, set `0x8000` |
+| Serialize / Preload ends | Set `0x40000000`, clear `0x8000` |
+| ConditionalPostLoad | Clear `0x21000000` before the mesh's PostLoad |
+
+The existing PostLoad then sets `0x20000000` and performs its bounded reset.
+`localBounds` comes from the later saved box; it is never fitted to rendered
+vertices. Successful results expose the existing immutable `model`,
+`localBounds` and `postLoadWrites`. Preflight rejection does not simulate a
+partially executed native loader; unsupported PostLoad branches retain their
+existing sparse-write behavior.
+
+The same bounds verifier adds **256 source/browser comparisons**, executing
+271,620 instructions at 723 addresses. It interprets the original flag slices,
+the complete normal mesh constructor and ConditionalPostLoad/PostLoad. It
+compares all five stages, final flags, reset fields, array size/capacity and
+every zeroed entry. All sixteen source-bound property types exercise browser
+admission. The decoded payload and current class flags are supplied boundaries;
+archive I/O and full class/default-object loading are **not executed**.
+
+Qualification binds the complete normal native property constructor
+`106f4810..106f4f1d`, seventeen Core regions and eighteen instruction anchors.
+Each erased import and changed class/FName operand has an explicit binding.
+The source report records all spans, hashes and declarations. Only the ten
+entry bytes of relocated exception handlers are compared.
+
+This investigation also corrected an inherited `InitProperties` boundary in
+the picking and pose-allocation checks. Its old endpoint cut through a jump;
+the complete normal body ends at **0x1015fc7a**. The omitted constructor-linked
+property loop is now retained. Bulk copying starts after the object header,
+but later property copying uses declared offsets: header preservation is
+scoped to the original native descriptors, not arbitrary class metadata. See
+the [corrected allocation evidence](native-pose-allocation-evidence.md).
+
+For an original-input compatibility check, the existing record checker can
+exercise the actual browser helper with an **explicit diagnostic** class state:
+
+```sh
+python3 tools/world/check_static_collision_records.py 17_25 22_22 \
+  --fresh-class-flags 0 --check
+```
+
+Here zero is an authored test condition, **not a recovered game value**. All
+480 per-map records pass under that condition, alongside exact geometry,
+box, tail and property comparisons. The output labels the class state as
+diagnostic and fingerprints the runtime. Omitting the option leaves this extra
+check disabled. No generated assets or live scenes are changed.
+
+Validation also passes 42 related browser tests, 40 portable collision-record
+tests and ten instruction-interpreter tests. The corrected original picking
+and pose-allocation checks pass. An inspected offline browser startup produced
+no captured errors; it does not exercise the new entry through the live world.
+The reusable tools remain repository source outside the current standalone
+archives. Original inputs, raw listings and per-record receipts stay private.
+
 ## Next integration boundary
 
 `localBounds` must be the **current native mesh field**, not a box recomputed
@@ -280,7 +365,8 @@ from rendered vertices. The [source exporter](native-static-sweep-evidence.md#sa
 retains both serialized writes with exact offsets and hashes; the later box
 overwrites the first. Both records agree for all 480 checked per-map meshes.
 Saved mesh version eight and the bounded PostLoad path above are now qualified.
-Current object initialization/flags and later mutations remain separate; source
+Fresh initialization now has the bounded entry above, but current native class
+state, resolved-object lifecycle and later mutations remain separate. Source
 bytes alone still do not establish live current bounds.
 
 Live actor population, original current transforms/flags, concrete primitive

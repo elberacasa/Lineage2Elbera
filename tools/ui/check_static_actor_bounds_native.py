@@ -33,6 +33,7 @@ from check_hair_attachment_native import compare_call_block
 from static_collision_source import (
     qualify_static_postload,
     qualify_static_mesh_constructor,
+    qualify_static_mesh_fresh_load,
 )
 
 METHOD = "?GetCollisionBoundingBox@UStaticMesh@@UBE?AVFBox@@PBVAActor@@@Z"
@@ -147,8 +148,28 @@ def qualify(program, core, candidate, candidate_core):
         }
     )
     program.cache_id_global = int(constructor["cacheIdGlobal"], 16)
+    loading = qualify_static_mesh_fresh_load(e, core, candidate, candidate_core)
+    for block in loading["coreBlocks"]:
+        start, end = int(block["start"], 16), int(block["end"], 16)
+        PreparationProgram.add(
+            program,
+            core,
+            start,
+            end,
+            bytes(core.data[core.offset(start) : core.offset(end)]),
+        )
+    postload_symbol = "?PostLoad@UStaticMesh@@UAEXXZ"
+    postload_thunk = e.exported(postload_symbol)
+    vt = e.exported("??_7UStaticMesh@@6B@")
+    assert e.u32(vt + 0x24) == postload_thunk
+    assert (
+        candidate.u32(candidate.exports["??_7UStaticMesh@@6B@"] + 0x24)
+        == candidate.exports[postload_symbol]
+    )
+    program.membership_targets[postload_thunk] = 0x106F5CC0
     program.receipt = dict(
         prerequisites=prior,
+        freshLoading=loading,
         staticBounds=dict(
             normalComparison=proof,
             body=body,
@@ -214,6 +235,8 @@ class StaticBoundsMachine(AdmissionMachine):
         self.invoke(0x106F5CC0, mesh)
 
     def step(self, i):
+        if i.address == 0x1015E68F:
+            self.before_postload_flags = self.memory[self.registers["esi"] + 0x1C]
         if i.mnemonic == "adc":
             dest, source = i.op_str.split(", ")
             a, b = self.read(dest) & 0xFFFFFFFF, self.read(source) & 0xFFFFFFFF
@@ -743,9 +766,143 @@ def load_program(engine, core, comparison_engine, comparison_core):
     )
 
 
+FRESH_SCRIPT = r"""
+import fs from 'node:fs';
+const api=await import(new URL('./static-mesh-tree.js',process.argv[1]));
+const rows=JSON.parse(fs.readFileSync(0,'utf8'));
+process.stdout.write(JSON.stringify(rows.map(({source,classFlags})=>{
+ const r=api.prepareFreshStaticMeshTree(source,{classFlags});
+ if(r.status!=='ready')throw Error(JSON.stringify(r));
+ return {loadingFlags:r.loadingFlags,writes:r.postLoadWrites};
+})));
+"""
+
+
+def fresh_loading_cases(program, runtime):
+    """Actual flag instructions and complete ConditionalPostLoad/PostLoad.
+
+    CDO/class loading and archive payload application are NOT simulated as
+    success callbacks. Fresh storage and the admitted decoded payload are
+    explicit boundaries between the compared source stages.
+    """
+    rng = random.Random(0x46524553)
+    rows, expected, visited, steps = [], [], set(), 0
+    edge_flags = [0, 0xF0004, 0x04000000, 0xFDFFFEFF]
+    for n in range(256):
+        flags = (
+            edge_flags[n] if n < len(edge_flags) else rng.getrandbits(32) & ~0x02000100
+        )
+        class_flags = rng.getrandbits(32) & ~0x400
+        source = dict(
+            sourceClass="Engine.StaticMesh",
+            fileVersion=123,
+            savedProperties=dict(
+                savedExportFlags=flags,
+                tags=[
+                    dict(name=d["name"], type=d["type"], index=0, struct=None)
+                    for d in program.receipt["freshLoading"]["declarations"]
+                ],
+            ),
+            savedLocalBounds=dict(min=[0, 0, 0], max=[10, 10, 0], valid=1),
+            loadTail=dict(fields={"0x1dc": dict(encoding="i32", value=8)}),
+            vertices=[[0, 0, 0], [10, 0, 0], [0, 10, 0]],
+            indices=[0, 1, 2],
+            materials=[0],
+            collisionTree=dict(
+                trianglePlanes=[[0, 0, -1, 0] + [0] * 12],
+                nodes=[
+                    dict(links=[0, -1, -1, -1], bounds=[0, 0, 0, 10, 10, 0], valid=1)
+                ],
+            ),
+        )
+        rows.append(dict(source=source, classFlags=class_flags))
+        m = StaticBoundsMachine(program)
+        mesh, export, cls = 0x300000, 0x310000, 0x320000
+        m.memory.update({export + 0x10: flags, cls + 0x4A4: class_flags})
+        m.registers.update(esi=export)
+        m.execute_until(0x10149791, 0x101497A0)
+        created = m.registers["ecx"]
+        m.registers.update(edi=cls, ebx=created, ebp=0xE00000, esi=mesh)
+        m.execute_until(0x10167BE4, 0x10167BF6)
+        allocated = m.registers["ebx"]
+        m.memory.update({mesh + off: rng.getrandbits(32) for off in range(0, 0x1FC, 4)})
+        m.execute_until(0x10167C10, 0x10167C13)
+        cache = program.cache_id_global
+        m.memory.update(
+            {
+                0x11D8D900: cache,
+                cache: 0,
+                cache + 4: 0,
+                0x103307E8: 0,
+                0x103307EC: 0,
+                0x103307F0: 0,
+            }
+        )
+        m.invoke(0x106F72F0, mesh)
+        assert m.memory[mesh + 0x1C] == allocated
+        assert m.array(mesh + 0xD8) == []
+        # Explicit decoded payload boundary: archive execution and object
+        # references remain outside this differential. The constructor's empty
+        # array is preserved; known declared properties cannot target it.
+        m.memory.update({mesh + 0x1DC: 8, mesh + 0x7C: 3})
+        m.put_box(mesh + 0x34, source["savedLocalBounds"])
+        m.registers["esi"] = mesh
+        m.execute_until(0x10148C70, 0x10148C82)
+        serializing = m.memory[mesh + 0x1C]
+        m.execute_until(0x1015E84B, 0x1015E852)
+        m.execute_until(0x10148C95, 0x10148C9C)
+        serialized = m.memory[mesh + 0x1C]
+        m.memory[m.memory[mesh] + 0x24] = program.engine.exported(
+            "?PostLoad@UStaticMesh@@UAEXXZ"
+        )
+        m.invoke(0x1015E650, mesh)
+        assert m.box(mesh + 0x34) == source["savedLocalBounds"]
+        writes = dict(
+            objectFlags=m.memory[mesh + 0x1C],
+            field1e4=m.memory[mesh + 0x1E4],
+            field1e8=m.memory[mesh + 0x1E8],
+            field1ec=m.memory[mesh + 0x1EC],
+            vertexArray=dict(
+                count=m.memory[mesh + 0xDC],
+                capacity=m.memory[mesh + 0xE0],
+                words=m.array(mesh + 0xD8),
+            ),
+        )
+        expected.append(
+            dict(
+                loadingFlags=dict(
+                    created=created,
+                    allocated=allocated,
+                    serializing=serializing,
+                    serialized=serialized,
+                    beforePostLoad=m.before_postload_flags,
+                ),
+                writes=writes,
+            )
+        )
+        visited.update(m.visited)
+        steps += len(m.visited)
+    actual = browser_outputs(FRESH_SCRIPT, rows, Path(runtime))
+    assert len(actual) == len(expected)
+    for n, (a, b) in enumerate(zip(actual, expected)):
+        assert a == b, ("fresh loading", n, rows[n], a, b)
+    return dict(
+        cases=len(rows),
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        browserStateCompared=True,
+        sourceDeclaredPropertyTypes=len(
+            program.receipt["freshLoading"]["declarations"]
+        ),
+        classFlags="explicit current input",
+        archivePayload="supplied boundary",
+    )
+
+
 def verify(engine, core, comparison_engine, comparison_core, runtime):
     program = load_program(engine, core, comparison_engine, comparison_core)
     construction = constructor_cases(program)
+    fresh_loading = fresh_loading_cases(program, runtime)
     rows = fixture_rows()
     expected = []
     visited = set()
@@ -807,6 +964,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         instructions=steps,
         uniqueInstructions=len(visited),
         construction=construction,
+        freshLoading=fresh_loading,
         postLoad=dict(
             cases=len(rows),
             instructions=postload_steps,
@@ -876,6 +1034,7 @@ def main():
                         "instructions",
                         "uniqueInstructions",
                         "construction",
+                        "freshLoading",
                         "postLoad",
                     ]
                 }

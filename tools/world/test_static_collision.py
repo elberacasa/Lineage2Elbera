@@ -7,7 +7,7 @@ from export_static_collision import Reader, mesh_body, mesh_load_tail, qualified
 from types import SimpleNamespace
 from unittest.mock import patch
 from l2lib import L2Error
-from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties
+from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation
 
 
 def compact(n):
@@ -255,6 +255,64 @@ class StaticCollisionTest(unittest.TestCase):
 
 
 class QualificationTest(unittest.TestCase):
+    def mesh_fixture(self, *, sweep, repeated=False):
+        # A complete authored export: one enabled material, native geometry,
+        # and the file-123/licensee-zero tail. No original package is needed.
+        material_tag = b'\x01\x29\x01\x02\x83\x00'
+        props = material_tag * (2 if repeated else 1) + b'\x00'
+        native = body()
+        raw = props + native
+        raw += struct.pack('<i', len(raw)+5) + b'\x00' + struct.pack('<i', 8) + b'\x00' + bytes(4)
+        ex = SimpleNamespace(index=0, name='Mesh', package_index=0,
+            class_index=-2, serial_offset=0, serial_size=len(raw), object_flags=0x12345)
+        imports = [SimpleNamespace(name='Engine', package_index=0),
+                   SimpleNamespace(name='StaticMesh', package_index=-1)]
+        pkg = SimpleNamespace(path=Path('Fixture.usx'), data=raw, exports=[ex],
+            file_version=123, licensee_version=0,
+            name=lambda n: ['None', 'Materials', 'EnableCollision'][n],
+            class_name_of=lambda e: 'StaticMesh', body_reader=lambda e: Reader(raw),
+            resolve_ref=lambda ref: ex if ref > 0 else imports[-ref-1],
+            export_name=lambda e: e.name, import_name=lambda e: e.name)
+        audit = Audit.__new__(Audit)
+        audit.retain_sweep_data = sweep
+        audit.packages, audit.meshes, audit.geometry = {'Fixture': pkg}, {}, {}
+        return audit
+
+    def test_mesh_export_retains_qualified_class_saved_flags_and_ordered_tags(self):
+        for repeated in (False, True):
+            audit = self.mesh_fixture(sweep=True, repeated=repeated)
+            self.assertEqual(audit.mesh('Fixture.Mesh')['issues'], [])
+            mesh = audit.geometry['Fixture.Mesh']
+            self.assertEqual(mesh['sourceClass'], 'Engine.StaticMesh')
+            self.assertEqual(mesh['savedProperties'], {
+                'savedExportFlags': 0x12345,
+                'tags': [{'name': 'Materials', 'type': 9, 'index': 0, 'struct': None}]
+                        * (2 if repeated else 1)})
+            self.assertEqual(mesh['loadTail']['fields']['0x1dc']['value'], 8)
+
+    def test_ray_export_does_not_require_or_emit_fresh_loading_metadata(self):
+        audit = self.mesh_fixture(sweep=False)
+        # Legacy ray extraction never resolves the source class import chain.
+        audit.packages['Fixture'].exports[0].class_index = -999
+        self.assertEqual(audit.mesh('Fixture.Mesh')['issues'], [])
+        mesh = audit.geometry['Fixture.Mesh']
+        for name in ('sourceClass', 'savedProperties', 'loadTail', 'collisionTree'):
+            self.assertNotIn(name, mesh)
+
+    def test_browser_preparation_diagnostic_requires_explicit_valid_class_state(self):
+        audit = self.mesh_fixture(sweep=True)
+        audit.packages['Fixture'].exports[0].object_flags = 0xf0004
+        self.assertEqual(audit.mesh('Fixture.Mesh')['issues'], [])
+        result = check_fresh_preparation(audit.geometry, 0)
+        self.assertEqual(result['cases'], 1)
+        self.assertEqual(result['records'][0]['objectFlags'], 0x600f0004)
+        self.assertEqual(result['records'][0]['vertexCount'], 4)
+        with self.assertRaisesRegex(ValueError, 'class config/localized'):
+            check_fresh_preparation(audit.geometry, 0x400)
+        for invalid in (None, True, -1, 0x100000000, '0'):
+            with self.assertRaises(ValueError):
+                check_fresh_preparation(audit.geometry, invalid)
+
     def test_import_group_path_selects_the_matching_duplicate_export(self):
         # Both exports have the same leaf; they are different original objects.
         exports = [SimpleNamespace(name='Town', package_index=0),

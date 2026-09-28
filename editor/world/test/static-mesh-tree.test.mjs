@@ -7,6 +7,7 @@ import {
   traceStaticMeshCollision,
   postLoadStaticMesh,
   prepareLoadedStaticMeshTree,
+  prepareFreshStaticMeshTree,
 } from "../js/static-mesh-tree.js";
 import { prepareStaticMeshBounds } from "../js/actor-primitive-bounds.js";
 
@@ -62,6 +63,110 @@ const loadedState = (extra = {}) => ({
   vertexArray: { count: 2, capacity: 4 },
   localBounds: { min: [-0, -2, -3], max: [10, 20, 30], valid: 0 },
   ...extra,
+});
+
+const savedMesh = () => ({
+  ...mesh(),
+  sourceClass: "Engine.StaticMesh",
+  fileVersion: 123,
+  savedProperties: {
+    savedExportFlags: 0x000f0004,
+    tags: [{ name: "Materials", type: 9, index: 0, struct: null }],
+  },
+  savedLocalBounds: loadedState().localBounds,
+  loadTail: { fields: { "0x1dc": { encoding: "i32", value: 8 } } },
+});
+
+test("fresh resource loading derives current flags and empty-array initialization from saved state", () => {
+  const source = savedMesh(),
+    before = structuredClone(source);
+  const loaded = prepareFreshStaticMeshTree(source, { classFlags: 0 });
+  assert.equal(loaded.status, "ready", loaded.reason);
+  assert.deepEqual(loaded.loadingFlags, {
+    created: 0x010f0204,
+    allocated: 0x010f0204,
+    serializing: 0x010f8004,
+    serialized: 0x410f0004,
+    beforePostLoad: 0x400f0004,
+  });
+  assert.equal(loaded.postLoadWrites.objectFlags, 0x600f0004);
+  assert.deepEqual(loaded.postLoadWrites.vertexArray, {
+    count: 3,
+    capacity: 3,
+    words: [0, 0, 0],
+  });
+  assert.deepEqual(source, before);
+  source.savedLocalBounds.min[1] = 500;
+  assert.equal(loaded.localBounds.min[1], -2);
+  assert.ok(Object.is(loaded.localBounds.min[0], -0));
+  assert.ok(Object.isFrozen(loaded.loadingFlags));
+  const r = traceStaticMeshCollision(loaded.model, ordinary(input()));
+  assert.equal(r.status, "ready", r.reason);
+  assert.equal(r.blocked, true);
+});
+
+test("fresh allocation consumes the actual class flag branch without defaulting missing class state", () => {
+  const source = savedMesh();
+  assert.equal(prepareFreshStaticMeshTree(source).status, "unsupported");
+  assert.equal(
+    prepareFreshStaticMeshTree(source, { classFlags: 0x400 }).status,
+    "unsupported",
+  );
+  const r = prepareFreshStaticMeshTree(source, { classFlags: 8 });
+  assert.equal(r.status, "ready", r.reason);
+  assert.equal(r.postLoadWrites.objectFlags, 0x600f4004);
+});
+
+test("fresh loading refuses header writes, unknown or converted properties and indexed duplicates", () => {
+  for (const tags of [
+    [{ name: "ObjectFlags", type: 2, index: 0, struct: null }],
+    [{ name: "Invented", type: 4, index: 0, struct: null }],
+    [{ name: "Frequency", type: 1, index: 0, struct: null }],
+    [{ name: "Frequency", type: 4, index: 128, struct: null }],
+    [{ name: "Frequency", type: 4, index: 0, struct: "Other" }],
+    ...[null, [,]],
+  ]) {
+    const source = savedMesh();
+    source.savedProperties.tags = tags;
+    assert.equal(
+      prepareFreshStaticMeshTree(source, { classFlags: 0 }).status,
+      "unsupported",
+    );
+  }
+  const source = savedMesh();
+  source.savedProperties.tags.push({ ...source.savedProperties.tags[0] });
+  assert.equal(
+    prepareFreshStaticMeshTree(source, { classFlags: 0 }).status,
+    "unsupported",
+  );
+});
+
+test("fresh loading keeps unsupported source and PostLoad branches explicit", () => {
+  for (const change of [
+    (s) => (s.sourceClass = "Other.StaticMesh"),
+    (s) => (s.fileVersion = 122),
+    (s) => (s.savedProperties.savedExportFlags |= 0x02000000),
+    (s) => (s.loadTail.fields["0x1dc"].encoding = "u32"),
+    (s) => delete s.savedProperties,
+    (s) => delete s.savedLocalBounds,
+  ]) {
+    const source = savedMesh();
+    change(source);
+    assert.equal(
+      prepareFreshStaticMeshTree(source, { classFlags: 0 }).status,
+      "unsupported",
+    );
+  }
+  const source = savedMesh();
+  source.loadTail.fields["0x1dc"].value = -1;
+  const old = prepareFreshStaticMeshTree(source, { classFlags: 0 });
+  assert.equal(old.status, "unsupported");
+  assert.deepEqual(old.writes, { objectFlags: 0x600f0004 });
+  source.loadTail.fields["0x1dc"].value = 8;
+  source.savedProperties.savedExportFlags |= 0x100;
+  const localized = prepareFreshStaticMeshTree(source, { classFlags: 0 });
+  assert.equal(localized.status, "unsupported");
+  assert.deepEqual(localized.writes, { objectFlags: 0x600f0104 });
 });
 
 test("PostLoad returns original sparse resets without mutating unrelated resource state", () => {

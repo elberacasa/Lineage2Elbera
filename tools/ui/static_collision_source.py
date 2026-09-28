@@ -941,3 +941,461 @@ def qualify_static_mesh_constructor(engine, core, comparison_engine, comparison_
             "Only ten handler entry bytes are compared; exceptions and complete unwind graphs are outside scope.",
         ],
     )
+
+
+def qualify_static_mesh_fresh_load(engine, core, comparison_engine, comparison_core):
+    """Normal fresh-load transitions with explicitly supplied current class flags.
+
+    Includes native property declaration bindings, not execution of the entire
+    class registry, package resolver or arbitrary reflected compatibility code.
+    """
+    assert (engine.sha, core.sha, comparison_engine.sha, comparison_core.sha) == (
+        ENGINE_SHA,
+        CORE_SHA,
+        CANDIDATE_ENGINE_SHA,
+        CANDIDATE_CORE_SHA,
+    )
+    start, end = 0x106F4810, 0x106F4F1D
+    read = lambda va, size: bytes(
+        engine.data[engine.offset(va) : engine.offset(va) + size]
+    )
+    original = read(start, end - start)
+    owned = bytearray(original)
+    other = comparison_engine.read(start - 64, end - start)
+    operands = []
+    for at, old, new, kind, symbol in [
+        (
+            0x106F4873,
+            0x11D8D98C,
+            0x11D8D988,
+            "import",
+            "??0FName@@QAE@PBGW4EFindName@@@Z",
+        ),
+        (
+            0x106F4ACC,
+            0x10DDBEA0,
+            0x10DDBEB0,
+            "export",
+            "?PrivateStaticClass@UStaticMesh@@0VUClass@@A",
+        ),
+        (
+            0x106F4B18,
+            0x10DDBEA0,
+            0x10DDBEB0,
+            "export",
+            "?PrivateStaticClass@UStaticMesh@@0VUClass@@A",
+        ),
+        (
+            0x106F4D0F,
+            0x10C6B258,
+            0x10C6B268,
+            "export",
+            "?PrivateStaticClass@UMaterial@@0VUClass@@A",
+        ),
+    ]:
+        offset = at - start
+        assert struct.unpack_from("<I", owned, offset)[0] == old
+        assert struct.unpack_from("<I", other, offset)[0] == new
+        if kind == "import":
+            assert comparison_engine.imports[new] == ("core.dll", symbol)
+        else:
+            assert (
+                engine.exported(symbol) == old
+                and comparison_engine.exports[symbol] == new
+            )
+        struct.pack_into("<I", owned, offset, new)
+        operands.append(
+            dict(
+                at=hex(at),
+                kind=kind,
+                symbol=symbol,
+                owned=hex(old),
+                comparison=hex(new),
+            )
+        )
+    handler = (
+        int.from_bytes(owned[6:10], "little"),
+        int.from_bytes(other[6:10], "little"),
+    )
+    comparison = compare_method(
+        bytes(owned),
+        other,
+        start,
+        start - 64,
+        comparison_engine.imported_call,
+        read,
+        comparison_engine.read,
+        handler,
+    )
+    imports = {
+        "?GetClass@UObject@@QBEPAVUClass@@XZ": [
+            0x106F483B,
+            0x106F487B,
+            0x106F48C2,
+            0x106F4909,
+            0x106F4950,
+            0x106F4997,
+            0x106F49DE,
+            0x106F4A25,
+            0x106F4A6C,
+            0x106F4AB3,
+            0x106F4AFF,
+            0x106F4B4B,
+            0x106F4B92,
+            0x106F4BD9,
+            0x106F4C20,
+            0x106F4C67,
+            0x106F4CBB,
+            0x106F4E1E,
+        ],
+        "??0FName@@QAE@W4EName@@@Z": [0x106F485C],
+        "??2UFloatProperty@@SAPAXIPAVUObject@@VFName@@K@Z": [
+            0x106F4884,
+            0x106F48CB,
+            0x106F4B54,
+            0x106F4B9B,
+        ],
+        "??0UFloatProperty@@QAE@W4ECppProperty@@HPBGK@Z": [
+            0x106F48A3,
+            0x106F48EA,
+            0x106F4B73,
+            0x106F4BBA,
+        ],
+        "??2UBoolProperty@@SAPAXIPAVUObject@@VFName@@K@Z": [
+            0x106F4912,
+            0x106F4959,
+            0x106F49A0,
+            0x106F49E7,
+            0x106F4A2E,
+            0x106F4A75,
+            0x106F4BE2,
+            0x106F4C29,
+            0x106F4C70,
+            0x106F4D43,
+            0x106F4D83,
+            0x106F4DC3,
+        ],
+        "??0UBoolProperty@@QAE@W4ECppProperty@@HPBGK@Z": [
+            0x106F4931,
+            0x106F4978,
+            0x106F49BF,
+            0x106F4A06,
+            0x106F4A4D,
+            0x106F4A94,
+            0x106F4C01,
+            0x106F4C48,
+            0x106F4C8F,
+            0x106F4D60,
+            0x106F4DA0,
+            0x106F4DE0,
+        ],
+        "??2UObjectProperty@@SAPAXIPAVUObject@@VFName@@K@Z": [
+            0x106F4ABC,
+            0x106F4B08,
+            0x106F4CFE,
+        ],
+        "??0UObjectProperty@@QAE@W4ECppProperty@@HPBGKPAVUClass@@@Z": [
+            0x106F4AE0,
+            0x106F4B2C,
+            0x106F4D20,
+        ],
+        "??0FArchive@@QAE@XZ": [0x106F4C9E],
+        "??2UStruct@@SAPAXIPAVUObject@@VFName@@K@Z": [0x106F4CC7],
+        "??0UStruct@@QAE@PAV0@@Z": [0x106F4CDA],
+        "?SetPropertiesSize@UStruct@@QAEXH@Z": [0x106F4DF3],
+        "??2UArrayProperty@@SAPAXIPAVUObject@@VFName@@K@Z": [0x106F4E27],
+        "??0UArrayProperty@@QAE@W4ECppProperty@@HPBGK@Z": [0x106F4E47],
+        "??2UStructProperty@@SAPAXIPAVUObject@@VFName@@K@Z": [0x106F4E79],
+        "??0UStructProperty@@QAE@W4ECppProperty@@HPBGKPAVUStruct@@@Z": [0x106F4E96],
+        "??1FArchive@@UAE@XZ": [0x106F4EFE],
+    }
+    expected = {
+        hex(at): ["core.dll", symbol]
+        for symbol, sites in imports.items()
+        for at in sites
+    }
+    actual = {
+        row["ownedVA"]: row["binding"]
+        for row in comparison["differences"]
+        if row["kind"] == "named-import"
+    }
+    assert actual == expected
+    symbol = "?StaticConstructor@UStaticMesh@@QAEXXZ"
+    assert (
+        engine.exported(symbol, True) == start
+        and comparison_engine.body(symbol) == start - 64
+    )
+    declarations = []
+    # The matching FName call and C++ property constructor pass these exact
+    # top-level names and offsets. Nested material members are deliberately not
+    # treated as fields of the containing mesh.
+    declared = [
+        (
+            "MaxSwayAngle",
+            0x106F4877,
+            0x106F486C,
+            0x108E8768,
+            0x106F48A3,
+            0x106F489A,
+            0x1B0,
+            4,
+        ),
+        (
+            "Frequency",
+            0x106F48BE,
+            0x106F48B9,
+            0x108E8750,
+            0x106F48EA,
+            0x106F48E1,
+            0x1AC,
+            4,
+        ),
+        (
+            "bSwayObject",
+            0x106F4905,
+            0x106F4900,
+            0x108E8734,
+            0x106F4931,
+            0x106F4928,
+            0x1A8,
+            3,
+        ),
+        (
+            "UseSimpleLineCollision",
+            0x106F494C,
+            0x106F4947,
+            0x108E86FC,
+            0x106F4978,
+            0x106F496F,
+            0x180,
+            3,
+        ),
+        (
+            "UseSimpleBoxCollision",
+            0x106F4993,
+            0x106F498E,
+            0x108E86C8,
+            0x106F49BF,
+            0x106F49B6,
+            0x184,
+            3,
+        ),
+        (
+            "UseSimpleKarmaCollision",
+            0x106F49DA,
+            0x106F49D5,
+            0x108E868C,
+            0x106F4A06,
+            0x106F49FD,
+            0x18C,
+            3,
+        ),
+        (
+            "UseVertexColor",
+            0x106F4A21,
+            0x106F4A1C,
+            0x108E8668,
+            0x106F4A4D,
+            0x106F4A44,
+            0x188,
+            3,
+        ),
+        (
+            "bStaticMeshLod",
+            0x106F4A68,
+            0x106F4A63,
+            0x108E8644,
+            0x106F4A94,
+            0x106F4A8B,
+            0x194,
+            3,
+        ),
+        (
+            "StaticMeshLod01",
+            0x106F4AAF,
+            0x106F4AAA,
+            0x108E861C,
+            0x106F4AE0,
+            0x106F4AD7,
+            0x198,
+            5,
+        ),
+        (
+            "StaticMeshLod02",
+            0x106F4AFB,
+            0x106F4AF6,
+            0x108E8510,
+            0x106F4B2C,
+            0x106F4B23,
+            0x19C,
+            5,
+        ),
+        (
+            "LodRange01",
+            0x106F4B47,
+            0x106F4B42,
+            0x108E84F4,
+            0x106F4B73,
+            0x106F4B6A,
+            0x1A0,
+            4,
+        ),
+        (
+            "LodRange02",
+            0x106F4B8E,
+            0x106F4B89,
+            0x108E84D8,
+            0x106F4BBA,
+            0x106F4BB1,
+            0x1A4,
+            4,
+        ),
+        (
+            "bStaticMeshLodBlend",
+            0x106F4BD5,
+            0x106F4BD0,
+            0x108E84A8,
+            0x106F4C01,
+            0x106F4BF8,
+            0x1B4,
+            3,
+        ),
+        (
+            "bMakeTwoSideMesh",
+            0x106F4C1C,
+            0x106F4C17,
+            0x108E8480,
+            0x106F4C48,
+            0x106F4C3F,
+            0x1B8,
+            3,
+        ),
+        (
+            "bUseBillBoard",
+            0x106F4C63,
+            0x106F4C5E,
+            0x108E845C,
+            0x106F4C8F,
+            0x106F4C86,
+            0x1C0,
+            3,
+        ),
+        (
+            "Materials",
+            0x106F4E1A,
+            0x106F4E15,
+            0x108E8364,
+            0x106F4E47,
+            0x106F4E3E,
+            0x13C,
+            9,
+        ),
+    ]
+    for name, name_call, name_at, name_ptr, ctor, offset_at, offset, kind in declared:
+        engine.instruction(name_call, "call", "edi")
+        engine.instruction(name_at, "push", hex(name_ptr))
+        engine.instruction(offset_at, "push", hex(offset))
+        assert engine.wide(name_ptr) == name
+        assert bytes(
+            engine.data[
+                engine.offset(name_ptr) : engine.offset(name_ptr) + 2 * (len(name) + 1)
+            ]
+        ) == comparison_engine.read(name_ptr, 2 * (len(name) + 1))
+        assert (
+            ctor
+            in imports[
+                next(
+                    s
+                    for s in imports
+                    if s.startswith(
+                        "??0U"
+                        + {3: "Bool", 4: "Float", 5: "Object", 9: "Array"}[kind]
+                        + "Property@@"
+                    )
+                )
+            ]
+        )
+        assert offset >= 0x34
+        declarations.append(
+            dict(
+                name=name,
+                type=kind,
+                offset=hex(offset),
+                nameCall=hex(name_call),
+                constructor=hex(ctor),
+            )
+        )
+    core_blocks = []
+    for label, lo, hi in [
+        ("CreateExport normal paths", 0x10149660, 0x101498B3),
+        ("StaticAllocateObject normal paths", 0x101677C0, 0x10167CE0),
+        ("StaticConstructObject", 0x10167EB0, 0x10167F3E),
+        ("InitProperties", 0x1015FB00, 0x1015FC7A),
+        ("Preload", 0x10148B50, 0x10148DE3),
+        ("UObject.Serialize", 0x1015E820, 0x1015EA8F),
+        ("ConditionalPostLoad", 0x1015E650, 0x1015E6D4),
+        ("GetClass", 0x1010A1E0, 0x1010A1E4),
+        ("native UProperty constructor", 0x10174F60, 0x10174FF3),
+        ("native UBoolProperty constructor", 0x1011E140, 0x1011E1A6),
+        ("native UFloatProperty constructor", 0x1011E3D0, 0x1011E42F),
+        ("native UObjectProperty constructor", 0x1011E650, 0x1011E6B6),
+        ("native UArrayProperty constructor", 0x1011F350, 0x1011F3AF),
+        ("UClass.Register", 0x101339D0, 0x10133AF6),
+        ("UStruct.Link normal paths", 0x10135E30, 0x10136218),
+        ("SetLinker", 0x10163DF0, 0x10163EB7),
+        ("AddObject", 0x101617B0, 0x10161914),
+    ]:
+        raw = bytes(core.data[core.offset(lo) : core.offset(lo) + hi - lo])
+        assert raw == comparison_core.read(lo, hi - lo)
+        core_blocks.append(
+            dict(
+                label=label,
+                start=hex(lo),
+                end=hex(hi),
+                SHA256=hashlib.sha256(raw).hexdigest(),
+            )
+        )
+    anchors = [
+        (0x10149794, "and", "ecx, 0x67f01a5"),
+        (0x1014979A, "or", "ecx, 0x1000200"),
+        (0x10167B64, "and", "eax, 0xc000100"),
+        (0x10167BE4, "test", "byte ptr [edi + 0x4a4], 8"),
+        (0x10167BED, "or", "ebx, 0x4000"),
+        (0x10167C10, "mov", "dword ptr [esi + 0x1c], ebx"),
+        (0x10167C8B, "test", "dword ptr [edi + 0x4a4], 0x400"),
+        (0x1015FB45, "mov", "ecx, 0x34"),
+        (0x10148C70, "and", "dword ptr [esi + 0x1c], 0xfffffdff"),
+        (0x10148C7A, "or", "eax, 0x8000"),
+        (0x10148C95, "and", "dword ptr [esi + 0x1c], 0xffff7fff"),
+        (0x1015E84B, "or", "dword ptr [esi + 0x1c], 0x40000000"),
+        (0x1015E680, "test", "eax, 0x1000000"),
+        (0x1015E687, "and", "eax, 0xdeffffff"),
+        (0x10174FB4, "mov", "dword ptr [esi + 0x54], edx"),
+        (0x10174F9E, "mov", "dword ptr [esi + 0x40], 1"),
+        (0x10135FE5, "mov", "dword ptr [esi + 0x54], edi"),
+        (0x10133AA1, "push", "0"),
+    ]
+    for row in anchors:
+        core.instruction(*row)
+    return dict(
+        engineBlocks=[
+            dict(
+                label="native mesh property constructor",
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(original).hexdigest(),
+                comparison=comparison,
+                operandBindings=operands,
+            )
+        ],
+        coreBlocks=core_blocks,
+        declarations=declarations,
+        anchors=anchors,
+        limits=[
+            "Current class flags are explicit input; class registration, custom templates, reuse, external CDO changes and complete package resolution are not executed or inferred.",
+            "Fresh referenced native mesh only; normal admitted property types and native offsets. Script stacks, unknown/duplicate/indexed tags and compatibility conversions remain unsupported.",
+            "Flag operations are interpreted in bounded original slices; matched callers retain branch context but do not constitute execution of the entire loader.",
+            "Property declaration names/types/offsets are source bound. Only ten entry bytes qualify relocated exception handlers; full exception behavior is outside scope.",
+            "Supplemental byte correspondence does not authenticate a distribution or restore a protected runtime.",
+        ],
+    )
