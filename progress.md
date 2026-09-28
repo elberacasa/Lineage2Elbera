@@ -2,6 +2,31 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Fresh Online entry baseline — 28 September 2026
+
+After the original actor-query milestone merged as PR30, a fresh isolated
+browser session reached character creation through the ordinary Online control.
+The captured creator still uses a custom layout; official Interlude appearance
+is an explicit gap. The installed web-game runner recorded no console/page
+errors for this bounded entry check.
+
+A separate interactive check on the same published build entered an existing
+local character on Talking Island, selected Katerina through the rendered world,
+opened her dialog and loaded the server's shop list. Cancel and the inventory
+keyboard shortcut displayed the saved inventory/equipment. No warning/error
+entries were captured during those interactions. No purchases, developer
+teleports, state injection or database changes were used for this check. The
+temporary playtest browser/tab were closed afterwards.
+
+This verifies entry and those interactions, not a complete beginner journey,
+official visual parity, movement/camera collision, new progression persistence,
+server restart recovery or multiplayer readiness. The next acceptance sequence
+is ordinary entry, movement, combat/skill use, loot/equipment, quest/shop,
+death/respawn and reconnect, followed by two-client consistency and server
+restart. Connect the recovered collision and presentation components to that
+sequence; add inspection tools only where they resolve a concrete missing input
+or make a defect reproducible. The full-port goal remains active.
+
 ## Original nonzero actor-query traversal — 28 September 2026
 
 The browser now queries its existing actor tree in original parent/child order,
