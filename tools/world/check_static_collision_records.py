@@ -11,8 +11,53 @@ import hashlib
 import json
 import struct
 
-from export_static_collision import Audit, qualified_ref, Reader, count
-from l2lib import encode_compact
+from export_static_collision import (
+    Audit,
+    qualified_ref,
+    Reader,
+    count,
+    read_props_ordered,
+)
+from l2lib import encode_compact, read_properties
+
+
+def check_properties(package, export, native_offset):
+    """Census ordered saved tags; never infer current flags from the export."""
+    start, end = export.serial_offset, export.serial_offset + export.serial_size
+    tags, actual = read_props_ordered(package, start, end=end)
+    if actual != native_offset:
+        raise ValueError("property terminator differs from native mesh body offset")
+    reader = Reader(memoryview(package.data)[:end], start, package.path)
+    legacy = read_properties(package, reader)
+    values = {
+        tag["name"]: tag["boolval"] if tag["type"] == 3 else tag["raw"] for tag in tags
+    }
+    if reader.pos != actual or legacy != values:
+        raise ValueError("ordered properties differ from mesh decoder")
+    counts = Counter(tag["name"].casefold() for tag in tags)
+    header_names = {"objectinternal", "objectflags", "outer", "name", "class"}
+    return dict(
+        sourceOffset=start,
+        sourceBytes=actual - start,
+        sourceSHA256=hashlib.sha256(package.data[start:actual]).hexdigest(),
+        savedExportFlags=export.object_flags,
+        tags=[
+            dict(
+                name=tag["name"],
+                type=tag["type"],
+                index=tag["index"],
+                size=tag["size"],
+                struct=tag["struct"],
+                boolean=tag["boolval"] if tag["type"] == 3 else None,
+                payloadSHA256=hashlib.sha256(tag["raw"]).hexdigest(),
+            )
+            for tag in tags
+        ],
+        duplicateNames=sorted(name for name, count in counts.items() if count > 1),
+        nativeHeaderTags=[
+            tag["name"] for tag in tags if tag["name"].casefold() in header_names
+        ],
+    )
 
 
 def check_arrays(source, data):
@@ -195,6 +240,9 @@ def verify(tile):
                 arrays=spans,
                 bounds=bounds,
                 loadTail=tail,
+                savedProperties=check_properties(
+                    package, export, data["nativeBodyOffset"]
+                ),
                 overwrittenBoundsDiffer=bounds[0]["SHA256"] != bounds[1]["SHA256"],
             )
         )
@@ -215,11 +263,21 @@ def verify(tile):
         savedMeshVersions=dict(
             Counter(str(row["loadTail"]["savedMeshVersion"]) for row in records)
         ),
+        savedExportFlags=dict(
+            Counter(hex(row["savedProperties"]["savedExportFlags"]) for row in records)
+        ),
+        meshHeaderTagRecords=sum(
+            bool(row["savedProperties"]["nativeHeaderTags"]) for row in records
+        ),
+        meshDuplicateTagRecords=sum(
+            bool(row["savedProperties"]["duplicateNames"]) for row in records
+        ),
         records=records,
         limits=[
             "Exact decoded-package array byte round trip, including compact-index encoding and lazy saved ends.",
             "Both serialized boxes are compared at offsets recovered through the primitive prefix and section count. The second overwrites the first saved field; post-load state is not established.",
             "Load-tail fields are re-encoded through the exact export end. The lazy payload is only span/hash checked; its elements are not decoded. References are encoded package indices, not resolved objects.",
+            "Ordered saved-property tags retain duplicates and indices. Their terminator must meet the native mesh body; a matching generic decode is a framing cross-check, not independent proof of native loading. Saved export flags are not current flags.",
             "Reads every geometry record admitted by existing class/version/material gates, including references from actors rejected by placement gates.",
             "Not native archive I/O execution, current actor/cache state, collision result parity or complete map coverage.",
             "Malformed/noncanonical compact streams and unsupported versions are outside this evidence.",
@@ -247,6 +305,9 @@ def main():
                     "boundsRecords",
                     "overwrittenBoundsDiffer",
                     "savedMeshVersions",
+                    "savedExportFlags",
+                    "meshHeaderTagRecords",
+                    "meshDuplicateTagRecords",
                     "selection",
                 ]
             }

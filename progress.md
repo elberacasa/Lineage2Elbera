@@ -2,6 +2,31 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original packed-property framing and saved-state census — 28 September 2026
+
+The existing map reader now preserves extended array indices instead of
+discarding them, and reads Boolean values from the tag bit without consuming
+a payload. Static collision audits bound properties to each original export.
+Eight exact Core code/data regions, five thunks and seventeen instruction
+checks bind these changes to the original tag serializer and Boolean application.
+The same source qualification remains part of the existing Elbera sweep checker.
+
+The record checker now preserves ordered saved-tag evidence, duplicate/header
+names and saved export flags. All 480 per-map meshes on 17_25/22_22 have flags
+0x000f0004, no duplicate names and no native-header tags. All 2,922 actor audit
+records are unchanged; their 7,523 Boolean tags have zero saved payload size.
+This is not a map-placement fix or proof of current flags. Original geometry,
+box/tail comparisons and 800 source/browser sweep comparisons still pass.
+
+Fifteen prop-reader/repair tests, 37 collision-record tests and 24 terrain
+collision/zone tests pass; CI now also runs the prop-reader/repair suite. No
+runtime JS/UI or generated assets changed, so no new browser/Online acceptance
+or screenshot is claimed. All existing README images remain. Tools are reusable
+repository source outside the existing standalone archives. Private originals,
+disassembly and per-record receipts stay local. Next: finish the fresh loading
+state chain and connect the recovered components to actual world population.
+The full browser port remains active and incomplete.
+
 ## Original mesh constructor preservation — 28 September 2026
 
 The existing Elbera bounds checker now executes the complete normal mesh

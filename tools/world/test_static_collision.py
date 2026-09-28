@@ -7,7 +7,7 @@ from export_static_collision import Reader, mesh_body, mesh_load_tail, qualified
 from types import SimpleNamespace
 from unittest.mock import patch
 from l2lib import L2Error
-from check_static_collision_records import check_arrays, check_bounds, check_load_tail
+from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties
 
 
 def compact(n):
@@ -44,6 +44,25 @@ def body(*, index=3, collision_model=0, nodes=True, lazy=False, origin=0, planes
 
 
 class StaticCollisionTest(unittest.TestCase):
+    def test_ordered_mesh_census_keeps_duplicate_names_indices_and_saved_flags(self):
+        # Repeated Materials and explicit header tag remain visible in this
+        # census. No dictionary collapse may turn it into initialization proof.
+        raw = b'\x01\xa2\x80\x80ABCD\x01\x22EFGH\x02\x22IJKL\0'
+        pkg = SimpleNamespace(data=raw, path='authored.usx', file_version=123,
+                              name=lambda n: ['None', 'Materials', 'ObjectFlags'][n])
+        ex = SimpleNamespace(serial_offset=0, serial_size=len(raw), object_flags=0x2345)
+        result = check_properties(pkg, ex, len(raw))
+        self.assertEqual(result['duplicateNames'], ['materials'])
+        self.assertEqual(result['nativeHeaderTags'], ['ObjectFlags'])
+        self.assertEqual([tag['index'] for tag in result['tags']], [128, 0, 0])
+        self.assertEqual(result['savedExportFlags'], 0x2345)
+        self.assertNotIn('currentFlags', result)
+        with self.assertRaisesRegex(ValueError, 'terminator'):
+            check_properties(pkg, ex, len(raw)-1)
+        ex.serial_size -= 1
+        with self.assertRaises(L2Error):
+            check_properties(pkg, ex, len(raw))
+
     def test_later_saved_box_replaces_distinct_primitive_record_with_exact_spans(self):
         origin = 137
         first = [-7., -8., -9., 10., 11., 12., 0]

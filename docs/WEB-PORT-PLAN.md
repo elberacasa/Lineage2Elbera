@@ -23,6 +23,14 @@ incoming flags and the version slot. Allocation/class-default and serialization
 effects remain to be joined, rather than treating construction as a full reset. Rendered
 mesh recentering remains provisional.
 
+The shared property reader now retains extended array indices and correctly
+handles Boolean tags without payload bytes. The original Core serializer binds
+both fixes. A fresh census finds no saved native-header overrides in the 480
+checked mesh records; all 2,922 static-actor records on the two maps are unchanged.
+This narrows the loading investigation but does not establish current flags or
+repair live placement. Continue from fresh allocation and serialization into
+the existing resource/actor APIs, then validate actual Online world queries.
+
 ## Product and scope
 
 Port Lineage 2 Interlude to the browser. Players open a URL and play against

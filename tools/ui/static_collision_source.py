@@ -130,6 +130,7 @@ def qualify_static_records(engine, core, comparison_engine, comparison_core):
         supplementalEngineSHA256=comparison_engine.sha,
         supplementalCoreSHA256=comparison_core.sha,
         engineBlocks=blocks,
+        packedPropertyTags=qualify_packed_property_tags(core, comparison_core),
         boundsLoader=qualify_static_bounds_loader(
             engine, core, comparison_engine, comparison_core
         ),
@@ -143,6 +144,105 @@ def qualify_static_records(engine, core, comparison_engine, comparison_core):
             "ByteOrderSerialize delegates to supplied archive virtual Serialize; archive loading/lifetime is outside this proof.",
             "The decoded records do not establish current actor/cache state, material callbacks or collision results.",
             "Supplemental correspondence does not authenticate the archive or repair the owned image.",
+        ],
+    )
+
+
+def qualify_packed_property_tags(core, comparison_core):
+    """Bind the ordered map reader to original packed tag/index framing.
+
+    These are retained code/data comparisons, not execution of the archive or
+    evidence that arbitrary reflected properties are safe to apply to objects.
+    """
+    assert (core.sha, comparison_core.sha) == (CORE_SHA, CANDIDATE_CORE_SHA)
+    blocks = []
+    for label, start, end in [
+        ("tag archive operator, all normal returns", 0x10132F10, 0x10133161),
+        ("tag value application, including Boolean", 0x10131090, 0x10131137),
+        ("tagged-property caller", 0x101346E0, 0x10134CD8),
+        ("byte archive operator", 0x101307E0, 0x101307F9),
+        ("word archive operator", 0x10130800, 0x10130819),
+        ("dword archive operator", 0x10130820, 0x10130839),
+        ("size selector targets", 0x101331D0, 0x101331F4),
+        ("size selector table", 0x101331F4, 0x10133265),
+    ]:
+        raw = bytes(core.data[core.offset(start) : core.offset(start) + end - start])
+        assert raw == comparison_core.read(start, end - start)
+        blocks.append(
+            dict(
+                label=label,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(raw).hexdigest(),
+            )
+        )
+    thunks = []
+    for thunk, target in [
+        (0x1010380A, 0x10132F10),
+        (0x10104467, 0x10131090),
+        (0x10102D8D, 0x101307E0),
+        (0x10102DE2, 0x10130800),
+        (0x10102DFB, 0x10130820),
+    ]:
+        core.instruction(thunk, "jmp", hex(target))
+        raw = bytes(core.data[core.offset(thunk) : core.offset(thunk) + 5])
+        assert raw == comparison_core.read(thunk, 5)
+        thunks.append(dict(thunk=hex(thunk), target=hex(target)))
+    boolean_class = "?PrivateStaticClass@UBoolProperty@@0VUClass@@A"
+    assert (
+        core.exported(boolean_class)
+        == comparison_core.exports[boolean_class]
+        == 0x10338240
+    )
+    tagged = "?SerializeTaggedProperties@UStruct@@UAEXAAVFArchive@@PAEPAVUClass@@@Z"
+    assert core.exported(tagged, True) == comparison_core.body(tagged) == 0x101346E0
+    anchors = [
+        (0x10134778, "call", "0x1010380a"),
+        (0x10134B1C, "call", "0x10104467"),
+        (0x10132F8E, "cmp", "al, 0xa"),
+        (0x10132FA2, "and", "eax, 0x70"),
+        (0x1013302F, "test", "byte ptr [ebx], 0x80"),
+        (0x10133038, "cmp", "byte ptr [esi], 3"),
+        (0x1013303B, "je", "0x10133147"),
+        (0x101330AF, "and", "edx, 0x7f"),
+        (0x101330B2, "shl", "edx, 8"),
+        (0x10133113, "and", "eax, 0x3f"),
+        (0x10133116, "shl", "eax, 8"),
+        (0x1013311F, "shl", "eax, 8"),
+        (0x10133128, "shl", "eax, 8"),
+        (0x101310BD, "cmp", "dword ptr [esi + 0x24], 0x10338240"),
+        (0x101310EF, "test", "byte ptr [edi + 1], 0x80"),
+        (0x101310F8, "or", "dword ptr [eax], ecx"),
+        (0x10131101, "and", "dword ptr [eax], edx"),
+    ]
+    for row in anchors:
+        core.instruction(*row)
+    targets = [
+        0x10132FBC,
+        0x10132FC5,
+        0x10132FCE,
+        0x10132FD7,
+        0x10132FE0,
+        0x10132FE9,
+        0x10132FFF,
+        0x10133016,
+    ]
+    for selector, target in enumerate(targets):
+        assert core.data[core.offset(0x101331F4) + selector * 16] == selector
+        assert core.u32(0x101331D0 + selector * 4) == target
+    return dict(
+        ownedCoreSHA256=core.sha,
+        supplementalCoreSHA256=comparison_core.sha,
+        blocks=blocks,
+        thunks=thunks,
+        anchors=anchors,
+        booleanClass=dict(symbol=boolean_class, address="0x10338240"),
+        limits=[
+            "Original packed tag widths and byte order, plus Boolean value application; no native archive executed.",
+            "Normal Boolean application reads the tag high bit without consuming a payload or array index, regardless of its size selector.",
+            "Export-end bounds are decoder validation, not an inferred original game limit.",
+            "No claim about arbitrary property compatibility conversions, class initialization or current object flags.",
+            "Supplemental correspondence does not authenticate the distribution or restore a protected runtime.",
         ],
     )
 

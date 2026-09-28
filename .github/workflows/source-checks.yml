@@ -69,6 +69,7 @@ jobs:
           python3 -m unittest discover -s tools/ui -p test_static_mesh_cache_native.py
           python3 -m unittest discover -s tools/ui -p 'test_actor_octree*py'
           python3 -m unittest discover -s tools/world -p test_static_collision.py
+          python3 -m unittest discover -s tools/world -p test_prop_identity.py
           python3 -m unittest discover -s tools/ui -p test_cylinder_collision_native.py
           python3 -m unittest discover -s tools/world -p test_export_terrain_collision.py
           python3 -m unittest discover -s tools/world -p test_export_terrain_zones.py
