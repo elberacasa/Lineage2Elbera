@@ -70,6 +70,13 @@ four native volume constructors and reads
 **360 original property declarations**, including nested structures and the
 conditional replication word. Volume startup and live world collision remain
 unfinished. The class-prefix decoder is available in the standalone Core preview.
+
+The new **Elbera object-localization inspector** shows original section
+selection, nested property keys and English fallback using clearly labeled
+authored inputs. Its browser module matches **145 original-control-flow cases**;
+configuration parsing and property text conversion remain explicit boundaries.
+[Tool screenshot, reproduction and remaining work](docs/native-actor-localization-evidence.md).
+
 [Actor source evidence](docs/native-class-defaults-evidence.md) ·
 [Model loading and verification](docs/native-static-actor-bounds-evidence.md#saved-brush-model-resources) ·
 [Brush lifecycle evidence](docs/native-static-actor-bounds-evidence.md#brush-construction-and-postload) ·
