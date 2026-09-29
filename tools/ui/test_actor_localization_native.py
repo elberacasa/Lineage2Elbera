@@ -28,6 +28,41 @@ def machine(cls=LocalizationMachine):
 
 
 class LocalizationMemoryTest(unittest.TestCase):
+    def test_neg_carry_feeds_cdo_outer_argument_mask(self):
+        dis = Cs(CS_ARCH_X86, CS_MODE_32)
+        neg = next(dis.disasm(bytes.fromhex("f7d8"), 0x9000))
+        sbb = next(dis.disasm(bytes.fromhex("1bc0"), 0x9010))
+        for value in (0, 1, 2, 0xFFFFFFFF, 0x80000000):
+            m = machine(StringLocalizationMachine)
+            m.registers["eax"] = value
+            m.carry = False
+            m.step(neg)
+            self.assertEqual(m.registers["eax"], -value & 0xFFFFFFFF)
+            self.assertEqual(m.carry, value != 0)
+            m.step(sbb)
+            self.assertEqual(m.registers["eax"], 0xFFFFFFFF if value else 0)
+
+    def test_cdo_memset_provider_zeros_exact_header_and_preserves_cdecl_arguments(self):
+        m = machine(StringLoadingMachine)
+        m.actor = 0x2000
+        for at in range(m.actor - 4, m.actor + 0x38, 4):
+            m.memory[at] = 0xA5A5A5A5
+        sp = m.registers["esp"]
+        for n, value in enumerate((0x9000, m.actor, 0, 0x34)):
+            m.memory[sp + n * 4] = value
+        instruction = SimpleNamespace(
+            address=0x1012DA20, mnemonic="jmp", op_str="0x1017b980"
+        )
+        self.assertEqual(m.step(instruction), 0x9000)
+        self.assertEqual(m.registers["esp"], sp + 4)
+        self.assertEqual(m.registers["eax"], m.actor)
+        self.assertEqual(
+            [m.memory[sp + n * 4] for n in range(1, 4)], [m.actor, 0, 0x34]
+        )
+        self.assertEqual([m.memory[m.actor + n * 4] for n in range(13)], [0] * 13)
+        self.assertEqual(m.memory[m.actor - 4], 0xA5A5A5A5)
+        self.assertEqual(m.memory[m.actor + 0x34], 0xA5A5A5A5)
+
     def test_qualified_erased_import_dispatch_precedes_ordinary_nop(self):
         m = machine(StringLoadingMachine)
         m.source.import_targets[0x9000] = 0x12345678

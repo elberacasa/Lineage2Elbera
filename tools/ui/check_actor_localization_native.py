@@ -18,6 +18,7 @@ from actor_localization_source import (
     qualify_actor_localization,
     qualify_string_property_text,
     qualify_string_property_loading,
+    qualify_class_default_initialization,
 )
 from actor_octree_admission_machine import AdmissionMachine, PartialWord
 from actor_octree_machine import MembershipMachine
@@ -37,6 +38,9 @@ def source_program(core, comparison, engine=None, comparison_engine=None):
     proof = qualify_actor_localization(core, comparison)
     proof["stringImport"] = qualify_string_property_text(core, comparison)
     proof["stringLoading"] = qualify_string_property_loading(core, comparison)
+    proof["classDefaultInitialization"] = qualify_class_default_initialization(
+        core, comparison
+    )
     program = SimpleNamespace(
         engine=core,
         rows=[],
@@ -79,6 +83,19 @@ def source_program(core, comparison, engine=None, comparison_engine=None):
         )
     program.membership_targets.update(
         {int(k, 16): int(v, 16) for k, v in loading["thunkTargets"].items()}
+    )
+    defaults = proof["classDefaultInitialization"]
+    for block in defaults["coreBlocks"]:
+        start, end = int(block["start"], 16), int(block["end"], 16)
+        PreparationProgram.add(
+            program,
+            core,
+            start,
+            end,
+            bytes(core.data[core.offset(start) : core.offset(end)]),
+        )
+    program.membership_targets.update(
+        {int(k, 16): int(v, 16) for k, v in defaults["thunkTargets"].items()}
     )
     if engine is not None:
         from actor_transform_source import qualify_static_actor_loading
@@ -476,6 +493,11 @@ class StringLocalizationMachine(LocalizationMachine):
                 self.write(f"byte ptr [{dest+off:#x}]", value)
             self.copy_sizes.append(size)
             self.registers["eax"] = dest
+        elif i.mnemonic == "neg":
+            old = self.read(i.op_str) & 0xFFFFFFFF
+            value = -old & 0xFFFFFFFF
+            self.flags(value, old != 0, old == 0x80000000)
+            self.write(i.op_str, value)
         elif i.mnemonic == "sbb":
             dest, source = i.op_str.split(", ")
             a, b = self.read(dest) & 0xFFFFFFFF, self.read(source) & 0xFFFFFFFF
@@ -519,6 +541,7 @@ class StringLoadingMachine(StringLocalizationMachine):
         self.write("word ptr [0x101cdd44]", 0)
         self.initialization_copies, self.initialization_zeros = [], []
         self.resource_flag_writes, self.localization_entries = [], []
+        self.default_initialization_calls = []
 
     def initialize(self, template, size, template_size):
         cls = self.memory[self.actor + 0x24]
@@ -569,6 +592,21 @@ class StringLoadingMachine(StringLocalizationMachine):
     def step(self, i):
         sp = self.registers["esp"]
         op, args = i.mnemonic, i.op_str.split(", ")
+        if i.address == 0x1015FB00:
+            self.default_initialization_calls.append(
+                [self.memory[sp + 4 + n * 4] for n in range(7)]
+            )
+        if i.address == 0x1012DA20:
+            assert i.op_str == "0x1017b980"
+            dest, value, size = [self.memory[sp + 4 + n * 4] for n in range(3)]
+            assert dest == self.actor and value == 0 and size == 0x34
+            for n in range(size):
+                self.write(f"byte ptr [{dest + n:#x}]", 0)
+            # Explicit CRT memset provider returns to its cdecl caller.
+            self.registers["eax"] = dest
+            self.visited.append(i.address)
+            self.registers["esp"] += 4
+            return self.memory[sp]
         if i.address in self.source.import_targets:
             # Dispatch qualified erased imports before the localization-only
             # interpreter's ordinary NOP handler can consume their first byte.
@@ -992,6 +1030,260 @@ process.stdout.write(JSON.stringify(JSON.parse(raw).map(row=>{
     )
 
 
+def config_gate_case(program, flags, *, explicit_class=False, other_flags=4):
+    """Run only the original gate; enabled classes stop before config work."""
+    m = StringLoadingMachine(program)
+    cls = m.memory[m.actor + 0x24]
+    selected = m.allocate(0x500) if explicit_class else cls
+    m.memory[cls + 0x4A4] = other_flags
+    m.memory[selected + 0x4A4] = flags
+    m.memory.pop(selected + 0x34, None)
+    # Deliberately unreadable parent/filename: neither may be used on the skip.
+    args = (0xFFFFFFFF, selected if explicit_class else 0, 0xDEADBEEF)
+    preserved = {r: m.registers[r] for r in ("ebx", "esi", "edi", "ebp")}
+    before = {at: v for at, v in m.memory.items() if at >= m.actor}
+    sp, link = m.registers["esp"], m.memory[0]
+    for value in reversed(args):
+        m.push(value)
+    m.push(0)
+    m.registers["ecx"] = m.actor
+    pc = 0x10166740
+    for _ in range(100):
+        if pc is None or pc == 0x1016678C:
+            break
+        pc = m.step(m.program[pc])
+    else:
+        raise AssertionError("configuration gate did not stop")
+    enabled = pc == 0x1016678C
+    assert enabled == bool(flags & 4)
+    if not enabled:
+        assert m.registers["esp"] == sp and m.memory[0] == link and not m.stack
+        assert {r: m.registers[r] for r in preserved} == preserved
+    assert not m.lookups and not m.imports
+    # Exclude the interpreter's authored stack, whose frame is expected to change.
+    assert {at: m.memory[at] for at in before if not sp - 0xB00 <= at <= sp} == {
+        at: v for at, v in before.items() if not sp - 0xB00 <= at <= sp
+    }
+    return m.visited, enabled
+
+
+def config_gate_cases(program):
+    visited, steps, enabled = set(), 0, 0
+    count = 0
+    for low in range(256):
+        for high in (0, 0x80000000, 0xFFFF0000):
+            for explicit in (False, True):
+                trace, result = config_gate_case(
+                    program, high | low, explicit_class=explicit, other_flags=low ^ 4
+                )
+                count += 1
+                enabled += int(result)
+                steps += len(trace)
+                visited.update(trace)
+    return dict(
+        cases=count,
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        skipped=count - enabled,
+        enabledContinuations=enabled,
+        configCalls=0,
+        skippedStatePreserved=True,
+        scope="Original LoadConfig entry/bit-4 test. Null ConfigClass selects object.Class; explicit ConfigClass overrides it. Enabled classes stop before further work; no configuration parser is modeled.",
+    )
+
+
+def class_default_string_cases(program, runtime):
+    """Original CDO initializer with authored string-only parent copy lists.
+
+    Compare its string projection to the existing browser initializer. All 13
+    header words, untouched parent data and copied/zeroed nonstring bytes are
+    checked separately. This is not a full default-property deserializer.
+    """
+    fields = [
+        dict(
+            identity=name,
+            name=name,
+            offset=offset,
+            arrayDim=dim,
+            elementSize=12,
+            isProperty=True,
+            propertyFlags=0x8000,
+            struct=None,
+        )
+        for name, offset, dim in (
+            ("Title", 0x40, 1),
+            ("Captions", 0x4C, 2),
+            ("Tail", 0x70, 1),
+        )
+    ]
+    values = [
+        [0x40, "parent / 水"],
+        [0x4C, "embedded\0tail"],
+        [0x58, "\ud800"],
+        [0x70, "last"],
+    ]
+    layout = [dict(f, kind="StrProperty") for f in fields]
+    rows, expected, visited = [], [], set()
+    steps = deep_copies = 0
+    for parent_mode in range(5):
+        for outer_arg in (0, 1, 2, 0xFFFFFFFF):
+            for initial_byte in (0, 0xA5, 0xFF):
+                row = dict(
+                    object=dict(
+                        index=37, flags=0xFFFFFFFF, name="NotTheClass", outer=None
+                    ),
+                    classInfo=dict(
+                        flags=0x32,
+                        name="Example",
+                        outer=dict(name="Package", outer=None),
+                        structure=dict(fields=fields, super=None),
+                    ),
+                    isEditor=False,
+                    environment=dict(started=True, configAbsent=False, language="int"),
+                    policy="missing",
+                    scratchCounter=0,
+                )
+                m = StringLoadingMachine(program, row)
+                cls = m.memory[m.actor + 0x24]
+                outer, table = m.memory[cls + 0x18], m.memory[cls]
+                parent = m.allocate(0x500) if parent_mode else 0
+                size, template = 0x80, 0xE10000
+                default_size = (0, 0, 0x34, 0x70, size)[parent_mode]
+                m.memory[cls + 0x34] = parent
+                m.memory[cls + 0x4C] = size
+                m.memory[table + 0x78] = 0x10102199
+                if parent:
+                    m.memory.update(
+                        {
+                            parent + 0x4F4: template if default_size else 0,
+                            parent + 0x4F8: default_size,
+                        }
+                    )
+                    props = [p for p in m.fields if m.memory[p + 0x54] < default_size]
+                    m.memory[parent + 0x78] = props[0] if props else 0
+                    for index, prop in enumerate(props):
+                        m.memory[prop + 0x60] = (
+                            props[index + 1] if index + 1 < len(props) else 0
+                        )
+                        pt = m.memory[prop]
+                        m.memory[pt + 0xA8] = 0x1010311B
+                        m.memory[pt + 0xA4] = 0x10102A6D
+                for offset in range(0, size, 4):
+                    m.memory[m.actor + offset] = initial_byte * 0x01010101
+                    m.memory[template + offset] = 0x5A5A5A5A
+                for offset, value in values:
+                    m.seed_string(template + offset, value, spare=3)
+                source_before = [m.byte(template + n) for n in range(size)]
+                preserved = {r: m.registers[r] for r in ("ebx", "esi", "edi", "ebp")}
+                m.invoke(0x1015FE10, m.actor, (cls, outer_arg))
+                assert m.default_initialization_calls == [
+                    [m.actor, size, parent, 0, 0, m.actor if outer_arg else 0, 0]
+                ]
+                header = [0] * 13
+                header[0], header[1], header[9], header[10] = (
+                    table,
+                    0xFFFFFFFF,
+                    cls,
+                    0xFFFFFFFF,
+                )
+                header[6] = outer if outer_arg else 0
+                assert [m.memory[m.actor + n * 4] for n in range(13)] == header
+                assert {r: m.registers[r] for r in preserved} == preserved
+                assert [m.byte(template + n) for n in range(size)] == source_before
+                string_bytes = {n for off, _ in values for n in range(off, off + 12)}
+                for offset in range(0x34, size):
+                    if offset not in string_bytes:
+                        assert m.byte(m.actor + offset) == (
+                            0x5A if offset < default_size else 0
+                        )
+                actual_values = []
+                for off, original in values:
+                    units = m.stored_units(m.actor + off)
+                    value = b"".join(
+                        n.to_bytes(2, "little") for n in units[:-1]
+                    ).decode("utf-16le", errors="surrogatepass")
+                    actual_values.append([off, value])
+                    if off < default_size:
+                        assert m.memory[m.actor + off] != m.memory[template + off]
+                    assert (
+                        b"".join(
+                            n.to_bytes(2, "little")
+                            for n in m.stored_units(template + off)[:-1]
+                        ).decode("utf-16le", errors="surrogatepass")
+                        == original
+                    )
+                # Both real CDO call sites use these three zero arguments.
+                m.invoke(0x10166740, m.actor, (0, 0, 0))
+                assert not m.lookups and not m.imports
+                rows.append(
+                    dict(
+                        size=size,
+                        defaultSize=default_size,
+                        fields=layout,
+                        defaults=values,
+                    )
+                )
+                expected.append(actual_values)
+                steps += len(m.visited)
+                visited.update(m.visited)
+                deep_copies += len(m.copy_sizes)
+    script = r"""
+const {initializeActorStringProperties}=await import(new URL('./actor-loading.js',process.argv[1]));
+let raw='';for await(const part of process.stdin)raw+=part;
+process.stdout.write(JSON.stringify(JSON.parse(raw).map(row=>{
+ const result=initializeActorStringProperties({...row,defaults:new Map(row.defaults)});
+ if(result.status!=='ready')throw Error(JSON.stringify(result));return result.values;
+})));
+"""
+    assert browser_outputs(script, rows, runtime) == expected
+    return dict(
+        cases=len(rows),
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        deepCopies=deep_copies,
+        headerWordsChecked=13,
+        parentStoragePreserved=True,
+        browserStringProjectionCompared=True,
+        scope="Original InitClassDefaultObject and InitProperties joined to the nonconfig return. Authored current classes and string-only parent copy lists; all header words and scalar copy/zero bytes checked. No array/object deep-copy, tagged-property, localization or full class lifecycle claim.",
+    )
+
+
+def original_default_config_cases(program, core, comparison, engine, comparison_engine):
+    from l2lib import load_package
+    from static_mesh_class_source import class_default_config_bits, qualify_registration
+
+    binding = qualify_registration(engine, core, comparison_engine, comparison)
+    root = ROOT / "assets/interlude/system"
+    source = class_default_config_bits(
+        engine,
+        core,
+        *[
+            load_package(root / name)[0]
+            for name in ("Engine.u", "Core.u", "GamePlay.u")
+        ],
+    )
+    visited, steps, count = set(), 0, 0
+    for row in source["records"].values():
+        for flags in row["evidence"]["variants"]:
+            for explicit in (False, True):
+                trace, enabled = config_gate_case(
+                    program, flags, explicit_class=explicit
+                )
+                assert not enabled
+                count += 1
+                steps += len(trace)
+                visited.update(trace)
+    program.receipt["defaultConfigSource"] = dict(binding=binding, flags=source)
+    return dict(
+        classes=len(source["records"]),
+        cases=count,
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        allSkipped=True,
+        scope="Eight pinned source class profiles, including inherited variants, reach the original nonconfig return. Registration/serialization correspondence is qualified; complete live class loading and external mutations are not simulated.",
+    )
+
+
 def fixture_rows():
     def field(identity, offset, **changes):
         return (
@@ -1297,9 +1589,12 @@ def verify(
     runtime,
     *,
     original_strings=False,
+    original_config=False,
     engine=None,
     comparison_engine=None,
 ):
+    if original_config and engine is None:
+        raise ValueError("original configuration gates require the Engine comparison")
     program = source_program(core, comparison, engine, comparison_engine)
     rows, expected, visited, steps = [], [], set(), 0
     for row in fixture_rows():
@@ -1346,6 +1641,13 @@ def verify(
     startup = (
         actor_string_startup_cases(program, runtime) if engine is not None else None
     )
+    source_config = (
+        original_default_config_cases(
+            program, core, comparison, engine, comparison_engine
+        )
+        if original_config
+        else None
+    )
     return dict(
         tool="Elbera Tools",
         status="pass",
@@ -1363,6 +1665,9 @@ def verify(
         savedStringLoading=loading,
         originalSavedStrings=original,
         actorStringStartup=startup,
+        configGate=config_gate_cases(program),
+        classDefaultStrings=class_default_string_cases(program, runtime),
+        originalDefaultConfig=source_config,
         source=program.receipt,
         sourceSHA256={
             str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -1373,6 +1678,7 @@ def verify(
                 runtime.resolve().with_name("actor-loading.js"),
                 ROOT / "tools/l2lib/stringproperty.py",
                 ROOT / "tools/world/inspect_actor_declarations.py",
+                ROOT / "tools/ui/static_mesh_class_source.py",
             )
         },
     )
@@ -1399,6 +1705,11 @@ def main():
         help="also join default copying, Volume construction and localized actor PostLoad",
     )
     parser.add_argument(
+        "--default-config",
+        action="store_true",
+        help="with --actor-startup, also check the volume-family config gate from pinned owned packages",
+    )
+    parser.add_argument(
         "--engine", type=Path, default=ROOT / "assets/interlude/system/engine.dll"
     )
     parser.add_argument("--comparison-engine", type=Path)
@@ -1407,6 +1718,8 @@ def main():
         parser.error(
             "--actor-startup and --comparison-engine must be supplied together"
         )
+    if args.default_config and not args.actor_startup:
+        parser.error("--default-config requires --actor-startup")
     from check_tutorial_quest_native import ENGINE_SHA
     from check_supplemental_engine import CANDIDATE_ENGINE_SHA
 
@@ -1415,6 +1728,7 @@ def main():
         PEImage(args.comparison_core, CANDIDATE_CORE_SHA),
         args.runtime,
         original_strings=args.original_strings,
+        original_config=args.default_config,
         engine=Image(args.engine, ENGINE_SHA, True) if args.actor_startup else None,
         comparison_engine=(
             PEImage(args.comparison_engine, CANDIDATE_ENGINE_SHA)

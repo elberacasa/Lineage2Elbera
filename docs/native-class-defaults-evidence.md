@@ -599,6 +599,14 @@ map repair, browser visual change or complete client parity is claimed.
 
 ## Saved string loading and copying
 
+The existing localization verifier now also executes original CDO header and
+parent-string initialization. The declaration inspector's `--default-config`
+option recovers the volume family's consumed configuration bit through native,
+saved and inherited stages. All eight profiles skip LoadConfig; this says
+nothing about LoadLocalized or the contents of localization files.
+See [class-default initialization and configuration gate](native-actor-localization-evidence.md#class-default-initialization-and-configuration-gate)
+for exact ranges, reproduction, provider boundaries and remaining work.
+
 `l2lib.stringproperty.decode_string_property` handles an isolated saved
 StrProperty payload. A positive compact count reads bytes and zero-widens them;
 a negative count reads little-endian UTF-16 units. It preserves storage units,

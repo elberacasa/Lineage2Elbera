@@ -46,6 +46,7 @@ def inspect_declarations(
     include_structure_links=False,
     include_reference_flags=False,
     include_class_links=False,
+    include_default_config=False,
 ):
     if include_reference_flags and not (include_structure_links or include_class_links):
         raise ValueError(
@@ -274,6 +275,38 @@ def inspect_declarations(
         report["limits"].append(
             "Optional classLinks recomputes saved inheritance, offsets, consumed flags and four property lists. Ready means only these components have inputs; replication bindings, UClass/UState tables, native binding, CDO configuration/localization and actual world startup are not inferred."
         )
+    if include_default_config:
+        sys.path.insert(0, str(ROOT / "tools/ui"))
+        from static_mesh_class_source import read_owned_default_config_bits
+
+        proof = read_owned_default_config_bits()
+        report["defaultConfigBits"] = proof
+        report["summary"]["defaultConfig"] = {
+            status: sum(
+                (
+                    "skipped"
+                    if proof["records"].get(key, {}).get("value") == 0
+                    else "unresolved"
+                )
+                == status
+                for key in classes
+            )
+            for status in ("skipped", "unresolved")
+        }
+        report["sources"].update(
+            {
+                "engine.dll": proof["sources"]["engine"],
+                "Core.dll": proof["sources"]["core"],
+                **{
+                    name: digest
+                    for name, digest in proof["sources"].items()
+                    if name.endswith(".u")
+                },
+            }
+        )
+        report["limits"].append(
+            "Optional defaultConfigBits proves only the consumed LoadConfig gate for the pinned volume family and ancestors, including inherited flags. Other requested classes remain unresolved. No CDO values, live class loading or localized configuration replies are inferred."
+        )
     return report
 
 
@@ -304,6 +337,11 @@ def main():
         help="with --structure-links or --class-links, read consumed class bits from pinned owned DLLs/packages; requires Capstone",
     )
     parser.add_argument(
+        "--default-config",
+        action="store_true",
+        help="recover the volume-family LoadConfig gate from pinned owned DLLs/packages; requires Capstone",
+    )
+    parser.add_argument(
         "--string-defaults",
         action="store_true",
         help="also decode and overlay saved string tags; full JSON contains private input values",
@@ -318,6 +356,7 @@ def main():
         include_structure_links=args.structure_links,
         include_reference_flags=args.reference_flags,
         include_class_links=args.class_links,
+        include_default_config=args.default_config,
     )
     if args.check:
         report = {

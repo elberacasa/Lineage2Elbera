@@ -10,6 +10,106 @@ from actor_transform_source import raw
 from check_supplemental_engine import CORE_SHA, CANDIDATE_CORE_SHA
 
 
+def qualify_class_default_initialization(core, comparison):
+    """Bind CDO header/parent initialization and LoadConfig's nonconfig return.
+
+    Configuration-enabled classes stop at the next instruction. Class linking,
+    tagged properties, native constructors and actual configuration are separate
+    stages; this does not claim the entire UClass lifecycle.
+    """
+    assert (core.sha, comparison.sha) == (CORE_SHA, CANDIDATE_CORE_SHA)
+    methods = (
+        ("?InitClassDefaultObject@UObject@@QAEXPAVUClass@@H@Z", 0x1015FE10),
+        ("?InitProperties@UObject@@SAXPAEHPAVUClass@@0HPAV1@2@Z", 0x1015FB00),
+        ("?GetPropertiesSize@UStruct@@UAEHXZ", 0x1010B310),
+        ("?GetDefaultObject@UClass@@QAEPAVUObject@@XZ", 0x10115BB0),
+        ("?LoadConfig@UObject@@QAEXHPAVUClass@@PBG@Z", 0x10166740),
+        ("?appMemset@@YAXPAXHH@Z", 0x1012DA20),
+    )
+    targets, blocks = {}, []
+    for symbol, start in methods:
+        assert core.exported(symbol, True) == comparison.body(symbol) == start
+        thunk = core.exported(symbol)
+        assert comparison.exports[symbol] == thunk
+        core.instruction(thunk, "jmp", hex(start))
+        assert raw(core, thunk, thunk + 5) == comparison.read(thunk, 5)
+        targets[hex(thunk)] = hex(start)
+    for label, start, end, terminal in (
+        ("InitClassDefaultObject", 0x1015FE10, 0x1015FE9F, "ret"),
+        ("InitProperties", 0x1015FB00, 0x1015FC7A, "ret"),
+        ("GetPropertiesSize", 0x1010B310, 0x1010B314, "ret"),
+        ("GetDefaultObject", 0x10115BB0, 0x10115BE5, "ret"),
+        ("appMemset CRT boundary", 0x1012DA20, 0x1012DA25, "jmp"),
+        ("LoadConfig gate", 0x10166740, 0x1016678C, "je"),
+        ("LoadConfig normal return", 0x10166AC4, 0x10166AD7, "ret"),
+        ("UClass.Serialize initialization call", 0x10135325, 0x10135336, "call"),
+        ("UClass.Serialize config/localization calls", 0x1013534A, 0x1013536C, "call"),
+        ("UClass.Register initialization call", 0x10133A44, 0x10133A55, "call"),
+        ("UClass.Register config/localization calls", 0x10133AB1, 0x10133AD3, "call"),
+    ):
+        data = raw(core, start, end)
+        assert data == comparison.read(start, len(data))
+        rows = list(core.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data)
+        assert rows[-1].mnemonic == terminal
+        blocks.append(
+            dict(
+                label=label,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    anchors = (
+        (0x1015FE3A, "push", "0x34"),
+        (0x1015FE3C, "push", "0"),
+        (0x1015FE3F, "call", "0x10101505"),
+        (0x1015FE4C, "mov", "dword ptr [esi], eax"),
+        (0x1015FE4E, "mov", "dword ptr [esi + 0x24], ecx"),
+        (0x1015FE54, "mov", "dword ptr [esi + 4], edi"),
+        (0x1015FE57, "mov", "dword ptr [esi + 0x28], edi"),
+        (0x1015FE64, "mov", "dword ptr [esi + 0x18], edx"),
+        (0x1015FE67, "mov", "edx, dword ptr [ecx + 0x34]"),
+        (0x1015FE81, "call", "0x1010119f"),
+        (0x10166776, "mov", "eax, dword ptr [edi + 0x24]"),
+        (0x1016677F, "test", "byte ptr [ebx + 0x4a4], 4"),
+        (0x10166786, "je", "0x10166ac4"),
+        (0x10166AD4, "ret", "0xc"),
+    )
+    for anchor in anchors:
+        core.instruction(*anchor)
+    # Both original CDO callers pass zero for InitClassDefaultObject's second
+    # argument and for all three LoadConfig arguments. Named callees are bound
+    # above, plus LoadLocalized by qualify_actor_localization.
+    for at in (
+        0x10135325,
+        0x10133A44,
+        0x1013534A,
+        0x1013534C,
+        0x1013534E,
+        0x10133AB1,
+        0x10133AB3,
+        0x10133AB5,
+    ):
+        core.instruction(at, "push", "0")
+    table = "??_7UClass@@6B@"
+    size_thunk = core.exported(methods[2][0])
+    assert core.u32(core.exported(table) + 0x78) == size_thunk
+    assert comparison.u32(comparison.exports[table] + 0x78) == size_thunk
+    return dict(
+        coreBlocks=blocks,
+        thunkTargets=targets,
+        anchors=anchors,
+        configMask=4,
+        configContinuation="0x1016678c",
+        limits=[
+            "Normal CDO header initialization and parent-default copying with explicit current metadata/storage. No tagged-property or class-binding execution is implied.",
+            "Only the bit-4-clear LoadConfig path returns here; enabled configuration stops at the qualified continuation, before any provider call.",
+            "CRT memset/memcpy and successful allocation are explicit providers. No DLL or operating-system I/O executes.",
+        ],
+    )
+
+
 def qualify_string_property_loading(core, comparison):
     """Bind original string archive loading and single-value deep copying.
 

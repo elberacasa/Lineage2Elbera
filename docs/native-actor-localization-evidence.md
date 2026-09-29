@@ -123,9 +123,10 @@ checks stack/SEH restoration and nonvolatile registers, and records source
 fingerprints. Cases include scratch-counter wrap, more than 256 sequential
 scratch allocations, inherited fields, nested static arrays, Unicode text,
 partial writes on lookup misses and all admitted context/gate branches.
-Seven authored interpreter checks cover partial-word preservation, 32-bit
+Nine authored interpreter checks cover partial-word preservation, 32-bit
 effective-address wrap, UTF-16/word-register behavior, exact byte allocation,
-compiler stack probes, narrow comparisons and qualified erased-import dispatch.
+compiler stack probes, narrow comparisons, qualified erased-import dispatch,
+CDO memset boundaries and the NEG/SBB carry-dependent argument mask.
 The localization and actor-loading modules have 57 portable checks, including
 missing metadata, provider failures, partial progress, complete string copies
 and the repeated PostLoad calls.
@@ -192,6 +193,90 @@ The optional `--original-strings` also reads the original saved package values
 described in the [string-loading evidence](native-class-defaults-evidence.md#saved-string-loading-and-copying).
 Omit that option for only authored cases; pinned private DLLs are still needed.
 Keep full evidence receipts and all original inputs private.
+
+## Class-default initialization and configuration gate
+
+The same verifier now enters `UObject.InitClassDefaultObject` before
+`InitProperties`. It checks the complete 52-byte object header: the current
+class's vtable and class pointer, both index fields set to minus one, the
+conditional outer pointer and all remaining cleared words. The initializer
+passes the **parent class** to InitProperties. Its two qualified CDO callers,
+UClass.Register and UClass.Serialize, both pass zero for the outer/instancing
+argument; the comparison also exercises nonzero arguments explicitly.
+
+**60 authored cases** check absent parents, parents without defaults,
+header-only defaults, partial/full inherited fields, three initial byte patterns,
+Unicode, embedded NULs and nonaliased string storage. Original execution uses
+17,982 instructions at 277 addresses and makes 84 deep copies. The existing
+browser `initializeActorStringProperties` matches the string projection. All
+13 header words, scalar copy/zero bytes, the seven InitProperties arguments,
+parent storage and nonvolatile registers are checked separately. Other
+specialized-copy types, tagged defaults and localization are not executed by
+this suite. It is not a complete class-default-object loader.
+
+The initial LoadConfig gate chooses an explicit ConfigClass when provided,
+otherwise the object's current class. If that class's bit `4` is clear, the
+original method returns before accessing parent configuration, filenames or
+GConfig. **1,536 authored cases** cover every low byte with three upper-word
+patterns and both class-selection paths. Half return; half stop at the first
+configuration-enabled continuation. Unreadable filename/parent providers help
+detect accidental reads on the skip path. Enabled configuration is not emulated.
+
+| Source binding | Owned Core range, exclusive end |
+| --- | --- |
+| InitClassDefaultObject | `1015fe10–1015fe9f` |
+| InitProperties | `1015fb00–1015fc7a` |
+| GetPropertiesSize / GetDefaultObject | `1010b310–1010b314` / `10115bb0–10115be5` |
+| appMemset CRT boundary | `1012da20–1012da25` |
+| LoadConfig entry and gate / normal return | `10166740–1016678c` / `10166ac4–10166ad7` |
+| UClass.Serialize initializer / configuration callers | `10135325–10135336` / `1013534a–1013536c` |
+| UClass.Register initializer / configuration callers | `10133a44–10133a55` / `10133ab1–10133ad3` |
+
+All eleven ranges and six named thunks match the pinned comparison Core.
+UClass's size virtual slot is bound independently. These are complete ordinary
+method bodies where named above, with deliberately partial caller/gate ranges.
+CRT memset/memcpy and successful allocation remain explicit providers; native
+DLLs and operating-system I/O are never executed.
+
+The optional source check reuses the existing registration and class-prefix
+qualifiers. It reads Object, Actor, Brush, Volume, BlockingVolume, MusicVolume,
+PhysicsVolume and WaterVolume from the
+[pinned class packages](native-class-defaults-evidence.md#original-source-binding).
+Unlike the previously recovered `0x200000` reference-class flag, config bit `4`
+**can be inherited** through Register's `0xf86ec` mask. The reader therefore
+retains native/saved parent variants as well as leaf words. Constructor-added
+`0x12` flags cannot set the consumed bit. WaterVolume uses its saved/script
+ancestry; no native registration is invented.
+
+All eight source profiles agree on a clear config bit. **28 original gate
+executions** cover every resulting word through both class-selection paths
+(812 instructions at 30 addresses). This closes the ordinary nonconfig gate
+for those source stages. It does not construct a live registry, model external
+class mutation, supply default values or prove that localization is absent.
+LoadLocalized remains a separate call with separate inputs.
+
+```sh
+python3 tools/world/inspect_actor_declarations.py --default-config --check
+python3 tools/ui/check_actor_localization_native.py \
+  --comparison-core /local/reference/system/Core.dll \
+  --actor-startup --comparison-engine /local/reference/system/engine.dll \
+  --default-config --output tmp/local-class-default-initialization.json
+python3 -m unittest discover -s tools/ui -p test_actor_localization_native.py
+```
+
+The native verifier's `--default-config` requires `--actor-startup` and the
+three pinned packages. Without it, the original authored-only mode retains its
+DLL-only input contract. The declaration inspector reads owned DLLs/packages
+without comparison files; supplemental binding is performed by the native
+verifier. Its summary reports eight skipped profiles and leaves classes outside
+this bounded family unresolved. Full receipts and source inputs stay private.
+These additions belong to the full-repository Elbera Tools evidence suite;
+they do not change the current standalone Core archive or the browser UI.
+
+Remaining volume work includes actual array/object specialized copies, tagged
+property loading, localized default lookup, class binding and world startup.
+All 53 live volumes remain unsupported. A source-stage skip is not a completed
+volume or a completed browser client.
 
 ## Original string imports
 

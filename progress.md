@@ -2,6 +2,44 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Class-default initialization and configuration gate — 29 September 2026
+
+The existing localization verifier now binds eleven Core ranges and six named
+thunks for InitClassDefaultObject, parent InitProperties and the LoadConfig
+early return. Sixty authored CDO cases pass (17,982 instructions / 277 addresses,
+84 deep copies), checking all thirteen header words, seven call arguments,
+scalar copy/zero bytes and intact parent storage. Their string projection
+matches the existing browser initializer. Other specialized-copy types and
+complete tagged/localized defaults remain separate. No runtime/UI change.
+
+The config gate has 1,536 cases (38,400 / 30), half skips and half explicitly
+stopped enabled continuations. Both class-selection paths are covered, with
+unreadable unused filename/parent inputs. A stricter argument check exposed a
+missing NEG carry update in the interpreter; fixed it and added a portable
+NEG/SBB regression plus a bounded CDO memset-provider regression. Nine portable
+interpreter tests and the existing 57 browser-module tests pass.
+
+The source reader now derives config bit 4 through native/saved parent stages.
+Unlike the prior reference bit, Register CAN inherit this bit. All eight class
+profiles agree on clear; 28 actual-source-variant gate checks pass (812 / 30).
+WaterVolume has script/saved ancestry only, not an invented native descriptor.
+The declaration inspector exposes --default-config. Its default corpus reports
+eight skips; a separate StaticMeshActor query correctly leaves that leaf
+unresolved. Source checks preserve the original DLL-only mode; the native
+verifier's new --default-config explicitly requires --actor-startup and packages.
+
+Full original localization, UTF-16 assignment, saved loading/overlays and the
+192 actor-startup suite pass after the interpreter fix. Documentation records
+exact inputs, ranges and limits. Core release ZIPs and all seventeen README
+image URLs remain unchanged. Private native receipts stay under tmp.
+
+Next: original array/object specialized copies, saved-tag admission, localized
+CDO lookup and actual class/world startup. No array tags occur in the inspected
+saved class defaults, but native initialization and empty-copy behavior still
+need proof. Engine.int exists and decrypts; absence of a matching text substring
+does not establish a missing native configuration lookup. All 53 live volumes
+remain unsupported. The full browser-client goal remains ACTIVE and incomplete.
+
 ## Recomputed inherited class metadata — 29 September 2026
 
 The existing graph helpers now prepare complete saved class inheritance, with

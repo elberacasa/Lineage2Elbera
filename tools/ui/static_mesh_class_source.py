@@ -17,6 +17,9 @@ from check_supplemental_engine import (
 
 ENGINE_PACKAGE_SHA = "9b04ff5cb4258e84dfa8efbdd85d9121f3bdcb5822a9a21ca69d200d05a69761"
 CORE_PACKAGE_SHA = "de5f0ee0a773327bce13c96622fd3c654cff7db88b9be065d1232590c140fda0"
+GAMEPLAY_PACKAGE_SHA = (
+    "714639cdad265a7caeaf0f91ce76bb50492390eaa3faea15ed5a28a3e830b64a"
+)
 CLASS_CTOR = "??0UClass@@QAE@W4ENativeConstructor@@KKPAV0@1VFGuid@@PBG33KP6AXPAX@ZP8UObject@@AEXXZ@Z"
 OBJECT_CLASS = "?PrivateStaticClass@UObject@@0VUClass@@A"
 PRIMITIVE_CLASS = "?PrivateStaticClass@UPrimitive@@0VUClass@@A"
@@ -838,6 +841,114 @@ def reference_class_loading_bits(engine, core, engine_package, core_package):
             "Only the bit consumed by UObjectProperty.Link; all other current class bits remain unknown.",
             "Native constructor additions and Register inheritance cannot change this bit; every available native/saved variant must agree.",
             "Pinned owned edition and ordinary native registration/loading only. No custom class descriptors, external mutations or full class/CDO lifecycle claimed.",
+        ],
+    )
+
+
+def class_default_config_bits(
+    engine, core, engine_package, core_package, gameplay_package
+):
+    """Bounded volume-family source stages for LoadConfig's consumed bit.
+
+    Unlike UObjectProperty.Link's 0x200000 bit, bit 4 CAN be inherited. Retain
+    all native/saved parent variants, including before/after Register, instead
+    of deciding from the leaf's serialized word alone.
+    """
+    from l2lib import qualified_ref
+    from l2lib.classdata import read_class_default_prefix
+    from l2lib.propertylayout import consensus_flag_bits
+
+    assert (engine.sha, core.sha) == (ENGINE_SHA, CORE_SHA)
+    packages = {
+        "Core": core_package,
+        "Engine": engine_package,
+        "GamePlay": gameplay_package,
+    }
+    sources = dict(engine=engine.sha, core=core.sha)
+    for name, digest in (
+        ("Core", CORE_PACKAGE_SHA),
+        ("Engine", ENGINE_PACKAGE_SHA),
+        ("GamePlay", GAMEPLAY_PACKAGE_SHA),
+    ):
+        assert hashlib.sha256(packages[name].path.read_bytes()).hexdigest() == digest
+        sources[name + ".u"] = digest
+    core.instruction(0x1016677F, "test", "byte ptr [ebx + 0x4a4], 4")
+    core.instruction(0x101358C5, "or", "eax, 0x12")
+    core.instruction(0x10133A88, "and", "eax, 0xf86ec")
+    core.instruction(0x10133A8D, "or", "dword ptr [esi + 0x4a4], eax")
+    added = core.data[core.offset(0x101358C5) + 2]
+    inherited = core.u32(0x10133A89)
+    records = {}
+    for identity, parent, at, argument in (
+        ("Core.Object", None, 0x101C8093, 0x400001),
+        ("Engine.Actor", "Core.Object", 0x1083B612, 0x800),
+        ("Engine.Brush", "Engine.Actor", 0x1083D9D0, 0),
+        *[
+            ("Engine." + name, "Engine." + parent, start + 0x60, flags)
+            for name, parent, start, _, _, _, _, flags in VOLUME_REGISTRATIONS
+        ],
+        ("GamePlay.WaterVolume", "Engine.PhysicsVolume", None, None),
+    ):
+        package = packages[identity.split(".")[0]]
+        matches = [
+            ex
+            for ex in package.exports
+            if package.class_name_of(ex) == "Class"
+            and package.export_name(ex) == identity.split(".")[1]
+        ]
+        assert len(matches) == 1
+        export = matches[0]
+        assert (
+            qualified_ref(package, export.super_index) if export.super_index else None
+        ) == parent
+        prefix = read_class_default_prefix(package, export)
+        saved = prefix["fields"]["0x4a4"]
+        variants = {saved}
+        native = None
+        if at is not None:
+            image = core if identity.startswith("Core.") else engine
+            image.instruction(
+                at, "push", hex(argument) if argument > 9 else str(argument)
+            )
+            insn = next(
+                image.dis.disasm(
+                    bytes(image.data[image.offset(at) : image.offset(at) + 5]), at
+                )
+            )
+            native = int(insn.op_str, 0) | added
+            variants.add(native)
+        parent_variants = (
+            records[parent.casefold()]["evidence"]["variants"] if parent else []
+        )
+        variants |= {
+            flags | (ancestor & inherited)
+            for flags in list(variants)
+            for ancestor in parent_variants
+        }
+        records[identity.casefold()] = dict(
+            sourceClass=identity,
+            parent=parent,
+            **consensus_flag_bits(variants, 4),
+            evidence=dict(
+                nativeFlags=native,
+                registrationFlagsInstruction=hex(at) if at else None,
+                savedFlags=saved,
+                flagsOffset=prefix["flagsOffset"],
+                prefixSHA256=prefix["sourceSHA256"],
+                variants=sorted(variants),
+            ),
+        )
+    return dict(
+        scope="volume-family-source-config-bit",
+        mask=4,
+        addedFlags=added,
+        inheritanceMask=inherited,
+        records=records,
+        sources=sources,
+        limits=[
+            "Only LoadConfig's consumed bit, under ordinary native/saved class stages. Parent inheritance is included; unrelated class bits remain unknown.",
+            "WaterVolume has saved/script ancestry evidence, not an invented native registration. External class mutation and a complete live loader remain outside this source-stage consensus.",
+            "A clear bit proves the selected nonconfig return, not absence of GConfig, localization files or localized properties. No configuration values or CDO contents are supplied by this record.",
         ],
     )
 
@@ -1704,4 +1815,20 @@ def read_owned_reference_class_bits():
         Image(root / "Core.dll", CORE_SHA),
         load_package(root / "Engine.u")[0],
         load_package(root / "Core.u")[0],
+    )
+
+
+def read_owned_default_config_bits():
+    """Read only pinned owned inputs; no supplemental lookup or downloads."""
+    from pathlib import Path
+    from check_tutorial_quest_native import Image
+    from l2lib import load_package
+
+    root = Path(__file__).resolve().parents[2] / "assets/interlude/system"
+    return class_default_config_bits(
+        Image(root / "engine.dll", ENGINE_SHA, True),
+        Image(root / "Core.dll", CORE_SHA),
+        load_package(root / "Engine.u")[0],
+        load_package(root / "Core.u")[0],
+        load_package(root / "GamePlay.u")[0],
     )
