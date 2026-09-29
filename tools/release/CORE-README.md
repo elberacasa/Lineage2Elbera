@@ -5,7 +5,8 @@ Use it to inspect your own Interlude packages, decode texture pixels, recover
 embedded script text and inspect UI layout records. This download contains
 source code and synthetic tests, not a client, server or game assets.
 
-The current source build also includes the bounded file-123 class-prefix
+The [0.2.0 preview](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.2.0-preview)
+and current source builds include the bounded file-123 class-prefix
 reader, its authored fixtures and source-evidence guide. It locates supported
 default-property streams without guessing their start. Unsupported bytecode
 fails explicitly; native class construction and gameplay are outside its scope.

@@ -6,6 +6,111 @@ import {
 } from "../js/static-world-source.js";
 import { sourceWorldFixture } from "./fixtures/static-world.mjs";
 
+function withSavedBooleans() {
+  const source = sourceWorldFixture();
+  const shared = source.classDefaults[0].collisionBooleans;
+  shared.layout[0] = {
+    offset: "0x64",
+    mask: 3,
+    fields: [
+      { name: "AuthoredA", mask: 1, propertyFlags: 0 },
+      { name: "AuthoredB", mask: 2, propertyFlags: 0 },
+    ],
+  };
+  shared.defaultGroups["0x64"] = { mask: 3, value: 1 };
+  const groups = (value) => ({
+    ...structuredClone(shared.defaultGroups),
+    "0x64": { mask: 3, value },
+  });
+  const classes = {};
+  for (const [name, value] of [
+    ["Engine.LevelInfo", 0],
+    ["Engine.StaticMeshActor", 1],
+    ["Engine.BlockingVolume", 2],
+  ])
+    classes[name.toLowerCase()] = {
+      sourceClass: name,
+      actorBooleans: { groups: groups(value) },
+    };
+  const tags = [
+    { name: "AuthoredA", value: false },
+    { name: "AuthoredB", value: true },
+  ];
+  source.actors[0].savedCollisionFlags.tags = structuredClone(tags);
+  source.savedActorBooleans = {
+    scope: "saved-actor-declared-booleans",
+    classes,
+    actors: {},
+  };
+  for (const [ref, identity] of Object.entries(source.savedActorSources)) {
+    const value =
+      ref === "2"
+        ? 2
+        : classes[identity.classIdentity.toLowerCase()].actorBooleans.groups[
+            "0x64"
+          ].value;
+    source.savedActorBooleans.actors[ref] = {
+      scope: "saved-actor-declared-booleans",
+      sourceClass: identity.classIdentity,
+      tags: ref === "2" ? structuredClone(tags) : [],
+      groups: groups(value),
+    };
+  }
+  return source;
+}
+
+test("saved flags survive for every class without constructing missing actors or aliasing live fields", () => {
+  const source = withSavedBooleans(),
+    before = structuredClone(source);
+  const result = prepareStaticWorldSource(source, "Map");
+  assert.equal(result.status, "ready", result.reason);
+  assert.deepEqual(source, before);
+  assert.equal(result.summary.actorsWithSavedBooleans, 4);
+  assert.equal(result.actorForReference(3).savedGroups["0x64"].value, 2);
+  assert.equal(result.actorForReference(3).prepared, undefined);
+  assert.notEqual(
+    result.actorForReference(2).savedGroups,
+    result.actorForReference(2).prepared.groups,
+  );
+  assert.equal(
+    result.savedSlots[1].savedGroups,
+    result.savedSlots[4].savedGroups,
+  );
+  assert.equal(result.summary.collisionStatus, "unavailable");
+  assert.equal(result.summary.unpreparedSavedActors, 2);
+  assert.equal(
+    prepareStaticWorldSource(sourceWorldFixture(), "Map").summary
+      .actorsWithSavedBooleans,
+    0,
+  );
+});
+
+test("saved flag class, completeness, tags and known-bit corruption reject the world bundle", () => {
+  for (const change of [
+    (s) => delete s.savedActorBooleans.actors[3],
+    (s) => (s.savedActorBooleans.actors[9] = s.savedActorBooleans.actors[3]),
+    (s) => (s.savedActorBooleans.actors[3].sourceClass = "Engine.Mover"),
+    (s) => delete s.savedActorBooleans.classes["engine.blockingvolume"],
+    (s) =>
+      (s.savedActorBooleans.classes["engine.blockingvolume"].sourceClass =
+        "Engine.Mover"),
+    (s) => (s.savedActorBooleans.actors[2].groups["0x64"].value = 1),
+    (s) => (s.savedActorBooleans.actors[2].groups["0x64"].mask = 7),
+    (s) =>
+      s.savedActorBooleans.actors[2].tags.push({
+        name: "Unconsumed",
+        value: true,
+      }),
+    (s) => (s.savedActorBooleans.actors[2].tags[0].value = 0),
+  ]) {
+    const source = withSavedBooleans();
+    change(source);
+    const result = prepareStaticWorldSource(source, "Map");
+    assert.equal(result.status, "unsupported");
+    assert.equal(result.savedSlots, undefined);
+  }
+});
+
 test("scene source preparation retains shared resources, null/repeated slots and unimplemented classes", () => {
   const source = sourceWorldFixture(),
     before = structuredClone(source);

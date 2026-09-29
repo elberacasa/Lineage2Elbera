@@ -30,6 +30,77 @@ def read_root_class_flags(package):
     return read_zero_script_class_flags(package, "Object", None)
 
 
+def qualify_actor_dispatch(engine, comparison_engine):
+    """Bind consumed virtual slots without substituting one class's lifecycle.
+
+    Pointer/symbol correspondence only. Subclass method bodies and their
+    constructor/PostLoad effects are not executed or supplied by this receipt.
+    """
+    assert (engine.sha, comparison_engine.sha) == (ENGINE_SHA, CANDIDATE_ENGINE_SHA)
+    records = []
+    for cls in (
+        "AActor",
+        "AStaticMeshActor",
+        "AMover",
+        "ABrush",
+        "AVolume",
+        "ABlockingVolume",
+        "APhysicsVolume",
+        "AMusicVolume",
+    ):
+        brush = cls in (
+            "ABrush",
+            "AVolume",
+            "ABlockingVolume",
+            "APhysicsVolume",
+            "AMusicVolume",
+        )
+        postload = "AMover" if cls == "AMover" else "ABrush" if brush else "AActor"
+        table = "??_7" + cls + "@@6B@"
+        owned, other = engine.exported(table), comparison_engine.exports[table]
+        slots = []
+        for offset, symbol in [
+            (0x24, "?PostLoad@" + postload + "@@UAEXXZ"),
+            (0x2C, "?Serialize@AActor@@UAEXAAVFArchive@@@Z"),
+            (0x148, "?LocalToWorld@AActor@@UBE?AVFMatrix@@XZ"),
+            (
+                0x164,
+                "?GetPrimitive@"
+                + ("ABrush" if brush else "AActor")
+                + "@@UAEPAVUPrimitive@@XZ",
+            ),
+        ]:
+            assert engine.u32(owned + offset) == engine.exported(symbol)
+            assert (
+                comparison_engine.u32(other + offset)
+                == comparison_engine.exports[symbol]
+            )
+            slots.append(
+                dict(
+                    offset=hex(offset),
+                    symbol=symbol,
+                    ownedTarget=hex(engine.exported(symbol)),
+                    comparisonTarget=hex(comparison_engine.exports[symbol]),
+                )
+            )
+        records.append(
+            dict(
+                sourceClass=cls,
+                table=table,
+                ownedTable=hex(owned),
+                comparisonTable=hex(other),
+                slots=slots,
+            )
+        )
+    return dict(
+        scope="original-native-actor-virtual-slot-bindings",
+        records=records,
+        limits=[
+            "Method identity only; subclass constructors, method bodies and live state are not executed by this check."
+        ],
+    )
+
+
 def qualify_class_default_prefix(core, comparison_core):
     """Bind the supported class-prefix reader to original Core serialization.
 
@@ -564,6 +635,7 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
         coreBlocks=core_blocks,
         rootPrefixAnchors=anchors,
         classDefaultPrefix=qualify_class_default_prefix(core, comparison_core),
+        actorDispatch=qualify_actor_dispatch(engine, comparison_engine),
         limits=[
             "Native registration and pinned original packages; external class mutation and custom descriptors are excluded.",
             "Source correspondence, not execution of the full class registry. Class defaults/configuration target separate object storage.",
