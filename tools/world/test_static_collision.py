@@ -11,8 +11,8 @@ from l2lib import L2Error
 from check_static_collision_records import check_arrays, check_bounds, check_load_tail, check_properties, check_fresh_preparation, check_actor_transform, check_actor_flags, check_actor_references, check_level_actor_order
 from static_mesh_class_source import read_root_class_flags, read_zero_script_class_flags
 from convert import read_map_actor_frame, actor_prop_offset
-from export_static_collision import saved_actor_frame
-from check_static_collision_records import check_actor_frame, check_actor_loading
+from export_static_collision import saved_actor_frame, level_collision_layout, saved_level_collision_mode
+from check_static_collision_records import check_actor_frame, check_actor_loading, check_level_collision_mode
 
 
 def compact(n):
@@ -408,6 +408,8 @@ class QualificationTest(unittest.TestCase):
         geometry = mesh_body(Reader(body()), retain_sweep_data=True)
         audit.geometry = {'Fixture.Mesh': geometry}
         audit.level_binding = {'scope': 'authored-fixture'}
+        audit.level_mode_defaults = {'scope': 'authored-defaults'}
+        audit.level_mode = {'scope': 'authored-saved-mode'}
         audit.actor_class_loading = {'scope': 'authored-class-bits'}
         audit.reference_bindings = lambda rows: {'scope': 'authored-bindings'}
         rows = [{'name': 'Actor1', 'mesh': 'Fixture.Mesh', 'exportSHA256': 'fixture',
@@ -429,6 +431,8 @@ class QualificationTest(unittest.TestCase):
              'savedTransform': {'scope': 'authored-fixture'}, 'savedCollisionFlags': {'scope': 'authored-fixture'}}])
         self.assertEqual(source['classDefaults'], audit.defaults)
         self.assertEqual(source['savedLevelBinding'], audit.level_binding)
+        self.assertEqual(source['levelCollisionDefaults'], audit.level_mode_defaults)
+        self.assertEqual(source['savedLevelCollisionMode'], audit.level_mode)
         self.assertEqual(source['actorClassLoading'], audit.actor_class_loading)
         self.assertEqual(source['savedReferenceBindings'], {'scope': 'authored-bindings'})
         self.assertIs(source['meshes']['Fixture.Mesh'], geometry)
@@ -751,6 +755,140 @@ def authored_actor_layout(first_count=2):
     return SimpleNamespace(exports=exports, data=raw, path='authored.u',
         export_name=lambda e: e.name, class_name_of=lambda e: e.kind, name=lambda n: 'None' if n == 0 else 'invalid',
         resolve_ref=lambda n: imports[-n-1] if n < 0 else exports[n-1], import_name=lambda e: e.name), by_name
+
+
+class LevelCollisionModeTest(unittest.TestCase):
+    def layout(self):
+        rows = [
+            ("SelectedGroups", "StrProperty", 0x402000),
+            ("bLonePlayer", "BoolProperty", 1),
+            ("bBegunPlay", "BoolProperty", 0),
+            ("bPlayersOnly", "BoolProperty", 0),
+            ("DetailMode", "ByteProperty", 2),
+        ]
+        exports = [
+            SimpleNamespace(index=0, name="LevelInfo", kind="Class", package_index=0)
+        ]
+        for index, (name, kind, flags) in enumerate(reversed(rows), 1):
+            exports.append(
+                SimpleNamespace(
+                    index=index, name=name, kind=kind, flags=flags, package_index=1
+                )
+            )
+        names = {ex.name: ex for ex in exports}
+        links = {a[0]: names[b[0]].index + 1 for a, b in zip(rows, rows[1:])}
+        data = bytearray()
+        for ex in exports[1:]:
+            payload = (
+                b"\0\0"
+                + compact(links.get(ex.name, 0))
+                + struct.pack("<II", 1, ex.flags)
+                + b"\0"
+            )
+            if ex.kind == "ByteProperty":
+                payload += b"\0"
+            ex.serial_offset, ex.serial_size = len(data), len(payload)
+            data += payload
+        pkg = SimpleNamespace(
+            data=data,
+            path="Engine.u",
+            exports=exports,
+            class_name_of=lambda ex: ex.kind,
+            export_name=lambda ex: ex.name,
+            name=lambda n: "None" if n == 0 else "invalid",
+        )
+        return pkg, names
+
+    def fixture(self, tags=b"\2\x83\1\x83\2\3\2\x83\0"):
+        pkg, ex, prefix = ActorStateFrameTest().fixture()
+        pkg.resolve_ref(-2).name = "LevelInfo"
+        resolve = pkg.resolve_ref
+        pkg.resolve_ref = lambda ref: ex if ref == 1 else resolve(ref)
+        pkg.exports = [ex]
+        pkg.export_name = lambda ex: "LevelInfo0"
+        pkg.file_version = 123
+        pkg.name = lambda n: ["None", "bLonePlayer", "bBegunPlay", "bPlayersOnly"][n]
+        ex.index, ex.package_index = 0, 0
+        pkg.data = pkg.data[: ex.serial_offset] + prefix + tags + b"next export"
+        ex.serial_size = len(prefix) + len(tags)
+        source, _ = self.layout()
+        defaults = dict(
+            layout=level_collision_layout(source),
+            defaultGroups={"0x554": dict(mask=7, value=4)},
+        )
+        binding = {"actorArrays": [dict(nativeField="0x38", references=[1, None, 1])]}
+        return pkg, binding, defaults
+
+    def test_level_mode_declarations_follow_links_instead_of_export_order(self):
+        pkg, rows = self.layout()
+        group = level_collision_layout(pkg)[0]
+        self.assertEqual((group["offset"], group["mask"]), ("0x554", 7))
+        self.assertEqual(
+            [(f["name"], f["mask"], f["propertyFlags"]) for f in group["fields"]],
+            [("bLonePlayer", 1, 1), ("bBegunPlay", 2, 0), ("bPlayersOnly", 4, 0)],
+        )
+        rows["bBegunPlay"].package_index = 0
+        with self.assertRaisesRegex(ValueError, "owner"):
+            level_collision_layout(pkg)
+        pkg, rows = self.layout()
+        pkg.data[rows["bBegunPlay"].serial_offset + 2] = rows["bBegunPlay"].index + 1
+        with self.assertRaisesRegex(ValueError, "chain"):
+            level_collision_layout(pkg)
+
+    def test_saved_level_mode_preserves_repeated_tags_and_known_mask(self):
+        pkg, binding, defaults = self.fixture()
+        saved = saved_level_collision_mode(pkg, binding, defaults)
+        self.assertEqual(saved["groups"], {"0x554": dict(mask=7, value=7)})
+        self.assertEqual(
+            saved["tags"],
+            [
+                dict(name="bBegunPlay", value=True),
+                dict(name="bLonePlayer", value=True),
+                dict(name="bBegunPlay", value=False),
+                dict(name="bBegunPlay", value=True),
+            ],
+        )
+        receipt = check_level_collision_mode(pkg, binding, saved, defaults)
+        self.assertEqual(receipt["persistentBooleanPreparation"]["differsFromSaved"], 0)
+        self.assertNotIn("currentMode", saved)
+        self.assertEqual(defaults["defaultGroups"]["0x554"]["value"], 4)
+        for mutate in [
+            lambda x: x.update(reference=0),
+            lambda x: x["groups"]["0x554"].update(mask=0xFFFFFFFF),
+            lambda x: x["groups"]["0x554"].update(value=0),
+            lambda x: x["tags"].reverse(),
+            lambda x: x.update(propertiesSHA256="0" * 64),
+            lambda x: x.update(propertiesLength=1),
+        ]:
+            changed = deepcopy(saved)
+            mutate(changed)
+            with self.assertRaises(ValueError):
+                check_level_collision_mode(pkg, binding, changed, defaults)
+
+    def test_missing_saved_mode_override_retains_the_supplied_default_bits(self):
+        pkg, binding, defaults = self.fixture(b"\0")
+        saved = saved_level_collision_mode(pkg, binding, defaults)
+        self.assertEqual(saved["tags"], [])
+        self.assertEqual(saved["groups"], defaults["defaultGroups"])
+        self.assertEqual(
+            check_level_collision_mode(pkg, binding, saved, defaults)["tags"], 0
+        )
+
+    def test_saved_mode_never_borrows_another_actor_or_trailing_export_bytes(self):
+        pkg, binding, defaults = self.fixture()
+        binding["actorArrays"][0]["references"][0] = 0
+        with self.assertRaisesRegex(ValueError, "first actor"):
+            saved_level_collision_mode(pkg, binding, defaults)
+        pkg, binding, defaults = self.fixture()
+        pkg.resolve_ref(-2).name = "Brush"
+        with self.assertRaisesRegex(ValueError, "Engine.LevelInfo"):
+            saved_level_collision_mode(pkg, binding, defaults)
+        pkg, binding, defaults = self.fixture(b"\2\x22ABCD\0")
+        with self.assertRaisesRegex(ValueError, "malformed"):
+            saved_level_collision_mode(pkg, binding, defaults)
+        pkg, binding, defaults = self.fixture(b"\0x")
+        with self.assertRaisesRegex(ValueError, "export boundary"):
+            saved_level_collision_mode(pkg, binding, defaults)
 
 
 class ActorLayoutTest(unittest.TestCase):

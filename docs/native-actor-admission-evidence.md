@@ -41,6 +41,12 @@ write establishes bit `0x100` and retains every other known bit; unknown padding
 remains unknown. Complete numeric inputs retain their numeric output contract.
 No value is inferred from rendered objects or emulator defaults.
 
+The LevelInfo bit is the original `bBegunPlay` declaration. Its saved defaults,
+constructor preservation and later startup write are now recovered separately;
+see [LevelInfo collision mode](native-static-actor-bounds-evidence.md#levelinfo-collision-mode).
+The later write must not be applied retroactively to initial population. It does
+not itself rebuild existing membership.
+
 `level: null` means the actor's Level reference is null. Otherwise `infoFlags554`
 is the current LevelInfo word; a missing LevelInfo is not a null Level. Current/stored locations are dense finite Float32 triples in native axes
 and units. The arithmetic profile remains finite PC53/RNE, without a claim

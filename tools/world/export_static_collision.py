@@ -350,7 +350,7 @@ def actor_declaration(pkg, ref, owner_ref):
     if kind in ('StructProperty', 'ByteProperty', 'ObjectProperty', 'ArrayProperty'):
         encoded = r.compact()
         reference = qualified_ref(pkg, encoded) if encoded else None
-    elif kind not in ('IntProperty', 'FloatProperty', 'BoolProperty', 'NameProperty'):
+    elif kind not in ('IntProperty', 'FloatProperty', 'BoolProperty', 'NameProperty', 'StrProperty'):
         raise ValueError('unsupported actor declaration kind: ' + kind)
     if dimension != 1 or r.pos != end:
         raise ValueError('unsupported actor declaration size')
@@ -493,6 +493,159 @@ def actor_boolean_layout(pkg):
         groups.append(dict(offset=hex(offset), mask=(1 << len(fields)) - 1,
                            before=previous, after=row, fields=fields))
     return groups
+
+
+def level_collision_layout(pkg):
+    """Read the LevelInfo Boolean word consumed by collision admission.
+
+    The typed-copy constructor and Core Boolean packing bind the offset/masks
+    independently in actor_transform_source. No undeclared bits are supplied.
+    """
+    owners = [
+        e
+        for e in pkg.exports
+        if pkg.class_name_of(e) == "Class" and pkg.export_name(e) == "LevelInfo"
+    ]
+    if len(owners) != 1:
+        raise ValueError("ambiguous LevelInfo class declaration")
+    owner = owners[0].index + 1
+    anchors = [
+        e
+        for e in pkg.exports
+        if e.package_index == owner and pkg.export_name(e) == "SelectedGroups"
+    ]
+    if len(anchors) != 1:
+        raise ValueError("ambiguous LevelInfo Boolean anchor")
+    before = actor_declaration(pkg, anchors[0].index + 1, owner)
+    if before["kind"] != "StrProperty":
+        raise ValueError("unsupported LevelInfo Boolean anchor")
+    cursor, fields = before["next"], []
+    for name, flags in [("bLonePlayer", 1), ("bBegunPlay", 0), ("bPlayersOnly", 0)]:
+        field = actor_declaration(pkg, cursor, owner)
+        if (field["kind"], field["name"], field["propertyFlags"]) != (
+            "BoolProperty",
+            name,
+            flags,
+        ):
+            raise ValueError("unsupported LevelInfo Boolean chain")
+        fields.append(dict(field, mask=1 << len(fields)))
+        cursor = field["next"]
+    after = actor_declaration(pkg, cursor, owner)
+    if after["name"] != "DetailMode" or after["kind"] != "ByteProperty":
+        raise ValueError("unsupported LevelInfo Boolean endpoint")
+    return [dict(offset="0x554", mask=7, before=before, after=after, fields=fields)]
+
+
+def level_collision_defaults():
+    """Recover the declared mode bits through every original class ancestor.
+
+    Uses the existing bounded terminal-default reader. Ambiguous streams remain
+    unsupported. The qualified UClass zero-plus-parent path supplies absent
+    declared bits; this result is a default buffer, not a live level mode.
+    """
+    catalog = OriginalClasses()
+    chain = [
+        "Core.Object",
+        "Engine.Actor",
+        "Engine.Info",
+        "Engine.ZoneInfo",
+        "Engine.LevelInfo",
+    ]
+    values, evidence = {}, []
+    for index, qualified in enumerate(chain):
+        types = catalog.property_types(qualified, set())
+        package, name = qualified.split(".")
+        pkg = catalog.packages[catalog.files[package.casefold()].stem]
+        matches = [
+            e
+            for e in pkg.exports
+            if pkg.class_name_of(e) == "Class" and pkg.export_name(e) == name
+        ]
+        if len(matches) != 1:
+            raise ValueError("ambiguous LevelInfo ancestor")
+        ex = matches[0]
+        parent = qualified_ref(pkg, ex.super_index) if ex.super_index else None
+        if parent != (chain[index - 1] if index else None):
+            raise ValueError("unsupported LevelInfo inheritance")
+        props, proof = terminal_defaults(pkg, ex, types)
+        if proof["defaultsBoundary"] != "unique-validated-candidate":
+            raise ValueError("ambiguous LevelInfo defaults")
+        values.update({name: value for name, _, value in props})
+        evidence.append(dict(sourceClass=qualified, parent=parent, **proof))
+    layout = level_collision_layout(pkg)
+    names = [field["name"] for field in layout[0]["fields"]]
+    zero = [name for name in names if name not in values]
+    defaults = {name: values.get(name, False) for name in names}
+    if any(type(value) is not bool for value in defaults.values()):
+        raise ValueError("non-Boolean LevelInfo mode default")
+    return dict(
+        scope="declared-class-default-bits",
+        layout=layout,
+        defaultGroups={
+            "0x554": dict(
+                mask=7,
+                value=sum(
+                    field["mask"]
+                    for field in layout[0]["fields"]
+                    if defaults[field["name"]]
+                ),
+            )
+        },
+        zeroInitialized=zero,
+        classDefaults=evidence,
+        sources=catalog.sources,
+    )
+
+
+def saved_level_collision_mode(pkg, binding, defaults):
+    """Recover the exact first actor's declared mode bits and ordered overrides.
+
+    Saved mode is not current collision mode. Native construction, loading and
+    later startup writes remain separate evidence and browser lifecycle stages.
+    """
+    arrays = [row for row in binding["actorArrays"] if row["nativeField"] == "0x38"]
+    if len(arrays) != 1 or not arrays[0]["references"]:
+        raise ValueError("missing saved current-level actor array")
+    reference = arrays[0]["references"][0]
+    if not 0 < reference <= len(pkg.exports):
+        raise ValueError("saved first actor is not a local LevelInfo")
+    ex = pkg.exports[reference - 1]
+    if qualified_ref(pkg, ex.class_index) != "Engine.LevelInfo":
+        raise ValueError("saved first actor is not Engine.LevelInfo")
+    frame = saved_actor_frame(pkg, ex)
+    start, end = (
+        ex.serial_offset + frame["sourceBytes"],
+        ex.serial_offset + ex.serial_size,
+    )
+    props, consumed = read_props_ordered(pkg, start, end=end)
+    if consumed != end:
+        raise ValueError("LevelInfo property stream does not end at export boundary")
+    fields = {field["name"]: field for field in defaults["layout"][0]["fields"]}
+    tags, value = [], defaults["defaultGroups"]["0x554"]["value"]
+    for prop in props:
+        field = fields.get(prop["name"])
+        if field is None:
+            continue
+        if prop["type"] != 3 or prop["index"] != 0 or type(prop["boolval"]) is not bool:
+            raise ValueError("malformed LevelInfo mode property")
+        tags.append(dict(name=prop["name"], value=prop["boolval"]))
+        value = value | field["mask"] if prop["boolval"] else value & ~field["mask"]
+    return dict(
+        scope="saved-level-info-collision-mode",
+        reference=reference,
+        identity=qualified_ref(pkg, reference),
+        sourceClass="Engine.LevelInfo",
+        savedExportFlags=ex.object_flags,
+        savedStateFrame=frame,
+        exportOffset=ex.serial_offset,
+        exportLength=ex.serial_size,
+        exportSHA256=sha(pkg.data[ex.serial_offset : end]),
+        propertiesOffset=start,
+        propertiesLength=end - start,
+        propertiesSHA256=sha(pkg.data[start:end]),
+        tags=tags,
+        groups={"0x554": dict(mask=7, value=value)},
+    )
 
 
 def actor_field_evidence(pkg):
@@ -766,6 +919,8 @@ class Audit:
         if retain_sweep_data:
             from export_bsp_collision import level_model_binding
             _, self.level_binding = level_model_binding(self.pkg)
+            self.level_mode_defaults = level_collision_defaults()
+            self.level_mode = saved_level_collision_mode(self.pkg, self.level_binding, self.level_mode_defaults)
             self.level_slots = {}
             actor_array = next(a for a in self.level_binding['actorArrays'] if a['nativeField'] == '0x38')
             for slot, ref in enumerate(actor_array['references']):
@@ -999,6 +1154,8 @@ class Audit:
             'classDefaults': self.defaults,
             'actorClassLoading': self.actor_class_loading,
             'savedLevelBinding': self.level_binding,
+            'levelCollisionDefaults': self.level_mode_defaults,
+            'savedLevelCollisionMode': self.level_mode,
             'savedReferenceBindings': self.reference_bindings(selected),
             'meshes': {k: self.geometry[k] for k in sorted({r['mesh'] for r in selected})},
             'references': [{k: r[k] for k in ('name', 'mesh', 'exportRef', 'exportSHA256',
@@ -1014,6 +1171,7 @@ class Audit:
                 'savedCollisionFlags contains only declared Boolean bits and explicit map overrides; undeclared padding, current lifecycle writes and current level membership are not inferred.',
                 'savedReferences retains canonical package indices, full outer/group names and default/map origins for the seven declared collision references. Null class defaults are not current reference-resolution proof; transient XLevel is assigned separately by level loading.',
                 'savedLevelBinding retains both original reference arrays in serialized order, including null/repeated slots. savedLevelSlots identifies membership in field 0x38; an empty list has no saved slot. Export/audit order is not population order, and saved membership does not establish current state.',
+                'savedLevelCollisionMode preserves the first LevelInfo actor and its declared default/map bits. Construction and the later bBegunPlay write are separate stages; this is not current startup mode.',
                 'Existing conservative actor/material selection gates remain in force.',
                 'Original-derived private data; never include in public source or tool bundles.',
             ],
