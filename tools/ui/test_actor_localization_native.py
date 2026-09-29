@@ -7,6 +7,7 @@ from actor_octree_admission_machine import AdmissionMachine, PartialWord
 from check_actor_localization_native import (
     LocalizationMachine,
     StringLocalizationMachine,
+    StringLoadingMachine,
 )
 from capstone import Cs, CS_ARCH_X86, CS_MODE_32
 
@@ -27,6 +28,28 @@ def machine(cls=LocalizationMachine):
 
 
 class LocalizationMemoryTest(unittest.TestCase):
+    def test_compact_byte_sign_and_word_comparison_use_operand_width(self):
+        m = machine(StringLoadingMachine)
+        dis = Cs(CS_ARCH_X86, CS_MODE_32)
+        byte_test = next(dis.disasm(bytes.fromhex("84c0"), 0x9000))
+        word_cmp = next(dis.disasm(bytes.fromhex("663dff00"), 0x9010))
+        setge = next(dis.disasm(bytes.fromhex("0f9dc1"), 0x9020))
+        m.registers.update(eax=0x12340080, ecx=0xAABBCCDD)
+        m.step(byte_test)
+        self.assertTrue(m.sign)
+        self.assertTrue(m.less)
+        self.assertFalse(m.carry)
+        m.step(setge)
+        self.assertEqual(m.registers["ecx"], 0xAABBCC00)
+        m.registers["eax"] = 0xABCDFFFF
+        m.step(word_cmp)
+        self.assertTrue(m.less)
+        self.assertFalse(m.carry)
+        m.registers["eax"] = 0xABCD0080
+        m.step(word_cmp)
+        self.assertTrue(m.less)
+        self.assertTrue(m.carry)
+
     def test_word_store_preserves_unknown_neighbor_bytes(self):
         m = machine()
         m.write("word ptr [0x1002]", 0x1234)

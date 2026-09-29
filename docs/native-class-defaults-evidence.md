@@ -290,7 +290,82 @@ python3 tools/release/build_core.py --check
 ```
 
 Current standalone Core source builds include the reader/helper and portable
-fixtures: **23 selected files / 58 checks**. The full native verifier and world
+fixtures, now including the string reader below: **25 selected files / 63 checks**. The full native verifier and world
 inspector remain full-repository tools. Existing published ZIPs are unchanged.
-Source/default string storage, configuration, array fields, complete class
+Complete default initialization, configuration, array fields, complete class
 loading and volume/world startup remain outstanding; no map repair is claimed.
+
+## Saved string loading and copying
+
+`l2lib.stringproperty.decode_string_property` handles an isolated saved
+StrProperty payload. A positive compact count reads bytes and zero-widens them;
+a negative count reads little-endian UTF-16 units. It preserves storage units,
+including embedded NULs and unmatched surrogates, separately from a first-NUL
+text view. The original loader sets count/capacity to the absolute count, then
+clears an absolute count of one through `FString.Empty`, even for a nonzero
+sole unit. No character-set replacement or guessed text is introduced.
+
+The tool admits bounded, nonoverflowing allocations and terminated strings
+(plus the original count-one clearing path). These are **tool admission
+conditions**, not claims that the original archive validates malformed text.
+Trailing bytes, truncated payloads and compact headers longer than five bytes
+fail. The older generic `read_fstring` remains unchanged for its other callers.
+
+The existing localization source qualifier compares complete ordinary Core
+bodies, including later saving branches. Exclusive ranges:
+
+| Routine | Range |
+| --- | --- |
+| `UStrProperty.SerializeItem` | `1016f040..1016f055` |
+| `UStrProperty.CopySingleValue` | `10175380..101753dc` |
+| FString archive operator | `10155360..101554a9` |
+| Compact-index archive operator | `1015cfb0..1015d18d` |
+| UTF-16 array byte accounting | `101137e0..101137fe` |
+| FString data accessor | `101150b0..101150bf` |
+| `appIsPureAnsi` | `1014f6f0..1014f71b` |
+| `FString.Empty` | `10115040..10115050` |
+| Byte/word archive wrappers | `101307e0..101307f9`, `10130800..10130819` |
+
+The verifier reuses the localization interpreter's byte heap and independently
+executes the original compact decoder, loading loop, count-one clearing and
+single-value copy. It compares complete storage, counts/capacities, old-string
+byte accounting, preserved registers and same-header no-ops in **69 authored
+cases**. Inputs include continuation boundaries, byte values above 127,
+embedded zeros, supplementary characters and unmatched UTF-16 units. Archive
+reads/accounting and successful allocation/memcpy remain supplied providers.
+Saving, exceptions, overlapping allocations and provider mutation of source
+headers are outside this execution profile.
+
+The declaration inspector's `--string-defaults` option overlays known decoded
+tags through saved ancestry, preserving tag order, source class and hashes.
+The original corpus has two own string tags and four inherited copies through
+five volume classes. Both tags are nonempty; the water class overrides its
+inherited value. The optional native comparison checks these saved overlays
+using original load/copy routines, with explicit headers and ordering. Untagged
+values remain unknown. This does **not** execute complete CDO initialization,
+`CopyCompleteValue`, tagged-property acceptance, configuration or localization.
+It does not admit the 53 currently unsupported live volumes.
+
+The Core and package fingerprints above apply. Reproduce with the full
+repository and caller-owned inputs:
+
+```sh
+python3 tools/world/inspect_actor_declarations.py --string-defaults --check
+python3 tools/ui/check_actor_localization_native.py \
+  --comparison-core /local/reference/system/Core.dll \
+  --original-strings --output tmp/local-string-loading.json
+```
+
+Without `--check`, the declaration inspector prints decoded values and payloads;
+keep that output private. Omit `--original-strings` to skip original package
+reads, while still requiring the two pinned Core images and Capstone. Portable
+decoder tests need neither:
+
+```sh
+python3 tools/l2lib/tests/test_stringproperty.py
+python3 tools/release/build_core.py --check
+```
+
+No browser runtime or UI changes accompany this decoder. The existing
+localization tool screenshot remains current; live class setup, configuration
+and world startup are still the next integration work.

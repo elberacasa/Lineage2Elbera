@@ -75,6 +75,12 @@ structures. Its layout decoder matches **420 original-code comparisons**,
 five original volume-class cases and all **13 nested structures**. PhysicsVolume's
 calculated size matches its engine registration; full class loading remains open.
 [Recovered field order and offsets](docs/native-class-defaults-evidence.md#linked-scalar-property-offsets).
+The source reader also preserves original string defaults through saved volume
+ancestry, including the water-specific override. Its bounded decoder retains
+UTF-16 code units and embedded zeros, with **69 original-code loading/copy
+comparisons**. This supplies source data for the pending volume startup join;
+it does not yet enable those volumes in the game.
+[String loading evidence and reusable decoder](docs/native-class-defaults-evidence.md#saved-string-loading-and-copying).
 
 The new **Elbera object-localization inspector** shows original section
 selection, nested property keys and English fallback using clearly labeled

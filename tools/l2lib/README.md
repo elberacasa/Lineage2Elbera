@@ -23,9 +23,22 @@ this is not a claim that every client format or behavior is recovered.
 | `l2lib.classdata` | Bounded file-123 UClass prefix reader; supported original expression serializers locate default properties without a terminal-stream search |
 | `l2lib.declarations` | Bounded file-123 property declarations, signed dimensions, conditional replication words and complete reference identities |
 | `l2lib.propertylayout` | Original field-offset stage from linked declarations, including nested-structure graphs, string headers, alignment and Boolean packing |
+| `l2lib.stringproperty` | Bounded saved string loading with byte widening, preserved UTF-16 code units and original count-one clearing |
 | `l2lib.textures` | Pixel decoders to RGBA8 (DXT1/DXT3/DXT5/RGBA8/RGB8/L8/P8/G16), mip extraction, stdlib PNG writer |
 
 ## API overview
+
+`l2lib.stringproperty.decode_string_property(payload)` consumes one isolated
+saved StrProperty payload. It returns the signed saved count, loaded count and
+capacity, complete `codeUnits` storage and the first-NUL `value` view. Byte input
+zero-widens; UTF-16 preserves unpaired surrogates. Embedded NULs do not discard
+the remaining stored units. The original loader clears an absolute count of
+one, even if that unit is nonzero. Truncated, oversized, trailing and
+unterminated inputs outside the explicit admission fail. This helper does not
+change the older generic `read_fstring` API or infer live game state.
+Five synthetic cases are included in standalone Core; the full repository's
+[native comparison and source-default inspection](../../docs/native-class-defaults-evidence.md#saved-string-loading-and-copying)
+require caller-owned original files.
 
 `l2lib.classdata.read_class_default_prefix(package, export)` returns original
 prefix fields, serialized script tokens and the relative default-property

@@ -63,7 +63,7 @@ A conditional replication word correctly preserves Gravity's Vector reference.
 The native verifier also checks 256 cases across four native volume constructors,
 including preservation of existing name/string storage. Localization effects and
 complete volume startup remain unfinished. Current standalone Core source builds
-include the declaration and nested-layout readers and fixtures (23 files/58 checks); existing ZIPs
+include the declaration, nested-layout and string readers and fixtures (25 files/63 checks); existing ZIPs
 are unchanged. [Commands, fingerprints and limits](../docs/native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations).
 
 The declaration inspector now returns `fieldChain` separately from export-order
@@ -76,6 +76,14 @@ inheritance; missing and cyclic inputs remain explicit errors. PhysicsVolume's
 result matches its native registration. Full class linking and live volume
 startup remain open.
 [Inputs, reproducible commands and exact limits](../docs/native-class-defaults-evidence.md#linked-scalar-property-offsets).
+
+The declaration inspector's `--string-defaults` option retains saved string tags,
+exact storage units, hashes and inherited overrides. Its `--check` summary omits
+the private values. The existing localization verifier now compares 69 authored
+loading/copy cases against original instructions; `--original-strings` also
+checks the two saved volume tags and four inherited copies. The reusable
+decoder and five synthetic tests are included in current Core source builds.
+[String inputs, reproduction and limits](../docs/native-class-defaults-evidence.md#saved-string-loading-and-copying).
 
 The [object-localization inspector](../editor/world/test/actor-localization.html)
 shows current-object section selection, nested keys and language fallback using

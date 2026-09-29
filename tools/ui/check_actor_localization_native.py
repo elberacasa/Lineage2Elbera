@@ -10,12 +10,14 @@ allocator/memcpy provider. No DLL executes; no original payload is embedded.
 import argparse
 import hashlib
 import json
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 from actor_localization_source import (
     qualify_actor_localization,
     qualify_string_property_text,
+    qualify_string_property_loading,
 )
 from actor_octree_admission_machine import AdmissionMachine, PartialWord
 from actor_octree_machine import MembershipMachine
@@ -26,11 +28,15 @@ from check_supplemental_engine import CORE_SHA, CANDIDATE_CORE_SHA
 from supplemental_pe import PEImage
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
+from l2lib import encode_compact
+from l2lib.stringproperty import decode_string_property
 
 
 def source_program(core, comparison):
     proof = qualify_actor_localization(core, comparison)
     proof["stringImport"] = qualify_string_property_text(core, comparison)
+    proof["stringLoading"] = qualify_string_property_loading(core, comparison)
     program = SimpleNamespace(
         engine=core,
         rows=[],
@@ -60,6 +66,19 @@ def source_program(core, comparison):
         )
     program.membership_targets.update(
         {int(k, 16): int(v, 16) for k, v in strings["thunkTargets"].items()}
+    )
+    loading = proof["stringLoading"]
+    for block in loading["coreBlocks"]:
+        start, end = int(block["start"], 16), int(block["end"], 16)
+        PreparationProgram.add(
+            program,
+            core,
+            start,
+            end,
+            bytes(core.data[core.offset(start) : core.offset(end)]),
+        )
+    program.membership_targets.update(
+        {int(k, 16): int(v, 16) for k, v in loading["thunkTargets"].items()}
     )
     return program
 
@@ -429,6 +448,235 @@ class StringLocalizationMachine(LocalizationMachine):
         return i.address + i.size
 
 
+class StringLoadingMachine(StringLocalizationMachine):
+    """Reuse the byte heap; supply only archive reads/accounting and memcpy.
+
+    Original instructions decode the compact count and load every character.
+    Stable source storage and a successful, relocating allocator are explicit.
+    """
+
+    def __init__(self, program):
+        super().__init__(program, next(fixture_rows()))
+        self.archive, self.cursor, self.payload = 0xD20000, 0, b""
+        self.accounting, self.reads = [], []
+        self.memory.update(
+            {
+                self.archive: 0xD21000,
+                self.archive + 0x10: 1,
+                self.archive + 0x14: 0,
+                0xD21004: 0xD22000,
+                0xD21014: 0xD22004,
+            }
+        )
+        self.write("word ptr [0x101cdd44]", 0)
+
+    def read(self, operand):
+        if operand in ("al", "bl", "cl", "dl"):
+            return self.registers["e" + operand[0] + "x"] & 255
+        return super().read(operand)
+
+    def write(self, operand, value, floating=False):
+        if operand in ("al", "bl", "cl", "dl"):
+            register = "e" + operand[0] + "x"
+            self.registers[register] = (self.registers[register] & 0xFFFFFF00) | (
+                value & 255
+            )
+            return
+        return super().write(operand, value, floating)
+
+    def stored_units(self, header):
+        data, count = self.memory[header], self.memory[header + 4]
+        return [self.read(f"word ptr [{data + i * 2:#x}]") for i in range(count)]
+
+    def load(self, payload, header):
+        self.payload, self.cursor = payload, 0
+        self.invoke(0x1016F040, 0xD30000, (self.archive, header, len(payload)))
+        assert self.cursor == len(payload)
+
+    def step(self, i):
+        sp = self.registers["esp"]
+        op, args = i.mnemonic, i.op_str.split(", ")
+        if i.address == 0x101137F8:
+            assert (
+                self.registers["ecx"] == self.archive
+                and self.read(i.op_str) == 0xD22004
+            )
+            self.accounting.append([self.memory[sp], self.memory[sp + 4]])
+            self.registers["esp"] += 8
+        elif i.address in (0x101307F3, 0x10130813):
+            assert (
+                self.registers["ecx"] == self.archive
+                and self.read(i.op_str) == 0xD22000
+            )
+            dest, size = self.memory[sp], self.memory[sp + 4]
+            assert size == (1 if i.address == 0x101307F3 else 2)
+            end = self.cursor + size
+            assert end <= len(self.payload), "archive payload exhausted"
+            for index, value in enumerate(self.payload[self.cursor : end]):
+                self.write(f"byte ptr [{dest + index:#x}]", value)
+            self.reads.append(size)
+            self.cursor = end
+            self.registers["esp"] += 8
+        elif i.address in (0x101753B6, 0x101753CF):
+            assert i.op_str == "0x1017ac60"
+            dest, source, size = [self.memory[sp + n * 4] for n in range(3)]
+            assert size > 0 and size % 2 == 0
+            assert size <= self.blocks[dest] and size <= self.blocks[source]
+            assert dest + size <= source or source + size <= dest
+            for index, value in enumerate([self.byte(source + n) for n in range(size)]):
+                self.write(f"byte ptr [{dest + index:#x}]", value)
+            self.copy_sizes.append(size)
+            self.registers["eax"] = dest
+        elif op == "movzx":
+            self.write(args[0], self.read(args[1]))
+        elif op in ("cmp", "test") and (
+            args[0] in ("al", "bl", "cl", "dl", "ax", "cx", "dx")
+            or args[0].startswith(("byte ptr", "word ptr"))
+        ):
+            width = 8 if args[0].endswith("l") or args[0].startswith("byte ptr") else 16
+            mask, sign = (1 << width) - 1, 1 << (width - 1)
+            a, b = self.read(args[0]) & mask, self.read(args[1]) & mask
+            value = (a - b if op == "cmp" else a & b) & mask
+            overflow = bool((a ^ b) & (a ^ value) & sign) if op == "cmp" else False
+            self.zero, self.sign = value == 0, bool(value & sign)
+            self.less, self.carry = self.sign != overflow, (
+                a < b if op == "cmp" else False
+            )
+            self.parity = bin(value & 255).count("1") % 2 == 0
+        elif op == "setge":
+            self.write(args[0], int(not self.less))
+        elif op == "jns":
+            self.visited.append(i.address)
+            return i.address + i.size if self.sign else int(args[0], 16)
+        else:
+            return super().step(i)
+        self.visited.append(i.address)
+        return i.address + i.size
+
+
+def string_loading_cases(program):
+    # Authored wire vectors, including the boundaries of compact continuation,
+    # byte values above 127, embedded NUL storage and unmatched UTF-16 units.
+    wires = [
+        b"\0",
+        b"\x80",
+        b"\x40\0",
+        b"\x40\x80\x80\x80\0",
+        b"\x01\0",
+        b"\x01Z",
+        b"\x81\0\0",
+        b"\x81Z\0",
+        b"\x04a\0z\0",
+        b"\x03\x80\xff\0",
+        b"\x82\0\xd8\0\0",
+        b"\x82\xff\xdf\0\0",
+        b"\x83\x3c\xd8\x0a\xdf\0\0",
+    ]
+    for count in (63, 64, 65, 8191, 8192):
+        for wide in (False, True):
+            units = ([0x6C34] if wide else [0xE9]) * (count - 1) + [0]
+            wires.append(
+                encode_compact(-count if wide else count)
+                + b"".join(n.to_bytes(2 if wide else 1, "little") for n in units)
+            )
+    cases, steps, copies, aliases, reads, visited = 0, 0, 0, 0, 0, set()
+    for payload in wires:
+        expected = decode_string_property(payload)
+        for old, retained in (("", False), ("previous / 水", False), ("", True)):
+            m = StringLoadingMachine(program)
+            header, dest = 0xD00000, 0xD00100
+            m.seed_string(header, old, spare=3, retained_empty=retained)
+            previous_count = m.memory[header + 4]
+            guards = {header - 4: 0x1234ABCD, header + 12: 0xABCD1234}
+            m.memory.update(guards)
+            m.registers.update(
+                ebx=0xCAFE1234, esi=0xBEEF5678, edi=0x12345678, ebp=0x87654321
+            )
+            preserved = {key: m.registers[key] for key in ("ebx", "esi", "edi", "ebp")}
+            m.load(payload, header)
+            assert {key: m.registers[key] for key in preserved} == preserved
+            assert {key: m.memory[key] for key in guards} == guards
+            assert m.accounting == [[previous_count * 2, (previous_count + 3) * 2]]
+            assert m.stored_units(header) == expected["codeUnits"]
+            assert m.memory[header + 4] == m.memory[header + 8] == expected["count"]
+            m.seed_string(dest, "other allocation", spare=5)
+            before = [m.memory[header + i * 4] for i in range(3)]
+            m.invoke(0x10175380, 0xD30000, (dest, header, 0))
+            assert [m.memory[header + i * 4] for i in range(3)] == before
+            assert (
+                m.stored_units(dest) == m.stored_units(header) == expected["codeUnits"]
+            )
+            assert m.memory[dest + 4] == m.memory[dest + 8] == expected["count"]
+            events = list(m.events)
+            m.invoke(0x10175380, 0xD30000, (header, header, 0))
+            assert (
+                m.events == events
+                and [m.memory[header + i * 4] for i in range(3)] == before
+            )
+            assert {key: m.registers[key] for key in preserved} == preserved
+            cases += 1
+            aliases += 1
+            copies += len(m.copy_sizes)
+            reads += len(m.reads)
+            steps += len(m.visited)
+            visited.update(m.visited)
+    return dict(
+        cases=cases,
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        archiveReads=reads,
+        byteCopies=copies,
+        sameHeaderNoOps=aliases,
+        storageUnitsCompared=True,
+        nonvolatileRegistersPreserved=True,
+        scope="Original SerializeItem/compact/FString loading plus CopySingleValue; supplied archive/allocator and terminated values. No live class initialization claimed.",
+    )
+
+
+def original_string_loading_cases(program):
+    """Compare decoded saved defaults with native load/copy, not a CDO lifecycle."""
+    sys.path.insert(0, str(ROOT / "tools/world"))
+    from inspect_actor_declarations import DEFAULT_CLASSES, inspect_declarations
+
+    report = inspect_declarations(DEFAULT_CLASSES, include_string_defaults=True)
+    m = StringLoadingMachine(program)
+    storage, tags, copied = {}, 0, 0
+    for index, (key, row) in enumerate(report["classes"].items()):
+        current = {}
+        parent = storage.get((row["savedSuper"] or "").casefold(), {})
+        for slot, original in parent.items():
+            dest = 0xE00000 + index * 0x1000 + len(current) * 16
+            m.seed_string(dest, "authored overwritten storage", spare=3)
+            m.invoke(0x10175380, 0xD30000, (dest, original, 0))
+            current[slot] = dest
+            copied += 1
+        for tag in row["savedStringTags"]:
+            slot = tag["name"].casefold() + ":" + str(tag["index"])
+            if slot not in current:
+                current[slot] = 0xE00000 + index * 0x1000 + len(current) * 16
+                m.seed_string(current[slot], "authored prior storage")
+            payload = bytes.fromhex(tag["payloadHex"])
+            assert hashlib.sha256(payload).hexdigest() == tag["payloadSHA256"]
+            m.load(payload, current[slot])
+            tags += 1
+        assert set(current) == set(row["savedStringDefaults"])
+        for slot, header in current.items():
+            expected = row["savedStringDefaults"][slot]
+            assert m.stored_units(header) == expected["codeUnits"]
+            assert m.memory[header + 4] == m.memory[header + 8] == expected["count"]
+        storage[key] = current
+    return dict(
+        classes=len(storage),
+        classesWithSavedStrings=sum(bool(v) for v in storage.values()),
+        ownTags=tags,
+        inheritedCopies=copied,
+        instructions=len(m.visited),
+        uniqueInstructions=len(set(m.visited)),
+        sources=report["sources"],
+        scope="Known saved string overlays compared with original SerializeItem and CopySingleValue. Supplied ordering/headers; untagged initial values, native property acceptance and the complete class lifecycle remain unknown.",
+    )
+
+
 def fixture_rows():
     def field(identity, offset, **changes):
         return (
@@ -728,7 +976,7 @@ process.stdout.write(JSON.stringify(JSON.parse(raw).map(row=>{
     )
 
 
-def verify(core, comparison, runtime):
+def verify(core, comparison, runtime, *, original_strings=False):
     program = source_program(core, comparison)
     rows, expected, visited, steps = [], [], set(), 0
     for row in fixture_rows():
@@ -770,6 +1018,8 @@ def verify(core, comparison, runtime):
         assert a == b, (index, a, b)
     assignment = string_assignment_cases(program, runtime)
     joined_strings = string_localization_cases(program, runtime)
+    loading = string_loading_cases(program)
+    original = original_string_loading_cases(program) if original_strings else None
     return dict(
         tool="Elbera Tools",
         status="pass",
@@ -784,6 +1034,8 @@ def verify(core, comparison, runtime):
         suppliedMetadataPreserved=True,
         stringAssignment=assignment,
         localizedStringStorage=joined_strings,
+        savedStringLoading=loading,
+        originalSavedStrings=original,
         source=program.receipt,
         sourceSHA256={
             str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -791,6 +1043,8 @@ def verify(core, comparison, runtime):
                 Path(__file__).resolve(),
                 Path(__file__).with_name("actor_localization_source.py").resolve(),
                 runtime.resolve(),
+                ROOT / "tools/l2lib/stringproperty.py",
+                ROOT / "tools/world/inspect_actor_declarations.py",
             )
         },
     )
@@ -806,11 +1060,17 @@ def main():
         "--runtime", type=Path, default=ROOT / "editor/world/js/actor-localization.js"
     )
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--original-strings",
+        action="store_true",
+        help="also compare saved volume strings from caller-owned local packages",
+    )
     args = parser.parse_args()
     result = verify(
         Image(args.core, CORE_SHA),
         PEImage(args.comparison_core, CANDIDATE_CORE_SHA),
         args.runtime,
+        original_strings=args.original_strings,
     )
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

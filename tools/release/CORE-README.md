@@ -15,8 +15,9 @@ The existing published 0.1.0 ZIP retains its original contents.
 Current source builds also include bounded Polys decoding and four synthetic
 framing cases. The property-declaration reader includes eleven authored cases,
 covering the conditional two-byte replication word and class/structure child
-links. The property-layout helper adds seven portable cases: **23 selected files
-and 58 portable checks** in total. It requires original field order and explicit
+links. The property-layout helper adds seven portable cases; the bounded string
+loader adds five, preserving UTF-16 code units and original count-one clearing:
+**25 selected files and 63 portable checks** in total. The layout helper requires original field order and explicit
 parent/nested sizes, or a complete decoded structure graph from which to resolve
 them. Full class linking and current runtime values remain outside its scope. For
 file-123 packages, Polys uses the original licensee-version cutoff of 22,
