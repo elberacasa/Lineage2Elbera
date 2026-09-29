@@ -39,13 +39,16 @@ ordinary Model PostLoad. This does not prepare the owning brush/volume actor or
 its current transform. Mover remains on its own class path.
 The ordinary Brush constructor and PostLoad wrapper are now source-bound,
 and the browser preserves ordered Model/Polys flag writes in 192 native
-comparisons. This component still needs source-loaded resource headers,
-per-class transforms and the volume localization path before world startup
+comparisons. Its Models now link to 495 source-loaded Polys headers; the
+decoder and independent record walker consume all 2,447 polygon records.
+The header path has 128 original-instruction comparisons. This component still
+needs per-class transforms and the volume localization path before world startup
 can use it. A volume's saved localized class bit must not be replaced by
 the nonlocalized static-actor profile.
 [Class-default evidence](native-class-defaults-evidence.md) and
 [Model loading evidence](native-static-actor-bounds-evidence.md#saved-brush-model-resources) ·
-[Brush startup component](native-static-actor-bounds-evidence.md#brush-construction-and-postload).
+[Brush startup component](native-static-actor-bounds-evidence.md#brush-construction-and-postload) ·
+[Polys header scope](native-static-actor-bounds-evidence.md#source-loaded-polys-headers).
 
 Public branches start from the reviewed public main. Original client inputs,
 generated assets, accounts and raw local receipts remain private; the older

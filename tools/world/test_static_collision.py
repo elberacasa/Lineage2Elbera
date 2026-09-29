@@ -1645,5 +1645,49 @@ class SavedBrushModelTest(unittest.TestCase):
             saved_brush_models(pkg, actors, defaults)
 
 
+class SavedPolysResourceTest(unittest.TestCase):
+    def test_header_records_round_trip_and_reject_corruption(self):
+        from l2lib.tests.test_polys import polys_fixture
+        from export_static_collision import saved_polys_resource
+        from check_static_collision_records import check_saved_polys_resource
+
+        for licensee in (21, 22):
+            package, export = polys_fixture(licensee)
+            record = saved_polys_resource(package, export)
+            self.assertEqual(record["serializedMax"], 4)
+            self.assertEqual(check_saved_polys_resource(package, record)["polygons"], 1)
+            for mutate in [
+                lambda r: r.__setitem__("polygonCount", 2),
+                lambda r: r.__setitem__("serializedMax", 1),
+                lambda r: r.__setitem__("identity", "wrong"),
+                lambda r: r.__setitem__("savedExportFlags", 1),
+                lambda r: r.__setitem__("propertyTagCount", 1),
+                lambda r: r["sourceSpans"]["polygons"].__setitem__("sourceBytes", 1),
+            ]:
+                changed = deepcopy(record)
+                mutate(changed)
+                with self.assertRaises(ValueError):
+                    check_saved_polys_resource(package, changed)
+
+    def test_unknown_class_stack_and_nonempty_tags_are_not_header_only_loading(self):
+        from l2lib.tests.test_polys import polys_fixture
+        from export_static_collision import saved_polys_resource
+
+        package, export = polys_fixture()
+        export.object_flags |= 0x02000000
+        with self.assertRaises(ValueError):
+            saved_polys_resource(package, export)
+        export.object_flags = 0
+        package.imports[1].label = "Model"
+        with self.assertRaises(ValueError):
+            saved_polys_resource(package, export)
+        package, export = polys_fixture()
+        with patch(
+            "export_static_collision.read_props_ordered",
+            return_value=([{"name": "ObjectFlags"}], export.serial_offset + 1),
+        ):
+            with self.assertRaises(ValueError):
+                saved_polys_resource(package, export)
+
 if __name__ == "__main__":
     unittest.main()

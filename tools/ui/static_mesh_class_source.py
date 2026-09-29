@@ -22,6 +22,7 @@ OBJECT_CLASS = "?PrivateStaticClass@UObject@@0VUClass@@A"
 PRIMITIVE_CLASS = "?PrivateStaticClass@UPrimitive@@0VUClass@@A"
 MESH_CLASS = "?PrivateStaticClass@UStaticMesh@@0VUClass@@A"
 MODEL_CLASS = "?PrivateStaticClass@UModel@@0VUClass@@A"
+POLYS_CLASS = "?PrivateStaticClass@UPolys@@0VUClass@@A"
 ACTOR_CLASS = "?PrivateStaticClass@AActor@@0VUClass@@A"
 STATIC_ACTOR_CLASS = "?PrivateStaticClass@AStaticMeshActor@@0VUClass@@A"
 
@@ -387,6 +388,47 @@ def model_loading_bits(engine, core, engine_package, core_package):
     )
 
 
+def polys_loading_bits(engine, core, engine_package, core_package):
+    """UPolys uses UObject ancestry and no saved Engine.u class replacement."""
+    mesh = loading_bits(engine, core, engine_package, core_package)
+    assert not [
+        e
+        for e in engine_package.exports
+        if engine_package.class_name_of(e) == "Class"
+        and engine_package.export_name(e).casefold() == "polys"
+    ]
+    assert engine.exported(POLYS_CLASS) == 0x10C509F8
+    for at, op, args in [
+        (0x10844122, "push", "0x80"),
+        (0x10844127, "push", "0x44"),
+        (0x1084412B, "mov", "ecx, 0x10c509f8"),
+    ]:
+        engine.instruction(at, op, args)
+    evidence = mesh["evidence"]
+    native = engine.u32(0x10844123) | core.data[core.offset(0x101358C5) + 2]
+    inherited = evidence["inheritanceMask"]
+    variants = [
+        native | (root & inherited)
+        for root in (evidence["nativeRootFlags"], evidence["root"]["flags"])
+    ]
+    mask = 0x408
+    assert len({value & mask for value in variants}) == 1
+    return dict(
+        sourceClass="Engine.Polys",
+        scope="ordinary-native-registration",
+        mask=mask,
+        value=variants[0] & mask,
+        sources=mesh["sources"],
+        evidence=dict(
+            root=evidence["root"],
+            nativeRootFlags=evidence["nativeRootFlags"],
+            nativePolysFlags=native,
+            inheritanceMask=inherited,
+            registeredPolysVariants=variants,
+        ),
+    )
+
+
 def loading_bits(engine, core, engine_package, core_package):
     """Derive only the two class bits consumed by fresh resource loading.
 
@@ -562,6 +604,29 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
             ],
         ),
         (
+            "Polys",
+            0x108440C0,
+            0x10844136,
+            [
+                (
+                    0x108440D9,
+                    0x11D8D790,
+                    0x11D8D78C,
+                    "import",
+                    "?StaticConstructor@UObject@@QAEXXZ",
+                ),
+                (0x108440F5, 0x10A72EAC, 0x10A72E98, "export", "GPackage"),
+                (0x1084412C, 0x10C509F8, 0x10C50A08, "export", POLYS_CLASS),
+            ],
+            [
+                (0x108440D0, "??0FGuid@@QAE@KKKK@Z"),
+                (0x108440E8, "?StaticConfigName@UObject@@SAPBGXZ"),
+                (0x10844114, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+                (0x1084411B, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+                (0x10844130, CLASS_CTOR),
+            ],
+        ),
+        (
             "StaticMesh",
             0x10849670,
             0x108496E6,
@@ -715,19 +780,23 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
     )
 
 
-def read_owned_loading_bits(*, actor=False, model=False):
+def read_owned_loading_bits(*, actor=False, model=False, polys=False):
     """Read this edition's owned inputs; no supplemental lookup or downloads."""
     from pathlib import Path
     from check_tutorial_quest_native import Image
     from l2lib import load_package
 
     root = Path(__file__).resolve().parents[2] / "assets/interlude/system"
-    if actor and model:
+    if sum((actor, model, polys)) > 1:
         raise ValueError("choose one source class")
     derive = (
         static_actor_loading_bits
         if actor
-        else model_loading_bits if model else loading_bits
+        else (
+            model_loading_bits
+            if model
+            else polys_loading_bits if polys else loading_bits
+        )
     )
     return derive(
         Image(root / "engine.dll", ENGINE_SHA, True),

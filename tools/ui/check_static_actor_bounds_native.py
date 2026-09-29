@@ -36,8 +36,9 @@ from static_mesh_class_source import (
     loading_bits,
     static_actor_loading_bits,
     model_loading_bits,
+    polys_loading_bits,
 )
-from model_loading_source import qualify_model_loading
+from model_loading_source import qualify_model_loading, qualify_polys_loading
 from actor_transform_source import (
     qualify_static_actor_loading,
     qualify_actor_collision_fields,
@@ -260,6 +261,26 @@ def qualify(program, core, candidate, candidate_core):
     program.membership_targets.update(
         {int(a, 16): int(b, 16) for a, b in model_loading["thunkTargets"].items()}
     )
+    polys_loading = qualify_polys_loading(e, core, candidate, candidate_core)
+    for image, blocks in [
+        (e, polys_loading["engineBlocks"]),
+        (core, polys_loading["coreBlocks"]),
+    ]:
+        for block in blocks:
+            start, end = int(block["start"], 16), int(block["end"], 16)
+            PreparationProgram.add(
+                program,
+                image,
+                start,
+                end,
+                bytes(image.data[image.offset(start) : image.offset(end)]),
+            )
+    program.import_targets.update(
+        {int(a, 16): int(b, 16) for a, b in polys_loading["importTargets"].items()}
+    )
+    program.membership_targets.update(
+        {int(a, 16): int(b, 16) for a, b in polys_loading["thunkTargets"].items()}
+    )
     loading = qualify_static_mesh_fresh_load(e, core, candidate, candidate_core)
     registration = qualify_registration(e, core, candidate, candidate_core)
     from l2lib import load_package
@@ -276,6 +297,7 @@ def qualify(program, core, candidate, candidate_core):
         e, core, engine_package, core_package
     )
     model_class_loading = model_loading_bits(e, core, engine_package, core_package)
+    polys_class_loading = polys_loading_bits(e, core, engine_package, core_package)
     actor_state_frames = qualify_actor_state_frames(core, candidate_core)
     actor_reference_loading = qualify_actor_reference_loading(core, candidate_core)
     for block in actor_reference_loading["coreBlocks"]:
@@ -457,6 +479,8 @@ def qualify(program, core, candidate, candidate_core):
         modelBounds=model_bounds,
         modelLoading=model_loading,
         modelClassLoading=model_class_loading,
+        polysLoading=polys_loading,
+        polysClassLoading=polys_class_loading,
         staticPostLoad=postload,
         staticConstructor=constructor,
         actorLoading=actor_loading,
@@ -1560,6 +1584,111 @@ def actor_loading_cases(program):
             "Incoming storage/counters/object flags remain authored. Only class mask0x428 comes from original loading metadata; no allocation/CDO/archive or live actor state is derived.",
             "Object 0x100 and class 0x20 clear, empty attached array, nonaliasing references; SEH ordinary stack effects only.",
         ],
+    )
+
+
+def polys_loading_cases(program, runtime):
+    """Fresh flag stages, actual Polys constructor and inherited PostLoad.
+
+    Header-preserving decoded polygon serialization is an explicit boundary.
+    Class defaults and archive factories are not replaced by success callbacks.
+    """
+    rng = random.Random(0x504F4C59)
+    rows, expected, visited, steps = [], [], set(), 0
+    obj, cls, export = 0x200000, 0x300000, 0x400000
+    class_bits = program.receipt["polysClassLoading"]
+    table = program.engine.exported("??_7UPolys@@6B@")
+    for index in range(128):
+        m = StaticBoundsMachine(program)
+        initial = {obj + off: rng.getrandbits(32) for off in range(0, 0x44, 4)}
+        saved = rng.getrandbits(32) & ~0x02000100
+        m.memory.update(
+            initial
+            | {
+                export + 0x10: saved,
+                cls + 0x4A4: class_bits["value"],
+                0x103307E8: 0,
+                0x103307EC: 0,
+                0x103307F0: 0,
+            }
+        )
+        m.registers["esi"] = export
+        m.execute_until(0x10149791, 0x101497A0)
+        created = m.registers["ecx"]
+        m.registers.update(edi=cls, ebx=created, ebp=0xE00000, esi=obj)
+        m.execute_until(0x10167BE4, 0x10167BF6)
+        allocated = m.registers["ebx"]
+        m.execute_until(0x10167C10, 0x10167C13)
+        m.invoke(0x103B5780, obj)
+        after_constructor = initial | {
+            obj: table,
+            obj + 0x1C: allocated,
+            obj + 0x34: 0,
+            obj + 0x38: 0,
+            obj + 0x3C: 0,
+            obj + 0x40: obj,
+        }
+        assert {at: m.memory[at] for at in initial} == after_constructor
+        m.registers["esi"] = obj
+        m.execute_until(0x10148C70, 0x10148C82)
+        serializing = m.memory[obj + 0x1C]
+        m.execute_until(0x1015E84B, 0x1015E852)
+        # No tagged properties. Array/polygon payload is separate from the
+        # object header; source-record walking verifies that serialized extent.
+        m.execute_until(0x10148C95, 0x10148C9C)
+        serialized = m.memory[obj + 0x1C]
+        m.memory[table + 0x24] = 0x107A4916
+        m.invoke(0x1015E650, obj)
+        assert {at: m.memory[at] for at in initial} == after_constructor | {
+            obj + 0x1C: m.memory[obj + 0x1C]
+        }
+        rows.append(
+            dict(
+                scope="saved-polys-resource",
+                fileVersion=123,
+                licenseeVersion=21 + (index % 2),
+                classIdentity="Engine.Polys",
+                propertyTagCount=0,
+                savedExportFlags=saved,
+                polygonCount=index,
+                serializedMax=index + 1,
+            )
+        )
+        expected.append(
+            dict(
+                status="ready",
+                scope="prepared-source-polys-header",
+                loadingFlags=dict(
+                    created=created,
+                    allocated=allocated,
+                    serializing=serializing,
+                    serialized=serialized,
+                    beforePostLoad=m.before_postload_flags,
+                ),
+                objectFlags=m.memory[obj + 0x1C],
+            )
+        )
+        steps += len(m.visited)
+        visited.update(m.visited)
+    script = r"""
+import fs from 'node:fs';
+const {prepareSourcePolys}=await import(new URL('./actor-loading.js',process.argv[1]));
+const {rows,declared}=JSON.parse(fs.readFileSync(0,'utf8'));
+process.stdout.write(JSON.stringify(rows.map(source=>prepareSourcePolys(source,declared))));
+"""
+    actual = browser_outputs(
+        script, dict(rows=rows, declared=class_bits), Path(runtime)
+    )
+    assert len(actual) == len(expected)
+    for index, (a, b) in enumerate(zip(actual, expected)):
+        assert a == b, ("Polys header", index, rows[index], a, b)
+    return dict(
+        cases=len(rows),
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        browserStateCompared=True,
+        unrelatedStoragePreserved=True,
+        scope="fresh header flag stages, Polys constructor and inherited PostLoad; polygon payload not executed",
     )
 
 
@@ -3003,6 +3132,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
     program = load_program(engine, core, comparison_engine, comparison_core)
     model_bounds = model_bounds_cases(program, runtime)
     model_loading = model_loading_cases(program, runtime)
+    polys_loading = polys_loading_cases(program, runtime)
     actor_loading = actor_loading_cases(program)
     brush_actor_loading = brush_actor_loading_cases(program, runtime)
     actor_fields = actor_field_cases(program)
@@ -3099,6 +3229,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         ),
         modelBounds=model_bounds,
         modelLoading=model_loading,
+        polysLoading=polys_loading,
         source=program.receipt,
         runtimeSHA256=hashlib.sha256(Path(runtime).read_bytes()).hexdigest(),
         verifierSHA256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
@@ -3185,6 +3316,7 @@ def main():
                         "postLoad",
                         "modelBounds",
                         "modelLoading",
+                        "polysLoading",
                     ]
                 }
                 if a.check

@@ -372,3 +372,75 @@ test("unprepared Model resource and explicit null Brush references remain distin
   assert.equal(r.actorForReference(2).savedBrush, undefined);
   assert.equal(r.summary.preparedModels, 0);
 });
+
+import { sourcePolysFixture, polysClassFixture } from "./fixtures/model.mjs";
+function withPolys() {
+  const source = withBrushModels(),
+    brushes = source.savedBrushModels;
+  brushes.polys = { 7: sourcePolysFixture() };
+  brushes.polysClassLoading = polysClassFixture;
+  brushes.models[5].polysReference = 7;
+  return source;
+}
+
+test("world loader links one prepared Polys header to shared Model and Brush resources", () => {
+  const source = withPolys(),
+    before = structuredClone(source);
+  const world = prepareStaticWorldSource(source, "Map");
+  assert.equal(world.status, "ready", world.reason);
+  const polygon = world.polysForReference(7);
+  assert.equal(polygon, world.modelForReference(5).polys);
+  assert.equal(polygon, world.actorForReference(3).savedBrush.polys);
+  assert.equal(polygon.resource.status, "ready");
+  assert.equal(polygon.resource.objectFlags, 0x60000000);
+  assert.equal(world.summary.savedPolys, 1);
+  assert.equal(world.summary.preparedPolysHeaders, 1);
+  assert.equal(world.summary.collisionStatus, "unavailable");
+  assert.deepEqual(source, before);
+  source.savedBrushModels.polys[7].savedExportFlags = 3;
+  assert.equal(polygon.resource.objectFlags, 0x60000000);
+  assert.ok(Object.isFrozen(polygon.binding));
+});
+
+test("Polys source completeness and shared references cannot become implicit nulls", () => {
+  for (const corrupt of [
+    (s) => (s.savedBrushModels.polys = null),
+    (s) => (s.savedBrushModels.polys[7].sourcePackage = "Other"),
+    (s) => (s.savedBrushModels.polys[7].exportRef = 8),
+    (s) => (s.savedBrushModels.polys[7].classIdentity = "Engine.Model"),
+    (s) => {
+      const brushes = s.savedBrushModels;
+      brushes.polys[5] = { ...brushes.polys[7], exportRef: 5 };
+      delete brushes.polys[7];
+      brushes.models[5].polysReference = 5;
+    },
+    (s) => delete s.savedBrushModels.polys[7],
+    (s) => delete s.savedBrushModels.models[5].polysReference,
+    (s) => (s.savedBrushModels.models[5].polysReference = -1),
+    (s) => (s.savedBrushModels.models[5].polysReference = 0),
+  ]) {
+    const source = withPolys();
+    corrupt(source);
+    assert.equal(prepareStaticWorldSource(source, "Map").status, "unsupported");
+  }
+  const source = withPolys();
+  source.savedBrushModels.polys[7].propertyTagCount = 1;
+  const partial = prepareStaticWorldSource(source, "Map");
+  assert.equal(partial.status, "ready");
+  assert.equal(partial.summary.preparedPolysHeaders, 0);
+  assert.equal(
+    partial.modelForReference(5).polys.resource.status,
+    "unsupported",
+  );
+  source.savedBrushModels.polys = {};
+  source.savedBrushModels.models[5].polysReference = 0;
+  assert.equal(
+    prepareStaticWorldSource(source, "Map").modelForReference(5).polys,
+    null,
+  );
+  delete source.savedBrushModels.polys;
+  assert.equal(
+    prepareStaticWorldSource(source, "Map").modelForReference(5).polys,
+    undefined,
+  );
+});

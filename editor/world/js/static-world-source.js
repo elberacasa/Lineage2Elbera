@@ -7,6 +7,7 @@ import {
   resolvePackageReference,
   applyActorBooleanTags,
   prepareSourceModel,
+  prepareSourcePolys,
 } from "./actor-loading.js";
 import { prepareFreshStaticMeshTree } from "./static-mesh-tree.js";
 import { prepareModelBounds } from "./actor-primitive-bounds.js";
@@ -182,7 +183,8 @@ export function prepareStaticWorldSource(data, tile) {
   const byRef = new Map(),
     savedSlots = [],
     missing = new Map(),
-    models = new Map();
+    models = new Map(),
+    polys = new Map();
   try {
     const brushes = data.savedBrushModels;
     if (brushes !== undefined) {
@@ -192,6 +194,40 @@ export function prepareStaticWorldSource(data, tile) {
         !record(brushes.actors)
       )
         throw Error("invalid saved Brush Model bundle");
+      if (brushes.polys !== undefined) {
+        if (!record(brushes.polys))
+          throw Error("invalid saved Polys resource bundle");
+        for (const [key, source] of Object.entries(brushes.polys)) {
+          const ref = Number(key);
+          if (
+            String(ref) !== key ||
+            !validBinding(source) ||
+            source.exportRef !== ref ||
+            source.sourcePackage !== data.tile ||
+            source.classIdentity !== "Engine.Polys"
+          )
+            throw Error("invalid saved Polys identity");
+          polys.set(
+            ref,
+            freeze({
+              identity: source.identity,
+              binding: freeze(
+                Object.fromEntries(
+                  [
+                    "identity",
+                    "sourcePackage",
+                    "exportRef",
+                    "classIdentity",
+                    "exportSHA256",
+                  ].map((name) => [name, source[name]]),
+                ),
+              ),
+              resource: prepareSourcePolys(source, brushes.polysClassLoading),
+            }),
+          );
+        }
+      }
+      const usedPolys = new Set();
       for (const [key, source] of Object.entries(brushes.models)) {
         const ref = Number(key);
         if (
@@ -199,10 +235,25 @@ export function prepareStaticWorldSource(data, tile) {
           !validBinding(source) ||
           source.exportRef !== ref ||
           source.sourcePackage !== data.tile ||
-          source.classIdentity !== "Engine.Model"
+          source.classIdentity !== "Engine.Model" ||
+          polys.has(ref)
         )
           throw Error("invalid saved Model identity");
         const resource = prepareSourceModel(source, brushes.classLoading);
+        let polygonResource;
+        if (brushes.polys !== undefined) {
+          const ref = source.polysReference;
+          if (
+            !Number.isSafeInteger(ref) ||
+            ref < 0 ||
+            (ref !== 0 && !polys.has(ref))
+          )
+            throw Error(
+              "Model Polys reference differs from loaded resource set",
+            );
+          polygonResource = ref === 0 ? null : polys.get(ref);
+          if (ref !== 0) usedPolys.add(ref);
+        }
         const binding = freeze(
           Object.fromEntries(
             [
@@ -220,6 +271,7 @@ export function prepareStaticWorldSource(data, tile) {
             identity: source.identity,
             binding,
             resource,
+            polys: polygonResource,
             getBounds(input) {
               if (resource.status !== "ready") return resource;
               return prepareModelBounds({
@@ -230,6 +282,8 @@ export function prepareStaticWorldSource(data, tile) {
           }),
         );
       }
+      if ([...polys.keys()].some((ref) => !usedPolys.has(ref)))
+        throw Error("saved Polys has no Model reference");
       for (const [key, brush] of Object.entries(brushes.actors)) {
         if (
           !record(brush) ||
@@ -423,6 +477,10 @@ export function prepareStaticWorldSource(data, tile) {
       preparedModels: [...models.values()].filter(
         (model) => model.resource.status === "ready",
       ).length,
+      savedPolys: polys.size,
+      preparedPolysHeaders: [...polys.values()].filter(
+        (poly) => poly.resource.status === "ready",
+      ).length,
       collisionStatus: "unavailable",
       reason:
         "current level startup, actor providers and world query integration are unfinished",
@@ -436,6 +494,7 @@ export function prepareStaticWorldSource(data, tile) {
       unpreparedActors: freeze([...missing.values()]),
       actorForReference: (ref) => byRef.get(ref),
       modelForReference: (ref) => models.get(ref),
+      polysForReference: (ref) => polys.get(ref),
     });
   } catch (error) {
     return fail(error.message);

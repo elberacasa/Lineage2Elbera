@@ -19,7 +19,7 @@ FILES = {
     'docs/public-release-boundary.md': 'docs/public-release-boundary.md',
     **{f'tools/l2lib/{name}': f'tools/l2lib/{name}' for name in
        ('README.md', '__init__.py', 'ue2package.py', 'textures.py', 'l2dat.py',
-        'classdata.py', 'tests/test_classdata.py')},
+        'classdata.py', 'tests/test_classdata.py', 'tests/test_polys.py')},
     'docs/native-class-defaults-evidence.md': 'docs/native-class-defaults-evidence.md',
     **{f'tools/utx/{name}': f'tools/utx/{name}' for name in ('README.md', 'utxedit.py')},
     **{f'tools/uscript/{name}': f'tools/uscript/{name}' for name in

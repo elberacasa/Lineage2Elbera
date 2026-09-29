@@ -25,3 +25,26 @@ export const modelClassFixture = Object.freeze({
   mask: 0x408,
   value: 0,
 });
+
+export function sourcePolysFixture() {
+  return {
+    scope: "saved-polys-resource",
+    fileVersion: 123,
+    licenseeVersion: 21,
+    sourcePackage: "Map",
+    exportRef: 7,
+    identity: "Map.Faces",
+    classIdentity: "Engine.Polys",
+    exportSHA256: "d".repeat(64),
+    savedExportFlags: 0,
+    propertyTagCount: 0,
+    polygonCount: 2,
+    serializedMax: 5,
+  };
+}
+export const polysClassFixture = Object.freeze({
+  sourceClass: "Engine.Polys",
+  scope: "ordinary-native-registration",
+  mask: 0x408,
+  value: 0,
+});

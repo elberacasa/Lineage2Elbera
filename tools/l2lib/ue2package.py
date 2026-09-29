@@ -1174,18 +1174,21 @@ def read_polys(pkg, export):
         cidx Actor, cidx Material, cidx ItemName
         cidx iLink, cidx iBrushPoly
         f32  ShadowMapScale        (32.0 on 640/736 polys of 17_25)
-        u32  LightingChannels      (0xFFFFFFFF on every poly of every tile;
-                                    absent on LicenseeVersion <= 20)
+        u32  LightingChannels      (absent on LicenseeVersion <= 21;
+                                    the original loading branch writes 0xFFFFFFFF)
 
     Byte consumption is EXACT for all 168 Polys exports of 17_25, 329 of
     22_22 and 518 of 20_21 (1015 exports, 5096 polygons, zero slack).
     """
-    return _read_polys(pkg, export, _bsp_long_form(pkg))
+    extra = pkg.licensee_version >= 22 if pkg.file_version == 123 else _bsp_long_form(pkg)
+    return _read_polys(pkg, export, extra)
 
 
 def _read_polys(pkg, export, extra_field):
     end = export.serial_offset + export.serial_size
-    r = pkg.body_reader(export)
+    if not 0 <= export.serial_offset < end <= len(pkg.data):
+        raise L2Error("%s: invalid Polys export boundary" % pkg.path)
+    r = Reader(memoryview(pkg.data)[:end], export.serial_offset, pkg.path)
     read_properties(pkg, r)
     num = r.i32()
     r.i32()                                # Max (== Num in every retail map)

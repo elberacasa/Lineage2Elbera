@@ -2,6 +2,40 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Shared source Polys headers — 28 September 2026
+
+The scene loader now links each saved brush Model to its original Polys export,
+sharing immutable header preparation by package reference. Missing, null and
+unsupported resources stay distinct. Elbera Tools checks 495 linked exports and
+2,447 polygon records across Talking Island and Giran. Both adopted private
+bundles preserve every prior source field exactly; no scene geometry changed.
+
+The decoder now uses the native file-123 FPoly licensee cutoff of 22, separately
+from FBspSurf's cutoff of 21, and cannot read beyond a Polys export. Source
+qualification covers the ordinary serializers including both FPoly returns,
+UPolys construction and its inherited UObject.PostLoad binding. The native
+checker passes 128 header-loading cases (22,400 instructions/175 addresses),
+including fresh flags, array/owner initialization and unrelated storage.
+Archive payload execution and full polygon semantics are outside that proof.
+
+Portable checks pass 48 loader/lifecycle cases, 34 related bounds/tree cases,
+84 world-export cases, 19 interpreter cases and three Core packaging cases.
+The isolated Core build includes 19 files and passes 40 checks, including four
+new authored Polys cases. Existing original-map BSP/Polys extent checks pass
+across their four-map corpus. Published standalone archives stay immutable.
+
+The completed offline Giran startup capture was visually inspected: all 328
+Polys headers and 328 Models prepare, with 1,936 static actors and 287 meshes.
+No browser errors were captured. Existing terrain defects and unavailable
+world collision remain visible. This is a startup regression check, not Online
+movement or map-repair acceptance. Conflicting Model/Polys export identities
+are rejected, and both original bundles have disjoint resource identities.
+
+Next: source brush transforms/default references and subtype construction,
+volume localization, applying ordered shared-header writes, and the current
+world startup/query join. The complete client, Online movement and remaining
+terrain/rendering defects are still unfinished; the full goal stays active.
+
 ## Brush construction and ordered PostLoad writes — 28 September 2026
 
 The browser's new postLoadBrushActor entry reuses the common actor path and

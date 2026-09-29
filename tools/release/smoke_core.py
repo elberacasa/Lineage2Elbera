@@ -67,7 +67,7 @@ class CoreSmoke(unittest.TestCase):
 def main():
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(CoreSmoke)
     for directory, pattern in [('uscript', 'test_extract_uscript.py'), ('xdat', 'test_parse_xdat.py'),
-                               ('l2lib/tests', 'test_classdata.py')]:
+                               ('l2lib/tests', 'test_classdata.py'), ('l2lib/tests', 'test_polys.py')]:
         path = str(ROOT / 'tools' / directory)
         sys.path.insert(0, path)
         loader = unittest.TestLoader()

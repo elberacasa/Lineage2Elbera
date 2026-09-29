@@ -39,6 +39,14 @@ Portable API cases also check partial writes on unsupported inputs. These
 checks require explicit current state; they do not prepare saved map brushes
 or bypass volume localization. See [Brush inputs, source ranges and limits](../docs/native-static-actor-bounds-evidence.md#brush-construction-and-postload).
 
+The scene loader now links those Models to 495 shared original Polys headers.
+The existing checker executes 128 header-loading cases; an independent record
+walker verifies all 2,447 saved polygons in both maps. This establishes header
+flags and source framing, not complete polygon geometry or owning actor startup.
+The corrected file-123 decoder and four synthetic cases are also included in
+current standalone Core source builds (19 files/40 checks); published ZIPs are
+unchanged. See [Polys evidence and commands](../docs/native-static-actor-bounds-evidence.md#source-loaded-polys-headers).
+
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
 kit for qualified NPC selectors, original sparse-key bundles and optional GPU
 weight inputs, plus the bounded initial-animation and GPU native verifiers.
