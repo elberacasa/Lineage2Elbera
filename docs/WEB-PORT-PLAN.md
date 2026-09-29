@@ -57,6 +57,11 @@ order. The offset stage matches 420 authored native cases, five original volume
 classes and all thirteen nested structures. PhysicsVolume's derived layout now
 matches its native registered size. Class parent sizes remain explicit qualified
 inputs; this does not complete parent reflection or class startup.
+Optional property-list verification now continues through UStruct.Link's return
+with original flag mutations and inherited iteration: 147 authored comparisons
+and twelve original structures pass. PointRegion needs current referenced-class
+flags. Replication-condition grouping and full UClass/UState linking remain open;
+an editor-only skip is not used to admit game-mode volumes.
 Saved string loading and copying now preserve original code units and known
 default overrides, with 69 authored native comparisons and a check of both
 saved volume string tags through five volume classes. A further 192 comparisons

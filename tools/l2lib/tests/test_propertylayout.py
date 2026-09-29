@@ -6,7 +6,14 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from l2lib import L2Error
-from l2lib.propertylayout import property_offsets, linked_properties, structure_layouts
+from l2lib.propertylayout import (
+    property_offsets,
+    linked_properties,
+    structure_layouts,
+    property_link_flags,
+    property_lists,
+    structure_links,
+)
 
 
 def field(kind, dimension=1):
@@ -32,6 +39,149 @@ def structure(name, fields, parent=None):
 
 
 class PropertyLayoutTest(unittest.TestCase):
+    def test_structure_links_resolve_nested_flags_and_preserve_saved_words(self):
+        leaf = structure("Example.Leaf", [dict(field("Str"), propertyFlags=0)])
+        parent = structure(
+            "Example.Parent", [dict(field("Name"), propertyFlags=0x4000)]
+        )
+        child = structure(
+            "Example.Child",
+            [dict(field("Struct"), propertyFlags=0, reference="Example.Leaf")],
+            "Example.Parent",
+        )
+        result = structure_links([child, parent, leaf])
+        linked = result["example.child"]
+        self.assertEqual(linked["status"], "ready")
+        self.assertEqual(linked["ownFields"][0]["propertyFlags"], 0x400000)
+        self.assertEqual(linked["ownFields"][0]["savedPropertyFlags"], 0)
+        self.assertEqual(
+            linked["lists"]["0x70"], ["Example.Child.Field0", "Example.Parent.Field0"]
+        )
+        self.assertEqual(linked["lists"]["0x78"], ["Example.Child.Field0"])
+        self.assertEqual(linked["lists"]["0x74"], ["Example.Parent.Field0"])
+        self.assertEqual(leaf["fields"][0]["propertyFlags"], 0)
+        self.assertNotIn("savedPropertyFlags", child["fields"][0])
+
+    def test_structure_reference_gaps_propagate_until_explicit_current_flags_arrive(
+        self,
+    ):
+        referenced = structure(
+            "Example.Reference",
+            [dict(field("Object"), propertyFlags=0, reference="Example.Actor")],
+        )
+        outer = structure(
+            "Example.Outer",
+            [dict(field("Struct"), propertyFlags=0, reference="Example.Reference")],
+        )
+        for rows in ([outer, referenced], [referenced, outer]):
+            unknown = structure_links(rows)
+            self.assertTrue(all(r["status"] == "unsupported" for r in unknown.values()))
+            known = structure_links(rows, {"example.actor": 0x200000})
+            self.assertTrue(all(r["status"] == "ready" for r in known.values()))
+            self.assertEqual(
+                known["example.outer"]["lists"]["0x78"], ["Example.Outer.Field0"]
+            )
+        for mapping in (0, False, {"Example.Actor": 0, "example.actor": 0}):
+            with self.assertRaises(L2Error):
+                structure_links([referenced], mapping)
+
+    def test_string_and_structure_link_flags_preserve_preexisting_bits(self):
+        for initial, expected in (
+            (0, 0x400000),
+            (0x1000, 0x1000),
+            (0x401000, 0x401000),
+        ):
+            self.assertEqual(
+                property_link_flags(dict(field("Str"), propertyFlags=initial)), expected
+            )
+            self.assertEqual(
+                property_link_flags(
+                    dict(
+                        field("Struct"),
+                        propertyFlags=initial,
+                        structConstructorLink=True,
+                    )
+                ),
+                expected,
+            )
+            self.assertEqual(
+                property_link_flags(
+                    dict(
+                        field("Struct"),
+                        propertyFlags=initial,
+                        structConstructorLink=False,
+                    )
+                ),
+                initial,
+            )
+        for kind in ("Byte", "Int", "Bool", "Float", "Name"):
+            self.assertEqual(
+                property_link_flags(dict(field(kind), propertyFlags=0xFFFFFFFF)),
+                0xFFFFFFFF,
+            )
+
+    def test_object_link_flags_observe_short_circuit_and_current_reference(self):
+        for kind in ("Object", "Class"):
+            for initial, referenced, expected in (
+                (0x4000008, None, 0x4400008),
+                (0x4000000, 0, 0x4000000),
+                (8, 0, 8),
+                (0x1000, 0x200000, 0x401000),
+                (0x400000, 0, 0x400000),
+                (0, 0x80000000, 0),
+            ):
+                self.assertEqual(
+                    property_link_flags(
+                        dict(
+                            field(kind),
+                            propertyFlags=initial,
+                            referenceFlags=referenced,
+                        )
+                    ),
+                    expected,
+                )
+        for bad in (
+            dict(field("Str")),
+            dict(field("Str"), propertyFlags=True),
+            dict(field("Str"), propertyFlags=-1),
+            dict(field("Str"), propertyFlags=0x100000000),
+            dict(field("Object"), propertyFlags=0),
+            dict(field("Struct"), propertyFlags=0),
+            dict(field("Struct"), propertyFlags=0, structConstructorLink=0),
+            dict(field("Array"), propertyFlags=0),
+        ):
+            with self.assertRaises(L2Error):
+                property_link_flags(bad)
+
+    def test_four_lists_preserve_supplied_iterator_order_and_distinct_identities(self):
+        records = [
+            dict(identity="Child.Title", kind="StrProperty", propertyFlags=0x404000),
+            dict(identity="Child.Target", kind="ClassProperty", propertyFlags=0),
+            dict(identity="Parent.Title", kind="StrProperty", propertyFlags=0x400000),
+            dict(
+                identity="Parent.Callback",
+                kind="DelegateProperty",
+                propertyFlags=0x4000,
+            ),
+            dict(identity="Root.Values", kind="ArrayProperty", propertyFlags=0x400000),
+        ]
+        result = property_lists(records)
+        self.assertEqual(result["0x70"], [r["identity"] for r in records])
+        self.assertEqual(
+            result["0x6c"], ["Child.Target", "Parent.Callback", "Root.Values"]
+        )
+        self.assertEqual(result["0x74"], ["Child.Title", "Parent.Callback"])
+        self.assertEqual(result["0x78"], ["Child.Title", "Parent.Title", "Root.Values"])
+        self.assertEqual(property_lists([]), {h: [] for h in result})
+        for bad in (
+            records + [records[0]],
+            [dict(records[0], identity="")],
+            [dict(records[0], propertyFlags=None)],
+            [dict(records[0], kind="UnknownProperty")],
+        ):
+            with self.assertRaises(L2Error):
+                property_lists(bad)
+
     def test_nested_alignment_uses_explicit_size_not_field_name(self):
         for size, offset in ((0, 1), (1, 1), (2, 2), (3, 1), (4, 4), (12, 4)):
             nested = dict(field("Struct", 2), structSize=size)

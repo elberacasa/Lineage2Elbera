@@ -22,7 +22,7 @@ this is not a claim that every client format or behavior is recovered.
 | `l2lib.l2dat` | `.dat` files (L2ASM/L2FileEdit binary): 413/RSA decryption wrapper + record readers (`DatReader`) |
 | `l2lib.classdata` | Bounded file-123 UClass prefix reader; supported original expression serializers locate default properties without a terminal-stream search |
 | `l2lib.declarations` | Bounded file-123 property declarations, signed dimensions, conditional replication words and complete reference identities |
-| `l2lib.propertylayout` | Original field-offset stage from linked declarations, including nested-structure graphs, string headers, alignment and Boolean packing |
+| `l2lib.propertylayout` | Original field offsets, load-time property flags and four lists from explicit linked metadata; nested graphs, string headers, alignment and Boolean packing |
 | `l2lib.stringproperty` | Bounded saved string loading with byte widening, preserved UTF-16 code units and original count-one clearing |
 | `l2lib.textures` | Pixel decoders to RGBA8 (DXT1/DXT3/DXT5/RGBA8/RGB8/L8/P8/G16), mip extraction, stdlib PNG writer |
 
@@ -93,6 +93,22 @@ superclasses and nested references, and rejects missing/cyclic/ambiguous inputs.
 Seven authored tests cover these boundaries. Array properties and full class
 construction remain unsupported. This is an offset-stage helper, not a way to
 infer missing source data. See [native comparison and commands](../../docs/native-class-defaults-evidence.md#linked-scalar-property-offsets).
+
+`property_link_flags(field)` returns the original post-Link property word.
+It requires `propertyFlags`; Object/Class additionally need current
+`referenceFlags` unless the original short circuit applies, and Struct needs
+explicit `structConstructorLink`. Existing bits are preserved. This does not
+accept Array/Delegate Link implementations.
+`property_lists(fields)` consumes qualified properties in current inherited
+iterator order and returns identity lists keyed by original head offsets
+`0x6c`, `0x70`, `0x74`, `0x78`. Already-linked Array/Delegate inputs are admitted
+here. Missing flags and duplicate identities fail explicitly.
+`structure_links(records, reference_class_flags=None)` combines the existing
+structure layouts with these operations. It retains `savedPropertyFlags`
+separately, reports unresolved dependencies as `unsupported`, and never invents
+referenced-class flags. Twelve portable cases cover the combined layout/metadata
+APIs. Replication grouping and class startup remain separate work.
+[Source evidence](../../docs/native-class-defaults-evidence.md#linked-property-flags-and-lists).
 
 `qualified_ref(package, reference)` returns the complete package/group/object
 identity for a nonnull import or export. It rejects cycles and invalid or null

@@ -64,7 +64,7 @@ The native verifier also checks 256 cases across four native volume constructors
 including preservation of existing name/string storage. Localized PostLoad now
 has a composed comparison below; complete volume startup remains unfinished.
 Current standalone Core source builds
-include the declaration, nested-layout and string readers and fixtures (25 files/63 checks); existing ZIPs
+include the declaration, nested-layout and string readers and fixtures (25 files/68 checks); existing ZIPs
 are unchanged. [Commands, fingerprints and limits](../docs/native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations).
 
 The declaration inspector now returns `fieldChain` separately from export-order
@@ -77,6 +77,14 @@ inheritance; missing and cyclic inputs remain explicit errors. PhysicsVolume's
 result matches its native registration. Full class linking and live volume
 startup remain open.
 [Inputs, reproducible commands and exact limits](../docs/native-class-defaults-evidence.md#linked-scalar-property-offsets).
+
+That verifier's `--property-lists` mode adds 147 original-code comparisons of
+load-time flags and the four inherited lists, including full ordinary method
+return and null termination. The declaration inspector's `--structure-links`
+option prepares twelve original structures; PointRegion explicitly requires
+current referenced-class flags. Replication grouping and full class startup
+remain unresolved. Reusable flag/list helpers and five added portable tests
+are included in Core source builds. [Inputs and limits](../docs/native-class-defaults-evidence.md#linked-property-flags-and-lists).
 
 The declaration inspector's `--string-defaults` option retains saved string tags,
 exact storage units, hashes and inherited overrides. Its `--check` summary omits

@@ -1140,6 +1140,72 @@ def qualify_property_offsets(core, comparison_core):
     )
 
 
+def qualify_property_lists(core, comparison_core):
+    """Extend offset evidence through UStruct.Link's four property lists.
+
+    The entire ordinary body is compared. Replication grouping is not admitted
+    for execution; temporary empty-map lifecycle calls remain providers.
+    """
+    from actor_localization_source import qualify_actor_localization
+
+    proof = qualify_property_offsets(core, comparison_core)
+    localization = qualify_actor_localization(core, comparison_core)
+    helpers = (
+        (0x101043BD, 0x10132A30, 0x10132A52),
+        (0x101016F9, 0x10132A60, 0x10132A82),
+        (0x1010411A, 0x10132A90, 0x10132AB2),
+    )
+    ranges = [(0x10135E30, 0x10136218)]
+    for thunk, start, end in helpers:
+        core.instruction(thunk, "jmp", hex(start))
+        raw = bytes(core.data[core.offset(thunk) : core.offset(thunk) + 5])
+        assert raw == comparison_core.read(thunk, 5)
+        proof["thunkTargets"][hex(thunk)] = hex(start)
+        ranges.append((start, end))
+    for start, end in ranges:
+        raw = bytes(core.data[core.offset(start) : core.offset(end)])
+        assert raw == comparison_core.read(start, end - start)
+        assert sum(i.size for i in core.dis.disasm(raw, start)) == len(raw)
+        proof["blocks"].append(
+            dict(start=hex(start), end=hex(end), SHA256=hashlib.sha256(raw).hexdigest())
+        )
+    # Reuse the exact iterator/inheritance/cast evidence used by localization.
+    reused = {0x10119210, 0x10114340, 0x101329A0}
+    proof["blocks"].extend(
+        b for b in localization["coreBlocks"] if int(b["start"], 16) in reused
+    )
+    proof["thunkTargets"].update(
+        {k: v for k, v in localization["thunkTargets"].items() if int(v, 16) in reused}
+    )
+    kinds = (*proof["propertyMethods"], "ArrayProperty", "DelegateProperty")
+    descriptors = {}
+    for kind in ("Property", *kinds):
+        symbol = "?PrivateStaticClass@U" + kind + "@@0VUClass@@A"
+        descriptor = core.exported(symbol)
+        assert descriptor == comparison_core.exports[symbol]
+        descriptors[kind] = descriptor
+    for kind, address in (
+        ("ObjectProperty", 0x10338CA0),
+        ("StructProperty", 0x1033B0F0),
+        ("ArrayProperty", 0x1033A690),
+        ("DelegateProperty", 0x10337D10),
+    ):
+        assert descriptors[kind] == address
+    assert (
+        core.exported("?GIsEditor@@3HA")
+        == comparison_core.exports["?GIsEditor@@3HA"]
+        == 0x1023E8C4
+    )
+    proof["propertyDescriptors"] = descriptors
+    proof["limits"] = [
+        "Recomputed offsets, individual Link flag changes and four inherited property lists; not full UClass/UState Link or live class startup.",
+        "Current reflection, referenced class flags, parent size/lists and successful completed Preload remain explicit inputs.",
+        "Noneditor execution rejects replicated fields; editor execution skips original replication grouping. Grouping and alternate preserve-offset mode are not implemented.",
+        "The temporary replication map stays empty; its initialization/empty/destruction calls are supplied providers, not native container execution.",
+    ]
+    return proof
+
+
 def read_owned_loading_bits(*, actor=False, model=False, polys=False, brush=False):
     """Read this edition's owned inputs; no supplemental lookup or downloads."""
     from pathlib import Path

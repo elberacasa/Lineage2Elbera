@@ -290,10 +290,74 @@ python3 tools/release/build_core.py --check
 ```
 
 Current standalone Core source builds include the reader/helper and portable
-fixtures, now including the string reader below: **25 selected files / 63 checks**. The full native verifier and world
+fixtures, now including the metadata helpers and string reader below: **25 selected files / 68 checks**. The full native verifier and world
 inspector remain full-repository tools. Existing published ZIPs are unchanged.
 Complete default initialization, configuration, array fields, complete class
 loading and volume/world startup remain outstanding; no map repair is claimed.
+
+## Linked property flags and lists
+
+The offset API above is unchanged. Three separate helpers now retain the next
+consumed metadata: `property_link_flags`, `property_lists` and `structure_links`.
+They preserve the saved flag word separately from changes made by the original
+Link methods. String fields add `0x400000` unless `0x1000` is set. Structure
+fields use the referenced structure's current `+0x78` list. Object/Class fields
+use the original property-bit short circuit or the referenced class's current
+`0x200000` bit. None of these operations clears an already-set bit.
+Missing referenced-class state is unresolved, never a default zero.
+
+The list helper consumes the original property iterator order, including parent
+structures after own fields. Same-named inherited fields retain distinct
+qualified identities. The keys name original head offsets:
+
+| Head / property next | Included fields |
+| --- | --- |
+| `+0x6c` / `+0x64` | Object/Class, Struct, Array and Delegate properties |
+| `+0x70` / `+0x58` | Every iterated property |
+| `+0x74` / `+0x5c` | Current property bit `0x4000` set |
+| `+0x78` / `+0x60` | Current property bit `0x400000` set; consumed by InitProperties' specialized-copy loop |
+
+The verifier's `--property-lists` mode compares the **complete ordinary
+UStruct.Link body, `10135e30–10136218`**, reuses the localization iterator and
+StructProperty cast, and adds original Object/Array/Delegate cast bodies at
+`10132a30–10132a52`, `10132a60–10132a82`, `10132a90–10132ab2`.
+Named descriptor exports and virtual property Link dispatch are checked against
+the same pinned Core pair. **147 authored cases pass: 399,348 instructions at
+632 addresses**, comparing offsets, updated flags, inherited list order and
+null termination. The interpreter returns through the original method epilogue
+and checks stack/SEH/nonvolatile registers. Empty ancestors, skipped functions,
+arrays/delegates in supplied parent metadata, preserved unrelated bits and both
+string/structure flag gates are included.
+
+This execution profile admits game-mode fields without replication bit `0x20`,
+or the original editor branch that skips replication grouping. It **does not
+implement game-mode replication-condition grouping**. Its temporary replication
+map remains empty; map construction, emptying and destruction are explicit
+providers. Current reflection, parent metadata and completed archive Preload
+remain supplied. A full UStruct return under this profile is not full UClass/
+UState linking or live class initialization.
+
+With `--original-volumes`, twelve original structures additionally match:
+**10,789 instructions at 545 addresses**. PointRegion remains unsupported in
+this metadata check because its object field needs current referenced-class
+flags. This is distinct from the existing offset-only comparison, which still
+resolves and tests all thirteen structures. No missing flags are inferred from
+names, saved class flags or an older agent's assumptions.
+
+```sh
+python3 tools/world/inspect_actor_declarations.py --structure-links --check
+python3 tools/ui/check_property_layout_native.py \
+  --comparison-core /local/reference/system/Core.dll \
+  --property-lists --original-volumes \
+  --comparison-engine /local/reference/system/engine.dll \
+  --output tmp/local-property-lists.json
+```
+
+The Core, Engine and package fingerprints above apply. Full inspector output
+contains original metadata and should stay private; `--check` emits a compact
+summary. The portable library and twelve authored layout/metadata tests are
+included in standalone Core source builds. No browser UI or world startup
+changes accompany this component; the current tool screenshots remain valid.
 
 ## Saved string loading and copying
 
