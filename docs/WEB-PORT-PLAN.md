@@ -75,8 +75,12 @@ inners and reaches three additional structures. All twelve arrays now have prepa
 flag dependencies. The complete eight-class saved inheritance graph now matches
 original recomputed offsets and property lists, with seven independently bound
 native registration sizes. Full game-mode comparisons include inherited replication
-and the real nonproperty child chains. Current CDO/configuration/localization
-and actual class/world initialization remain next; preserve-offset mode remains
+and the real nonproperty child chains. Sixty original CDO initialization cases
+now cover every header word, parent string copies and new-field clearing. The
+eight-class source family skips LoadConfig across all recovered native/saved
+and inherited flag variants; a general configuration parser is not required
+for that bounded path. Localized defaults, other deep-copy types and complete
+class/world initialization remain next; preserve-offset mode remains
 outside this recompute-path evidence. Delegate linking remains outside
 this component; the inspected parent corpus contains no delegate declarations.
 Saved string loading and copying now preserve original code units and known
@@ -87,7 +91,7 @@ supplied current state. The browser now copies complete string arrays, preserves
 defaults and follows both object/actor localization calls before resource writes.
 The Elbera inspector exposes these stages across 90 control combinations.
 These components do not establish initialized live map volumes. Configuration
-parsing, other property importers, current linked metadata, complete class/CDO
+parsing for localization, other property importers, current linked metadata, complete class/CDO
 initialization, script-class construction and world startup remain unfinished.
 A volume's saved localized class bit must not be replaced by the nonlocalized
 static-actor profile.

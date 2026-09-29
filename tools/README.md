@@ -103,6 +103,15 @@ CDO initialization and live volumes remain unfinished.
 [Array inputs, source ranges and limits](../docs/native-class-defaults-evidence.md#array-inner-linking).
 [Inherited class metadata and scope](../docs/native-class-defaults-evidence.md#inherited-class-metadata).
 
+`--default-config` adds the source LoadConfig gate for the eight-class volume
+family, including inherited flag variants. All eight skip ordinary configuration
+loading; unrelated classes remain unresolved. The localization verifier now also
+checks 60 original CDO initialization cases and 1,536 configuration-gate cases.
+Its optional `--actor-startup --default-config --comparison-engine PATH` mode
+adds 28 checks using actual class source variants. These native-evidence tools
+require the full repository and caller-owned inputs; the standalone Core ZIP
+is unchanged. [Initialization inputs, reproduction and limits](../docs/native-actor-localization-evidence.md#class-default-initialization-and-configuration-gate).
+
 The declaration inspector's `--string-defaults` option retains saved string tags,
 exact storage units, hashes and inherited overrides. Its `--check` summary omits
 the private values. The existing localization verifier now compares 69 authored

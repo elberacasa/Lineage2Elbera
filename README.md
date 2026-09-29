@@ -90,10 +90,15 @@ array inners uncovered three previously missed structures. Their remaining
 referenced-class flag gaps are now closed. Complete recomputed **Object → Actor
 → Brush → volume inheritance** matches original linking for all eight classes,
 including inherited lists and replication. Seven native registration sizes
-match independently. Default-object initialization and live volume admission
+match independently. Complete default-object initialization and live volume admission
 remain pending. The reusable decoder is included in current Elbera Tools Core
 source builds (**25 files / 84 portable checks**).
 [Array evidence](docs/native-class-defaults-evidence.md#array-inner-linking) · [Inherited class metadata](docs/native-class-defaults-evidence.md#inherited-class-metadata).
+Original default-object initialization now has **60 focused comparisons** of
+header fields, parent string copying and new-field clearing. The source reader
+also confirms that all eight classes skip ordinary configuration loading,
+including inherited flags. Localized defaults and live startup remain unfinished.
+[Initialization evidence and scope](docs/native-actor-localization-evidence.md#class-default-initialization-and-configuration-gate).
 The source reader also preserves original string defaults through saved volume
 ancestry, including the water-specific override. Its bounded decoder retains
 UTF-16 code units and embedded zeros, with **69 original-code loading/copy
