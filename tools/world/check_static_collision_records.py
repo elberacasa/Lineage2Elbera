@@ -736,56 +736,18 @@ def check_reference_preparation(audit, actors):
     a current native registry, complete import discovery or LevelInfo lifecycle.
     """
     runtime = Path(__file__).resolve().parents[2] / "editor/world/js/actor-loading.js"
-    declarations = audit.defaults[-1]["collisionReferences"]
     selected = [row for row in actors if "savedReferences" in row]
     bindings = audit.reference_bindings(selected)
     script = r"""
 import {pathToFileURL} from 'node:url';
 const url=pathToFileURL(process.argv[1]);
-const {prepareFreshStaticActor,resolvePackageReference}=await import(url);
-const {prepareFreshStaticMeshTree}=await import(new URL('./static-mesh-tree.js',url));
+const {prepareSourceStaticActors}=await import(new URL('./static-world-source.js',url));
 let raw='';for await(const part of process.stdin)raw+=part;
-const input=JSON.parse(raw), objects=new Map(), resources=new Map();
-for(const [name,source] of Object.entries(input.geometry)){
- const resource=prepareFreshStaticMeshTree(source);
- if(resource.status!=='ready')throw Error(name+': '+resource.reason);
- resources.set(name.toLowerCase(),resource);
-}
-for(const table of Object.values(input.bindings))for(const binding of Object.values(table.references)){
- const key=binding.sourcePackage+':'+binding.exportRef;
- if(objects.has(key)){
-  if(JSON.stringify(objects.get(key).binding)!==JSON.stringify(binding))throw Error('conflicting source export');
-  continue;
- }
- const object={identity:binding.identity,binding};
- if(binding.classIdentity==='Engine.StaticMesh'){
-  object.resource=resources.get(binding.identity.toLowerCase());
-  if(!object.resource)throw Error('missing prepared source mesh: '+binding.identity);
- }
- objects.set(key,object);
-}
-const factories=[];
-function resolveReference(pkg,ref){
- const table=input.bindings[pkg];
- const resolve=(reference,kind,index)=>{
-  const binding=table?.references[reference];
-  if(!binding)return {status:'unsupported'};
-  factories.push([pkg,kind,index]);
-  return {status:'ready',value:objects.get(binding.sourcePackage+':'+binding.exportRef)};
- };
- return resolvePackageReference(table&&{exportCount:table.exportCount,importCount:table.importCount,
-  createExport:(index,flags)=>{if(flags!==0)throw Error('nonzero export flags');return resolve(index+1,'export',index);},
-  createImport:index=>resolve(-1-index,'import',index)},ref);
-}
-const defaults={};
-for(const [name,record] of Object.entries(input.defaults)){
- const result=resolveReference(record.package,record.reference);
- if(result.status!=='ready')throw Error('unresolved source default: '+name);
- defaults[name]=result.value;
-}
+const input=JSON.parse(raw), prepared=prepareSourceStaticActors(input);
+if(prepared.status!=='ready')throw Error(prepared.reason);
+if([...prepared.resources.values()].some(resource=>resource.status!=='ready'))throw Error('unprepared source mesh');
 const records=input.actors.map(actor=>{
- const result=prepareFreshStaticActor({defaults:input.actorDefaults,source:actor,classLoading:input.classLoading,
-  resolvedReferenceDefaults:defaults,resolveReference});
+ const result=prepared.actors.get(actor.exportRef);
  if(result.status!=='ready')throw Error(actor.name+': '+result.reason);
  const references=Object.fromEntries(Object.entries(result.references).map(([name,object])=>[name,object===null?null:object.identity]));
  if(!result.references.StaticMesh?.resource)throw Error('actor has no prepared mesh resource');
@@ -800,7 +762,7 @@ const records=input.actors.map(actor=>{
   skippedTransformTags:result.skipped.transforms,
   skippedBooleanTags:result.skipped.booleans};
 });
-process.stdout.write(JSON.stringify({records,uniqueObjects:objects.size,preparedMeshes:resources.size,factoryCalls:factories.length}));
+process.stdout.write(JSON.stringify({records,uniqueObjects:prepared.objects.size,preparedMeshes:prepared.resources.size,factoryCalls:prepared.factoryCalls}));
 """
     result = subprocess.run(
         ["node", "--input-type=module", "-e", script, str(runtime)],
@@ -809,8 +771,6 @@ process.stdout.write(JSON.stringify({records,uniqueObjects:objects.size,prepared
                 actors=selected,
                 geometry=audit.geometry,
                 bindings=bindings,
-                layout=declarations["layout"],
-                defaults=declarations["defaults"],
                 actorDefaults=audit.defaults[-1],
                 classLoading=audit.actor_class_loading,
             )
@@ -878,6 +838,9 @@ process.stdout.write(JSON.stringify({records,uniqueObjects:objects.size,prepared
             Counter(name for row in output["records"] for name in row["skipped"])
         ),
         runtimeSHA256=hashlib.sha256(runtime.read_bytes()).hexdigest(),
+        preparationRuntimeSHA256=hashlib.sha256(
+            runtime.with_name("static-world-source.js").read_bytes()
+        ).hexdigest(),
         propertyFamiliesJoined=["transforms", "Booleans", "references"],
         lifecycleScope="fresh collision fields through bounded original actor PostLoad; no level population or gameplay",
         records=output["records"],

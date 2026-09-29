@@ -1104,3 +1104,67 @@ Capstone). Both original-map checks still cover 2,922 static actor records and
 new browser appearance or Online acceptance claim. Complete current startup,
 brush/volume/mover participation and actual world-query integration remain open.
 Existing standalone archives and README screenshots are unchanged.
+
+## Source resources in the scene loader
+
+The game scene loader and original-record verifier now call the same
+`static-world-source.js` preparation module. It joins the existing actor and
+mesh loaders with class-qualified package references; the verifier's duplicate
+embedded implementation has been removed. The normal scene loads an optional
+`staticWorldSource` reference before adopting its terrain. Failed or superseded
+loads retain the previously adopted scene and source registry.
+
+The separate `l2-static-world-source-v1` bundle retains **every static actor
+export** and **every saved actor slot**, including nulls, repeated references,
+unimplemented classes and static exports absent from the saved array. Legacy
+ray-selection gates do not filter this bundle. Each saved actor identity retains
+its original package/export, class and body hash. Resource bindings must match
+the mesh's full identity and export hash. A missing preparation result remains
+explicit; it is never interpreted as clear space.
+
+| Map | Prepared static actors | Prepared mesh resources | Saved actor slots | Saved actors without preparation |
+| --- | --- | --- | --- | --- |
+| Talking Island (`17_25`) | 986 | 193 | 1,234 | 251 |
+| Giran (`22_22`) | 1,936 | 287 | 2,406 | 470 |
+
+The last column includes lights, cameras and other noncolliding classes as well
+as brushes, volumes and movers. It is **not** a count of blocking obstacles.
+Three Talking Island static exports remain prepared but absent from the saved
+level array. Shared mesh and LevelInfo references retain object identity;
+transient XLevel remains separate from saved Level and from current assignment.
+
+Reproduce with local original inputs and a new output path:
+
+```sh
+python3 tools/world/export_static_collision.py 22_22 \
+  --world-source-output assets/world/22_22/static-world-source.json
+python3 tools/world/check_static_collision_records.py 17_25 22_22 --check
+node --test editor/world/test/static-world-source.test.mjs \
+  editor/world/test/scene-loading.test.mjs \
+  editor/world/test/actor-loading.test.mjs \
+  editor/world/test/static-mesh-tree.test.mjs
+python3 -m unittest discover -s tools/world -p test_static_collision.py
+```
+
+The exporter creates a new file exclusively and leaves the scene unchanged.
+To opt a private scene into loading, set its `staticWorldSource` field to
+`"static-world-source.json"`. The loader reads that file from `/scenes/<tile>/`,
+including when rendered assets use the HD path. Preserve previous private
+manifests when changing them. The bundle contains original-derived data and must
+not be added to Git or an Elbera Tools release.
+
+All 2,922 original actors and 480 per-map mesh records pass the shared module.
+The portable commands cover 95 browser-module/lifecycle cases and 70 record
+cases. Fixtures contain authored data only. Failure tests cover omitted source
+identities, conflicting hashes, incomplete slots, unsupported resource/state
+branches, cancellation and stale scene adoption. The inspected offline Giran
+page reports 1,936 prepared actors, 287 meshes and 2,406 saved slots without
+captured browser errors.
+
+**Prepared source resources are not active collision.** The browser reports
+`collisionStatus: "unavailable"`; it does not promote saved membership or mode
+to current startup state. Original startup callbacks, remaining actor classes,
+brush/volume/mover collision, world query dispatch and Online movement remain
+unfinished. The old approximate picking path is unchanged. These large JSON
+bundles are development inputs; production transfer, parsing and memory costs
+still need a delivery format. No map-repair or full-client acceptance is claimed.

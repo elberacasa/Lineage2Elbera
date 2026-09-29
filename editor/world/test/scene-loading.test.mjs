@@ -24,8 +24,8 @@ function deferred() {
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
-function harness({ neighbors = false, delayedFetch = false, delayedCollision = false } = {}) {
-  const collisions = new Map();
+function harness({ neighbors = false, delayedFetch = false, delayedCollision = false, delayedSource = false } = {}) {
+  const collisions = new Map(), sources = new Map();
   const jobs = new Map(), fetches = new Map(), neighborJobs = new Map(), notices = [];
   const hidden = new Set(['hidden']);
   const old = { group: { tile: 'old' }, disposed: 0, dispose() { this.disposed++; } };
@@ -50,6 +50,7 @@ function harness({ neighbors = false, delayedFetch = false, delayedCollision = f
     AbortController, DOMException, Terrain, pickingInspection: null, lastWorldPick: null,
     document: { createElement: element, body: { append: notice => noticesDom.push(notice) } },
     terrain: old, staticCollision: { tile: 'old' }, currentTile: 'old', sceneLoading: false, pendingSceneSwitch: null, onlineGeneration: 0,
+    staticWorldSource: { summary: { tile: 'old' } },
     npcWorldEntry: null, entities: new EntityManager({}, []),
     inspectionRequest: null, character: null, online: false, selfServerPosition: null,
     tileNameFor: () => 'entered',
@@ -70,6 +71,10 @@ function harness({ neighbors = false, delayedFetch = false, delayedCollision = f
       if (delayedCollision) { const work = deferred(); collisions.set(tile, work); await work.promise; }
       return { tile };
     },
+    loadStaticWorldSource: async tile => {
+      if (delayedSource) { const work = deferred(); sources.set(tile, work); await work.promise; }
+      return { summary: { tile } };
+    },
     fetch: async (url, options) => {
       const tile = url.split('/').at(-2), work = deferred();
       fetches.set(tile, { ...work, signal: options.signal });
@@ -78,8 +83,34 @@ function harness({ neighbors = false, delayedFetch = false, delayedCollision = f
     },
   };
   vm.runInNewContext(loader + '\nObject.assign(globalThis, { runSceneLoad: loadScene, canAutomaticallyLoadScene, clearSceneLoadFailures });', context);
-  return { context, jobs, fetches, collisions, neighborJobs, notices, noticesDom, hidden, old, children };
+  return { context, jobs, fetches, collisions, sources, neighborJobs, notices, noticesDom, hidden, old, children };
 }
+
+test('source preparation failure preserves the adopted scene and source registry', async () => {
+  const h = harness({ delayedSource: true });
+  const attempt = h.context.runSceneLoad('broken'); await tick();
+  h.sources.get('broken').reject(new Error('invalid original source')); await attempt;
+  assert.equal(h.jobs.has('broken'), false);
+  assert.equal(h.context.terrain, h.old);
+  assert.equal(h.context.staticWorldSource.summary.tile, 'old');
+  assert.equal(h.context.staticCollision.tile, 'old');
+  assert.equal(h.old.disposed, 0);
+  assert.equal(h.context.sceneLoading, false);
+});
+
+test('source registry adopts with its scene and ignores stale preparation', async () => {
+  const h = harness({ delayedSource: true });
+  const stale = h.context.runSceneLoad('stale'); await tick();
+  const latest = h.context.runSceneLoad('latest'); await tick();
+  h.sources.get('latest').resolve(); await tick();
+  assert.equal(h.context.staticWorldSource.summary.tile, 'old');
+  h.jobs.get('latest').work.resolve(); await latest;
+  h.sources.get('stale').resolve(); await stale;
+  assert.equal(h.jobs.has('stale'), false);
+  assert.equal(h.context.currentTile, 'latest');
+  assert.equal(h.context.staticWorldSource.summary.tile, 'latest');
+  assert.equal(h.old.disposed, 1);
+});
 
 test('latest requested scene wins when terrain builds finish out of order', async () => {
   const h = harness();

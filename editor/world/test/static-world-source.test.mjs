@@ -1,0 +1,165 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  prepareStaticWorldSource,
+  loadStaticWorldSource,
+} from "../js/static-world-source.js";
+import { sourceWorldFixture } from "./fixtures/static-world.mjs";
+
+test("scene source preparation retains shared resources, null/repeated slots and unimplemented classes", () => {
+  const source = sourceWorldFixture(),
+    before = structuredClone(source);
+  const result = prepareStaticWorldSource(source, "Map");
+  assert.equal(result.status, "ready", result.reason);
+  assert.deepEqual(source, before);
+  assert.deepEqual(
+    result.savedSlots.map((v) => v?.identity ?? null),
+    ["Map.Level", "Map.Actor2", null, "Map.Volume", "Map.Actor2"],
+  );
+  assert.equal(result.savedSlots[1], result.savedSlots[4]);
+  const a = result.actorForReference(2).prepared,
+    b = result.actorForReference(4).prepared;
+  assert.equal(a.references.StaticMesh, b.references.StaticMesh);
+  assert.equal(a.references.Level, b.references.Level);
+  assert.equal(a.references.XLevel, null);
+  assert.deepEqual(a.groups["0x2f8"], { mask: 0, value: 0 });
+  assert.ok(Object.is(a.transform.prePivot[0], -0));
+  assert.deepEqual(
+    result.unpreparedActors.map((v) => v.identity),
+    ["Map.Level", "Map.Volume"],
+  );
+  assert.equal(result.summary.staticActors, 2);
+  assert.equal(result.summary.preparedActors, 2);
+  assert.equal(result.summary.preparedMeshes, 1);
+  assert.equal(result.summary.collisionStatus, "unavailable");
+  assert.deepEqual(result.savedMode, { "0x554": { mask: 7, value: 0 } });
+  assert.equal(result.currentMode, undefined);
+});
+
+test("unsupported actor or resource preparation stays explicit without discarding saved slots", () => {
+  for (const change of [
+    (s) => {
+      s.actors[0].savedActorLoading.attachedOverrideCount = 1;
+    },
+    (s) => {
+      s.meshes["Objects.Mesh"].loadTail.fields["0x1dc"].value = 7;
+    },
+  ]) {
+    const source = sourceWorldFixture();
+    change(source);
+    const result = prepareStaticWorldSource(source, "Map");
+    assert.equal(result.status, "ready", result.reason);
+    assert.equal(result.savedSlots.length, 5);
+    assert.ok(result.summary.preparedActors < result.summary.staticActors);
+    assert.ok(result.unpreparedActors.some((v) => v.reference === 2));
+    assert.equal(result.summary.collisionStatus, "unavailable");
+  }
+});
+
+test("source identity or completeness corruption cannot become a prepared world", () => {
+  for (const change of [
+    (s) => {
+      s.tile = "Other";
+    },
+    (s) => {
+      delete s.savedActorSlots[1];
+    },
+    (s) => {
+      s.savedActorSlots[1] = 99;
+    },
+    (s) => {
+      s.savedActorSlots[1] = -1;
+    },
+    (s) => {
+      delete s.savedActorSources[2];
+    },
+    (s) => {
+      s.actors.push(s.actors[0]);
+    },
+    (s) => {
+      s.savedActorSources[2].classIdentity = "Engine.Mover";
+    },
+    (s) => {
+      s.savedActorSources[2].exportSHA256 = "f".repeat(64);
+    },
+    (s) => {
+      s.savedReferenceBindings.Map.references[1] = {
+        ...s.savedActorSources[1],
+        identity: "Map.Other",
+      };
+    },
+    (s) => {
+      s.savedLevelCollisionMode.reference = 2;
+    },
+    (s) => {
+      s.savedLevelCollisionMode.groups["0x554"].value = 2;
+    },
+    (s) => {
+      s.meshes["Objects.Mesh"].exportSHA256 = "f".repeat(64);
+    },
+    (s) => {
+      s.meshes["Objects.Mesh"].sourceExport = "Objects.Other";
+    },
+    (s) => {
+      s.savedLevelCollisionMode.tags = [{ name: "Unknown", value: true }];
+    },
+    (s) => {
+      s.meshes["objects.mesh"] = s.meshes["Objects.Mesh"];
+    },
+    (s) => {
+      s.classDefaults[0].collisionReferences.defaults.Level.reference = 1;
+    },
+  ]) {
+    const source = sourceWorldFixture();
+    change(source);
+    const result = prepareStaticWorldSource(source, "Map");
+    assert.equal(result.status, "unsupported");
+    assert.equal(result.savedSlots, undefined);
+  }
+});
+
+test("optional source loading stays alongside normal scenes and propagates fetch/cancellation failures", async () => {
+  let requests = 0;
+  const signal = new AbortController().signal;
+  const fetcher = async (url, options) => {
+    requests++;
+    assert.equal(url, "/scenes/Map/static-world-source.json");
+    assert.equal(options.signal, signal);
+    return { ok: true, json: async () => sourceWorldFixture() };
+  };
+  assert.equal(await loadStaticWorldSource("Map", null, fetcher, signal), null);
+  assert.equal(requests, 0);
+  const result = await loadStaticWorldSource(
+    "Map",
+    "static-world-source.json",
+    fetcher,
+    signal,
+  );
+  assert.equal(result.summary.preparedActors, 2);
+  await assert.rejects(
+    loadStaticWorldSource("Map", "../other", fetcher),
+    /reference/,
+  );
+  await assert.rejects(
+    loadStaticWorldSource("Map", "static-world-source.json", async () => ({
+      ok: false,
+      status: 404,
+    })),
+    /404/,
+  );
+  const abort = new DOMException("cancelled", "AbortError");
+  await assert.rejects(
+    loadStaticWorldSource("Map", "static-world-source.json", async () => {
+      throw abort;
+    }),
+    (e) => e === abort,
+  );
+  await assert.rejects(
+    loadStaticWorldSource("Other", "static-world-source.json", async () => ({
+      ok: true,
+      json: async () => sourceWorldFixture(),
+    })),
+    /bundle/,
+  );
+  assert.equal(requests, 1);
+});

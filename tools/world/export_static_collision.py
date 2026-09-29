@@ -1177,6 +1177,67 @@ class Audit:
             ],
         }
 
+    def world_source_output(self, rows):
+        """Keep the full static input set and saved actor order for scene loading.
+
+        Legacy ray-selection gates do not remove actors from this output.
+        Missing resources and unimplemented classes remain explicit source
+        records; the bundle does not certify current level collision.
+        """
+        if not self.retain_sweep_data:
+            raise ValueError("source collision records were not retained")
+        expected = {
+            e.index + 1
+            for e in self.pkg.exports
+            if self.pkg.class_name_of(e) == "StaticMeshActor"
+        }
+        if {r["exportRef"] for r in rows} != expected or len(rows) != len(expected):
+            raise ValueError("world source requires every static actor export")
+        arrays = [
+            a for a in self.level_binding["actorArrays"] if a["nativeField"] == "0x38"
+        ]
+        if len(arrays) != 1:
+            raise ValueError("saved level actor array required")
+        slots = arrays[0]["references"]
+        identities = {}
+        for ref in sorted(set(slots) | expected):
+            if ref == 0:
+                continue
+            if type(ref) is not int or not 0 < ref <= len(self.pkg.exports):
+                raise ValueError("nonlocal saved actor source is not supported")
+            ex = self.pkg.exports[ref - 1]
+            start, end = ex.serial_offset, ex.serial_offset + ex.serial_size
+            if not 0 <= start < end <= len(self.pkg.data):
+                raise ValueError("saved actor source lies outside export")
+            identities[str(ref)] = dict(
+                identity=qualified_ref(self.pkg, ref),
+                sourcePackage=self.tile,
+                exportRef=ref,
+                classIdentity=qualified_ref(self.pkg, ex.class_index),
+                exportSHA256=sha(self.pkg.data[start:end]),
+            )
+        return dict(
+            format="l2-static-world-source-v1",
+            tile=self.tile,
+            sources=self.sources,
+            classDefaults=self.defaults,
+            actorClassLoading=self.actor_class_loading,
+            savedLevelBinding=self.level_binding,
+            savedActorSlots=slots,
+            savedActorSources=identities,
+            levelCollisionDefaults=self.level_mode_defaults,
+            savedLevelCollisionMode=self.level_mode,
+            savedReferenceBindings=self.reference_bindings(rows),
+            meshes=self.geometry,
+            actors=rows,
+            limits=[
+                "All static source records retained, including actors rejected by legacy ray gates and exports absent from the saved level array.",
+                "Every saved slot retains its source identity, including unimplemented nonstatic classes. Missing actor/resource preparation is not clear space.",
+                "Saved order and LevelInfo mode are not current level startup. This is resource preparation, not collision population or live query acceptance.",
+                "Private original-derived data; exclude from public source and tool bundles.",
+            ],
+        )
+
 
 def build(tile, names):
     audit = Audit(tile)
@@ -1191,10 +1252,14 @@ def main():
     selection.add_argument('--audit', action='store_true', help='read-only source census, full JSON report')
     selection.add_argument('--references-only', action='store_true', help='read-only reference census; tile "all" scans existing scene tiles')
     selection.add_argument('--all-supported', action='store_true', help='explicitly select every actor passing this source audit')
+    selection.add_argument('--world-source-output', type=Path,
+                           help='create a private complete static source bundle for the scene loader; retains all saved actor slots')
     p.add_argument('--emit', action='store_true', help='write private sidecar and reference in the one existing scene')
     p.add_argument('--sweep-output', type=Path,
                    help='create a separate private original collision-record file; does not change a scene')
     args = p.parse_args()
+    if args.world_source_output and (args.emit or args.sweep_output):
+        p.error('--world-source-output creates a separate source bundle; cannot also emit legacy collision')
     if (args.audit or args.references_only) and args.emit:
         p.error('source censuses are read-only; use --all-supported to emit the passed set')
     if args.sweep_output and (args.emit or args.audit or args.references_only):
@@ -1205,7 +1270,16 @@ def main():
         report = reference_census(tiles)
         print(json.dumps(report, indent=2))
         return 1 if report['summary']['failedMaps'] else 0
-    audit = Audit(args.tile, retain_sweep_data=bool(args.sweep_output)); rows = audit.actors(args.actor)
+    audit = Audit(args.tile, retain_sweep_data=bool(args.sweep_output or args.world_source_output)); rows = audit.actors(args.actor)
+    if args.world_source_output:
+        data = audit.world_source_output(rows)
+        with args.world_source_output.open('x') as stream:
+            json.dump(data, stream, separators=(',', ':'))
+            stream.write('\n')
+        print(json.dumps({'tile': args.tile, 'actors': len(data['actors']),
+                          'savedSlots': len(data['savedActorSlots']), 'meshes': len(data['meshes']),
+                          'worldSourceOutput': str(args.world_source_output)}))
+        return
     if args.audit:
         print(json.dumps(audit.report(rows), indent=2)); return
     if args.sweep_output:

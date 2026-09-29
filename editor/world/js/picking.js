@@ -200,10 +200,11 @@ export function installPickingInspection(search) {
   panel.setAttribute('aria-label', 'Elbera Tools world picking');
   panel.style.cssText = 'position:fixed;left:12px;bottom:145px;z-index:10000;max-width:340px;padding:8px;background:#101923e8;color:#eef3f6;font:12px/1.4 monospace;white-space:pre-wrap;pointer-events:none';
   document.body.append(panel);
-  return { update(collision, pick) {
+  return { update(collision, pick, sourceWorld = null) {
     const p = pick?.l2;
     panel.textContent = ['Elbera Tools — World picking',
       collision ? `Collision: ${collision.tile} · ${collision.surfaces.length} actors · ${collision.triangleCount} triangles` : 'Collision: no audited static surfaces loaded',
+      sourceWorld ? `Source preparation: ${sourceWorld.preparedActors}/${sourceWorld.staticActors} actors · ${sourceWorld.preparedMeshes}/${sourceWorld.meshes} meshes\n${sourceWorld.savedSlots} saved slots · ${sourceWorld.unpreparedSavedActors} actors awaiting preparation\nCurrent source collision: ${sourceWorld.collisionStatus}` : '',
       pick ? `Pixel: ${pick.pixel.join(', ')} · ${pick.surface || 'no world hit'}` : 'World pick: none',
       pick?.actor ? `${pick.actor} · triangle ${pick.triangle}\n${pick.mesh}` : '',
       p ? `L2: ${p.x}, ${p.y}, ${p.z}` : '',

@@ -1,81 +1,33 @@
 # Browser port: path to a small test server
 
-Updated 28 September 2026. Recent source work joins original collision
-components through actor admission, nonzero query traversal and original
-actor/pawn trace filtering and static-mesh actor bounds. Live world and movement integration remain
-unfinished; numerical comparisons are not playtest
-acceptance.
-The older local research branch is preserved separately and is not a
-publication branch. The [coverage inventory](PORT-COVERAGE.md) records the
-broader published milestones and remaining gaps.
+Updated 28 September 2026. The full browser client remains the goal. The
+[coverage inventory](PORT-COVERAGE.md) records supported components and gaps;
+source comparisons are not a substitute for playable journeys.
 
-The [static actor bounds checkpoint](native-static-actor-bounds-evidence.md)
-now joins original saved mesh records to a fresh-resource entry, including
-allocation/loading flag transitions and PostLoad. Its 256 source/browser
-comparisons supplement 600 bounds cases, 288 actor updates, 600 PostLoad cases
-and 128 constructor cases. All 480 checked per-map records pass preparation
-using source-derived native class loading bits. Only the two bits consumed by
-fresh allocation are supplied, rather than an invented complete class word. The main world still uses the older collision
-loader; this remains a component checkpoint.
+The actual scene loader now shares original static-actor/mesh preparation with
+Elbera Tools. Both original-map checks cover 2,922 actors and 480 mesh records.
+The inspected Giran page prepares 1,936 static actors and 287 meshes. Its source
+bundle preserves all 2,406 saved slots, including the 470 other actors still
+awaiting preparation. Those include lights and cameras as well as collision
+participants; this is not a count of 470 blocking obstacles.
 
-The shared property reader preserves extended indices and Boolean framing.
-The sweep exporter now retains the exact source class, saved export flags and
-ordered tag identities; all sixteen accepted mesh declarations are bound to
-the original native constructor. An inherited truncated InitProperties range
-has also been corrected through the final property-copy loop. Existing actor
-admission counts and default ray outputs remain unchanged.
+This connection replaces duplicated verifier-only preparation code. The game
+still uses the older approximate picking path. Saved level arrays and LevelInfo
+mode are recovered, but current startup and actor participation remain separate.
+Missing classes, resources and known flag bits stay explicit. The current large
+private JSON bundles support development; production transfer and memory costs
+still need work. See the [source-world contract](native-static-actor-bounds-evidence.md#source-resources-in-the-scene-loader).
 
-Actor recovery now adds 82 source-declared Boolean fields and their known-bit
-masks, checked in 512 original typed-copy cases. All 2,922 examined saved actor
-flag records agree with the decoded map/default fields. Reference bindings
-separate the mesh, collision brush, LevelInfo and transient world reference;
-saved values still need the native loading/lifecycle boundary before use as
-current actor state.
+The next world work is to finish the current startup join and brush/volume/mover
+providers, then feed the existing original bounds, membership and query modules
+into actual camera and walking queries. Validate town pavement, slopes, stairs,
+bridges, interiors and tile transitions in Online mode before claiming map repair.
+UI, class-specific animation, skills, effects, mobs, progression and the remaining
+systems below remain part of the full port.
 
-The saved level arrays now retain exact actor order and membership. Three
-Talking Island static exports have no saved actor slot despite passing the
-older collision selection. The population loop's original order and gates
-pass 256 interpreted cases; saved-to-current loading remains a separate step.
-
-Both original Level.PostLoad actor assignment loops now match the browser in
-192 cases with 1,875 ordered writes, preserving class/outer checks and the
-PlayerController exclusion. Saved reference recovery also checks all 20,454
-fields across the same 2,922 actors, keeping qualified mesh/level identities
-and default origins. The Boolean property gate and writer now match 9,792
-original tag operations.
-All 2,922 saved actor inputs preserve the same known bits under explicit
-persistent-load modes; none of their saved overrides in these groups is
-skipped. Source registration/package evidence also supplies StaticMeshActor
-class mask0x428 without inventing the rest of its word. The shared map reader
-now decodes the complete supported saved actor frame within each export;
-all 2,922 frames round-trip against originals. Source correspondence separates
-that saved frame from the later execution reset. Reference loading now copies
-ordinary identities, applies the property gate and resolves signed package
-indices through explicit factories. The source checker joins all 2,922 actor
-inputs to 480 prepared mesh records. Import matching includes class package/name;
-a real lighthouse texture and mesh share the same full object name. The existing
-loading module now joins transform defaults/tags, known Boolean words and
-references in one property entry. All 2,922 inputs pass that entry; 128 original
-serializer cases check transform gates, component order and exact scalar bits.
-The fresh actor entry now joins source flag stages, empty Attached default copying
-and bounded PostLoad, checked against 128 original-instruction cases and all
-2,922 source actors. Ordered population now joins actual actor admission,
-static-mesh bounds and membership in 64 original-code scenarios covering 959
-AddActor calls. The shared consumers accept only the known flag bits they read;
-unknown padding stays unknown. Original reversed box endpoints are preserved.
-LevelInfo mode declarations, inherited defaults and both maps' first-actor
-records are recovered. Another 128 original-code comparisons check constructor
-preservation and separate later startup writes. Saved mode is not current mode:
-whole default-object/archive execution, script initialization and the actual
-current level array still need the lifecycle join before world queries can use
-these records. Brushes, volumes and movers must remain visible as coverage gaps
-until their collision providers are ready.
-
-Next: feed these prepared mesh resources and original actor fields into the
-existing world-query components, preserving unresolved lifecycle boundaries. Validate
-actual Online queries and placement before claiming a map repair. Rendered
-mesh recentering remains provisional; UI, animation, effects and gameplay gaps
-in the coverage inventory are still part of the full-client goal.
+Public branches start from the reviewed public main. Original client inputs,
+generated assets, accounts and raw local receipts remain private; the older
+local research branch is preserved separately.
 
 ## Product and scope
 

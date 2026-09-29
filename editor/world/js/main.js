@@ -14,6 +14,7 @@ import { ClickMark } from './markprojector.js';
 import { NetClient, gatewayUrl, deviceId } from './net.js';
 import { EntityManager, pickModelId, warmPlayerCastMetadata } from './entities.js';
 import { pickPawn, loadStaticCollision, pickStaticCollision, installPickingInspection, PICK_RANGE, PICK_SHIFT_START } from './picking.js';
+import { loadStaticWorldSource } from './static-world-source.js';
 import { ChatBox } from './chat.js';
 import { CombatUI, bindProjection, installCombatFeedback } from './combat.js';
 import { SkillBar, SkillFx, SkillClass, loadSkillClass } from './skills.js';
@@ -310,6 +311,7 @@ function applyInteriorMode(interior) {
 
 let terrain = null;
 let staticCollision = null;
+let staticWorldSource = null;
 let lastWorldPick = null;
 const pickingInspection = installPickingInspection(location.search);
 pickingInspection?.update(null, null);
@@ -1887,12 +1889,14 @@ window.render_game_to_text = () => JSON.stringify({
   creatingCharacter: !!ccOverlay,
   selectingCharacter: !!csOverlay,
   packetAudio: audio.packetAudioState(),
+  sourceWorld: staticWorldSource?.summary ?? null,
 });
 
 // verification hook
 window.__world = {
   get lastWorldPick() { return lastWorldPick; },
   get staticCollision() { return staticCollision && { tile: staticCollision.tile, triangleCount: staticCollision.triangleCount }; },
+  get staticWorldSource() { return staticWorldSource?.summary ?? null; },
   scene, camera, renderer,
   hd: HD_ENABLED,
   audio, gameSound, worldAudio, worldLight,
@@ -2089,6 +2093,8 @@ async function loadScene(tile, { keepCharPos = false, groundHintY = null, isCurr
     if (!isLatest()) return;
     const collision = await loadStaticCollision(tile, def.staticCollision, fetch, abort.signal);
     if (!isLatest()) return;
+    const sourceWorld = await loadStaticWorldSource(tile, def.staticWorldSource, fetch, abort.signal);
+    if (!isLatest()) return;
     const t = candidate = new Terrain(def, baseUrl, { legacyStretch: !!inspectionRequest?.legacyStretch });
     await t.load(stage => {
       // Stop superseded loads at phase boundaries before they start more
@@ -2101,8 +2107,9 @@ async function loadScene(tile, { keepCharPos = false, groundHintY = null, isCurr
     if (terrain) { scene.remove(terrain.group); terrain.dispose(); }
     terrain = t;
     staticCollision = collision;
+    staticWorldSource = sourceWorld;
     lastWorldPick = null;
-    pickingInspection?.update(staticCollision, lastWorldPick);
+    pickingInspection?.update(staticCollision, lastWorldPick, staticWorldSource?.summary);
     adopted = true;
     scene.add(t.group);
     currentTile = tile;
@@ -2431,7 +2438,7 @@ canvas.addEventListener('pointerup', e => {
     actor: propNearest ? propHit.actor : null, mesh: propNearest ? propHit.mesh : null,
     triangle: propNearest ? propHit.triangle : null,
     l2: hit ? threeToL2(hit.point) : null };
-  pickingInspection?.update(staticCollision, lastWorldPick);
+  pickingInspection?.update(staticCollision, lastWorldPick, staticWorldSource?.summary);
 
   if (online && entities.entities.size) {
     const pawns = [], dropMeshes = [];

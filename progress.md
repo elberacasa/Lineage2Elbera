@@ -2,6 +2,30 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Source resources connected to scene loading — 28 September 2026
+
+PR57 is merged; source, PR and merged-head checks pass. The new source-world
+module is used by actual main-scene loading and the original-record verifier,
+removing its duplicate embedded preparation implementation. Full static inputs
+and all saved actor slots survive export; legacy ray rejection no longer drops
+records from this separate bundle. Nonstatic classes and unsupported resources
+remain explicit. Scene adoption keeps the old registry on failures or stale loads.
+
+Talking Island prepares 986 static actors/193 meshes and retains 1,234 saved
+slots; Giran prepares 1,936/287 and retains 2,406. Unprepared saved actors number
+251/470, including noncolliding classes as well as volumes and movers. The actual
+offline Giran page displays the preparation counts and collision unavailable.
+Its completed browser capture was visually inspected without captured errors.
+No world geometry, live collision or Online movement repair is claimed.
+
+Portable validation: 70 record tests and 95 affected browser-module/lifecycle
+cases pass. Both original-record checks exercise the shared module. Identity,
+source-hash and malformed bundle checks reject inconsistent inputs. Private
+source bundles are currently large JSON and need a production delivery format.
+Original data and raw receipts remain private; existing README screenshots stay.
+Next: current startup and remaining actor providers, then actual world queries.
+Full browser-client goal remains active and incomplete.
+
 ## LevelInfo collision mode evidence — 28 September 2026
 
 Continued from merged PR56. The existing source exporter now recovers the

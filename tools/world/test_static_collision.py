@@ -757,6 +757,73 @@ def authored_actor_layout(first_count=2):
         resolve_ref=lambda n: imports[-n-1] if n < 0 else exports[n-1], import_name=lambda e: e.name), by_name
 
 
+class WorldSourceOutputTest(unittest.TestCase):
+    def fixture(self):
+        audit = Audit.__new__(Audit)
+        audit.tile, audit.retain_sweep_data = "Map", True
+        exports = [
+            SimpleNamespace(
+                index=i, serial_offset=i, serial_size=1, class_index=-(i + 1), kind=kind
+            )
+            for i, kind in enumerate(
+                ["LevelInfo", "StaticMeshActor", "BlockingVolume", "StaticMeshActor"]
+            )
+        ]
+        audit.pkg = SimpleNamespace(
+            exports=exports, data=b"ABCD", class_name_of=lambda ex: ex.kind
+        )
+        audit.level_binding = {
+            "actorArrays": [{"nativeField": "0x38", "references": [1, 2, 0, 3, 2]}]
+        }
+        audit.sources, audit.defaults = {}, []
+        audit.actor_class_loading = {"scope": "authored"}
+        audit.level_mode_defaults, audit.level_mode = {}, {}
+        audit.geometry = {"Fixture.Mesh": {"scope": "authored"}}
+        audit.reference_bindings = lambda rows: {"scope": "authored"}
+        rows = [
+            dict(exportRef=2, issues=["legacy ray rejection"], meshIssues=[]),
+            dict(exportRef=4, issues=[], meshIssues=["missing geometry"]),
+        ]
+        return audit, rows
+
+    def names(self, package, ref):
+        return (
+            "Engine." + package.exports[-ref - 1].kind
+            if ref < 0
+            else "Map.Actor" + str(ref)
+        )
+
+    def test_world_bundle_keeps_rejected_static_exports_and_every_saved_slot(self):
+        audit, rows = self.fixture()
+        with patch("export_static_collision.qualified_ref", side_effect=self.names):
+            result = audit.world_source_output(rows)
+        self.assertEqual(result["actors"], rows)
+        self.assertEqual(result["savedActorSlots"], [1, 2, 0, 3, 2])
+        self.assertEqual(set(result["savedActorSources"]), {"1", "2", "3", "4"})
+        self.assertEqual(
+            result["savedActorSources"]["3"]["classIdentity"], "Engine.BlockingVolume"
+        )
+        self.assertEqual(
+            result["savedActorSources"]["4"]["exportSHA256"],
+            hashlib.sha256(b"D").hexdigest(),
+        )
+        self.assertNotIn("currentMode", result)
+
+    def test_world_bundle_rejects_omitted_or_repeated_static_exports_and_nonlocal_slots(
+        self,
+    ):
+        audit, rows = self.fixture()
+        for selected in [rows[:1], rows + [rows[0]]]:
+            with self.assertRaisesRegex(ValueError, "every static actor"):
+                audit.world_source_output(selected)
+        for ref in [-1, 5]:
+            audit.level_binding["actorArrays"][0]["references"] = [ref]
+            with patch(
+                "export_static_collision.qualified_ref", side_effect=self.names
+            ), self.assertRaisesRegex(ValueError, "nonlocal"):
+                audit.world_source_output(rows)
+
+
 class LevelCollisionModeTest(unittest.TestCase):
     def layout(self):
         rows = [
