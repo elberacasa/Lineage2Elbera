@@ -1116,18 +1116,14 @@ def _read_model(pkg, export, extra_field):
     return m
 
 
-# The 2003-era tiles (LicenseeVersion <= 20: entry, ship_position, 17_18,
-# 17_19, 18_15, 18_18, 23_10, 24_10, 24_26, 25_10, 26_11, 26_12 -- 12 of the
-# 157 shipped maps, all near-empty 7-9 brush stubs) predate two fields: the
-# FPoly LightingChannels DWORD and the FBspSurf iLightmapIndex. Which form a
-# package uses is DETECTED, not assumed from the version number: the long
-# form is tried first and a UPolys/UModel body that does not consume its
-# serial size to the last byte is rejected in favour of the short one. Every
-# retail tile lands on exactly one of the two.
+# Legacy FPoly layout probe. It does not establish FBspSurf's version gate:
+# the original file-123 surface serializer uses LicenseeVersion >= 21,
+# whereas FPoly uses >= 22. read_model uses the qualified surface gate for
+# file-123 inputs. Other file versions still need native qualification.
 
 
 def _bsp_long_form(pkg):
-    """True when this package uses the post-2004 FPoly/FBspSurf layout."""
+    """Legacy FPoly layout heuristic; not proof of the Model surface layout."""
     cached = getattr(pkg, "_bsp_long_form", None)
     if cached is not None:
         return cached
@@ -1153,10 +1149,16 @@ def read_model(pkg, export):
 
     Raises L2Error on any structural implausibility (non-unit node/surf
     plane, out-of-range index, overrun) so a desync can never be mistaken
-    for data. Consumption is exact for every brush model; on the level
-    model the undecoded lightmap tail is recorded in `lightmap_tail`.
+    for data. Remaining render/lighting bytes are recorded in `lightmap_tail`,
+    including the three empty-array counts in ordinary brush Models.
+
+    File123 uses the original FBspSurf LicenseeVer>=21 gate. The older shared
+    Polys heuristic is not evidence for this field: FPoly uses a different
+    LicenseeVer>=22 gate. Other file versions retain the legacy heuristic and
+    need their own native qualification.
     """
-    return _read_model(pkg, export, _bsp_long_form(pkg))
+    extra = pkg.licensee_version >= 21 if pkg.file_version == 123 else _bsp_long_form(pkg)
+    return _read_model(pkg, export, extra)
 
 
 def read_polys(pkg, export):

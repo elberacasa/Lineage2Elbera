@@ -35,7 +35,9 @@ from static_mesh_class_source import (
     qualify_registration,
     loading_bits,
     static_actor_loading_bits,
+    model_loading_bits,
 )
+from model_loading_source import qualify_model_loading
 from actor_transform_source import (
     qualify_static_actor_loading,
     qualify_actor_collision_fields,
@@ -240,6 +242,24 @@ def qualify(program, core, candidate, candidate_core):
         }
     )
     program.cache_id_global = int(constructor["cacheIdGlobal"], 16)
+    model_loading = qualify_model_loading(e, core, candidate, candidate_core)
+    model_loading["ordinaryFrames"] = []
+    for start, end in [
+        (0x105EAB60, 0x105EABE3),
+        (0x105EB9D0, 0x105EBA20),
+        (0x104225E0, 0x104225FC),
+    ]:
+        model_loading["ordinaryFrames"].append(
+            PreparationProgram.add(
+                program, e, start, end, bytes(e.data[e.offset(start) : e.offset(end)])
+            )
+        )
+    program.import_targets.update(
+        {int(a, 16): int(b, 16) for a, b in model_loading["importTargets"].items()}
+    )
+    program.membership_targets.update(
+        {int(a, 16): int(b, 16) for a, b in model_loading["thunkTargets"].items()}
+    )
     loading = qualify_static_mesh_fresh_load(e, core, candidate, candidate_core)
     registration = qualify_registration(e, core, candidate, candidate_core)
     from l2lib import load_package
@@ -255,6 +275,7 @@ def qualify(program, core, candidate, candidate_core):
     actor_class_loading = static_actor_loading_bits(
         e, core, engine_package, core_package
     )
+    model_class_loading = model_loading_bits(e, core, engine_package, core_package)
     actor_state_frames = qualify_actor_state_frames(core, candidate_core)
     actor_reference_loading = qualify_actor_reference_loading(core, candidate_core)
     for block in actor_reference_loading["coreBlocks"]:
@@ -434,6 +455,8 @@ def qualify(program, core, candidate, candidate_core):
             ],
         ),
         modelBounds=model_bounds,
+        modelLoading=model_loading,
+        modelClassLoading=model_class_loading,
         staticPostLoad=postload,
         staticConstructor=constructor,
         actorLoading=actor_loading,
@@ -1624,6 +1647,126 @@ def constructor_cases(program):
     )
 
 
+def model_loading_cases(program, runtime):
+    """Original surface construction and Model PostLoad with supplied storage.
+
+    Existing node lists are deliberately nonempty in half the cases: PostLoad
+    appends, including on repeated calls. It does not clear or deduplicate.
+    All other Model/surface words are checked for preservation.
+    """
+    rng = random.Random(0x4D4F444C)
+    rows, expected, visited, steps, surfaces = [], [], set(), 0, 0
+    model, node_base, surface_base = 0x300000, 0x400000, 0x500000
+    for case in range(96):
+        m = StaticBoundsMachine(program)
+        count = [0, 1, 2, 7, 16, 64][case % 6]
+        surface_count = [0, 1, 3, 17][case % 4]
+        if not surface_count:
+            count = 0
+        nodes = [rng.randrange(surface_count) for _ in range(count)]
+        old = [
+            [] if case % 2 == 0 else [rng.randrange(0x7FFFFFFF) for _ in range(i % 3)]
+            for i in range(surface_count)
+        ]
+        flags = [0, 0x000F0004, 0x20000000, 0xFFFFFEFF][case % 4]
+        m.memory.update(
+            {model + off: rng.getrandbits(32) for off in range(0, 0x738, 4)}
+        )
+        m.memory.update(
+            {
+                model + 0x1C: flags,
+                model + 0x64: node_base,
+                model + 0x68: count,
+                model + 0xA4: surface_base,
+            }
+        )
+        m.memory.update(
+            {node_base + i * 120 + 0x1C: value for i, value in enumerate(nodes)}
+        )
+        for i, values in enumerate(old):
+            surface = surface_base + i * 68
+            before = {surface + off: rng.getrandbits(32) for off in range(0, 68, 4)}
+            m.memory.update(before)
+            m.invoke(0x105EB9D0, surface)
+            assert {at: m.memory[at] for at in before} == before | {
+                surface + 0x20: 0,
+                surface + 0x24: 0,
+                surface + 0x28: 0,
+                surface + 0x40: 0xFFFFFFFF,
+            }
+            capacity = len(values) + case % 3
+            ptr = m.allocate(capacity * 4)
+            m.memory.update({ptr + j * 4: v for j, v in enumerate(values)})
+            m.memory.update(
+                {
+                    surface + 0x20: ptr,
+                    surface + 0x24: len(values),
+                    surface + 0x28: capacity,
+                }
+            )
+            surfaces += 1
+        before = {
+            at: value
+            for at, value in m.memory.items()
+            if model <= at < model + 0x738
+            or surface_base <= at < surface_base + surface_count * 68
+        }
+        m.invoke(0x105EAB60, model)
+        changed = {model + 0x1C}
+        for i in range(surface_count):
+            changed.update(surface_base + i * 68 + off for off in (0x20, 0x24, 0x28))
+        assert all(
+            m.memory[at] == value for at, value in before.items() if at not in changed
+        )
+        result = dict(
+            objectFlags=m.memory[model + 0x1C],
+            surfaceNodes=[
+                m.array(surface_base + i * 68 + 0x20) for i in range(surface_count)
+            ],
+        )
+        rows.append(dict(objectFlags=flags, nodeSurfaces=nodes, surfaceNodes=old))
+        expected.append(result)
+        # Execute a second call on these actual current arrays.
+        m.invoke(0x105EAB60, model)
+        rows.append(
+            dict(
+                objectFlags=result["objectFlags"],
+                nodeSurfaces=nodes,
+                surfaceNodes=result["surfaceNodes"],
+            )
+        )
+        expected.append(
+            dict(
+                objectFlags=m.memory[model + 0x1C],
+                surfaceNodes=[
+                    m.array(surface_base + i * 68 + 0x20) for i in range(surface_count)
+                ],
+            )
+        )
+        steps += len(m.visited)
+        visited.update(m.visited)
+    script = r"""
+const {postLoadModel}=await import(new URL('./actor-loading.js',process.argv[1]));
+let raw='';for await(const p of process.stdin)raw+=p;
+process.stdout.write(JSON.stringify(JSON.parse(raw).map(row=>{
+ const result=postLoadModel(row);if(result.status!=='ready')throw Error(result.reason);return result.writes;
+})));
+"""
+    actual = browser_outputs(script, rows, Path(runtime))
+    assert (
+        actual == expected
+    ), "browser Model PostLoad differs from original instructions"
+    return dict(
+        cases=len(rows),
+        constructedSurfaces=surfaces,
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        browserStateCompared=True,
+        unrelatedStoragePreserved=True,
+        scope="ordinary surface construction and Model PostLoad with supplied storage; not full Model construction or archive execution",
+    )
+
+
 def native_postload_one(program, row, index):
     """Execute PostLoad before the same bounds query with explicit current state."""
     m = StaticBoundsMachine(program)
@@ -2714,6 +2857,7 @@ process.stdout.write(JSON.stringify(results));
 def verify(engine, core, comparison_engine, comparison_core, runtime):
     program = load_program(engine, core, comparison_engine, comparison_core)
     model_bounds = model_bounds_cases(program, runtime)
+    model_loading = model_loading_cases(program, runtime)
     actor_loading = actor_loading_cases(program)
     actor_fields = actor_field_cases(program)
     actor_boolean_loading = actor_boolean_loading_cases(program, runtime)
@@ -2807,6 +2951,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
             directionFlag="clear",
         ),
         modelBounds=model_bounds,
+        modelLoading=model_loading,
         source=program.receipt,
         runtimeSHA256=hashlib.sha256(Path(runtime).read_bytes()).hexdigest(),
         verifierSHA256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
@@ -2815,6 +2960,9 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         ).hexdigest(),
         classQualifierSHA256=hashlib.sha256(
             Path(__file__).with_name("static_mesh_class_source.py").read_bytes()
+        ).hexdigest(),
+        modelLoadingQualifierSHA256=hashlib.sha256(
+            Path(__file__).with_name("model_loading_source.py").read_bytes()
         ).hexdigest(),
         actorLoadingQualifierSHA256=hashlib.sha256(
             Path(__file__).with_name("actor_transform_source.py").read_bytes()
@@ -2888,6 +3036,7 @@ def main():
                         "actorTransformLoading",
                         "postLoad",
                         "modelBounds",
+                        "modelLoading",
                     ]
                 }
                 if a.check

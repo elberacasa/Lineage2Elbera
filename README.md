@@ -57,9 +57,12 @@ browser behavior and focused verification.
 
 Source loading now retains inherited collision flags and ordered map overrides
 for every saved actor in Talking Island and Giran, including movers and volumes.
-These remain separate from current actor state. The class-prefix decoder that
-resolved a mover field ambiguity is also available in the standalone Core preview.
-[Source evidence, supported scope and commands](docs/native-class-defaults-evidence.md).
+These remain separate from current actor state. The loader also binds **495 original
+brush Models** to their saved actors, preparing bounds and surface-node lists
+through recovered loading rules. Brush/volume startup and live collision remain
+unfinished. The class-prefix decoder is available in the standalone Core preview.
+[Actor source evidence](docs/native-class-defaults-evidence.md) ·
+[Model loading and verification](docs/native-static-actor-bounds-evidence.md#saved-brush-model-resources).
 
 | Area | What advanced | Follow the work |
 | --- | --- | --- |

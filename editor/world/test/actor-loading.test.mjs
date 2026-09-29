@@ -893,3 +893,84 @@ test("missing lists, slots, records and consumed flags are rejected", () => {
   }
   assert.equal(collectLevelActorAssignments().status, "unsupported");
 });
+
+// Independent native instruction comparisons live in check_static_actor_bounds_native.
+// These authored cases cover rejection, aliasing and public API behavior.
+import { postLoadModel, prepareSourceModel } from "../js/actor-loading.js";
+import { sourceModelFixture, modelClassFixture } from "./fixtures/model.mjs";
+
+test("Model PostLoad appends in node order and preserves existing duplicate entries", () => {
+  const input = {
+    objectFlags: 4,
+    nodeSurfaces: [1, 0, 1],
+    surfaceNodes: [[7], [0, 0], []],
+  };
+  const before = structuredClone(input),
+    result = postLoadModel(input);
+  assert.equal(result.status, "ready", result.reason);
+  assert.deepEqual(result.writes, {
+    objectFlags: 0x20000004,
+    surfaceNodes: [[7, 1], [0, 0, 0, 2], []],
+  });
+  assert.deepEqual(input, before);
+  assert.ok(Object.isFrozen(result.writes.surfaceNodes[1]));
+  assert.deepEqual(
+    postLoadModel({ ...input, ...result.writes }).writes.surfaceNodes,
+    [[7, 1, 1], [0, 0, 0, 2, 0, 2], []],
+  );
+});
+
+test("Model source preparation owns bounds, creates per-surface arrays and retains loading stages", () => {
+  const source = sourceModelFixture(),
+    result = prepareSourceModel(source, modelClassFixture);
+  assert.equal(result.status, "ready", result.reason);
+  assert.deepEqual(result.surfaceNodes, [[1, 3], [], [0, 2]]);
+  assert.equal(
+    result.objectFlags,
+    (result.loadingFlags.beforePostLoad | 0x20000000) >>> 0,
+  );
+  source.localBounds.max[0] = 99;
+  assert.equal(result.localBounds.max[0], 4);
+  assert.ok(Object.is(result.localBounds.min[0], -0));
+  assert.equal(result.localBounds.valid, 7);
+  assert.ok(Object.isFrozen(result.localBounds.min));
+});
+
+test("unknown Model lifecycle branches and malformed resource inputs stay unsupported", () => {
+  for (const change of [
+    (s) => (s.fileVersion = 122),
+    (s) => (s.licenseeVersion = 8),
+    (s) => (s.surfaceCount = -1),
+    (s) => (s.nodeSurfaces[0] = 3),
+    (s) => delete s.nodeSurfaces[0],
+    (s) => (s.localBounds.max[1] = Infinity),
+    (s) => delete s.localBounds.min[0],
+    (s) => (s.emptyRenderArrays[0].count = 1),
+    (s) => s.emptyRenderArrays.reverse(),
+    (s) => delete s.savedExportFlags,
+  ]) {
+    const source = sourceModelFixture();
+    change(source);
+    assert.equal(
+      prepareSourceModel(source, modelClassFixture).status,
+      "unsupported",
+    );
+  }
+  for (const cls of [
+    { ...modelClassFixture, mask: 8 },
+    { ...modelClassFixture, value: 0x400 },
+  ])
+    assert.equal(
+      prepareSourceModel(sourceModelFixture(), cls).status,
+      "unsupported",
+    );
+  for (const input of [
+    { objectFlags: 0x100, nodeSurfaces: [], surfaceNodes: [] },
+    { objectFlags: 0, nodeSurfaces: [-1], surfaceNodes: [[]] },
+    { objectFlags: 0, nodeSurfaces: [0], surfaceNodes: [Array(1)] },
+  ]) {
+    const result = postLoadModel(input);
+    assert.equal(result.status, "unsupported");
+    assert.equal(result.writes, undefined);
+  }
+});

@@ -268,3 +268,107 @@ test("optional source loading stays alongside normal scenes and propagates fetch
   );
   assert.equal(requests, 1);
 });
+
+import { sourceModelFixture, modelClassFixture } from "./fixtures/model.mjs";
+function withBrushModels() {
+  const s = withSavedBooleans(),
+    classes = s.savedActorBooleans.classes;
+  for (const cls of Object.values(classes)) cls.parent = "Engine.Actor";
+  classes["core.object"] = { sourceClass: "Core.Object", parent: null };
+  classes["engine.actor"] = {
+    sourceClass: "Engine.Actor",
+    parent: "Core.Object",
+  };
+  classes["engine.brush"] = {
+    sourceClass: "Engine.Brush",
+    parent: "Engine.Actor",
+  };
+  classes["engine.blockingvolume"].parent = "Engine.Brush";
+  s.savedBrushModels = {
+    scope: "saved-brush-model-resources",
+    classLoading: modelClassFixture,
+    actors: {
+      3: {
+        sourceClass: "Engine.BlockingVolume",
+        modelRef: 5,
+        savedReference: { reference: 5, package: "Map" },
+      },
+    },
+    models: { 5: sourceModelFixture() },
+  };
+  s.savedActorSources[6] = {
+    ...s.savedActorSources[3],
+    exportRef: 6,
+    identity: "Map.Volume2",
+  };
+  s.savedActorBooleans.actors[6] = structuredClone(
+    s.savedActorBooleans.actors[3],
+  );
+  s.savedBrushModels.actors[6] = structuredClone(s.savedBrushModels.actors[3]);
+  s.savedActorSlots.push(6);
+  return s;
+}
+
+test("world loader shares prepared Models across saved Brush references while actor lifecycle stays unresolved", () => {
+  const s = withBrushModels(),
+    before = structuredClone(s),
+    r = prepareStaticWorldSource(s, "Map");
+  assert.equal(r.status, "ready", r.reason);
+  const model = r.modelForReference(5);
+  assert.equal(model, r.actorForReference(3).savedBrush);
+  assert.equal(model, r.actorForReference(6).savedBrush);
+  assert.equal(model.resource.status, "ready");
+  assert.deepEqual(
+    model.getBounds({ ownerIdentity: null }).bounds,
+    model.resource.localBounds,
+  );
+  assert.deepEqual(model.resource.surfaceNodes, [[1, 3], [], [0, 2]]);
+  assert.equal(r.actorForReference(3).prepared, undefined);
+  assert.equal(r.summary.savedModels, 1);
+  assert.equal(r.summary.preparedModels, 1);
+  assert.equal(r.summary.unpreparedSavedActors, 3);
+  assert.equal(r.summary.collisionStatus, "unavailable");
+  assert.deepEqual(s, before);
+  s.savedBrushModels.models[5].identity = "changed";
+  assert.equal(model.binding.identity, "Map.Shape");
+});
+
+test("missing and corrupt Brush identities or ancestry cannot silently become empty space", () => {
+  for (const change of [
+    (s) => delete s.savedBrushModels.actors[3],
+    (s) => (s.savedBrushModels.actors[2] = s.savedBrushModels.actors[3]),
+    (s) => delete s.savedBrushModels.models[5],
+    (s) => (s.savedBrushModels.models[5].exportRef = 9),
+    (s) => (s.savedBrushModels.actors[3].savedReference.package = "Other"),
+    (s) => (s.savedBrushModels.actors[3].modelRef = 7),
+    (s) =>
+      (s.savedActorBooleans.classes["engine.brush"].parent =
+        "Engine.BlockingVolume"),
+    (s) => delete s.savedActorBooleans.classes["engine.brush"],
+  ]) {
+    const s = withBrushModels();
+    change(s);
+    assert.equal(prepareStaticWorldSource(s, "Map").status, "unsupported");
+  }
+});
+
+test("unprepared Model resource and explicit null Brush references remain distinguishable", () => {
+  const s = withBrushModels();
+  s.savedBrushModels.models[5].nodeSurfaces[0] = 99;
+  let r = prepareStaticWorldSource(s, "Map");
+  assert.equal(r.status, "ready", r.reason);
+  assert.equal(r.summary.preparedModels, 0);
+  assert.equal(
+    r.actorForReference(3).savedBrush.getBounds({ ownerIdentity: null }).status,
+    "unsupported",
+  );
+  s.savedBrushModels.models = {};
+  for (const brush of Object.values(s.savedBrushModels.actors)) {
+    brush.modelRef = brush.savedReference.reference = 0;
+  }
+  r = prepareStaticWorldSource(s, "Map");
+  assert.equal(r.status, "ready", r.reason);
+  assert.equal(r.actorForReference(3).savedBrush, null);
+  assert.equal(r.actorForReference(2).savedBrush, undefined);
+  assert.equal(r.summary.preparedModels, 0);
+});

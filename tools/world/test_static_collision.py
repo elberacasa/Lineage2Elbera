@@ -1000,7 +1000,9 @@ class WorldSourceOutputTest(unittest.TestCase):
         audit, rows = self.fixture()
         with patch("export_static_collision.qualified_ref", side_effect=self.names), patch(
                 "export_static_collision.ActorBooleanDefaults") as classes, patch(
-                "export_static_collision.saved_actor_booleans", return_value={'scope': 'authored'}) as booleans:
+                "export_static_collision.saved_actor_booleans", return_value={'scope': 'authored'}) as booleans, patch(
+                "export_static_collision.saved_brush_models", return_value={'actors': {}, 'models': {}}), patch(
+                "static_mesh_class_source.read_owned_loading_bits", return_value={'scope': 'authored'}):
             classes.return_value.records = {'authored': {'scope': 'authored'}}
             classes.return_value.catalog.sources = {}
             result = audit.world_source_output(rows)
@@ -1487,4 +1489,161 @@ class ActorAdmissionTest(unittest.TestCase):
         row, _ = self.actor([prop, prop])
         self.assertIn('duplicate-property:' + flag, row['issues'])
 
-if __name__ == '__main__': unittest.main()
+
+
+class SavedModelResourceTest(unittest.TestCase):
+    def fixture(self, licensee=21):
+        from test_bsp_collision import source_fixture
+
+        pkg, ex, _ = source_fixture(short=licensee < 21)
+        pkg.licensee_version = licensee
+        pkg.class_name_of = lambda obj: "Model" if obj is ex else "Level"
+        return pkg, ex
+
+    def test_model_native_surface_gate_does_not_use_the_legacy_polys_probe(self):
+        from l2lib.ue2package import read_model
+        from export_static_collision import saved_model_resource
+        from check_static_collision_records import check_saved_model_resource
+
+        for licensee in (9, 20, 21, 22, 25):
+            pkg, ex = self.fixture(licensee)
+            with patch(
+                "l2lib.ue2package._bsp_long_form",
+                side_effect=AssertionError("wrong version gate"),
+            ):
+                model = read_model(pkg, ex)
+                source = saved_model_resource(pkg, ex)
+            self.assertEqual(
+                model.surfs[0].i_lightmap_index, None if licensee < 21 else -1
+            )
+            self.assertEqual(source["nodeSurfaces"], [0])
+            self.assertEqual(source["surfaceCount"], 1)
+            self.assertEqual(check_saved_model_resource(pkg, source)["nodes"], 1)
+            self.assertEqual(
+                sum(r["sourceBytes"] for r in source["emptyRenderArrays"]), 3
+            )
+
+    def test_model_record_checker_detects_changed_operands_identity_bounds_and_spans(
+        self,
+    ):
+        from export_static_collision import saved_model_resource
+        from check_static_collision_records import check_saved_model_resource
+
+        pkg, ex = self.fixture()
+        source = saved_model_resource(pkg, ex)
+        for mutate in [
+            lambda r: r["nodeSurfaces"].__setitem__(0, 1),
+            lambda r: r.__setitem__("surfaceCount", 2),
+            lambda r: r.__setitem__("polysReference", 1),
+            lambda r: r.__setitem__("exportSHA256", "0" * 64),
+            lambda r: r.__setitem__("licenseeVersion", 22),
+            lambda r: r["localBounds"]["min"].__setitem__(0, 1),
+            lambda r: r["sourceSpans"]["nodes"].__setitem__("sourceBytes", 1),
+            lambda r: r["emptyRenderArrays"][1].__setitem__("nativeField", "0xf0"),
+        ]:
+            record = deepcopy(source)
+            mutate(record)
+            with self.assertRaises(ValueError):
+                check_saved_model_resource(pkg, record)
+
+    def test_model_decoder_rejects_nonempty_noncanonical_and_truncated_render_arrays(
+        self,
+    ):
+        from export_static_collision import saved_model_resource
+
+        for ending in (b"\x01\0\0", b"\x40\0\0", b"\0\0", b"\0\0\0\0"):
+            pkg, ex = self.fixture()
+            end = ex.serial_offset + ex.serial_size
+            pkg.data = pkg.data[: end - 3] + ending + pkg.data[end:]
+            ex.serial_size += len(ending) - 3
+            with self.assertRaises((ValueError, L2Error)):
+                saved_model_resource(pkg, ex)
+
+
+class SavedBrushModelTest(unittest.TestCase):
+    def fixture(self):
+        from test_bsp_collision import source_fixture
+        from l2lib import RF_HAS_STACK
+
+        pkg, model, _ = source_fixture()
+        pkg.class_name_of = lambda ex: "Model" if ex is model else "Brush"
+        pkg.name = lambda n: ("None", "Brush")[n]
+        pkg.imports.append(SimpleNamespace(package_index=-1, label="Brush"))
+        # Authored valid saved execution frame and one exact Brush property.
+        frame = (
+            compact(-4) * 2 + struct.pack("<Qi", 0xFFFFFFFFFFFFFFFF, 0) + compact(-1)
+        )
+        tags = b"\x01\x05" + compact(1) + b"\0"
+        actors = {}
+        for i in range(2):
+            ex = SimpleNamespace(
+                index=len(pkg.exports),
+                package_index=0,
+                class_index=-4,
+                object_flags=RF_HAS_STACK,
+                serial_offset=len(pkg.data),
+                serial_size=len(frame + tags),
+                label="Brush" + str(i),
+            )
+            pkg.exports.append(ex)
+            pkg.data += frame + tags
+            actors[str(ex.index + 1)] = dict(
+                identity=qualified_ref(pkg, ex.index + 1), classIdentity="Engine.Brush"
+            )
+        records = {
+            "core.object": dict(sourceClass="Core.Object", parent=None, tags=[]),
+            "engine.actor": dict(
+                sourceClass="Engine.Actor", parent="Core.Object", tags=[]
+            ),
+            "engine.brush": dict(
+                sourceClass="Engine.Brush", parent="Engine.Actor", tags=[]
+            ),
+            "engine.mover": dict(
+                sourceClass="Engine.Mover", parent="Engine.Actor", tags=[]
+            ),
+        }
+        defaults = SimpleNamespace(
+            records=records, read=lambda name: records[name.casefold()]
+        )
+        return pkg, actors, defaults
+
+    def test_shared_brush_resource_is_decoded_once_and_mover_ancestry_is_excluded(self):
+        from export_static_collision import saved_brush_models, saved_model_resource
+
+        pkg, actors, defaults = self.fixture()
+        actors["99"] = dict(identity="synthetic.Mover", classIdentity="Engine.Mover")
+        with patch(
+            "export_static_collision.saved_model_resource", wraps=saved_model_resource
+        ) as decode:
+            result = saved_brush_models(pkg, actors, defaults)
+        self.assertEqual(decode.call_count, 1)
+        self.assertEqual(set(result["models"]), {"1"})
+        self.assertEqual(set(result["actors"]), {"3", "4"})
+        self.assertEqual(result["actors"]["3"]["modelRef"], 1)
+        self.assertEqual(
+            result["actors"]["3"]["savedReference"]["origin"], "synthetic.Brush0"
+        )
+
+    def test_nonlocal_inherited_brush_and_actor_tail_stay_unsupported(self):
+        from export_static_collision import saved_brush_models
+
+        pkg, actors, defaults = self.fixture()
+        ex = pkg.exports[-1]
+        pkg.data += b"X"
+        ex.serial_size += 1
+        with self.assertRaisesRegex(ValueError, "native tail"):
+            saved_brush_models(pkg, actors, defaults)
+        pkg, actors, defaults = self.fixture()
+        ex = pkg.exports[-1]
+        # Remove the saved override, making the inherited nonlocal source relevant.
+        ex.serial_size -= 3
+        pkg.data = pkg.data[:-4] + b"\0"
+        defaults.records["engine.brush"]["tags"] = [
+            dict(name="Brush", type=5, index=0, raw="01")
+        ]
+        with self.assertRaisesRegex(ValueError, "nonlocal"):
+            saved_brush_models(pkg, actors, defaults)
+
+
+if __name__ == "__main__":
+    unittest.main()

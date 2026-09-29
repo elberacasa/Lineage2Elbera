@@ -22,7 +22,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / 'tools'), str(ROOT / 'tools/dat'), str(ROOT / 'tools/ui')]
-from l2lib import L2Error, Reader, load_package, read_properties, encode_compact, qualified_ref
+from l2lib import L2Error, Reader, load_package, read_properties, encode_compact, qualified_ref, read_model
 from convert import actor_prop_offset, read_props_ordered, read_map_actor_frame
 from export_npc_visuals import OriginalClasses, serialized_defaults
 
@@ -608,7 +608,7 @@ class ActorBooleanDefaults:
             )
             if inherited is None:
                 raise ValueError("class is outside the original Actor ancestry")
-            names = {f["name"].casefold() for g in self.layout for f in g["fields"]}
+            names = {f["name"].casefold() for g in self.layout for f in g["fields"]} | {"brush"}
             if any(
                 e.package_index == ex.index + 1
                 and pkg.export_name(e).casefold() in names
@@ -674,6 +674,144 @@ def saved_actor_booleans(pkg, ex, defaults, layout):
         ),
         **values
     )
+
+
+def saved_model_resource(pkg, ex):
+    """Retain a file123 Model's bounds and PostLoad operands from exact spans.
+
+    The three rendering arrays must be empty for this resource profile. Their
+    native field identities are source-bound, not guessed asset meanings.
+    Full Model geometry remains available through the shared package decoder.
+    """
+    if (
+        pkg.file_version != 123
+        or pkg.licensee_version < 9
+        or pkg.class_name_of(ex) != "Model"
+    ):
+        raise ValueError("unsupported Model resource edition or class")
+    model = read_model(pkg, ex)
+    properties, property_end = model.source_spans["properties"]
+    tags, consumed = read_props_ordered(pkg, properties, end=property_end)
+    if tags or consumed != property_end:
+        raise ValueError("tagged Model properties require native property loading")
+    lo, hi = model.source_spans["primitive"]
+    reader = Reader(memoryview(pkg.data)[:hi], lo, pkg.path)
+    bounds = serialized_box(reader)
+    sphere = list(struct.unpack("<4f", reader.bytes(16)))
+    if reader.pos != hi or not all(math.isfinite(v) for v in sphere):
+        raise ValueError("invalid Model primitive span")
+    start, end = model.source_spans["undecoded_tail"]
+    reader = Reader(memoryview(pkg.data)[:end], start, pkg.path)
+    arrays = []
+    for field in ("0xe4", "0x10c", "0xf0"):
+        pos = reader.pos
+        n = reader.compact()
+        if n != 0 or pkg.data[pos : reader.pos] != encode_compact(n):
+            raise ValueError("nonempty or noncanonical Model rendering array")
+        arrays.append(
+            dict(
+                nativeField=field,
+                count=n,
+                sourceOffset=pos,
+                sourceBytes=reader.pos - pos,
+            )
+        )
+    if reader.pos != end:
+        raise ValueError("trailing Model resource bytes")
+    return dict(
+        scope="saved-model-resource",
+        fileVersion=pkg.file_version,
+        licenseeVersion=pkg.licensee_version,
+        sourcePackage=Path(pkg.path).stem,
+        exportRef=ex.index + 1,
+        identity=qualified_ref(pkg, ex.index + 1),
+        classIdentity=qualified_ref(pkg, ex.class_index),
+        savedExportFlags=ex.object_flags,
+        exportSHA256=sha(
+            pkg.data[ex.serial_offset : ex.serial_offset + ex.serial_size]
+        ),
+        localBounds=bounds,
+        boundingSphere=sphere,
+        nodeSurfaces=[n.i_surf for n in model.nodes],
+        surfaceCount=len(model.surfs),
+        polysReference=model.polys,
+        emptyRenderArrays=arrays,
+        sourceSpans={
+            key: dict(
+                sourceOffset=a, sourceBytes=b - a, sourceSHA256=sha(pkg.data[a:b])
+            )
+            for key, (a, b) in model.source_spans.items()
+        },
+    )
+
+
+def saved_brush_models(pkg, identities, defaults):
+    """Bind each saved Brush subclass to its exact Model resource, once."""
+    actors, models = {}, {}
+    for key, identity in identities.items():
+        ancestry, current = [], defaults.read(identity["classIdentity"])
+        while current is not None:
+            ancestry.append(current)
+            current = (
+                defaults.records[current["parent"].casefold()]
+                if current["parent"]
+                else None
+            )
+        if not any(row["sourceClass"].casefold() == "engine.brush" for row in ancestry):
+            continue
+        inherited = dict(
+            reference=0, package="Core", origin="zero-initialized-class-default"
+        )
+        for row in reversed(ancestry):
+            for tag in row["tags"]:
+                if tag["name"].casefold() != "brush":
+                    continue
+                if tag["type"] != 5 or tag["index"] != 0:
+                    raise ValueError("unsupported class Brush reference tag")
+                raw = bytes.fromhex(tag["raw"])
+                reader = Reader(raw)
+                ref = reader.compact()
+                if reader.pos != len(raw) or raw != encode_compact(ref):
+                    raise ValueError("noncanonical class Brush reference")
+                inherited = dict(
+                    reference=ref,
+                    package=row["sourceClass"].split(".")[0],
+                    origin=row["sourceClass"],
+                )
+        ex = pkg.exports[int(key) - 1]
+        frame = saved_actor_frame(pkg, ex)
+        start = ex.serial_offset + frame["sourceBytes"]
+        tags, end = read_props_ordered(
+            pkg, start, end=ex.serial_offset + ex.serial_size
+        )
+        if end != ex.serial_offset + ex.serial_size:
+            raise ValueError("unexpected Brush actor native tail")
+        overrides = saved_reference_overrides(pkg, tags, {"Brush"})
+        saved = dict(inherited)
+        if "Brush" in overrides:
+            saved = dict(overrides["Brush"], origin=identity["identity"])
+        ref = saved["reference"]
+        if ref and (
+            saved["package"].casefold() != Path(pkg.path).stem.casefold()
+            or ref <= 0
+            or ref > len(pkg.exports)
+        ):
+            raise ValueError("nonlocal Brush Model needs source package resolution")
+        if ref and str(ref) not in models:
+            models[str(ref)] = saved_model_resource(pkg, pkg.exports[ref - 1])
+        actors[key] = dict(
+            sourceClass=identity["classIdentity"],
+            defaults=inherited,
+            savedReference=saved,
+            modelRef=ref,
+            savedStateFrame=frame,
+            propertyStream=dict(
+                sourceOffset=start,
+                sourceBytes=end - start,
+                sourceSHA256=sha(pkg.data[start:end]),
+            ),
+        )
+    return dict(scope="saved-brush-model-resources", actors=actors, models=models)
 
 
 def level_collision_layout(pkg):
@@ -1402,6 +1540,9 @@ class Audit:
             boolean_records[key] = saved_actor_booleans(
                 self.pkg, ex, defaults.read(identity['classIdentity']), self.boolean_layout)
         self.sources.update(defaults.catalog.sources)
+        from static_mesh_class_source import read_owned_loading_bits
+        brush_models = saved_brush_models(self.pkg, identities, defaults)
+        brush_models['classLoading'] = read_owned_loading_bits(model=True)
         return dict(
             format="l2-static-world-source-v1",
             tile=self.tile,
@@ -1416,6 +1557,7 @@ class Audit:
                 classes=defaults.records, actors=boolean_records,
                 sources=defaults.catalog.sources,
             ),
+            savedBrushModels=brush_models,
             levelCollisionDefaults=self.level_mode_defaults,
             savedLevelCollisionMode=self.level_mode,
             savedReferenceBindings=self.reference_bindings(rows),

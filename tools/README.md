@@ -25,8 +25,12 @@ known-bit groups, provenance and opaque native tails. See the
 
 The existing native bounds checker also executes concrete Model bounds through
 direct and static-mesh auxiliary calls, and verifies the distinct brush selector.
-It reuses the browser's shared box transform. Current resource loading and live
-world collision remain separate; see [scope and reproduction](../docs/native-static-actor-bounds-evidence.md#brush-selection-and-concrete-model-bounds).
+It reuses the browser's shared box transform. The source exporter now retains
+495 brush Models across Talking Island and Giran; the scene loader prepares
+their bounds and surface-node lists. The record checker independently reads the
+consumed original bytes, and the native checker executes surface construction
+and repeated Model PostLoad. Actor startup and live world collision remain
+unresolved. See [Model resource scope and commands](../docs/native-static-actor-bounds-evidence.md#saved-brush-model-resources).
 
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
 kit for qualified NPC selectors, original sparse-key bundles and optional GPU
