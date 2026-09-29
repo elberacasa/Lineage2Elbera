@@ -57,8 +57,12 @@ order. The offset stage matches 420 authored native cases, five original volume
 classes and all thirteen nested structures. PhysicsVolume's derived layout now
 matches its native registered size. Class parent sizes remain explicit qualified
 inputs; this does not complete parent reflection or class startup.
+Saved string loading and copying now preserve original code units and known
+default overrides, with 69 authored native comparisons and a check of both
+saved volume string tags through five volume classes. These are source values;
+they do not establish initialized or localized live storage.
 Configuration parsing, other property importers, current linked metadata,
-source string/default storage, script-class construction and the full
+the complete default-copy/initialization path, script-class construction and the full
 world startup join remain unfinished. A volume's saved localized class bit must not be replaced by
 the nonlocalized static-actor profile.
 [Class-default evidence](native-class-defaults-evidence.md) and

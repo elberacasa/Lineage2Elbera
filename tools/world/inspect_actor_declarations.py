@@ -21,6 +21,7 @@ from l2lib.declarations import (
     read_struct_children,
 )
 from l2lib.propertylayout import structure_layouts
+from l2lib.stringproperty import decode_string_property
 
 
 DEFAULT_CLASSES = (
@@ -32,7 +33,9 @@ DEFAULT_CLASSES = (
 )
 
 
-def inspect_declarations(names, *, include_structure_layouts=False):
+def inspect_declarations(
+    names, *, include_structure_layouts=False, include_string_defaults=False
+):
     catalog = OriginalClasses()
     classes, structures, visiting = {}, {}, set()
 
@@ -115,6 +118,44 @@ def inspect_declarations(names, *, include_structure_layouts=False):
                 pkg, ex, source["defaults"]["classPrefix"]["references"][3]
             ),
         )
+        if include_string_defaults:
+            row = classes[key]
+            parent = classes[source["parent"].casefold()] if source["parent"] else None
+            known = dict(parent["savedStringDefaults"]) if parent else {}
+            declarations = {}
+            ancestor = row
+            while ancestor:
+                for field in ancestor["fields"]:
+                    declarations.setdefault(field["name"].casefold(), field)
+                ancestor = classes.get((ancestor["savedSuper"] or "").casefold())
+            own = []
+            for index, tag in enumerate(source["tags"]):
+                field = declarations.get(tag["name"].casefold())
+                if tag["type"] != 13 and (
+                    field is None or field["kind"] != "StrProperty"
+                ):
+                    continue
+                if (
+                    field is None
+                    or field["kind"] != "StrProperty"
+                    or tag["type"] != 13
+                    or not 0 <= tag["index"] < field["arrayDim"]
+                ):
+                    raise ValueError("saved string tag does not match declaration")
+                record = dict(
+                    name=field["name"],
+                    index=tag["index"],
+                    tagOrder=index,
+                    sourceClass=row["identity"],
+                    payloadHex=tag["raw"].hex(),
+                    payloadSHA256=hashlib.sha256(tag["raw"]).hexdigest(),
+                    **decode_string_property(tag["raw"])
+                )
+                own.append(record)
+                known[field["name"].casefold() + ":" + str(tag["index"])] = record
+            row["savedStringTags"] = own
+            row["savedStringDefaults"] = known
+            row["stringDefaultsSource"] = source["defaults"]
         visiting.remove(key)
 
     for name in names:
@@ -161,6 +202,13 @@ def inspect_declarations(names, *, include_structure_layouts=False):
         report["limits"].append(
             "Optional structureLayouts computes only the original offset stage from complete saved chains; it does not construct a live reflection registry or property cleanup/reference lists."
         )
+    if include_string_defaults:
+        report["summary"]["savedStringTags"] = sum(
+            len(row["savedStringTags"]) for row in classes.values()
+        )
+        report["limits"].append(
+            "Optional savedStringDefaults overlays decoded tags through saved ancestry only. Untagged values remain unknown; native initialization, property acceptance, configuration/localization and current object storage are not inferred. Full output contains decoded private input values and payloads."
+        )
     return report
 
 
@@ -175,9 +223,16 @@ def main():
         action="store_true",
         help="also compute the admitted nested-structure offset graph",
     )
+    parser.add_argument(
+        "--string-defaults",
+        action="store_true",
+        help="also decode and overlay saved string tags; full JSON contains private input values",
+    )
     args = parser.parse_args()
     report = inspect_declarations(
-        args.classes, include_structure_layouts=args.structure_layouts
+        args.classes,
+        include_structure_layouts=args.structure_layouts,
+        include_string_defaults=args.string_defaults,
     )
     if args.check:
         report = {

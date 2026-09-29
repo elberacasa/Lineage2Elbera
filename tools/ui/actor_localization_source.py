@@ -10,6 +10,98 @@ from actor_transform_source import raw
 from check_supplemental_engine import CORE_SHA, CANDIDATE_CORE_SHA
 
 
+def qualify_string_property_loading(core, comparison):
+    """Bind original string archive loading and single-value deep copying.
+
+    Entire ordinary bodies include their later saving branches. Only loading
+    is interpreted; archive I/O/accounting and successful allocation remain
+    explicit providers. Exception handlers and malformed data are not admitted.
+    """
+    assert (core.sha, comparison.sha) == (CORE_SHA, CANDIDATE_CORE_SHA)
+    blocks, targets = [], {}
+    methods = (
+        (
+            "?SerializeItem@UStrProperty@@UBEXAAVFArchive@@PAXH@Z",
+            0x1016F040,
+            0x1016F055,
+        ),
+        (
+            "?CopySingleValue@UStrProperty@@UBEXPAX0PAVUObject@@@Z",
+            0x10175380,
+            0x101753DC,
+        ),
+        ("??6@YAAAVFArchive@@AAV0@AAVFString@@@Z", 0x10155360, 0x101554A9),
+        ("??6@YAAAVFArchive@@AAV0@AAVFCompactIndex@@@Z", 0x1015CFB0, 0x1015D18D),
+        ("?CountBytes@?$TArray@G@@QAEXAAVFArchive@@@Z", 0x101137E0, 0x101137FE),
+        ("?appIsPureAnsi@@YAHPBG@Z", 0x1014F6F0, 0x1014F71B),
+        ("?Empty@FString@@QAEXXZ", 0x10115040, 0x10115050),
+    )
+    for symbol, start, end in methods:
+        assert core.exported(symbol, True) == comparison.body(symbol) == start
+        thunk = core.exported(symbol)
+        assert comparison.exports[symbol] == thunk
+        core.instruction(thunk, "jmp", hex(start))
+        assert raw(core, thunk, thunk + 5) == comparison.read(thunk, 5)
+        targets[hex(thunk)] = hex(start)
+    helpers = (
+        (0x10101023, 0x101150B0, 0x101150BF),
+        (0x10102D8D, 0x101307E0, 0x101307F9),
+        (0x10102DE2, 0x10130800, 0x10130819),
+    )
+    for thunk, start, end in helpers:
+        core.instruction(thunk, "jmp", hex(start))
+        assert raw(core, thunk, thunk + 5) == comparison.read(thunk, 5)
+        targets[hex(thunk)] = hex(start)
+    for label, start, end in (*methods, *helpers):
+        data = raw(core, start, end)
+        assert data == comparison.read(start, len(data))
+        rows = list(core.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data)
+        assert rows[-1].mnemonic in ("ret", "jmp")
+        blocks.append(
+            dict(
+                start=hex(start), end=hex(end), SHA256=hashlib.sha256(data).hexdigest()
+            )
+        )
+    table = "??_7UStrProperty@@6B@"
+    dispatch = []
+    for slot, method in ((0x90, methods[0][0]), (0xA4, methods[1][0])):
+        thunk = core.exported(method)
+        assert core.u32(core.exported(table) + slot) == thunk
+        assert comparison.u32(comparison.exports[table] + slot) == thunk
+        dispatch.append(dict(slot=hex(slot), method=method, target=hex(thunk)))
+    assert (
+        raw(core, 0x101CDD44, 0x101CDD46) == comparison.read(0x101CDD44, 2) == b"\0\0"
+    )
+    anchors = (
+        (0x101553BD, "cmp", "dword ptr [ebx + 0x10], edi"),
+        (0x101553D5, "push", "2"),
+        (0x101553F8, "movzx", "dx, byte ptr [ebp - 0x13]"),
+        (0x10155422, "mov", "cx, word ptr [ebp - 0x14]"),
+        (0x10155435, "cmp", "dword ptr [esi + 4], 1"),
+        (0x1015543D, "call", "0x101034e0"),
+        (0x1017538A, "cmp", "esi, edi"),
+        (0x101753B6, "call", "0x1017ac60"),
+        (0x101753CF, "call", "0x1017ac60"),
+    )
+    for anchor in anchors:
+        core.instruction(*anchor)
+    return dict(
+        coreBlocks=blocks,
+        thunkTargets=targets,
+        vtable=table,
+        dispatch=dispatch,
+        emptyTextAddress="0x101cdd44",
+        anchors=anchors,
+        limits=[
+            "Loading and CopySingleValue only; saving, full CopyCompleteValue/InitProperties and property admission are separate work.",
+            "Bounded nonoverflowing successful reads, supplied byte accounting/allocation/memcpy; no DLL or OS I/O executes.",
+            "Terminated values (plus original count-one clearing) are an explicit decoder admission, not a native validation claim.",
+            "Copying uses distinct stable headers and nonoverlapping allocations or the same-header no-op. Providers do not mutate the source.",
+        ],
+    )
+
+
 def qualify_string_property_text(core, comparison):
     """Bind the flags&2-clear ImportText path and complete assignment helpers.
 

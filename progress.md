@@ -2,6 +2,31 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original saved string loading — 29 September 2026
+
+The reusable string-property decoder now preserves byte-widened and UTF-16
+storage units separately from first-NUL text, including embedded zeros and
+unmatched surrogates. It follows original count-one clearing. Explicit bounds,
+terminator and allocation limits reject unsupported input; the older generic
+string reader is unchanged. The native localization verifier reuses its byte
+heap to interpret compact decoding, FString loading and CopySingleValue.
+69 authored cases compare storage, counts, accounting, register preservation
+and same-header no-ops. Existing localization/string-import comparisons remain.
+
+The declaration inspector's optional --string-defaults reads the two original
+volume string tags, retains ordered provenance and overlays known values through
+saved ancestry. Native loading/copy checks cover five classes and four inherited
+copies. These are source values, not complete CDO or actor initialization.
+No private values or payloads are included in public fixtures. Full inspector
+output remains private; --check emits summary/fingerprints only.
+
+Current standalone Core source builds contain 25 allowlisted files and pass
+63 portable checks, with six native-interpreter fixtures and three packaging
+checks separately passing. No browser UI/runtime changed, and published ZIPs
+and all README image URLs are retained. Next: complete default copying/current
+class setup, configuration and the volume/world startup join. All 53 live
+volumes remain unsupported; the full browser-client goal remains ACTIVE.
+
 ## Original nested structure offsets — 29 September 2026
 
 Extended the existing declaration/layout tools through Struct child prefixes,
