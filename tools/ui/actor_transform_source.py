@@ -24,6 +24,107 @@ def raw(image, a, b):
     return bytes(image.data[image.offset(a) : image.offset(b)])
 
 
+def qualify_property_declarations(core, comparison):
+    """Bind saved reflection fields, including the conditional replication word.
+
+    Complete ordinary serializer bodies are compared. This is source-format
+    evidence, not execution of archive I/O or a linked reflection registry.
+    """
+    assert (core.sha, comparison.sha) == (CORE_SHA, COMPARISON_CORE_SHA)
+    blocks, thunks = [], {}
+    serializers = (
+        ("UField", 0x10131210, 0x10131287),
+        ("UProperty", 0x10170820, 0x101708B6),
+        ("UByteProperty", 0x10170C70, 0x10170CCD),
+        ("UObjectProperty", 0x10171820, 0x1017187D),
+        ("UStructProperty", 0x10172860, 0x101728BD),
+        ("UArrayProperty", 0x101722F0, 0x1017234D),
+        ("UClassProperty", 0x101718F0, 0x10171969),
+        ("UBoolProperty", 0x101711E0, 0x10171249),
+        ("UStrProperty", 0x10171D00, 0x10171D4E),
+    )
+    for cls, start, end in serializers:
+        symbol = "?Serialize@" + cls + "@@UAEXAAVFArchive@@@Z"
+        assert core.exported(symbol, True) == comparison.body(symbol) == start
+        thunk = core.exported(symbol)
+        assert thunk == comparison.exports[symbol]
+        thunks[hex(thunk)] = hex(start)
+        data = raw(core, start, end)
+        assert data == comparison.read(start, len(data))
+        rows = list(core.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data) and rows[-1].mnemonic == "ret"
+        blocks.append(
+            dict(
+                symbol=symbol,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    # Original archive scalar wrappers: signed dimension, flag word and ushort.
+    for thunk, start, end, width in (
+        (0x10102DFB, 0x10130820, 0x10130839, 4),
+        (0x10102E05, 0x10108C50, 0x10108C69, 4),
+        (0x10102DE2, 0x10130800, 0x10130819, 2),
+    ):
+        core.instruction(thunk, "jmp", hex(start))
+        assert raw(core, thunk, thunk + 5) == comparison.read(thunk, 5)
+        data = raw(core, start, end)
+        assert data == comparison.read(start, len(data))
+        core.instruction(start + 0xE, "push", str(width))
+        blocks.append(
+            dict(
+                start=hex(start),
+                end=hex(end),
+                bytes=width,
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+        thunks[hex(thunk)] = hex(start)
+    anchors = (
+        (0x10170856, "lea", "ebx, [esi + 0x48]"),
+        (0x1017085A, "lea", "eax, [esi + 0x40]"),
+        (0x10170872, "lea", "ecx, [esi + 0x4c]"),
+        (0x1017087D, "test", "byte ptr [ebx], 0x20"),
+        (0x10170880, "je", "0x1017088f"),
+        (0x10170882, "lea", "eax, [esi + 0x50]"),
+        (0x10170887, "call", "0x10102de2"),
+        (0x10171216, "cmp", "dword ptr [esi + 0x10], 0"),
+        (0x1017121A, "jne", "0x1017122f"),
+        (0x1017121C, "cmp", "dword ptr [esi + 0x14], 0"),
+        (0x10171220, "jne", "0x1017122f"),
+    )
+    for row in anchors:
+        core.instruction(*row)
+    tables = []
+    for cls in (
+        "UIntProperty",
+        "UFloatProperty",
+        "UBoolProperty",
+        "UNameProperty",
+        "UStrProperty",
+    ):
+        table = "??_7" + cls + "@@6B@"
+        owner = cls if cls in ("UBoolProperty", "UStrProperty") else "UProperty"
+        method = "?Serialize@" + owner + "@@UAEXAAVFArchive@@@Z"
+        assert core.u32(core.exported(table) + 0x2C) == core.exported(method)
+        assert (
+            comparison.u32(comparison.exports[table] + 0x2C)
+            == comparison.exports[method]
+        )
+        tables.append(dict(table=table, slot="0x2c", method=method))
+    return dict(
+        coreBlocks=blocks,
+        thunkTargets=thunks,
+        anchors=anchors,
+        vtables=tables,
+        limits=[
+            "Saved file-123 reflection records, not current linked offsets or metadata.",
+            "Archive I/O, name/reference resolution and ClassProperty's null-metaclass diagnostic are not executed.",
+        ],
+    )
+
+
 def qualify_actor_transform_loading(core, comparison, engine_package, core_package):
     """Bind ordinary scalar/Vector/Rotator loading, including binary field order.
 
@@ -1012,6 +1113,7 @@ def qualify_static_actor_loading(engine, core, comparison_engine, comparison_cor
         array: (0x10109200, 0x10109205),
         "??0FBox@@QAE@XZ": (0x1010EF70, 0x1010EF73),
         "??0FScale@@QAE@XZ": (0x1010DCA0, 0x1010DCA3),
+        "??0FStringNoInit@@QAE@XZ": (0x1011B4A0, 0x1011B4D2),
         "?PostLoad@UObject@@UAEXXZ": (0x10163C60, 0x10163CB8),
         "?GetClass@UObject@@QBEPAVUClass@@XZ": (0x1010A1E0, 0x1010A1E4),
         "?SetFlags@UObject@@QAEXK@Z": (0x1010A210, 0x1010A21A),
@@ -1123,6 +1225,37 @@ def qualify_static_actor_loading(engine, core, comparison_engine, comparison_cor
             {},
         ),
         (
+            "??0AVolume@@QAE@XZ",
+            0x103D3B50,
+            0x103D3BB2,
+            (0x10806497, 0x10806457),
+            {
+                0x103D3B86: name,
+                0x103D3B92: "??0FStringNoInit@@QAE@XZ",
+            },
+        ),
+        (
+            "??0ABlockingVolume@@QAE@XZ",
+            0x103D4350,
+            0x103D439A,
+            (0x108065C8, 0x10806588),
+            {},
+        ),
+        (
+            "??0APhysicsVolume@@QAE@XZ",
+            0x103D45A0,
+            0x103D45EA,
+            (0x10806628, 0x108065E8),
+            {},
+        ),
+        (
+            "??0AMusicVolume@@QAE@XZ",
+            0x103D40B0,
+            0x103D40FA,
+            (0x10806568, 0x10806528),
+            {},
+        ),
+        (
             "?Serialize@AActor@@UAEXAAVFArchive@@@Z",
             0x10530750,
             0x105307D6,
@@ -1222,6 +1355,15 @@ def qualify_static_actor_loading(engine, core, comparison_engine, comparison_cor
             vtables.append(dict(table=table, slot=hex(slot), method=method))
     engine.instruction(0x103062C1, "jmp", "0x10328b30")
     engine.instruction(0x103D365D, "call", "0x103062c1")
+    for at, thunk, target in (
+        (0x103D3B6D, 0x10303A08, 0x103D3640),
+        (0x103D436D, 0x1030F7A9, 0x103D3B50),
+        (0x103D45BD, 0x1030F7A9, 0x103D3B50),
+        (0x103D40CD, 0x1030F7A9, 0x103D3B50),
+    ):
+        engine.instruction(at, "call", hex(thunk))
+        engine.instruction(thunk, "jmp", hex(target))
+        assert raw(engine, thunk, thunk + 5) == comparison_engine.read(thunk, 5)
     engine.instruction(0x1052FDF8, "call", "0x103092d2")
     engine.instruction(0x103092D2, "jmp", "0x1052f570")
     assert raw(engine, 0x103092D2, 0x103092D7) == comparison_engine.read(0x103092D2, 5)
@@ -1318,6 +1460,8 @@ def qualify_static_actor_loading(engine, core, comparison_engine, comparison_cor
         importTargets=import_targets,
         thunkTargets={
             "0x103062c1": "0x10328b30",
+            "0x10303a08": "0x103d3640",
+            "0x1030f7a9": "0x103d3b50",
             "0x1030b9a1": "0x106773b0",
             hex(engine.exported("?PostLoad@AActor@@UAEXXZ")): "0x1052f570",
             hex(engine.exported("?PostLoad@ABrush@@UAEXXZ")): "0x1052fdd0",

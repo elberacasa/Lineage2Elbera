@@ -55,6 +55,17 @@ write intents. The native checker adds 128 fresh Brush loading comparisons;
 Elbera world-picking panel shows Brush field preparation separately from active
 collision. Volume startup remains unresolved. See [Brush source loading and limits](../docs/native-static-actor-bounds-evidence.md#saved-brush-actor-fields).
 
+[Elbera Tools actor declarations](world/inspect_actor_declarations.py) inspects
+class ancestry and nested structures through the shared bounded reader. The
+original volume corpus contains 360 declarations in eight classes and thirteen
+structures; `LocationName` is the only localized declaration in that corpus.
+A conditional replication word correctly preserves Gravity's Vector reference.
+The native verifier also checks 256 cases across four native volume constructors,
+including preservation of existing name/string storage. Localization effects and
+complete volume startup remain unfinished. Current standalone Core source builds
+include the declaration reader and fixtures (21 files/47 checks); existing ZIPs
+are unchanged. [Commands, fingerprints and limits](../docs/native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations).
+
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
 kit for qualified NPC selectors, original sparse-key bundles and optional GPU
 weight inputs, plus the bounded initial-animation and GPU native verifiers.

@@ -25,6 +25,7 @@ sys.path[:0] = [str(ROOT / 'tools'), str(ROOT / 'tools/dat'), str(ROOT / 'tools/
 from l2lib import L2Error, Reader, load_package, read_properties, encode_compact, qualified_ref, read_model, read_polys
 from convert import actor_prop_offset, read_props_ordered, read_map_actor_frame
 from export_npc_visuals import OriginalClasses, serialized_defaults
+from l2lib.declarations import read_property_declaration
 
 FORMAT = 'l2-static-collision-v1'
 LIMIT = 1_000_000
@@ -335,25 +336,15 @@ def actor_declaration(pkg, ref, owner_ref):
     ex = pkg.exports[ref - 1]
     if ex.package_index != owner_ref:
         raise ValueError('actor declaration escapes its owner')
-    start, end = ex.serial_offset, ex.serial_offset + ex.serial_size
-    if not 0 <= start < end <= len(pkg.data):
-        raise ValueError('invalid actor declaration boundary')
-    r = Reader(memoryview(pkg.data)[:end], start, pkg.path)
-    if pkg.name(r.compact()) != 'None' or r.compact() != 0:
-        raise ValueError('unsupported actor declaration header')
-    nxt, dimension, flags = r.compact(), r.u32(), r.u32()
-    pkg.name(r.compact())  # Validate the category FName, even though unused here.
-    kind, name = pkg.class_name_of(ex), pkg.export_name(ex)
-    reference = None
-    if kind in ('StructProperty', 'ByteProperty', 'ObjectProperty', 'ArrayProperty'):
-        encoded = r.compact()
-        reference = qualified_ref(pkg, encoded) if encoded else None
-    elif kind not in ('IntProperty', 'FloatProperty', 'BoolProperty', 'NameProperty', 'StrProperty'):
-        raise ValueError('unsupported actor declaration kind: ' + kind)
-    if dimension != 1 or r.pos != end:
+    if pkg.class_name_of(ex) == 'ClassProperty':
+        raise ValueError('unsupported actor declaration kind')
+    record = read_property_declaration(pkg, ex)
+    if record['arrayDim'] != 1:
         raise ValueError('unsupported actor declaration size')
-    return dict(name=name, kind=kind, next=nxt, propertyFlags=flags,
-                reference=reference, exportRef=ref, exportSHA256=sha(pkg.data[start:end]))
+    # Preserve the existing consumed-field schema; general source inspection
+    # uses the declaration reader directly to retain dimensions/network data.
+    return {key: record[key] for key in ('name', 'kind', 'next', 'propertyFlags',
+                                        'reference', 'exportRef', 'exportSHA256')}
 
 
 def actor_attached_layout(pkg):

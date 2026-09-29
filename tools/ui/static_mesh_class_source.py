@@ -26,6 +26,40 @@ POLYS_CLASS = "?PrivateStaticClass@UPolys@@0VUClass@@A"
 ACTOR_CLASS = "?PrivateStaticClass@AActor@@0VUClass@@A"
 STATIC_ACTOR_CLASS = "?PrivateStaticClass@AStaticMeshActor@@0VUClass@@A"
 BRUSH_CLASS = "?PrivateStaticClass@ABrush@@0VUClass@@A"
+# Ordinary registration prefixes, native sizes and parent descriptors.
+VOLUME_REGISTRATIONS = (
+    ("Volume", "Brush", 0x1083DB80, 0x1083DBF4, 0x10C2E258, 0x10C2D2C8, 0x434, 0),
+    (
+        "BlockingVolume",
+        "Volume",
+        0x1083DEF0,
+        0x1083DF67,
+        0x10C2FC48,
+        0x10C2E258,
+        0x438,
+        0x800,
+    ),
+    (
+        "PhysicsVolume",
+        "Volume",
+        0x1083DC30,
+        0x1083DCA7,
+        0x10C2E788,
+        0x10C2E258,
+        0x4C8,
+        0x800,
+    ),
+    (
+        "MusicVolume",
+        "Volume",
+        0x1083F020,
+        0x1083F097,
+        0x10C37DF8,
+        0x10C2E258,
+        0x43C,
+        0x800,
+    ),
+)
 
 
 def read_root_class_flags(package):
@@ -606,6 +640,44 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
                 (0x1083D9DE, CLASS_CTOR),
             ],
         ),
+        *[
+            (
+                name,
+                start,
+                end,
+                [
+                    (
+                        start + 0x19,
+                        0x11D8D790,
+                        0x11D8D78C,
+                        "import",
+                        "?StaticConstructor@UObject@@QAEXXZ",
+                    ),
+                    (start + 0x35, 0x10A72EAC, 0x10A72E98, "export", "GPackage"),
+                    (
+                        start + 0x5C,
+                        parent_at,
+                        parent_at + 0x10,
+                        "export",
+                        "?PrivateStaticClass@A" + parent + "@@0VUClass@@A",
+                    ),
+                    (
+                        end - 10,
+                        descriptor,
+                        descriptor + 0x10,
+                        "export",
+                        "?PrivateStaticClass@A" + name + "@@0VUClass@@A",
+                    ),
+                ],
+                [
+                    (start + 0x10, "??0FGuid@@QAE@KKKK@Z"),
+                    (start + 0x28, "?StaticConfigName@UObject@@SAPBGXZ"),
+                    (start + 0x54, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+                    (end - 6, CLASS_CTOR),
+                ],
+            )
+            for name, parent, start, end, descriptor, parent_at, size, flags in VOLUME_REGISTRATIONS
+        ],
         (
             "StaticMeshActor",
             0x108497D0,
@@ -837,10 +909,34 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
                     SHA256=hashlib.sha256(raw).hexdigest(),
                 )
             )
+    volume_storage = []
+    for (
+        name,
+        parent,
+        start,
+        end,
+        descriptor,
+        parent_at,
+        size,
+        flags,
+    ) in VOLUME_REGISTRATIONS:
+        engine.instruction(start + 0x60, "push", hex(flags) if flags else "0")
+        engine.instruction(end - 18, "push", hex(size))
+        volume_storage.append(
+            dict(
+                sourceClass="Engine." + name,
+                parent="Engine." + parent,
+                byteSize=size,
+                nativeFlags=flags,
+                descriptor=hex(descriptor),
+                registrationStart=hex(start),
+            )
+        )
     return dict(
         engineBlocks=blocks,
         coreBlocks=core_blocks,
         rootPrefixAnchors=anchors,
+        volumeStorage=volume_storage,
         classDefaultPrefix=qualify_class_default_prefix(core, comparison_core),
         actorDispatch=qualify_actor_dispatch(engine, comparison_engine),
         limits=[

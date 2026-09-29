@@ -49,6 +49,7 @@ from actor_transform_source import (
     qualify_actor_state_frames,
     qualify_actor_reference_loading,
     qualify_actor_transform_loading,
+    qualify_property_declarations,
 )
 from static_collision_source import (
     qualify_static_postload,
@@ -300,6 +301,7 @@ def qualify(program, core, candidate, candidate_core):
     model_class_loading = model_loading_bits(e, core, engine_package, core_package)
     polys_class_loading = polys_loading_bits(e, core, engine_package, core_package)
     brush_class_loading = brush_loading_bits(e, core, engine_package, core_package)
+    property_declarations = qualify_property_declarations(core, candidate_core)
     actor_state_frames = qualify_actor_state_frames(core, candidate_core)
     actor_reference_loading = qualify_actor_reference_loading(core, candidate_core)
     for block in actor_reference_loading["coreBlocks"]:
@@ -467,6 +469,7 @@ def qualify(program, core, candidate, candidate_core):
         actorReferenceLoading=actor_reference_loading,
         actorTransformLoading=transform_loading,
         propertyLoading=property_loading,
+        propertyDeclarations=property_declarations,
         staticBounds=dict(
             normalComparison=proof,
             body=body,
@@ -1692,6 +1695,80 @@ process.stdout.write(JSON.stringify(rows.map(source=>prepareSourcePolys(source,d
         browserStateCompared=True,
         unrelatedStoragePreserved=True,
         scope="fresh header flag stages, Polys constructor and inherited PostLoad; polygon payload not executed",
+    )
+
+
+def volume_constructor_cases(program):
+    """Execute every native volume constructor through its complete parent chain.
+
+    Incoming class-sized storage is explicit. FStringNoInit and FName must
+    preserve its bytes; this does not stand in for localization or map startup.
+    """
+    rng = random.Random(0x564F4C55)
+    results, visited = [], set()
+    actor = 0x200000
+    counters = program.receipt["actorLoading"]["actorCounters"]
+    for source in program.receipt["classRegistration"]["volumeStorage"]:
+        name = "A" + source["sourceClass"].split(".")[1]
+        table = program.engine.exported("??_7" + name + "@@6B@")
+        start = program.engine.exported("??0" + name + "@@QAE@XZ", True)
+        steps, addresses = 0, set()
+        size = source["byteSize"]
+        for index in range(64):
+            m = StaticBoundsMachine(program)
+            initial = {
+                actor
+                + off: (
+                    0
+                    if index == 0
+                    else 0xFFFFFFFF if index == 1 else rng.getrandbits(32)
+                )
+                for off in range(-4, size + 4, 4)
+            }
+            m.memory.update(initial)
+            for iat, address in counters.items():
+                m.memory[int(iat, 16)] = address
+                m.memory[address] = 0
+            m.memory.update({0x103307E8: 0, 0x103307EC: 0, 0x103307F0: 0})
+            registers = {
+                key: rng.getrandbits(32) for key in ("ebx", "esi", "edi", "ebp")
+            }
+            m.registers.update(registers)
+            m.invoke(start, actor)
+            expected = initial | {
+                actor: table,
+                actor + 0x3A0: initial[actor + 0x3A0] & 0xFFFFFFF8,
+                actor + 0x3A4: 0xFFFFFFFF,
+                actor + 0x3A8: 1,
+                actor + 0x3AC: 1,
+            }
+            assert {at: m.memory[at] for at in initial} == expected, (name, index)
+            assert {key: m.registers[key] for key in registers} == registers
+            assert m.registers["eax"] == actor
+            steps += len(m.visited)
+            addresses.update(m.visited)
+        visited.update(addresses)
+        results.append(
+            dict(
+                sourceClass=source["sourceClass"],
+                byteSize=size,
+                cases=64,
+                instructions=steps,
+                uniqueInstructions=len(addresses),
+            )
+        )
+    return dict(
+        cases=sum(row["cases"] for row in results),
+        classes=results,
+        instructions=sum(row["instructions"] for row in results),
+        uniqueInstructions=len(visited),
+        suppliedStoragePreservedExceptActorWrites=True,
+        guardsPreserved=True,
+        nonvolatileRegistersPreserved=True,
+        limits=[
+            "Supplied storage, counters and ordinary constructors only; no class defaults, archive, localization, script or world startup.",
+            "Native Volume, BlockingVolume, PhysicsVolume and MusicVolume only; script WaterVolume construction is separate.",
+        ],
     )
 
 
@@ -3172,6 +3249,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
     polys_loading = polys_loading_cases(program, runtime)
     actor_loading = actor_loading_cases(program)
     brush_actor_loading = brush_actor_loading_cases(program, runtime)
+    volume_construction = volume_constructor_cases(program)
     actor_fields = actor_field_cases(program)
     actor_boolean_loading = actor_boolean_loading_cases(program, runtime)
     actor_reference_loading = actor_reference_loading_cases(program, runtime)
@@ -3247,6 +3325,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         construction=construction,
         actorLoading=actor_loading,
         brushActorLoading=brush_actor_loading,
+        volumeConstruction=volume_construction,
         actorFields=actor_fields,
         actorBooleanLoading=actor_boolean_loading,
         actorReferenceLoading=actor_reference_loading,
@@ -3283,6 +3362,9 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         ).hexdigest(),
         actorLoadingQualifierSHA256=hashlib.sha256(
             Path(__file__).with_name("actor_transform_source.py").read_bytes()
+        ).hexdigest(),
+        declarationDecoderSHA256=hashlib.sha256(
+            (ROOT / "tools/l2lib/declarations.py").read_bytes()
         ).hexdigest(),
         runtimeDependenciesSHA256={
             name: hashlib.sha256((Path(runtime).parent / name).read_bytes()).hexdigest()
@@ -3342,6 +3424,7 @@ def main():
                         "construction",
                         "actorLoading",
                         "brushActorLoading",
+                        "volumeConstruction",
                         "actorFields",
                         "actorBooleanLoading",
                         "actorReferenceLoading",

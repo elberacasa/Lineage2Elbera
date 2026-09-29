@@ -2,6 +2,35 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Volume constructors and saved declarations — 29 September 2026
+
+The Elbera native verifier now executes all four native volume constructors
+through their parent chain: 256 cases, 76,608 instructions and 282 addresses.
+Native registration supplies each storage size. Name and string no-init helpers
+preserve incoming property bytes; guards and nonvolatile registers survive.
+This does not execute Volume localization, script WaterVolume or world startup.
+
+Corrected an earlier private probe: Gravity's apparent null structure came from
+skipping the conditional two-byte word in networked property declarations.
+Original UProperty.Serialize proves that gate. The new shared l2lib declaration
+reader consumes it before the type reference, recovering Core.Object.Vector.
+The actor exporter now reuses that reader without changing its consumed-field
+schema. Seven authored decoder tests cover framing and malformed records.
+
+The reusable Elbera declaration inspector follows source class ancestry and
+nested structures, retaining fingerprints. The original corpus has 360
+declarations across eight classes/thirteen structures; LocationName is the only
+localized declaration, and there are no unresolved structure references.
+These are saved records, not proof of linked offsets or localization effects.
+
+The standalone Core source build includes 21 files and passes 47 portable
+checks; published ZIPs remain unchanged. Both original-map checks still pass,
+with 151/291 prepared plain Brushes. The 52 browser loader/lifecycle, 88 world
+exporter, 19 interpreter and three packaging regression cases pass. Browser
+runtime and private map bundles are unchanged in this checkpoint. Next: original
+localization traversal/lookup/import and joining current world startup. The full
+browser-client goal remains active and incomplete.
+
 ## Source Brush collision fields — 29 September 2026
 
 The actual scene loader now prepares 151 plain Brush field sets in Talking

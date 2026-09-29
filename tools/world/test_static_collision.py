@@ -783,7 +783,7 @@ def authored_actor_layout(first_count=2):
     props = list(reversed([row for chain in chains for row in chain]))
     exports = [SimpleNamespace(index=0, name='Actor', kind='Class', package_index=0)]
     for i, (name, kind) in enumerate(props, 1):
-        exports.append(SimpleNamespace(index=i, name=name, kind=kind, package_index=1))
+        exports.append(SimpleNamespace(index=i, name=name, kind=kind, package_index=1, object_flags=0))
     by_name = {e.name: e for e in exports}
     links = {a[0]: by_name[b[0]].index + 1 for chain in chains for a, b in zip(chain, chain[1:])}
     raw = bytearray()
@@ -796,6 +796,7 @@ def authored_actor_layout(first_count=2):
     imports = [SimpleNamespace(name='Vector', package_index=-2),
                SimpleNamespace(name='Object', package_index=-3), SimpleNamespace(name='Core', package_index=0)]
     return SimpleNamespace(exports=exports, data=raw, path='authored.u',
+        file_version=123, names=['None'], imports=imports,
         export_name=lambda e: e.name, class_name_of=lambda e: e.kind, name=lambda n: 'None' if n == 0 else 'invalid',
         resolve_ref=lambda n: imports[-n-1] if n < 0 else exports[n-1], import_name=lambda e: e.name), by_name
 
@@ -1051,7 +1052,7 @@ class LevelCollisionModeTest(unittest.TestCase):
         for index, (name, kind, flags) in enumerate(reversed(rows), 1):
             exports.append(
                 SimpleNamespace(
-                    index=index, name=name, kind=kind, flags=flags, package_index=1
+                    index=index, name=name, kind=kind, flags=flags, package_index=1, object_flags=0
                 )
             )
         names = {ex.name: ex for ex in exports}
@@ -1071,6 +1072,9 @@ class LevelCollisionModeTest(unittest.TestCase):
         pkg = SimpleNamespace(
             data=data,
             path="Engine.u",
+            file_version=123,
+            names=["None"],
+            imports=[],
             exports=exports,
             class_name_of=lambda ex: ex.kind,
             export_name=lambda ex: ex.name,
@@ -1259,9 +1263,10 @@ class ActorAdmissionTest(unittest.TestCase):
             flags = 0x2000 if name == 'XLevel' else 1
             raw = b'\0\0\0' + struct.pack('<II', 1, flags) + b'\0' + compact(-i-1)
             exports.append(SimpleNamespace(index=i+1, name=name, kind='ObjectProperty', package_index=1,
-                serial_offset=len(data), serial_size=len(raw)))
+                serial_offset=len(data), serial_size=len(raw), object_flags=0))
             data.extend(raw)
         pkg = SimpleNamespace(exports=exports, data=bytes(data), path='Engine.u', name=lambda i: names[i],
+            file_version=123, names=names, imports=imports,
             class_name_of=lambda obj: obj.kind, export_name=lambda obj: obj.name,
             resolve_ref=lambda ref: imports[-ref-1] if ref < 0 else exports[ref-1],
             import_name=lambda obj: obj.name)

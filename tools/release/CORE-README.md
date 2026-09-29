@@ -13,7 +13,10 @@ fails explicitly; native class construction and gameplay are outside its scope.
 The existing published 0.1.0 ZIP retains its original contents.
 
 Current source builds also include bounded Polys decoding and four synthetic
-framing cases: **19 selected files and 40 portable checks** in total. For
+framing cases. The property-declaration reader adds seven authored cases,
+including the conditional two-byte replication word: **21 selected files and
+47 portable checks** in total. It retains saved reflection data, not linked
+native offsets or runtime values. For
 file-123 packages, Polys uses the original licensee-version cutoff of 22,
 separate from the BSP surface cutoff of 21. The reader cannot consume bytes
 from a neighboring export. These fixtures require no game files. Previously
