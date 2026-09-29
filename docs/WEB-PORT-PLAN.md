@@ -82,9 +82,11 @@ and inherited flag variants; a general configuration parser is not required
 for that bounded path. Complete specialized default-copy lists now match 288
 additional original-code comparisons, including all eight class layouts.
 The browser copies strings and raw arrays independently and preserves object
-identity under the original null-instancing call. Test payloads are authored;
-saved-tag admission, localized defaults and complete class/world initialization
-remain next. Preserve-offset mode remains
+identity under the original null-instancing call. Those copy payloads are authored.
+The joined default loader now also matches all eight original saved streams:
+74 top-level tags and nine nested applications, including exact scalar bits,
+strings and explicit reference/name bindings. Localized defaults and complete
+class/world initialization remain next. Preserve-offset mode remains
 outside this recompute-path evidence. Delegate linking remains outside
 this component; the inspected parent corpus contains no delegate declarations.
 Saved string loading and copying now preserve original code units and known
@@ -93,8 +95,8 @@ saved volume string tags through five volume classes. A further 192 comparisons
 join original default copying, Volume construction and localized PostLoad with
 supplied current state. The browser now copies complete string arrays, preserves
 defaults and follows both object/actor localization calls before resource writes.
-The Elbera inspector exposes these stages and mixed class-default copying
-across 96 control combinations.
+The Elbera inspector exposes these stages, mixed copying and saved default
+loading across 102 control combinations.
 These components do not establish initialized live map volumes. Configuration
 parsing for localization, other property importers, live metadata binding, complete class/CDO
 initialization, script-class construction and world startup remain unfinished.

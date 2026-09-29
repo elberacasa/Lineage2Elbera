@@ -103,9 +103,13 @@ The browser now copies the complete recovered specialized-property lists:
 strings, raw array bytes and noninstancing object references. **288 additional
 original-code comparisons** cover mixed inputs and all eight class layouts,
 checking parent storage, exact copy order and new-field clearing. Payloads in
-these comparisons are authored; loading the actual saved defaults and joining
-world startup remain next.
+these copy comparisons are authored. A new joined loader now also matches the
+**actual saved defaults of all eight classes**: **74 top-level tags and nine
+nested applications**, preserving exact scalar bits, strings and supplied
+name/reference identities. Localized defaults and live class/world startup
+remain next.
 [Copy behavior and limits](docs/native-actor-localization-evidence.md#complete-specialized-default-copies).
+[Saved default loading](docs/native-actor-localization-evidence.md#original-saved-class-default-loading).
 The source reader also preserves original string defaults through saved volume
 ancestry, including the water-specific override. Its bounded decoder retains
 UTF-16 code units and embedded zeros, with **69 original-code loading/copy
@@ -113,12 +117,12 @@ comparisons**. This supplies source data for the pending volume startup join;
 it does not yet enable those volumes in the game.
 [String loading evidence and reusable decoder](docs/native-class-defaults-evidence.md#saved-string-loading-and-copying).
 
-The **Elbera object-localization inspector** now shows mixed class-default
-copying, repeated localization calls and ordered actor/resource updates. **192
+The **Elbera object-localization inspector** now shows saved default loading,
+mixed class-default copying, repeated localization calls and ordered actor/resource updates. **192
 original-code comparisons** join default copying, Volume construction and
 localized PostLoad with explicitly supplied class and configuration state.
 The browser preserves full string storage and the original call order; the
-inspector's **96 control combinations** pass using clearly labeled authored
+inspector's **102 control combinations** pass using clearly labeled authored
 inputs. Earlier nested-localization and string-import comparisons remain.
 Current class setup, configuration parsing and live volume startup are still open.
 [Tool screenshot, reproduction and remaining work](docs/native-actor-localization-evidence.md).

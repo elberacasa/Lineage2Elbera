@@ -122,8 +122,8 @@ decoder and five synthetic tests are included in current Core source builds.
 
 The [object-localization inspector](../editor/world/test/actor-localization.html)
 shows default copying, current-object section selection, repeated localization
-and ordered Model/Polys writes using the browser modules. Its four loading
-paths and **96 control combinations** need no game files. All inputs are authored.
+and ordered Model/Polys writes using the browser modules. Its five loading
+paths and **102 control combinations** need no game files. All inputs are authored.
 The native verifier retains 145 control-flow comparisons, 145 joined original
 string-import cases and 76 direct UTF-16 assignment cases. Its new
 `--actor-startup --comparison-engine PATH` mode adds **192 comparisons** of
@@ -138,11 +138,24 @@ adding private inputs to its default Core-only mode. `--default-copies` adds
 and DLLs required locally. The browser helper copies strings and raw-array
 bytes while preserving references under an explicit null-instancing contract.
 The inspector's Class default copying path displays inherited fields and the
-cleared new tail. Payloads are authored; complete tagged/localized CDO loading
-is still pending. Ten portable interpreter checks and 60 browser loading /
+cleared new tail. Payloads in that suite are authored. Eleven portable
+interpreter checks and 64 browser loading /
 localization tests cover the helpers. This full-repository tool does not change
 the standalone Core archive.
 [Inputs, original routines and exact limits](../docs/native-actor-localization-evidence.md#complete-specialized-default-copies).
+
+`tools/ui/check_class_default_loading_native.py` joins original CDO initialization
+and saved tag loading for all eight recovered classes: 74 top-level tags and
+nine nested applications. It compares complete browser storage, ordered writes,
+archive consumption and name/reference provider calls, while checking native
+headers and preserved parents separately. Owned DLLs/packages and the pinned
+comparison Core are required; full receipts contain private values. Three
+portable interpreter checks and a Node-backed runtime-selection check need no
+client files. The inspector's **Saved
+default loading** path uses only authored bytes. Current name/reference binding,
+localized defaults and live world startup remain separate. This verifier and
+browser inspector are repository Elbera Tools; the standalone Core archive is
+unchanged. [Commands, evidence and limits](../docs/native-actor-localization-evidence.md#original-saved-class-default-loading).
 
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
 kit for qualified NPC selectors, original sparse-key bundles and optional GPU

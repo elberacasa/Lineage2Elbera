@@ -37,13 +37,17 @@ module as the native comparison. A fourth path, **Class default copying**, shows
 mixed strings, raw byte arrays and object references. Choose absent, partial or
 complete parent storage and empty/nonempty payloads. New fields clear, copied
 arrays use independent storage, and references retain identity. Its direct link
-is `test/actor-localization.html?path=defaults`; saved tags and localization are
-explicitly pending in this path.
+is `test/actor-localization.html?path=defaults`; this path isolates copying.
+A fifth path, **Saved default loading**, joins initialization and packed tags.
+It shows exact float bits, Boolean neighbors, full strings, supplied object/name
+identities, binary and tagged structures, and saved overrides. Open
+`test/actor-localization.html?path=tags`; its archive bytes are also authored.
+Localized defaults and live class binding remain explicitly pending.
 
-![Elbera Tools showing mixed inherited default copies and newly cleared fields](img/elbera-tools-object-localization.png)
+![Elbera Tools showing inherited defaults, saved tag loading and exact stored values](img/elbera-tools-object-localization.png)
 
-This is a complete, unmodified 1280 × 1671 browser capture of the tool, updated
-29 September 2026. Ninety-six combinations
+This is a complete, unmodified 1280 × 1854 browser capture of the tool, updated
+29 September 2026. One hundred and two combinations
 of its controls passed, including return to the initial scenario; no page or
 console errors were captured. The existing game-test runner also captured and
 inspected the page. This is not an official game panel or a gameplay screenshot.
@@ -110,8 +114,9 @@ not included in the public fixtures or receipts published with this guide.
 Portable checks require Node and Python with Capstone 5.0.7, but no game files:
 
 ```sh
-node --test editor/world/test/actor-localization.test.mjs editor/world/test/actor-loading.test.mjs
+node --test editor/world/test/actor-localization.test.mjs editor/world/test/actor-loading.test.mjs editor/world/test/class-defaults.test.mjs
 python3 -m unittest discover -s tools/ui -p test_actor_localization_native.py
+python3 -m unittest discover -s tools/ui -p test_class_default_loading_native.py
 ```
 
 The original comparison additionally needs both pinned private Core images:
@@ -129,12 +134,13 @@ checks stack/SEH restoration and nonvolatile registers, and records source
 fingerprints. Cases include scratch-counter wrap, more than 256 sequential
 scratch allocations, inherited fields, nested static arrays, Unicode text,
 partial writes on lookup misses and all admitted context/gate branches.
-Ten authored interpreter checks cover partial-word preservation, 32-bit
+Eleven authored interpreter checks cover partial-word preservation and completed
+byte-to-word storage, 32-bit
 effective-address wrap, UTF-16/word-register behavior, exact byte allocation,
 compiler stack probes, narrow comparisons, qualified erased-import dispatch,
 CDO memset boundaries, exact odd-byte array copies and the NEG/SBB
 carry-dependent argument mask.
-The localization and actor-loading modules have 60 portable checks, including
+The localization, actor-loading and saved-default modules have 64 portable checks, including
 missing metadata, provider failures, partial progress, complete string copies
 and the repeated PostLoad calls.
 
@@ -281,7 +287,7 @@ These additions belong to the full-repository Elbera Tools evidence suite;
 they do not change the current standalone Core archive or the browser UI.
 
 The complete specialized-copy list is covered by the additional suite below.
-Remaining volume work includes tagged property loading, localized default
+Remaining volume work includes complete actor-tag loading, localized default
 lookup, class binding and world startup.
 All 53 live volumes remain unsupported. A source-stage skip is not a completed
 volume or a completed browser client.
@@ -358,6 +364,87 @@ The inspector and native verifier belong to the full-repository Elbera Tools
 suite. The separate Core archive is unchanged. All 53 live map volumes remain
 unsupported until saved-tag admission, localized defaults and the actual
 class/world startup sequence are joined.
+
+## Original saved class-default loading
+
+`loadClassDefaultProperties` in `editor/world/js/class-defaults.js` now joins
+parent initialization, specialized copying and matching-type packed property
+tags. The browser retains all scalar bits and projects native string, array,
+name and reference slots into separate values. Native object headers remain
+outside that projection. The helper reuses the existing default-copy operation;
+it does not introduce a second implementation of inherited string/array copies.
+
+The new Elbera verifier, `tools/ui/check_class_default_loading_native.py`, reads
+the **actual saved streams** from the pinned original packages. In parent order,
+it interprets original `InitClassDefaultObject` followed by
+`UStruct.SerializeTaggedProperties`, then compares the browser result. All
+eight classes match: **74 top-level tags and 83 property applications**, using
+**83,897 original instructions at 1,030 addresses**. The additional nine
+applications are nested tags inside three saved Scale structures.
+
+| Original class | Own saved tags |
+| --- | ---: |
+| Core.Object | 0 |
+| Engine.Actor | 36 |
+| Engine.Brush | 9 |
+| Engine.Volume | 3 |
+| Engine.BlockingVolume | 6 |
+| Engine.MusicVolume | 2 |
+| Engine.PhysicsVolume | 7 |
+| GamePlay.WaterVolume | 11 |
+
+Each class check covers the complete projected body, tag application order and
+offsets, archive positions, exact termination and ordered name/reference
+provider calls. All thirteen native header words, nonvolatile registers and
+earlier initialized bodies/string allocations remain unchanged by tag loading.
+The source corpus contains no saved array tags; its initialized array headers
+remain empty. Nonempty inherited raw-array copying is covered by the separate
+copy suite above, not by an invented saved-array example.
+
+This joins the previously qualified packed-tag and transform-loading ranges,
+including `10132f10–10133161` (tag serialization), `101346e0–10134cd8` (tagged
+property traversal) and `10131090–10131137` (application). Additional complete
+Core ranges bind Byte and Name serialization, property type IDs and casts:
+`10170c00–10170c15`, `1016ef60–1016ef73`, `10170ae0–10170ae7`,
+`1010b970–1010b973`, `10132a60–10132a82` and `10134670–101346ca`.
+Ends are exclusive. Thirteen fixed-name registrations and their original text
+are compared, including None and the Vector/Rotator/Color identities that select
+binary structure loading. Other structures use nested tags. Ten property-class
+descriptors and forty virtual slots are bound to the same pinned Core pair.
+
+The private inputs are the owned Core/Engine DLLs and `Core.u`, `Engine.u`,
+`GamePlay.u` used by the
+[inherited linker](native-class-defaults-evidence.md#inherited-class-metadata),
+plus the pinned comparison Core listed above. All five owned input fingerprints
+are checked exactly; the full receipt records them and the implementation hashes.
+Owned inputs currently use the repository's `assets/interlude/system` layout.
+Node and Python with Capstone 5.0.7 are required. No DLL is executed.
+
+```sh
+python3 tools/ui/check_class_default_loading_native.py \
+  --comparison-core /local/reference/system/Core.dll \
+  --output tmp/local-class-default-loading.json
+```
+
+**Keep this receipt private:** it contains decoded original defaults. The public
+fixture and inspector use only authored data. Four browser tests cover exact
+bits, inherited overrides, parent preservation, six inspector variants and
+malformed/unresolved inputs. Three additional portable interpreter checks cover
+indirect tag-size dispatch, SETE register preservation and bounded archive reads.
+An additional Node-backed check verifies the requested comparison-module path.
+The shared interpreter now promotes a partially known word to ordinary storage
+after all four bytes have been written, with a dedicated regression.
+
+This is the file-123 **pre-localization default body**, not complete class
+startup. Recomputed metadata, already-preloaded structures, successful allocation
+and synchronous current-name/object-reference resolution remain explicit
+providers. Native `ULinkerLoad.IndexToObject` and the name registry do not run.
+Rejected tags, type conversions, nonempty saved arrays, other editions, saving
+and exception paths remain outside browser admission. Exact payload boundaries
+and terminated strings are conservative admission checks, not claims that the
+original client enforces those same checks. Configuration/localization, live
+metadata binding and actual world startup remain separate. All 53 live map
+volumes remain unsupported. The full browser-client goal is still incomplete.
 
 ## Original string imports
 

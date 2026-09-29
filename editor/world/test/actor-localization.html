@@ -24,7 +24,7 @@
   This page runs the browser module with <strong>authored inputs</strong>: every name, offset and translation below is synthetic.</p>
 <div class="controls">
   <label>Loading path
-    <select id="path"><option value="flagged">Flagged actor startup</option><option value="actor">Actor startup</option><option value="direct">Direct nested localization</option><option value="defaults">Class default copying</option></select>
+    <select id="path"><option value="flagged">Flagged actor startup</option><option value="actor">Actor startup</option><option value="direct">Direct nested localization</option><option value="defaults">Class default copying</option><option value="tags">Saved default loading</option></select>
   </label>
   <label>Object context
     <select id="context"><option value="instance">Placed instance</option><option value="default">Class default</option><option value="nested">Nested flagged object</option></select>
@@ -58,11 +58,12 @@
   </section>
 </div>
 <footer class="muted">Default copying, Volume construction and localized PostLoad are compared with original Core/Engine instructions using supplied state.
-  Native headers/allocations are checked separately from browser values. Class default copying supports strings, raw-copy arrays and references with a null instancing object. Complete class setup, saved tags, configuration parsing and other property branches remain unresolved. This page does not load a map or enable live volumes.
+  Native headers/allocations are checked separately from browser values. Saved default loading joins initialization and matching-type property tags, including nested structures. Current name/reference bindings remain supplied. Localized defaults, complete class setup and other property branches remain unresolved. This page does not load a map or enable live volumes.
   <a href="https://github.com/elberacasa/Lineage2Elbera/blob/main/docs/native-actor-localization-evidence.md">Evidence, reproduction and limits</a>.</footer>
 <script type="module">
   import { loadActorLocalized, importStringPropertyText } from '../js/actor-localization.js';
   import { initializeActorStringProperties, initializeClassDefaultProperties, postLoadBrushActor } from '../js/actor-loading.js';
+  import { runDefaultLoadingFixture } from './class-default-fixture.mjs';
   const freeze = value => {
     if (value && typeof value === 'object') { for (const child of Object.values(value)) freeze(child); Object.freeze(value); }
     return value;
@@ -87,10 +88,10 @@
   }
   function render() {
     const mode = control('context').value, response = control('response').value, language = control('language').value, path = control('path').value;
-    const copying = path === 'defaults';
+    const copying = path === 'defaults' || path === 'tags';
     for (const id of ['context', 'response', 'language']) control(id).closest('label').hidden = copying;
     for (const label of document.querySelectorAll('.copy-control')) label.hidden = !copying;
-    if (copying) { renderDefaults(); return; }
+    if (copying) { if (path === 'tags') renderSavedDefaults(); else renderDefaults(); return; }
     control('stage-note').textContent = 'Startup uses a supplied string copy list and class defaults. The game still needs its complete class and world startup providers.';
     control('property-title').textContent = 'Stored string properties';
     control('property-note').textContent = 'Each run starts with the same authored values. Missing or empty translations preserve them.';
@@ -171,10 +172,43 @@
       return [f.name + (f.arrayDim > 1 ? `[${i}]` : ''), offset, display(defaults.get(offset)), display(storage.get(offset))];
     })));
   }
+  function renderSavedDefaults() {
+    const parentMode = control('parent').value, payloadMode = control('payload').value;
+    const {parent, result} = runDefaultLoadingFixture(parentMode, payloadMode);
+    if (result.status !== 'ready' || parent && parent.status !== 'ready') throw Error(result.reason ?? parent.reason);
+    const read = (storage, offset, kind) => {
+      if (!storage || offset >= storage.size) return 'New field (zeroed)';
+      const values = new Map(storage.values), view = new DataView(Uint8Array.from(storage.bytes).buffer);
+      if (kind === 'string') return JSON.stringify(values.get(offset));
+      if (kind === 'reference') return values.get(offset)?.identity ?? 'null';
+      if (kind === 'name') return `Name identity ${values.get(offset)}`;
+      if (kind === 'array') return JSON.stringify(values.get(offset));
+      if (kind === 'vector') return `[${[0, 4, 8].map(n => view.getFloat32(offset + n, true)).join(', ')}]`;
+      if (kind === 'bits') return `0x${view.getUint32(offset, true).toString(16).padStart(8, '0')}`;
+      return view.getInt32(offset, true);
+    };
+    const fields = [['Counter', 0x34, 'int'], ['Packed Boolean flags', 0x38, 'bits'], ['Float storage bits', 0x3c, 'bits'],
+      ['Title (full UTF-16 storage)', 0x40, 'string'], ['Object reference', 0x4c, 'reference'], ['Name', 0x50, 'name'],
+      ['Binary Vector', 0x54, 'vector'], ['Nested tagged counter', 0x60, 'int'], ['Empty inherited array', 0x64, 'array'], ['New tail title', 0x70, 'string']];
+    const stages = [['Parent default loading', parent ? `${parent.applied.length} property applications · ${parent.consumed} archived bytes` : 'No parent supplied'],
+      ['Initialization', 'Inherited scalar bytes, independent specialized copies and zeroed new fields'],
+      ['Current saved tags', `${result.applied.length} property applications · ${result.consumed} archived bytes`],
+      ['Archive boundary', 'Complete stream consumed through its name terminator'],
+      ['Next source stage', 'Configuration/localization and live class binding remain separate']];
+    state = {mode: 'authored-default-loading-inspection', scenario: {path: 'tags', parent: parentMode, payload: payloadMode}, parent, result, stages};
+    control('route').textContent = 'Parent defaults → initialized storage → original packed tag loading';
+    control('status').textContent = `${result.status} · ${result.size} storage bytes · localized defaults pending`;
+    control('stage-note').textContent = 'This page loads authored archive bytes through the browser loader. Private native comparisons separately check all eight recovered classes and their original saved streams.';
+    control('property-title').textContent = 'Stored defaults after saved tags';
+    control('property-note').textContent = 'Every displayed value is authored. Float bits, packed flags, full strings and nested fields are retained exactly; name and reference identities are explicit providers.';
+    table('stages', stages); table('lookups', []);
+    table('properties', fields.map(([name, offset, kind]) => [name, offset, read(parent, offset, kind), read(result, offset, kind)]));
+  }
   for (const select of document.querySelectorAll('select')) select.addEventListener('change', render);
   window.render_game_to_text = () => JSON.stringify(state);
   window.advanceTime = async () => {};
-  if (new URLSearchParams(location.search).get('path') === 'defaults') control('path').value = 'defaults';
+  const requestedPath = new URLSearchParams(location.search).get('path');
+  if (['defaults', 'tags'].includes(requestedPath)) control('path').value = requestedPath;
   render();
 </script>
 </html>

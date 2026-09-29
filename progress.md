@@ -2,6 +2,39 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original saved class-default loading — 29 September 2026
+
+The browser now joins inherited initialization/specialized copying with original
+file-123 saved tags. All eight recovered source classes match interpreted
+original CDO initialization and tagged serialization: 74 top-level tags, nine
+nested applications, 83,897 instructions / 1,030 addresses. Comparisons cover
+complete scalar bits and projected string/array/name/reference values, ordered
+tag writes, exact archive consumption and provider calls. Native headers,
+register preservation and unchanged earlier class bodies/allocations are checked
+separately. Current linked metadata and name/reference resolution remain supplied;
+the browser does not yet initialize a complete live class or localize its defaults.
+
+The new Elbera verifier reuses the existing interpreter and packed-tag/transform
+qualifiers, adding fixed-name and property-virtual bindings. A shared interpreter
+fix promotes a byte-filled word once all four bytes are known; uninitialized
+neighbors remain unknown. All existing native localization, assignment, saved
+string, actor startup, config-gate and specialized-copy suites pass afterward.
+Portable checks pass: 32 actor/interpreter cases, 45 static cases, four new
+default-loading verifier cases and 64 browser loading/localization tests.
+
+The existing inspector adds Saved default loading with authored archive bytes,
+three parent choices and two payload choices. All 102 control scenarios and
+restoration pass without page/console errors. The existing game action runner's
+state and screenshot were checked, as was the full-page capture. The curated
+image shows actual saved-loading controls and values; all 17 README image URLs
+remain in place. The full private original receipt stays under tmp. Current
+standalone Core archive contents are unchanged.
+
+Next: recover actual localized default lookup/context, complete class binding
+and join real map/actor startup. Nonempty saved arrays, compatibility conversions
+and unqualified classes remain unsupported. All 53 live volumes remain unadmitted.
+This checkpoint advances the full browser-client goal; it does not complete it.
+
 ## Complete specialized class-default copies — 29 September 2026
 
 The browser now projects the original CDO specialized values for strings,
