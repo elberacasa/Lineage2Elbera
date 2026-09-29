@@ -16,6 +16,7 @@ import {
   collectLevelActorAssignments,
   resolvePackageReference,
   initializeActorStringProperties,
+  initializeClassDefaultProperties,
 } from "../js/actor-loading.js";
 
 test("known flag reads require consumed bits and masked writes retain unknown padding", () => {
@@ -1216,6 +1217,164 @@ test("string defaults copy complete arrays and clear only the known new tail", (
       [0x58, ""],
     ],
   );
+});
+
+function classDefaultCopyFixture() {
+  return {
+    size: 0x80,
+    defaultSize: 0x64,
+    instancingObject: null,
+    fields: [
+      {
+        kind: "ObjectProperty",
+        offset: 0x34,
+        arrayDim: 3,
+        elementSize: 4,
+        propertyFlags: 0x4400009,
+      },
+      {
+        kind: "StrProperty",
+        offset: 0x40,
+        arrayDim: 2,
+        elementSize: 12,
+        propertyFlags: 0x400000,
+      },
+      {
+        kind: "ArrayProperty",
+        offset: 0x58,
+        arrayDim: 1,
+        elementSize: 12,
+        propertyFlags: 0x400000,
+        inner: { arrayDim: 1, elementSize: 3, propertyFlags: 0 },
+      },
+      {
+        kind: "StrProperty",
+        offset: 0x64,
+        arrayDim: 1,
+        elementSize: 12,
+        propertyFlags: 0x400000,
+      },
+      {
+        kind: "ObjectProperty",
+        offset: 0x70,
+        arrayDim: 1,
+        elementSize: 4,
+        propertyFlags: 0x400000,
+      },
+      {
+        kind: "ArrayProperty",
+        offset: 0x74,
+        arrayDim: 1,
+        elementSize: 12,
+        propertyFlags: 0x400000,
+        inner: { arrayDim: 1, elementSize: 4, propertyFlags: 0 },
+      },
+    ],
+    defaults: new Map([
+      [0x34, { identity: "AuthoredReference" }],
+      [0x38, null],
+      [0x3c, "AuthoredAlias"],
+      [0x40, "a\0tail"],
+      [0x4c, "\ud800"],
+      [0x58, [0, 255, 32, 4, 5, 6]],
+    ]),
+  };
+}
+
+test("CDO copies adjacent strings, raw bytes and references without sharing array storage", () => {
+  const input = classDefaultCopyFixture(),
+    snapshot = structuredClone(input);
+  const result = initializeClassDefaultProperties(input),
+    values = new Map(result.values);
+  assert.equal(result.status, "ready");
+  assert.deepEqual(result.values, [
+    ...input.defaults,
+    [0x64, ""],
+    [0x70, null],
+    [0x74, []],
+  ]);
+  assert.strictEqual(values.get(0x34), input.defaults.get(0x34));
+  assert.notStrictEqual(values.get(0x58), input.defaults.get(0x58));
+  assert.ok(
+    Object.isFrozen(values.get(0x58)) && Object.isFrozen(result.values[0]),
+  );
+  assert.equal(Object.isFrozen(input.defaults.get(0x34)), false);
+  assert.deepEqual(input, snapshot);
+  input.defaults.get(0x58)[0] = 127;
+  assert.equal(values.get(0x58)[0], 0);
+  const next = initializeClassDefaultProperties({
+    ...input,
+    defaults: values,
+    defaultSize: input.size,
+  });
+  assert.deepEqual(next.values, result.values);
+  assert.notStrictEqual(new Map(next.values).get(0x58), values.get(0x58));
+});
+
+test("CDO zero initialization needs no parent values, but does need qualified metadata", () => {
+  const input = classDefaultCopyFixture();
+  const result = initializeClassDefaultProperties({
+    ...input,
+    defaultSize: 0,
+    defaults: new Map(),
+  });
+  assert.deepEqual(result.values, [
+    [0x34, null],
+    [0x38, null],
+    [0x3c, null],
+    [0x40, ""],
+    [0x4c, ""],
+    [0x58, []],
+    [0x64, ""],
+    [0x70, null],
+    [0x74, []],
+  ]);
+  assert.equal(
+    initializeClassDefaultProperties({
+      ...input,
+      defaultSize: 0,
+      fields: [{ ...input.fields[2], inner: undefined }],
+    }).status,
+    "unsupported",
+  );
+});
+
+test("CDO copy admission rejects unknown storage, instancing and unsupported inner copies atomically", () => {
+  for (const corrupt of [
+    (i) => delete i.instancingObject,
+    (i) => (i.instancingObject = "subobject owner"),
+    (i) => i.defaults.delete(0x38),
+    (i) => i.defaults.set(0x34, undefined),
+    (i) => i.defaults.delete(0x40),
+    (i) => i.defaults.set(0x58, [1, 2]),
+    (i) => i.defaults.set(0x58, [1, 2, 256]),
+    (i) => i.defaults.set(0x58, [1, 2, -1]),
+    (i) => i.defaults.set(0x58, [1, 2, 0.5]),
+    (i) => i.defaults.set(0x58, [1, , 2]),
+    (i) => (i.fields[2].inner.propertyFlags = 0x400000),
+    (i) => delete i.fields[2].inner.propertyFlags,
+    (i) => (i.fields[2].inner.elementSize = 0),
+    (i) => (i.fields[2].inner.arrayDim = 2),
+    (i) => (i.fields[2].arrayDim = 2),
+    (i) => (i.fields[0].propertyFlags = 0),
+    (i) => (i.fields[0].elementSize = 12),
+    (i) => (i.fields[0].offset = 0x3c),
+    (i) => (i.fields[0].offset = 0x24),
+    (i) => (i.fields[0].arrayDim = 0),
+    (i) => (i.fields[0].kind = "StructProperty"),
+    (i) => i.fields.push(i.fields[1]),
+    (i) => delete i.fields[0],
+    (i) => (i.defaultSize = 0x60),
+    (i) => (i.size = 0x7c),
+  ]) {
+    const input = classDefaultCopyFixture();
+    corrupt(input);
+    const before = structuredClone(input),
+      result = initializeClassDefaultProperties(input);
+    assert.equal(result.status, "unsupported");
+    assert.equal(result.values, undefined);
+    assert.deepEqual(input, before);
+  }
 });
 
 test("localized PostLoad preserves both calls, current flags and earlier imports on failure", () => {

@@ -18,7 +18,7 @@ invocations**. This checks the browser's initialization and PostLoad modules
 together, with explicitly supplied class/default/configuration state.
 
 This is a loading component, not completed volume startup. The current map
-loader still leaves all 53 volume actors unsupported. Current linked metadata,
+loader still leaves all 53 volume actors unsupported. Live class binding,
 configuration parsing and other property importers remain unresolved. Existing
 map geometry and terrain defects are unchanged.
 
@@ -33,11 +33,17 @@ flat string copy list; direct mode separately exercises nested structures.
 The before/after table shows actual browser string storage,
 including values retained after missing or empty translations. Every displayed
 name, offset and translation is **authored**. The page uses the same browser
-module as the native comparison.
+module as the native comparison. A fourth path, **Class default copying**, shows
+mixed strings, raw byte arrays and object references. Choose absent, partial or
+complete parent storage and empty/nonempty payloads. New fields clear, copied
+arrays use independent storage, and references retain identity. Its direct link
+is `test/actor-localization.html?path=defaults`; saved tags and localization are
+explicitly pending in this path.
 
-![Elbera Tools showing default copying, both localization calls and stored values](img/elbera-tools-object-localization.png)
+![Elbera Tools showing mixed inherited default copies and newly cleared fields](img/elbera-tools-object-localization.png)
 
-This is a complete, unmodified browser capture of the tool. Ninety combinations
+This is a complete, unmodified 1280 × 1671 browser capture of the tool, updated
+29 September 2026. Ninety-six combinations
 of its controls passed, including return to the initial scenario; no page or
 console errors were captured. The existing game-test runner also captured and
 inspected the page. This is not an official game panel or a gameplay screenshot.
@@ -104,7 +110,7 @@ not included in the public fixtures or receipts published with this guide.
 Portable checks require Node and Python with Capstone 5.0.7, but no game files:
 
 ```sh
-node --test editor/world/test/actor-localization.test.mjs
+node --test editor/world/test/actor-localization.test.mjs editor/world/test/actor-loading.test.mjs
 python3 -m unittest discover -s tools/ui -p test_actor_localization_native.py
 ```
 
@@ -123,11 +129,12 @@ checks stack/SEH restoration and nonvolatile registers, and records source
 fingerprints. Cases include scratch-counter wrap, more than 256 sequential
 scratch allocations, inherited fields, nested static arrays, Unicode text,
 partial writes on lookup misses and all admitted context/gate branches.
-Nine authored interpreter checks cover partial-word preservation, 32-bit
+Ten authored interpreter checks cover partial-word preservation, 32-bit
 effective-address wrap, UTF-16/word-register behavior, exact byte allocation,
 compiler stack probes, narrow comparisons, qualified erased-import dispatch,
-CDO memset boundaries and the NEG/SBB carry-dependent argument mask.
-The localization and actor-loading modules have 57 portable checks, including
+CDO memset boundaries, exact odd-byte array copies and the NEG/SBB
+carry-dependent argument mask.
+The localization and actor-loading modules have 60 portable checks, including
 missing metadata, provider failures, partial progress, complete string copies
 and the repeated PostLoad calls.
 
@@ -273,10 +280,84 @@ this bounded family unresolved. Full receipts and source inputs stay private.
 These additions belong to the full-repository Elbera Tools evidence suite;
 they do not change the current standalone Core archive or the browser UI.
 
-Remaining volume work includes actual array/object specialized copies, tagged
-property loading, localized default lookup, class binding and world startup.
+The complete specialized-copy list is covered by the additional suite below.
+Remaining volume work includes tagged property loading, localized default
+lookup, class binding and world startup.
 All 53 live volumes remain unsupported. A source-stage skip is not a completed
 volume or a completed browser client.
+
+## Complete specialized default copies
+
+The browser's `initializeClassDefaultProperties` now projects the specialized
+values of the original CDO initializer. It requires the complete recovered
+current list, parent sizes/storage and an **explicit null instancing object**.
+It accepts strings, raw-copy arrays and object references. Scalar bytes and
+object headers remain outside the browser helper; the native comparison checks
+them separately. This component does not load an entire class.
+
+The verifier reuses the existing reference-property bindings and shared array
+range, adding no second interpreter. Named thunks, the array/object virtual
+copy slots, allocator and editor/UCC globals are checked against the pinned
+Core images. Additional original ranges are:
+
+| Method | Owned Core range, exclusive end |
+| --- | --- |
+| UArrayProperty.CopyCompleteValue | `1016fe90–1016ff66` |
+| UObjectProperty.CopyCompleteValue | `10171740–101717e9` |
+| FArray.Realloc | `101522e0–10152346` |
+
+For array inners whose `0x400000` bit is clear, the original allocates the
+source element count and copies exactly count × element-size bytes. Destination
+count and capacity agree; spare parent capacity is not copied. Empty results
+have a null data pointer. The browser retains a separate immutable byte array;
+it does not reinterpret embedded references or elements. In this recovered
+family, all ten Actor arrays on the specialized-copy list take this branch.
+The branch for inners needing specialized copies remains unsupported.
+
+Object CopyCompleteValue can construct subobjects for other callers. Both
+original CDO callers pass zero for the instancing argument, and the original
+InitProperties forwards zero to the virtual copy. For that path, references
+retain identity even when the property's specialized-copy flag is set and
+editor/UCC modes vary. The browser rejects nonnull or unknown instancing inputs.
+It does not substitute CopySingleValue for general object copying.
+
+**192 authored cases** execute 63,544 instructions at 319 addresses and 336
+specialized copies. They cover absent/header-only/partial/full parents,
+reordered lists, empty/nonempty arrays, element strides 1/3/4/8, adjacent
+reference/string/array fields, UTF-16, embedded NULs and all editor/UCC pairs.
+Each checks exact copy-list traversal, scalar copy/zero bytes, unchanged parent
+headers/allocations, nonvolatile registers and the browser values. Successful
+allocation and bounded nonoverlapping CRT memcpy remain explicit providers.
+
+The optional `--default-copies` adds **96 cases** using complete recovered
+lists and sizes for Object, Actor, Brush and the five volume classes:
+97,046 instructions at 319 addresses and 840 specialized copies. The original
+class metadata comes from the
+[separately verified inherited linker](native-class-defaults-evidence.md#inherited-class-metadata).
+**Payloads are still authored**; this does not claim to reconstruct original
+CDO values or establish live world startup. Source metadata and fingerprints
+are recorded only in the private receipt.
+
+```sh
+python3 tools/ui/check_actor_localization_native.py \
+  --comparison-core /local/reference/system/Core.dll \
+  --default-copies --output tmp/local-class-default-copies.json
+```
+
+The default invocation retains its Core-only private-input contract and runs
+the 192 authored cases. `--default-copies` additionally requires the pinned
+owned Core/Engine DLLs and Engine/Core/GamePlay packages at
+`assets/interlude/system`; it does not require `--actor-startup` or a comparison
+Engine image. The package and DLL hashes are checked explicitly against the
+edition listed in this guide and the linked class evidence. Other optional
+flags retain their own requirements. Unknown source slots, overlapping fields,
+incomplete array bytes and unsupported inner branches fail before exposing a
+partial browser result. All inputs remain unchanged.
+
+The inspector and native verifier belong to the full-repository Elbera Tools
+suite. The separate Core archive is unchanged. All 53 live map volumes remain
+unsupported until saved-tag admission, localized defaults and the actual
+class/world startup sequence are joined.
 
 ## Original string imports
 

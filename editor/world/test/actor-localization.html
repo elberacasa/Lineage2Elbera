@@ -11,6 +11,7 @@
   .muted { color: #adb6bc; } .intro { max-width: 850px; }
   .controls { display: flex; flex-wrap: wrap; gap: 20px; margin: 26px 0; }
   label { display: grid; gap: 6px; } select { min-width: 210px; font: inherit; padding: 9px 12px; border: 1px solid #64717a; border-radius: 4px; background: #303a42; color: inherit; }
+  [hidden] { display: none !important; }
   #route { padding: 16px 20px; background: #161c21; border-left: 3px solid #e7c887; }
   #status { color: #e7c887; } table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #475058; overflow-wrap: anywhere; }
@@ -19,11 +20,11 @@
 </style>
 <p><a href="index.html">Elbera Tools</a> / Original loading behavior</p>
 <h1>Object localization</h1>
-<p class="intro">Inspect how Interlude copies string defaults, loads localized text and orders actor/resource writes.
+<p class="intro">Inspect how Interlude copies class defaults, loads localized text and orders actor/resource writes.
   This page runs the browser module with <strong>authored inputs</strong>: every name, offset and translation below is synthetic.</p>
 <div class="controls">
   <label>Loading path
-    <select id="path"><option value="flagged">Flagged actor startup</option><option value="actor">Actor startup</option><option value="direct">Direct nested localization</option></select>
+    <select id="path"><option value="flagged">Flagged actor startup</option><option value="actor">Actor startup</option><option value="direct">Direct nested localization</option><option value="defaults">Class default copying</option></select>
   </label>
   <label>Object context
     <select id="context"><option value="instance">Placed instance</option><option value="default">Class default</option><option value="nested">Nested flagged object</option></select>
@@ -34,28 +35,34 @@
   <label>Current language
     <select id="language"><option value="es">es</option><option value="INT">INT</option></select>
   </label>
+  <label class="copy-control" hidden>Parent defaults
+    <select id="parent"><option value="partial">Inherited fields + new tail</option><option value="full">Complete parent buffer</option><option value="none">No parent buffer</option></select>
+  </label>
+  <label class="copy-control" hidden>Authored payloads
+    <select id="payload"><option value="filled">Text, bytes and references</option><option value="empty">Empty values and null references</option></select>
+  </label>
 </div>
 <div id="route"></div>
 <p id="status" role="status"></p>
 <div class="tables">
   <section><h2>Loading stages</h2>
-    <p class="muted">Startup uses a supplied string copy list and class defaults. The game still needs its complete class and world startup providers.</p>
+    <p class="muted" id="stage-note">Startup uses a supplied string copy list and class defaults. The game still needs its complete class and world startup providers.</p>
     <table><thead><tr><th>Stage</th><th>Observed result</th></tr></thead><tbody id="stages"></tbody></table>
   </section>
   <section><h2>Ordered configuration requests</h2>
     <table><thead><tr><th>File</th><th>Section</th><th>Key</th><th>Reply</th></tr></thead><tbody id="lookups"></tbody></table>
   </section>
-  <section><h2>Stored string properties</h2>
-    <p class="muted">Each run starts with the same authored values. Missing or empty translations preserve them.</p>
+  <section><h2 id="property-title">Stored string properties</h2>
+    <p class="muted" id="property-note">Each run starts with the same authored values. Missing or empty translations preserve them.</p>
     <table><thead><tr><th>Authored field</th><th>Byte offset</th><th>Before</th><th>After</th></tr></thead><tbody id="properties"></tbody></table>
   </section>
 </div>
 <footer class="muted">Default copying, Volume construction and localized PostLoad are compared with original Core/Engine instructions using supplied state.
-  Native headers/allocations are checked separately from browser strings. Complete class setup, configuration parsing and other property types remain provider boundaries. This page does not load a map or enable live volumes.
+  Native headers/allocations are checked separately from browser values. Class default copying supports strings, raw-copy arrays and references with a null instancing object. Complete class setup, saved tags, configuration parsing and other property branches remain unresolved. This page does not load a map or enable live volumes.
   <a href="https://github.com/elberacasa/Lineage2Elbera/blob/main/docs/native-actor-localization-evidence.md">Evidence, reproduction and limits</a>.</footer>
 <script type="module">
   import { loadActorLocalized, importStringPropertyText } from '../js/actor-localization.js';
-  import { initializeActorStringProperties, postLoadBrushActor } from '../js/actor-loading.js';
+  import { initializeActorStringProperties, initializeClassDefaultProperties, postLoadBrushActor } from '../js/actor-loading.js';
   const freeze = value => {
     if (value && typeof value === 'object') { for (const child of Object.values(value)) freeze(child); Object.freeze(value); }
     return value;
@@ -80,6 +87,13 @@
   }
   function render() {
     const mode = control('context').value, response = control('response').value, language = control('language').value, path = control('path').value;
+    const copying = path === 'defaults';
+    for (const id of ['context', 'response', 'language']) control(id).closest('label').hidden = copying;
+    for (const label of document.querySelectorAll('.copy-control')) label.hidden = !copying;
+    if (copying) { renderDefaults(); return; }
+    control('stage-note').textContent = 'Startup uses a supplied string copy list and class defaults. The game still needs its complete class and world startup providers.';
+    control('property-title').textContent = 'Stored string properties';
+    control('property-note').textContent = 'Each run starts with the same authored values. Missing or empty translations preserve them.';
     const startup = path !== 'direct';
     const object = { index: mode === 'default' ? -1 : 1, flags: mode === 'nested' || path === 'flagged' ? 0x100 : 0,
       name: 'ExampleObject', outer: { name: 'ExampleOuter', outer: mode === 'nested' ? { name: 'ExamplePackage' } : null } };
@@ -114,9 +128,53 @@
     table('lookups', lookups.map(call => [call.filename, call.section, call.key, call.found ? call.value === '' ? 'Found, empty' : 'Found' : 'Missing']));
     table('properties', before.map(([offset, value], i) => [i === 0 ? 'Title' : 'Caption', offset, value, storage.get(offset)]));
   }
+  function renderDefaults() {
+    const parent = control('parent').value, payload = control('payload').value, filled = payload === 'filled';
+    const fields = [
+      {name: 'Reference', kind: 'ObjectProperty', offset: 0x34, arrayDim: 2, elementSize: 4, propertyFlags: 0x4400009},
+      {name: 'Title', kind: 'StrProperty', offset: 0x3c, arrayDim: 1, elementSize: 12, propertyFlags: 0x400000},
+      {name: 'Bytes', kind: 'ArrayProperty', offset: 0x48, arrayDim: 1, elementSize: 12, propertyFlags: 0x400000,
+        inner: {arrayDim: 1, elementSize: 3, propertyFlags: 0}},
+      {name: 'Tail title', kind: 'StrProperty', offset: 0x54, arrayDim: 1, elementSize: 12, propertyFlags: 0x400000},
+      {name: 'Tail reference', kind: 'ObjectProperty', offset: 0x60, arrayDim: 1, elementSize: 4, propertyFlags: 0x400000},
+      {name: 'Tail bytes', kind: 'ArrayProperty', offset: 0x64, arrayDim: 1, elementSize: 12, propertyFlags: 0x400000,
+        inner: {arrayDim: 1, elementSize: 4, propertyFlags: 0}},
+    ];
+    const defaultSize = {none: 0, partial: 0x54, full: 0x70}[parent];
+    const reference = {identity: 'ExampleObject'}, tailReference = {identity: 'ExampleTail'};
+    const authored = [[0x34, filled ? reference : null], [0x38, null], [0x3c, filled ? 'Original\0tail / 水' : ''],
+      [0x48, filled ? [0, 255, 32, 4, 5, 6] : []], [0x54, filled ? 'Parent tail text' : ''],
+      [0x60, filled ? tailReference : null], [0x64, filled ? [1, 2, 3, 4] : []]];
+    const defaults = new Map(authored.filter(([offset]) => offset < defaultSize));
+    const result = initializeClassDefaultProperties({size: 0x70, defaultSize, fields, defaults, instancingObject: null});
+    if (result.status !== 'ready') throw Error(result.reason);
+    const storage = new Map(result.values);
+    const display = value => value === undefined ? 'New tail (zeroed)' : value === null ? 'null' : typeof value === 'string' ? JSON.stringify(value) :
+      Array.isArray(value) ? value.length ? value.map(byte => byte.toString(16).padStart(2, '0')).join(' ') : '[]' : value.identity;
+    const arrayCopiesIndependent = fields.filter(f => f.kind === 'ArrayProperty').every(f => storage.get(f.offset) !== defaults.get(f.offset));
+    const referencesPreserved = [0x34, 0x38, 0x60].filter(offset => offset < defaultSize).every(offset => storage.get(offset) === defaults.get(offset));
+    const stages = [['Inherited buffer', `${defaultSize} bytes supplied · ${defaults.size} specialized values`],
+      ['String copies', 'All stored UTF-16 units retained, including embedded NUL'],
+      ['Array copies', `${arrayCopiesIndependent ? 'Independent storage' : 'FAILED'} · inner specialized-copy flag clear`],
+      ['Object references', `${referencesPreserved ? 'Identity preserved' : 'FAILED'} · null instancing object`],
+      ['New tail', `${result.values.length - defaults.size} values initialized from zero`]];
+    state = {mode: 'authored-class-default-inspection', scenario: {path: 'defaults', parent, payload}, result,
+      before: [...defaults], storage: result.values, stages, arrayCopiesIndependent, referencesPreserved};
+    control('route').textContent = 'Class default values → parent copies → zeroed new tail';
+    control('status').textContent = `${result.status} · ${result.values.length} specialized values · saved tags and localization pending`;
+    control('stage-note').textContent = 'This projects the specialized values of the original initializer. Native comparisons separately check headers, scalar bytes, copy-list order and parent storage.';
+    control('property-title').textContent = 'Stored default properties';
+    control('property-note').textContent = 'Authored offsets and payloads. Array contents are raw hex bytes; references retain identity. No game defaults are invented or loaded here.';
+    table('stages', stages); table('lookups', []);
+    table('properties', fields.flatMap(f => Array.from({length: f.arrayDim}, (_, i) => {
+      const offset = f.offset + i * f.elementSize;
+      return [f.name + (f.arrayDim > 1 ? `[${i}]` : ''), offset, display(defaults.get(offset)), display(storage.get(offset))];
+    })));
+  }
   for (const select of document.querySelectorAll('select')) select.addEventListener('change', render);
   window.render_game_to_text = () => JSON.stringify(state);
   window.advanceTime = async () => {};
+  if (new URLSearchParams(location.search).get('path') === 'defaults') control('path').value = 'defaults';
   render();
 </script>
 </html>

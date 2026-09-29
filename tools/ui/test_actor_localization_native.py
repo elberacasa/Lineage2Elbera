@@ -28,6 +28,36 @@ def machine(cls=LocalizationMachine):
 
 
 class LocalizationMemoryTest(unittest.TestCase):
+    def test_raw_array_copy_provider_preserves_odd_byte_bounds_and_parent(self):
+        m = machine(StringLoadingMachine)
+        m.initialization_copies = []
+        source, dest = m.allocate(7), m.allocate(7)
+        for at in range(7):
+            m.write(f"byte ptr [{source + at:#x}]", at * 17)
+            m.write(f"byte ptr [{dest + at:#x}]", 0xAA)
+        sp = m.registers["esp"]
+        for index, value in enumerate((dest, source, 5)):
+            m.memory[sp + index * 4] = value
+        instruction = SimpleNamespace(
+            address=0x1016FF56, mnemonic="call", op_str="0x1017ac60", size=5
+        )
+        self.assertEqual(m.step(instruction), 0x1016FF5B)
+        self.assertEqual(m.registers["eax"], dest)
+        self.assertEqual(m.registers["esp"], sp)
+        self.assertEqual(
+            [m.byte(source + n) for n in range(7)], [n * 17 for n in range(7)]
+        )
+        self.assertEqual(
+            [m.byte(dest + n) for n in range(7)], [0, 17, 34, 51, 68, 0xAA, 0xAA]
+        )
+        self.assertEqual(m.initialization_copies, [5])
+        m.memory[sp + 8] = 8
+        with self.assertRaises(AssertionError):
+            m.step(instruction)
+        m.memory[sp + 8], m.memory[sp] = 5, source
+        with self.assertRaises(AssertionError):
+            m.step(instruction)
+
     def test_neg_carry_feeds_cdo_outer_argument_mask(self):
         dis = Cs(CS_ARCH_X86, CS_MODE_32)
         neg = next(dis.disasm(bytes.fromhex("f7d8"), 0x9000))
