@@ -64,7 +64,7 @@ The native verifier also checks 256 cases across four native volume constructors
 including preservation of existing name/string storage. Localized PostLoad now
 has a composed comparison below; complete volume startup remains unfinished.
 Current standalone Core source builds
-include the declaration, nested-layout and string readers and fixtures (25 files/71 checks); existing ZIPs
+include the declaration, nested-layout and string readers and fixtures (25 files/76 checks); existing ZIPs
 are unchanged. [Commands, fingerprints and limits](../docs/native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations).
 
 The declaration inspector now returns `fieldChain` separately from export-order
@@ -86,8 +86,12 @@ option prepares twelve original structures from packages alone. Add
 packages: all thirteen structures then prepare, including PointRegion. Seven
 class profiles and 24 original-code comparisons cover every source variant;
 Capstone is required for this optional native reader. Unknown bits stay unknown.
-Replication grouping and full class startup remain unresolved. The portable
-layout/metadata helpers now have fifteen tests in Core source builds. [Inputs and limits](../docs/native-class-defaults-evidence.md#linked-property-flags-and-lists).
+Full class startup remains unresolved. Add `--replication` to the native
+property-list check for original game-mode grouping: 51 cases execute expression
+traversal, owner lookup, byte comparisons and the complete temporary-map lifecycle
+under supplied allocation. `--script-expressions` independently checks loaded
+script boundaries. The portable layout/metadata helpers now have eighteen tests
+and the class-prefix/script helpers have ten in Core source builds. [Inputs and limits](../docs/native-class-defaults-evidence.md#linked-property-flags-and-lists).
 
 The declaration inspector's `--string-defaults` option retains saved string tags,
 exact storage units, hashes and inherited overrides. Its `--check` summary omits

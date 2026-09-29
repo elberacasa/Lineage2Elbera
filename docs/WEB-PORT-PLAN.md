@@ -62,8 +62,13 @@ with original flag mutations and inherited iteration: 155 authored comparisons
 and all thirteen original structures pass. Seven referenced-class profiles now
 recover only the consumed bit from qualified native/saved evidence; 24 additional
 comparisons exercise every source variant. Unconsumed current bits remain unknown.
-Replication-condition grouping and full UClass/UState linking remain open;
-an editor-only skip is not used to admit game-mode volumes.
+Game-mode replication grouping now matches 51 original-code cases, including
+loaded-expression traversal and the complete temporary map under supplied
+allocation. Equal expressions use the later property representative, including
+inherited fields. Eighty script cases compare 158 expression entry points;
+the original PhysicsVolume script is also checked with explicit opaque reference
+bindings. Complete UClass/UState tables and runtime object resolution remain
+open; an editor-only skip is not used to admit game-mode volumes.
 Saved string loading and copying now preserve original code units and known
 default overrides, with 69 authored native comparisons and a check of both
 saved volume string tags through five volume classes. A further 192 comparisons

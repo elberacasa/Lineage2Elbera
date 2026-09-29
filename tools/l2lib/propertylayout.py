@@ -10,6 +10,49 @@ See docs/native-class-defaults-evidence.md for source qualification and limits.
 from .ue2package import L2Error
 
 
+def replication_links(fields, scripts, *, is_editor=False):
+    """Return original +0x68 writes using explicit loaded class scripts.
+
+    Fields must be in current property-iterator order. Scripts map each owning
+    class identity to a decoded script and explicit referenceValues. Equal
+    loaded expression bytes share the LAST encountered field representative.
+    Editor mode and nonreplicated fields receive no writes.
+    """
+    from .classdata import materialize_class_script
+
+    fields = list(fields)
+    property_lists(fields)  # Validate current kinds, flags and unique identities.
+    if type(is_editor) is not bool:
+        raise L2Error("explicit Boolean editor state required")
+    if is_editor:
+        return {}
+    cache, groups = {}, {}
+    for field in fields:
+        if not field["propertyFlags"] & 0x20:
+            continue
+        owner, offset = field.get("ownerClass"), field.get("replicationOffset")
+        if not isinstance(owner, str) or not owner or owner not in scripts:
+            raise L2Error("explicit owning-class script required")
+        if type(offset) is not int or not 0 <= offset <= 0xFFFF:
+            raise L2Error("unsigned replication script offset required")
+        if owner not in cache:
+            source = scripts[owner]
+            decoded = source["decoded"]
+            data = materialize_class_script(decoded, source["referenceValues"])
+            ends = {
+                row["memoryOffset"]: row["expressionEnd"] for row in decoded["tokens"]
+            }
+            cache[owner] = data, ends
+        data, ends = cache[owner]
+        end = ends.get(offset)
+        if type(end) is not int or not offset < end <= len(data):
+            raise L2Error("replication offset does not identify a supported expression")
+        groups.setdefault(data[offset:end], []).append(field["identity"])
+    return {
+        identity: members[-1] for members in groups.values() for identity in members
+    }
+
+
 def consensus_flag_bits(variants, mask):
     """Keep only bits agreed by every supplied source-stage variant."""
     if type(mask) is not int or not 0 < mask <= 0xFFFFFFFF:

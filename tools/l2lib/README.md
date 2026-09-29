@@ -111,8 +111,23 @@ here. Missing flags and duplicate identities fail explicitly.
 `structure_links(records, reference_class_flags=None)` combines the existing
 structure layouts with these operations. It retains `savedPropertyFlags`
 separately, reports unresolved dependencies as `unsupported`, and never invents
-referenced-class flags. Fifteen portable cases cover the combined layout/metadata
-APIs. Replication grouping and class startup remain separate work.
+referenced-class flags. Eighteen portable cases cover the combined layout/metadata
+APIs, including the replication helper below. Full class startup remains open.
+
+`read_class_script` retains each token's loaded `memoryOffset` and exclusive
+`expressionEnd`, in addition to its saved offset. `materialize_class_script`
+uses decoded operands plus explicit integer-indexed reference bindings to build
+loaded bytes. Missing bindings fail; saved indices are never substituted for
+live object references. The bounded token scope is unchanged and debug records
+remain unsupported.
+`replication_links(fields, scripts, is_editor=False)` returns only original
+`+0x68` writes for replicated properties. Supply fields in property-iterator
+order, each with its exact `ownerClass` key and unsigned `replicationOffset`.
+Each script entry contains `decoded` and `referenceValues`. Equal loaded
+expression bytes select the last field in iterator order. Editor mode and
+nonreplicated fields receive no writes. Unknown owners, missing bindings and
+unsupported expression offsets fail. Neither helper evaluates condition truth
+or resolves objects. Ten class-prefix/script tests run without client files.
 [Source evidence](../../docs/native-class-defaults-evidence.md#linked-property-flags-and-lists).
 
 `qualified_ref(package, reference)` returns the complete package/group/object

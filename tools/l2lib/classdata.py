@@ -51,37 +51,47 @@ def read_class_script(package, reader, memory_size):
     Memory size is never used as a serialized byte count. An explicit stack
     mirrors expression recursion without imposing an invented game depth limit.
     Unsupported tokens fail before any default-property boundary is returned.
+    Each token retains its memoryOffset and the exclusive expressionEnd reached
+    by its original SerializeExpr call, including nested argument terminators.
     """
     if type(memory_size) is not int or not 0 <= memory_size <= 0x7FFFFFFF:
         raise L2Error("invalid class script memory size")
     start, memory, tokens = reader.pos, 0, []
+    returned_token = None
     while memory < memory_size:
-        pending = ["expression"]
+        pending = [("expression", None)]
         while pending:
+            action, previous = pending.pop()
+            if action == "finish":
+                previous["expressionEnd"] = memory
+                returned_token = previous["token"]
+                continue
+            if action == "arguments-next":
+                if returned_token != 0x16:
+                    pending.extend([("arguments-next", None), ("expression", None)])
+                continue
             if memory >= memory_size:
                 raise L2Error("class script ends inside an expression")
             position = reader.pos
             token = reader.u8()
+            row = dict(offset=position, memoryOffset=memory, token=token)
             memory += 1
-            parent = pending[-1]
-            if parent == "expression" or token == 0x16:
-                pending.pop()
-            row = dict(offset=position, token=token)
+            pending.append(("finish", row))
             if token >= 0x70:
-                pending.append("arguments")
+                pending.extend([("arguments-next", None), ("expression", None)])
             elif token == 0x39:
                 row["byte"] = reader.u8()
                 memory += 1
-                pending.append("expression")
+                pending.append(("expression", None))
             elif token in REFERENCE_TOKENS | REFERENCE_EXPRESSION_TOKENS:
                 row["reference"] = _reference(package, reader)
                 memory += 4
                 if token in REFERENCE_EXPRESSION_TOKENS:
-                    pending.append("expression")
+                    pending.append(("expression", None))
             elif token in WORD_EXPRESSION_TOKENS:
                 row["word"] = reader.u16()
                 memory += 2
-                pending.append("expression")
+                pending.append(("expression", None))
             elif token in BYTE_TOKENS:
                 row["byte"] = reader.u8()
                 memory += 1
@@ -97,6 +107,46 @@ def read_class_script(package, reader, memory_size):
         tokens=tokens,
         sourceSHA256=hashlib.sha256(reader.data[start : reader.pos]).hexdigest(),
     )
+
+
+def materialize_class_script(script, reference_values):
+    """Build loaded bytes from a decoded script and explicit reference bindings.
+
+    Bindings are caller-supplied current DWORD values, not saved package indices
+    or addresses inferred here. This neither loads objects nor executes script.
+    Only the existing reader's admitted operand shapes are accepted.
+    """
+    if not isinstance(reference_values, dict) or any(
+        type(key) is not int for key in reference_values
+    ):
+        raise L2Error("explicit integer-indexed script reference bindings required")
+    result = bytearray()
+    for row in script["tokens"]:
+        token = row["token"]
+        if type(token) is not int or not 0 <= token <= 255:
+            raise L2Error("invalid decoded script token")
+        if row["memoryOffset"] != len(result):
+            raise L2Error("noncontiguous decoded script memory offsets")
+        result.append(token)
+        if token in REFERENCE_TOKENS | REFERENCE_EXPRESSION_TOKENS:
+            reference = row["reference"]
+            if reference not in reference_values:
+                raise L2Error("missing explicit script reference binding")
+            value, size = reference_values[reference], 4
+        elif token in WORD_EXPRESSION_TOKENS:
+            value, size = row["word"], 2
+        elif token in BYTE_TOKENS or token == 0x39:
+            value, size = row["byte"], 1
+        elif token in NO_OPERAND_TOKENS or token >= 0x70:
+            continue
+        else:
+            raise L2Error("unsupported decoded script token")
+        if type(value) is not int or not 0 <= value < 1 << (8 * size):
+            raise L2Error("invalid decoded operand or script reference binding")
+        result.extend(value.to_bytes(size, "little"))
+    if len(result) != script["memoryBytes"]:
+        raise L2Error("decoded script memory size mismatch")
+    return bytes(result)
 
 
 def read_class_default_prefix(package, export):

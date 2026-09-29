@@ -1393,6 +1393,144 @@ def qualify_property_lists(core, comparison_core):
     return proof
 
 
+def qualify_script_expressions(core, comparison_core):
+    """Bind loaded SerializeExpr traversal with the original base FArchive.
+
+    The admitted token shapes remain those of the bounded class-prefix reader.
+    This archive traverses existing memory; it does not resolve saved references.
+    """
+    prefix = qualify_class_default_prefix(core, comparison_core)
+    labels = {
+        "UStruct.SerializeExpr normal path",
+        "object archive wrapper",
+        "script reference archive wrapper",
+    }
+    blocks = [row for row in prefix["blocks"] if row["label"] in labels]
+    targets = {}
+    for label, thunk, start, end in (
+        ("SerializeExpr", 0x10102248, 0x10131B90, 0x10132108),
+        ("object archive wrapper", 0x10102EB4, 0x1012A9F0, 0x1012AA01),
+        ("script reference archive wrapper", 0x10103B8E, 0x10130F10, 0x10130F21),
+        ("byte archive wrapper", 0x10102D8D, 0x101307E0, 0x101307F9),
+        ("word archive wrapper", 0x10102DE2, 0x10130800, 0x10130819),
+        ("base archive constructor", 0x101039E0, 0x10108B20, 0x10108B67),
+        ("base archive Serialize", 0x10103A12, 0x10108930, 0x10108933),
+        ("base archive object reference", 0x101043D1, 0x10108970, 0x10108975),
+        ("base archive Tell", 0x10102DEC, 0x101089A0, 0x101089A4),
+        ("base archive Seek", 0x10102496, 0x10108A40, 0x10108A43),
+    ):
+        core.instruction(thunk, "jmp", hex(start))
+        assert bytes(
+            core.data[core.offset(thunk) : core.offset(thunk) + 5]
+        ) == comparison_core.read(thunk, 5)
+        targets[hex(thunk)] = hex(start)
+        raw = bytes(core.data[core.offset(start) : core.offset(end)])
+        assert raw == comparison_core.read(start, len(raw))
+        assert sum(i.size for i in core.dis.disasm(raw, start)) == len(raw)
+        if not any(row["start"] == hex(start) for row in blocks):
+            blocks.append(
+                dict(
+                    label=label,
+                    start=hex(start),
+                    end=hex(end),
+                    SHA256=hashlib.sha256(raw).hexdigest(),
+                )
+            )
+    constants = {}
+    table = core.exported("??_7FArchive@@6B@")
+    assert table == comparison_core.exports["??_7FArchive@@6B@"] == 0x101CD5EC
+    for slot, thunk in (
+        (4, 0x10103A12),
+        (0x18, 0x101043D1),
+        (0x28, 0x10102DEC),
+        (0x3C, 0x10102496),
+    ):
+        assert core.u32(table + slot) == comparison_core.u32(table + slot) == thunk
+        constants[hex(table + slot)] = thunk
+    for cls in ("UStruct", "UClass"):
+        symbol = "??_7" + cls + "@@6B@"
+        owned, other = core.exported(symbol), comparison_core.exports[symbol]
+        assert core.u32(owned + 0x90) == comparison_core.u32(other + 0x90) == 0x10102248
+    return dict(
+        coreSHA256=core.sha,
+        comparisonCoreSHA256=comparison_core.sha,
+        blocks=blocks,
+        thunkTargets=targets,
+        constants=constants,
+        dispatch=prefix["dispatch"],
+        limits=[
+            "Loaded script bytes and current object-reference DWORDs are explicit inputs; no package loading or reference resolution is inferred.",
+            "Only the existing bounded reader's token shapes; debug records and other tokens remain unsupported. No script execution or condition truth is evaluated.",
+        ],
+    )
+
+
+def qualify_replication_linking(core, comparison_core):
+    """Bind UStruct.Link's replication dependencies and temporary map bodies."""
+    assert (core.sha, comparison_core.sha) == (CORE_SHA, CANDIDATE_CORE_SHA)
+    blocks, targets = [], {}
+    for label, thunk, start, end in (
+        ("UField.GetOwnerClass", 0x1010173A, 0x101311F0, 0x10131209),
+        ("appMemcmp", 0x10103CF1, 0x1012D910, 0x1012D99E),
+        ("temporary map constructor", 0x10103445, 0x10135D90, 0x10135DCC),
+        ("temporary map base constructor", 0x101017FD, 0x10135CA0, 0x10135CF8),
+        ("temporary map set", 0x10101280, 0x10134440, 0x101344B1),
+        ("temporary map append", 0x10101FAA, 0x10132720, 0x101327BB),
+        ("temporary map find", 0x10102991, 0x101325E0, 0x10132634),
+        ("temporary map rehash", 0x10103DAF, 0x10132650, 0x101326EB),
+        ("temporary map empty", 0x101017A3, 0x10134410, 0x10134431),
+        ("temporary map destructor", 0x10101DB1, 0x10135DE0, 0x10135E15),
+        ("temporary map base destructor", 0x10101BCC, 0x10135D10, 0x10135D77),
+        ("temporary map array destructor", 0x10101947, 0x10134590, 0x1013463D),
+        ("FArray.Realloc", 0x101031D9, 0x101522E0, 0x10152346),
+        ("FArray.Remove", 0x1010303A, 0x101523C0, 0x10152437),
+    ):
+        core.instruction(thunk, "jmp", hex(start))
+        assert bytes(
+            core.data[core.offset(thunk) : core.offset(thunk) + 5]
+        ) == comparison_core.read(thunk, 5)
+        targets[hex(thunk)] = hex(start)
+        raw = bytes(core.data[core.offset(start) : core.offset(end)])
+        assert raw == comparison_core.read(start, len(raw))
+        assert sum(i.size for i in core.dis.disasm(raw, start)) == len(raw)
+        blocks.append(
+            dict(
+                label=label,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(raw).hexdigest(),
+            )
+        )
+    for name, start in (
+        ("?GetOwnerClass@UField@@UAEPAVUClass@@XZ", 0x101311F0),
+        ("?appMemcmp@@YAHPBX0H@Z", 0x1012D910),
+        ("?Realloc@FArray@@IAEXH@Z", 0x101522E0),
+        ("?Remove@FArray@@QAEXHHH@Z", 0x101523C0),
+    ):
+        assert core.exported(name, True) == comparison_core.body(name) == start
+    for cls in ("UProperty", "UStructProperty", "UIntProperty"):
+        name = "??_7" + cls + "@@6B@"
+        assert (
+            core.u32(core.exported(name) + 0x74)
+            == comparison_core.u32(comparison_core.exports[name] + 0x74)
+            == 0x1010173A
+        )
+    assert (
+        core.exported("?PrivateStaticClass@UClass@@0V1@A")
+        == comparison_core.exports["?PrivateStaticClass@UClass@@0V1@A"]
+        == 0x1027D770
+    )
+    return dict(
+        coreSHA256=core.sha,
+        comparisonCoreSHA256=comparison_core.sha,
+        blocks=blocks,
+        thunkTargets=targets,
+        limits=[
+            "Original grouping, owner lookup, byte comparison and temporary map lifecycle execute; successful allocation/reallocation/free remain explicit providers. No native allocator, exception path, script truth evaluation or complete UClass/UState linking is claimed."
+        ],
+    )
+
+
 def read_owned_loading_bits(*, actor=False, model=False, polys=False, brush=False):
     """Read this edition's owned inputs; no supplemental lookup or downloads."""
     from pathlib import Path
