@@ -793,6 +793,200 @@ def saved_polys_resource(pkg, ex):
         },
     )
 
+TRANSFORM_TYPES = {
+    "Location": ("Vector", "<3f"),
+    "Rotation": ("Rotator", "<3i"),
+    "DrawScale": (None, "<f"),
+    "DrawScale3D": ("Vector", "<3f"),
+    "PrePivot": ("Vector", "<3f"),
+}
+
+
+def decoded_transform_tags(tags):
+    """Retain ordered declared transform values, without renderer conversion."""
+    names = {name.casefold(): name for name in TRANSFORM_TYPES}
+    result = []
+    for tag in tags:
+        name = names.get(tag["name"].casefold())
+        if name is None:
+            continue
+        kind, fmt = TRANSFORM_TYPES[name]
+        if (
+            tag["type"] != (10 if kind else 4)
+            or tag["index"] != 0
+            or tag.get("struct") != kind
+            or len(tag["raw"]) != struct.calcsize(fmt)
+        ):
+            raise ValueError("unsupported original transform tag: " + name)
+        values = struct.unpack(fmt, tag["raw"])
+        if not all(math.isfinite(v) for v in values):
+            raise ValueError("nonfinite original transform tag: " + name)
+        result.append(dict(name=name, value=list(values) if kind else values[0]))
+    return result
+
+
+def decoded_reference_tags(pkg, tags, names):
+    """Resolve each saved tag's identity; keep repeated references in order."""
+    names = {name.casefold(): name for name in names}
+    result = []
+    for tag in tags:
+        name = names.get(tag["name"].casefold())
+        if name is not None:
+            value = saved_reference_overrides(
+                pkg, [dict(tag, name=name)], names.values()
+            )[name]
+            result.append(dict(value, name=name))
+    return result
+
+
+def brush_actor_fields(
+    pkg, identities, defaults, brush_models, boolean_records, declarations
+):
+    """Read each Brush subclass's own consumed fields through its class chain.
+
+    Only declaration layouts are reused from the static source profile, never
+    its class default values. Original CDO zero/parent/tag rules establish the
+    defaults; construction, localization and PostLoad remain runtime stages.
+    """
+    transform_layout = declarations["collisionTransforms"]["layout"]
+    reference_layout = declarations["collisionReferences"]["layout"]
+    boolean_layout = declarations["collisionBooleans"]["layout"]
+    attached = declarations["collisionAttached"]
+    if {f["name"] for f in transform_layout} != set(TRANSFORM_TYPES):
+        raise ValueError("complete original transform declarations required")
+    reference_names = [f["name"] for f in reference_layout]
+    if len(reference_names) != 7 or set(reference_names) != {
+        "StaticMesh",
+        "Owner",
+        "Level",
+        "XLevel",
+        "Mesh",
+        "Brush",
+        "AntiPortal",
+    }:
+        raise ValueError("complete original reference declarations required")
+    names = {
+        name.casefold() for name in {*TRANSFORM_TYPES, *reference_names, "Attached"}
+    }
+    classes, actors = {}, {}
+    for key, brush in brush_models["actors"].items():
+        class_key = brush["sourceClass"].casefold()
+        if class_key not in classes:
+            chain, current = [], defaults.read(brush["sourceClass"])
+            while current is not None:
+                chain.append(current)
+                current = (
+                    defaults.records[current["parent"].casefold()]
+                    if current["parent"]
+                    else None
+                )
+            # Zero initial CDO storage; inherited tags below replace these values.
+            transforms = {
+                name: [0, 0, 0] if kind else 0
+                for name, (kind, _) in TRANSFORM_TYPES.items()
+            }
+            origins = dict.fromkeys(transforms, "zero-initialized-class-default")
+            references = {
+                name: dict(
+                    reference=0,
+                    qualified=None,
+                    package="Core",
+                    origin="zero-initialized-class-default",
+                )
+                for name in reference_names
+            }
+            for row in reversed(chain):
+                package_name = row["sourceClass"].split(".")[0]
+                source_pkg = defaults.catalog.packages[package_name]
+                class_ex = next(
+                    e
+                    for e in source_pkg.exports
+                    if source_pkg.class_name_of(e) == "Class"
+                    and qualified_ref(source_pkg, e.index + 1) == row["sourceClass"]
+                )
+                if row["sourceClass"].casefold() not in ("core.object", "engine.actor"):
+                    if any(
+                        e.package_index == class_ex.index + 1
+                        and source_pkg.export_name(e).casefold() in names
+                        for e in source_pkg.exports
+                    ):
+                        raise ValueError("subclass redeclares a consumed Actor field")
+                tags = [dict(t, raw=bytes.fromhex(t["raw"])) for t in row["tags"]]
+                if any(t["name"].casefold() == "attached" for t in tags):
+                    raise ValueError("tagged Attached default requires array loading")
+                for tag in decoded_transform_tags(tags):
+                    transforms[tag["name"]] = tag["value"]
+                    origins[tag["name"]] = row["sourceClass"]
+                for tag in decoded_reference_tags(source_pkg, tags, reference_names):
+                    references[tag["name"]] = {
+                        k: v
+                        for k, v in dict(tag, origin=row["sourceClass"]).items()
+                        if k != "name"
+                    }
+            classes[class_key] = dict(
+                sourceClass=brush["sourceClass"],
+                scope="saved-brush-actor-defaults",
+                ancestry=[r["sourceClass"] for r in chain],
+                collisionTransforms=dict(
+                    layout=transform_layout, defaults=transforms, origins=origins
+                ),
+                collisionBooleans=dict(
+                    layout=boolean_layout,
+                    defaultGroups=chain[0]["actorBooleans"]["groups"],
+                ),
+                collisionReferences=dict(layout=reference_layout, defaults=references),
+                collisionAttached=dict(
+                    layout=attached["layout"],
+                    inner=attached["inner"],
+                    defaultCount=0,
+                    defaultOrigin="zero-initialized-class-default",
+                ),
+            )
+        cls = classes[class_key]
+        ex = pkg.exports[int(key) - 1]
+        frame = brush["savedStateFrame"]
+        start, end = (
+            ex.serial_offset + frame["sourceBytes"],
+            ex.serial_offset + ex.serial_size,
+        )
+        tags, consumed = read_props_ordered(pkg, start, end=end)
+        if consumed != end:
+            raise ValueError("Brush fields have an unsupported native tail")
+        transform_tags = decoded_transform_tags(tags)
+        reference_tags = decoded_reference_tags(pkg, tags, reference_names)
+        fields = dict(cls["collisionReferences"]["defaults"])
+        for tag in reference_tags:
+            fields[tag["name"]] = {k: v for k, v in tag.items() if k != "name"}
+        actors[key] = dict(
+            sourceClass=brush["sourceClass"],
+            exportRef=int(key),
+            exportSHA256=identities[key]["exportSHA256"],
+            savedStateFrame=frame,
+            savedActorLoading=dict(
+                scope="saved-actor-loading-inputs",
+                fileVersion=pkg.file_version,
+                sourceOffset=start,
+                sourceBytes=end - start,
+                sourceSHA256=sha(pkg.data[start:end]),
+                attachedOverrideCount=sum(
+                    t["name"].casefold() == "attached" for t in tags
+                ),
+                tags=[
+                    {k: t[k] for k in ("name", "type", "index", "struct")} for t in tags
+                ],
+            ),
+            savedTransform=dict(
+                scope="saved-map-and-class-defaults", tags=transform_tags
+            ),
+            savedReferences=dict(
+                scope="saved-map-and-class-defaults", tags=reference_tags, fields=fields
+            ),
+            savedCollisionFlags=dict(
+                scope="saved-map-and-class-defaults", tags=boolean_records[key]["tags"]
+            ),
+        )
+    return dict(scope="saved-brush-actor-fields", classes=classes, actors=actors)
+
 def saved_brush_models(pkg, identities, defaults):
     """Bind each saved Brush subclass to its exact Model resource, once."""
     actors, models, polys = {}, {}, {}
@@ -1404,6 +1598,8 @@ class Audit:
             if "savedReferences" in row
             for field in row["savedReferences"]["fields"].values()
         ]
+        fields.extend(tag for row in rows for tag in row.get("savedReferences", {}).get("tags", [])
+                      if "qualified" in tag)
         for field in fields:
             ref, package_name = field["reference"], field["package"]
             if not ref:
@@ -1597,6 +1793,9 @@ class Audit:
         brush_models = saved_brush_models(self.pkg, identities, defaults)
         brush_models['classLoading'] = read_owned_loading_bits(model=True)
         brush_models['polysClassLoading'] = read_owned_loading_bits(polys=True)
+        brush_fields = brush_actor_fields(self.pkg, identities, defaults, brush_models,
+                                          boolean_records, self.defaults[-1])
+        brush_fields['classLoading'] = {'Engine.Brush': read_owned_loading_bits(brush=True)}
         return dict(
             format="l2-static-world-source-v1",
             tile=self.tile,
@@ -1612,9 +1811,10 @@ class Audit:
                 sources=defaults.catalog.sources,
             ),
             savedBrushModels=brush_models,
+            savedBrushActors=brush_fields,
             levelCollisionDefaults=self.level_mode_defaults,
             savedLevelCollisionMode=self.level_mode,
-            savedReferenceBindings=self.reference_bindings(rows),
+            savedReferenceBindings=self.reference_bindings([*rows, *brush_fields["actors"].values()]),
             meshes=self.geometry,
             actors=rows,
             limits=[

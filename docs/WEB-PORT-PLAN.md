@@ -1,15 +1,15 @@
 # Browser port: path to a small test server
 
-Updated 28 September 2026. The full browser client remains the goal. The
+Updated 29 September 2026. The full browser client remains the goal. The
 [coverage inventory](PORT-COVERAGE.md) records supported components and gaps;
 source comparisons are not a substitute for playable journeys.
 
 The actual scene loader now shares original static-actor/mesh preparation with
 Elbera Tools. Both original-map checks cover 2,922 actors and 480 mesh records.
-The inspected Giran page prepares 1,936 static actors and 287 meshes. Its source
-bundle preserves all 2,406 saved slots, including the 470 other actors still
-awaiting preparation. Those include lights and cameras as well as collision
-participants; this is not a count of 470 blocking obstacles.
+The Giran source loader prepares 1,936 static actors, 291 plain Brush collision
+field sets and 287 meshes. Its source bundle preserves all 2,406 saved slots,
+with 179 actors still awaiting preparation. Those include lights and cameras
+as well as collision participants; this is not a count of 179 blocking obstacles.
 
 This connection replaces duplicated verifier-only preparation code. The game
 still uses the older approximate picking path. Saved level arrays and LevelInfo
@@ -35,20 +35,24 @@ PostLoad remain separate source paths. Brush primitive selection and concrete
 Model bounds now have original-instruction comparisons, including calls from
 static-mesh auxiliary bounds. Saved Brush references now bind 495 original
 Models into that loader, including their bounds and surface-node lists after
-ordinary Model PostLoad. This does not prepare the owning brush/volume actor or
-its current transform. Mover remains on its own class path.
+ordinary Model PostLoad. Plain Brush actors now use their own decoded defaults,
+transforms and reference tags through the common actor property gates. Volumes
+and movers still need their separate startup paths.
 The ordinary Brush constructor and PostLoad wrapper are now source-bound,
 and the browser preserves ordered Model/Polys flag writes in 192 native
 comparisons. Its Models now link to 495 source-loaded Polys headers; the
 decoder and independent record walker consume all 2,447 polygon records.
-The header path has 128 original-instruction comparisons. This component still
-needs per-class transforms and the volume localization path before world startup
-can use it. A volume's saved localized class bit must not be replaced by
+The header path has 128 original-instruction comparisons. Another 128 cases join
+fresh Brush copying, construction and PostLoad. Both maps prepare 442 plain
+Brush field sets; their ordered resource writes are retained for startup to
+apply. Volume construction/localization and the full world startup join remain
+unfinished. A volume's saved localized class bit must not be replaced by
 the nonlocalized static-actor profile.
 [Class-default evidence](native-class-defaults-evidence.md) and
 [Model loading evidence](native-static-actor-bounds-evidence.md#saved-brush-model-resources) ·
 [Brush startup component](native-static-actor-bounds-evidence.md#brush-construction-and-postload) ·
-[Polys header scope](native-static-actor-bounds-evidence.md#source-loaded-polys-headers).
+[Polys header scope](native-static-actor-bounds-evidence.md#source-loaded-polys-headers) ·
+[Saved Brush fields](native-static-actor-bounds-evidence.md#saved-brush-actor-fields).
 
 Public branches start from the reviewed public main. Original client inputs,
 generated assets, accounts and raw local receipts remain private; the older

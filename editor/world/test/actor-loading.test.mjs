@@ -12,6 +12,7 @@ import {
   postLoadStaticActor,
   postLoadBrushActor,
   prepareFreshStaticActor,
+  prepareFreshBrushActor,
   collectLevelActorAssignments,
   resolvePackageReference,
 } from "../js/actor-loading.js";
@@ -1111,4 +1112,58 @@ test("Polys headers reject unresolved class, property and localization branches"
       prepareSourcePolys(sourcePolysFixture(), declared).status,
       "unsupported",
     );
+});
+
+function freshBrushFixture() {
+  const input = freshFixture();
+  input.classLoading.sourceClass = input.source.savedStateFrame.classIdentity =
+    "Engine.Brush";
+  input.resolvedReferenceDefaults.Brush = { identity: "model" };
+  input.resourceHeaders = new Map([
+    ["model", { objectFlags: 0x60000000, polysReference: "polys" }],
+    ["polys", { objectFlags: 0x80000000 }],
+  ]);
+  return input;
+}
+
+test("fresh Brush preparation joins its own class and shared property stages without mutating resources", () => {
+  const input = freshBrushFixture(),
+    before = structuredClone(input.resourceHeaders);
+  const result = prepareFreshBrushActor(input);
+  assert.equal(result.status, "ready", result.reason);
+  assert.equal(result.scope, "original-fresh-brush-actor");
+  assert.equal(result.references.Brush, input.resolvedReferenceDefaults.Brush);
+  assert.deepEqual(
+    result.transform,
+    prepareStaticActorProperties(input).transform,
+  );
+  assert.deepEqual(result.postLoadWrites.resourceFlags, [
+    { identity: "model", objectFlags: 0x60000001 },
+    { identity: "polys", objectFlags: 0x80000001 },
+  ]);
+  assert.deepEqual(input.resourceHeaders, before);
+  assert.equal(prepareFreshStaticActor(input).status, "unsupported");
+  input.resolvedReferenceDefaults.Brush = null;
+  delete input.resourceHeaders;
+  assert.deepEqual(
+    prepareFreshBrushActor(input).postLoadWrites.resourceFlags,
+    [],
+  );
+});
+
+test("fresh Brush preparation rejects unresolved subclass and lifecycle inputs", () => {
+  for (const corrupt of [
+    (i) => (i.classLoading.sourceClass = "Engine.Volume"),
+    (i) => (i.source.savedStateFrame.classIdentity = "Engine.Volume"),
+    (i) => (i.classLoading.value = 0x20),
+    (i) => (i.source.savedStateFrame.savedExportFlags |= 0x100),
+    (i) => (i.source.savedActorLoading.attachedOverrideCount = 1),
+    (i) => delete i.resourceHeaders,
+    (i) => i.resourceHeaders.delete("polys"),
+    (i) => delete i.resolvedReferenceDefaults.Brush.identity,
+  ]) {
+    const input = freshBrushFixture();
+    corrupt(input);
+    assert.equal(prepareFreshBrushActor(input).status, "unsupported");
+  }
 });

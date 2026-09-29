@@ -63,12 +63,16 @@ through recovered loading rules. Those Models now share **495 source-loaded
 Polys headers**, with **2,447 polygon records** checked against the original
 map bytes. A separate brush PostLoad implementation matches **192 original-code
 cases**, preserving ordered Model/Polys flag writes.
-Connecting it to saved actors, volume localization and live collision remains
-unfinished. The class-prefix decoder is available in the standalone Core preview.
+The source loader now prepares collision fields for **442 plain Brush actors**
+from their own class defaults and map tags. A further **128 native comparisons**
+cover fresh copying, construction and PostLoad. Volume startup and live world
+collision remain unfinished. The class-prefix decoder is available in the
+standalone Core preview.
 [Actor source evidence](docs/native-class-defaults-evidence.md) ·
 [Model loading and verification](docs/native-static-actor-bounds-evidence.md#saved-brush-model-resources) ·
 [Brush lifecycle evidence](docs/native-static-actor-bounds-evidence.md#brush-construction-and-postload) ·
-[Polys loading and decoder](docs/native-static-actor-bounds-evidence.md#source-loaded-polys-headers).
+[Polys loading and decoder](docs/native-static-actor-bounds-evidence.md#source-loaded-polys-headers) ·
+[Saved Brush actor loading](docs/native-static-actor-bounds-evidence.md#saved-brush-actor-fields).
 
 | Area | What advanced | Follow the work |
 | --- | --- | --- |
@@ -87,7 +91,7 @@ unfinished. The class-prefix decoder is available in the standalone Core preview
 | **Static mesh cache reuse** | **600 joined queries** preserve original cache keys, owner/mesh identity checks, matrix refresh, tag wrap and release before hit adjustment. Another **1,000 comparisons** check the shared matrix determinant. Cache-provider internals and live actor selection remain unfinished. | [Cache contract and Elbera verifier](docs/native-static-mesh-cache-evidence.md) |
 | **Actor bounds and spatial membership** | **5,946 geometry/bounds comparisons** and **2,239 membership snapshots** preserve original splitting, insertion and removal. Another **935 composed operations** join actor-update gates, primitive selection/bounds and level mode, including skipped and out-of-world updates. Live population and query integration remain unfinished. | [Octree components](docs/native-actor-octree-evidence.md) · [Actor updates and Elbera verifier](docs/native-actor-admission-evidence.md) |
 | **Static-prop bounds** | **600 original-instruction comparisons** and **288 joined actor updates** preserve transformed boxes, the cylinder branch and auxiliary collision-model rules. Another **600 PostLoad-to-bounds checks** verify the browser’s object/array reset and unchanged box under explicit current-state conditions. The mesh API now prepares fresh source records through original loading flags, with **256 new source/browser checks** and **128 constructor checks**. Source-derived native class loading bits feed that entry. Actor recovery now preserves 82 declared Boolean fields, with 512 native copy checks and 2,922 saved flag records verified. Live map population and placement remain unfinished. | [Original bounds and Elbera verifier](docs/native-static-actor-bounds-evidence.md) |
-| **Original world loading** | The game scene loader now shares the source preparation pipeline checked against **2,922 actors and 480 mesh records**. The inspected Giran page prepares **1,936 actors and 287 meshes**, while preserving every saved actor slot and reporting unfinished classes. Current startup, collision queries and movement integration remain open. | [Scene loading and limits](docs/native-static-actor-bounds-evidence.md#source-resources-in-the-scene-loader) |
+| **Original world loading** | The game scene loader now shares the source preparation pipeline checked against **2,922 actors and 480 mesh records**. The Giran source loader prepares **1,936 static actors, 291 Brush field sets and 287 meshes**, while preserving every saved actor slot and reporting unfinished classes. Current startup, collision queries and movement integration remain open. | [Scene loading and limits](docs/native-static-actor-bounds-evidence.md#source-resources-in-the-scene-loader) |
 | **Actor collision queries** | **602 nonzero-extent queries** through the actual actor tree match original instructions, preserving candidate tags, ownership, traversal order, scratch records and hit selection. Original actor/pawn filtering now matches **8,028 additional cases**. Live fields, subclass dispatch and concrete primitive-method integration remain unfinished. | [Query contract](docs/native-actor-query-evidence.md) · [Trace filters and Elbera verifier](docs/native-actor-trace-evidence.md) |
 | **Movement recovery** | Original actor blocking and ordered hit selection match **6,600 retained-code cases**. Query padding and selected-hit backoff match another **735 cases**. Live actor queries, callbacks, floor/step/ledge response and movement-to-wait animation remain in progress. | [Actor blocking](docs/native-actor-blocking-evidence.md) · [Movement arithmetic](docs/native-moveactor-arithmetic-evidence.md) · [Stopping evidence](docs/native-grounding-evidence.md#stopmove-retire-a-canceled-route-without-inventing-a-teleport) |
 | **Original sound selection** | Recovered the original integer generator and signed sound gate. Player and admitted NPC events share one browser context, preserving draw order through mute and delayed loading. Browser seed/storage policy and unported native consumers remain explicit limits. | [Native sound evidence and verifier](docs/native-cast-sound-evidence.md#sound-notify-integer-rng-and-seed-boundary) |

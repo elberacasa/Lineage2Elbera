@@ -47,6 +47,14 @@ The corrected file-123 decoder and four synthetic cases are also included in
 current standalone Core source builds (19 files/40 checks); published ZIPs are
 unchanged. See [Polys evidence and commands](../docs/native-static-actor-bounds-evidence.md#source-loaded-polys-headers).
 
+The original-record checker now also compares the loaded collision fields of
+442 plain Brush actors against independent reads of their class and map bytes.
+It checks exact transform words, references, Boolean groups and ordered resource
+write intents. The native checker adds 128 fresh Brush loading comparisons;
+52 browser loader/lifecycle cases and 88 portable exporter cases pass. The
+Elbera world-picking panel shows Brush field preparation separately from active
+collision. Volume startup remains unresolved. See [Brush source loading and limits](../docs/native-static-actor-bounds-evidence.md#saved-brush-actor-fields).
+
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
 kit for qualified NPC selectors, original sparse-key bundles and optional GPU
 weight inputs, plus the bounded initial-animation and GPU native verifiers.

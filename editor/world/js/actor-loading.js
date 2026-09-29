@@ -391,13 +391,27 @@ function postLoadActor(input, resultScope, includeBrush) {
  * execution, later gameplay writes or complete native actor is implied.
  */
 export function prepareFreshStaticActor(input) {
-  const resultScope = "original-fresh-static-actor";
+  return prepareFreshActor(input, "Engine.StaticMeshActor", false);
+}
+
+/** Consumed fresh Brush fields, with explicit loaded Model/Polys headers.
+ * Resource writes are returned for the owning lifecycle to apply in order;
+ * this entry neither substitutes Volume startup nor mutates shared resources.
+ */
+export function prepareFreshBrushActor(input) {
+  return prepareFreshActor(input, "Engine.Brush", true);
+}
+
+function prepareFreshActor(input, sourceClass, includeBrush) {
+  const resultScope = includeBrush
+    ? "original-fresh-brush-actor"
+    : "original-fresh-static-actor";
   const fail = (reason) =>
     freeze({ status: "unsupported", scope: resultScope, reason });
   const source = input?.source,
     declared = input?.classLoading;
   if (
-    declared?.sourceClass !== "Engine.StaticMeshActor" ||
+    declared?.sourceClass !== sourceClass ||
     declared.scope !== "ordinary-native-registration-and-package" ||
     !uint(declared.mask) ||
     !uint(declared.value) ||
@@ -454,10 +468,18 @@ export function prepareFreshStaticActor(input) {
     declared.value & 0x428,
   );
   if (loading.status !== "ready") return fail(loading.reason);
-  const postLoad = postLoadStaticActor({
+  const brush = properties.references.Brush;
+  if (
+    includeBrush &&
+    brush !== null &&
+    (typeof brush?.identity !== "string" || !brush.identity)
+  )
+    return fail("resolved source Brush Model identity required");
+  const postLoad = (includeBrush ? postLoadBrushActor : postLoadStaticActor)({
     objectFlags: loading.flags.beforePostLoad,
     classFlags: declared.value & 0x428,
-    brushReference: properties.references.Brush,
+    brushReference: includeBrush ? (brush?.identity ?? null) : brush,
+    ...(includeBrush ? { objects: input.resourceHeaders } : {}),
     attachedCount: 0,
     rotation: properties.transform.rotation,
     flags5c: { mask: 0, value: 0 },
