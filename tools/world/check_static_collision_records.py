@@ -523,6 +523,68 @@ def check_saved_model_resource(pkg, source):
     )
 
 
+def check_saved_polys_resource(pkg, source):
+    """Walk original polygon framing independently of read_polys; no rendering."""
+    ref = source["exportRef"]
+    if type(ref) is not int or not 0 < ref <= len(pkg.exports):
+        raise ValueError("invalid Polys source reference")
+    ex = pkg.exports[ref - 1]
+    start, end = ex.serial_offset, ex.serial_offset + ex.serial_size
+    if (
+        not 0 <= start < end <= len(pkg.data)
+        or source["scope"] != "saved-polys-resource"
+        or pkg.file_version != 123
+        or source["fileVersion"] != pkg.file_version
+        or source["licenseeVersion"] != pkg.licensee_version
+        or source["sourcePackage"] != Path(pkg.path).stem
+        or source["identity"] != qualified_ref(pkg, ref)
+        or source["classIdentity"] != qualified_ref(pkg, ex.class_index)
+        or source["classIdentity"] != "Engine.Polys"
+        or source["savedExportFlags"] != ex.object_flags
+        or ex.object_flags & RF_HAS_STACK
+        or source["exportSHA256"] != hashlib.sha256(pkg.data[start:end]).hexdigest()
+    ):
+        raise ValueError("Polys identity, edition or export fingerprint differs")
+    r = Reader(memoryview(pkg.data)[:end], start, pkg.path)
+    if read_properties(pkg, r, fmt="packed") or source["propertyTagCount"] != 0:
+        raise ValueError("tagged Polys properties are unsupported")
+    property_end = r.pos
+    count, maximum = r.i32(), r.i32()
+    if (
+        not 0 <= count < 100000
+        or source["polygonCount"] != count
+        or source["serializedMax"] != maximum
+    ):
+        raise ValueError("Polys saved counts differ")
+    polygon_start = r.pos
+    for _ in range(count):
+        vertices = r.compact()
+        if not 3 <= vertices <= 64:
+            raise ValueError("unsupported Polys vertex count")
+        r.bytes((4 + vertices) * 12 + 4)
+        for _ in range(5):
+            r.compact()  # Two object refs, name and two polygon indices.
+        r.bytes(4 + (4 if pkg.licensee_version >= 22 else 0))
+    if r.pos != end:
+        raise ValueError("Polys polygon framing does not consume the export")
+    spans = {
+        "properties": (start, property_end),
+        "counts": (property_end, polygon_start),
+        "polygons": (polygon_start, end),
+    }
+    expected = {
+        key: dict(
+            sourceOffset=a,
+            sourceBytes=b - a,
+            sourceSHA256=hashlib.sha256(pkg.data[a:b]).hexdigest(),
+        )
+        for key, (a, b) in spans.items()
+    }
+    if source["sourceSpans"] != expected:
+        raise ValueError("Polys retained spans differ from original bytes")
+    return dict(reference=ref, polygons=count, bytes=end - start)
+
+
 def check_saved_brush_records(audit, world):
     proof = world["savedBrushModels"]
     from static_mesh_class_source import read_owned_loading_bits
@@ -531,6 +593,8 @@ def check_saved_brush_records(audit, world):
         "classLoading"
     ] != read_owned_loading_bits(model=True):
         raise ValueError("Model resource scope or class loading differs")
+    if proof["polysClassLoading"] != read_owned_loading_bits(polys=True):
+        raise ValueError("Polys class loading differs")
     catalog, defaults, visiting = OriginalClasses(), {}, set()
 
     def reference(raw):
@@ -628,6 +692,17 @@ def check_saved_brush_records(audit, world):
         check_saved_model_resource(audit.pkg, model)
         for model in proof["models"].values()
     ]
+    used_polys = {
+        str(m["polysReference"])
+        for m in proof["models"].values()
+        if m["polysReference"]
+    }
+    if used_polys != set(proof["polys"]):
+        raise ValueError("Model Polys resource set differs")
+    polygon_records = [
+        check_saved_polys_resource(audit.pkg, source)
+        for source in proof["polys"].values()
+    ]
     runtime = (
         Path(__file__).resolve().parents[2] / "editor/world/js/static-world-source.js"
     )
@@ -643,13 +718,20 @@ for(const [key,saved] of Object.entries(input.savedBrushModels.actors)) {
 }
 const records=Object.keys(input.savedBrushModels.models).map(key=>{
  const model=world.modelForReference(Number(key)), r=model.resource;
+ const ref=input.savedBrushModels.models[key].polysReference;
+ if(model.polys !== (ref===0?null:world.polysForReference(ref)))throw Error('Polys sharing differs');
  if(r.status!=='ready')throw Error(r.reason);
  const bounds=model.getBounds({ownerIdentity:null});if(bounds.status!=='ready')throw Error(bounds.reason);
  const bytes=new DataView(new ArrayBuffer(24));[...bounds.bounds.min,...bounds.bounds.max].forEach((v,i)=>bytes.setFloat32(i*4,v,true));
  return {reference:Number(key),surfaceNodes:r.surfaceNodes,objectFlags:r.objectFlags,
  boundsWords:Array.from({length:6},(_,i)=>bytes.getUint32(i*4,true)),valid:bounds.bounds.valid};
 });
-process.stdout.write(JSON.stringify({summary:world.summary,records}));
+const polys=Object.keys(input.savedBrushModels.polys).map(key=>{
+ const p=world.polysForReference(Number(key));
+ if(p.resource.status!=='ready')throw Error(p.resource.reason);
+ return {reference:Number(key),objectFlags:p.resource.objectFlags};
+});
+process.stdout.write(JSON.stringify({summary:world.summary,records,polys}));
 """
     result = subprocess.run(
         ["node", "--input-type=module", "-e", script, str(runtime)],
@@ -674,10 +756,22 @@ process.stdout.write(JSON.stringify({summary:world.summary,records}));
             raise ValueError("browser Model state differs from checked source data")
     if len(loaded["records"]) != len(records):
         raise ValueError("browser omitted Model resources")
+    if len(loaded["polys"]) != len(polygon_records):
+        raise ValueError("browser omitted Polys resources")
+    for row in loaded["polys"]:
+        saved = proof["polys"][str(row["reference"])]["savedExportFlags"]
+        # Independent arithmetic check of the already native-qualified stages.
+        created = (saved & 0x067F01A5) | 0x01000200
+        serialized = (created & ~0x200) | 0x40000000
+        expected = (serialized & 0xDEFFFFFF) | 0x20000000
+        if row["objectFlags"] != expected:
+            raise ValueError("browser Polys header flags differ from loading stages")
     return dict(
         scope="saved Brush references and prepared Model consumer fields; actor lifecycle and live queries remain separate",
         actors=len(expected_refs),
         models=len(records),
+        polys=len(polygon_records),
+        sourcePolygons=sum(r["polygons"] for r in polygon_records),
         nodes=sum(r["nodes"] for r in records),
         surfaces=sum(r["surfaces"] for r in records),
         browserSummary=loaded["summary"],

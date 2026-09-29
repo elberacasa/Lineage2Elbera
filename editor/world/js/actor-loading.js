@@ -241,6 +241,46 @@ export function prepareSourceModel(source, declared) {
   });
 }
 
+/** Header of a source Polys resource through fresh ordinary loading. Polygon
+ * bytes and declarations must be checked by Elbera Tools before this entry.
+ * UPolys inherits UObject.PostLoad; polygon geometry is not reconstructed here.
+ */
+export function prepareSourcePolys(source, declared) {
+  const scope = "prepared-source-polys-header";
+  const fail = (reason) => freeze({ status: "unsupported", scope, reason });
+  if (
+    source?.scope !== "saved-polys-resource" ||
+    source.fileVersion !== 123 ||
+    !uint(source.licenseeVersion) ||
+    source.licenseeVersion > 65535 ||
+    source.classIdentity !== "Engine.Polys" ||
+    source.propertyTagCount !== 0 ||
+    !uint(source.savedExportFlags) ||
+    source.savedExportFlags & 0x02000000 ||
+    !uint(source.polygonCount) ||
+    source.polygonCount >= 100000 ||
+    !sint(source.serializedMax) ||
+    declared?.sourceClass !== source.classIdentity ||
+    declared.scope !== "ordinary-native-registration" ||
+    readKnownFlagBits(declared, 0x408) === undefined ||
+    declared.value & 0x400
+  )
+    return fail("qualified file123 Polys header and loading class required");
+  const loading = freshObjectLoadingFlags(
+    source.savedExportFlags,
+    declared.value,
+  );
+  if (loading.status !== "ready") return fail(loading.reason);
+  if (loading.flags.beforePostLoad & 0x100)
+    return fail("Polys object localization is unresolved");
+  return freeze({
+    status: "ready",
+    scope,
+    loadingFlags: loading.flags,
+    objectFlags: (loading.flags.beforePostLoad | 0x20000000) >>> 0,
+  });
+}
+
 /** Ordinary StaticMeshActor PostLoad with no Brush or attachments.
  * Preserve unknown flag bits as a mask/value pair. The native method writes
  * SwayRotationOrig from Rotation, even if the archive saved a different value.

@@ -1066,3 +1066,49 @@ test("brush PostLoad stops before missing or unsupported work while retaining ea
   }
   assert.deepEqual(postLoadBrushActor().writes, { resourceFlags: [] });
 });
+
+import { sourcePolysFixture, polysClassFixture } from "./fixtures/model.mjs";
+import { prepareSourcePolys } from "../js/actor-loading.js";
+
+test("Polys headers use fresh flags and inherited PostLoad without exposing complete geometry", () => {
+  const source = sourcePolysFixture(),
+    before = structuredClone(source);
+  const result = prepareSourcePolys(source, polysClassFixture);
+  assert.equal(result.status, "ready");
+  assert.equal(result.objectFlags, 0x60000000);
+  assert.notEqual(result.objectFlags, source.savedExportFlags);
+  assert.deepEqual(source, before);
+  assert.ok(Object.isFrozen(result));
+  assert.equal(result.polygons, undefined);
+});
+
+test("Polys headers reject unresolved class, property and localization branches", () => {
+  for (const mutate of [
+    (s) => (s.fileVersion = 122),
+    (s) => (s.licenseeVersion = 65536),
+    (s) => (s.savedExportFlags = 0x02000000),
+    (s) => (s.savedExportFlags = 0x100),
+    (s) => (s.propertyTagCount = 1),
+    (s) => (s.classIdentity = "Engine.Model"),
+    (s) => (s.polygonCount = -1),
+    (s) => (s.polygonCount = 100000),
+    (s) => delete s.serializedMax,
+  ]) {
+    const source = sourcePolysFixture();
+    mutate(source);
+    assert.equal(
+      prepareSourcePolys(source, polysClassFixture).status,
+      "unsupported",
+    );
+  }
+  for (const declared of [
+    undefined,
+    { ...polysClassFixture, mask: 8 },
+    { ...polysClassFixture, value: 0x400 },
+    { ...polysClassFixture, sourceClass: "Engine.Model" },
+  ])
+    assert.equal(
+      prepareSourcePolys(sourcePolysFixture(), declared).status,
+      "unsupported",
+    );
+});

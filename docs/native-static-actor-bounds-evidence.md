@@ -1383,8 +1383,98 @@ cases. Two deliberate local mutations—using the wrong resource flag and
 reversing the write order—are rejected by the native comparison. The offline
 Giran startup regression retains 328 prepared Models and 1,936 static actors;
 the rendered terrain defects remain visible.
-Source-loaded Polys headers, brush transforms, volume construction/localization
-and the final world startup/query join remain unfinished. The scene loader does
-not yet call this new entry for saved actors; it makes no additional live
+Source-loaded Polys headers are covered below; brush transforms, volume
+construction/localization and the final world startup/query join remain
+unfinished. The scene loader does not yet call this new entry for saved actors; it makes no additional live
 collision, Online movement or map-repair claim. This source verifier remains
 in the repository toolkit; existing standalone release archives are unchanged.
+
+## Source-loaded Polys headers
+
+Each saved brush Model now links to the shared Polys resource named by its
+original package reference. The browser prepares **the object header only**:
+fresh loading flags and inherited UObject.PostLoad. It does not reconstruct
+the complete native polygon object or claim active brush collision.
+
+| Original map | Linked Polys exports | Saved polygon records | File/licensee version |
+| --- | --- | --- | --- |
+| Talking Island `17_25` | 167 | 736 | 123/25 |
+| Giran `22_22` | 328 | 1,711 | 123/28 |
+
+The exporter retains exact identities, saved flags, export hashes, independent
+serialized count/maximum values and contiguous property/count/polygon spans.
+It requires local Engine.Polys exports with no state frame or tagged properties.
+The shared decoder consumes the complete bounded export; the independent
+record checker walks its framing without calling `read_polys` and compares
+every retained span. Polygon geometry is not duplicated in the scene bundle.
+The existing decoder's count/vertex guardrails remain parser limits, not proof
+of native validity for arbitrary input or complete polygon semantics.
+
+For file version 123, FPoly's final DWORD at native offset `+148` is serialized
+at **licensee version 22 or later**; the earlier loading branch writes
+`ffffffff`. This is separate from the FBspSurf cutoff of 21. Other file versions
+retain the unqualified legacy layout selection. The existing Python field name
+`lighting_channels` is retained for compatibility; this check does not establish
+its rendering meaning. Synthetic fixtures cover both cutoff sides, negative
+zero, independent saved maximums, empty/multiple records and neighboring-export
+boundaries.
+
+The source qualifier reuses the four pinned Engine/Core images above and the
+existing pinned Engine.u/Core.u class sources. UPolys has no saved class export
+in this Engine.u. Its native registration derives from UObject, and both
+qualified root variants agree on consumed class mask `0x408`, value zero.
+No invented full class word is supplied to the browser.
+
+| Source method | Qualified ordinary range, exclusive end |
+| --- | --- |
+| UPolys constructor | `103b5780..103b57d6` |
+| Owned array constructor | `103afc00..103afc58` |
+| UPolys Serialize | `103b5808..103b58cb` |
+| FPoly Serialize, including both returns | `105ea298..105ea505` |
+| Core FArray constructor | `10109280..101092a3` |
+| Inherited UObject.PostLoad | `10163c60..10163cb8` |
+
+The Polys vtable's PostLoad slot is bound through the comparison copy's named
+Core import. **128 native comparisons** execute the constructor, fresh flag
+stages and inherited PostLoad: **22,400 instructions at 175 addresses**. They
+check array initialization, owner assignment, browser header results and
+preservation of unrelated supplied storage. The ordinary serializers have
+source correspondence checks, but their archive I/O and polygon payload are
+not executed by this interpreter. Transaction loading, tagged properties,
+localization, exception handling and linked-object factories remain outside
+this bounded proof.
+
+`polysForReference(ref)` exposes the shared immutable wrapper; `model.polys`
+points to it. An explicit zero reference becomes null. An older bundle without
+Polys metadata keeps that reference unknown. Missing, extra or mismatched
+resource identities reject a new bundle; unsupported header loading remains
+explicit. `summary.preparedPolysHeaders` counts only ready headers. The Model
+bounds subset may still be available independently of its Polys header.
+
+```sh
+# Portable authored inputs and isolated Core kit; no private files.
+PYTHONPATH=tools python3 -m unittest l2lib.tests.test_polys
+python3 -m unittest discover -s tools/world -p test_static_collision.py
+python3 tools/release/build_core.py --check
+node --test editor/world/test/actor-loading.test.mjs \
+  editor/world/test/static-world-source.test.mjs
+
+# Original maps/packages and pinned Engine/Core inputs are required.
+python3 tools/world/check_static_collision_records.py 17_25 22_22 --check
+python3 tools/ui/check_static_actor_bounds_native.py \
+  --comparison-engine /local/comparison/engine.dll \
+  --comparison-core /local/comparison/Core.dll --check
+```
+
+The existing private `--world-source-output` export command includes these
+records. Previously retained scene fields are unchanged. Current Core source
+builds carry the decoder and portable fixtures in 19 selected files with 40
+checks; existing published archives remain immutable. The native world checker
+still belongs to the full repository toolkit. Owning brush/volume transforms,
+constructor/localization paths, ordered shared-header updates and the final
+world startup/query join remain unfinished.
+
+The completed offline Giran capture was visually inspected with 328 ready Polys
+headers, 328 prepared Models and 1,936 static actors. No browser errors were
+captured. The terrain defects and unavailable world collision remain visible;
+this is startup regression evidence, not Online movement acceptance.

@@ -37,6 +37,15 @@ identity for a nonnull import or export. It rejects cycles and invalid or null
 references. This helper is available in standalone Core builds; the world
 exporter reuses it. It does not resolve a saved reference into a live object.
 
+`read_polys(package, export)` decodes a bounded Polys export. File-123 packages
+use the original FPoly licensee cutoff of 22 for the final DWORD; this differs
+from `read_model`'s FBspSurf cutoff of 21. Earlier file versions retain legacy
+layout selection and are not qualified by this change. Count/vertex guardrails
+are parser limits, not complete native validity rules. The four portable cases
+in `tests/test_polys.py` need no client files. See the
+[source ranges, fingerprints and limits](https://github.com/elberacasa/Lineage2Elbera/blob/main/docs/native-static-actor-bounds-evidence.md#source-loaded-polys-headers)
+in the full repository; this library does not perform live resource loading.
+
 ```python
 from l2lib import (load_package, parse_texture, extract_texture_rgba,
                    resolve_material, mesh_material_slots, write_png)

@@ -22,7 +22,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / 'tools'), str(ROOT / 'tools/dat'), str(ROOT / 'tools/ui')]
-from l2lib import L2Error, Reader, load_package, read_properties, encode_compact, qualified_ref, read_model
+from l2lib import L2Error, Reader, load_package, read_properties, encode_compact, qualified_ref, read_model, read_polys
 from convert import actor_prop_offset, read_props_ordered, read_map_actor_frame
 from export_npc_visuals import OriginalClasses, serialized_defaults
 
@@ -745,9 +745,57 @@ def saved_model_resource(pkg, ex):
     )
 
 
+def saved_polys_resource(pkg, ex):
+    """Retain exact Polys identity/header evidence; geometry stays in its source.
+
+    The shared decoder consumes every polygon byte with the file123 native gate.
+    The browser header consumer does not need a second copy of that geometry.
+    """
+    start, end = ex.serial_offset, ex.serial_offset + ex.serial_size
+    if (
+        pkg.file_version != 123
+        or qualified_ref(pkg, ex.class_index) != "Engine.Polys"
+        or ex.object_flags & 0x02000000
+        or not 0 <= start < end <= len(pkg.data)
+    ):
+        raise ValueError("unsupported Polys resource edition, class or framing")
+    tags, consumed = read_props_ordered(pkg, start, end=end)
+    if tags:
+        raise ValueError("tagged Polys properties require native property loading")
+    reader = Reader(memoryview(pkg.data)[:end], consumed, pkg.path)
+    count, maximum = reader.i32(), reader.i32()
+    polygons = read_polys(pkg, ex)
+    if len(polygons) != count:
+        raise ValueError("Polys count differs from consumed records")
+    spans = {
+        "properties": (start, consumed),
+        "counts": (consumed, reader.pos),
+        "polygons": (reader.pos, end),
+    }
+    return dict(
+        scope="saved-polys-resource",
+        fileVersion=pkg.file_version,
+        licenseeVersion=pkg.licensee_version,
+        sourcePackage=Path(pkg.path).stem,
+        exportRef=ex.index + 1,
+        identity=qualified_ref(pkg, ex.index + 1),
+        classIdentity=qualified_ref(pkg, ex.class_index),
+        savedExportFlags=ex.object_flags,
+        exportSHA256=sha(pkg.data[start:end]),
+        propertyTagCount=0,
+        polygonCount=count,
+        serializedMax=maximum,
+        sourceSpans={
+            key: dict(
+                sourceOffset=a, sourceBytes=b - a, sourceSHA256=sha(pkg.data[a:b])
+            )
+            for key, (a, b) in spans.items()
+        },
+    )
+
 def saved_brush_models(pkg, identities, defaults):
     """Bind each saved Brush subclass to its exact Model resource, once."""
-    actors, models = {}, {}
+    actors, models, polys = {}, {}, {}
     for key, identity in identities.items():
         ancestry, current = [], defaults.read(identity["classIdentity"])
         while current is not None:
@@ -799,6 +847,11 @@ def saved_brush_models(pkg, identities, defaults):
             raise ValueError("nonlocal Brush Model needs source package resolution")
         if ref and str(ref) not in models:
             models[str(ref)] = saved_model_resource(pkg, pkg.exports[ref - 1])
+            poly_ref = models[str(ref)]["polysReference"]
+            if type(poly_ref) is not int or not 0 <= poly_ref <= len(pkg.exports):
+                raise ValueError("nonlocal Model Polys needs source package resolution")
+            if poly_ref and str(poly_ref) not in polys:
+                polys[str(poly_ref)] = saved_polys_resource(pkg, pkg.exports[poly_ref - 1])
         actors[key] = dict(
             sourceClass=identity["classIdentity"],
             defaults=inherited,
@@ -811,7 +864,7 @@ def saved_brush_models(pkg, identities, defaults):
                 sourceSHA256=sha(pkg.data[start:end]),
             ),
         )
-    return dict(scope="saved-brush-model-resources", actors=actors, models=models)
+    return dict(scope="saved-brush-model-resources", actors=actors, models=models, polys=polys)
 
 
 def level_collision_layout(pkg):
@@ -1543,6 +1596,7 @@ class Audit:
         from static_mesh_class_source import read_owned_loading_bits
         brush_models = saved_brush_models(self.pkg, identities, defaults)
         brush_models['classLoading'] = read_owned_loading_bits(model=True)
+        brush_models['polysClassLoading'] = read_owned_loading_bits(polys=True)
         return dict(
             format="l2-static-world-source-v1",
             tile=self.tile,
