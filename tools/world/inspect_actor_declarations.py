@@ -15,7 +15,12 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / "tools"), str(ROOT / "tools/world")]
 from export_static_collision import OriginalClasses, serialized_class_record
 from l2lib import load_package, qualified_ref
-from l2lib.declarations import read_property_declaration, read_field_chain
+from l2lib.declarations import (
+    read_property_declaration,
+    read_field_chain,
+    read_struct_children,
+)
+from l2lib.propertylayout import structure_layouts
 
 
 DEFAULT_CLASSES = (
@@ -27,7 +32,7 @@ DEFAULT_CLASSES = (
 )
 
 
-def inspect_declarations(names):
+def inspect_declarations(names, *, include_structure_layouts=False):
     catalog = OriginalClasses()
     classes, structures, visiting = {}, {}, set()
 
@@ -78,6 +83,7 @@ def inspect_declarations(names):
         parent = qualified_ref(pkg, ex.super_index) if ex.super_index else None
         if parent:
             visit_structure(parent)
+        prefix = read_struct_children(pkg, ex)
         structures[key] = dict(
             identity=qualified_ref(pkg, ex.index + 1),
             savedSuper=parent,
@@ -85,6 +91,8 @@ def inspect_declarations(names):
                 pkg.data[ex.serial_offset : ex.serial_offset + ex.serial_size]
             ).hexdigest(),
             fields=fields(pkg, ex),
+            childPrefix=prefix,
+            fieldChain=read_field_chain(pkg, ex, prefix["children"]),
         )
         visiting.remove(key)
 
@@ -120,6 +128,9 @@ def inspect_declarations(names):
         linkedClassFields=sum(
             len(row["fieldChain"]["fields"]) for row in classes.values()
         ),
+        linkedStructureFields=sum(
+            len(row["fieldChain"]["fields"]) for row in structures.values()
+        ),
         networkedDeclarations=sum(
             field["replicationOffset"] is not None for field in declarations
         ),
@@ -130,7 +141,7 @@ def inspect_declarations(names):
             if field["propertyFlags"] & 0x8000
         ],
     )
-    return dict(
+    report = dict(
         tool="Elbera Tools actor declarations",
         status="pass",
         summary=summary,
@@ -144,6 +155,13 @@ def inspect_declarations(names):
             "Source flags, dimensions and reference identities do not establish native offsets, aliasing, localization effects or current actor state.",
         ],
     )
+    if include_structure_layouts:
+        report["structureLayouts"] = structure_layouts(structures.values())
+        report["summary"]["structureLayouts"] = len(report["structureLayouts"])
+        report["limits"].append(
+            "Optional structureLayouts computes only the original offset stage from complete saved chains; it does not construct a live reflection registry or property cleanup/reference lists."
+        )
+    return report
 
 
 def main():
@@ -152,8 +170,15 @@ def main():
     parser.add_argument(
         "--check", action="store_true", help="print the summary and source fingerprints"
     )
+    parser.add_argument(
+        "--structure-layouts",
+        action="store_true",
+        help="also compute the admitted nested-structure offset graph",
+    )
     args = parser.parse_args()
-    report = inspect_declarations(args.classes)
+    report = inspect_declarations(
+        args.classes, include_structure_layouts=args.structure_layouts
+    )
     if args.check:
         report = {
             key: report[key]

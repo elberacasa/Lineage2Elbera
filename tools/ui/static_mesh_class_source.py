@@ -949,7 +949,7 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
 
 
 def qualify_property_offsets(core, comparison_core):
-    """Bind the recomputed UClass scalar-property offset stage, not full Link.
+    """Bind the recomputed class/struct property offset stage, not full Link.
 
     Parent/current reflection and completed archive Preload are supplied. The
     prefix stops before cleanup/reference lists and never claims to return
@@ -965,6 +965,7 @@ def qualify_property_offsets(core, comparison_core):
         "ClassProperty": (0x1010278E, 0x10171630, 0x101716B6),
         "NameProperty": (0x1010428C, 0x101719F0, 0x10171A51),
         "StrProperty": (0x101010D2, 0x10171C10, 0x10171C83),
+        "StructProperty": (0x10101DE3, 0x10172690, 0x1017273D),
     }
     targets, blocks = {}, []
     helpers = (
@@ -973,6 +974,8 @@ def qualify_property_offsets(core, comparison_core):
         ("UStruct.GetPropertiesSize", 0x10102199, 0x1010B310, 0x1010B314),
         ("UClass.GetInheritanceSuper", 0x10104890, 0x10115A20, 0x10115A24),
         ("UClass virtual slot 0x6c", 0x10101FC3, 0x1010B570, 0x1010B576),
+        ("UStruct.GetInheritanceSuper", 0x10101ABE, 0x10115950, 0x10115954),
+        ("UStruct virtual slot 0x6c", 0x10101A23, 0x101305D0, 0x101305D6),
     )
     ranges = [
         ("UStruct.Link recompute-offset prefix", 0x10135E30, 0x10135F12),
@@ -1091,15 +1094,30 @@ def qualify_property_offsets(core, comparison_core):
                 SHA256=hashlib.sha256(data).hexdigest(),
             )
         )
-    table = "??_7UClass@@6B@"
-    for slot, target in (
-        (0x6C, 0x10101FC3),
-        (0x78, 0x10102199),
-        (0x7C, 0x10104890),
-        (0x80, 0x1010452A),
+    for cls, targets_by_slot in (
+        (
+            "UClass",
+            (
+                (0x6C, 0x10101FC3),
+                (0x78, 0x10102199),
+                (0x7C, 0x10104890),
+                (0x80, 0x1010452A),
+            ),
+        ),
+        (
+            "UStruct",
+            (
+                (0x6C, 0x10101A23),
+                (0x78, 0x10102199),
+                (0x7C, 0x10101ABE),
+                (0x80, 0x10103364),
+            ),
+        ),
     ):
-        assert core.u32(core.exported(table) + slot) == target
-        assert comparison_core.u32(comparison_core.exports[table] + slot) == target
+        table = "??_7" + cls + "@@6B@"
+        for slot, target in targets_by_slot:
+            assert core.u32(core.exported(table) + slot) == target
+            assert comparison_core.u32(comparison_core.exports[table] + slot) == target
     for symbol, at in (
         ("?PrivateStaticClass@UProperty@@0VUClass@@A", 0x10336D80),
         ("?PrivateStaticClass@UBoolProperty@@0VUClass@@A", 0x10338240),
@@ -1116,8 +1134,8 @@ def qualify_property_offsets(core, comparison_core):
         limits=[
             "Only the recompute-offset prefix, ending before UStruct.Link's property lists; alternate preserve-offset mode is excluded.",
             "Current reflection, parent PropertiesSize and successful completed Preload are explicit inputs. No full class/archive execution.",
-            "Complete admitted scalar-property Link bodies execute; Python compares only offsets, element sizes, Boolean masks and final PropertiesSize.",
-            "Nested structures/arrays remain unsupported by the offset port. Property-flag changes and cleanup/reference lists are outside its output.",
+            "Complete admitted property Link bodies execute; Python compares only offsets, element sizes, Boolean masks and final PropertiesSize.",
+            "Nested structure sizes are supplied after Preload; array properties, property-flag changes and cleanup/reference lists are outside the portable output.",
         ],
     )
 

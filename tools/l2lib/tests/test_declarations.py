@@ -12,6 +12,7 @@ from l2lib.declarations import (
     read_property_declaration,
     read_field_link,
     read_field_chain,
+    read_struct_children,
     SCALAR_KINDS,
     REFERENCE_KINDS,
 )
@@ -63,6 +64,32 @@ def fixture(
 
 
 class PropertyDeclarationTest(unittest.TestCase):
+    def test_structure_child_prefix_has_its_own_tag_terminator(self):
+        pkg, ex = fixture()
+        pkg.class_name_of = lambda _: "Struct"
+        ex.super_index = 0
+        ex.serial_size = 5
+        pkg.data = b"guard" + b"\0\0\0\0\1" + b"neighbor"
+        row = read_struct_children(pkg, ex)
+        self.assertEqual(
+            (row["super"], row["scriptText"], row["children"], row["sourceBytes"]),
+            (0, 0, 1, 5),
+        )
+        for size in range(5):
+            ex.serial_size = size
+            with self.assertRaises(L2Error):
+                read_struct_children(pkg, ex)
+
+    def test_structure_prefix_rejects_different_export_super_and_class_shape(self):
+        pkg, ex = fixture()
+        pkg.class_name_of = lambda _: "Struct"
+        ex.super_index = -1
+        with self.assertRaisesRegex(L2Error, "superclass"):
+            read_struct_children(pkg, ex)
+        pkg.class_name_of = lambda _: "Class"
+        with self.assertRaises(L2Error):
+            read_struct_children(pkg, ex)
+
     def test_field_prefix_does_not_consume_or_claim_the_function_body(self):
         pkg, ex = fixture()
         pkg.class_name_of = lambda _: "Function"

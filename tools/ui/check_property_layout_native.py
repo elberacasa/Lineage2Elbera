@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Elbera Tools: original class scalar offsets versus the portable decoder.
+"""Elbera Tools: original class/structure offsets versus the portable decoder.
 
 Reads caller-owned Core images; interprets instructions without executing DLLs.
 Parent size, reflection and completed Preload are explicit supplied inputs.
@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / "tools"), str(ROOT / "tools/world")]
-from l2lib.propertylayout import property_offsets
+from l2lib.propertylayout import property_offsets, linked_properties, structure_layouts
 from actor_transform_source import qualify_property_declarations
 from actor_octree_admission_machine import AdmissionMachine
 from check_static_sweep_native import PreparationProgram
@@ -60,19 +60,20 @@ def source_program(core, comparison):
 
 
 class PropertyLayoutMachine(AdmissionMachine):
-    def __init__(self, program, fields, parent_size):
+    def __init__(self, program, fields, parent_size, owner_kind="class"):
         super().__init__(program)
         self.owner, self.archive = 0x100000, 0xA90000
-        self.preloads, self.properties = [], []
+        self.preloads, self.properties, self.expected_preloads = [], [], []
+        assert owner_kind in ("class", "struct")
         table, parent = 0x110000, 0x120000
         self.memory.update(
             {
                 self.owner: table,
-                self.owner + 0x34: parent,
+                self.owner + 0x34: parent if parent_size is not None else 0,
                 self.owner + 0x4C: 0xDEADBEEF,
-                table + 0x6C: 0x10101FC3,
+                table + 0x6C: 0x10101FC3 if owner_kind == "class" else 0x10101A23,
                 table + 0x78: 0x10102199,
-                table + 0x7C: 0x10104890,
+                table + 0x7C: 0x10104890 if owner_kind == "class" else 0x10101ABE,
                 parent: table,
                 parent + 0x4C: parent_size,
                 self.archive: 0xA91000,
@@ -81,10 +82,13 @@ class PropertyLayoutMachine(AdmissionMachine):
                 0x10338274: 0x10336D80,
             }
         )
+        if parent_size is not None:
+            self.expected_preloads.append(parent)
         self.memory[self.owner + 0x48] = 0x200000 if fields else 0
         for index, field in enumerate(fields):
             at, vtable = 0x200000 + index * 0x200, 0x400000 + index * 0x100
             kind = field["kind"]
+            self.expected_preloads.append(at)
             is_property = kind in program.receipt["propertyMethods"]
             assert is_property or kind in (
                 "Function",
@@ -119,12 +123,31 @@ class PropertyLayoutMachine(AdmissionMachine):
                 reference = 0x800000 + index * 0x1000
                 self.memory[at + 0x78] = reference
                 self.memory[reference + 0x4A4] = field.get("referenceFlags", 0)
+            elif kind == "StructProperty":
+                reference = 0x800000 + index * 0x1000
+                self.memory[at + 0x78] = reference
+                self.memory[reference + 0x4C] = field["structSize"]
+                self.memory[reference + 0x78] = field.get("structCleanupHead", 0)
+                self.expected_preloads.append(reference)
 
     def step(self, instruction):
         if instruction.mnemonic == "nop":
             self.visited.append(instruction.address)
             return instruction.address + instruction.size
-        if instruction.address in (0x10135E91, 0x10135EC5):
+        if instruction.mnemonic == "not":
+            self.write(
+                instruction.op_str, (~self.read(instruction.op_str)) & 0xFFFFFFFF
+            )
+            self.visited.append(instruction.address)
+            return instruction.address + instruction.size
+        if instruction.mnemonic == "setl":
+            assert instruction.op_str == "dl"
+            self.registers["edx"] = (self.registers["edx"] & 0xFFFFFF00) | int(
+                self.less
+            )
+            self.visited.append(instruction.address)
+            return instruction.address + instruction.size
+        if instruction.address in (0x10135E91, 0x10135EC5, 0x101726C9):
             assert instruction.mnemonic == "call"
             assert self.read(instruction.op_str) == 0xA92000
             assert self.registers["ecx"] == self.archive
@@ -196,19 +219,41 @@ def authored_cases():
             parent=parent,
             fields=[dict(kind="BoolProperty", arrayDim=d) for d in (3, 1, 2)],
         )
+    for owner_kind in ("class", "struct"):
+        for parent in (None, 0, 1, 2, 3, 4, 15):
+            for size in (0, 1, 2, 3, 4, 12, 20):
+                for dimension in (1, 3):
+                    yield dict(
+                        ownerKind=owner_kind,
+                        parent=parent,
+                        fields=[
+                            dict(kind="ByteProperty", arrayDim=1),
+                            dict(
+                                kind="StructProperty",
+                                arrayDim=dimension,
+                                structSize=size,
+                            ),
+                            dict(kind="ByteProperty", arrayDim=1),
+                            dict(kind="IntProperty", arrayDim=1),
+                        ],
+                    )
 
 
 def compare_cases(program, cases):
     instructions, addresses, preloads, count = 0, set(), 0, 0
     for row in cases:
-        machine = PropertyLayoutMachine(program, row["fields"], row["parent"])
+        machine = PropertyLayoutMachine(
+            program, row["fields"], row["parent"], row.get("ownerKind", "class")
+        )
         actual = machine.offsets()
         fields = [
             f for f in row["fields"] if f["kind"] in program.receipt["propertyMethods"]
         ]
-        expected = property_offsets(fields, row["parent"])
+        expected = property_offsets(
+            fields, 0 if row["parent"] is None else row["parent"]
+        )
         assert actual == expected, (row, actual, expected)
-        assert len(machine.preloads) == len(row["fields"]) + 1
+        assert machine.preloads == machine.expected_preloads
         instructions += len(machine.visited)
         addresses.update(machine.visited)
         preloads += len(machine.preloads)
@@ -224,10 +269,9 @@ def compare_cases(program, cases):
 def original_volume_offsets(program, core, comparison, engine, comparison_engine):
     """Use original linked declarations and independently registered parent sizes.
 
-    The parents are explicit native-size inputs, not a claim that their complete
-    reflection has been loaded. Unsupported nested fields keep PhysicsVolume's
-    own layout unsupported; its registered size still supplies WaterVolume's
-    parent boundary. No original records are written into public source files.
+    The class parents are explicit native-size inputs, not a claim that their
+    complete reflection has been loaded. Nested sizes are independently resolved
+    from saved structure declarations. No original records enter public source.
     """
     from inspect_actor_declarations import inspect_declarations
 
@@ -254,6 +298,27 @@ def original_volume_offsets(program, core, comparison, engine, comparison_engine
     sizes.update(
         {r["sourceClass"].casefold(): r["byteSize"] for r in source["volumeStorage"]}
     )
+    structures = structure_layouts(declarations["structures"].values())
+
+    def case_fields(row):
+        by_ref = {f["exportRef"]: dict(f) for f in linked_properties(row)}
+        for field in by_ref.values():
+            if field["kind"] == "StructProperty":
+                field["structSize"] = structures[field["reference"].casefold()][
+                    "propertiesSize"
+                ]
+        return [by_ref.get(f["exportRef"], f) for f in row["fieldChain"]["fields"]]
+
+    structure_cases = []
+    for key, layout in structures.items():
+        row = declarations["structures"][key]
+        structure_cases.append(
+            dict(
+                ownerKind="struct",
+                parent=layout["parentSize"] if row["savedSuper"] else None,
+                fields=case_fields(row),
+            )
+        )
     cases, records = [], []
     for key in (
         "engine.volume",
@@ -263,13 +328,8 @@ def original_volume_offsets(program, core, comparison, engine, comparison_engine
         "gameplay.watervolume",
     ):
         row = declarations["classes"][key]
-        by_ref = {f["exportRef"]: f for f in row["fields"]}
-        chain = row["fieldChain"]
-        assert chain["stoppedAt"] == 0
-        assert {
-            f["exportRef"] for f in chain["fields"] if f["kind"].endswith("Property")
-        } == set(by_ref)
-        fields = [by_ref.get(f["exportRef"], f) for f in chain["fields"]]
+        by_ref = {f["exportRef"]: f for f in linked_properties(row)}
+        fields = case_fields(row)
         unsupported = sorted(
             {
                 f["kind"]
@@ -316,6 +376,8 @@ def original_volume_offsets(program, core, comparison, engine, comparison_engine
         sources=expected_sources,
         registration=source,
         comparisons=compare_cases(program, cases),
+        structureComparisons=compare_cases(program, structure_cases),
+        structures=structures,
         records=records,
     )
 
@@ -370,7 +432,8 @@ def main():
     summary = {k: result[k] for k in ("tool", "status", "authored")}
     if "originalVolumes" in result:
         summary["originalVolumes"] = {
-            k: result["originalVolumes"][k] for k in ("comparisons", "records")
+            k: result["originalVolumes"][k]
+            for k in ("comparisons", "structureComparisons", "records")
         }
     print(json.dumps(summary))
 

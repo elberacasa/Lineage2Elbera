@@ -22,7 +22,7 @@ this is not a claim that every client format or behavior is recovered.
 | `l2lib.l2dat` | `.dat` files (L2ASM/L2FileEdit binary): 413/RSA decryption wrapper + record readers (`DatReader`) |
 | `l2lib.classdata` | Bounded file-123 UClass prefix reader; supported original expression serializers locate default properties without a terminal-stream search |
 | `l2lib.declarations` | Bounded file-123 property declarations, signed dimensions, conditional replication words and complete reference identities |
-| `l2lib.propertylayout` | Original scalar-field offset stage from linked declarations and an explicit parent size; string headers, alignment and Boolean packing |
+| `l2lib.propertylayout` | Original field-offset stage from linked declarations, including nested-structure graphs, string headers, alignment and Boolean packing |
 | `l2lib.textures` | Pixel decoders to RGBA8 (DXT1/DXT3/DXT5/RGBA8/RGB8/L8/P8/G16), mip extraction, stdlib PNG writer |
 
 ## API overview
@@ -53,7 +53,7 @@ export = next(e for e in package.exports
 print(read_property_declaration(package, export))
 ```
 
-Nine authored declaration cases run without client files in standalone Core.
+Eleven authored declaration cases run without client files in standalone Core.
 The [source evidence and scope](https://github.com/elberacasa/Lineage2Elbera/blob/main/docs/native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations)
 explain the original serializer comparison and the separate localization work.
 
@@ -63,15 +63,23 @@ decode a function or state's script body. `read_field_chain(package, owner,
 head)` follows those links through properties and nonproperties, stops before
 a foreign owner, and rejects cycles or unresolved imports. Export order is not
 linked field order. The class-prefix reader's `references[3]` is its child head.
+`read_struct_children(package, export)` reads through a Struct's child reference,
+checking its saved superclass against the export table. Its bounded prefix
+includes the empty tagged terminator that Class prefixes bypass; the remaining
+structure body stays untouched.
 
 `l2lib.propertylayout.property_offsets(fields, parent_size)` takes properties
 in that linked order and returns `propertiesSize` and per-field `offset`,
 `elementSize` and, for Booleans, `boolMask`. It admits Byte, Int, Float, Name,
 Str, Object, Class and Bool properties with positive dimensions and nonwrapping
-sizes. Four authored tests cover alignment, packed words, static Boolean arrays
-and explicit rejection. Nested structures/arrays and full class construction
-remain unsupported. This is an offset-stage helper, not a way to infer a
-missing parent size. See [native comparison and commands](../../docs/native-class-defaults-evidence.md#linked-scalar-property-offsets).
+sizes. StructProperty additionally requires `structSize`, supplied after its
+referenced structure has been prepared. Its alignment follows that size.
+`linked_properties(record)` selects complete own declarations in saved link
+order. `structure_layouts(records)` resolves a decoded structure graph, including
+superclasses and nested references, and rejects missing/cyclic/ambiguous inputs.
+Seven authored tests cover these boundaries. Array properties and full class
+construction remain unsupported. This is an offset-stage helper, not a way to
+infer missing source data. See [native comparison and commands](../../docs/native-class-defaults-evidence.md#linked-scalar-property-offsets).
 
 `qualified_ref(package, reference)` returns the complete package/group/object
 identity for a nonnull import or export. It rejects cycles and invalid or null
