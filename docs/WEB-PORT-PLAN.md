@@ -47,19 +47,19 @@ fresh Brush copying, construction and PostLoad. Both maps prepare 442 plain
 Brush field sets; their ordered resource writes are retained for startup to
 apply. Four native volume constructors now have complete source comparisons
 and 256 storage-preservation cases. A corrected declaration reader resolves the
-original Gravity type and follows 360 declarations across eight classes and
-thirteen structures. Original localization context selection, nested/inherited
+original Gravity type and follows 364 declarations and twelve array inners across eight classes and
+sixteen structures. Original localization context selection, nested/inherited
 traversal and optional language fallback now have 145 native comparisons and
 an asset-free Elbera inspection page. Another 145 cases join the original
 string importer to browser storage; 76 direct cases check its UTF-16 behavior.
 Saved child/Next chains now retain original field order separately from export
 order. The offset stage matches 420 authored native cases, five original volume
-classes and all thirteen nested structures. PhysicsVolume's derived layout now
+classes and all sixteen nested structures. PhysicsVolume's derived layout now
 matches its native registered size. Class parent sizes remain explicit qualified
 inputs; this does not complete parent reflection or class startup.
 Optional property-list verification now continues through UStruct.Link's return
 with original flag mutations and inherited iteration: 155 authored comparisons
-and all thirteen original structures pass. Seven referenced-class profiles now
+and all sixteen original structures pass. Seven referenced-class profiles now
 recover only the consumed bit from qualified native/saved evidence; 24 additional
 comparisons exercise every source variant. Unconsumed current bits remain unknown.
 Game-mode replication grouping now matches 51 original-code cases, including
@@ -69,6 +69,14 @@ inherited fields. Eighty script cases compare 158 expression entry points;
 the original PhysicsVolume script is also checked with explicit opaque reference
 bindings. Complete UClass/UState tables and runtime object resolution remain
 open; an editor-only skip is not used to admit game-mode volumes.
+Array inner linking now matches 552 authored native cases, including nested
+arrays and independent Boolean masks. The inspector follows twelve source array
+inners and reaches three additional structures. Ten arrays have prepared consumed
+flag dependencies; two require verified Material/NSkillProjectile class bits.
+Source checks use explicit authored owner contexts and do not claim actual Actor
+offsets. Next: those missing bits and native/saved parent reflection lifecycle,
+including the original preserve-offset path. Delegate linking remains outside
+this component; the inspected parent corpus contains no delegate declarations.
 Saved string loading and copying now preserve original code units and known
 default overrides, with 69 authored native comparisons and a check of both
 saved volume string tags through five volume classes. A further 192 comparisons

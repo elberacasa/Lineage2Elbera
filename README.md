@@ -67,16 +67,16 @@ The source loader now prepares collision fields for **442 plain Brush actors**
 from their own class defaults and map tags. A further **128 native comparisons**
 cover fresh copying, construction and PostLoad. Elbera Tools now also verifies
 four native volume constructors and reads
-**360 original property declarations**, including nested structures and the
+**364 original property declarations and 12 array inners**, including nested structures and the
 conditional replication word. Volume startup and live world collision remain
 unfinished. The class-prefix decoder is available in the standalone Core preview.
 The declaration inspector now follows original child links through nested
 structures. Its layout decoder matches **420 original-code comparisons**,
-five original volume-class cases and all **13 nested structures**. PhysicsVolume's
+five original volume-class cases and all **16 nested structures**. PhysicsVolume's
 calculated size matches its engine registration; full class loading remains open.
 [Recovered field order and offsets](docs/native-class-defaults-evidence.md#linked-scalar-property-offsets).
 The same tool now retains load-time property flags and the original inherited
-copy lists. **155 original-code comparisons** cover those lists; all **13 original
+copy lists. **155 original-code comparisons** cover those lists; all **16 original
 structures** now match. A source reader recovers the single consumed class flag
 for seven referenced classes without inventing their complete current state.
 Another **24 comparisons** exercise every recovered source variant. Original
@@ -84,6 +84,13 @@ game-mode replication grouping now also matches **51 comparisons**, including
 inherited fields and the client's temporary-map lifecycle. Complete class
 startup and live volumes remain open.
 [Property linking and remaining dependencies](docs/native-class-defaults-evidence.md#linked-property-flags-and-lists).
+Array linking now preserves the original inner-type preparation, with **552
+original-code cases** checking nested layouts and flags. Reading Actor's twelve
+array inners uncovered three previously missed structures. Two referenced-class
+flags remain unresolved; actual Actor offsets and live volume admission are
+still pending. The reusable decoder is included in current Elbera Tools Core
+source builds (**25 files / 81 portable checks**).
+[Array evidence and limits](docs/native-class-defaults-evidence.md#array-inner-linking).
 The source reader also preserves original string defaults through saved volume
 ancestry, including the water-specific override. Its bounded decoder retains
 UTF-16 code units and embedded zeros, with **69 original-code loading/copy

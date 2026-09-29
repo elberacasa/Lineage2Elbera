@@ -3,7 +3,8 @@
 Inputs are declarations already placed in original linked order and a supplied
 parent PropertiesSize. Separate helpers retain consumed property-flag changes
 and linked lists from explicit current metadata. This is not full UClass.Link,
-registration, replication grouping or archive preloading.
+registration or archive preloading. Replication grouping separately consumes
+explicit loaded scripts and reference bindings.
 See docs/native-class-defaults-evidence.md for source qualification and limits.
 """
 
@@ -74,11 +75,29 @@ def property_link_flags(field):
     Reference-class flags and nested constructor-list presence must be current
     supplied inputs, not inferred from the property's name or saved defaults.
     """
+    return _property_link_flags(field, set())
+
+
+def _array_inner(field, active):
+    if id(field) in active:
+        raise L2Error("cyclic array inner metadata")
+    inner = field.get("inner")
+    if not isinstance(inner, dict):
+        raise L2Error("explicit array inner metadata required")
+    return inner, active | {id(field)}
+
+
+def _property_link_flags(field, active):
     flags = field.get("propertyFlags")
     if type(flags) is not int or not 0 <= flags <= 0xFFFFFFFF:
         raise L2Error("current property flags required")
     kind = field["kind"]
-    if kind == "StrProperty":
+    if kind in ("StrProperty", "ArrayProperty"):
+        if kind == "ArrayProperty":
+            inner, active = _array_inner(field, active)
+            # Original Array.Link links the inner first. Unknown dependencies
+            # cannot be bypassed merely because the outer flag rule is simple.
+            _property_link_flags(inner, active)
         if not flags & 0x1000:
             flags |= 0x400000
     elif kind in ("ObjectProperty", "ClassProperty"):
@@ -176,6 +195,10 @@ def property_offsets(fields, parent_size):
     and nonwrapping signed sizes are a safety
     boundary, not an invented limit on official class definitions.
     """
+    return _property_offsets(fields, parent_size, set())
+
+
+def _property_offsets(fields, parent_size, active):
     if type(parent_size) is not int or not 0 <= parent_size <= 0x7FFFFFFC:
         raise L2Error("unsupported parent property size")
     size, previous, result = (parent_size + 3) & ~3, None, []
@@ -183,7 +206,14 @@ def property_offsets(fields, parent_size):
         kind, dimension = field["kind"], field["arrayDim"]
         if type(dimension) is not int or dimension <= 0:
             raise L2Error("unsupported property array dimension")
-        if kind == "ByteProperty":
+        inner_layout = None
+        if kind == "ArrayProperty":
+            inner, inner_active = _array_inner(field, active)
+            # UArrayProperty's inherited GetPropertiesSize returns zero, and
+            # inner.Link receives a null preceding property (no Boolean pack).
+            inner_layout = _property_offsets([inner], 0, inner_active)["fields"][0]
+            element, offset = 12, (size + 3) & ~3
+        elif kind == "ByteProperty":
             element, offset = 1, size
         elif kind == "StructProperty":
             element = field.get("structSize")
@@ -205,6 +235,8 @@ def property_offsets(fields, parent_size):
         else:
             raise L2Error("unsupported property layout kind: " + str(kind))
         row = dict(elementSize=element, offset=offset)
+        if inner_layout is not None:
+            row["inner"] = inner_layout
         if kind == "BoolProperty":
             if previous and previous.get("boolMask", 0) & 0x7FFFFFFF:
                 row.update(
@@ -277,14 +309,22 @@ def structure_layouts(structures):
         visiting.add(key)
         row = records[key]
         parent = visit(row["savedSuper"])["propertiesSize"] if row["savedSuper"] else 0
-        fields = []
-        for field in linked_properties(row):
+
+        def prepare(field, active):
+            if field["kind"] == "ArrayProperty":
+                inner, active = _array_inner(field, active)
+            else:
+                inner = None
             field = dict(field)
             if field["kind"] == "StructProperty":
                 if not field["reference"]:
                     raise L2Error("missing nested structure reference")
                 field["structSize"] = visit(field["reference"])["propertiesSize"]
-            fields.append(field)
+            elif field["kind"] == "ArrayProperty":
+                field["inner"] = prepare(inner, active)
+            return field
+
+        fields = [prepare(field, set()) for field in linked_properties(row)]
         result = property_offsets(fields, parent)
         result.update(identity=row["identity"], parentSize=parent, declarations=fields)
         layouts[key] = result
@@ -333,10 +373,10 @@ def structure_links(structures, reference_class_flags=None):
         row, layout = records[key], layouts[key]
         try:
             parent = visit(row["savedSuper"].casefold()) if row["savedSuper"] else None
-            own = []
-            for declared, offset in zip(layout["declarations"], layout["fields"]):
+
+            def prepare(declared, offset, identity):
                 field = dict(declared, **offset)
-                field["identity"] = row["identity"] + "." + field["name"]
+                field["identity"] = identity
                 if field["kind"] == "StructProperty":
                     nested = visit(field["reference"].casefold())
                     field["structConstructorLink"] = bool(nested["lists"]["0x78"])
@@ -344,9 +384,20 @@ def structure_links(structures, reference_class_flags=None):
                     field["referenceFlags"] = reference_flags.get(
                         (field["reference"] or "").casefold()
                     )
+                elif field["kind"] == "ArrayProperty":
+                    field["inner"] = prepare(
+                        declared["inner"],
+                        offset["inner"],
+                        identity + "." + declared["inner"]["name"],
+                    )
                 field["savedPropertyFlags"] = field["propertyFlags"]
                 field["propertyFlags"] = property_link_flags(field)
-                own.append(field)
+                return field
+
+            own = [
+                prepare(declared, offset, row["identity"] + "." + declared["name"])
+                for declared, offset in zip(layout["declarations"], layout["fields"])
+            ]
             fields = own + (parent["fields"] if parent else [])
             result = dict(
                 status="ready",

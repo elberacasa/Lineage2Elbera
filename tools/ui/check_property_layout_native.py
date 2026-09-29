@@ -126,8 +126,11 @@ class PropertyLayoutMachine(AdmissionMachine):
 
     def __init__(self, program, fields, parent_size, owner_kind="class"):
         super().__init__(program)
+        self.layout_proof = program.receipt
         self.owner, self.archive = 0x100000, 0xA90000
         self.preloads, self.properties, self.expected_preloads = [], [], []
+        self.inner_records = []
+        self.reference_serial = 0
         assert owner_kind in ("class", "struct")
         table, parent = 0x110000, 0x120000
         self.memory.update(
@@ -151,50 +154,70 @@ class PropertyLayoutMachine(AdmissionMachine):
         self.memory[self.owner + 0x48] = 0x200000 if fields else 0
         for index, field in enumerate(fields):
             at, vtable = 0x200000 + index * 0x200, 0x400000 + index * 0x100
-            kind = field["kind"]
-            self.expected_preloads.append(at)
-            is_property = kind in program.receipt["propertyMethods"]
-            assert is_property or kind in (
-                "Function",
-                "State",
-                "Struct",
-                "Enum",
-                "Const",
-            ), "unadmitted field kind"
-            descriptor = (
-                0x10338240
-                if kind == "BoolProperty"
-                else 0x10336D80 if is_property else 0
+            self.prepare_field(at, vtable, self.owner, field)
+            self.memory[at + 0x38] = at + 0x200 if index + 1 < len(fields) else 0
+            if field["kind"] in program.receipt["propertyMethods"]:
+                self.properties.append((at, field["kind"]))
+
+    def prepare_field(self, at, vtable, owner, field):
+        kind = field["kind"]
+        self.expected_preloads.append(at)
+        is_property = kind in self.layout_proof["propertyMethods"]
+        assert is_property or kind in ("Function", "State", "Struct", "Enum", "Const")
+        descriptor = (
+            0x10338240 if kind == "BoolProperty" else 0x10336D80 if is_property else 0
+        )
+        self.memory.update(
+            {
+                at: vtable,
+                at + 0x18: owner,
+                at + 0x24: descriptor,
+                at + 0x40: field.get("arrayDim", 0),
+                at + 0x44: 0xDEADBEEF,
+                at + 0x54: 0xDEADBEEF,
+                at + 0x48: field.get("propertyFlags", 0),
+            }
+        )
+        if is_property:
+            self.memory[vtable + 0x80] = int(
+                self.layout_proof["propertyMethods"][kind], 16
             )
-            self.memory.update(
-                {
-                    at: vtable,
-                    at + 0x18: self.owner,
-                    at + 0x24: descriptor,
-                    at + 0x38: at + 0x200 if index + 1 < len(fields) else 0,
-                    at + 0x40: field.get("arrayDim", 0),
-                    at + 0x44: 0xDEADBEEF,
-                    at + 0x54: 0xDEADBEEF,
-                    at + 0x48: field.get("propertyFlags", 0),
-                }
-            )
-            if is_property:
-                self.properties.append((at, kind))
-                self.memory[vtable + 0x80] = int(
-                    program.receipt["propertyMethods"][kind], 16
+        if kind in ("ObjectProperty", "ClassProperty", "StructProperty"):
+            reference = 0x1800000 + self.reference_serial * 0x1000
+            self.reference_serial += 1
+            self.memory[at + 0x78] = reference
+            if kind == "StructProperty":
+                self.memory[reference + 0x4C] = field["structSize"]
+                self.memory[reference + 0x78] = (
+                    0xD00000
+                    if field.get("structConstructorLink")
+                    else field.get("structCleanupHead", 0)
                 )
-            if kind in ("ObjectProperty", "ClassProperty"):
-                reference = 0x800000 + index * 0x1000
-                self.memory[at + 0x78] = reference
+                self.expected_preloads.append(reference)
+            else:
                 self.memory[reference + 0x4A4] = field.get(
                     "referenceFlagsNative", field.get("referenceFlags", 0)
                 )
-            elif kind == "StructProperty":
-                reference = 0x800000 + index * 0x1000
-                self.memory[at + 0x78] = reference
-                self.memory[reference + 0x4C] = field["structSize"]
-                self.memory[reference + 0x78] = field.get("structCleanupHead", 0)
-                self.expected_preloads.append(reference)
+        elif kind == "ArrayProperty":
+            inner = field["inner"]
+            pointer = 0xE00000 + len(self.inner_records) * 0x1000
+            self.inner_records.append((pointer, inner))
+            self.memory[at + 0x78] = pointer
+            self.memory[vtable + 0x6C] = 0x10101A23
+            self.memory[vtable + 0x78] = 0x10101014
+            self.prepare_field(pointer, pointer + 0x1000000, at, inner)
+
+    def field_offsets(self, at, kind):
+        row = dict(elementSize=self.memory[at + 0x44], offset=self.memory[at + 0x54])
+        if kind == "BoolProperty":
+            row["boolMask"] = self.memory[at + 0x78]
+        elif kind == "ArrayProperty":
+            inner = self.memory[at + 0x78]
+            declaration = next(
+                f for pointer, f in self.inner_records if pointer == inner
+            )
+            row["inner"] = self.field_offsets(inner, declaration["kind"])
+        return row
 
     def step(self, instruction):
         if instruction.mnemonic == "nop":
@@ -213,7 +236,7 @@ class PropertyLayoutMachine(AdmissionMachine):
             )
             self.visited.append(instruction.address)
             return instruction.address + instruction.size
-        if instruction.address in (0x10135E91, 0x10135EC5, 0x101726C9):
+        if instruction.address in (0x10135E91, 0x10135EC5, 0x101726C9, 0x1017220B):
             assert instruction.mnemonic == "call"
             assert self.read(instruction.op_str) == 0xA92000
             assert self.registers["ecx"] == self.archive
@@ -231,15 +254,10 @@ class PropertyLayoutMachine(AdmissionMachine):
         self.push(0)
         self.registers["ecx"] = self.owner
         self.execute_until(0x10135E30, 0x10135F12)
-        rows = []
-        for at, kind in self.properties:
-            row = dict(
-                elementSize=self.memory[at + 0x44], offset=self.memory[at + 0x54]
-            )
-            if kind == "BoolProperty":
-                row["boolMask"] = self.memory[at + 0x78]
-            rows.append(row)
-        return dict(propertiesSize=self.memory[self.owner + 0x4C], fields=rows)
+        return dict(
+            propertiesSize=self.memory[self.owner + 0x4C],
+            fields=[self.field_offsets(at, kind) for at, kind in self.properties],
+        )
 
 
 class ScriptExpressionMachine(PropertyLayoutMachine):
@@ -795,14 +813,7 @@ class PropertyLinkMachine(ScriptExpressionMachine):
         flags = {
             self.identities[at]: self.memory[at + 0x48] for at, _ in self.properties
         }
-        offsets = []
-        for at, kind in self.properties:
-            value = dict(
-                elementSize=self.memory[at + 0x44], offset=self.memory[at + 0x54]
-            )
-            if kind == "BoolProperty":
-                value["boolMask"] = self.memory[at + 0x78]
-            offsets.append(value)
+        offsets = [self.field_offsets(at, kind) for at, kind in self.properties]
         result = dict(
             propertyFlags=flags,
             lists=lists,
@@ -844,6 +855,8 @@ def compare_link_cases(program, cases):
                 fields, row.get("scripts", {}), is_editor=row.get("isEditor", False)
             )
         assert actual == expected, (row, actual, expected)
+        for pointer, field in machine.inner_records:
+            assert machine.memory[pointer + 0x48] == property_link_flags(field)
         assert machine.preloads == machine.expected_preloads
         count += 1
         instructions += len(machine.visited)
@@ -1014,6 +1027,74 @@ def authored_cases():
                     )
 
 
+def authored_array_cases():
+    """Authored current metadata, never official class layout claims."""
+    inners = [
+        dict(kind=kind + "Property", arrayDim=1, propertyFlags=0)
+        for kind in ("Byte", "Int", "Bool", "Float", "Name", "Str")
+    ]
+    for kind in ("Object", "Class"):
+        for bits in (0, 0x200000):
+            inners.append(
+                dict(
+                    kind=kind + "Property",
+                    arrayDim=1,
+                    propertyFlags=0,
+                    referenceFlags=dict(mask=0x200000, value=bits),
+                    referenceFlagsNative=bits | 0x80000000,
+                )
+            )
+    for size in (0, 1, 2, 3, 4, 20):
+        for cleanup in (False, True):
+            inners.append(
+                dict(
+                    kind="StructProperty",
+                    arrayDim=1,
+                    propertyFlags=0,
+                    structSize=size,
+                    structConstructorLink=cleanup,
+                )
+            )
+    # Nested arrays use the same zero-size owner dispatch at every level.
+    inners.append(
+        dict(
+            kind="ArrayProperty",
+            arrayDim=3,
+            propertyFlags=0,
+            inner=dict(kind="BoolProperty", arrayDim=2, propertyFlags=0),
+        )
+    )
+    for owner_kind in ("class", "struct"):
+        for parent in (None, 1, 7):
+            for flags in (0, 0x1000, 0x401000, 0x80004000):
+                for inner in inners:
+                    yield dict(
+                        ownerKind=owner_kind,
+                        parent=parent,
+                        fields=[
+                            dict(
+                                identity="Before",
+                                kind="BoolProperty",
+                                arrayDim=1,
+                                propertyFlags=0,
+                            ),
+                            dict(
+                                identity="Array",
+                                kind="ArrayProperty",
+                                arrayDim=2,
+                                propertyFlags=flags,
+                                inner=dict(inner, propertyFlags=flags),
+                            ),
+                            dict(
+                                identity="After",
+                                kind="BoolProperty",
+                                arrayDim=1,
+                                propertyFlags=0,
+                            ),
+                        ],
+                    )
+
+
 def compare_cases(program, cases):
     instructions, addresses, preloads, count = 0, set(), 0, 0
     for row in cases:
@@ -1038,6 +1119,79 @@ def compare_cases(program, cases):
         instructions=instructions,
         addresses=len(addresses),
         preloads=preloads,
+    )
+
+
+def original_array_comparisons(
+    program, declarations, structures, metadata=None, profiles=None
+):
+    """Source array declarations in authored owner contexts, not Actor offsets.
+
+    Unknown object-class bits get both branch inputs for offset-only checks.
+    Those authored inputs never make a source flag/list profile ready.
+    """
+    from copy import deepcopy
+
+    profiles, metadata = profiles or {}, metadata or {}
+    cases, linked_cases, records = [], [], []
+    parent_sizes = (None, 1, 0x34)
+
+    def prepare(field):
+        field = dict(field)
+        kind = field["kind"]
+        unknown = []
+        if kind == "ArrayProperty":
+            field["inner"], unknown = prepare(field["inner"])
+        elif kind == "StructProperty":
+            key = field["reference"].casefold()
+            field["structSize"] = structures[key]["propertiesSize"]
+            if metadata.get(key, {}).get("status") == "ready":
+                field["structConstructorLink"] = bool(metadata[key]["lists"]["0x78"])
+        elif kind in ("ObjectProperty", "ClassProperty"):
+            profile = profiles.get((field["reference"] or "").casefold())
+            if profile is None:
+                unknown.append(field["reference"])
+            else:
+                field["referenceFlags"] = profile
+                field["referenceFlagsNative"] = profile["evidence"]["variants"][0]
+        return field, unknown
+
+    for owner in declarations["classes"].values():
+        for declared in linked_properties(owner):
+            if declared["kind"] != "ArrayProperty":
+                continue
+            field, unknown = prepare(declared)
+            field["identity"] = owner["identity"] + "." + field["name"]
+            ready = metadata and not unknown
+            records.append(
+                dict(
+                    identity=field["identity"],
+                    declarationSHA256=field["exportSHA256"],
+                    inner=field["inner"],
+                    linkStatus="ready" if ready else "unsupported",
+                    unresolvedReferenceClasses=unknown,
+                )
+            )
+            for parent in parent_sizes:
+                if ready:
+                    linked_cases.append(dict(parent=parent, fields=[field]))
+                for variant in (0, 0x200000) if unknown else (None,):
+                    supplied = deepcopy(field)
+                    inner = supplied
+                    while inner["kind"] == "ArrayProperty":
+                        inner = inner["inner"]
+                    if unknown:
+                        inner["referenceFlagsNative"] = variant
+                    cases.append(dict(parent=parent, fields=[supplied]))
+    return dict(
+        records=records,
+        authoredParentSizes=parent_sizes,
+        comparisons=compare_cases(program, cases),
+        linkComparisons=compare_link_cases(program, linked_cases) if metadata else None,
+        limits=[
+            "Real declarations/inner ownership and structure sizes, placed in explicit authored parent-size contexts. These are not actual Actor offsets or a live class registry.",
+            "Missing reference-class bits remain unsupported for flags/lists; both authored consumed-bit values verify only offset invariance.",
+        ],
     )
 
 
@@ -1147,7 +1301,7 @@ def original_volume_offsets(program, core, comparison, engine, comparison_engine
                 ],
             )
         )
-    linked = None
+    linked, metadata, profiles = None, None, None
     if "propertyDescriptors" in program.receipt:
         from l2lib import load_package
 
@@ -1219,6 +1373,9 @@ def original_volume_offsets(program, core, comparison, engine, comparison_engine
         structures=structures,
         records=records,
         structureLinks=linked,
+        arrays=original_array_comparisons(
+            program, declarations, structures, metadata, profiles
+        ),
     )
 
 
@@ -1267,10 +1424,14 @@ def main():
         status="pass",
         source=program.receipt,
         authored=compare_cases(program, authored_cases()),
+        arrays=compare_cases(program, authored_array_cases()),
         sourceFiles={},
     )
     if args.property_lists:
         result["propertyLists"] = compare_link_cases(program, authored_link_cases())
+        result["arrayPropertyLists"] = compare_link_cases(
+            program, authored_array_cases()
+        )
     if args.script_expressions or args.replication:
         result["scriptExpressions"] = compare_script_cases(
             program, authored_script_cases()
@@ -1307,10 +1468,10 @@ def main():
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, indent=2) + "\n")
-    summary = {k: result[k] for k in ("tool", "status", "authored")}
+    summary = {k: result[k] for k in ("tool", "status", "authored", "arrays")}
     if "propertyLists" in result:
         summary["propertyLists"] = result["propertyLists"]
-    for key in ("scriptExpressions", "replicationLinks"):
+    for key in ("scriptExpressions", "replicationLinks", "arrayPropertyLists"):
         if key in result:
             summary[key] = result[key]
     if "originalScripts" in result:
@@ -1319,6 +1480,10 @@ def main():
         summary["originalVolumes"] = {
             k: result["originalVolumes"][k]
             for k in ("comparisons", "structureComparisons", "records")
+        }
+        summary["originalVolumes"]["arrays"] = {
+            k: result["originalVolumes"]["arrays"][k]
+            for k in ("comparisons", "linkComparisons", "limits")
         }
         if result["originalVolumes"]["structureLinks"] is not None:
             summary["originalVolumes"]["structureLinks"] = {

@@ -66,7 +66,12 @@ export = next(e for e in package.exports
 print(read_property_declaration(package, export))
 ```
 
-Eleven authored declaration cases run without client files in standalone Core.
+`read_property_tree(package, export)` additionally follows each ArrayProperty's
+local inner export, requiring its exact array owner. It retains separate source
+hashes and rejects unresolved/imported, foreign-owned or malformed inners. It
+does not add inner records to the containing class's linked child list.
+
+Thirteen authored declaration cases run without client files in standalone Core.
 The [source evidence and scope](https://github.com/elberacasa/Lineage2Elbera/blob/main/docs/native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations)
 explain the original serializer comparison and the separate localization work.
 
@@ -90,8 +95,11 @@ referenced structure has been prepared. Its alignment follows that size.
 `linked_properties(record)` selects complete own declarations in saved link
 order. `structure_layouts(records)` resolves a decoded structure graph, including
 superclasses and nested references, and rejects missing/cyclic/ambiguous inputs.
-Seven authored tests cover these boundaries. Array properties and full class
-construction remain unsupported. This is an offset-stage helper, not a way to
+ArrayProperty requires an explicit `inner` declaration. Its output contains a
+nested `inner` layout at offset zero; its twelve-byte header uses four-byte
+alignment. Each inner links with no preceding property, so a Boolean inner does
+not share the preceding class field's mask. Nested arrays follow the same rule.
+Full class construction remains unsupported. This is an offset-stage helper, not a way to
 infer missing source data. See [native comparison and commands](../../docs/native-class-defaults-evidence.md#linked-scalar-property-offsets).
 
 `property_link_flags(field)` returns the original post-Link property word.
@@ -102,8 +110,10 @@ word or `{mask, value}` with the consumed `0x200000` bit known. Values outside
 the mask and unknown consumed bits fail. `consensus_flag_bits(variants, mask)`
 retains only bits agreed by every supplied source-stage word; callers must
 establish the source and lifecycle scope. It does not infer a complete current
-word or resolve disagreeing stages. Existing property bits are preserved. This does not
-accept Array/Delegate Link implementations.
+word or resolve disagreeing stages. Existing property bits are preserved. ArrayProperty also requires
+complete inner dependencies; its own constructor bit is set unless `0x1000` is
+present. Inner flags do not replace the outer flag word. Delegate Link remains
+unsupported.
 `property_lists(fields)` consumes qualified properties in current inherited
 iterator order and returns identity lists keyed by original head offsets
 `0x6c`, `0x70`, `0x74`, `0x78`. Already-linked Array/Delegate inputs are admitted
@@ -111,7 +121,7 @@ here. Missing flags and duplicate identities fail explicitly.
 `structure_links(records, reference_class_flags=None)` combines the existing
 structure layouts with these operations. It retains `savedPropertyFlags`
 separately, reports unresolved dependencies as `unsupported`, and never invents
-referenced-class flags. Eighteen portable cases cover the combined layout/metadata
+referenced-class flags. Twenty-one portable cases cover the combined layout/metadata
 APIs, including the replication helper below. Full class startup remains open.
 
 `read_class_script` retains each token's loaded `memoryOffset` and exclusive

@@ -16,7 +16,7 @@ sys.path[:0] = [str(ROOT / "tools"), str(ROOT / "tools/world")]
 from export_static_collision import OriginalClasses, serialized_class_record
 from l2lib import load_package, qualified_ref
 from l2lib.declarations import (
-    read_property_declaration,
+    read_property_tree,
     read_field_chain,
     read_struct_children,
 )
@@ -71,15 +71,18 @@ def inspect_declarations(
                 ex
             ).endswith("Property"):
                 continue
-            record = read_property_declaration(pkg, ex)
+            record = read_property_tree(pkg, ex)
             result.append(record)
-            if record["kind"] == "StructProperty":
-                if record["reference"] is None:
+            nested = record
+            while nested["kind"] == "ArrayProperty":
+                nested = nested["inner"]
+            if nested["kind"] == "StructProperty":
+                if nested["reference"] is None:
                     raise ValueError(
                         "unresolved saved structure: "
                         + qualified_ref(pkg, ex.index + 1)
                     )
-                visit_structure(record["reference"])
+                visit_structure(nested["reference"])
         return result
 
     def visit_structure(name):
@@ -169,10 +172,16 @@ def inspect_declarations(
         visit_class(name)
     records = [*classes.values(), *structures.values()]
     declarations = [field for row in records for field in row["fields"]]
+    inners = []
+    for field in declarations:
+        while field["kind"] == "ArrayProperty":
+            field = field["inner"]
+            inners.append(field)
     summary = dict(
         classes=len(classes),
         structures=len(structures),
         declarations=len(declarations),
+        arrayInnerDeclarations=len(inners),
         linkedClassFields=sum(
             len(row["fieldChain"]["fields"]) for row in classes.values()
         ),
@@ -201,6 +210,7 @@ def inspect_declarations(
             "Caller-supplied file-123 packages. Recorded fingerprints identify inputs, not authenticated edition provenance.",
             "fields retains export order; fieldChain separately follows saved child/Next links, including nonproperties and the ownership stop. Neither executes archive preloading or gameplay.",
             "Source flags, dimensions and reference identities do not establish native offsets, aliasing, localization effects or current actor state.",
+            "Array inner declarations require local exports with the array as their exact owner; their nested structure references are inspected too. Inner records do not join the owner's child field chain.",
         ],
     )
     if include_structure_layouts:

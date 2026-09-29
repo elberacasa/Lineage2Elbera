@@ -217,7 +217,7 @@ alignment is two for size two, one for sizes below four otherwise, and four for
 larger sizes. It is not inferred from a field or structure name.
 `structure_layouts` resolves a complete decoded graph, following both structure
 inheritance and nested-property references. It rejects cycles, missing targets,
-duplicate identities and incomplete/inconsistent field chains. The thirteen
+duplicate identities and incomplete/inconsistent field chains. The sixteen
 structures reached by the current volume declaration corpus resolve this way;
 there is no hardcoded Vector/Color/Matrix size table.
 
@@ -233,6 +233,8 @@ The original Core comparison binds these ranges (exclusive ends):
 | `UObjectProperty.Link` | `10171630..101716b6` | Complete ordinary body; ClassProperty shares its dispatch |
 | `UNameProperty.Link` | `101719f0..10171a51` | Complete ordinary body |
 | `UStrProperty.Link` | `10171c10..10171c83` | Complete ordinary body |
+| `UArrayProperty.Link` | `101721d0..10172263` | Complete ordinary body; inner Preload/Link precedes header layout |
+| Array owner size getter | `101305c0..101305c3` | Original UField zero-size dispatch inherited by UArrayProperty |
 | `UStructProperty.Link` | `10172690..1017273d` | Complete ordinary body with supplied completed Preload |
 | Property and Boolean casts | `10132a00..10132a22`, `101329d0..101329f2` | Complete bodies over supplied reflection |
 | Size, parent and packing getters | `1010b310..1010b314`, `10115a20..10115a24`, `1010b570..1010b576` | Complete bound UClass dispatch bodies |
@@ -256,7 +258,7 @@ changes or cleanup/reference lists. The interpreter stops mid-method at the
 documented boundary and does not report a full Link return.
 
 The optional original-input check adds **five class cases: 5,281 instructions
-across 398 addresses**, and **thirteen structure cases: 3,757 instructions across
+across 398 addresses**, and **sixteen structure cases: 4,163 instructions across
 391 addresses**, using the pinned Engine/Core/GamePlay packages. Volume,
 BlockingVolume, MusicVolume and PhysicsVolume totals match their separately
 qualified native registration sizes. Volume's `LocationName` offset agrees with
@@ -290,10 +292,52 @@ python3 tools/release/build_core.py --check
 ```
 
 Current standalone Core source builds include the reader/helper and portable
-fixtures, now including the metadata helpers and string reader below: **25 selected files / 76 checks**. The full native verifier and world
+fixtures, now including the metadata helpers and string reader below: **25 selected files / 81 checks**. The full native verifier and world
 inspector remain full-repository tools. Existing published ZIPs are unchanged.
-Complete default initialization, configuration, array fields, complete class
+Complete default initialization, configuration, actual parent-class offsets, complete class
 loading and volume/world startup remain outstanding; no map repair is claimed.
+
+### Array inner linking
+
+The declaration tree reader follows the exact saved inner reference and requires
+that local export's owner to be the ArrayProperty. It retains each inner's own
+source hash. Imported/missing inners, foreign ownership and malformed records
+fail; the existing single-record reader remains available for inspection.
+The twelve Actor arrays reach three additional structures, bringing the current
+corpus to **eight classes, sixteen structures, 364 own declarations and twelve
+array inner declarations**. Inner records stay out of the class child list.
+
+Original `UArrayProperty.Link` preloads its inner and calls its virtual Link with
+a null preceding property. The array's inherited size getter returns zero, so
+inner offsets start there and Boolean masks start at one. Only after inner linking
+does the outer receive element size twelve and a four-byte-aligned owner offset.
+The outer retains its flags, adding `0x400000` unless `0x1000` is set. Inner and
+outer flag changes remain separate. The verifier executes those complete bodies
+and the original zero-size/packing dispatch; it supplies only completed Preload
+and explicitly prepared referenced metadata.
+
+**552 authored array cases** compare nested layouts: **225,824 instructions at
+484 addresses**. Full flags/lists also pass: **551,504 / 681** in the narrower
+profile, **717,104 / 891** with the native replication-map lifecycle. Coverage
+includes every admitted inner kind, nested arrays, static dimensions, structure
+alignment/cleanup inputs, independent Boolean masks, flag preservation and exact
+Preload order. Inner flags are checked separately from the outer's lists.
+
+With `--original-volumes --property-lists`, twelve source arrays undergo **42
+offset comparisons: 7,990 / 277** in three authored parent-size contexts. Ten
+have known consumed flag dependencies; their **30 full-list comparisons** pass
+(**13,952 / 448**, or **22,952 / 658** with `--replication`). The other two need
+qualified Material/NSkillProjectile class bits. Both possible consumed-bit inputs
+are tested for offset invariance; neither is declared to be the actual source
+flag. These are **not actual Actor offsets**, complete class initialization or
+live volume admission. Native/saved parent reflection and preserve-offset mode
+remain explicit next investigations.
+
+The existing commands above include these checks; there is no duplicate tool
+or new private input bundle. Thirteen declaration and twenty-one layout/metadata
+portable tests are included in current standalone Core source builds. No original
+records, DLL bytes or local receipts are bundled. All previous screenshots and
+published ZIPs remain unchanged; no browser visual change is claimed.
 
 ## Linked property flags and lists
 
@@ -339,10 +383,10 @@ Current reflection, parent metadata and completed archive Preload remain
 supplied. A full UStruct return is not full UClass/UState linking or live class
 initialization.
 
-With `--original-volumes`, all thirteen original structures additionally match:
-**11,577 instructions at 583 addresses**, including PointRegion after the
+With `--original-volumes`, all sixteen original structures additionally match:
+**12,986 instructions at 583 addresses**, including PointRegion after the
 referenced-class recovery below. The existing offset-only comparison still
-resolves and tests all thirteen structures. No missing flags are inferred from
+resolves and tests all sixteen structures. No missing flags are inferred from
 names or an older agent's assumptions.
 
 ```sh
@@ -356,7 +400,7 @@ python3 tools/ui/check_property_layout_native.py \
 
 The Core, Engine and package fingerprints above apply. Full inspector output
 contains original metadata and should stay private; `--check` emits a compact
-summary. The portable library and eighteen authored layout/metadata tests are
+summary. The portable library and twenty-one authored layout/metadata tests are
 included in standalone Core source builds. No browser UI or world startup
 changes accompany this component; the current tool screenshots remain valid.
 
@@ -397,8 +441,8 @@ addresses**. These supplement the authored positive/negative-bit comparisons.
 
 `--reference-flags` is optional and requires `--structure-links`, the pinned
 owned Engine/Core DLLs and packages, and Capstone. Without it the inspector
-retains its package-only behavior: twelve ready structures and unresolved
-PointRegion. With it all thirteen are ready. The API accepts a known-bit
+retains its package-only behavior: fifteen ready structures and unresolved
+PointRegion. With it all sixteen are ready. The API accepts a known-bit
 `{mask, value}` pair and rejects unknown consumed bits or values outside the
 mask. Portable tests also check disagreement and nested dependency propagation.
 
@@ -468,9 +512,9 @@ fields, unsigned offset 65535, hash collisions, array growth and rehashing. All
 temporary allocations are released. Full original return, stack/SEH, preserved
 registers, property flags, offsets and four lists are checked as well.
 The existing 155 list cases additionally pass with native map lifecycle:
-**449,840 instructions / 842 addresses**. Thirteen original structures add
-**15,477 / 793**; the 24 reference variants add **15,000 / 457**. The narrower
-profile's counts above remain unchanged.
+**449,840 instructions / 842 addresses**. Sixteen original structures add
+**17,786 / 793**; the 24 reference variants add **15,000 / 457**. The narrower
+profile's current counts are recorded above.
 
 ```sh
 python3 tools/ui/check_property_layout_native.py \
@@ -483,7 +527,7 @@ python3 tools/ui/check_property_layout_native.py \
 Omit the original-volume options for authored cases only. Use
 `--script-expressions` alone to select expression checks without grouping.
 The portable materializer and grouping helper are included in current Core
-source builds: **25 selected files / 76 checks**. Complete class reflection,
+source builds: **25 selected files / 81 checks**. Complete class reflection,
 UClass/UState replication tables, object resolution, CDO configuration/localization
 and actual volume/world startup remain unfinished. No live volume admission,
 map repair, browser visual change or complete client parity is claimed.
