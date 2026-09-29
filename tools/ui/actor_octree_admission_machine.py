@@ -44,9 +44,12 @@ class AdmissionMachine(MembershipMachine):
                 self.memory[base] = struct.unpack("<I", struct.pack("<f", old))[0]
             if old is None or isinstance(old, PartialWord):
                 prior = old or PartialWord(0, 0)
-                self.memory[base] = PartialWord(
+                updated = PartialWord(
                     (prior.value & ~(255 << shift)) | ((value & 255) << shift),
                     prior.mask | (255 << shift),
+                )
+                self.memory[base] = (
+                    updated.value if updated.mask == 0xFFFFFFFF else updated
                 )
                 return
         return super().write(operand, value, floating)

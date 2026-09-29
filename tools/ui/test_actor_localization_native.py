@@ -28,6 +28,17 @@ def machine(cls=LocalizationMachine):
 
 
 class LocalizationMemoryTest(unittest.TestCase):
+    def test_complete_byte_stores_promote_a_known_dword_without_zeroing_neighbors(self):
+        m = machine()
+        for index, value in ((2, 0x34), (0, 0x78), (3, 0x12)):
+            m.write(f"byte ptr [{0x1000 + index:#x}]", value)
+        self.assertEqual(m.memory[0x1000], PartialWord(0x12340078, 0xFFFF00FF))
+        m.write("byte ptr [0x1001]", 0x56)
+        self.assertEqual(m.read("dword ptr [0x1000]"), 0x12345678)
+        m.write("byte ptr [0x1002]", 0xAB)
+        self.assertEqual(m.read("dword ptr [0x1000]"), 0x12AB5678)
+        self.assertNotIn(0x1004, m.memory)
+
     def test_raw_array_copy_provider_preserves_odd_byte_bounds_and_parent(self):
         m = machine(StringLoadingMachine)
         m.initialization_copies = []
