@@ -21,6 +21,7 @@ this is not a claim that every client format or behavior is recovered.
 | `l2lib.ue2package` | UE2 package container (.utx/.ukx/.unr/.u): header, name/import/export tables, FCompactIndex, property tags, Texture bodies, Shader→diffuse resolution, SkeletalMesh material slots, Lineage2Ver decryption |
 | `l2lib.l2dat` | `.dat` files (L2ASM/L2FileEdit binary): 413/RSA decryption wrapper + record readers (`DatReader`) |
 | `l2lib.classdata` | Bounded file-123 UClass prefix reader; supported original expression serializers locate default properties without a terminal-stream search |
+| `l2lib.declarations` | Bounded file-123 property declarations, signed dimensions, conditional replication words and complete reference identities |
 | `l2lib.textures` | Pixel decoders to RGBA8 (DXT1/DXT3/DXT5/RGBA8/RGB8/L8/P8/G16), mip extraction, stdlib PNG writer |
 
 ## API overview
@@ -31,6 +32,29 @@ offset, with source hashes. Unsupported tokens fail explicitly. Script memory
 size is separate from saved byte length; the reader does not execute scripts,
 parse default tags or construct live class state. See the
 [source evidence and example](../../docs/native-class-defaults-evidence.md).
+
+`l2lib.declarations.read_property_declaration(package, export)` reads a saved
+property declaration through its exact export end. It retains the two-byte
+replication word when property flag `0x20` is set, before reading subclass
+references. It also retains dimensions, category, ClassProperty's separate
+metaclass and source hashes. Scalar, Byte, Object, Class, Struct and Array
+property records are supported; unknown kinds and nonempty tagged headers are
+rejected. These are saved declarations, not linked offsets or current values.
+
+```python
+from pathlib import Path
+from l2lib import load_package, qualified_ref
+from l2lib.declarations import read_property_declaration
+
+package, _ = load_package(Path("/local/interlude/system/Engine.u"))
+export = next(e for e in package.exports
+              if qualified_ref(package, e.index + 1) == "Engine.PhysicsVolume.Gravity")
+print(read_property_declaration(package, export))
+```
+
+Seven authored declaration cases run without client files in standalone Core.
+The [source evidence and scope](https://github.com/elberacasa/Lineage2Elbera/blob/main/docs/native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations)
+explain the original serializer comparison and the separate localization work.
 
 `qualified_ref(package, reference)` returns the complete package/group/object
 identity for a nonnull import or export. It rejects cycles and invalid or null

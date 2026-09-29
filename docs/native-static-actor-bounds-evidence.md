@@ -1573,3 +1573,110 @@ The Elbera world-picking panel labels that distinction. Volume construction and
 localization, current level assignment/population, primitive hit dispatch and
 walking/camera integration remain unfinished. Existing standalone archives are
 unchanged; this checker continues in the full Elbera repository toolkit.
+
+## Volume construction and property declarations
+
+The remaining source actors include 53 volumes. Their constructor path and
+localization must be recovered before treating their collision fields as
+prepared. This stage extends the existing Elbera verifier and consolidates the
+saved declaration reader; it does not admit those actors into the live world.
+
+The four native constructors, their parent calls, registration prefixes and
+storage sizes now match the same pinned owned/supplemental Engine and Core
+images used above. Only individually bound erased imports, exported operands
+and explicit exception-handler references are normalized. Full exception
+unwinding remains outside the ordinary-body comparison.
+
+| Native class | Constructor body | Registration prefix | Native bytes |
+| --- | --- | --- | --- |
+| Volume | `103d3b50..103d3bb2` | `1083db80..1083dbf4` | `0x434` |
+| BlockingVolume | `103d4350..103d439a` | `1083def0..1083df67` | `0x438` |
+| PhysicsVolume | `103d45a0..103d45ea` | `1083dc30..1083dca7` | `0x4c8` |
+| MusicVolume | `103d40b0..103d40fa` | `1083f020..1083f097` | `0x43c` |
+
+**256 constructor cases** execute **76,608 original instructions at 282
+addresses** through the Actor/Brush/Volume parent chain. They cover zero,
+all-one and varied supplied storage, native-sized buffers, boundary guards,
+nonvolatile registers and the return value. The only actor-storage changes are
+the inherited Actor writes and each class's vtable. In particular, the name at
+`+0x41c` and string storage at `+0x424` retain their incoming values. The named
+FName and FStringNoInit imports are not replaced with zero initialization.
+
+These tests do not copy complete class defaults, deserialize actors, run
+localization, initialize script WaterVolume or populate a world. The native
+registration flags still must not replace the loaded Volume class's localized
+bit merely to pass the earlier nonlocalized actor gate.
+
+### A conditional word before the type reference
+
+An earlier private declaration probe mistakenly read PhysicsVolume.Gravity's
+structure reference as null. `UProperty.Serialize` explains the discrepancy:
+after dimension, flags and category, flag `0x20` causes the two-byte field at
+native `+0x50` to be serialized. Gravity has flags `0x21`; its zero replication
+word must be consumed before reading the following reference. The corrected
+record resolves **Core.Object.Vector** and ends exactly at the export boundary.
+No replacement value or assumed Vector default was introduced.
+
+The shared [`l2lib.declarations`](../tools/l2lib/declarations.py) reader now
+retains that conditional word, signed dimensions, category, complete reference
+identities, ClassProperty's separate metaclass and source hashes. The existing
+actor layout reader uses it while preserving its narrower dimension-one and
+consumed-field contract. Seven portable authored cases cover zero/nonzero
+replication words, all admitted property kinds, ClassProperty references,
+signed dimensions, every truncation boundary, invalid headers and noncanonical
+compact references.
+
+Source qualification covers nine complete ordinary serializer bodies and three
+scalar archive wrappers. The central `UProperty` body is `10170820..101708b6`;
+the flag test is `1017087d` and the conditional ushort call is `10170887`.
+The `10130800..10130819` wrapper requests exactly two bytes. BoolProperty's
+extra native mask is skipped for file loading/saving; StrProperty delegates to
+UProperty. Their actual vtable bindings are checked separately from scalars
+that inherit UProperty.Serialize directly. This is format correspondence, not
+execution of a native archive or proof that every decoded record is valid
+linked runtime metadata.
+
+### Reproduce the declaration inspection
+
+The new [Elbera Tools actor declaration inspector](../tools/world/inspect_actor_declarations.py)
+reuses the exact class-prefix reader and walks nested structure references.
+It records source fingerprints and rejects unresolved or cyclic structure
+references. Output retains export order and export-table ancestry, without
+claiming native field iteration order or offsets.
+
+```sh
+# No original inputs required: reader fixtures and isolated source-only kit.
+python3 -m unittest discover -s tools/l2lib/tests -p test_declarations.py
+python3 tools/release/build_core.py --check
+
+# Private packages in assets/interlude/system are required.
+python3 tools/world/inspect_actor_declarations.py --check
+python3 tools/world/inspect_actor_declarations.py Engine.PhysicsVolume
+python3 tools/world/check_static_collision_records.py 17_25 22_22 --check
+
+# Pinned private native images and explicit comparison images are required.
+python3 tools/ui/check_static_actor_bounds_native.py \
+  --comparison-engine /local/comparison/engine.dll \
+  --comparison-core /local/comparison/Core.dll --check
+```
+
+The default original corpus yields **360 declarations, eight classes and
+thirteen structures**. It contains one declaration with the conditional
+replication word and one localized declaration, `Engine.Volume.LocationName`.
+Core.u and Engine.u fingerprints are pinned above. The additional GamePlay.u
+input has SHA256
+`714639cdad265a7caeaf0f91ce76bb50492390eaa3faea15ed5a28a3e830b64a`.
+Caller-supplied packages are identified by their fingerprints; the inspector
+does not authenticate their origin or promote any file-123 input to official
+Interlude evidence.
+
+The isolated Core source build now includes **21 selected files and 47 portable
+checks**. Existing published archives remain unchanged. Native verification and
+the recursive inspector remain in the full repository toolkit.
+
+**Remaining work:** native localization traversal, lookup and text import;
+current linked property metadata; loaded class state and script subclasses;
+applying shared resource writes in the original startup sequence; and live
+collision, camera and walking integration. Original-record checks still
+prepare 151 plain Brushes in Talking Island and 291 in Giran. No runtime map,
+geometry or movement change is claimed by this tool/source milestone.

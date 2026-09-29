@@ -45,14 +45,18 @@ decoder and independent record walker consume all 2,447 polygon records.
 The header path has 128 original-instruction comparisons. Another 128 cases join
 fresh Brush copying, construction and PostLoad. Both maps prepare 442 plain
 Brush field sets; their ordered resource writes are retained for startup to
-apply. Volume construction/localization and the full world startup join remain
-unfinished. A volume's saved localized class bit must not be replaced by
+apply. Four native volume constructors now have complete source comparisons
+and 256 storage-preservation cases. A corrected declaration reader resolves the
+original Gravity type and follows 360 declarations across eight classes and
+thirteen structures. Volume localization, script-class construction and the
+full world startup join remain unfinished. A volume's saved localized class bit must not be replaced by
 the nonlocalized static-actor profile.
 [Class-default evidence](native-class-defaults-evidence.md) and
 [Model loading evidence](native-static-actor-bounds-evidence.md#saved-brush-model-resources) ·
 [Brush startup component](native-static-actor-bounds-evidence.md#brush-construction-and-postload) ·
 [Polys header scope](native-static-actor-bounds-evidence.md#source-loaded-polys-headers) ·
-[Saved Brush fields](native-static-actor-bounds-evidence.md#saved-brush-actor-fields).
+[Saved Brush fields](native-static-actor-bounds-evidence.md#saved-brush-actor-fields) ·
+[Volume construction and declarations](native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations).
 
 Public branches start from the reviewed public main. Original client inputs,
 generated assets, accounts and raw local receipts remain private; the older

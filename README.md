@@ -65,14 +65,17 @@ map bytes. A separate brush PostLoad implementation matches **192 original-code
 cases**, preserving ordered Model/Polys flag writes.
 The source loader now prepares collision fields for **442 plain Brush actors**
 from their own class defaults and map tags. A further **128 native comparisons**
-cover fresh copying, construction and PostLoad. Volume startup and live world
-collision remain unfinished. The class-prefix decoder is available in the
-standalone Core preview.
+cover fresh copying, construction and PostLoad. Elbera Tools now also verifies
+four native volume constructors and reads
+**360 original property declarations**, including nested structures and the
+conditional replication word. Volume startup and live world collision remain
+unfinished. The class-prefix decoder is available in the standalone Core preview.
 [Actor source evidence](docs/native-class-defaults-evidence.md) ·
 [Model loading and verification](docs/native-static-actor-bounds-evidence.md#saved-brush-model-resources) ·
 [Brush lifecycle evidence](docs/native-static-actor-bounds-evidence.md#brush-construction-and-postload) ·
 [Polys loading and decoder](docs/native-static-actor-bounds-evidence.md#source-loaded-polys-headers) ·
-[Saved Brush actor loading](docs/native-static-actor-bounds-evidence.md#saved-brush-actor-fields).
+[Saved Brush actor loading](docs/native-static-actor-bounds-evidence.md#saved-brush-actor-fields) ·
+[Volume constructors and declaration reader](docs/native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations).
 
 | Area | What advanced | Follow the work |
 | --- | --- | --- |
