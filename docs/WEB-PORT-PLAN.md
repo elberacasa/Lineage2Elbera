@@ -59,12 +59,16 @@ matches its native registered size. Class parent sizes remain explicit qualified
 inputs; this does not complete parent reflection or class startup.
 Saved string loading and copying now preserve original code units and known
 default overrides, with 69 authored native comparisons and a check of both
-saved volume string tags through five volume classes. These are source values;
-they do not establish initialized or localized live storage.
-Configuration parsing, other property importers, current linked metadata,
-the complete default-copy/initialization path, script-class construction and the full
-world startup join remain unfinished. A volume's saved localized class bit must not be replaced by
-the nonlocalized static-actor profile.
+saved volume string tags through five volume classes. A further 192 comparisons
+join original default copying, Volume construction and localized PostLoad with
+supplied current state. The browser now copies complete string arrays, preserves
+defaults and follows both object/actor localization calls before resource writes.
+The Elbera inspector exposes these stages across 90 control combinations.
+These components do not establish initialized live map volumes. Configuration
+parsing, other property importers, current linked metadata, complete class/CDO
+initialization, script-class construction and world startup remain unfinished.
+A volume's saved localized class bit must not be replaced by the nonlocalized
+static-actor profile.
 [Class-default evidence](native-class-defaults-evidence.md) and
 [Model loading evidence](native-static-actor-bounds-evidence.md#saved-brush-model-resources) ·
 [Brush startup component](native-static-actor-bounds-evidence.md#brush-construction-and-postload) ·

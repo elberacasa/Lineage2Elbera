@@ -82,11 +82,14 @@ comparisons**. This supplies source data for the pending volume startup join;
 it does not yet enable those volumes in the game.
 [String loading evidence and reusable decoder](docs/native-class-defaults-evidence.md#saved-string-loading-and-copying).
 
-The new **Elbera object-localization inspector** shows original section
-selection, nested property keys and English fallback using clearly labeled
-authored inputs. Its browser module now stores localized string values,
-matching **145 joined original-code cases** plus **76 direct string cases**.
-Current class linking and configuration parsing remain unfinished.
+The **Elbera object-localization inspector** now shows default string copying,
+repeated localization calls and ordered actor/resource updates. **192 new
+original-code comparisons** join default copying, Volume construction and
+localized PostLoad with explicitly supplied class and configuration state.
+The browser preserves full string storage and the original call order; the
+inspector's **90 control combinations** pass using clearly labeled authored
+inputs. Earlier nested-localization and string-import comparisons remain.
+Current class setup, configuration parsing and live volume startup are still open.
 [Tool screenshot, reproduction and remaining work](docs/native-actor-localization-evidence.md).
 
 [Actor source evidence](docs/native-class-defaults-evidence.md) ·

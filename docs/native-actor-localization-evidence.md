@@ -11,6 +11,12 @@ The string path now also executes the original ImportText and assignment:
 text copies**. Another **76 direct string cases** cover empty values, literal
 text, UTF-16 and buffer identity. The browser stores the same text values.
 
+Another **192 cases** now join original default string copying, Volume
+construction and localized Brush/Actor/Object PostLoad: **260,384 interpreted
+instructions at 1,002 addresses**, **528 deep copies** and **192 localization
+invocations**. This checks the browser's initialization and PostLoad modules
+together, with explicitly supplied class/default/configuration state.
+
 This is a loading component, not completed volume startup. The current map
 loader still leaves all 53 volume actors unsupported. Current linked metadata,
 configuration parsing and other property importers remain unresolved. Existing
@@ -19,16 +25,19 @@ map geometry and terrain defects are unchanged.
 ## Elbera inspection page
 
 Serve the existing world editor and open `test/actor-localization.html`. It runs
-without game files, an account or a server. Choose a placed instance, class
-default or nested flagged object; compare found, empty, missing and absent
-configuration. The before/after table shows actual browser string storage,
+without game files, an account or a game server. Choose direct nested
+localization, actor startup or flagged actor startup; then vary object context,
+language and configuration response. The stage table shows default copying,
+each localization call and the later resource/actor writes. Startup uses a
+flat string copy list; direct mode separately exercises nested structures.
+The before/after table shows actual browser string storage,
 including values retained after missing or empty translations. Every displayed
 name, offset and translation is **authored**. The page uses the same browser
 module as the native comparison.
 
-![Elbera Tools showing ordered localization requests and property imports](img/elbera-tools-object-localization.png)
+![Elbera Tools showing default copying, both localization calls and stored values](img/elbera-tools-object-localization.png)
 
-This is a complete, unmodified browser capture of the tool. Thirty combinations
+This is a complete, unmodified browser capture of the tool. Ninety combinations
 of its controls passed, including return to the initial scenario; no page or
 console errors were captured. The existing game-test runner also captured and
 inspected the page. This is not an official game panel or a gameplay screenshot.
@@ -114,11 +123,75 @@ checks stack/SEH restoration and nonvolatile registers, and records source
 fingerprints. Cases include scratch-counter wrap, more than 256 sequential
 scratch allocations, inherited fields, nested static arrays, Unicode text,
 partial writes on lookup misses and all admitted context/gate branches.
-Five authored interpreter checks cover partial-word preservation, 32-bit
-effective-address wrap, UTF-16/word-register behavior, exact byte allocation
-sizes and the compiler stack probe's integer operations. Thirteen browser tests
-cover missing metadata, provider failures, partial progress and bounded inputs.
-The related browser loader/bounds suites pass too: 66 cases combined.
+Seven authored interpreter checks cover partial-word preservation, 32-bit
+effective-address wrap, UTF-16/word-register behavior, exact byte allocation,
+compiler stack probes, narrow comparisons and qualified erased-import dispatch.
+The localization and actor-loading modules have 57 portable checks, including
+missing metadata, provider failures, partial progress, complete string copies
+and the repeated PostLoad calls.
+
+## Default copying and localized actor startup
+
+`--actor-startup` reuses the existing Core/Engine qualifiers and admission
+interpreter. It adds no second execution engine. These original methods join
+the localization and string routines already described here:
+
+| Method | Owned range | Supplied state / boundary |
+| --- | --- | --- |
+| UProperty.CopyCompleteValue | Core `1016e050–1016e092` | Qualified string virtual slots, dimensions and stride |
+| UObject.InitProperties | Core entry `1015fb00` | Current object/class/default buffer and string-only specialized-copy list |
+| AVolume constructor | Engine entry `103d3b50` | Native constructor chain; current class/header retained |
+| UObject.PostLoad | Core `10163c60–10163cb8` | Current object/class flags |
+| AActor.PostLoad | Engine `1052f570–1052f65d` | Current rotation, no attachments, configuration and reflection |
+| ABrush.PostLoad | Engine `1052fdd0–1052fe15` | Explicit null, separate or shared Model/Polys headers |
+
+The inherited complete-copy method loops the current array dimension and calls
+the string single-value virtual method. It copies all stored UTF-16 units,
+including data after an embedded NUL. The original InitProperties raw copy
+temporarily aliases the default string headers; its specialized-copy loop
+clears each destination header before deep copying. The source headers and
+allocations must remain unchanged. Known string slots beyond the default
+buffer are cleared by the original tail initialization.
+
+PostLoad first sets object bit `0x20000000`. Object bit `0x100` triggers the
+UObject localization call; class bit `0x20` triggers another in AActor. Each
+invocation sees the updated flags and independently applies the original
+class/editor gate. Model/Polys writes and remaining actor updates follow.
+The browser now preserves these calls, their order and earlier completed
+imports when later work is unsupported. A flagged object whose class is
+nonlocalized can skip localization without requiring configuration providers.
+This does not remove the fresh-loader restrictions on localized subclasses.
+
+The 192 authored comparisons cover absent, partial and full default buffers,
+string dimensions one/two, Unicode and embedded-NUL storage, class/object/editor
+gates, six configuration policies and resource aliasing. The native constructor
+preserves the copied strings. The browser comparison consumes actual
+`initializeActorStringProperties` and `postLoadBrushActor` results, including
+configuration requests, imports, values and ordered writes. Non-string payload
+fields are explicitly supplied after construction; no full actor-tag loader,
+reflection linker or live class lifecycle is claimed. Successful byte copying,
+zeroing and allocation remain providers.
+
+In addition to the pinned Core inputs above, this mode requires:
+
+| Input | SHA-256 |
+| --- | --- |
+| Owned Interlude `engine.dll` | `07b24af4ab55e4230d0a7949df5b07565319e62a1b20f38fefb16ebe54821ad0` |
+| Supplemental comparison `engine.dll` | `508974c711f207402719e92737e211a2f029c95c2f68fc0e1c31fcbb9dbb232d` |
+
+```sh
+python3 tools/ui/check_actor_localization_native.py \
+  --comparison-core /local/reference/system/Core.dll \
+  --actor-startup --comparison-engine /local/reference/system/engine.dll \
+  --original-strings --output tmp/local-localized-startup.json
+```
+
+Owned images default to `assets/interlude/system`; `--core` and `--engine`
+override them. `--actor-startup` and `--comparison-engine` must appear together.
+The optional `--original-strings` also reads the original saved package values
+described in the [string-loading evidence](native-class-defaults-evidence.md#saved-string-loading-and-copying).
+Omit that option for only authored cases; pinned private DLLs are still needed.
+Keep full evidence receipts and all original inputs private.
 
 ## Original string imports
 
@@ -168,9 +241,9 @@ relative offsets are explicitly rejected. A shared exact offset is one Map slot.
 ## Runtime contract and remaining limits
 
 [`actor-localization.js`](../editor/world/js/actor-localization.js) exports
-`actorLocalizationContext`, `localizeOptionalText`, `loadActorLocalized` and
-`importStringPropertyText`.
-The last accepts current `object`, `classInfo`, `isEditor`, `environment` and a
+`actorLocalizationContext`, `localizeOptionalText`, `loadActorLocalized`,
+`importStringPropertyText` and `copyStringPropertyValues`.
+`loadActorLocalized` accepts current `object`, `classInfo`, `isEditor`, `environment` and a
 synchronous `importText` provider. Its structure graph must be frozen and use
 explicit `super` and `struct` references or null. Fields retain current linked
 order, identity, name, classification, dimension, size, offset and flags.
@@ -192,6 +265,16 @@ Earlier imports remain visible if later metadata or a provider is unsupported.
 Providers must be synchronous and nonreentrant; lookup text and metadata must
 remain stable during the operation.
 
+`copyStringPropertyValues` requires known source/destination Maps and qualified
+string layout. It retains complete immutable string contents. Missing slots,
+overlapping headers, partially overlapping arrays and overflowing addresses
+are explicit admission failures; pointer/count/capacity stay native-verifier
+concerns. `initializeActorStringProperties` in `actor-loading.js` uses this
+operation for the known string subset of InitProperties. Its supplied fields
+represent the current specialized-copy list restricted to strings, never
+saved export order. It rejects fields crossing its admitted buffer boundaries.
+It neither builds a CDO nor initializes other property kinds.
+
 The original control-only suite keeps ImportText as a provider. The joined
 string suite replaces that boundary with the original string method. Both use
 explicit CRT formatter/language-comparison and configuration providers. Thus
@@ -203,8 +286,9 @@ must not wrap. Recycling an active nested-prefix scratch buffer is explicitly
 unsupported, while ordinary sequential ring reuse is supported.
 
 The [saved declaration census](native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations)
-finds only Volume.LocationName localized in the inspected ancestry. That does
-not yet prove its current linked offset, configuration context or effects.
-Next are current class linking, source string/default storage and configuration,
-then the actual volume/world startup join. Existing standalone release ZIPs are
+finds only Volume.LocationName localized in the inspected ancestry. Source
+offsets/defaults and the composed loading operations are now available, but
+current class setup, configuration context and live effects remain unresolved.
+Next are those providers and the actual volume/world startup join.
+Existing standalone release ZIPs are
 unchanged; this page, module and native verifier are repository Elbera Tools.

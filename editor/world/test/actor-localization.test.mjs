@@ -5,6 +5,7 @@ import {
   localizeOptionalText,
   loadActorLocalized,
   importStringPropertyText,
+  copyStringPropertyValues,
 } from "../js/actor-localization.js";
 
 const freeze = (value) => {
@@ -370,4 +371,102 @@ test("joined localization writes known strings and preserves them on missing or 
   assert.equal(loadActorLocalized(row).status, "unsupported");
   assert.equal(storage.get(0), "text");
   assert.equal(storage.has(12), false);
+});
+
+test("complete string copying preserves embedded NULs and source independence", () => {
+  const source = new Map([
+    [0, "before\0tail"],
+    [12, "\ud800"],
+    [24, "unchanged"],
+  ]);
+  const storage = new Map([
+    [48, "old"],
+    [60, "other"],
+    [72, "neighbor"],
+  ]);
+  const args = {
+    source,
+    storage,
+    sourceOffset: 0,
+    destinationOffset: 48,
+    arrayDim: 2,
+    elementSize: 12,
+    propertyKind: "StrProperty",
+  };
+  assert.deepEqual(copyStringPropertyValues(args), {
+    status: "ready",
+    copied: 2,
+  });
+  assert.deepEqual(
+    [...storage],
+    [
+      [48, "before\0tail"],
+      [60, "\ud800"],
+      [72, "neighbor"],
+    ],
+  );
+  storage.set(48, "instance edit");
+  assert.equal(source.get(0), "before\0tail");
+  assert.equal(
+    copyStringPropertyValues({ ...args, storage: source, destinationOffset: 0 })
+      .status,
+    "ready",
+  );
+  for (const change of [{ arrayDim: -1 }, { arrayDim: 0 }])
+    assert.equal(copyStringPropertyValues({ ...args, ...change }).copied, 0);
+});
+
+test("string copies reject unknown slots and overlapping headers before writing", () => {
+  const source = new Map([
+    [0, "a"],
+    [12, "b"],
+    [24, "c"],
+  ]);
+  for (const change of [
+    { storage: source, destinationOffset: 12 },
+    { arrayDim: 0x7fffffff },
+    { propertyKind: "NameProperty" },
+    { source: new Map([[0, "a"]]) },
+    {
+      source: new Map([
+        [0, "a"],
+        [6, "overlap"],
+        [12, "b"],
+      ]),
+    },
+    { destinationOffset: 0xffffffff },
+  ]) {
+    const storage = new Map([
+      [48, "old"],
+      [60, "other"],
+    ]);
+    assert.equal(
+      copyStringPropertyValues({
+        source,
+        storage,
+        sourceOffset: 0,
+        destinationOffset: 48,
+        arrayDim: 2,
+        elementSize: 12,
+        propertyKind: "StrProperty",
+        ...change,
+      }).status,
+      "unsupported",
+    );
+    assert.deepEqual(
+      [...storage],
+      [
+        [48, "old"],
+        [60, "other"],
+      ],
+    );
+    assert.deepEqual(
+      [...source],
+      [
+        [0, "a"],
+        [12, "b"],
+        [24, "c"],
+      ],
+    );
+  }
 });

@@ -30,6 +30,11 @@ def qualify_string_property_loading(core, comparison):
             0x10175380,
             0x101753DC,
         ),
+        (
+            "?CopyCompleteValue@UProperty@@UBEXPAX0PAVUObject@@@Z",
+            0x1016E050,
+            0x1016E092,
+        ),
         ("??6@YAAAVFArchive@@AAV0@AAVFString@@@Z", 0x10155360, 0x101554A9),
         ("??6@YAAAVFArchive@@AAV0@AAVFCompactIndex@@@Z", 0x1015CFB0, 0x1015D18D),
         ("?CountBytes@?$TArray@G@@QAEXAAVFArchive@@@Z", 0x101137E0, 0x101137FE),
@@ -65,7 +70,11 @@ def qualify_string_property_loading(core, comparison):
         )
     table = "??_7UStrProperty@@6B@"
     dispatch = []
-    for slot, method in ((0x90, methods[0][0]), (0xA4, methods[1][0])):
+    for slot, method in (
+        (0x90, methods[0][0]),
+        (0xA4, methods[1][0]),
+        (0xA8, methods[2][0]),
+    ):
         thunk = core.exported(method)
         assert core.u32(core.exported(table) + slot) == thunk
         assert comparison.u32(comparison.exports[table] + slot) == thunk
@@ -94,7 +103,7 @@ def qualify_string_property_loading(core, comparison):
         emptyTextAddress="0x101cdd44",
         anchors=anchors,
         limits=[
-            "Loading and CopySingleValue only; saving, full CopyCompleteValue/InitProperties and property admission are separate work.",
+            "Loading and single/complete string copying; saving and full class/property admission remain separate work.",
             "Bounded nonoverflowing successful reads, supplied byte accounting/allocation/memcpy; no DLL or OS I/O executes.",
             "Terminated values (plus original count-one clearing) are an explicit decoder admission, not a native validation claim.",
             "Copying uses distinct stable headers and nonoverlapping allocations or the same-header no-op. Providers do not mutate the source.",

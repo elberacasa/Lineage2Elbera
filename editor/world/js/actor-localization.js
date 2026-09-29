@@ -12,6 +12,71 @@ const text = (s) =>
   typeof s === "string" && !s.includes("\0") && s.length < 1024;
 const unavailable = (reason) => ({ status: "unsupported", reason });
 
+/** UProperty.CopyCompleteValue with qualified UStrProperty.CopySingleValue.
+ * Browser strings retain all UTF-16 units, including any embedded NUL tail;
+ * native pointer/count/capacity behavior is checked separately by Elbera Tools.
+ * Explicit current slots only. Partial overlapping ranges are not admitted.
+ */
+export function copyStringPropertyValues({
+  storage,
+  source,
+  destinationOffset,
+  sourceOffset,
+  arrayDim,
+  elementSize,
+  propertyKind,
+} = {}) {
+  if (propertyKind !== "StrProperty" || elementSize !== 12 || !int(arrayDim))
+    return unavailable("qualified string property layout required");
+  if (!(storage instanceof Map) || !(source instanceof Map))
+    return unavailable(
+      "current source and destination string storage required",
+    );
+  if (!uint(destinationOffset) || !uint(sourceOffset))
+    return unavailable("current string addresses required");
+  if (arrayDim <= 0) return { status: "ready", copied: 0 };
+  const size = arrayDim * elementSize;
+  if (
+    size > 0x7fffffff ||
+    sourceOffset + size > 0x100000000 ||
+    destinationOffset + size > 0x100000000
+  )
+    return unavailable("string array exceeds bounded storage");
+  if (
+    source === storage &&
+    sourceOffset !== destinationOffset &&
+    Math.abs(sourceOffset - destinationOffset) < size
+  )
+    return unavailable("partially overlapping string arrays are unresolved");
+  // Validate the whole admitted operation before mutating caller storage.
+  for (const [map, start] of [
+    [source, sourceOffset],
+    [storage, destinationOffset],
+  ]) {
+    for (let i = 0; i < arrayDim; i++) {
+      const offset = start + i * elementSize;
+      if (typeof map.get(offset) !== "string")
+        return unavailable("current string slot missing");
+    }
+    for (const offset of map.keys()) {
+      if (!uint(offset) || offset > 0xfffffff4)
+        return unavailable("current string address invalid");
+      if (
+        offset > start - elementSize &&
+        offset < start + size &&
+        (offset - start) % elementSize !== 0
+      )
+        return unavailable("string headers overlap");
+    }
+  }
+  for (let i = 0; i < arrayDim; i++)
+    storage.set(
+      destinationOffset + i * elementSize,
+      source.get(sourceOffset + i * elementSize),
+    );
+  return { status: "ready", copied: arrayDim };
+}
+
 /** Localize(section,key,package,null,1): current language, optional lookup. */
 export function localizeOptionalText({
   section,

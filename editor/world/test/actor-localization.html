@@ -19,14 +19,17 @@
 </style>
 <p><a href="index.html">Elbera Tools</a> / Original loading behavior</p>
 <h1>Object localization</h1>
-<p class="intro">Inspect how Interlude chooses a text section, visits nested properties and falls back to English.
+<p class="intro">Inspect how Interlude copies string defaults, loads localized text and orders actor/resource writes.
   This page runs the browser module with <strong>authored inputs</strong>: every name, offset and translation below is synthetic.</p>
 <div class="controls">
+  <label>Loading path
+    <select id="path"><option value="flagged">Flagged actor startup</option><option value="actor">Actor startup</option><option value="direct">Direct nested localization</option></select>
+  </label>
   <label>Object context
     <select id="context"><option value="instance">Placed instance</option><option value="default">Class default</option><option value="nested">Nested flagged object</option></select>
   </label>
   <label>Configuration response
-    <select id="response"><option value="fallback">English fallback</option><option value="translated">Translation found</option><option value="missing">Missing in both languages</option><option value="empty">Present but empty</option><option value="absent">Configuration absent</option></select>
+    <select id="response"><option value="translated">Translation found</option><option value="fallback">English fallback</option><option value="missing">Missing in both languages</option><option value="empty">Present but empty</option><option value="absent">Configuration absent</option></select>
   </label>
   <label>Current language
     <select id="language"><option value="es">es</option><option value="INT">INT</option></select>
@@ -35,6 +38,10 @@
 <div id="route"></div>
 <p id="status" role="status"></p>
 <div class="tables">
+  <section><h2>Loading stages</h2>
+    <p class="muted">Startup uses a supplied string copy list and class defaults. The game still needs its complete class and world startup providers.</p>
+    <table><thead><tr><th>Stage</th><th>Observed result</th></tr></thead><tbody id="stages"></tbody></table>
+  </section>
   <section><h2>Ordered configuration requests</h2>
     <table><thead><tr><th>File</th><th>Section</th><th>Key</th><th>Reply</th></tr></thead><tbody id="lookups"></tbody></table>
   </section>
@@ -43,20 +50,22 @@
     <table><thead><tr><th>Authored field</th><th>Byte offset</th><th>Before</th><th>After</th></tr></thead><tbody id="properties"></tbody></table>
   </section>
 </div>
-<footer class="muted">The original traversal, context selection and optional lookup control flow are compared with pinned Core instructions.
-  The string importer now updates browser property values, checked against original UTF-16 assignment. Configuration parsing and other property types remain provider boundaries. This page does not construct a native object or load a map.
+<footer class="muted">Default copying, Volume construction and localized PostLoad are compared with original Core/Engine instructions using supplied state.
+  Native headers/allocations are checked separately from browser strings. Complete class setup, configuration parsing and other property types remain provider boundaries. This page does not load a map or enable live volumes.
   <a href="https://github.com/elberacasa/Lineage2Elbera/blob/main/docs/native-actor-localization-evidence.md">Evidence, reproduction and limits</a>.</footer>
 <script type="module">
   import { loadActorLocalized, importStringPropertyText } from '../js/actor-localization.js';
+  import { initializeActorStringProperties, postLoadBrushActor } from '../js/actor-loading.js';
   const freeze = value => {
     if (value && typeof value === 'object') { for (const child of Object.values(value)) freeze(child); Object.freeze(value); }
     return value;
   };
   const field = (identity, offset, changes = {}) => ({ identity, name: identity, offset,
     arrayDim: 1, elementSize: 12, propertyFlags: 0x8000, isProperty: true, struct: null, ...changes });
-  const structure = freeze({ fields: [field('Title', 16), field('Details', 48, {
+  const nestedStructure = freeze({ fields: [field('Title', 16), field('Details', 48, {
     propertyFlags: 0, struct: { fields: [field('Caption', 4, { arrayDim: 2 })], super: null },
   })], super: null });
+  const startupStructure = freeze({ fields: [field('Title', 64), field('Caption', 96, { arrayDim: 2 })], super: null });
   const control = id => document.getElementById(id);
   let state;
   function table(id, rows) {
@@ -70,24 +79,40 @@
       td.colSpan = 4; td.className = 'empty'; td.textContent = 'No calls in this scenario'; tr.append(td); body.append(tr); }
   }
   function render() {
-    const mode = control('context').value, response = control('response').value, language = control('language').value;
-    const object = { index: mode === 'default' ? -1 : 1, flags: mode === 'nested' ? 0x100 : 0,
+    const mode = control('context').value, response = control('response').value, language = control('language').value, path = control('path').value;
+    const startup = path !== 'direct';
+    const object = { index: mode === 'default' ? -1 : 1, flags: mode === 'nested' || path === 'flagged' ? 0x100 : 0,
       name: 'ExampleObject', outer: { name: 'ExampleOuter', outer: mode === 'nested' ? { name: 'ExamplePackage' } : null } };
-    const lookups = [], before = [[16, 'Existing title'], [52, 'Existing caption A'], [64, 'Existing caption B']];
-    const storage = new Map(before);
-    const result = loadActorLocalized({ object, isEditor: false,
-      classInfo: { flags: 0x32, name: 'ExampleClass', outer: { name: 'ExampleEngine' }, structure },
+    const offsets = startup ? [64, 96, 108] : [16, 52, 64];
+    const lookups = [], before = offsets.map((offset, i) => [offset, ['Existing title', 'Existing caption A', 'Existing caption B'][i]]);
+    const initialization = startup ? initializeActorStringProperties({ size: 144, defaultSize: 120,
+      fields: startupStructure.fields.map(f => ({ ...f, kind: 'StrProperty' })), defaults: new Map(before) }) : null;
+    if (startup && initialization.status !== 'ready') throw Error(initialization.reason);
+    const storage = new Map(initialization?.values ?? before);
+    const localization = { object, isEditor: false,
+      classInfo: { flags: 0x32, name: 'ExampleClass', outer: { name: 'ExampleEngine' }, structure: startup ? startupStructure : nestedStructure },
       environment: { started: true, language, readConfig: response === 'absent' ? null : call => {
         const found = response === 'translated' || response === 'empty' || (response === 'fallback' && call.filename.toLowerCase().endsWith('.int'));
         const value = !found ? null : response === 'empty' ? '' : `${response === 'translated' ? 'Texto' : 'Example text'}: ${call.key}`;
         lookups.push({ ...call, found, value }); return { status: 'ready', found, value };
-      } }, importText: call => importStringPropertyText({ ...call, storage, propertyKind: 'StrProperty' }) });
-    state = { mode: 'authored-localization-inspection', scenario: { context: mode, response, language }, result, lookups, before, storage: [...storage] };
-    const context = result.context;
+      } }, importText: call => importStringPropertyText({ ...call, storage, propertyKind: 'StrProperty' }) };
+    const result = startup ? postLoadBrushActor({ objectFlags: object.flags, classFlags: 0x32,
+      brushReference: 'ExampleModel', objects: new Map([['ExampleModel', { objectFlags: 0x40, polysReference: 'ExamplePolys' }], ['ExamplePolys', { objectFlags: 0x80 }]]),
+      attachedCount: 0, rotation: [10, 20, 30], flags5c: { mask: 0xffffffff, value: 0 }, localization }) : loadActorLocalized(localization);
+    const runs = startup ? result.localizationRuns ?? [] : [result];
+    const context = runs[0]?.context ?? {};
+    const stages = startup ? [
+      ['Default string copy', `${initialization.values.length} independently stored values`],
+      ...runs.map(run => [run.stage, `${run.imports.length} imports · ${run.status}`]),
+      ['Referenced Model / Polys', `${result.writes.resourceFlags.length} ordered flag writes`],
+      ['Actor fields', result.status === 'ready' ? 'Original rotation copied; loading bit set' : result.reason],
+    ] : [['Direct localization', `${result.imports.length} imports · ${result.status}`]];
+    state = { mode: 'authored-localization-inspection', scenario: { path, context: mode, response, language }, initialization, result, lookups, before, storage: [...storage], stages };
     control('route').textContent = `Package: ${context.packageName}  /  Section: ${context.section}  /  Prefix: ${context.prefix ?? '(none)'}`;
-    control('status').textContent = `${result.status} · ${lookups.length} configuration requests · ${result.imports.length} text imports${result.reason ? ` · ${result.reason}` : ''}`;
+    control('status').textContent = `${result.status} · ${runs.length} localization calls · ${lookups.length} configuration requests · ${runs.reduce((n,r) => n + r.imports.length, 0)} text imports${result.reason ? ` · ${result.reason}` : ''}`;
+    table('stages', stages);
     table('lookups', lookups.map(call => [call.filename, call.section, call.key, call.found ? call.value === '' ? 'Found, empty' : 'Found' : 'Missing']));
-    table('properties', before.map(([offset, value]) => [offset === 16 ? 'Title' : 'Caption', offset, value, storage.get(offset)]));
+    table('properties', before.map(([offset, value], i) => [i === 0 ? 'Title' : 'Caption', offset, value, storage.get(offset)]));
   }
   for (const select of document.querySelectorAll('select')) select.addEventListener('change', render);
   window.render_game_to_text = () => JSON.stringify(state);
