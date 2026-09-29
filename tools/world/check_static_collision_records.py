@@ -383,6 +383,308 @@ process.stdout.write(JSON.stringify({summary:result.summary,records:Object.keys(
     )
 
 
+def check_saved_model_resource(pkg, source):
+    """Independently walk consumed Model fields; hash the other retained spans.
+
+    This bounded walker does not call read_model. The original serializer
+    comparison establishes field order; this detects source/export/span or
+    consumer-field corruption, not complete Model geometry semantics.
+    """
+    ref = source["exportRef"]
+    if type(ref) is not int or not 0 < ref <= len(pkg.exports):
+        raise ValueError("invalid Model source reference")
+    ex = pkg.exports[ref - 1]
+    start, end = ex.serial_offset, ex.serial_offset + ex.serial_size
+    if (
+        source["scope"] != "saved-model-resource"
+        or pkg.file_version != 123
+        or source["fileVersion"] != pkg.file_version
+        or source["licenseeVersion"] != pkg.licensee_version
+        or pkg.licensee_version < 9
+        or source["sourcePackage"] != Path(pkg.path).stem
+        or source["identity"] != qualified_ref(pkg, ref)
+        or source["classIdentity"] != qualified_ref(pkg, ex.class_index)
+        or source["classIdentity"] != "Engine.Model"
+        or source["savedExportFlags"] != ex.object_flags
+        or source["exportSHA256"] != hashlib.sha256(pkg.data[start:end]).hexdigest()
+    ):
+        raise ValueError("Model identity, edition or export fingerprint differs")
+    spans = source["sourceSpans"]
+    order = [
+        "properties",
+        "primitive",
+        "vectors",
+        "points",
+        "nodes",
+        "surfs",
+        "verts",
+        "zones_and_polys",
+        "bounds",
+        "leaf_hulls",
+        "leaves",
+        "lights",
+        "root_outside_and_linked",
+        "undecoded_tail",
+    ]
+    if set(spans) != set(order):
+        raise ValueError("Model source span set differs")
+    cursor = start
+    for name in order:
+        span = spans[name]
+        size = span["sourceBytes"]
+        if (
+            type(size) is not int
+            or size < 0
+            or span["sourceOffset"] != cursor
+            or cursor + size > end
+            or hashlib.sha256(pkg.data[cursor : cursor + size]).hexdigest()
+            != span["sourceSHA256"]
+        ):
+            raise ValueError("Model source span framing or fingerprint differs")
+        cursor += size
+    if cursor != end:
+        raise ValueError("Model source spans omit export bytes")
+    reader = Reader(memoryview(pkg.data)[:end], start, pkg.path)
+    if read_properties(pkg, reader, fmt="packed"):
+        raise ValueError("tagged Model properties require native property loading")
+
+    def consumed(name, begin):
+        if (
+            spans[name]["sourceOffset"] != begin
+            or spans[name]["sourceBytes"] != reader.pos - begin
+        ):
+            raise ValueError("Model source span differs from decoded layout")
+
+    consumed("properties", start)
+    begin = reader.pos
+    box = source["localBounds"]
+    raw = bytes(reader.bytes(25))
+    if (
+        box["sourceOffset"] != begin
+        or box["sourceBytes"] != 25
+        or box["sourceSHA256"] != hashlib.sha256(raw).hexdigest()
+        or struct.pack("<6fB", *box["min"], *box["max"], box["valid"]) != raw
+        or struct.pack("<4f", *source["boundingSphere"]) != bytes(reader.bytes(16))
+    ):
+        raise ValueError("Model primitive fields differ from original bytes")
+    consumed("primitive", begin)
+    for name in ("vectors", "points"):
+        begin = reader.pos
+        reader.bytes(count(reader) * 12)
+        consumed(name, begin)
+    begin = reader.pos
+    nodes = []
+    for _ in range(count(reader)):
+        reader.bytes(25)  # plane, zone mask, flags
+        reader.compact()  # vertex pool
+        nodes.append(reader.compact())
+        for _ in range(5):
+            reader.compact()  # back/front/plane/collision/render
+        reader.bytes(55)  # sphere, reserved, zones, vertex count, leaves, final words
+    consumed("nodes", begin)
+    begin = reader.pos
+    surfaces = count(reader)
+    for _ in range(surfaces):
+        reader.compact()
+        reader.bytes(4)
+        for _ in range(6):
+            reader.compact()
+        reader.bytes(20 + (4 if pkg.licensee_version >= 21 else 0))
+    consumed("surfs", begin)
+    if nodes != source["nodeSurfaces"] or surfaces != source["surfaceCount"]:
+        raise ValueError("Model PostLoad operands differ from original bytes")
+    # The remaining geometry is opaque to this consumer. Its retained spans
+    # above are contiguous and fingerprinted; other BSP tools inspect it.
+    reader.pos = spans["zones_and_polys"]["sourceOffset"]
+    reader.bytes(4)
+    zones = reader.i32()
+    if not 0 <= zones <= 64:
+        raise ValueError("invalid Model zone count")
+    for _ in range(zones):
+        reader.compact()
+        reader.bytes(20)
+    if reader.compact() != source["polysReference"]:
+        raise ValueError("Model Polys reference differs from original bytes")
+    consumed("zones_and_polys", spans["zones_and_polys"]["sourceOffset"])
+    reader.pos = spans["undecoded_tail"]["sourceOffset"]
+    arrays = source["emptyRenderArrays"]
+    if len(arrays) != 3:
+        raise ValueError("Model rendering array count differs")
+    for field, array in zip(("0xe4", "0x10c", "0xf0"), arrays):
+        begin = reader.pos
+        if reader.bytes(1) != b"\0" or array != dict(
+            nativeField=field, count=0, sourceOffset=begin, sourceBytes=1
+        ):
+            raise ValueError("Model rendering array differs from empty source array")
+    if reader.pos != end:
+        raise ValueError("Model rendering arrays omit tail bytes")
+    return dict(
+        reference=ref, nodes=len(nodes), surfaces=surfaces, sourceBytes=end - start
+    )
+
+
+def check_saved_brush_records(audit, world):
+    proof = world["savedBrushModels"]
+    from static_mesh_class_source import read_owned_loading_bits
+
+    if proof["scope"] != "saved-brush-model-resources" or proof[
+        "classLoading"
+    ] != read_owned_loading_bits(model=True):
+        raise ValueError("Model resource scope or class loading differs")
+    catalog, defaults, visiting = OriginalClasses(), {}, set()
+
+    def reference(raw):
+        reader = Reader(raw)
+        value = reader.compact()
+        if reader.pos != len(raw) or bytes(raw) != encode_compact(value):
+            raise ValueError("noncanonical generic Brush reference")
+        return value
+
+    def inherited(name):
+        key = name.casefold()
+        if key in defaults:
+            return defaults[key]
+        if key in visiting:
+            raise ValueError("cyclic Brush class ancestry")
+        visiting.add(key)
+        pkg, ex, source = serialized_class_record(catalog, name)
+        value, brush = (
+            inherited(source["parent"])
+            if source["parent"]
+            else (
+                dict(
+                    reference=0, package="Core", origin="zero-initialized-class-default"
+                ),
+                False,
+            )
+        )
+        value = dict(value)
+        reader = Reader(
+            memoryview(pkg.data)[: ex.serial_offset + ex.serial_size],
+            ex.serial_offset + source["defaults"]["defaultsOffset"],
+            pkg.path,
+        )
+        values = {
+            k.casefold(): v
+            for k, v in read_properties(pkg, reader, fmt="packed").items()
+        }
+        if "brush" in values:
+            value = dict(
+                reference=reference(values["brush"]),
+                package=Path(pkg.path).stem,
+                origin=source["sourceClass"],
+            )
+        defaults[key] = value, brush or key == "engine.brush"
+        visiting.remove(key)
+        return defaults[key]
+
+    expected_refs, used = set(), set()
+    for key, identity in world["savedActorSources"].items():
+        value, brush = inherited(identity["classIdentity"])
+        if not brush:
+            continue
+        expected_refs.add(key)
+        source = proof["actors"].get(key)
+        if (
+            source is None
+            or source["sourceClass"] != identity["classIdentity"]
+            or source["defaults"] != value
+        ):
+            raise ValueError("saved Brush class/default reference differs")
+        ex = audit.pkg.exports[int(key) - 1]
+        check_actor_frame(audit.pkg, ex, source["savedStateFrame"])
+        start = ex.serial_offset + source["savedStateFrame"]["sourceBytes"]
+        end = ex.serial_offset + ex.serial_size
+        reader = Reader(memoryview(audit.pkg.data)[:end], start, audit.pkg.path)
+        values = {
+            k.casefold(): v
+            for k, v in read_properties(audit.pkg, reader, fmt="packed").items()
+        }
+        if "brush" in values:
+            ref = reference(values["brush"])
+            value = dict(
+                reference=ref,
+                package=audit.tile,
+                origin=identity["identity"],
+                qualified=qualified_ref(audit.pkg, ref) if ref else None,
+            )
+        if (
+            reader.pos != end
+            or source["savedReference"] != value
+            or source["modelRef"] != value["reference"]
+            or source["propertyStream"]
+            != dict(
+                sourceOffset=start,
+                sourceBytes=end - start,
+                sourceSHA256=hashlib.sha256(audit.pkg.data[start:end]).hexdigest(),
+            )
+        ):
+            raise ValueError("saved Brush reference or property span differs")
+        if value["reference"]:
+            used.add(str(value["reference"]))
+    if expected_refs != set(proof["actors"]) or used != set(proof["models"]):
+        raise ValueError("saved Brush or Model resource set differs")
+    records = [
+        check_saved_model_resource(audit.pkg, model)
+        for model in proof["models"].values()
+    ]
+    runtime = (
+        Path(__file__).resolve().parents[2] / "editor/world/js/static-world-source.js"
+    )
+    script = r"""
+import {pathToFileURL} from 'node:url';
+const {prepareStaticWorldSource}=await import(pathToFileURL(process.argv[1]));
+let raw='';for await(const p of process.stdin)raw+=p;
+const input=JSON.parse(raw), world=prepareStaticWorldSource(input,input.tile);
+if(world.status!=='ready')throw Error(world.reason);
+for(const [key,saved] of Object.entries(input.savedBrushModels.actors)) {
+ const actual=world.actorForReference(Number(key)).savedBrush;
+ if(actual !== (saved.modelRef===0?null:world.modelForReference(saved.modelRef)))throw Error('Model sharing differs');
+}
+const records=Object.keys(input.savedBrushModels.models).map(key=>{
+ const model=world.modelForReference(Number(key)), r=model.resource;
+ if(r.status!=='ready')throw Error(r.reason);
+ const bounds=model.getBounds({ownerIdentity:null});if(bounds.status!=='ready')throw Error(bounds.reason);
+ const bytes=new DataView(new ArrayBuffer(24));[...bounds.bounds.min,...bounds.bounds.max].forEach((v,i)=>bytes.setFloat32(i*4,v,true));
+ return {reference:Number(key),surfaceNodes:r.surfaceNodes,objectFlags:r.objectFlags,
+ boundsWords:Array.from({length:6},(_,i)=>bytes.getUint32(i*4,true)),valid:bounds.bounds.valid};
+});
+process.stdout.write(JSON.stringify({summary:world.summary,records}));
+"""
+    result = subprocess.run(
+        ["node", "--input-type=module", "-e", script, str(runtime)],
+        input=json.dumps(world),
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    loaded = json.loads(result.stdout)
+    for row in loaded["records"]:
+        model = proof["models"][str(row["reference"])]
+        expected = [[] for _ in range(model["surfaceCount"])]
+        for index, surface in enumerate(model["nodeSurfaces"]):
+            expected[surface].append(index)
+        box = model["localBounds"]
+        words = list(struct.unpack("<6I", struct.pack("<6f", *box["min"], *box["max"])))
+        if (
+            row["surfaceNodes"] != expected
+            or row["boundsWords"] != words
+            or row["valid"] != box["valid"]
+        ):
+            raise ValueError("browser Model state differs from checked source data")
+    if len(loaded["records"]) != len(records):
+        raise ValueError("browser omitted Model resources")
+    return dict(
+        scope="saved Brush references and prepared Model consumer fields; actor lifecycle and live queries remain separate",
+        actors=len(expected_refs),
+        models=len(records),
+        nodes=sum(r["nodes"] for r in records),
+        surfaces=sum(r["surfaces"] for r in records),
+        browserSummary=loaded["summary"],
+        records=records,
+    )
+
+
 def check_actor_frame(package, export, saved):
     """Re-encode retained frame fields against the bounded original prefix."""
     if (
@@ -1210,9 +1512,9 @@ def verify(tile, *, fresh_class_flags=None):
     audit = Audit(tile, retain_sweep_data=True)
     actors = audit.actors()
     report = audit.report(actors)
-    saved_booleans = check_saved_actor_boolean_records(
-        audit, audit.world_source_output(actors)
-    )
+    world = audit.world_source_output(actors)
+    saved_booleans = check_saved_actor_boolean_records(audit, world)
+    saved_brushes = check_saved_brush_records(audit, world)
     level_order = check_level_actor_order(audit.pkg, audit.level_binding, actors)
     actor_transforms, actor_flags, actor_references, actor_frames = [], [], [], []
     for actor in actors:
@@ -1342,6 +1644,7 @@ def verify(tile, *, fresh_class_flags=None):
         levelActorOrder=level_order,
         savedActorClasses=check_saved_actor_classes(audit.pkg, audit.level_binding),
         savedActorBooleans=saved_booleans,
+        savedBrushModels=saved_brushes,
         levelCollisionMode=check_level_collision_mode(
             audit.pkg, audit.level_binding, audit.level_mode, audit.level_mode_defaults
         ),
@@ -1411,6 +1714,7 @@ def main():
             actor_references = len(report["actorReferences"])
             classes = report["savedActorClasses"]
             saved_booleans = report["savedActorBooleans"]
+            saved_brushes = report["savedBrushModels"]
             report = {
                 key: report[key]
                 for key in [
@@ -1440,6 +1744,9 @@ def main():
             }
             report["savedActorBooleans"] = {
                 k: v for k, v in saved_booleans.items() if k != "records"
+            }
+            report["savedBrushModels"] = {
+                k: v for k, v in saved_brushes.items() if k != "records"
             }
             report["actorFlagRecords"] = actor_flags
             report["actorReferenceRecords"] = actor_references

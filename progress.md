@@ -2,6 +2,40 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Saved brush Models in actual scene loading — 28 September 2026
+
+The source world now binds exact inherited/saved Brush references to 495 Model
+resources: 167 Talking Island and 328 Giran. Movers remain excluded by their
+actual ancestry. Original source boxes, spheres, surface/node indices, Polys
+references and all span hashes survive; nonempty rendering tails and unsupported
+profiles remain explicit. Corrected the file-123 FBspSurf extra-field gate to
+licensee21, separate from the legacy FPoly probe/cutoff22.
+
+The browser prepares the consumed bounds and surface-node lists through fresh
+loading flags and ordinary Model PostLoad. Resource sharing is by package/export;
+savedBrush and modelForReference expose it without promoting saved actors into
+current lifecycle or collision membership. The native checker binds ten Engine
+ranges, the full ordinary surface serializer, Model PostLoad vtable and class
+registration, then executes 192 Model cases and 504 surface constructors:
+144,651 instructions/167 addresses. Existing static/Model bounds checks pass.
+
+The independent record walker checks original consumed bytes and full retained
+span fingerprints, generic Brush default/map references and the actual complete
+browser loader. Both target maps pass. 113 portable Python cases and 117 related
+browser-module cases pass. Private scene refresh retained all earlier bundle
+fields exactly. The final offline Giran capture was visually inspected, reached
+rendered gameplay, reports 328 prepared Models and captured no errors. Existing
+terrain defects, 470 unprepared actors and collision unavailable remain visible.
+
+An accidental run against 20_18 also found two grass resources rejected by the
+older collision exporter; that additional tile is not qualified for this world
+bundle. No unsupported resource was substituted. Public docs preserve all 17
+README image URLs; private originals, scene data and receipts are excluded.
+
+Next: owning brush/volume construction and PostLoad (including Model/Polys flag
+writes), current transforms and level startup, then actual primitive/world query
+integration. Full browser fidelity remains active and incomplete.
+
 ## Concrete brush selection and Model bounds — 28 September 2026
 
 PR60 published the saved-actor records, preserved all 17 README images, and

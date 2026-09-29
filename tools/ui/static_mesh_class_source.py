@@ -21,6 +21,7 @@ CLASS_CTOR = "??0UClass@@QAE@W4ENativeConstructor@@KKPAV0@1VFGuid@@PBG33KP6AXPAX
 OBJECT_CLASS = "?PrivateStaticClass@UObject@@0VUClass@@A"
 PRIMITIVE_CLASS = "?PrivateStaticClass@UPrimitive@@0VUClass@@A"
 MESH_CLASS = "?PrivateStaticClass@UStaticMesh@@0VUClass@@A"
+MODEL_CLASS = "?PrivateStaticClass@UModel@@0VUClass@@A"
 ACTOR_CLASS = "?PrivateStaticClass@AActor@@0VUClass@@A"
 STATIC_ACTOR_CLASS = "?PrivateStaticClass@AStaticMeshActor@@0VUClass@@A"
 
@@ -340,6 +341,52 @@ def static_actor_loading_bits(engine, core, engine_package, core_package):
     )
 
 
+def model_loading_bits(engine, core, engine_package, core_package):
+    """The same qualified root/Primitive inheritance, with native Model flags."""
+    mesh = loading_bits(engine, core, engine_package, core_package)
+    assert not [
+        e
+        for e in engine_package.exports
+        if engine_package.class_name_of(e) == "Class"
+        and engine_package.export_name(e).casefold() == "model"
+    ]
+    assert engine.exported(MODEL_CLASS) == 0x10C79280
+    for at, op, args in [
+        (0x1084633B, "push", "0x10db0448"),
+        (0x10846340, "push", "0"),
+        (0x10846342, "push", "0x738"),
+        (0x10846349, "mov", "ecx, 0x10c79280"),
+    ]:
+        engine.instruction(at, op, args)
+    evidence = mesh["evidence"]
+    flags = (
+        engine.data[engine.offset(0x10846340) + 1]
+        | core.data[core.offset(0x101358C5) + 2]
+    )
+    inherited = evidence["inheritanceMask"]
+    variants = [
+        flags | ((evidence["nativePrimitiveFlags"] | (root & inherited)) & inherited)
+        for root in (evidence["nativeRootFlags"], evidence["root"]["flags"])
+    ]
+    mask = 0x408
+    assert len({value & mask for value in variants}) == 1
+    return dict(
+        sourceClass="Engine.Model",
+        scope="ordinary-native-registration",
+        mask=mask,
+        value=variants[0] & mask,
+        sources=mesh["sources"],
+        evidence=dict(
+            root=evidence["root"],
+            nativeRootFlags=evidence["nativeRootFlags"],
+            nativePrimitiveFlags=evidence["nativePrimitiveFlags"],
+            nativeModelFlags=flags,
+            inheritanceMask=inherited,
+            registeredModelVariants=variants,
+        ),
+    )
+
+
 def loading_bits(engine, core, engine_package, core_package):
     """Derive only the two class bits consumed by fresh resource loading.
 
@@ -489,6 +536,29 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
                 (0x10846BC4, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
                 (0x10846BCB, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
                 (0x10846BDD, CLASS_CTOR),
+            ],
+        ),
+        (
+            "Model",
+            0x108462E0,
+            0x10846354,
+            [
+                (
+                    0x108462F9,
+                    0x11D8D790,
+                    0x11D8D78C,
+                    "import",
+                    "?StaticConstructor@UObject@@QAEXXZ",
+                ),
+                (0x10846315, 0x10A72EAC, 0x10A72E98, "export", "GPackage"),
+                (0x1084633C, 0x10DB0448, 0x10DB0458, "export", PRIMITIVE_CLASS),
+                (0x1084634A, 0x10C79280, 0x10C79290, "export", MODEL_CLASS),
+            ],
+            [
+                (0x108462F0, "??0FGuid@@QAE@KKKK@Z"),
+                (0x10846308, "?StaticConfigName@UObject@@SAPBGXZ"),
+                (0x10846334, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+                (0x1084634E, CLASS_CTOR),
             ],
         ),
         (
@@ -645,14 +715,20 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
     )
 
 
-def read_owned_loading_bits(*, actor=False):
+def read_owned_loading_bits(*, actor=False, model=False):
     """Read this edition's owned inputs; no supplemental lookup or downloads."""
     from pathlib import Path
     from check_tutorial_quest_native import Image
     from l2lib import load_package
 
     root = Path(__file__).resolve().parents[2] / "assets/interlude/system"
-    derive = static_actor_loading_bits if actor else loading_bits
+    if actor and model:
+        raise ValueError("choose one source class")
+    derive = (
+        static_actor_loading_bits
+        if actor
+        else model_loading_bits if model else loading_bits
+    )
     return derive(
         Image(root / "engine.dll", ENGINE_SHA, True),
         Image(root / "Core.dll", CORE_SHA),

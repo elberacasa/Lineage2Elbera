@@ -6,8 +6,10 @@ import {
   prepareFreshStaticActor,
   resolvePackageReference,
   applyActorBooleanTags,
+  prepareSourceModel,
 } from "./actor-loading.js";
 import { prepareFreshStaticMeshTree } from "./static-mesh-tree.js";
+import { prepareModelBounds } from "./actor-primitive-bounds.js";
 
 const freeze = Object.freeze;
 const record = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -179,8 +181,96 @@ export function prepareStaticWorldSource(data, tile) {
   if (prepared.status !== "ready") return prepared;
   const byRef = new Map(),
     savedSlots = [],
-    missing = new Map();
+    missing = new Map(),
+    models = new Map();
   try {
+    const brushes = data.savedBrushModels;
+    if (brushes !== undefined) {
+      if (
+        brushes?.scope !== "saved-brush-model-resources" ||
+        !record(brushes.models) ||
+        !record(brushes.actors)
+      )
+        throw Error("invalid saved Brush Model bundle");
+      for (const [key, source] of Object.entries(brushes.models)) {
+        const ref = Number(key);
+        if (
+          String(ref) !== key ||
+          !validBinding(source) ||
+          source.exportRef !== ref ||
+          source.sourcePackage !== data.tile ||
+          source.classIdentity !== "Engine.Model"
+        )
+          throw Error("invalid saved Model identity");
+        const resource = prepareSourceModel(source, brushes.classLoading);
+        const binding = freeze(
+          Object.fromEntries(
+            [
+              "identity",
+              "sourcePackage",
+              "exportRef",
+              "classIdentity",
+              "exportSHA256",
+            ].map((name) => [name, source[name]]),
+          ),
+        );
+        models.set(
+          ref,
+          freeze({
+            identity: source.identity,
+            binding,
+            resource,
+            getBounds(input) {
+              if (resource.status !== "ready") return resource;
+              return prepareModelBounds({
+                ...input,
+                localBounds: resource.localBounds,
+              });
+            },
+          }),
+        );
+      }
+      for (const [key, brush] of Object.entries(brushes.actors)) {
+        if (
+          !record(brush) ||
+          !Object.hasOwn(data.savedActorSources, key) ||
+          brush.sourceClass !== data.savedActorSources[key]?.classIdentity ||
+          brush.modelRef !== brush.savedReference?.reference ||
+          !Number.isSafeInteger(brush.modelRef) ||
+          brush.modelRef < 0 ||
+          (brush.modelRef !== 0 &&
+            (brush.savedReference.package !== data.tile ||
+              !models.has(brush.modelRef)))
+        )
+          throw Error("saved Brush reference differs from Model resources");
+      }
+      const classes = data.savedActorBooleans?.classes;
+      if (!record(classes)) throw Error("Brush class ancestry required");
+      for (const [key, source] of Object.entries(data.savedActorSources)) {
+        let name = source.classIdentity.toLowerCase(),
+          isBrush = false;
+        const seen = new Set();
+        while (name) {
+          const cls = classes[name];
+          if (
+            seen.has(name) ||
+            cls?.sourceClass?.toLowerCase() !== name ||
+            (cls.parent !== null && typeof cls.parent !== "string")
+          )
+            throw Error("invalid Brush class ancestry");
+          seen.add(name);
+          isBrush ||= name === "engine.brush";
+          name = cls.parent?.toLowerCase();
+        }
+        if (isBrush !== Object.hasOwn(brushes.actors, key))
+          throw Error("saved Brush actor set differs from class ancestry");
+      }
+      const used = new Set(
+        Object.values(brushes.actors).map((brush) => brush.modelRef),
+      );
+      if ([...models.keys()].some((ref) => !used.has(ref)))
+        throw Error("saved Model has no Brush reference");
+    }
     const booleans = data.savedActorBooleans;
     const booleanLayout = data.classDefaults.at(-1)?.collisionBooleans?.layout;
     if (
@@ -250,6 +340,12 @@ export function prepareStaticWorldSource(data, tile) {
           // Kept separate from constructed/PostLoad state, especially for movers
           // and volumes whose subclass lifecycle is not prepared here.
           savedGroups,
+          savedBrush:
+            brushes?.actors[key] === undefined
+              ? undefined
+              : brushes.actors[key].modelRef === 0
+                ? null
+                : models.get(brushes.actors[key].modelRef),
           prepared: prepared.actors.get(ref),
         }),
       );
@@ -323,6 +419,10 @@ export function prepareStaticWorldSource(data, tile) {
       actorsWithSavedBooleans: [...byRef.values()].filter(
         (v) => v.savedGroups !== undefined,
       ).length,
+      savedModels: models.size,
+      preparedModels: [...models.values()].filter(
+        (model) => model.resource.status === "ready",
+      ).length,
       collisionStatus: "unavailable",
       reason:
         "current level startup, actor providers and world query integration are unfinished",
@@ -335,6 +435,7 @@ export function prepareStaticWorldSource(data, tile) {
       savedMode: savedMode.groups,
       unpreparedActors: freeze([...missing.values()]),
       actorForReference: (ref) => byRef.get(ref),
+      modelForReference: (ref) => models.get(ref),
     });
   } catch (error) {
     return fail(error.message);

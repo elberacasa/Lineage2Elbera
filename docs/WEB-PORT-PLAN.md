@@ -33,9 +33,12 @@ now feeds per-class saved Boolean records into the actual source loader. All
 saved array. These inputs do not construct their live state; mover and brush
 PostLoad remain separate source paths. Brush primitive selection and concrete
 Model bounds now have original-instruction comparisons, including calls from
-static-mesh auxiliary bounds. Their current resources and lifecycle still need
-to enter the scene loader. [Class-default evidence](native-class-defaults-evidence.md)
-and [Model bounds evidence](native-static-actor-bounds-evidence.md#brush-selection-and-concrete-model-bounds).
+static-mesh auxiliary bounds. Saved Brush references now bind 495 original
+Models into that loader, including their bounds and surface-node lists after
+ordinary Model PostLoad. This does not prepare the owning brush/volume actor or
+its current transform. Mover remains on its own class path.
+[Class-default evidence](native-class-defaults-evidence.md) and
+[Model loading evidence](native-static-actor-bounds-evidence.md#saved-brush-model-resources).
 
 Public branches start from the reviewed public main. Original client inputs,
 generated assets, accounts and raw local receipts remain private; the older

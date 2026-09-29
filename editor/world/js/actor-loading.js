@@ -134,6 +134,113 @@ export function freshObjectLoadingFlags(savedExportFlags, classFlags) {
   });
 }
 
+/** UModel.PostLoad appends node indices to each surface's existing array,
+ * then calls UObject.PostLoad. It does not clear those arrays or rebuild the
+ * local box. Current storage and the ordinary nonlocalized path are explicit.
+ */
+export function postLoadModel(input) {
+  const scope = "original-model-postload";
+  const fail = (reason) => freeze({ status: "unsupported", scope, reason });
+  if (
+    !uint(input?.objectFlags) ||
+    input.objectFlags & 0x100 ||
+    !dense(input.nodeSurfaces) ||
+    !dense(input.surfaceNodes) ||
+    !input.surfaceNodes.every((row) => dense(row) && row.every(sint)) ||
+    !input.nodeSurfaces.every(
+      (index) => sint(index) && index >= 0 && index < input.surfaceNodes.length,
+    )
+  )
+    return fail(
+      "current Model flags, node references and surface arrays required",
+    );
+  const surfaceNodes = input.surfaceNodes.map((row) => [...row]);
+  for (let index = 0; index < input.nodeSurfaces.length; index++)
+    surfaceNodes[input.nodeSurfaces[index]].push(index);
+  return freeze({
+    status: "ready",
+    scope,
+    writes: freeze({
+      objectFlags: (input.objectFlags | 0x20000000) >>> 0,
+      surfaceNodes: freeze(surfaceNodes.map(freeze)),
+    }),
+  });
+}
+
+/** Consumed source Model state through ordinary fresh loading and PostLoad.
+ * Source records must be checked against the original files by Elbera Tools.
+ * This prepares bounds and surface-node lists, not the complete native object
+ * or rendering resources. Actor lifecycle and world membership stay separate.
+ */
+export function prepareSourceModel(source, declared) {
+  const scope = "prepared-source-model";
+  const fail = (reason) => freeze({ status: "unsupported", scope, reason });
+  if (
+    source?.scope !== "saved-model-resource" ||
+    source.fileVersion !== 123 ||
+    !Number.isInteger(source.licenseeVersion) ||
+    source.licenseeVersion < 9 ||
+    source.classIdentity !== "Engine.Model" ||
+    declared?.sourceClass !== source.classIdentity ||
+    declared.scope !== "ordinary-native-registration" ||
+    readKnownFlagBits(declared, 0x408) === undefined ||
+    declared.value & 0x400 ||
+    !Number.isInteger(source.surfaceCount) ||
+    source.surfaceCount < 0 ||
+    source.surfaceCount > 1000000 ||
+    !dense(source.emptyRenderArrays) ||
+    source.emptyRenderArrays.length !== 3 ||
+    !["0xe4", "0x10c", "0xf0"].every(
+      (field, i) =>
+        source.emptyRenderArrays[i]?.nativeField === field &&
+        source.emptyRenderArrays[i].count === 0,
+    )
+  )
+    return fail("qualified file123 Model source and loading class required");
+  const bounds = source.localBounds;
+  const vector = (v) =>
+    dense(v) &&
+    v.length === 3 &&
+    v.every(
+      (x) =>
+        typeof x === "number" &&
+        Number.isFinite(x) &&
+        Object.is(Math.fround(x), x),
+    );
+  if (
+    !vector(bounds?.min) ||
+    !vector(bounds.max) ||
+    !uint(bounds.valid) ||
+    bounds.valid > 255
+  )
+    return fail("finite source Model bounds and validity required");
+  const flags = freshObjectLoadingFlags(
+    source.savedExportFlags,
+    declared.value,
+  );
+  if (flags.status !== "ready") return fail(flags.reason);
+  // The original surface-array loader invokes FBspSurf's constructor, whose
+  // FArray constructor initializes +20/+24/+28 to zero before saved fields.
+  const loaded = postLoadModel({
+    objectFlags: flags.flags.beforePostLoad,
+    nodeSurfaces: source.nodeSurfaces,
+    surfaceNodes: Array.from({ length: source.surfaceCount }, () => []),
+  });
+  if (loaded.status !== "ready") return fail(loaded.reason);
+  return freeze({
+    status: "ready",
+    scope,
+    loadingFlags: flags.flags,
+    objectFlags: loaded.writes.objectFlags,
+    surfaceNodes: loaded.writes.surfaceNodes,
+    localBounds: freeze({
+      min: freeze([...bounds.min]),
+      max: freeze([...bounds.max]),
+      valid: bounds.valid,
+    }),
+  });
+}
+
 /** Ordinary StaticMeshActor PostLoad with no Brush or attachments.
  * Preserve unknown flag bits as a mask/value pair. The native method writes
  * SwayRotationOrig from Rotation, even if the archive saved a different value.

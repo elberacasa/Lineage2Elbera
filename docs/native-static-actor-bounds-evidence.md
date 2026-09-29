@@ -1212,3 +1212,90 @@ brush/volume/mover collision, world query dispatch and Online movement remain
 unfinished. The old approximate picking path is unchanged. These large JSON
 bundles are development inputs; production transfer, parsing and memory costs
 still need a delivery format. No map-repair or full-client acceptance is claimed.
+
+## Saved brush Model resources
+
+The scene loader now resolves saved `Brush` references through exact class
+ancestry and local package exports. It prepares the Model fields consumed by
+bounds and ordinary Model PostLoad, sharing one resource per export. The
+actor's `savedBrush` remains separate from its `prepared` lifecycle state.
+A null saved reference, an absent resource and unsupported preparation are
+three distinct results; none establishes clear space.
+
+| Original map | Brush/volume actors and Models | Nodes | Surfaces |
+| --- | --- | --- | --- |
+| Talking Island `17_25` | 167 | 132 | 132 |
+| Giran `22_22` | 328 | 227 | 227 |
+
+Giran's ten movers are excluded by their actual ancestry. They need their own
+loading/dispatch path. The added records leave all existing scene geometry,
+static actor fields and other source-bundle fields unchanged.
+
+The exporter retains each Model's exact export identity/hash, saved flags,
+25-byte box including validity, sphere, node-to-surface indices, surface count,
+Polys reference and contiguous source spans. This profile requires file version
+123, licensee version at least 9, no tagged Model properties and three empty
+rendering arrays. Nonempty arrays, unknown editions, nonlocal references and
+unconsumed bytes are rejected. The tail fields are identified by native offsets
+`+e4`, `+10c`, `+f0`; no inferred asset meanings are needed by this consumer.
+
+The shared file-123 decoder now uses the original FBspSurf extra-field cutoff:
+**licensee version 21**. FPoly's cutoff is 22. The former shared Polys probe could
+select the wrong surface layout at that boundary. Other file versions retain
+legacy decoding and require their own qualification.
+
+`model_loading_source.py` binds ten ordinary Engine ranges and twelve anchors
+against the pinned comparison inputs listed above. It includes Model Serialize,
+surface loading/constructor dispatch, its full ordinary serializer and version
+gate, the three tail
+array helpers, Model PostLoad and node append. Native Model class registration
+uses Primitive ancestry; its two consumed class bits have mask `0x408`, value
+zero in both qualified root variants. This is not an invented whole class word.
+
+The native checker executes **192 Model PostLoad cases** and **504 surface
+constructors**, covering empty models, unused surfaces, existing nonempty lists,
+allocation growth and repeated calls: **144,651 instructions at 167 addresses**.
+The original constructor initializes each surface's FArray storage to zero.
+PostLoad appends node indices in order, without clearing or deduplicating,
+then calls UObject.PostLoad. The comparison checks all unrelated supplied
+Model/surface words for preservation. It uses the existing qualified Core
+FArray allocator boundary; no DLL is loaded or run natively.
+
+The original-record checker separately walks the consumed serialized fields
+without calling `read_model`, compares all retained span hashes, resolves Brush
+defaults/map properties with the generic property reader, and runs the actual
+complete browser source loader. Both maps pass, including exact Float32 box
+words through null-owner bounds and shared Model identity. Portable fixtures
+exercise the licence boundary, corruption rejection, unresolved resources,
+null references, immutable results and class completeness.
+
+```sh
+# Portable authored inputs; no game files.
+python3 -m unittest discover -s tools/world -p test_static_collision.py
+node --test editor/world/test/actor-loading.test.mjs \
+  editor/world/test/static-world-source.test.mjs
+
+# Private original inputs and the pinned comparison copies are required.
+python3 tools/world/check_static_collision_records.py 17_25 22_22 --check
+python3 tools/ui/check_static_actor_bounds_native.py \
+  --comparison-engine /local/comparison/engine.dll \
+  --comparison-core /local/comparison/Core.dll --check
+```
+
+The existing `--world-source-output` command above creates these records in a
+new private bundle. `modelForReference(ref)` and `actorForReference(ref).savedBrush`
+expose the shared resource in the loader; `resource` contains its bounded
+preparation result and `getBounds` uses the existing Model bounds helper.
+`summary.preparedModels` counts this consumed subset, **not complete native
+objects or active collision participants**. Full Model construction, rendering
+arrays with entries, transaction/localized archives, owning actor startup,
+current transforms and world queries remain unfinished. Unconsumed geometry
+spans are fingerprinted, not independently semantically verified by this check.
+The separate original BSP tools remain responsible for that geometry.
+
+This work extends the repository's existing Elbera verifiers. Published
+standalone archives remain immutable and do not include this world pipeline.
+
+The final offline Giran startup capture reached the rendered world with all
+328 Models prepared and no captured errors. Its terrain defects remain visible;
+this is a loading regression check, not Online movement or map-repair acceptance.
