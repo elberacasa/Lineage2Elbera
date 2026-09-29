@@ -15,12 +15,15 @@ The existing published 0.1.0 ZIP retains its original contents.
 Current source builds also include bounded Polys decoding and four synthetic
 framing cases. The property-declaration reader includes eleven authored cases,
 covering the conditional two-byte replication word and class/structure child
-links. The property-layout and flag/list helpers add twelve portable cases; the bounded string
+links. The property-layout and flag/list helpers add fifteen portable cases; the bounded string
 loader adds five, preserving UTF-16 code units and original count-one clearing:
-**25 selected files and 68 portable checks** in total. The layout helper requires original field order and explicit
+**25 selected files and 71 portable checks** in total. The layout helper requires original field order and explicit
 parent/nested sizes, or a complete decoded structure graph from which to resolve
 them. Separate helpers retain original load-time property flags and four lists;
-unknown referenced-class state is not replaced with zero. Full class linking,
+unknown referenced-class state is not replaced with zero. A consumed-bit mask
+can supply a proven bit without inventing the rest of a class word; source
+variants must agree. The DLL-backed source reader remains a repository tool.
+Full class linking,
 replication grouping and live runtime initialization remain outside its scope. For
 file-123 packages, Polys uses the original licensee-version cutoff of 22,
 separate from the BSP surface cutoff of 21. The reader cannot consume bytes

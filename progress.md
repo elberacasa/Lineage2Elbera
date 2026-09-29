@@ -2,6 +2,30 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Referenced-class consumed flags — 29 September 2026
+
+Recovered the single class bit read by original Object/Class property linking
+for seven source descriptors. Native/saved variants must agree; constructor
+additions and the Register inheritance mask cannot alter this bit. Complete
+current class words remain unknown. Named native registration and package
+prefix evidence is pinned; no original DLL executes or enters public source.
+
+The declaration inspector's optional --reference-flags with --structure-links
+now prepares all thirteen original structures, including PointRegion. The
+package-only mode still reports twelve ready and one unresolved. All thirteen
+structures match original Link execution: 11,577 instructions / 583 addresses.
+Twenty-four comparisons cover every recovered source variant through both
+ObjectProperty and ClassProperty. The authored list suite now has 155 cases,
+403,340 instructions / 632 addresses, including independent full native words
+against portable known-bit masks. Existing offset checks remain unchanged.
+
+Portable layout/metadata tests now total fifteen. Core source builds retain
+25 allowlisted files with 71 portable checks; packaging has three checks.
+No browser/runtime/UI changed, so existing screenshots and all seventeen README
+image URLs are retained. Published ZIPs are unchanged. Full class replication,
+CDO configuration/localization and actual volume/world startup remain next.
+All 53 live volumes remain unsupported; no map repair is claimed. Goal ACTIVE.
+
 ## Original property flags and inherited lists — 29 September 2026
 
 Extended the existing property-layout library with explicit post-Link flags and

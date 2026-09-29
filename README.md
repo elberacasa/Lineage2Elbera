@@ -76,9 +76,11 @@ five original volume-class cases and all **13 nested structures**. PhysicsVolume
 calculated size matches its engine registration; full class loading remains open.
 [Recovered field order and offsets](docs/native-class-defaults-evidence.md#linked-scalar-property-offsets).
 The same tool now retains load-time property flags and the original inherited
-copy lists. **147 original-code comparisons** cover those lists; **12 original
-structures** also match. PointRegion stays explicitly unresolved until its
-referenced class's current flags are established.
+copy lists. **155 original-code comparisons** cover those lists; all **13 original
+structures** now match. A source reader recovers the single consumed class flag
+for seven referenced classes without inventing their complete current state.
+Another **24 comparisons** exercise every recovered source variant. Full class
+startup and live volumes remain open.
 [Property linking and remaining dependencies](docs/native-class-defaults-evidence.md#linked-property-flags-and-lists).
 The source reader also preserves original string defaults through saved volume
 ancestry, including the water-specific override. Its bounded decoder retains

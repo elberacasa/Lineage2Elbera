@@ -7,6 +7,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from l2lib import L2Error
 from l2lib.propertylayout import (
+    consensus_flag_bits,
     property_offsets,
     linked_properties,
     structure_layouts,
@@ -39,6 +40,101 @@ def structure(name, fields, parent=None):
 
 
 class PropertyLayoutTest(unittest.TestCase):
+    def test_flag_consensus_keeps_only_agreed_consumed_bits(self):
+        for variants, expected in (
+            ([0, 0xFFDFFFFF], 0),
+            ([0x200000, 0xFFFFFFFF], 0x200000),
+            ([0xFFFFFFFF], 0x200000),
+        ):
+            self.assertEqual(
+                consensus_flag_bits(iter(variants), 0x200000),
+                dict(mask=0x200000, value=expected),
+            )
+        with self.assertRaisesRegex(L2Error, "disagree"):
+            consensus_flag_bits([0, 0x200000], 0x200000)
+        for variants in ([], [True], [-1], [0x100000000], [None]):
+            with self.assertRaises(L2Error):
+                consensus_flag_bits(variants, 0x200000)
+        for mask in (0, -1, True, None, 0x100000000):
+            with self.assertRaises(L2Error):
+                consensus_flag_bits([0], mask)
+
+    def test_object_links_accept_known_consumed_bit_without_a_full_class_word(self):
+        for kind in ("Object", "Class"):
+            for value, expected in ((0, 0), (0x200000, 0x400000)):
+                for noise in (0, 0x80000000):
+                    self.assertEqual(
+                        property_link_flags(
+                            dict(
+                                field(kind),
+                                propertyFlags=0,
+                                referenceFlags=dict(
+                                    mask=0x200000 | noise, value=value | noise
+                                ),
+                            )
+                        ),
+                        expected,
+                    )
+            for profile in (
+                {},
+                dict(mask=0, value=0),
+                dict(mask=0x100000, value=0),
+                dict(mask=0x200000, value=1),
+                dict(mask=True, value=0),
+                dict(mask=0x200000, value=False),
+                dict(mask=-1, value=0),
+                dict(mask=0x100000000, value=0),
+                dict(mask=0x200000, value=0x100000000),
+            ):
+                with self.assertRaisesRegex(L2Error, "unknown or invalid"):
+                    property_link_flags(
+                        dict(field(kind), propertyFlags=0, referenceFlags=profile)
+                    )
+            # The native short circuit never consults referenced-class bits.
+            self.assertEqual(
+                property_link_flags(dict(field(kind), propertyFlags=0x4000008)),
+                0x4400008,
+            )
+
+    def test_masked_class_bits_propagate_through_structure_constructor_lists(self):
+        leaf = structure(
+            "Example.Leaf",
+            [
+                dict(
+                    field("Object"),
+                    propertyFlags=0,
+                    reference="Example.Actor",
+                )
+            ],
+        )
+        outer = structure(
+            "Example.Outer",
+            [
+                dict(
+                    field("Struct"),
+                    propertyFlags=0,
+                    reference="Example.Leaf",
+                )
+            ],
+        )
+        for value in (0, 0x200000):
+            result = structure_links(
+                [outer, leaf],
+                {
+                    "EXAMPLE.ACTOR": dict(mask=0x200000, value=value),
+                },
+            )
+            self.assertTrue(all(r["status"] == "ready" for r in result.values()))
+            self.assertEqual(
+                result["example.outer"]["lists"]["0x78"],
+                ["Example.Outer.Field0"] if value else [],
+            )
+        result = structure_links(
+            [outer, leaf], {"Example.Actor": dict(mask=1, value=0)}
+        )
+        self.assertTrue(all(r["status"] == "unsupported" for r in result.values()))
+        self.assertNotIn("referenceFlags", leaf["fields"][0])
+
     def test_structure_links_resolve_nested_flags_and_preserve_saved_words(self):
         leaf = structure("Example.Leaf", [dict(field("Str"), propertyFlags=0)])
         parent = structure(

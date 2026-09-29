@@ -290,7 +290,7 @@ python3 tools/release/build_core.py --check
 ```
 
 Current standalone Core source builds include the reader/helper and portable
-fixtures, now including the metadata helpers and string reader below: **25 selected files / 68 checks**. The full native verifier and world
+fixtures, now including the metadata helpers and string reader below: **25 selected files / 71 checks**. The full native verifier and world
 inspector remain full-repository tools. Existing published ZIPs are unchanged.
 Complete default initialization, configuration, array fields, complete class
 loading and volume/world startup remain outstanding; no map repair is claimed.
@@ -322,12 +322,14 @@ UStruct.Link body, `10135e30–10136218`**, reuses the localization iterator and
 StructProperty cast, and adds original Object/Array/Delegate cast bodies at
 `10132a30–10132a52`, `10132a60–10132a82`, `10132a90–10132ab2`.
 Named descriptor exports and virtual property Link dispatch are checked against
-the same pinned Core pair. **147 authored cases pass: 399,348 instructions at
+the same pinned Core pair. **155 authored cases pass: 403,340 instructions at
 632 addresses**, comparing offsets, updated flags, inherited list order and
 null termination. The interpreter returns through the original method epilogue
 and checks stack/SEH/nonvolatile registers. Empty ancestors, skipped functions,
 arrays/delegates in supplied parent metadata, preserved unrelated bits and both
-string/structure flag gates are included.
+string/structure flag gates are included. Eight cases supply only a known
+referenced-class bit to the portable helper while the original instructions
+receive independent complete words with varying unconsumed bits.
 
 This execution profile admits game-mode fields without replication bit `0x20`,
 or the original editor branch that skips replication grouping. It **does not
@@ -337,15 +339,14 @@ providers. Current reflection, parent metadata and completed archive Preload
 remain supplied. A full UStruct return under this profile is not full UClass/
 UState linking or live class initialization.
 
-With `--original-volumes`, twelve original structures additionally match:
-**10,789 instructions at 545 addresses**. PointRegion remains unsupported in
-this metadata check because its object field needs current referenced-class
-flags. This is distinct from the existing offset-only comparison, which still
+With `--original-volumes`, all thirteen original structures additionally match:
+**11,577 instructions at 583 addresses**, including PointRegion after the
+referenced-class recovery below. The existing offset-only comparison still
 resolves and tests all thirteen structures. No missing flags are inferred from
-names, saved class flags or an older agent's assumptions.
+names or an older agent's assumptions.
 
 ```sh
-python3 tools/world/inspect_actor_declarations.py --structure-links --check
+python3 tools/world/inspect_actor_declarations.py --structure-links --reference-flags --check
 python3 tools/ui/check_property_layout_native.py \
   --comparison-core /local/reference/system/Core.dll \
   --property-lists --original-volumes \
@@ -355,9 +356,56 @@ python3 tools/ui/check_property_layout_native.py \
 
 The Core, Engine and package fingerprints above apply. Full inspector output
 contains original metadata and should stay private; `--check` emits a compact
-summary. The portable library and twelve authored layout/metadata tests are
+summary. The portable library and fifteen authored layout/metadata tests are
 included in standalone Core source builds. No browser UI or world startup
 changes accompany this component; the current tool screenshots remain valid.
+
+### Referenced-class consumed-bit recovery
+
+`UObjectProperty.Link` reads only class bit `0x200000` at original instruction
+`10171688`. The qualified native UClass constructor adds `0x12`; Register
+inherits only mask `0xf86ec`. Neither can alter the consumed bit. The source
+reader therefore compares the native registration word and saved class word,
+where one exists, retaining only their agreed consumed bit. It never chooses a
+convenient full current word. Saved prefixes use the existing bounded class
+reader, including nonzero scripts, with exact package hashes and parent checks.
+
+The pinned source yields seven profiles: Engine.Actor, PhysicsVolume, Sound,
+ZoneInfo, Info, DecorationList and Core.Class. Sound and Class have no saved
+class export in the pinned packages; their profiles explicitly retain only
+native evidence. All seven agree on a clear consumed bit. Other current flags
+remain unknown. Source variants, registration ranges, saved-prefix fingerprints
+and source hashes are retained in the private receipt.
+
+The existing registration qualifier now also covers these native prefixes:
+
+| Descriptor | Original registration prefix |
+| --- | --- |
+| Engine.ZoneInfo | `1083bbe0–1083bc54` |
+| Engine.Info | `1083cc60–1083ccd4` |
+| Engine.DecorationList | `1084a3d0–1084a444` |
+| Engine.Sound | `1083f800–1083f872` |
+| Core.Class | `101c0390–101c03e3` |
+
+Engine operands and erased imports are bound individually to the pinned
+comparison's named symbols; Core's prefix matches byte for byte. The native
+UClass constructor, Class/State descriptors and consumed instruction are
+checked explicitly. Existing Actor/PhysicsVolume qualification is reused.
+No DLL is executed. The verifier runs every available source variant through
+both ObjectProperty and ClassProperty: **24 cases, 7,800 instructions at 247
+addresses**. These supplement the authored positive/negative-bit comparisons.
+
+`--reference-flags` is optional and requires `--structure-links`, the pinned
+owned Engine/Core DLLs and packages, and Capstone. Without it the inspector
+retains its package-only behavior: twelve ready structures and unresolved
+PointRegion. With it all thirteen are ready. The API accepts a known-bit
+`{mask, value}` pair and rejects unknown consumed bits or values outside the
+mask. Portable tests also check disagreement and nested dependency propagation.
+
+This proves the consumed bit for ordinary native registration/saved loading of
+these pinned descriptors. Custom classes, external mutations, complete current
+class words, UClass/UState replication tables and CDO configuration/localization
+remain outside this component. It does not enable live volume admission.
 
 ## Saved string loading and copying
 
