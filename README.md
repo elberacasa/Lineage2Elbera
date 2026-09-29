@@ -79,7 +79,9 @@ The same tool now retains load-time property flags and the original inherited
 copy lists. **155 original-code comparisons** cover those lists; all **13 original
 structures** now match. A source reader recovers the single consumed class flag
 for seven referenced classes without inventing their complete current state.
-Another **24 comparisons** exercise every recovered source variant. Full class
+Another **24 comparisons** exercise every recovered source variant. Original
+game-mode replication grouping now also matches **51 comparisons**, including
+inherited fields and the client's temporary-map lifecycle. Complete class
 startup and live volumes remain open.
 [Property linking and remaining dependencies](docs/native-class-defaults-evidence.md#linked-property-flags-and-lists).
 The source reader also preserves original string defaults through saved volume

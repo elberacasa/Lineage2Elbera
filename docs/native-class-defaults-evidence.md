@@ -290,7 +290,7 @@ python3 tools/release/build_core.py --check
 ```
 
 Current standalone Core source builds include the reader/helper and portable
-fixtures, now including the metadata helpers and string reader below: **25 selected files / 71 checks**. The full native verifier and world
+fixtures, now including the metadata helpers and string reader below: **25 selected files / 76 checks**. The full native verifier and world
 inspector remain full-repository tools. Existing published ZIPs are unchanged.
 Complete default initialization, configuration, array fields, complete class
 loading and volume/world startup remain outstanding; no map repair is claimed.
@@ -331,13 +331,13 @@ string/structure flag gates are included. Eight cases supply only a known
 referenced-class bit to the portable helper while the original instructions
 receive independent complete words with varying unconsumed bits.
 
-This execution profile admits game-mode fields without replication bit `0x20`,
-or the original editor branch that skips replication grouping. It **does not
-implement game-mode replication-condition grouping**. Its temporary replication
-map remains empty; map construction, emptying and destruction are explicit
-providers. Current reflection, parent metadata and completed archive Preload
-remain supplied. A full UStruct return under this profile is not full UClass/
-UState linking or live class initialization.
+Without the additional `--replication` option below, this execution profile
+admits game-mode fields without replication bit `0x20`, or the original editor
+branch that skips grouping. Its temporary map remains empty; map construction,
+emptying and destruction are explicit providers in that narrower profile.
+Current reflection, parent metadata and completed archive Preload remain
+supplied. A full UStruct return is not full UClass/UState linking or live class
+initialization.
 
 With `--original-volumes`, all thirteen original structures additionally match:
 **11,577 instructions at 583 addresses**, including PointRegion after the
@@ -356,7 +356,7 @@ python3 tools/ui/check_property_layout_native.py \
 
 The Core, Engine and package fingerprints above apply. Full inspector output
 contains original metadata and should stay private; `--check` emits a compact
-summary. The portable library and fifteen authored layout/metadata tests are
+summary. The portable library and eighteen authored layout/metadata tests are
 included in standalone Core source builds. No browser UI or world startup
 changes accompany this component; the current tool screenshots remain valid.
 
@@ -406,6 +406,87 @@ This proves the consumed bit for ordinary native registration/saved loading of
 these pinned descriptors. Custom classes, external mutations, complete current
 class words, UClass/UState replication tables and CDO configuration/localization
 remain outside this component. It does not enable live volume admission.
+
+### Game-mode replication grouping
+
+`read_class_script` now retains each token's native `memoryOffset` and exclusive
+`expressionEnd`. The same iterative walker handles nested expressions and
+argument terminators; a second parser is not introduced. The materializer
+expands decoded operands with **explicit current reference DWORD bindings**.
+A saved package index is never treated as a runtime pointer. The supported token
+set is unchanged: unknown tokens, including debug records, remain unsupported.
+
+The verifier's `--script-expressions` mode interprets original
+`UStruct.SerializeExpr` with the complete original base FArchive constructor,
+byte/word/reference wrappers, no-op serializers, Tell and Seek. It follows the
+original native-call lookahead and cursor rewind. **80 authored scripts / 158
+expression entry checks pass: 15,683 instructions at 202 addresses**. Saved vs
+loaded reference widths, positive/negative/null indices, nested calls, argument
+terminators, trailing roots and preserved loaded bytes are covered.
+
+With `--original-volumes`, five original volume-class scripts are inspected.
+Four are empty; PhysicsVolume contains **19 saved bytes / 24 loaded bytes**.
+All eleven expression entry points match: **2,851 instructions at 183
+addresses**. These comparisons use explicit authored opaque values for source
+reference identities. They prove cursor traversal, not the actual object loader
+or current live pointer values. Original bytes and local receipts remain private.
+
+`replication_links` groups fields by the byte sequence of their loaded
+replication expression. It retains the **last encountered field** as each group's
+representative. This matches the original loop at `1013605b–10136185`: initialize
+the current field's `+0x68` to itself, determine the end cursor, then update each
+earlier matching field. Equal saved bytes are insufficient when resolved
+references differ; different saved indices may match when their loaded bindings
+are identical. Missing owning-class scripts or unsupported expression offsets
+fail explicitly. This comparison does not evaluate the script's truth value.
+
+`--replication` requires `--property-lists` and includes the script checks. It
+executes original owner lookup, expression traversal, byte comparison, temporary
+map initialization/set/find/rehash/empty/destruction and array growth/removal.
+The existing interpreter is reused. Allocation, reallocation and free are
+successful supplied providers; reallocation deliberately moves storage. There
+is no Python substitute for the native map or grouping loop in this mode.
+
+| Bound dependency | Original body, exclusive end |
+| --- | --- |
+| UField.GetOwnerClass | `101311f0–10131209` |
+| appMemcmp | `1012d910–1012d99e` |
+| Temporary map set / find | `10134440–101344b1` / `101325e0–10132634` |
+| Temporary map append / rehash | `10132720–101327bb` / `10132650–101326eb` |
+| FArray.Realloc / Remove | `101522e0–10152346` / `101523c0–10152437` |
+
+The qualifier additionally records the complete map lifecycle bodies, named
+exports where available, constructor/virtual bindings and thunk targets.
+Anonymous map helpers are identified by their matched bodies rather than
+invented export names. Every retained range matches the pinned Core pair.
+
+**51 grouping cases pass: 3,242,700 instructions at 984 addresses.** Coverage
+includes equal/different expression bytes (including trailing-byte differences),
+reference aliases across owning
+classes, empty ancestors, nested outer lookup, nonreplicated and editor-skipped
+fields, unsigned offset 65535, hash collisions, array growth and rehashing. All
+temporary allocations are released. Full original return, stack/SEH, preserved
+registers, property flags, offsets and four lists are checked as well.
+The existing 155 list cases additionally pass with native map lifecycle:
+**449,840 instructions / 842 addresses**. Thirteen original structures add
+**15,477 / 793**; the 24 reference variants add **15,000 / 457**. The narrower
+profile's counts above remain unchanged.
+
+```sh
+python3 tools/ui/check_property_layout_native.py \
+  --comparison-core /local/reference/system/Core.dll \
+  --property-lists --replication --original-volumes \
+  --comparison-engine /local/reference/system/engine.dll \
+  --output tmp/local-replication-linking.json
+```
+
+Omit the original-volume options for authored cases only. Use
+`--script-expressions` alone to select expression checks without grouping.
+The portable materializer and grouping helper are included in current Core
+source builds: **25 selected files / 76 checks**. Complete class reflection,
+UClass/UState replication tables, object resolution, CDO configuration/localization
+and actual volume/world startup remain unfinished. No live volume admission,
+map repair, browser visual change or complete client parity is claimed.
 
 ## Saved string loading and copying
 

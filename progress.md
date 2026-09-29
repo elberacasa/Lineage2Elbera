@@ -2,6 +2,37 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original replication grouping — 29 September 2026
+
+Extended the existing bounded script reader with native memory offsets and
+expression ends, plus materialization using explicit current reference DWORDs.
+No saved index is substituted for a live pointer. The portable replication
+helper preserves the original later-field representative rule across inherited
+fields; unknown owners/bindings/offsets fail. Editor/nonreplicated fields receive
+no writes. The admitted token set and explicit debug-record gap are unchanged.
+
+The existing interpreter now executes loaded SerializeExpr with original base
+archive behavior and full UStruct replication grouping, including native map
+set/find/rehash/lifecycle and array helpers. Only successful allocation/free
+remain supplied. Eighty script cases / 158 entry checks pass (15,683 instructions
+at 202 addresses). Five source volume scripts contain four empty scripts and
+one nonempty PhysicsVolume script; its eleven entry points pass with explicit
+opaque reference bindings (2,851 / 183). Fifty-one grouping cases pass
+(3,242,700 / 984), covering inherited classes, aliases, differing bytes, nested
+owner lookup, offset 65535, collisions, array growth, rehashing, editor skips
+and complete temporary cleanup. Trailing-byte differences are checked too.
+
+The 155 prior list cases now also pass with the native map (449,840 / 842), plus
+13 original structures (15,477 / 793) and 24 referenced-class variants
+(15,000 / 457). The narrower list profile retains its prior results. Existing
+offset checks remain unchanged. Portable class/script tests now total ten,
+layout/metadata tests eighteen; Core source builds retain 25 allowlisted files
+and 76 checks. No browser/UI/runtime changed; all 17 README image URLs remain.
+Published ZIPs are unchanged. Full UClass/UState tables, parent reflection,
+object binding, CDO configuration/localization and actual volume/world startup
+remain next. All 53 live volumes remain unsupported. The full browser-client
+goal stays ACTIVE.
+
 ## Referenced-class consumed flags — 29 September 2026
 
 Recovered the single class bit read by original Object/Class property linking

@@ -14,7 +14,11 @@ from l2lib.propertylayout import (
     property_link_flags,
     property_lists,
     structure_links,
+    replication_links,
 )
+from l2lib.classdata import read_class_script
+from l2lib import Reader
+from types import SimpleNamespace
 
 
 def field(kind, dimension=1):
@@ -40,6 +44,74 @@ def structure(name, fields, parent=None):
 
 
 class PropertyLayoutTest(unittest.TestCase):
+    def test_replication_uses_last_equal_loaded_expression_across_owners(self):
+        package = SimpleNamespace(imports=[None] * 2, exports=[None] * 2)
+        scripts = {
+            "A": dict(
+                decoded=read_class_script(package, Reader(b"\x01\x01\x25"), 6),
+                referenceValues={1: 0x12345678},
+            ),
+            "B": dict(
+                decoded=read_class_script(package, Reader(b"\x01\x02\x26"), 6),
+                referenceValues={2: 0x12345678},
+            ),
+        }
+        fields = [
+            dict(
+                identity=name,
+                kind="IntProperty",
+                propertyFlags=0x20,
+                ownerClass=owner,
+                replicationOffset=offset,
+            )
+            for name, owner, offset in [
+                ("First", "A", 0),
+                ("Other", "A", 5),
+                ("Second", "B", 0),
+                ("Last", "A", 0),
+                ("Different", "B", 5),
+            ]
+        ]
+        self.assertEqual(
+            replication_links(fields, scripts),
+            dict(
+                First="Last",
+                Other="Other",
+                Second="Last",
+                Last="Last",
+                Different="Different",
+            ),
+        )
+        scripts["B"]["referenceValues"][2] = 0x87654321
+        self.assertEqual(replication_links(fields, scripts)["Second"], "Second")
+        self.assertNotIn("replicationLink", fields[0])
+
+    def test_replication_rejects_missing_owners_and_nonexpression_offsets(self):
+        package = SimpleNamespace(imports=[], exports=[])
+        script = dict(
+            decoded=read_class_script(package, Reader(b"\x24\xff"), 2),
+            referenceValues={},
+        )
+        base = dict(
+            identity="A.Field",
+            kind="IntProperty",
+            propertyFlags=0x20,
+            ownerClass="A",
+            replicationOffset=0,
+        )
+        for offset in (1, 2, -1, True, 0x10000, None):
+            with self.assertRaises(L2Error):
+                replication_links([dict(base, replicationOffset=offset)], {"A": script})
+        with self.assertRaises(L2Error):
+            replication_links([base], {})
+
+    def test_editor_and_unreplicated_fields_do_not_write_replication_links(self):
+        field = dict(identity="A.Field", kind="IntProperty", propertyFlags=0x20)
+        self.assertEqual(replication_links([field], {}, is_editor=True), {})
+        self.assertEqual(replication_links([dict(field, propertyFlags=0)], {}), {})
+        with self.assertRaises(L2Error):
+            replication_links([field], {}, is_editor=1)
+
     def test_flag_consensus_keeps_only_agreed_consumed_bits(self):
         for variants, expected in (
             ([0, 0xFFDFFFFF], 0),

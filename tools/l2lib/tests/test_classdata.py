@@ -9,7 +9,11 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from l2lib import L2Error, Reader, encode_compact
-from l2lib.classdata import read_class_default_prefix, read_class_script
+from l2lib.classdata import (
+    read_class_default_prefix,
+    read_class_script,
+    materialize_class_script,
+)
 
 
 def class_fixture(script=b"", memory=0, defaults=b"\0"):
@@ -112,6 +116,47 @@ class ClassPrefixTest(unittest.TestCase):
             [t["reference"] for t in tokens if "reference" in t], [-65, 70]
         )
         self.assertEqual(tokens[0]["offset"], expected["scriptOffset"])
+        self.assertEqual([t["memoryOffset"] for t in tokens], [0, 1, 3, 8, 11, 16, 18])
+        self.assertEqual(
+            [t["expressionEnd"] for t in tokens], [19, 8, 8, 18, 18, 18, 19]
+        )
+
+    def test_materialized_script_uses_explicit_dword_bindings(self):
+        package, _, _ = class_fixture()
+        saved = (
+            b"\x77\x01"
+            + encode_compact(-65)
+            + b"\x18\x34\x12\x2e"
+            + encode_compact(70)
+            + b"\x24\xff\x16"
+        )
+        decoded = read_class_script(package, Reader(saved), 17)
+        loaded = materialize_class_script(decoded, {-65: 0xFFFFFFFF, 70: 0x12345678})
+        self.assertEqual(
+            loaded,
+            b"\x77\x01\xff\xff\xff\xff\x18\x34\x12\x2e\x78\x56\x34\x12\x24\xff\x16",
+        )
+        for bindings in (
+            {},
+            {-65: 1},
+            {-65: True, 70: 0},
+            {-65: -1, 70: 0},
+            {-65: 0x100000000, 70: 0},
+        ):
+            with self.assertRaises(L2Error):
+                materialize_class_script(decoded, bindings)
+        self.assertEqual(decoded["tokens"][1]["reference"], -65)
+
+    def test_expression_boundaries_include_nested_terminators_not_following_roots(self):
+        package, _, _ = class_fixture()
+        decoded = read_class_script(package, Reader(b"\x70\x71\x16\x16\x25"), 5)
+        self.assertEqual(
+            [t["expressionEnd"] for t in decoded["tokens"]], [4, 3, 3, 4, 5]
+        )
+        self.assertEqual(materialize_class_script(decoded, {}), b"\x70\x71\x16\x16\x25")
+        decoded["tokens"][1]["memoryOffset"] = 8
+        with self.assertRaisesRegex(L2Error, "noncontiguous"):
+            materialize_class_script(decoded, {})
 
     def test_default_boundary_never_starts_inside_a_multibyte_property_name(self):
         tags = encode_compact(131) + b"\x24" + struct.pack("<f", 7.5) + b"\0"
