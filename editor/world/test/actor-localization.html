@@ -38,15 +38,16 @@
   <section><h2>Ordered configuration requests</h2>
     <table><thead><tr><th>File</th><th>Section</th><th>Key</th><th>Reply</th></tr></thead><tbody id="lookups"></tbody></table>
   </section>
-  <section><h2>Property text imports</h2>
-    <table><thead><tr><th>Authored field</th><th>Byte offset</th><th>Text</th><th>Port flags</th></tr></thead><tbody id="imports"></tbody></table>
+  <section><h2>Stored string properties</h2>
+    <p class="muted">Each run starts with the same authored values. Missing or empty translations preserve them.</p>
+    <table><thead><tr><th>Authored field</th><th>Byte offset</th><th>Before</th><th>After</th></tr></thead><tbody id="properties"></tbody></table>
   </section>
 </div>
 <footer class="muted">The original traversal, context selection and optional lookup control flow are compared with pinned Core instructions.
-  Configuration parsing and each property's ImportText remain provider boundaries. This page records imports; it does not mutate a native object or load a map.
+  The string importer now updates browser property values, checked against original UTF-16 assignment. Configuration parsing and other property types remain provider boundaries. This page does not construct a native object or load a map.
   <a href="https://github.com/elberacasa/Lineage2Elbera/blob/main/docs/native-actor-localization-evidence.md">Evidence, reproduction and limits</a>.</footer>
 <script type="module">
-  import { loadActorLocalized } from '../js/actor-localization.js';
+  import { loadActorLocalized, importStringPropertyText } from '../js/actor-localization.js';
   const freeze = value => {
     if (value && typeof value === 'object') { for (const child of Object.values(value)) freeze(child); Object.freeze(value); }
     return value;
@@ -72,20 +73,21 @@
     const mode = control('context').value, response = control('response').value, language = control('language').value;
     const object = { index: mode === 'default' ? -1 : 1, flags: mode === 'nested' ? 0x100 : 0,
       name: 'ExampleObject', outer: { name: 'ExampleOuter', outer: mode === 'nested' ? { name: 'ExamplePackage' } : null } };
-    const lookups = [];
+    const lookups = [], before = [[16, 'Existing title'], [52, 'Existing caption A'], [64, 'Existing caption B']];
+    const storage = new Map(before);
     const result = loadActorLocalized({ object, isEditor: false,
       classInfo: { flags: 0x32, name: 'ExampleClass', outer: { name: 'ExampleEngine' }, structure },
       environment: { started: true, language, readConfig: response === 'absent' ? null : call => {
         const found = response === 'translated' || response === 'empty' || (response === 'fallback' && call.filename.toLowerCase().endsWith('.int'));
         const value = !found ? null : response === 'empty' ? '' : `${response === 'translated' ? 'Texto' : 'Example text'}: ${call.key}`;
         lookups.push({ ...call, found, value }); return { status: 'ready', found, value };
-      } }, importText: () => ({ status: 'ready' }) });
-    state = { mode: 'authored-localization-inspection', scenario: { context: mode, response, language }, result, lookups };
+      } }, importText: call => importStringPropertyText({ ...call, storage, propertyKind: 'StrProperty' }) });
+    state = { mode: 'authored-localization-inspection', scenario: { context: mode, response, language }, result, lookups, before, storage: [...storage] };
     const context = result.context;
     control('route').textContent = `Package: ${context.packageName}  /  Section: ${context.section}  /  Prefix: ${context.prefix ?? '(none)'}`;
     control('status').textContent = `${result.status} · ${lookups.length} configuration requests · ${result.imports.length} text imports${result.reason ? ` · ${result.reason}` : ''}`;
     table('lookups', lookups.map(call => [call.filename, call.section, call.key, call.found ? call.value === '' ? 'Found, empty' : 'Found' : 'Missing']));
-    table('imports', result.imports.map(call => [call.field, call.offset, call.text, call.portFlags]));
+    table('properties', before.map(([offset, value]) => [offset === 16 ? 'Title' : 'Caption', offset, value, storage.get(offset)]));
   }
   for (const select of document.querySelectorAll('select')) select.addEventListener('change', render);
   window.render_game_to_text = () => JSON.stringify(state);

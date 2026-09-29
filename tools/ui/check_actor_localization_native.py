@@ -2,8 +2,9 @@
 """Elbera Tools: original localization versus the browser's supplied-state port.
 
 Interprets pinned Core instructions using the existing admission interpreter.
-CRT formatting/comparison, configuration and virtual ImportText are explicit
-authored providers. No DLL executes; no original payload is embedded or written.
+CRT formatting/comparison and configuration are explicit authored providers.
+The joined string suite executes ImportText and assignment over a supplied
+allocator/memcpy provider. No DLL executes; no original payload is embedded.
 """
 
 import argparse
@@ -12,8 +13,12 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from actor_localization_source import qualify_actor_localization
-from actor_octree_admission_machine import AdmissionMachine
+from actor_localization_source import (
+    qualify_actor_localization,
+    qualify_string_property_text,
+)
+from actor_octree_admission_machine import AdmissionMachine, PartialWord
+from actor_octree_machine import MembershipMachine
 from check_static_sweep_native import PreparationProgram
 from check_static_mesh_native import browser_outputs
 from check_tutorial_quest_native import Image
@@ -25,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def source_program(core, comparison):
     proof = qualify_actor_localization(core, comparison)
+    proof["stringImport"] = qualify_string_property_text(core, comparison)
     program = SimpleNamespace(
         engine=core,
         rows=[],
@@ -42,6 +48,19 @@ def source_program(core, comparison):
         start, end = int(block["start"], 16), int(block["end"], 16)
         data = bytes(core.data[core.offset(start) : core.offset(end)])
         PreparationProgram.add(program, core, start, end, data)
+    strings = proof["stringImport"]
+    for block in strings["coreBlocks"]:
+        start, end = int(block["start"], 16), int(block["end"], 16)
+        PreparationProgram.add(
+            program,
+            core,
+            start,
+            end,
+            bytes(core.data[core.offset(start) : core.offset(end)]),
+        )
+    program.membership_targets.update(
+        {int(k, 16): int(v, 16) for k, v in strings["thunkTargets"].items()}
+    )
     return program
 
 
@@ -138,7 +157,9 @@ class LocalizationMachine(AdmissionMachine):
         return super().read(f"byte ptr [{at:#x}]")
 
     def put_text(self, at, value):
-        for index, byte in enumerate(value.encode("utf-16le") + b"\0\0"):
+        for index, byte in enumerate(
+            value.encode("utf-16le", errors="surrogatepass") + b"\0\0"
+        ):
             self.write(f"byte ptr [{at + index:#x}]", byte)
 
     def text(self, at):
@@ -146,7 +167,7 @@ class LocalizationMachine(AdmissionMachine):
         for index in range(1024):
             pair = bytes((self.byte(at + index * 2), self.byte(at + index * 2 + 1)))
             if pair == b"\0\0":
-                return result.decode("utf-16le")
+                return result.decode("utf-16le", errors="surrogatepass")
             result.extend(pair)
         raise AssertionError("unterminated supplied UTF-16 text")
 
@@ -293,6 +314,121 @@ class LocalizationMachine(AdmissionMachine):
         return i.address + i.size
 
 
+class StringLocalizationMachine(LocalizationMachine):
+    """Execute the original string importer over an explicit byte heap/stack.
+
+    The allocator always succeeds and relocates nonzero allocations. Byte memcpy
+    admits nonoverlapping regions only. No native allocator/OS behavior is implied.
+    """
+
+    def __init__(self, program, row):
+        super().__init__(program, row)
+        self.memory[0xA6009C] = int(
+            program.receipt["stringImport"]["importTextTarget"], 16
+        )
+        self.copy_sizes, self.stack_probes = [], []
+        # Explicit ordinary committed stack. Unknown heap/property bytes remain
+        # unknown; these words exist only for the compiler's stack page probes.
+        for at in range(self.registers["esp"] - 0x10000, self.registers["esp"], 4):
+            self.memory.setdefault(at, 0)
+
+    def allocate(self, size):
+        assert type(size) is int and 0 <= size <= 0x1000000
+        if size == 0:
+            return 0
+        ptr = self.next_block
+        self.next_block += (size + 255) & ~255
+        self.blocks[ptr] = size
+        return ptr
+
+    def reallocate(self, ptr, size):
+        old_size = self.blocks[ptr] if ptr else 0
+        new = self.allocate(size)
+        for off in range(min(old_size, size)):
+            cell = self.memory.get((ptr + off) & ~3)
+            shift = ((ptr + off) & 3) * 8
+            if (
+                cell is None
+                or isinstance(cell, PartialWord)
+                and cell.mask & (255 << shift) != 255 << shift
+            ):
+                continue
+            self.write(f"byte ptr [{new + off:#x}]", self.byte(ptr + off))
+        self.free(ptr)
+        return new
+
+    def seed_string(self, header, value, spare=0, retained_empty=False):
+        units = len(value.encode("utf-16le", errors="surrogatepass")) // 2
+        count = units + 1 if value or retained_empty else 0
+        capacity = count + spare
+        data = self.allocate(capacity * 2)
+        if count:
+            self.put_text(data, value)
+        self.memory.update({header: data, header + 4: count, header + 8: capacity})
+        return data
+
+    def string_state(self, header):
+        data, count, capacity = [self.memory[header + n * 4] for n in range(3)]
+        assert 0 <= count <= capacity
+        return dict(
+            value=self.text(data) if count else "", count=count, capacity=capacity
+        )
+
+    def step(self, i):
+        sp = self.registers["esp"]
+        if i.address == 0x1015C725:
+            assert self.registers["edx"] == int(
+                self.source.receipt["stringImport"]["importTextTarget"], 16
+            )
+            source, dest, port_flags = [self.memory[sp + n * 4] for n in range(3)]
+            assert port_flags == 0
+            self.imports.append(
+                dict(
+                    field=self.fields[self.registers["ecx"]],
+                    offset=dest - self.actor,
+                    text=self.text(source),
+                    portFlags=port_flags,
+                )
+            )
+            return MembershipMachine.step(self, i)
+        if i.address == 0x10173B13:
+            assert (
+                not self.byte(self.registers["ebp"] + 0x10) & 2
+            ), "quoted ImportText is outside this prefix"
+        if i.address == 0x1017ED07:
+            assert self.registers["eax"] % 4096 == 0
+            self.stack_probes.append(self.registers["eax"])
+        if i.address == 0x1011500F:
+            assert i.op_str == "0x1017ac60"
+            dest, source, size = [self.memory[sp + n * 4] for n in range(3)]
+            assert 0 <= size <= 2048 and size % 2 == 0
+            assert dest + size <= source or source + size <= dest
+            assert dest in self.blocks and size <= self.blocks[dest]
+            data = [self.byte(source + off) for off in range(size)]
+            for off, value in enumerate(data):
+                self.write(f"byte ptr [{dest+off:#x}]", value)
+            self.copy_sizes.append(size)
+            self.registers["eax"] = dest
+        elif i.mnemonic == "sbb":
+            dest, source = i.op_str.split(", ")
+            a, b = self.read(dest) & 0xFFFFFFFF, self.read(source) & 0xFFFFFFFF
+            total = a - b - int(self.carry)
+            value = total & 0xFFFFFFFF
+            self.flags(value, total < 0, bool((a ^ b) & (a ^ value) & 0x80000000))
+            self.write(dest, value)
+        elif i.mnemonic == "not":
+            self.write(i.op_str, ~self.read(i.op_str) & 0xFFFFFFFF)
+        elif i.mnemonic == "xchg":
+            a, b = i.op_str.split(", ")
+            av, bv = self.read(a), self.read(b)
+            self.write(a, bv)
+            self.write(b, av)
+        else:
+            return super().step(i)
+        self.visited.append(i.address)
+        return i.address + i.size
+
+
 def fixture_rows():
     def field(identity, offset, **changes):
         return (
@@ -376,7 +512,7 @@ def fixture_rows():
 
 
 SCRIPT = r"""
-const {loadActorLocalized}=await import(process.argv[1]);
+const {loadActorLocalized,importStringPropertyText}=await import(process.argv[1]);
 const freeze=value=>{if(value&&typeof value==='object'){for(const v of Object.values(value))freeze(v);Object.freeze(value);}return value;};
 let raw='';for await(const part of process.stdin)raw+=part;
 process.stdout.write(JSON.stringify(JSON.parse(raw).map(row=>{
@@ -393,10 +529,203 @@ process.stdout.write(JSON.stringify(JSON.parse(raw).map(row=>{
    return {status:'ready',found,value};
  }};
  freeze(row.classInfo.structure);
- const result=loadActorLocalized({...row,environment,importText:()=>({status:'ready'})});
- return {status:result.status,context:result.context,imports:result.imports,lookups};
+ const storage=row.storage?new Map(row.storage):null;
+ const importText=storage?call=>importStringPropertyText({...call,storage,propertyKind:'StrProperty'}):()=>({status:'ready'});
+ const result=loadActorLocalized({...row,environment,importText});
+ return {status:result.status,context:result.context,imports:result.imports,lookups,...(storage?{storage:[...storage]}:{})};
 })));
 """
+
+
+def string_slots(structure, base=0):
+    """Allocate authored storage from the supplied fixture, not game metadata."""
+    result = []
+    while structure is not None:
+        for field in structure["fields"]:
+            if not field["isProperty"]:
+                continue
+            for index in range(field["arrayDim"]):
+                offset = base + field["offset"] + index * field["elementSize"]
+                if field["struct"] is not None:
+                    result.extend(string_slots(field["struct"], offset))
+                else:
+                    result.append(offset)
+        structure = structure["super"]
+    return result
+
+
+def string_localization_cases(program, runtime):
+    rows, expected, visited = [], [], set()
+    steps = copies = probes = imported = 0
+    for index, row in enumerate(fixture_rows()):
+        machine = StringLocalizationMachine(program, row)
+        offsets = sorted(string_slots(row["classInfo"]["structure"]))
+        assert all(b >= a + 12 for a, b in zip(offsets, offsets[1:]))
+        meta_end = machine.next_block
+        metadata = {
+            at: value
+            for at, value in machine.memory.items()
+            if 0x2000000 <= at < meta_end
+        }
+        row = row | dict(storage=[])
+        for off in offsets:
+            value = "" if index % 3 == 0 else f"saved:{off} / \U0001f30a"
+            machine.seed_string(machine.actor + off, value, spare=index % 4)
+            row["storage"].append([off, value])
+        machine.invoke(0x1015F5E0, machine.actor)
+        assert {at: machine.memory[at] for at in metadata} == metadata
+        context = (
+            dict(status="ready", skipped=False, **machine.contexts[0])
+            if machine.contexts
+            else dict(status="ready", skipped=True)
+        )
+        storage = [
+            [off, machine.string_state(machine.actor + off)["value"]] for off in offsets
+        ]
+        expected.append(
+            dict(
+                status="ready",
+                context=context,
+                imports=machine.imports,
+                lookups=machine.lookups,
+                storage=storage,
+            )
+        )
+        rows.append(row)
+        steps += len(machine.visited)
+        visited.update(machine.visited)
+        copies += len(machine.copy_sizes)
+        probes += len(machine.stack_probes)
+        imported += len(machine.imports)
+        for call in machine.imports:
+            state = machine.string_state(machine.actor + call["offset"])
+            assert (
+                state["count"]
+                == state["capacity"]
+                == len(state["value"].encode("utf-16le")) // 2 + 1
+            )
+    actual = browser_outputs(SCRIPT, rows, runtime)
+    assert len(actual) == len(expected)
+    for index, (a, b) in enumerate(zip(actual, expected)):
+        assert a == b, ("joined string localization", index, a, b)
+    return dict(
+        cases=len(rows),
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        imports=imported,
+        byteCopies=copies,
+        stackPageProbes=probes,
+        browserValuesCompared=True,
+        scope="Original localization joined to original string ImportText; authored current storage and successful allocator/memcpy providers.",
+    )
+
+
+def string_assignment_cases(program, runtime):
+    inputs = [
+        "",
+        "a",
+        "ab",
+        " keep spaces ",
+        '"quotes" \\ path',
+        "Café / 水 / \U0001f30a",
+        "before\0ignored",
+        "\ud800",
+        "\udfff",
+        "z" * 1023,
+    ]
+    row = next(fixture_rows())
+    rows, expected, visited = [], [], set()
+    steps = aliases = clears = probes = 0
+    for value in inputs:
+        for same_buffer in (False, True):
+            if same_buffer and "\0" in value:
+                continue
+            for flags in (0, 1, 4, 0xFFFFFFFD):
+                m = StringLocalizationMachine(program, row)
+                header = 0xD00000
+                old = value if same_buffer else "previous value"
+                pointer = m.seed_string(header, old, spare=3, retained_empty=True)
+                before = [m.memory[header + n * 4] for n in range(3)]
+                if same_buffer:
+                    source = pointer
+                else:
+                    source = m.allocate(
+                        len(value.encode("utf-16le", errors="surrogatepass")) + 2
+                    )
+                    m.put_text(source, value)
+                source_bytes = [
+                    m.byte(source + i)
+                    for i in range(
+                        len(value.encode("utf-16le", errors="surrogatepass")) + 2
+                    )
+                ]
+                m.memory.update({header - 4: 0xCAFE1234, header + 12: 0x5678BEEF})
+                m.registers.update(
+                    ebx=0x12345678, esi=0xAABBCCDD, edi=0x55667788, ebp=0xAAAABBBB
+                )
+                preserved = {
+                    reg: m.registers[reg] for reg in ("ebx", "esi", "edi", "ebp")
+                }
+                m.invoke(0x10173AE0, 0xD10000, [source, header, flags])
+                assert m.registers["eax"] == source
+                assert {reg: m.registers[reg] for reg in preserved} == preserved
+                assert (
+                    m.memory[header - 4] == 0xCAFE1234
+                    and m.memory[header + 12] == 0x5678BEEF
+                )
+                assert [
+                    m.byte(source + i) for i in range(len(source_bytes))
+                ] == source_bytes
+                state = m.string_state(header)
+                if same_buffer:
+                    assert [m.memory[header + n * 4] for n in range(3)] == before
+                    assert not m.events and not m.copy_sizes
+                    aliases += 1
+                else:
+                    units = (
+                        len(state["value"].encode("utf-16le", errors="surrogatepass"))
+                        // 2
+                    )
+                    assert (
+                        state["count"]
+                        == state["capacity"]
+                        == (units + 1 if units else 0)
+                    )
+                    assert [
+                        event[1] for event in m.events if event[0] == "reallocate"
+                    ] == [state["count"] * 2]
+                    if not units:
+                        assert m.memory[header] == 0 and not m.copy_sizes
+                        clears += 1
+                rows.append(dict(text=value, portFlags=flags, old=old))
+                expected.append(dict(status="ready", value=state["value"]))
+                steps += len(m.visited)
+                visited.update(m.visited)
+                probes += len(m.stack_probes)
+    script = r"""
+const {importStringPropertyText}=await import(process.argv[1]);
+let raw='';for await(const part of process.stdin)raw+=part;
+process.stdout.write(JSON.stringify(JSON.parse(raw).map(row=>{
+ const storage=new Map([[0,row.old]]);
+ const result=importStringPropertyText({...row,storage,offset:0,propertyKind:'StrProperty'});
+ if(storage.get(0)!==result.value)throw Error('string storage not updated');
+ return result;
+})));
+"""
+    actual = browser_outputs(script, rows, runtime)
+    assert actual == expected
+    return dict(
+        cases=len(rows),
+        sameBufferCases=aliases,
+        emptyReleases=clears,
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        stackPageProbes=probes,
+        browserValuesCompared=True,
+        inputPointerReturned=True,
+        guardsAndSourceBytesPreserved=True,
+        scope="Unquoted string value semantics; native count/capacity/pointer behavior checked separately from browser immutable strings.",
+    )
 
 
 def verify(core, comparison, runtime):
@@ -439,6 +768,8 @@ def verify(core, comparison, runtime):
     assert len(actual) == len(expected)
     for index, (a, b) in enumerate(zip(actual, expected)):
         assert a == b, (index, a, b)
+    assignment = string_assignment_cases(program, runtime)
+    joined_strings = string_localization_cases(program, runtime)
     return dict(
         tool="Elbera Tools",
         status="pass",
@@ -451,6 +782,8 @@ def verify(core, comparison, runtime):
         browserCompared=True,
         nonvolatileRegistersPreserved=True,
         suppliedMetadataPreserved=True,
+        stringAssignment=assignment,
+        localizedStringStorage=joined_strings,
         source=program.receipt,
         sourceSHA256={
             str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
