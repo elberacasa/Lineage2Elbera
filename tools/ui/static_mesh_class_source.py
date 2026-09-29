@@ -60,6 +60,21 @@ VOLUME_REGISTRATIONS = (
         0x800,
     ),
 )
+# Additional native descriptors referenced by original volume/structure fields.
+REFERENCE_REGISTRATIONS = (
+    ("ZoneInfo", "Info", 0x1083BBE0, 0x1083BC54, 0x10C1F3B8, 0x10C27038, 0x4B8, 0),
+    ("Info", "Actor", 0x1083CC60, 0x1083CCD4, 0x10C27038, 0x10C1C4C8, 0x3BC, 0),
+    (
+        "DecorationList",
+        "Keypoint",
+        0x1084A3D0,
+        0x1084A444,
+        0x11D7F930,
+        0x10C23728,
+        0x3C8,
+        0,
+    ),
+)
 
 
 def read_root_class_flags(package):
@@ -583,6 +598,145 @@ def loading_bits(engine, core, engine_package, core_package):
     )
 
 
+def reference_class_loading_bits(engine, core, engine_package, core_package):
+    """Recover only UObjectProperty.Link's referenced-class bit.
+
+    Native registration and saved class words must agree; inheritance cannot
+    affect this consumed bit. No complete current class word is manufactured.
+    """
+    from l2lib import qualified_ref
+    from l2lib.classdata import read_class_default_prefix
+    from l2lib.propertylayout import consensus_flag_bits
+
+    assert (engine.sha, core.sha) == (ENGINE_SHA, CORE_SHA)
+    for package, digest in (
+        (engine_package, ENGINE_PACKAGE_SHA),
+        (core_package, CORE_PACKAGE_SHA),
+    ):
+        assert hashlib.sha256(package.path.read_bytes()).hexdigest() == digest
+    core.instruction(0x10171688, "test", "dword ptr [ecx + 0x4a4], 0x200000")
+    mask = core.u32(0x1017168E)
+    core.instruction(0x101358C5, "or", "eax, 0x12")
+    core.instruction(0x10133A88, "and", "eax, 0xf86ec")
+    added, inherited = core.data[core.offset(0x101358C5) + 2], core.u32(0x10133A89)
+    assert mask & (added | inherited) == 0
+    core.instruction(0x101C03BF, "xor", "edi, edi")
+    core.instruction(0x101C03C5, "push", "edi")
+    core.instruction(0x101C03BA, "push", "0x1027d240")
+    core.instruction(0x101C03D6, "mov", "ecx, 0x1027d770")
+    core.instruction(0x101C03DE, "call", "0x1010268a")
+    core.instruction(0x1010268A, "jmp", "0x10135860")
+    assert core.exported("?PrivateStaticClass@UClass@@0V1@A") == 0x1027D770
+    assert core.exported("?PrivateStaticClass@UState@@0VUClass@@A") == 0x1027D240
+    assert core.exported(CLASS_CTOR, True) == 0x10135860
+    registrations = [
+        (
+            "Engine.Actor",
+            "Core.Object",
+            0x1083B5B0,
+            0x1083B629,
+            0x1083B612,
+            0x800,
+            True,
+        ),
+        (
+            "Engine.PhysicsVolume",
+            "Engine.Volume",
+            0x1083DC30,
+            0x1083DCA7,
+            0x1083DC90,
+            0x800,
+            True,
+        ),
+        (
+            "Engine.Sound",
+            "Core.Object",
+            0x1083F800,
+            0x1083F872,
+            0x1083F861,
+            0x40,
+            False,
+        ),
+        *[
+            (
+                "Engine." + name,
+                "Engine." + parent,
+                start,
+                end,
+                start + 0x60,
+                flags,
+                True,
+            )
+            for name, parent, start, end, _, _, _, flags in REFERENCE_REGISTRATIONS
+        ],
+        ("Core.Class", "Core.State", 0x101C0390, 0x101C03E3, None, 0, False),
+    ]
+    records = {}
+    for identity, parent, start, end, at, expected, has_saved in registrations:
+        package = engine_package if identity.startswith("Engine.") else core_package
+        image = engine if package is engine_package else core
+        if at is not None:
+            image.instruction(at, "push", hex(expected) if expected else "0")
+            instruction = next(
+                image.dis.disasm(
+                    bytes(image.data[image.offset(at) : image.offset(at) + 5]), at
+                )
+            )
+            native = int(instruction.op_str, 0) | added
+        else:
+            native = added  # Qualified XOR EDI,EDI argument in Core.Class registration.
+        matches = [
+            ex
+            for ex in package.exports
+            if package.class_name_of(ex) == "Class"
+            and package.export_name(ex) == identity.split(".")[1]
+        ]
+        assert len(matches) == int(has_saved), (
+            identity,
+            "unexpected saved class presence",
+        )
+        saved = None
+        if matches:
+            export = matches[0]
+            assert qualified_ref(package, export.super_index) == parent
+            prefix = read_class_default_prefix(package, export)
+            saved = dict(
+                flags=prefix["fields"]["0x4a4"],
+                flagsOffset=prefix["flagsOffset"],
+                prefixSHA256=prefix["sourceSHA256"],
+            )
+        variants = sorted({native, *([saved["flags"]] if saved else [])})
+        records[identity.casefold()] = dict(
+            sourceClass=identity,
+            **consensus_flag_bits(variants, mask),
+            evidence=dict(
+                nativeFlags=native,
+                saved=saved,
+                variants=variants,
+                registrationStart=hex(start),
+                registrationEnd=hex(end),
+            ),
+        )
+    return dict(
+        scope="ordinary-native-registration-and-saved-class-consensus",
+        mask=mask,
+        addedFlags=added,
+        inheritanceMask=inherited,
+        records=records,
+        sources=dict(
+            engine=engine.sha,
+            core=core.sha,
+            enginePackage=ENGINE_PACKAGE_SHA,
+            corePackage=CORE_PACKAGE_SHA,
+        ),
+        limits=[
+            "Only the bit consumed by UObjectProperty.Link; all other current class bits remain unknown.",
+            "Native constructor additions and Register inheritance cannot change this bit; every available native/saved variant must agree.",
+            "Pinned owned edition and ordinary native registration/loading only. No custom class descriptors, external mutations or full class/CDO lifecycle claimed.",
+        ],
+    )
+
+
 def qualify_registration(engine, core, comparison_engine, comparison_core):
     """Bind native declarations and normal lifecycle bodies to named sources."""
     assert (engine.sha, core.sha, comparison_engine.sha, comparison_core.sha) == (
@@ -676,8 +830,40 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
                     (end - 6, CLASS_CTOR),
                 ],
             )
-            for name, parent, start, end, descriptor, parent_at, size, flags in VOLUME_REGISTRATIONS
+            for name, parent, start, end, descriptor, parent_at, size, flags in (
+                *VOLUME_REGISTRATIONS,
+                *REFERENCE_REGISTRATIONS,
+            )
         ],
+        (
+            "Sound",
+            0x1083F800,
+            0x1083F872,
+            [
+                (
+                    0x1083F807,
+                    0x11D8D790,
+                    0x11D8D78C,
+                    "import",
+                    "?StaticConstructor@UObject@@QAEXXZ",
+                ),
+                (0x1083F81E, 0x10A72EAC, 0x10A72E98, "export", "GPackage"),
+                (
+                    0x1083F868,
+                    0x10C41CE8,
+                    0x10C41CF8,
+                    "export",
+                    "?PrivateStaticClass@USound@@0VUClass@@A",
+                ),
+            ],
+            [
+                (0x1083F816, "?StaticConfigName@UObject@@SAPBGXZ"),
+                (0x1083F832, "??0FGuid@@QAE@KKKK@Z"),
+                (0x1083F853, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+                (0x1083F85A, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+                (0x1083F86C, CLASS_CTOR),
+            ],
+        ),
         (
             "StaticMeshActor",
             0x108497D0,
@@ -826,6 +1012,7 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
     core_blocks = []
     for label, start, end in [
         ("native root registration prefix", 0x101C8060, 0x101C80B4),
+        ("native Class registration prefix", 0x101C0390, 0x101C03E3),
         ("native UClass constructor", 0x10135860, 0x101359ED),
         ("UClass.Register", 0x101339D0, 0x10133AF6),
         ("UClass.Link", 0x10136550, 0x10136703),
@@ -1229,6 +1416,21 @@ def read_owned_loading_bits(*, actor=False, model=False, polys=False, brush=Fals
         )
     )
     return derive(
+        Image(root / "engine.dll", ENGINE_SHA, True),
+        Image(root / "Core.dll", CORE_SHA),
+        load_package(root / "Engine.u")[0],
+        load_package(root / "Core.u")[0],
+    )
+
+
+def read_owned_reference_class_bits():
+    """Owned-edition source reader; supplemental binding is a separate check."""
+    from pathlib import Path
+    from check_tutorial_quest_native import Image
+    from l2lib import load_package
+
+    root = Path(__file__).resolve().parents[2] / "assets/interlude/system"
+    return reference_class_loading_bits(
         Image(root / "engine.dll", ENGINE_SHA, True),
         Image(root / "Core.dll", CORE_SHA),
         load_package(root / "Engine.u")[0],

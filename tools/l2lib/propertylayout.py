@@ -10,6 +10,21 @@ See docs/native-class-defaults-evidence.md for source qualification and limits.
 from .ue2package import L2Error
 
 
+def consensus_flag_bits(variants, mask):
+    """Keep only bits agreed by every supplied source-stage variant."""
+    if type(mask) is not int or not 0 < mask <= 0xFFFFFFFF:
+        raise L2Error("nonempty unsigned consumed-bit mask required")
+    variants = list(variants)
+    if not variants or any(
+        type(v) is not int or not 0 <= v <= 0xFFFFFFFF for v in variants
+    ):
+        raise L2Error("explicit unsigned flag variants required")
+    values = {v & mask for v in variants}
+    if len(values) != 1:
+        raise L2Error("source stages disagree on consumed class flags")
+    return dict(mask=mask, value=values.pop())
+
+
 def property_link_flags(field):
     """Flags after the qualified scalar/string/structure Link methods.
 
@@ -28,7 +43,19 @@ def property_link_flags(field):
             flags |= 0x400000
         else:
             referenced = field.get("referenceFlags")
-            if type(referenced) is not int or not 0 <= referenced <= 0xFFFFFFFF:
+            if isinstance(referenced, dict):
+                mask, value = referenced.get("mask"), referenced.get("value")
+                if (
+                    type(mask) is not int
+                    or not 0 <= mask <= 0xFFFFFFFF
+                    or type(value) is not int
+                    or not 0 <= value <= 0xFFFFFFFF
+                    or value & ~mask
+                    or not mask & 0x200000
+                ):
+                    raise L2Error("referenced-class consumed bit is unknown or invalid")
+                referenced = value
+            elif type(referenced) is not int or not 0 <= referenced <= 0xFFFFFFFF:
                 raise L2Error("current referenced-class flags required")
             if referenced & 0x200000:
                 flags |= 0x400000

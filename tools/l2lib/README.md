@@ -97,7 +97,12 @@ infer missing source data. See [native comparison and commands](../../docs/nativ
 `property_link_flags(field)` returns the original post-Link property word.
 It requires `propertyFlags`; Object/Class additionally need current
 `referenceFlags` unless the original short circuit applies, and Struct needs
-explicit `structConstructorLink`. Existing bits are preserved. This does not
+explicit `structConstructorLink`. A reference accepts either a complete unsigned
+word or `{mask, value}` with the consumed `0x200000` bit known. Values outside
+the mask and unknown consumed bits fail. `consensus_flag_bits(variants, mask)`
+retains only bits agreed by every supplied source-stage word; callers must
+establish the source and lifecycle scope. It does not infer a complete current
+word or resolve disagreeing stages. Existing property bits are preserved. This does not
 accept Array/Delegate Link implementations.
 `property_lists(fields)` consumes qualified properties in current inherited
 iterator order and returns identity lists keyed by original head offsets
@@ -106,7 +111,7 @@ here. Missing flags and duplicate identities fail explicitly.
 `structure_links(records, reference_class_flags=None)` combines the existing
 structure layouts with these operations. It retains `savedPropertyFlags`
 separately, reports unresolved dependencies as `unsupported`, and never invents
-referenced-class flags. Twelve portable cases cover the combined layout/metadata
+referenced-class flags. Fifteen portable cases cover the combined layout/metadata
 APIs. Replication grouping and class startup remain separate work.
 [Source evidence](../../docs/native-class-defaults-evidence.md#linked-property-flags-and-lists).
 

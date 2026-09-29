@@ -36,6 +36,7 @@ from static_mesh_class_source import (
     qualify_class_default_prefix,
     qualify_registration,
     qualify_property_lists,
+    reference_class_loading_bits,
 )
 from supplemental_pe import PEImage
 
@@ -139,7 +140,9 @@ class PropertyLayoutMachine(AdmissionMachine):
             if kind in ("ObjectProperty", "ClassProperty"):
                 reference = 0x800000 + index * 0x1000
                 self.memory[at + 0x78] = reference
-                self.memory[reference + 0x4A4] = field.get("referenceFlags", 0)
+                self.memory[reference + 0x4A4] = field.get(
+                    "referenceFlagsNative", field.get("referenceFlags", 0)
+                )
             elif kind == "StructProperty":
                 reference = 0x800000 + index * 0x1000
                 self.memory[at + 0x78] = reference
@@ -345,6 +348,24 @@ def compare_link_cases(program, cases):
 
 
 def authored_link_cases():
+    # Portable metadata knows only the consumed bit. The original instructions
+    # receive an independent complete word, including varying unconsumed bits.
+    for consumed in (0, 0x200000):
+        for noise in (0, 1, 0x400000, 0xFFDFFFFF):
+            yield dict(
+                parent=None,
+                fields=[
+                    dict(
+                        identity=kind,
+                        kind=kind,
+                        arrayDim=1,
+                        propertyFlags=0,
+                        referenceFlags=dict(mask=0x200000, value=consumed),
+                        referenceFlagsNative=consumed | noise,
+                    )
+                    for kind in ("ObjectProperty", "ClassProperty")
+                ],
+            )
     scalar = (
         "ByteProperty",
         "IntProperty",
@@ -624,7 +645,16 @@ def original_volume_offsets(program, core, comparison, engine, comparison_engine
         )
     linked = None
     if "propertyDescriptors" in program.receipt:
-        metadata = structure_links(declarations["structures"].values())
+        from l2lib import load_package
+
+        reference_bits = reference_class_loading_bits(
+            engine,
+            core,
+            load_package(ROOT / "assets/interlude/system/Engine.u")[0],
+            load_package(ROOT / "assets/interlude/system/Core.u")[0],
+        )
+        profiles = reference_bits["records"]
+        metadata = structure_links(declarations["structures"].values(), profiles)
         linked_cases = []
         for key, row in metadata.items():
             if row["status"] != "ready":
@@ -636,6 +666,11 @@ def original_volume_offsets(program, core, comparison, engine, comparison_engine
             own = [
                 dict(f, propertyFlags=f["savedPropertyFlags"]) for f in row["ownFields"]
             ]
+            for f in own:
+                if f["kind"] in ("ObjectProperty", "ClassProperty"):
+                    f["referenceFlagsNative"] = profiles[f["reference"].casefold()][
+                        "evidence"
+                    ]["variants"][0]
             linked_cases.append(
                 dict(
                     ownerKind="struct",
@@ -650,7 +685,28 @@ def original_volume_offsets(program, core, comparison, engine, comparison_engine
             unsupported=[
                 key for key, row in metadata.items() if row["status"] != "ready"
             ],
+            referenceClassBits=reference_bits,
         )
+        reference_cases = []
+        for profile in profiles.values():
+            for variant in profile["evidence"]["variants"]:
+                for kind in ("ObjectProperty", "ClassProperty"):
+                    reference_cases.append(
+                        dict(
+                            parent=None,
+                            fields=[
+                                dict(
+                                    identity="Reference",
+                                    kind=kind,
+                                    arrayDim=1,
+                                    propertyFlags=0,
+                                    referenceFlags=profile,
+                                    referenceFlagsNative=variant,
+                                )
+                            ],
+                        )
+                    )
+        linked["referenceComparisons"] = compare_link_cases(program, reference_cases)
     return dict(
         sources=expected_sources,
         registration=source,
@@ -727,7 +783,7 @@ def main():
         if result["originalVolumes"]["structureLinks"] is not None:
             summary["originalVolumes"]["structureLinks"] = {
                 k: result["originalVolumes"]["structureLinks"][k]
-                for k in ("comparisons", "unsupported")
+                for k in ("comparisons", "unsupported", "referenceComparisons")
             }
     print(json.dumps(summary))
 

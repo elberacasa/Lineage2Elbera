@@ -39,7 +39,10 @@ def inspect_declarations(
     include_structure_layouts=False,
     include_string_defaults=False,
     include_structure_links=False,
+    include_reference_flags=False,
 ):
+    if include_reference_flags and not include_structure_links:
+        raise ValueError("reference flags require structure-link preparation")
     catalog = OriginalClasses()
     classes, structures, visiting = {}, {}, set()
 
@@ -214,7 +217,22 @@ def inspect_declarations(
             "Optional savedStringDefaults overlays decoded tags through saved ancestry only. Untagged values remain unknown; native initialization, property acceptance, configuration/localization and current object storage are not inferred. Full output contains decoded private input values and payloads."
         )
     if include_structure_links:
-        report["structureLinks"] = structure_links(structures.values())
+        reference_flags = None
+        if include_reference_flags:
+            sys.path.insert(0, str(ROOT / "tools/ui"))
+            from static_mesh_class_source import read_owned_reference_class_bits
+
+            proof = read_owned_reference_class_bits()
+            report["referenceClassBits"] = proof
+            reference_flags = proof["records"]
+            report["summary"]["referenceClassBits"] = len(reference_flags)
+            report["sources"].update(
+                {
+                    "engine.dll": proof["sources"]["engine"],
+                    "Core.dll": proof["sources"]["core"],
+                }
+            )
+        report["structureLinks"] = structure_links(structures.values(), reference_flags)
         report["summary"]["structureLinks"] = {
             status: sum(
                 row["status"] == status for row in report["structureLinks"].values()
@@ -244,16 +262,24 @@ def main():
         help="also prepare supported structure flags/lists; unresolved class dependencies stay explicit",
     )
     parser.add_argument(
+        "--reference-flags",
+        action="store_true",
+        help="with --structure-links, read consumed class bits from pinned owned DLLs/packages; requires Capstone",
+    )
+    parser.add_argument(
         "--string-defaults",
         action="store_true",
         help="also decode and overlay saved string tags; full JSON contains private input values",
     )
     args = parser.parse_args()
+    if args.reference_flags and not args.structure_links:
+        parser.error("--reference-flags requires --structure-links")
     report = inspect_declarations(
         args.classes,
         include_structure_layouts=args.structure_layouts,
         include_string_defaults=args.string_defaults,
         include_structure_links=args.structure_links,
+        include_reference_flags=args.reference_flags,
     )
     if args.check:
         report = {
