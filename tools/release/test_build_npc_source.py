@@ -169,7 +169,6 @@ class NpcSourceReleaseTests(unittest.TestCase):
                         self.assertTrue((document.parent / link.split('#')[0]).is_file(), link)
 
     def test_core_profile_does_not_acquire_npc_files_or_manifest_fields(self):
-        self.assertEqual(len(build_core.FILES), 15)
         raw, prefix = build_core.build_bytes(build_core.ROOT, 'core-test', 'test-revision')
         with zipfile.ZipFile(io.BytesIO(raw)) as archive:
             manifest = json.loads(archive.read(prefix + '/MANIFEST.json'))

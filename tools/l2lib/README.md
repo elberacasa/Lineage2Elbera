@@ -20,9 +20,17 @@ this is not a claim that every client format or behavior is recovered.
 |---|---|
 | `l2lib.ue2package` | UE2 package container (.utx/.ukx/.unr/.u): header, name/import/export tables, FCompactIndex, property tags, Texture bodies, Shader→diffuse resolution, SkeletalMesh material slots, Lineage2Ver decryption |
 | `l2lib.l2dat` | `.dat` files (L2ASM/L2FileEdit binary): 413/RSA decryption wrapper + record readers (`DatReader`) |
+| `l2lib.classdata` | Bounded file-123 UClass prefix reader; supported original expression serializers locate default properties without a terminal-stream search |
 | `l2lib.textures` | Pixel decoders to RGBA8 (DXT1/DXT3/DXT5/RGBA8/RGB8/L8/P8/G16), mip extraction, stdlib PNG writer |
 
 ## API overview
+
+`l2lib.classdata.read_class_default_prefix(package, export)` returns original
+prefix fields, serialized script tokens and the relative default-property
+offset, with source hashes. Unsupported tokens fail explicitly. Script memory
+size is separate from saved byte length; the reader does not execute scripts,
+parse default tags or construct live class state. See the
+[source evidence and example](../../docs/native-class-defaults-evidence.md).
 
 `qualified_ref(package, reference)` returns the complete package/group/object
 identity for a nonnull import or export. It rejects cycles and invalid or null

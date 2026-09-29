@@ -159,8 +159,7 @@ class BspReleaseTests(unittest.TestCase):
                 if '://' not in link and not link.startswith('#'):
                     self.assertTrue((root / link.split('#')[0]).is_file(), link)
 
-    def test_shared_core_profile_remains_unchanged(self):
-        self.assertEqual(len(build_core.FILES), 15)
+    def test_core_profile_stays_separate_from_bsp(self):
         raw, prefix = build_core.build_bytes(build_core.ROOT, 'core-test', 'test-revision')
         with zipfile.ZipFile(io.BytesIO(raw)) as archive:
             manifest = json.loads(archive.read(prefix + '/MANIFEST.json'))

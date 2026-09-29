@@ -1053,8 +1053,10 @@ the declaration flags are respectively `1`, `0` and `0`.
 
 Default extraction checks the complete `Core.Object` → `Engine.Actor` →
 `Engine.Info` → `Engine.ZoneInfo` → `Engine.LevelInfo` ancestry. Each class must
-have one validated terminal default stream. The qualified zero-plus-parent
-default path supplies absent declared bits; ambiguous streams remain unsupported.
+have a [source-bound serialized default boundary](native-class-defaults-evidence.md)
+and declaration-validated tags through its exact export end. The qualified
+zero-plus-parent default path supplies absent declared bits; unsupported
+prefixes or bytecode remain unsupported.
 The sweep record retains this evidence as `levelCollisionDefaults`.
 
 `savedLevelCollisionMode` identifies the first reference of the saved `+0x38`

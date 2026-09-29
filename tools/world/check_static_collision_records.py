@@ -22,6 +22,166 @@ from export_static_collision import (
     read_props_ordered,
 )
 from l2lib import RF_HAS_STACK, encode_compact, read_properties
+from export_npc_visuals import OriginalClasses, serialized_defaults
+
+
+def check_class_prefix(package, export, prefix):
+    """Re-encode retained prefix fields and compare the exact original span.
+
+    This catches lost fields, changed values and span errors. Native serializer
+    qualification, not this round trip, supplies the layout's source evidence.
+    """
+    refs = prefix["references"]
+    if len(refs) != 5:
+        raise ValueError("class prefix requires five references")
+    encoded = bytearray(
+        b"".join(encode_compact(n) for n in [*refs[:4], prefix["name"], refs[4]])
+    )
+    script = prefix["script"]
+    encoded += struct.pack(
+        "<iii", prefix["line"], prefix["textPosition"], script["memoryBytes"]
+    )
+    script_start = len(encoded)
+    for row in script["tokens"]:
+        if row["offset"] != export.serial_offset + len(encoded):
+            raise ValueError("class expression source offset mismatch")
+        token = row["token"]
+        encoded.append(token)
+        if token in (0x00, 0x01, 0x02, 0x13, 0x29, 0x2E):
+            encoded += encode_compact(row["reference"])
+        elif token in (0x09, 0x18):
+            encoded += struct.pack("<H", row["word"])
+        elif token in (0x24, 0x2C, 0x39):
+            encoded.append(row["byte"])
+        elif (
+            token
+            not in (
+                0x08,
+                0x0B,
+                0x16,
+                0x17,
+                0x25,
+                0x26,
+                0x27,
+                0x28,
+                0x2A,
+                0x2D,
+                0x30,
+                0x31,
+            )
+            and token < 0x70
+        ):
+            raise ValueError("unsupported class expression in round trip")
+    if (
+        script["sourceOffset"] != export.serial_offset + script_start
+        or script["sourceBytes"] != len(encoded) - script_start
+        or script["sourceSHA256"] != hashlib.sha256(encoded[script_start:]).hexdigest()
+    ):
+        raise ValueError("class expression source span mismatch")
+    state = prefix["state"]
+    encoded += struct.pack(
+        "<QQHI",
+        state["probeMask"],
+        state["ignoreMask"],
+        state["labelOffset"],
+        state["flags"],
+    )
+    if prefix["flagsOffset"] != export.serial_offset + len(encoded):
+        raise ValueError("class flags source offset mismatch")
+    fields = prefix["fields"]
+    encoded += struct.pack("<5I", fields["0x4a4"], *fields["0x4ac"])
+    dependencies = fields["0x4dc"]
+    encoded += encode_compact(len(dependencies))
+    for row in dependencies:
+        encoded += encode_compact(row["reference"]) + struct.pack(
+            "<II", row["word4"], row["word8"]
+        )
+    encoded += encode_compact(len(fields["0x4e8"]))
+    encoded += b"".join(encode_compact(n) for n in fields["0x4e8"])
+    encoded += encode_compact(fields["0x4bc"]) + encode_compact(fields["0x4c0"])
+    encoded += encode_compact(len(fields["0x500"]))
+    encoded += b"".join(encode_compact(n) for n in fields["0x500"])
+    start, end = export.serial_offset, export.serial_offset + export.serial_size
+    digest = hashlib.sha256(encoded).hexdigest()
+    if (
+        prefix["scope"] != "serialized-class-prefix"
+        or prefix["fileVersion"] != package.file_version
+        or prefix["exportOffset"] != start
+        or prefix["exportLength"] != export.serial_size
+        or prefix["exportSHA256"] != hashlib.sha256(package.data[start:end]).hexdigest()
+        or prefix["defaultsOffset"] != len(encoded)
+        or prefix["sourceBytes"] != len(encoded)
+        or prefix["sourceSHA256"] != digest
+        or not 0 <= start < start + len(encoded) < end <= len(package.data)
+        or package.data[start : start + len(encoded)] != encoded
+    ):
+        raise ValueError("class prefix does not match original bytes or span")
+    return dict(sourceOffset=start, sourceBytes=len(encoded), SHA256=digest)
+
+
+def check_saved_actor_classes(package, binding):
+    """Census saved actor classes and ancestors without claiming live defaults."""
+    arrays = [row for row in binding["actorArrays"] if row["nativeField"] == "0x38"]
+    if len(arrays) != 1:
+        raise ValueError("saved actor array required for class census")
+    pending = set()
+    for ref in arrays[0]["references"]:
+        if not ref:
+            continue
+        if type(ref) is not int or not 0 < ref <= len(package.exports):
+            raise ValueError("class census requires a local saved actor")
+        pending.add(qualified_ref(package, package.exports[ref - 1].class_index))
+    catalog, records = OriginalClasses(), {}
+    while pending:
+        qualified = min(pending)
+        pending.remove(qualified)
+        if qualified.casefold() in records:
+            continue
+        types = catalog.property_types(qualified, set())
+        source, name = qualified.split(".")
+        pkg = catalog.packages[catalog.files[source.casefold()].stem]
+        matches = [
+            e
+            for e in pkg.exports
+            if pkg.class_name_of(e) == "Class"
+            and pkg.export_name(e).casefold() == name.casefold()
+        ]
+        if len(matches) != 1:
+            raise ValueError("ambiguous saved actor class")
+        ex = matches[0]
+        parent = qualified_ref(pkg, ex.super_index) if ex.super_index else None
+        props, proof = serialized_defaults(pkg, ex, types)
+        prefix = proof["classPrefix"]
+        span = check_class_prefix(pkg, ex, prefix)
+        # Preserve array indices and duplicate tags in the second reader; the
+        # legacy value helper deliberately does not expose array indices.
+        tags, consumed = read_props_ordered(
+            pkg,
+            ex.serial_offset + prefix["defaultsOffset"],
+            end=ex.serial_offset + ex.serial_size,
+        )
+        if consumed != ex.serial_offset + ex.serial_size or [
+            tag["name"] for tag in tags
+        ] != [prop[0] for prop in props]:
+            raise ValueError("class default tag census differs from value reader")
+        records[qualified.casefold()] = dict(
+            sourceClass=qualified,
+            parent=parent,
+            prefixRoundTrip=span,
+            defaults=proof,
+            tags=[dict(tag, raw=tag["raw"].hex()) for tag in tags],
+        )
+        if parent:
+            pending.add(parent)
+    return dict(
+        scope="serialized-saved-actor-classes-and-ancestors",
+        sources=catalog.sources,
+        classCount=len(records),
+        records=list(records.values()),
+        limits=[
+            "Original serialization only; class construction, script execution, live actor state and collision dispatch remain separate."
+        ],
+    )
 
 
 def check_actor_frame(package, export, saved):
@@ -978,6 +1138,7 @@ def verify(tile, *, fresh_class_flags=None):
         actorReferences=actor_references,
         actorStateFrames=actor_frames,
         levelActorOrder=level_order,
+        savedActorClasses=check_saved_actor_classes(audit.pkg, audit.level_binding),
         levelCollisionMode=check_level_collision_mode(
             audit.pkg, audit.level_binding, audit.level_mode, audit.level_mode_defaults
         ),
@@ -1045,6 +1206,7 @@ def main():
             actor_count = len(report["actorTransforms"])
             actor_flags = len(report["actorFlags"])
             actor_references = len(report["actorReferences"])
+            classes = report["savedActorClasses"]
             report = {
                 key: report[key]
                 for key in [
@@ -1067,6 +1229,11 @@ def main():
                 ]
             }
             report["actorTransformRecords"] = actor_count
+            report["savedActorClasses"] = {
+                "classCount": classes["classCount"],
+                "scope": classes["scope"],
+                "classes": [row["sourceClass"] for row in classes["records"]],
+            }
             report["actorFlagRecords"] = actor_flags
             report["actorReferenceRecords"] = actor_references
             report["actorStateFrameRecords"] = len(actor_frames)

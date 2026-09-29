@@ -17,14 +17,15 @@ numbers this pipeline needs and cannot get anywhere else:
 Format notes (verified against Interlude `System/*.u`, file version 123,
 licensee 30):
 
-`UClass::Serialize` writes the class's default property stream LAST, and it
-terminates with the `None` name at the final byte of the export body.  The
-bytecode that precedes it has no self-describing length we decode here, so
-the start offset is found by trying every offset in the body and keeping the
-parse that consumes it exactly - a stream that ends on the last byte, with
-every name index in range and every property tag well formed, is not
-something random bytecode produces.  The stream uses the *packed* tag format
-(`ue2package._read_props_packed`), not the tagged one.
+This legacy reader searches every possible property-stream start and keeps
+a maximal parse reaching the export end. That is a heuristic, not proof of
+the UClass boundary: even a continuation byte inside a real property name can
+start a different, well-formed stream. Values from this path remain provisional.
+The source-bound file-123 reader is now `l2lib.classdata`; the world exporter
+uses it with inherited declaration checks. That reader walks the supported
+original serializers, keeps script memory size separate from saved byte count,
+and rejects unsupported tokens instead of searching for a plausible boundary.
+See `docs/native-class-defaults-evidence.md` for its evidence and limits.
 
 The decode is reproducible without this file: `umodel -uc` writes
 `#exec MESH SCALE`/`ORIGIN` for the same packages, and the CollisionHeight
@@ -128,7 +129,7 @@ def _parse_packed(pkg, body, start):
 
 
 def class_defaults(pkg, export):
-    """-> [(name, type, value)] for one `Class` export, or [] when undecodable."""
+    """Legacy heuristic [(name, type, value)]; [] can mean undecodable, not empty."""
     body = pkg.data[export.serial_offset:export.serial_offset + export.serial_size]
     best = []
     for start in range(len(body)):
