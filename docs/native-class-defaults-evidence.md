@@ -292,7 +292,7 @@ python3 tools/release/build_core.py --check
 ```
 
 Current standalone Core source builds include the reader/helper and portable
-fixtures, now including the metadata helpers and string reader below: **25 selected files / 81 checks**. The full native verifier and world
+fixtures, now including the metadata helpers and string reader below: **25 selected files / 84 checks**. The full native verifier and world
 inspector remain full-repository tools. Existing published ZIPs are unchanged.
 Complete default initialization, configuration, actual parent-class offsets, complete class
 loading and volume/world startup remain outstanding; no map repair is claimed.
@@ -323,18 +323,17 @@ includes every admitted inner kind, nested arrays, static dimensions, structure
 alignment/cleanup inputs, independent Boolean masks, flag preservation and exact
 Preload order. Inner flags are checked separately from the outer's lists.
 
-With `--original-volumes --property-lists`, twelve source arrays undergo **42
-offset comparisons: 7,990 / 277** in three authored parent-size contexts. Ten
-have known consumed flag dependencies; their **30 full-list comparisons** pass
-(**13,952 / 448**, or **22,952 / 658** with `--replication`). The other two need
-qualified Material/NSkillProjectile class bits. Both possible consumed-bit inputs
-are tested for offset invariance; neither is declared to be the actual source
-flag. These are **not actual Actor offsets**, complete class initialization or
-live volume admission. Native/saved parent reflection and preserve-offset mode
-remain explicit next investigations.
+With `--original-volumes --property-lists`, twelve source arrays now undergo
+**36 offset comparisons: 6,852 / 275** in three authored parent-size contexts.
+All twelve have known consumed flag dependencies after the expanded referenced-
+class recovery below; **36 full-list comparisons** pass (**16,728 / 448**, or
+**27,528 / 658** with `--replication`). Material/NSkillProjectile no longer use
+unknown-bit variants. These array-only contexts are not actual Actor offsets;
+the separate complete inherited-class comparison below covers that graph.
+Neither stage alone initializes a live volume.
 
 The existing commands above include these checks; there is no duplicate tool
-or new private input bundle. Thirteen declaration and twenty-one layout/metadata
+or new private input bundle. Thirteen declaration and twenty-four layout/metadata
 portable tests are included in current standalone Core source builds. No original
 records, DLL bytes or local receipts are bundled. All previous screenshots and
 published ZIPs remain unchanged; no browser visual change is claimed.
@@ -400,7 +399,7 @@ python3 tools/ui/check_property_layout_native.py \
 
 The Core, Engine and package fingerprints above apply. Full inspector output
 contains original metadata and should stay private; `--check` emits a compact
-summary. The portable library and twenty-one authored layout/metadata tests are
+summary. The portable library and twenty-four authored layout/metadata tests are
 included in standalone Core source builds. No browser UI or world startup
 changes accompany this component; the current tool screenshots remain valid.
 
@@ -414,12 +413,14 @@ where one exists, retaining only their agreed consumed bit. It never chooses a
 convenient full current word. Saved prefixes use the existing bounded class
 reader, including nonzero scripts, with exact package hashes and parent checks.
 
-The pinned source yields seven profiles: Engine.Actor, PhysicsVolume, Sound,
-ZoneInfo, Info, DecorationList and Core.Class. Sound and Class have no saved
-class export in the pinned packages; their profiles explicitly retain only
-native evidence. All seven agree on a clear consumed bit. Other current flags
-remain unknown. Source variants, registration ranges, saved-prefix fingerprints
-and source hashes are retained in the private receipt.
+The pinned source yields **21 profiles**: the original Actor, PhysicsVolume,
+Sound, ZoneInfo, Info, DecorationList and Core.Class profiles, plus Core.Object,
+LevelInfo, Pawn, Inventory, Material, Mesh, StaticMesh, Model, Level,
+NSkillProjectile, L2NMover, ConvexVolume, StaticMeshInstance and MeshInstance.
+Every available native/saved variant agrees on a clear consumed bit. Classes
+without saved exports explicitly retain only native evidence; their absence is
+checked. Other current flags remain unknown. Exact variants, registration ranges,
+saved-prefix fingerprints and source hashes stay in the private receipt.
 
 The existing registration qualifier now also covers these native prefixes:
 
@@ -430,16 +431,30 @@ The existing registration qualifier now also covers these native prefixes:
 | Engine.DecorationList | `1084a3d0–1084a444` |
 | Engine.Sound | `1083f800–1083f872` |
 | Core.Class | `101c0390–101c03e3` |
+| Core.Object | `101c8060–101c80b4` (reused) |
+| Engine.LevelInfo | `1083b9d0–1083ba47` |
+| Engine.Pawn | `10846a10–10846a87` |
+| Engine.Inventory | `1083c580–1083c5f7` |
+| Engine.Material | `108449c0–10844a38` |
+| Engine.Mesh | `10846120–10846191` |
+| Engine.StaticMesh | `10849670–108496e6` (reused) |
+| Engine.Model | `108462e0–10846354` (reused) |
+| Engine.Level | `108447b0–10844824` |
+| Engine.NSkillProjectile | `1083ac10–1083ac84` |
+| Engine.L2NMover | `1083acc0–1083ad34` |
+| Engine.ConvexVolume | `108409f0–10840a64` |
+| Engine.StaticMeshInstance | `10849720–10849793` |
+| Engine.MeshInstance | `10846070–108460e1` |
 
 Engine operands and erased imports are bound individually to the pinned
 comparison's named symbols; Core's prefix matches byte for byte. The native
 UClass constructor, Class/State descriptors and consumed instruction are
 checked explicitly. Existing Actor/PhysicsVolume qualification is reused.
 No DLL is executed. The verifier runs every available source variant through
-both ObjectProperty and ClassProperty: **24 cases, 7,800 instructions at 247
+both ObjectProperty and ClassProperty: **64 cases, 20,800 instructions at 247
 addresses**. These supplement the authored positive/negative-bit comparisons.
 
-`--reference-flags` is optional and requires `--structure-links`, the pinned
+`--reference-flags` is optional and requires `--structure-links` or `--class-links`, the pinned
 owned Engine/Core DLLs and packages, and Capstone. Without it the inspector
 retains its package-only behavior: fifteen ready structures and unresolved
 PointRegion. With it all sixteen are ready. The API accepts a known-bit
@@ -450,6 +465,56 @@ This proves the consumed bit for ordinary native registration/saved loading of
 these pinned descriptors. Custom classes, external mutations, complete current
 class words, UClass/UState replication tables and CDO configuration/localization
 remain outside this component. It does not enable live volume admission.
+
+### Inherited class metadata
+
+`class_layouts` and `class_links` reuse the existing graph/link helpers for
+complete saved class inheritance. The root starts with its own declared fields,
+including original native-header storage; no padding or supplied parent size is
+inserted. Each field retains its owning class, saved flags and separate inner
+records. Missing parent/structure definitions fail. Unknown referenced-class
+state propagates an unsupported metadata result through descendants.
+
+The declaration inspector's `--class-links` implies structure preparation. With
+`--reference-flags`, all **eight classes and sixteen structures** have ready
+inputs for this component. Packages alone retain eight unsupported class results
+and one unsupported structure. Ready does **not** mean a native class registry,
+initialized default object or live actor has been constructed.
+
+Original-code comparison includes all saved nonproperty child links and the full
+inherited iterator order. **Eight offset cases pass: 43,075 instructions at 484
+addresses.** Their total sizes agree with seven independently bound native
+registrations (Object, Actor, Brush, Volume, BlockingVolume, MusicVolume and
+PhysicsVolume). WaterVolume is script-derived and has no claimed native
+registration-size check. Parent sizes come from the decoded graph in these
+cases, rather than from supplied native-size inputs.
+
+With native replication grouping enabled, **all eight full-list cases pass:
+388,349 instructions at 1,204 addresses**. The original script owner lookup,
+inherited PhysicsVolume condition, temporary map and return/stack/SEH/register
+preservation execute. Script reference DWORDs remain explicit authored bindings
+keyed by qualified source identities; this does not resolve live objects or
+evaluate condition truth. Without `--replication`, six nonreplicated classes
+pass (**275,716 / 681**) and PhysicsVolume/WaterVolume explicitly require that
+mode; no editor skip substitutes for their game-mode execution.
+
+```sh
+python3 tools/world/inspect_actor_declarations.py --class-links --reference-flags --check
+python3 tools/ui/check_property_layout_native.py \
+  --comparison-core /local/reference/system/Core.dll \
+  --property-lists --replication --original-volumes \
+  --comparison-engine /local/reference/system/engine.dll \
+  --output tmp/local-inherited-class-metadata.json
+```
+
+The source fingerprints above apply. Full output contains private original
+metadata; only source code, authored fixtures and evidence descriptions belong
+in a public release. Current Core source builds include 24 layout/metadata
+tests and **84 portable checks across 25 selected files**. No browser/UI change
+or new screenshot is needed for these tools. The original preserve-offset
+mode, UClass/UState tables, class binding, complete CDO/configuration/localization
+and actual world startup remain outside this component. All 53 live volumes
+remain unsupported.
 
 ### Game-mode replication grouping
 
@@ -513,7 +578,7 @@ temporary allocations are released. Full original return, stack/SEH, preserved
 registers, property flags, offsets and four lists are checked as well.
 The existing 155 list cases additionally pass with native map lifecycle:
 **449,840 instructions / 842 addresses**. Sixteen original structures add
-**17,786 / 793**; the 24 reference variants add **15,000 / 457**. The narrower
+**17,786 / 793**; the 64 reference variants add **40,000 / 457**. The narrower
 profile's current counts are recorded above.
 
 ```sh
@@ -527,7 +592,7 @@ python3 tools/ui/check_property_layout_native.py \
 Omit the original-volume options for authored cases only. Use
 `--script-expressions` alone to select expression checks without grouping.
 The portable materializer and grouping helper are included in current Core
-source builds: **25 selected files / 81 checks**. Complete class reflection,
+source builds: **25 selected files / 84 checks**. Complete class reflection,
 UClass/UState replication tables, object resolution, CDO configuration/localization
 and actual volume/world startup remain unfinished. No live volume admission,
 map repair, browser visual change or complete client parity is claimed.

@@ -291,21 +291,34 @@ def structure_layouts(structures):
     Cycles or unsupported property kinds reject the graph. Output is an offset
     stage only; it neither executes scripts nor constructs property lists.
     """
+    return _declaration_layouts(structures, None, "structure")
+
+
+def class_layouts(classes, structures):
+    """Recompute complete saved class chains using separately resolved structs.
+
+    Root fields start at zero, including any declared native header storage.
+    No padding, parent size, preserve-offset state or object lifetime is inferred.
+    """
+    return _declaration_layouts(classes, structure_layouts(structures), "class")
+
+
+def _declaration_layouts(declarations, structure_sizes, kind):
     records, layouts, visiting = {}, {}, set()
-    for row in structures:
+    for row in declarations:
         key = row["identity"].casefold()
         if key in records:
-            raise L2Error("duplicate structure identity")
+            raise L2Error("duplicate " + kind + " identity")
         records[key] = row
 
     def visit(name):
         key = name.casefold()
         if key in visiting:
-            raise L2Error("cyclic structure layout")
+            raise L2Error("cyclic " + kind + " layout")
         if key in layouts:
             return layouts[key]
         if key not in records:
-            raise L2Error("missing structure layout: " + name)
+            raise L2Error("missing " + kind + " layout: " + name)
         visiting.add(key)
         row = records[key]
         parent = visit(row["savedSuper"])["propertiesSize"] if row["savedSuper"] else 0
@@ -319,7 +332,13 @@ def structure_layouts(structures):
             if field["kind"] == "StructProperty":
                 if not field["reference"]:
                     raise L2Error("missing nested structure reference")
-                field["structSize"] = visit(field["reference"])["propertiesSize"]
+                if structure_sizes is None:
+                    nested = visit(field["reference"])
+                else:
+                    nested = structure_sizes.get(field["reference"].casefold())
+                    if nested is None:
+                        raise L2Error("missing structure layout: " + field["reference"])
+                field["structSize"] = nested["propertiesSize"]
             elif field["kind"] == "ArrayProperty":
                 field["inner"] = prepare(inner, active)
             return field
@@ -345,8 +364,34 @@ def structure_links(structures, reference_class_flags=None):
     prepare class reflection or execute replication-condition grouping.
     """
     structures = list(structures)
-    layouts = structure_layouts(structures)
-    records = {row["identity"].casefold(): row for row in structures}
+    return _declaration_links(
+        structures,
+        structure_layouts(structures),
+        reference_class_flags,
+        None,
+        "structure",
+    )
+
+
+def class_links(classes, structures, reference_class_flags=None):
+    """Prepare inherited offsets, consumed flags and four class property lists.
+
+    This is the recomputed saved-declaration path. Replication links still need
+    explicit loaded scripts via replication_links; this does not construct a
+    live class registry, UClass/UState tables or initialized default objects.
+    """
+    classes, structures = list(classes), list(structures)
+    return _declaration_links(
+        classes,
+        class_layouts(classes, structures),
+        reference_class_flags,
+        structure_links(structures, reference_class_flags),
+        "class",
+    )
+
+
+def _declaration_links(declarations, layouts, reference_class_flags, structures, kind):
+    records = {row["identity"].casefold(): row for row in declarations}
     if reference_class_flags is not None and not isinstance(
         reference_class_flags, dict
     ):
@@ -362,11 +407,11 @@ def structure_links(structures, reference_class_flags=None):
 
     def visit(key):
         if key in visiting:
-            raise L2Error("cyclic structure metadata")
+            raise L2Error("cyclic " + kind + " metadata")
         if key in results:
             if results[key]["status"] != "ready":
                 raise L2Error(
-                    "unresolved structure metadata: " + records[key]["identity"]
+                    "unresolved " + kind + " metadata: " + records[key]["identity"]
                 )
             return results[key]
         visiting.add(key)
@@ -377,8 +422,15 @@ def structure_links(structures, reference_class_flags=None):
             def prepare(declared, offset, identity):
                 field = dict(declared, **offset)
                 field["identity"] = identity
+                if kind == "class":
+                    field["ownerClass"] = row["identity"]
                 if field["kind"] == "StructProperty":
-                    nested = visit(field["reference"].casefold())
+                    name = field["reference"].casefold()
+                    nested = visit(name) if structures is None else structures.get(name)
+                    if nested is None or nested["status"] != "ready":
+                        raise L2Error(
+                            "unresolved structure metadata: " + field["reference"]
+                        )
                     field["structConstructorLink"] = bool(nested["lists"]["0x78"])
                 elif field["kind"] in ("ObjectProperty", "ClassProperty"):
                     field["referenceFlags"] = reference_flags.get(

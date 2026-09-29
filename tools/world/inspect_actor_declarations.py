@@ -20,7 +20,12 @@ from l2lib.declarations import (
     read_field_chain,
     read_struct_children,
 )
-from l2lib.propertylayout import structure_layouts, structure_links
+from l2lib.propertylayout import (
+    structure_layouts,
+    structure_links,
+    class_layouts,
+    class_links,
+)
 from l2lib.stringproperty import decode_string_property
 
 
@@ -40,9 +45,12 @@ def inspect_declarations(
     include_string_defaults=False,
     include_structure_links=False,
     include_reference_flags=False,
+    include_class_links=False,
 ):
-    if include_reference_flags and not include_structure_links:
-        raise ValueError("reference flags require structure-link preparation")
+    if include_reference_flags and not (include_structure_links or include_class_links):
+        raise ValueError(
+            "reference flags require structure-link or class-link preparation"
+        )
     catalog = OriginalClasses()
     classes, structures, visiting = {}, {}, set()
 
@@ -226,7 +234,7 @@ def inspect_declarations(
         report["limits"].append(
             "Optional savedStringDefaults overlays decoded tags through saved ancestry only. Untagged values remain unknown; native initialization, property acceptance, configuration/localization and current object storage are not inferred. Full output contains decoded private input values and payloads."
         )
-    if include_structure_links:
+    if include_structure_links or include_class_links:
         reference_flags = None
         if include_reference_flags:
             sys.path.insert(0, str(ROOT / "tools/ui"))
@@ -252,6 +260,20 @@ def inspect_declarations(
         report["limits"].append(
             "Optional structureLinks retains property Link flag changes and four lists, with own fields before inherited fields. Missing current referenced-class flags remain unsupported. No full class/reflection lifecycle or replication grouping is claimed."
         )
+    if include_class_links:
+        report["classLayouts"] = class_layouts(classes.values(), structures.values())
+        report["classLinks"] = class_links(
+            classes.values(), structures.values(), reference_flags
+        )
+        report["summary"]["classLinks"] = {
+            status: sum(
+                row["status"] == status for row in report["classLinks"].values()
+            )
+            for status in ("ready", "unsupported")
+        }
+        report["limits"].append(
+            "Optional classLinks recomputes saved inheritance, offsets, consumed flags and four property lists. Ready means only these components have inputs; replication bindings, UClass/UState tables, native binding, CDO configuration/localization and actual world startup are not inferred."
+        )
     return report
 
 
@@ -272,9 +294,14 @@ def main():
         help="also prepare supported structure flags/lists; unresolved class dependencies stay explicit",
     )
     parser.add_argument(
+        "--class-links",
+        action="store_true",
+        help="also prepare the complete saved class inheritance graph; implies structure links",
+    )
+    parser.add_argument(
         "--reference-flags",
         action="store_true",
-        help="with --structure-links, read consumed class bits from pinned owned DLLs/packages; requires Capstone",
+        help="with --structure-links or --class-links, read consumed class bits from pinned owned DLLs/packages; requires Capstone",
     )
     parser.add_argument(
         "--string-defaults",
@@ -282,14 +309,15 @@ def main():
         help="also decode and overlay saved string tags; full JSON contains private input values",
     )
     args = parser.parse_args()
-    if args.reference_flags and not args.structure_links:
-        parser.error("--reference-flags requires --structure-links")
+    if args.reference_flags and not (args.structure_links or args.class_links):
+        parser.error("--reference-flags requires --structure-links or --class-links")
     report = inspect_declarations(
         args.classes,
         include_structure_layouts=args.structure_layouts,
         include_string_defaults=args.string_defaults,
         include_structure_links=args.structure_links,
         include_reference_flags=args.reference_flags,
+        include_class_links=args.class_links,
     )
     if args.check:
         report = {

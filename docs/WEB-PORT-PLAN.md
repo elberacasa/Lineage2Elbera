@@ -59,8 +59,8 @@ matches its native registered size. Class parent sizes remain explicit qualified
 inputs; this does not complete parent reflection or class startup.
 Optional property-list verification now continues through UStruct.Link's return
 with original flag mutations and inherited iteration: 155 authored comparisons
-and all sixteen original structures pass. Seven referenced-class profiles now
-recover only the consumed bit from qualified native/saved evidence; 24 additional
+and all sixteen original structures pass. Twenty-one referenced-class profiles now
+recover only the consumed bit from qualified native/saved evidence; 64 additional
 comparisons exercise every source variant. Unconsumed current bits remain unknown.
 Game-mode replication grouping now matches 51 original-code cases, including
 loaded-expression traversal and the complete temporary map under supplied
@@ -71,11 +71,13 @@ bindings. Complete UClass/UState tables and runtime object resolution remain
 open; an editor-only skip is not used to admit game-mode volumes.
 Array inner linking now matches 552 authored native cases, including nested
 arrays and independent Boolean masks. The inspector follows twelve source array
-inners and reaches three additional structures. Ten arrays have prepared consumed
-flag dependencies; two require verified Material/NSkillProjectile class bits.
-Source checks use explicit authored owner contexts and do not claim actual Actor
-offsets. Next: those missing bits and native/saved parent reflection lifecycle,
-including the original preserve-offset path. Delegate linking remains outside
+inners and reaches three additional structures. All twelve arrays now have prepared consumed
+flag dependencies. The complete eight-class saved inheritance graph now matches
+original recomputed offsets and property lists, with seven independently bound
+native registration sizes. Full game-mode comparisons include inherited replication
+and the real nonproperty child chains. Current CDO/configuration/localization
+and actual class/world initialization remain next; preserve-offset mode remains
+outside this recompute-path evidence. Delegate linking remains outside
 this component; the inspected parent corpus contains no delegate declarations.
 Saved string loading and copying now preserve original code units and known
 default overrides, with 69 authored native comparisons and a check of both
