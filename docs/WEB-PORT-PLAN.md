@@ -50,8 +50,10 @@ and 256 storage-preservation cases. A corrected declaration reader resolves the
 original Gravity type and follows 360 declarations across eight classes and
 thirteen structures. Original localization context selection, nested/inherited
 traversal and optional language fallback now have 145 native comparisons and
-an asset-free Elbera inspection page. Configuration parsing, property text
-conversion, current linked metadata, script-class construction and the full
+an asset-free Elbera inspection page. Another 145 cases join the original
+string importer to browser storage; 76 direct cases check its UTF-16 behavior.
+Configuration parsing, other property importers, current linked metadata,
+source string/default storage, script-class construction and the full
 world startup join remain unfinished. A volume's saved localized class bit must not be replaced by
 the nonlocalized static-actor profile.
 [Class-default evidence](native-class-defaults-evidence.md) and

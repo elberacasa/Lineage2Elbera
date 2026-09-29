@@ -10,6 +10,96 @@ from actor_transform_source import raw
 from check_supplemental_engine import CORE_SHA, CANDIDATE_CORE_SHA
 
 
+def qualify_string_property_text(core, comparison):
+    """Bind the flags&2-clear ImportText path and complete assignment helpers.
+
+    The ImportText block is deliberately a guarded PREFIX, not the full quoted
+    parser. Stack probing is interpreted over supplied committed stack memory.
+    Allocation and memcpy stay explicit providers; no native DLL executes.
+    """
+    assert (core.sha, comparison.sha) == (CORE_SHA, CANDIDATE_CORE_SHA)
+    symbol = "?ImportText@UStrProperty@@UBEPBGPBGPAEH@Z"
+    assert core.exported(symbol, True) == comparison.body(symbol) == 0x10173AE0
+    thunk = core.exported(symbol)
+    assert comparison.exports[symbol] == thunk
+    targets = {hex(thunk): "0x10173ae0"}
+    for name, at in (
+        ("??4FString@@QAEAAV0@PBG@Z", 0x1010492B),
+        ("?Realloc@FArray@@IAEXH@Z", 0x101031D9),
+        ("?appStrlen@@YAHPBG@Z", 0x101034CC),
+    ):
+        assert core.exported(name) == comparison.exports[name] == at
+    for at, body in (
+        (thunk, 0x10173AE0),
+        (0x1010492B, 0x10114FD0),
+        (0x101031D9, 0x101522E0),
+        (0x101034CC, 0x1012DB60),
+    ):
+        core.instruction(at, "jmp", hex(body))
+        assert raw(core, at, at + 5) == comparison.read(at, 5)
+        targets[hex(at)] = hex(body)
+    table = "??_7UStrProperty@@6B@"
+    assert core.u32(core.exported(table) + 0x9C) == thunk
+    assert comparison.u32(comparison.exports[table] + 0x9C) == thunk
+    blocks = []
+    for name, start, end, scope in (
+        (
+            "UStrProperty.ImportText",
+            0x10173AE0,
+            0x10173B3A,
+            "portFlags & 2 clear prefix",
+        ),
+        ("FString wide assignment", 0x10114FD0, 0x1011501E, "complete ordinary body"),
+        ("FArray.Realloc", 0x101522E0, 0x10152346, "complete ordinary body"),
+        ("UTF-16 strlen", 0x1012DB60, 0x1012DB77, "complete body"),
+        (
+            "compiler stack probe",
+            0x1017ECE0,
+            0x1017ED0B,
+            "complete normal control flow",
+        ),
+    ):
+        data = raw(core, start, end)
+        assert data == comparison.read(start, len(data))
+        rows = list(core.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data)
+        blocks.append(
+            dict(
+                name=name,
+                start=hex(start),
+                end=hex(end),
+                scope=scope,
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    anchors = (
+        (0x10173B13, "test", "byte ptr [ebp + 0x10], 2"),
+        (0x10173B17, "jne", "0x10173b3a"),
+        (0x10173B20, "call", "0x1010492b"),
+        (0x10173B25, "mov", "eax, esi"),
+        (0x10114FD8, "cmp", "dword ptr [esi], edi"),
+        (0x10114FF6, "mov", "dword ptr [esi + 8], eax"),
+        (0x10114FF9, "mov", "dword ptr [esi + 4], eax"),
+        (0x10114FF2, "push", "2"),
+        (0x1011500F, "call", "0x1017ac60"),
+        (0x10152328, "call", "eax"),
+    )
+    for anchor in anchors:
+        core.instruction(*anchor)
+    return dict(
+        coreBlocks=blocks,
+        thunkTargets=targets,
+        importTextTarget=hex(thunk),
+        vtable=hex(core.exported(table)),
+        anchors=anchors,
+        limits=[
+            "Only the flags&2-clear ImportText prefix; quoted parsing is not ported.",
+            "Successful supplied allocator/memcpy and committed stack memory; not OS allocation, guard faults or SEH execution.",
+            "Browser compares text code units; native pointers and heap capacities remain interpreter evidence only.",
+        ],
+    )
+
+
 def qualify_actor_localization(core, comparison):
     assert (core.sha, comparison.sha) == (CORE_SHA, CANDIDATE_CORE_SHA)
     methods = (

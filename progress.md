@@ -2,6 +2,35 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original localized string storage — 29 September 2026
+
+The existing localization module now stores unquoted string-property text.
+The source qualifier binds the guarded UStrProperty.ImportText prefix, full
+ordinary FString assignment/Realloc, UTF-16 strlen and compiler stack probe.
+Port flag `2`'s quoted parser is explicitly excluded; native localization uses `0`.
+The original string importer now executes within 145 joined localization cases:
+616,891 instructions/572 addresses and 923 exact byte copies. Another 76 direct
+cases cover 36 same-buffer branches, four empty releases, Unicode/unpaired surrogates,
+literal quotes/whitespace, terminators and varied admitted port flags.
+
+The byte heap preserves unknown storage and exact two-byte allocation sizes;
+native counts/capacities/source-pointer returns/guards are checked. Allocation
+and memcpy remain explicit success providers, and stack probes touch supplied
+committed words. Browser storage uses immutable UTF-16 strings; no duplicate
+native heap or guessed pointer/capacity is exposed to the game.
+
+Thirteen portable localization, five interpreter and the related loader/bounds
+tests pass (66 browser cases combined). All 30 browser tool control combinations
+pass with exact visible before/after values and no captured errors. Both the
+existing runner screenshot and updated full tool capture were VIEWED. The
+curated public screenshot contains only authored inputs. All 17 README image
+URLs and published release archives remain unchanged; the tool capture is updated.
+
+Actual map volumes remain unsupported; class-linking phase, current offsets,
+source/default string storage and configuration lookup still need integration.
+No scene or map asset changed. Next: those original source bindings and the
+volume/world startup join. The full browser-client goal stays ACTIVE/incomplete.
+
 ## Original localization control flow — 29 September 2026
 
 Added the source-bound object localization module and a reusable Elbera native

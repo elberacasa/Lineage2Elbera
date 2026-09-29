@@ -70,8 +70,11 @@ The [object-localization inspector](../editor/world/test/actor-localization.html
 shows current-object section selection, nested keys and language fallback using
 authored inputs and the browser module. It needs no game files. Its native
 verifier compares 145 cases against pinned Core instructions, with explicit
-configuration, CRT and text-import providers. Thirty browser control
-combinations pass. This does not yet localize actual volume storage or enable
+configuration and CRT providers. A joined suite now executes the original
+string importer and compares stored browser values; 76 further direct cases
+check UTF-16 assignment. The tool shows before/after storage and all thirty
+browser control combinations pass. This does not yet localize actual volume
+storage or enable
 world collision. [Screenshot, reproduction and scope](../docs/native-actor-localization-evidence.md).
 
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone

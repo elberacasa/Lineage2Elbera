@@ -4,6 +4,7 @@ import {
   actorLocalizationContext,
   localizeOptionalText,
   loadActorLocalized,
+  importStringPropertyText,
 } from "../js/actor-localization.js";
 
 const freeze = (value) => {
@@ -264,4 +265,109 @@ test("configuration and text import failures preserve a useful unsupported resul
       };
     assert.equal(loadActorLocalized(row).status, "unsupported");
   }
+});
+
+test("string ImportText preserves literal text and UTF-16 units through the first terminator", () => {
+  for (const [text, value] of [
+    ['  "quoted" \\ literal  ', '  "quoted" \\ literal  '],
+    ["Café / 水 / 🌊", "Café / 水 / 🌊"],
+    ["first\0ignored", "first"],
+    ["\0ignored", ""],
+    ["", ""],
+    ["\ud800", "\ud800"],
+    ["\udfff", "\udfff"],
+  ]) {
+    for (const portFlags of [0, 1, 4, 0xfffffffd]) {
+      const storage = new Map([
+        [16, "old"],
+        [28, "neighbor"],
+      ]);
+      assert.deepEqual(
+        importStringPropertyText({
+          storage,
+          offset: 16,
+          text,
+          portFlags,
+          propertyKind: "StrProperty",
+        }),
+        { status: "ready", value },
+      );
+      assert.deepEqual(
+        [...storage],
+        [
+          [16, value],
+          [28, "neighbor"],
+        ],
+      );
+    }
+  }
+});
+
+test("unsupported string dispatch, quoted mode and missing storage leave values intact", () => {
+  const storage = new Map([[16, "old"]]);
+  const valid = {
+    storage,
+    offset: 16,
+    text: "new",
+    portFlags: 0,
+    propertyKind: "StrProperty",
+  };
+  for (const changes of [
+    { propertyKind: "IntProperty" },
+    { propertyKind: undefined },
+    { portFlags: 2 },
+    { portFlags: 3 },
+    { portFlags: -1 },
+    { offset: 17 },
+    { text: undefined },
+    { storage: new Map([[16, undefined]]) },
+    {
+      storage: new Map([
+        [16, "old"],
+        [20, "overlap"],
+      ]),
+    },
+    {
+      storage: new Map([
+        [16, "old"],
+        ["unknown", "unresolved"],
+      ]),
+    },
+  ]) {
+    assert.equal(
+      importStringPropertyText({ ...valid, ...changes }).status,
+      "unsupported",
+    );
+    assert.equal(storage.get(16), "old");
+  }
+});
+
+test("joined localization writes known strings and preserves them on missing or empty translations", () => {
+  for (const [found, value, expected] of [
+    [false, null, "old"],
+    [true, "", "old"],
+    [true, "new", "new"],
+  ]) {
+    const row = fixture(),
+      storage = new Map([[0, "old"]]);
+    row.environment.readConfig = () => ({ status: "ready", found, value });
+    row.importText = (call) =>
+      importStringPropertyText({
+        ...call,
+        storage,
+        propertyKind: "StrProperty",
+      });
+    assert.equal(loadActorLocalized(row).status, "ready");
+    assert.equal(storage.get(0), expected);
+  }
+  const row = fixture([
+    field("First"),
+    field("MissingStorage", { offset: 12 }),
+  ]);
+  const storage = new Map([[0, "old"]]);
+  row.importText = (call) =>
+    importStringPropertyText({ ...call, storage, propertyKind: "StrProperty" });
+  assert.equal(loadActorLocalized(row).status, "unsupported");
+  assert.equal(storage.get(0), "text");
+  assert.equal(storage.has(12), false);
 });

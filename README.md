@@ -73,8 +73,9 @@ unfinished. The class-prefix decoder is available in the standalone Core preview
 
 The new **Elbera object-localization inspector** shows original section
 selection, nested property keys and English fallback using clearly labeled
-authored inputs. Its browser module matches **145 original-control-flow cases**;
-configuration parsing and property text conversion remain explicit boundaries.
+authored inputs. Its browser module now stores localized string values,
+matching **145 joined original-code cases** plus **76 direct string cases**.
+Current class linking and configuration parsing remain unfinished.
 [Tool screenshot, reproduction and remaining work](docs/native-actor-localization-evidence.md).
 
 [Actor source evidence](docs/native-class-defaults-evidence.md) ·

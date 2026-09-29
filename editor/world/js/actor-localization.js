@@ -3,7 +3,8 @@
  * Evidence: tools/ui/check_actor_localization_native.py. The caller supplies
  * linked field order (not package export order), immutable reflection metadata,
  * current object context, configuration replies and the property's ImportText.
- * This does not resolve saved classes, parse INI files or implement ImportText.
+ * This does not resolve saved classes or parse INI files. The unquoted string
+ * property importer below preserves text values using browser string storage.
  */
 const uint = (n) => Number.isInteger(n) && n >= 0 && n <= 0xffffffff;
 const int = (n) => Number.isInteger(n) && n >= -0x80000000 && n <= 0x7fffffff;
@@ -41,8 +42,8 @@ export function localizeOptionalText({
       : [environment.language, "int"];
   for (const language of languages) {
     const filename = `${packageName}.${language}`;
-    // The original filename destination has 256 UTF-16 cells, despite the
-    // formatter's 1024-cell limit. Do not reproduce a stack-buffer overflow.
+    // Conservatively keep the filename below the original stack-local region;
+    // this guard is an admitted input boundary, not an official filename rule.
     if (filename.length >= 256)
       return unavailable("localization filename exceeds bounded storage");
     let reply;
@@ -203,4 +204,48 @@ export function loadActorLocalized(input = {}) {
   } catch (error) {
     return finish(unavailable(error.message || "localization provider failed"));
   }
+}
+
+/** UStrProperty.ImportText with port flag 2 clear, as used by localization.
+ *
+ * The caller must bind the original string-property dispatch and existing
+ * storage explicitly. JavaScript strings preserve UTF-16 code units; native
+ * heap pointers/capacities are not simulated. Other property types and the
+ * quoted token parser require their own implementations.
+ */
+export function importStringPropertyText({
+  storage,
+  offset,
+  text,
+  portFlags,
+  propertyKind,
+} = {}) {
+  if (propertyKind !== "StrProperty")
+    return unavailable("original string-property dispatch required");
+  if (!uint(portFlags) || portFlags & 2)
+    return unavailable("quoted string import is unresolved");
+  if (
+    !(storage instanceof Map) ||
+    !uint(offset) ||
+    offset > 0xfffffff4 ||
+    !storage.has(offset) ||
+    typeof storage.get(offset) !== "string"
+  )
+    return unavailable("current string storage missing");
+  for (const other of storage.keys()) {
+    if (
+      !uint(other) ||
+      other > 0xfffffff4 ||
+      (other !== offset && Math.abs(other - offset) < 12)
+    )
+      return unavailable("overlapping or unresolved string storage");
+  }
+  if (typeof text !== "string")
+    return unavailable("source UTF-16 text missing");
+  // Native strlen/copy stops at the first zero WORD. Quotes, whitespace,
+  // backslashes and surrogate code units are otherwise copied unchanged.
+  const end = text.indexOf("\0");
+  const value = end < 0 ? text : text.slice(0, end);
+  storage.set(offset, value);
+  return { status: "ready", value };
 }

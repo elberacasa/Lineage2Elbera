@@ -4,11 +4,15 @@ from types import SimpleNamespace
 import unittest
 
 from actor_octree_admission_machine import AdmissionMachine, PartialWord
-from check_actor_localization_native import LocalizationMachine
+from check_actor_localization_native import (
+    LocalizationMachine,
+    StringLocalizationMachine,
+)
+from capstone import Cs, CS_ARCH_X86, CS_MODE_32
 
 
-def machine():
-    m = object.__new__(LocalizationMachine)
+def machine(cls=LocalizationMachine):
+    m = object.__new__(cls)
     program = SimpleNamespace(
         rows=[],
         half=0.5,
@@ -49,6 +53,42 @@ class LocalizationMemoryTest(unittest.TestCase):
         m.write("dx", 0x1234)
         self.assertEqual(m.registers["edx"], 0xCAFE1234)
         self.assertEqual(m.read("dx"), 0x1234)
+
+    def test_byte_heap_retains_partial_words_without_rounding_string_sizes(self):
+        m = machine(StringLocalizationMachine)
+        old = m.allocate(6)
+        m.write(f"word ptr [{old:#x}]", 0x1234)
+        m.write(f"word ptr [{old+4:#x}]", 0xABCD)
+        new = m.reallocate(old, 10)
+        self.assertEqual(m.blocks[new], 10)
+        self.assertNotIn(old, m.blocks)
+        self.assertEqual(m.read(f"word ptr [{new:#x}]"), 0x1234)
+        self.assertEqual(m.read(f"word ptr [{new+4:#x}]"), 0xABCD)
+        with self.assertRaises(AssertionError):
+            m.read(f"word ptr [{new+2:#x}]")
+        with self.assertRaises(AssertionError):
+            m.read(f"word ptr [{new+6:#x}]")
+        self.assertEqual(m.reallocate(new, 0), 0)
+        self.assertEqual(m.blocks, {})
+
+    def test_stack_probe_integer_operations_preserve_correct_borrow_and_registers(self):
+        m = machine(StringLocalizationMachine)
+        dis = Cs(CS_ARCH_X86, CS_MODE_32)
+        sbb = next(dis.disasm(bytes.fromhex("1bc0"), 0x9000))
+        inv = next(dis.disasm(bytes.fromhex("f7d0"), 0x9002))
+        swap = next(dis.disasm(bytes.fromhex("94"), 0x9004))
+        for carry in (False, True):
+            m.registers["eax"] = 0x56781234
+            m.carry = carry
+            m.step(sbb)
+            self.assertEqual(m.registers["eax"], 0xFFFFFFFF if carry else 0)
+            self.assertEqual(m.carry, carry)
+            m.step(inv)
+            self.assertEqual(m.registers["eax"], 0 if carry else 0xFFFFFFFF)
+            self.assertEqual(m.carry, carry)
+        m.registers.update(eax=0x1234, esp=0x5678)
+        m.step(swap)
+        self.assertEqual((m.registers["eax"], m.registers["esp"]), (0x5678, 0x1234))
 
 
 if __name__ == "__main__":
