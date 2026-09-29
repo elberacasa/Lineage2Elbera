@@ -25,6 +25,8 @@ from l2lib.propertylayout import (
     property_link_flags,
     property_lists,
     structure_links,
+    class_layouts,
+    class_links,
     replication_links,
 )
 from actor_transform_source import qualify_property_declarations
@@ -153,7 +155,7 @@ class PropertyLayoutMachine(AdmissionMachine):
             self.expected_preloads.append(parent)
         self.memory[self.owner + 0x48] = 0x200000 if fields else 0
         for index, field in enumerate(fields):
-            at, vtable = 0x200000 + index * 0x200, 0x400000 + index * 0x100
+            at, vtable = 0x200000 + index * 0x200, 0x1000000 + index * 0x100
             self.prepare_field(at, vtable, self.owner, field)
             self.memory[at + 0x38] = at + 0x200 if index + 1 < len(fields) else 0
             if field["kind"] in program.receipt["propertyMethods"]:
@@ -693,7 +695,7 @@ class PropertyLinkMachine(ScriptExpressionMachine):
         for level, fields in enumerate(self.inherited or ([[]] if parent else [])):
             owner = parent if level == 0 else 0x130000 + level * 0x10000
             next_owner = 0x130000 + (level + 1) * 0x10000
-            first = 0x300000 + level * 0x10000
+            first = 0x300000 + level * 0x100000
             self.memory.update(
                 {
                     owner: table,
@@ -1195,6 +1197,137 @@ def original_array_comparisons(
     )
 
 
+def original_class_comparisons(program, declarations, profiles, registration):
+    """Recomputed full saved parent chains, qualified sizes and consumed lists."""
+    from l2lib import load_package, qualified_ref
+    from l2lib.classdata import materialize_class_script
+
+    classes, structures = declarations["classes"], declarations["structures"]
+    layouts = class_layouts(classes.values(), structures.values())
+    metadata = class_links(classes.values(), structures.values(), profiles)
+    registered = {
+        r["sourceClass"].casefold(): r
+        for r in registration["parentStorage"] + registration["volumeStorage"]
+    }
+    offset_cases, list_cases, records = [], [], []
+    scripts, identities = {}, {}
+    packages = {}
+    for key, row in classes.items():
+        identity = row["identity"]
+        package_name = identity.split(".")[0]
+        if package_name not in packages:
+            matches = [
+                name
+                for name in declarations["sources"]
+                if name.casefold() == (package_name + ".u").casefold()
+            ]
+            assert len(matches) == 1
+            path = ROOT / "assets/interlude/system" / matches[0]
+            assert (
+                hashlib.sha256(path.read_bytes()).hexdigest()
+                == declarations["sources"][matches[0]]
+            )
+            packages[package_name] = load_package(path)[0]
+        package = packages[package_name]
+        script = row["classPrefix"]["script"]
+        refs = {t["reference"] for t in script["tokens"] if "reference" in t}
+        identities[identity] = {
+            ref: qualified_ref(package, ref) if ref else None for ref in refs
+        }
+        scripts[identity] = dict(decoded=script)
+    by_identity = {
+        name: 0x710000 + i * 4
+        for i, name in enumerate(
+            sorted(
+                {
+                    name
+                    for refs in identities.values()
+                    for name in refs.values()
+                    if name is not None
+                }
+            )
+        )
+    }
+    for name, script in scripts.items():
+        script["referenceValues"] = {
+            ref: by_identity[value] if value else 0
+            for ref, value in identities[name].items()
+        }
+
+    def native_field(field, saved):
+        field = dict(field)
+        if saved:
+            field["propertyFlags"] = field["savedPropertyFlags"]
+        if field["kind"] == "ArrayProperty":
+            field["inner"] = native_field(field["inner"], saved)
+        elif field["kind"] in ("ObjectProperty", "ClassProperty"):
+            profile = profiles.get((field["reference"] or "").casefold())
+            if profile:
+                field["referenceFlagsNative"] = profile["evidence"]["variants"][0]
+        return field
+
+    def chain(key, saved):
+        fields = {
+            f["exportRef"]: native_field(f, saved) for f in metadata[key]["ownFields"]
+        }
+        return [
+            fields.get(f["exportRef"], f) for f in classes[key]["fieldChain"]["fields"]
+        ]
+
+    for key, row in classes.items():
+        linked, layout = metadata[key], layouts[key]
+        assert linked["status"] == "ready", linked
+        if key in registered:
+            assert registered[key]["parent"] == row["savedSuper"]
+            assert layout["propertiesSize"] == registered[key]["byteSize"]
+        parent_size = layout["parentSize"] if row["savedSuper"] else None
+        fields = chain(key, True)
+        offset_cases.append(dict(parent=parent_size, fields=fields))
+        owners, inherited, parent = [row["identity"]], [], row["savedSuper"]
+        while parent:
+            owner = classes[parent.casefold()]
+            inherited.append(chain(parent.casefold(), False))
+            owners.append(owner["identity"])
+            parent = owner["savedSuper"]
+        replicated = any(f["propertyFlags"] & 0x20 for f in linked["fields"])
+        admitted = not replicated or "replication" in program.receipt
+        if admitted:
+            list_cases.append(
+                dict(
+                    parent=parent_size,
+                    fields=fields,
+                    inherited=inherited,
+                    scripts=scripts,
+                    loadedScripts={
+                        i: materialize_class_script(
+                            scripts[name]["decoded"], scripts[name]["referenceValues"]
+                        )
+                        for i, name in enumerate(owners)
+                    },
+                )
+            )
+        records.append(
+            dict(
+                identity=row["identity"],
+                propertiesSize=layout["propertiesSize"],
+                nativeRegistration=registered.get(key),
+                listStatus="checked" if admitted else "requires-replication-mode",
+            )
+        )
+    return dict(
+        layouts=layouts,
+        metadata=metadata,
+        records=records,
+        comparisons=compare_cases(program, offset_cases),
+        linkComparisons=compare_link_cases(program, list_cases),
+        limits=[
+            "Complete saved parent chains in recompute mode, including nonproperty links and array inners. Seven native registration sizes are checked; the script-derived class has no native registration size.",
+            "Reference-class consumed bits come from pinned native/saved consensus. Loaded script reference DWORDs remain explicit authored identity bindings, not a runtime object loader.",
+            "No full UClass/UState tables, native binding, initialized CDO/configuration/localization or actual world startup is claimed. The narrower list profile leaves replicated classes unadmitted.",
+        ],
+    )
+
+
 def original_volume_offsets(program, core, comparison, engine, comparison_engine):
     """Use original linked declarations and independently registered parent sizes.
 
@@ -1376,6 +1509,11 @@ def original_volume_offsets(program, core, comparison, engine, comparison_engine
         arrays=original_array_comparisons(
             program, declarations, structures, metadata, profiles
         ),
+        classes=(
+            original_class_comparisons(program, declarations, profiles, source)
+            if profiles is not None
+            else None
+        ),
     )
 
 
@@ -1485,6 +1623,11 @@ def main():
             k: result["originalVolumes"]["arrays"][k]
             for k in ("comparisons", "linkComparisons", "limits")
         }
+        if result["originalVolumes"]["classes"] is not None:
+            summary["originalVolumes"]["classes"] = {
+                k: result["originalVolumes"]["classes"][k]
+                for k in ("comparisons", "linkComparisons", "limits")
+            }
         if result["originalVolumes"]["structureLinks"] is not None:
             summary["originalVolumes"]["structureLinks"] = {
                 k: result["originalVolumes"]["structureLinks"][k]

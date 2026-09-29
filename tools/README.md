@@ -64,7 +64,7 @@ The native verifier also checks 256 cases across four native volume constructors
 including preservation of existing name/string storage. Localized PostLoad now
 has a composed comparison below; complete volume startup remains unfinished.
 Current standalone Core source builds
-include the declaration, nested-layout and string readers and fixtures (25 files/81 checks); existing ZIPs
+include the declaration, nested-layout and string readers and fixtures (25 files/84 checks); existing ZIPs
 are unchanged. [Commands, fingerprints and limits](../docs/native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations).
 
 The declaration inspector now returns `fieldChain` separately from export-order
@@ -83,22 +83,25 @@ load-time flags and the four inherited lists, including full ordinary method
 return and null termination. The declaration inspector's `--structure-links`
 option prepares fifteen original structures from packages alone. Add
 `--reference-flags` to recover the consumed class bit from pinned owned DLLs and
-packages: all sixteen structures then prepare, including PointRegion. Seven
-class profiles and 24 original-code comparisons cover every source variant;
+packages: all sixteen structures then prepare, including PointRegion. Twenty-one
+class profiles and 64 original-code comparisons cover every source variant;
 Capstone is required for this optional native reader. Unknown bits stay unknown.
 Full class startup remains unresolved. Add `--replication` to the native
 property-list check for original game-mode grouping: 51 cases execute expression
 traversal, owner lookup, byte comparisons and the complete temporary-map lifecycle
 under supplied allocation. `--script-expressions` independently checks loaded
-script boundaries. The portable layout/metadata helpers now have twenty-one tests
+script boundaries. The portable layout/metadata helpers now have twenty-four tests
 and the class-prefix/script helpers have ten in Core source builds. [Inputs and limits](../docs/native-class-defaults-evidence.md#linked-property-flags-and-lists).
 
 Array properties now retain their owned inner declarations and original linking
-behavior. The same verifier adds 552 authored array cases and 42 original-array
-offset checks in explicit authored owner contexts. Thirty full-list checks cover
-ten arrays with known dependencies; two source reference-class flags remain
-unknown. No actual Actor offset or live-volume claim follows from these cases.
+behavior. The same verifier adds 552 authored array cases and 36 original-array
+offset and full-list checks in explicit authored owner contexts. All twelve
+arrays now have verified consumed reference-class bits. The inspector also offers
+`--class-links --reference-flags`: all eight source class chains have recomputed
+metadata, checked against original linking with seven native registration sizes.
+CDO initialization and live volumes remain unfinished.
 [Array inputs, source ranges and limits](../docs/native-class-defaults-evidence.md#array-inner-linking).
+[Inherited class metadata and scope](../docs/native-class-defaults-evidence.md#inherited-class-metadata).
 
 The declaration inspector's `--string-defaults` option retains saved string tags,
 exact storage units, hashes and inherited overrides. Its `--check` summary omits

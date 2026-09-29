@@ -14,6 +14,8 @@ from l2lib.propertylayout import (
     property_link_flags,
     property_lists,
     structure_links,
+    class_layouts,
+    class_links,
     replication_links,
 )
 from l2lib.classdata import read_class_script
@@ -44,6 +46,83 @@ def structure(name, fields, parent=None):
 
 
 class PropertyLayoutTest(unittest.TestCase):
+    def test_class_inheritance_uses_declared_root_storage_and_distinct_owners(self):
+        root = structure("Example.Root", [dict(field("Int", 3), propertyFlags=0)])
+        parent = structure(
+            "Example.Parent", [dict(field("Byte"), propertyFlags=0)], "Example.Root"
+        )
+        nested = structure("Example.Value", [dict(field("Str"), propertyFlags=0)])
+        child = structure(
+            "Example.Child",
+            [
+                dict(field("Bool"), propertyFlags=0),
+                dict(
+                    field("Array"),
+                    propertyFlags=0,
+                    inner=dict(
+                        field("Struct"),
+                        name="Value",
+                        propertyFlags=0,
+                        reference="Example.Value",
+                    ),
+                ),
+            ],
+            "Example.Parent",
+        )
+        result = class_links([child, parent, root], [nested])
+        self.assertTrue(all(row["status"] == "ready" for row in result.values()))
+        self.assertEqual(result["example.root"]["propertiesSize"], 12)
+        self.assertEqual(result["example.parent"]["propertiesSize"], 16)
+        value = result["example.child"]
+        self.assertEqual(value["propertiesSize"], 32)
+        self.assertEqual([f["offset"] for f in value["fields"]], [16, 20, 12, 0])
+        self.assertEqual(
+            value["lists"]["0x70"],
+            [
+                "Example.Child.Field0",
+                "Example.Child.Field1",
+                "Example.Parent.Field0",
+                "Example.Root.Field0",
+            ],
+        )
+        self.assertEqual(value["lists"]["0x78"], ["Example.Child.Field1"])
+        self.assertEqual(value["ownFields"][1]["inner"]["offset"], 0)
+        self.assertEqual(value["ownFields"][1]["inner"]["propertyFlags"], 0x400000)
+        self.assertEqual(
+            [f["ownerClass"] for f in value["fields"]],
+            ["Example.Child", "Example.Child", "Example.Parent", "Example.Root"],
+        )
+        self.assertNotIn("offset", root["fields"][0])
+
+    def test_unknown_parent_reference_flags_propagate_without_disabling_offsets(self):
+        parent = structure(
+            "Example.Parent",
+            [dict(field("Object"), propertyFlags=0, reference="Other.Object")],
+        )
+        child = structure(
+            "Example.Child", [dict(field("Name"), propertyFlags=0)], "Example.Parent"
+        )
+        layout = class_layouts([child, parent], [])
+        self.assertEqual(layout["example.child"]["propertiesSize"], 8)
+        result = class_links([child, parent], [])
+        self.assertTrue(all(row["status"] == "unsupported" for row in result.values()))
+        result = class_links(
+            [child, parent], [], {"Other.Object": dict(mask=0x200000, value=0)}
+        )
+        self.assertTrue(all(row["status"] == "ready" for row in result.values()))
+        self.assertEqual(result["example.child"]["lists"]["0x78"], [])
+
+    def test_class_graph_rejects_missing_parents_structures_cycles_and_duplicates(self):
+        root = structure("Example.Root", [])
+        missing_parent = structure("Example.Child", [], "Missing.Parent")
+        cyclic = structure("Example.Cycle", [], "Example.Cycle")
+        missing_struct = structure(
+            "Example.Child", [dict(field("Struct"), reference="Missing.Struct")]
+        )
+        for records in ([root, root], [missing_parent], [cyclic], [missing_struct]):
+            with self.assertRaises(L2Error):
+                class_layouts(records, [])
+
     def test_array_inner_has_independent_origin_and_boolean_mask(self):
         array = dict(field("Array", 3), inner=field("Bool", 2))
         result = property_offsets([field("Bool"), array, field("Bool")], 7)

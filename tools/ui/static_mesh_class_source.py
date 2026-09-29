@@ -77,6 +77,74 @@ REFERENCE_REGISTRATIONS = (
 )
 
 
+# Additional declarations consumed by Object -> Actor -> Brush parent fields.
+# Named descriptor type, named parent, exact initializer prefix, flags operand,
+# expected input word, and whether a saved class export must also be present.
+PARENT_REFERENCE_REGISTRATIONS = (
+    ("ALevelInfo", "AZoneInfo", 0x1083B9D0, 0x1083BA47, 0x1083BA30, 0x804, True),
+    ("APawn", "AActor", 0x10846A10, 0x10846A87, 0x10846A70, 0x804, True),
+    ("AInventory", "AActor", 0x1083C580, 0x1083C5F7, 0x1083C5E0, 0x800, True),
+    ("UMaterial", "UObject", 0x108449C0, 0x10844A38, 0x10844A24, 1, True),
+    ("UMesh", "UPrimitive", 0x10846120, 0x10846191, 0x10846180, 0, False),
+    ("ULevel", "ULevelBase", 0x108447B0, 0x10844824, 0x10844810, 0, False),
+    ("ANSkillProjectile", "ANProjectile", 0x1083AC10, 0x1083AC84, 0x1083AC70, 0, True),
+    ("AL2NMover", "AActor", 0x1083ACC0, 0x1083AD34, 0x1083AD20, 0, True),
+    ("UConvexVolume", "UPrimitive", 0x108409F0, 0x10840A64, 0x10840A50, 0, False),
+    ("UStaticMeshInstance", "UObject", 0x10849720, 0x10849793, 0x10849782, 0, False),
+    ("UMeshInstance", "UPrimitive", 0x10846070, 0x108460E1, 0x108460D0, 0, False),
+)
+
+
+def parent_reference_prefixes(engine, comparison_engine):
+    """Explicit named operands for the additional pinned registration prefixes."""
+    for cls, parent, start, end, _, _, _ in PARENT_REFERENCE_REGISTRATIONS:
+        symbol = "?PrivateStaticClass@" + cls + "@@0VUClass@@A"
+        if cls == "UMaterial":
+            operands = [
+                (start + 0x18, "import", "?InternalConstructor@UObject@@SAXPAX@Z"),
+                (start + 0x1F, "import", "?StaticConstructor@UObject@@QAEXXZ"),
+                (start + 0x37, "export", "GPackage"),
+                (end - 10, "export", symbol),
+            ]
+            imports = [
+                (start + offset, name)
+                for offset, name in (
+                    (0x10, "??0FGuid@@QAE@KKKK@Z"),
+                    (0x2A, "?StaticConfigName@UObject@@SAPBGXZ"),
+                    (0x56, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+                    (0x5D, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+                    (0x72, CLASS_CTOR),
+                )
+            ]
+        else:
+            operands = [
+                (start + 0x19, "import", "?StaticConstructor@UObject@@QAEXXZ"),
+                (start + 0x35, "export", "GPackage"),
+                (end - 10, "export", symbol),
+            ]
+            imports = [
+                (start + 0x10, "??0FGuid@@QAE@KKKK@Z"),
+                (start + 0x28, "?StaticConfigName@UObject@@SAPBGXZ"),
+                (start + 0x54, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+            ]
+            if parent == "UObject":
+                imports.append((start + 0x5B, "?StaticClass@UObject@@SAPAVUClass@@XZ"))
+            else:
+                operands.append(
+                    (
+                        start + 0x5C,
+                        "export",
+                        "?PrivateStaticClass@" + parent + "@@0VUClass@@A",
+                    )
+                )
+            imports.append((end - 6, CLASS_CTOR))
+        bindings = [
+            (at, engine.u32(at), comparison_engine.u32(at - 64), kind, name)
+            for at, kind, name in operands
+        ]
+        yield cls[1:], start, end, bindings, imports
+
+
 def read_root_class_flags(package):
     """Read the source-bound, zero-script file-123 root-class prefix only."""
     return read_zero_script_class_flags(package, "Object", None)
@@ -670,13 +738,46 @@ def reference_class_loading_bits(engine, core, engine_package, core_package):
             for name, parent, start, end, _, _, _, flags in REFERENCE_REGISTRATIONS
         ],
         ("Core.Class", "Core.State", 0x101C0390, 0x101C03E3, None, 0, False),
+        ("Core.Object", None, 0x101C8060, 0x101C80B4, 0x101C8093, 0x400001, True),
+        (
+            "Engine.StaticMesh",
+            "Engine.Primitive",
+            0x10849670,
+            0x108496E6,
+            0x108496CF,
+            0x2040,
+            False,
+        ),
+        (
+            "Engine.Model",
+            "Engine.Primitive",
+            0x108462E0,
+            0x10846354,
+            0x10846340,
+            0,
+            False,
+        ),
+        *[
+            (
+                "Engine." + cls[1:],
+                ("Core." if parent == "UObject" else "Engine.") + parent[1:],
+                start,
+                end,
+                at,
+                flags,
+                saved,
+            )
+            for cls, parent, start, end, at, flags, saved in PARENT_REFERENCE_REGISTRATIONS
+        ],
     ]
     records = {}
     for identity, parent, start, end, at, expected, has_saved in registrations:
         package = engine_package if identity.startswith("Engine.") else core_package
         image = engine if package is engine_package else core
         if at is not None:
-            image.instruction(at, "push", hex(expected) if expected else "0")
+            image.instruction(
+                at, "push", hex(expected) if expected > 9 else str(expected)
+            )
             instruction = next(
                 image.dis.disasm(
                     bytes(image.data[image.offset(at) : image.offset(at) + 5]), at
@@ -698,7 +799,11 @@ def reference_class_loading_bits(engine, core, engine_package, core_package):
         saved = None
         if matches:
             export = matches[0]
-            assert qualified_ref(package, export.super_index) == parent
+            assert (
+                qualified_ref(package, export.super_index)
+                if export.super_index
+                else None
+            ) == parent
             prefix = read_class_default_prefix(package, export)
             saved = dict(
                 flags=prefix["fields"]["0x4a4"],
@@ -748,6 +853,7 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
     read = lambda va, n: bytes(engine.data[engine.offset(va) : engine.offset(va) + n])
     blocks = []
     for label, start, end, bindings, imports in [
+        *parent_reference_prefixes(engine, comparison_engine),
         (
             "Actor",
             0x1083B5B0,
@@ -1119,9 +1225,31 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
                 registrationStart=hex(start),
             )
         )
+    parent_storage = []
+    for image, identity, parent, at, expected in (
+        (core, "Core.Object", None, 0x101C809F, 0x34),
+        (engine, "Engine.Actor", "Core.Object", 0x1083B617, 0x3BC),
+        (engine, "Engine.Brush", "Engine.Actor", 0x1083D9D2, 0x418),
+    ):
+        image.instruction(at, "push", hex(expected))
+        instruction = next(
+            image.dis.disasm(
+                bytes(image.data[image.offset(at) : image.offset(at) + 8]), at
+            )
+        )
+        parent_storage.append(
+            dict(
+                sourceClass=identity,
+                parent=parent,
+                byteSize=int(instruction.op_str, 0),
+                sizeInstruction=hex(at),
+                imageSHA256=image.sha,
+            )
+        )
     return dict(
         engineBlocks=blocks,
         coreBlocks=core_blocks,
+        parentStorage=parent_storage,
         rootPrefixAnchors=anchors,
         volumeStorage=volume_storage,
         classDefaultPrefix=qualify_class_default_prefix(core, comparison_core),

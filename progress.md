@@ -2,6 +2,39 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Recomputed inherited class metadata — 29 September 2026
+
+The existing graph helpers now prepare complete saved class inheritance, with
+explicit owners, root declarations, array inners and separate structure metadata.
+No padding or native parent size is invented. Unknown dependencies propagate
+unsupported status. The inspector exposes --class-links; adding --reference-flags
+prepares all eight classes and sixteen structures. Packages alone retain eight
+unsupported classes and PointRegion, preserving the actual evidence boundary.
+
+The source reader now qualifies 21 referenced-class consumed-bit profiles,
+closing fourteen parent-field dependencies including both array gaps. Native
+registration/saved words agree only on the consumed bit; full current words
+remain unknown. Eleven new Engine prefixes have exact named-operand/import
+comparisons; existing Object/Model/StaticMesh evidence is reused. All 64 source
+variant comparisons pass (40,000 instructions / 457 addresses with native map).
+
+All eight complete class offsets match original execution (43,075 / 484), and
+seven totals match independently registered native sizes. Eight full property-
+list cases pass with inherited scripts and native map (388,349 / 1,204). The
+narrower mode checks six and explicitly leaves PhysicsVolume/WaterVolume needing
+replication mode. Actual source child chains include all nonproperty links.
+The authored memory provider now separates large ancestor chains and property
+tables. Twelve source arrays now have 36 offset and full-list comparisons with
+known dependencies. Prior scalar/array/structure/script/grouping suites pass.
+
+Core source builds retain 25 allowlisted files / 84 portable checks, including
+24 layout/metadata cases; packaging has three checks. No browser/runtime/UI
+change; all seventeen README image URLs preserved. Published ZIPs unchanged.
+Next: CDO initialization/configuration/localization and actual startup. A private
+probe located LoadConfig's early class-bit-4 skip; investigate it before assuming
+these nonconfig classes require full configuration parsing. Never infer an absent
+GConfig from a missing INI. All 53 live volumes remain unsupported; goal ACTIVE.
+
 ## Original array inner linking — 29 September 2026
 
 The declaration inspector now follows all twelve Actor array inners with exact

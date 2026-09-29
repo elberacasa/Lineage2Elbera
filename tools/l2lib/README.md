@@ -121,8 +121,18 @@ here. Missing flags and duplicate identities fail explicitly.
 `structure_links(records, reference_class_flags=None)` combines the existing
 structure layouts with these operations. It retains `savedPropertyFlags`
 separately, reports unresolved dependencies as `unsupported`, and never invents
-referenced-class flags. Twenty-one portable cases cover the combined layout/metadata
+referenced-class flags. Twenty-four portable cases cover the combined layout/metadata
 APIs, including the replication helper below. Full class startup remains open.
+
+`class_layouts(classes, structures)` reuses the structure graph and recomputes
+complete saved class inheritance from the declared root fields.
+`class_links(classes, structures, reference_class_flags=None)` adds consumed flags
+and four inherited lists, retaining each field's `ownerClass`, saved flags and
+array inners. Missing parent/structure definitions fail; unknown consumed class
+bits propagate an `unsupported` result through descendants. No padding or parent
+size is invented. These helpers do not initialize a native class registry,
+UClass/UState tables, defaults or configuration. Replication links still require
+explicit loaded scripts through the separate helper below.
 
 `read_class_script` retains each token's loaded `memoryOffset` and exclusive
 `expressionEnd`, in addition to its saved offset. `materialize_class_script`

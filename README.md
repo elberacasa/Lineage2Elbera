@@ -78,19 +78,22 @@ calculated size matches its engine registration; full class loading remains open
 The same tool now retains load-time property flags and the original inherited
 copy lists. **155 original-code comparisons** cover those lists; all **16 original
 structures** now match. A source reader recovers the single consumed class flag
-for seven referenced classes without inventing their complete current state.
-Another **24 comparisons** exercise every recovered source variant. Original
+for **21 referenced classes** without inventing their complete current state.
+Another **64 comparisons** exercise every recovered source variant. Original
 game-mode replication grouping now also matches **51 comparisons**, including
 inherited fields and the client's temporary-map lifecycle. Complete class
 startup and live volumes remain open.
 [Property linking and remaining dependencies](docs/native-class-defaults-evidence.md#linked-property-flags-and-lists).
 Array linking now preserves the original inner-type preparation, with **552
 original-code cases** checking nested layouts and flags. Reading Actor's twelve
-array inners uncovered three previously missed structures. Two referenced-class
-flags remain unresolved; actual Actor offsets and live volume admission are
-still pending. The reusable decoder is included in current Elbera Tools Core
-source builds (**25 files / 81 portable checks**).
-[Array evidence and limits](docs/native-class-defaults-evidence.md#array-inner-linking).
+array inners uncovered three previously missed structures. Their remaining
+referenced-class flag gaps are now closed. Complete recomputed **Object → Actor
+→ Brush → volume inheritance** matches original linking for all eight classes,
+including inherited lists and replication. Seven native registration sizes
+match independently. Default-object initialization and live volume admission
+remain pending. The reusable decoder is included in current Elbera Tools Core
+source builds (**25 files / 84 portable checks**).
+[Array evidence](docs/native-class-defaults-evidence.md#array-inner-linking) · [Inherited class metadata](docs/native-class-defaults-evidence.md#inherited-class-metadata).
 The source reader also preserves original string defaults through saved volume
 ancestry, including the water-specific override. Its bounded decoder retains
 UTF-16 code units and embedded zeros, with **69 original-code loading/copy
