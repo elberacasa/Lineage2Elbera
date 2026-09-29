@@ -20,9 +20,10 @@ from export_static_collision import (
     Reader,
     count,
     read_props_ordered,
+    serialized_class_record,
 )
 from l2lib import RF_HAS_STACK, encode_compact, read_properties
-from export_npc_visuals import OriginalClasses, serialized_defaults
+from export_npc_visuals import OriginalClasses
 
 
 def check_class_prefix(package, export, prefix):
@@ -137,33 +138,9 @@ def check_saved_actor_classes(package, binding):
         pending.remove(qualified)
         if qualified.casefold() in records:
             continue
-        types = catalog.property_types(qualified, set())
-        source, name = qualified.split(".")
-        pkg = catalog.packages[catalog.files[source.casefold()].stem]
-        matches = [
-            e
-            for e in pkg.exports
-            if pkg.class_name_of(e) == "Class"
-            and pkg.export_name(e).casefold() == name.casefold()
-        ]
-        if len(matches) != 1:
-            raise ValueError("ambiguous saved actor class")
-        ex = matches[0]
-        parent = qualified_ref(pkg, ex.super_index) if ex.super_index else None
-        props, proof = serialized_defaults(pkg, ex, types)
-        prefix = proof["classPrefix"]
-        span = check_class_prefix(pkg, ex, prefix)
-        # Preserve array indices and duplicate tags in the second reader; the
-        # legacy value helper deliberately does not expose array indices.
-        tags, consumed = read_props_ordered(
-            pkg,
-            ex.serial_offset + prefix["defaultsOffset"],
-            end=ex.serial_offset + ex.serial_size,
-        )
-        if consumed != ex.serial_offset + ex.serial_size or [
-            tag["name"] for tag in tags
-        ] != [prop[0] for prop in props]:
-            raise ValueError("class default tag census differs from value reader")
+        pkg, ex, source = serialized_class_record(catalog, qualified)
+        parent, proof, tags = source["parent"], source["defaults"], source["tags"]
+        span = check_class_prefix(pkg, ex, proof["classPrefix"])
         records[qualified.casefold()] = dict(
             sourceClass=qualified,
             parent=parent,
@@ -181,6 +158,228 @@ def check_saved_actor_classes(package, binding):
         limits=[
             "Original serialization only; class construction, script execution, live actor state and collision dispatch remain separate."
         ],
+    )
+
+
+def check_saved_actor_boolean_records(audit, world):
+    """Cross-check inherited/saved bits with the generic packed-property reader.
+
+    The separate reader collapses tags, so it checks final named Boolean values
+    and framing only. Source tag ordering is retained by the exporter; original
+    instruction comparisons establish the property gate/writer separately.
+    """
+    proof = world["savedActorBooleans"]
+    if (
+        proof.get("scope") != "saved-actor-declared-booleans"
+        or world["tile"] != audit.tile
+    ):
+        raise ValueError("saved Boolean source scope or tile differs")
+    layout = audit.boolean_layout
+    fields = {f["name"].casefold(): f["name"] for g in layout for f in g["fields"]}
+    catalog, computed, origins, active = OriginalClasses(), {}, {}, set()
+
+    def properties(pkg, start, end):
+        reader = Reader(memoryview(pkg.data)[:end], start, pkg.path)
+        values = read_properties(pkg, reader, fmt="packed")
+        return {name.casefold(): value for name, value in values.items()}, reader.pos
+
+    def apply(previous, properties):
+        result = dict(previous)
+        for name in fields:
+            if name in properties:
+                value = properties[name]
+                if type(value) is not bool:
+                    raise ValueError("generic Boolean decode has a non-Boolean value")
+                result[name] = value
+        return result
+
+    def groups(values):
+        return {
+            g["offset"]: dict(
+                mask=g["mask"],
+                value=sum(
+                    f["mask"] for f in g["fields"] if values[f["name"].casefold()]
+                ),
+            )
+            for g in layout
+        }
+
+    def inherited(key):
+        if key in computed:
+            return computed[key]
+        if key in active:
+            raise ValueError("cyclic retained class defaults")
+        active.add(key)
+        row = proof["classes"][key]
+        pkg, ex, original = serialized_class_record(catalog, row["sourceClass"])
+        if key != row["sourceClass"].casefold() or row["parent"] != original["parent"]:
+            raise ValueError("retained class identity or ancestor differs from source")
+        prefix = row["defaults"]["classPrefix"]
+        check_class_prefix(pkg, ex, prefix)
+        if row["defaults"] != original["defaults"] or row["tags"] != [
+            dict(t, raw=t["raw"].hex()) for t in original["tags"]
+        ]:
+            raise ValueError("retained class proof or ordered tags differ from source")
+        values, consumed = properties(
+            pkg,
+            ex.serial_offset + prefix["defaultsOffset"],
+            ex.serial_offset + ex.serial_size,
+        )
+        if consumed != ex.serial_offset + ex.serial_size:
+            raise ValueError("generic class defaults do not consume the export")
+        if key == "core.object":
+            if row["parent"] is not None or row["actorBooleans"] is not None:
+                raise ValueError("unexpected original root default record")
+            current = None
+            owners = None
+        elif key == "engine.actor":
+            if row["parent"] != "Core.Object":
+                raise ValueError("unexpected original Actor parent")
+            inherited("core.object")
+            current = apply({name: False for name in fields}, values)
+            owners = {
+                name: "zero-initialized-class-default" for name in fields.values()
+            }
+        else:
+            parent = inherited(row["parent"].casefold()) if row["parent"] else None
+            if parent is None:
+                raise ValueError("retained class is outside Actor ancestry")
+            current = apply(parent, values)
+            owners = dict(origins[row["parent"].casefold()])
+        if current is not None and row["actorBooleans"]["groups"] != groups(current):
+            raise ValueError(
+                "retained class Boolean defaults differ from original tags"
+            )
+        if owners is not None:
+            owners.update(
+                {fields[name]: row["sourceClass"] for name in fields if name in values}
+            )
+            if row["actorBooleans"]["origins"] != owners:
+                raise ValueError(
+                    "retained Boolean default origins differ from ancestry"
+                )
+        computed[key] = current
+        origins[key] = owners
+        active.remove(key)
+        return current
+
+    if set(proof["actors"]) != set(world["savedActorSources"]):
+        raise ValueError("saved Boolean records differ from retained actor identities")
+    records = []
+    for key, identity in world["savedActorSources"].items():
+        ref = int(key)
+        if key != str(ref) or not 0 < ref <= len(audit.pkg.exports):
+            raise ValueError("saved Boolean export reference is invalid")
+        ex, saved = audit.pkg.exports[ref - 1], proof["actors"][key]
+        if (
+            identity["identity"] != qualified_ref(audit.pkg, ref)
+            or identity["exportRef"] != ref
+            or identity["sourcePackage"] != audit.tile
+            or identity["exportSHA256"]
+            != hashlib.sha256(
+                audit.pkg.data[ex.serial_offset : ex.serial_offset + ex.serial_size]
+            ).hexdigest()
+        ):
+            raise ValueError("saved Boolean actor identity differs from source export")
+        cls = qualified_ref(audit.pkg, ex.class_index)
+        if (
+            cls != identity["classIdentity"]
+            or saved["sourceClass"] != cls
+            or saved["scope"] != "saved-actor-declared-booleans"
+        ):
+            raise ValueError("saved Boolean class differs from original export")
+        check_actor_frame(audit.pkg, ex, saved["savedStateFrame"])
+        start, end = (
+            ex.serial_offset + saved["savedStateFrame"]["sourceBytes"],
+            ex.serial_offset + ex.serial_size,
+        )
+        values, consumed = properties(audit.pkg, start, end)
+        ordered, used = read_props_ordered(audit.pkg, start, end=end)
+        expected_tags = [
+            dict(name=fields[p["name"].casefold()], value=p["boolval"])
+            for p in ordered
+            if p["name"].casefold() in fields
+        ]
+        if (
+            used != consumed
+            or saved["tags"] != expected_tags
+            or saved["overrides"] != {p["name"]: p["value"] for p in expected_tags}
+        ):
+            raise ValueError("saved Boolean tag order or overrides differ from source")
+        expected = groups(apply(inherited(cls.casefold()), values))
+        if saved["groups"] != expected:
+            raise ValueError(
+                "saved Boolean groups differ from original tags and ancestry"
+            )
+        for name, lo, hi in [
+            ("propertyStream", start, consumed),
+            ("nativeTail", consumed, end),
+        ]:
+            if saved[name] != dict(
+                sourceOffset=lo,
+                sourceBytes=hi - lo,
+                sourceSHA256=hashlib.sha256(audit.pkg.data[lo:hi]).hexdigest(),
+            ):
+                raise ValueError(
+                    "saved Boolean stream or native tail differs from source"
+                )
+        records.append(
+            dict(
+                reference=ref,
+                sourceClass=cls,
+                groups=expected,
+                nativeTailBytes=end - consumed,
+            )
+        )
+    if set(proof["classes"]) != set(computed) or proof["sources"] != catalog.sources:
+        raise ValueError(
+            "retained class set or source fingerprints differ from decoded inputs"
+        )
+    runtime = (
+        Path(__file__).resolve().parents[2] / "editor/world/js/static-world-source.js"
+    )
+    script = r"""
+import {pathToFileURL} from 'node:url';
+const {prepareStaticWorldSource}=await import(pathToFileURL(process.argv[1]));
+let raw='';for await(const part of process.stdin)raw+=part;
+const input=JSON.parse(raw),result=prepareStaticWorldSource(input,input.tile);
+if(result.status!=='ready')throw Error(result.reason);
+process.stdout.write(JSON.stringify({summary:result.summary,records:Object.keys(input.savedActorSources).map(key=>({
+ reference:Number(key),groups:result.actorForReference(Number(key)).savedGroups
+}))}));
+"""
+    ran = subprocess.run(
+        ["node", "--input-type=module", "-e", script, str(runtime)],
+        input=json.dumps(world),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    loaded = json.loads(ran.stdout)
+    if loaded["records"] != [
+        dict(reference=r["reference"], groups=r["groups"]) for r in records
+    ]:
+        raise ValueError("scene loader saved groups differ from checked source records")
+    return dict(
+        scope="saved declared fields; subclass lifecycle and current collision remain unresolved",
+        cases=len(records),
+        classes=len(computed),
+        classesWithSavedCollision=sorted(
+            {
+                r["sourceClass"]
+                for r in records
+                if any(
+                    f["name"] == "bCollideActors"
+                    and r["groups"][g["offset"]]["value"] & f["mask"]
+                    for g in layout
+                    for f in g["fields"]
+                )
+            }
+        ),
+        opaqueNativeTails=sum(r["nativeTailBytes"] > 0 for r in records),
+        browserSummary=loaded["summary"],
+        records=records,
+        runtimeSHA256=hashlib.sha256(runtime.read_bytes()).hexdigest(),
     )
 
 
@@ -1011,6 +1210,9 @@ def verify(tile, *, fresh_class_flags=None):
     audit = Audit(tile, retain_sweep_data=True)
     actors = audit.actors()
     report = audit.report(actors)
+    saved_booleans = check_saved_actor_boolean_records(
+        audit, audit.world_source_output(actors)
+    )
     level_order = check_level_actor_order(audit.pkg, audit.level_binding, actors)
     actor_transforms, actor_flags, actor_references, actor_frames = [], [], [], []
     for actor in actors:
@@ -1139,6 +1341,7 @@ def verify(tile, *, fresh_class_flags=None):
         actorStateFrames=actor_frames,
         levelActorOrder=level_order,
         savedActorClasses=check_saved_actor_classes(audit.pkg, audit.level_binding),
+        savedActorBooleans=saved_booleans,
         levelCollisionMode=check_level_collision_mode(
             audit.pkg, audit.level_binding, audit.level_mode, audit.level_mode_defaults
         ),
@@ -1207,6 +1410,7 @@ def main():
             actor_flags = len(report["actorFlags"])
             actor_references = len(report["actorReferences"])
             classes = report["savedActorClasses"]
+            saved_booleans = report["savedActorBooleans"]
             report = {
                 key: report[key]
                 for key in [
@@ -1233,6 +1437,9 @@ def main():
                 "classCount": classes["classCount"],
                 "scope": classes["scope"],
                 "classes": [row["sourceClass"] for row in classes["records"]],
+            }
+            report["savedActorBooleans"] = {
+                k: v for k, v in saved_booleans.items() if k != "records"
             }
             report["actorFlagRecords"] = actor_flags
             report["actorReferenceRecords"] = actor_references

@@ -8,12 +8,20 @@ separate allowlisted Python source kit: l2lib, the UTX editor, script extractor
 and XDAT decoder, with portable checks and no game/app assets. Its release
 builder tests the actual archive in an isolated directory before writing it.
 
-The current Core source build includes a bounded UClass prefix reader and
+The [Core 0.2.0 preview](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.2.0-preview)
+and current Core source builds include a bounded UClass prefix reader and
 portable fixtures. It resolves a real mover default-boundary ambiguity by
 following original serialization, with no fallback search. The world exporter
 uses it; its original-record checker also retains ordered defaults for saved
 actor classes and ancestors. [Evidence and commands](../docs/native-class-defaults-evidence.md).
 The existing published Core 0.1.0 archive is unchanged.
+
+The world exporter now retains shared Actor Boolean fields through each exact
+class ancestry and every saved actor's ordered map overrides. The actual scene
+loader preserves them separately from constructed state; movers and volumes
+remain unprepared. Both original-map checks include the complete source bundle,
+known-bit groups, provenance and opaque native tails. See the
+[world-loader evidence](../docs/native-class-defaults-evidence.md#saved-actor-flags-in-the-world-loader).
 
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
 kit for qualified NPC selectors, original sparse-key bundles and optional GPU

@@ -133,3 +133,57 @@ collision dispatch, level startup and live world queries still require their
 own source recovery and integration. This change does not repair map rendering
 or claim a playable, fully faithful client. Original inputs and raw receipts
 remain private and are excluded from source/tool releases.
+
+## Saved actor flags in the world loader
+
+The full-repository world exporter now follows each actor's exact class ancestry
+to recover the **82 declared Actor Boolean fields** used by the collision
+components. Their original four word layouts are shared with the existing
+typed-copy/property evidence. Only their declared masks become known; padding
+is not filled in. Missing declared defaults use the separately qualified
+zero-plus-parent class-default path. Each field retains the class that last
+overrode it, or its explicit zero-initialization origin.
+
+The reader rejects cyclic or unrelated ancestry and subclasses redeclaring a
+consumed field. It retains ordered map overrides, including repeated tags,
+the exact saved frame, the property-stream span and any opaque native tail.
+Each map's TerrainInfo has a **262,773-byte** tail after its properties; this
+record hashes that tail without interpreting or discarding it.
+
+The source bundles contain **1,237** Boolean records for Talking Island and
+**2,406** for Giran. Talking Island's count includes three static exports absent
+from the saved actor array. The **3,640 saved actors** have these true saved
+`bCollideActors` values; these counts are not current collision membership:
+
+| Class | Talking Island | Giran |
+| --- | ---: | ---: |
+| StaticMeshActor | 951 | 1,891 |
+| WaterVolume | 1 | 8 |
+| BlockingVolume | 3 | 13 |
+| MusicVolume | 12 | 16 |
+| Mover | 0 | 10 |
+
+`check_static_collision_records.py` independently reads final Boolean values
+with the generic packed-property decoder, checks the retained prefix and source
+spans, rereads ordered tags and origins, and runs the complete bundle through
+the actual browser source-loader module. The commands above exercise this
+path. Deliberately changed bits, ancestry, origins, stream hashes, tail spans
+and tag order are rejected in local original-input checks.
+
+`prepareStaticWorldSource` preserves the verified subset as
+`actorForReference(ref).savedGroups`. It is separate from `prepared` actor state;
+unimplemented classes remain unprepared. Older bundles without these records
+retain an unresolved subset, rather than invented false flags. Updated private
+bundles are connected to the actual scene loader. Offline Giran reports all
+2,406 saved Boolean records and still reports collision unavailable.
+
+The native registration checker also binds **32 virtual slots across eight
+native actor classes** in the pinned Engine copies. Mover has its own PostLoad;
+brush and volume classes use ABrush.PostLoad and ABrush.GetPrimitive. These are
+method-identity checks, not execution of those subclass routines. They prevent
+silently treating the existing static-prop lifecycle as suitable for every actor.
+
+This world extraction/verification remains a full-repository tool; the standalone
+Core preview includes the class-prefix decoder, not the world exporter. Complete
+subclass construction, PostLoad, primitive providers, startup and live queries
+are still required. No map rendering or Online movement repair is claimed.

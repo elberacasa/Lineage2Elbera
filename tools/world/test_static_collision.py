@@ -17,6 +17,7 @@ from check_static_collision_records import check_class_prefix
 from export_npc_visuals import serialized_defaults, terminal_defaults
 from l2lib.tests.test_classdata import class_fixture
 from l2lib.classdata import read_class_default_prefix
+from export_static_collision import ActorBooleanDefaults, saved_actor_booleans, saved_boolean_overrides
 
 
 def compact(n):
@@ -799,6 +800,165 @@ def authored_actor_layout(first_count=2):
         resolve_ref=lambda n: imports[-n-1] if n < 0 else exports[n-1], import_name=lambda e: e.name), by_name
 
 
+class ActorBooleanSourceTest(unittest.TestCase):
+    def layout(self):
+        # Authored positions/names; this fixture is not an original Actor layout.
+        return [
+            dict(
+                offset="0x40",
+                mask=3,
+                fields=[dict(name="AuthoredA", mask=1), dict(name="AuthoredB", mask=2)],
+            )
+        ]
+
+    def prop(self, name, value):
+        return dict(name=name, type=3, index=0, boolval=value, raw=b"")
+
+    def test_ordered_tags_preserve_unknown_bits_and_do_not_mutate_parent_defaults(self):
+        groups = {"0x40": dict(mask=3, value=1)}
+        result = saved_boolean_overrides(
+            self.layout(),
+            groups,
+            [
+                self.prop("authoredb", True),
+                self.prop("AuthoredA", False),
+                self.prop("AuthoredB", False),
+                self.prop("Unconsumed", True),
+            ],
+        )
+        self.assertEqual(result["groups"], {"0x40": dict(mask=3, value=0)})
+        self.assertEqual(
+            result["tags"],
+            [
+                dict(name="AuthoredB", value=True),
+                dict(name="AuthoredA", value=False),
+                dict(name="AuthoredB", value=False),
+            ],
+        )
+        self.assertEqual(groups, {"0x40": dict(mask=3, value=1)})
+        self.assertEqual(result["overrides"], {"AuthoredA": False, "AuthoredB": False})
+
+    def test_unknown_bits_wrong_masks_and_malformed_consumed_tags_fail(self):
+        for groups in [
+            {},
+            {"0x40": dict(mask=7, value=0)},
+            {"0x40": dict(mask=3, value=4)},
+        ]:
+            with self.assertRaises(ValueError):
+                saved_boolean_overrides(self.layout(), groups, [])
+        for change in [{"type": 4}, {"index": 1}, {"boolval": 1}]:
+            prop = dict(self.prop("AuthoredA", True), **change)
+            with self.assertRaises(ValueError):
+                saved_boolean_overrides(
+                    self.layout(), {"0x40": dict(mask=3, value=0)}, [prop]
+                )
+
+    def class_fixture(self):
+        data = {
+            "Core.Object": (None, []),
+            "Engine.Actor": ("Core.Object", [self.prop("AuthoredA", True)]),
+            "Authored.Parent": ("Engine.Actor", [self.prop("AuthoredB", True)]),
+            "Authored.Child": ("Authored.Parent", [self.prop("AuthoredA", False)]),
+        }
+        pkg = SimpleNamespace(exports=[], export_name=lambda e: e.name)
+
+        def read(catalog, name):
+            parent, tags = data[name]
+            return (
+                pkg,
+                SimpleNamespace(index=0),
+                dict(
+                    sourceClass=name,
+                    parent=parent,
+                    defaults={"scope": "authored"},
+                    tags=deepcopy(tags),
+                ),
+            )
+
+        return data, pkg, read
+
+    def test_each_class_uses_its_exact_parent_and_keeps_default_origins(self):
+        _, _, read = self.class_fixture()
+        defaults = ActorBooleanDefaults(self.layout(), SimpleNamespace(sources={}))
+        with patch(
+            "export_static_collision.serialized_class_record", side_effect=read
+        ) as reader:
+            child = defaults.read("Authored.Child")
+            self.assertIs(defaults.read("authored.child"), child)
+            self.assertEqual(reader.call_count, 4)
+        self.assertEqual(
+            child["actorBooleans"]["groups"], {"0x40": dict(mask=3, value=2)}
+        )
+        self.assertEqual(
+            child["actorBooleans"]["origins"],
+            {"AuthoredA": "Authored.Child", "AuthoredB": "Authored.Parent"},
+        )
+        self.assertEqual(
+            defaults.records["engine.actor"]["actorBooleans"]["groups"]["0x40"][
+                "value"
+            ],
+            1,
+        )
+        self.assertEqual(
+            defaults.records["authored.parent"]["actorBooleans"]["groups"]["0x40"][
+                "value"
+            ],
+            3,
+        )
+        self.assertIsNone(defaults.records["core.object"]["actorBooleans"])
+
+    def test_unrelated_ancestry_cycles_and_shadowed_fields_do_not_inherit_actor_offsets(
+        self,
+    ):
+        for kind in ["unrelated", "cycle", "shadow"]:
+            data, pkg, read = self.class_fixture()
+            if kind == "unrelated":
+                data["Authored.Parent"] = ("Core.Object", [])
+            if kind == "cycle":
+                data["Authored.Parent"] = ("Authored.Child", [])
+            if kind == "shadow":
+                pkg.exports = [SimpleNamespace(package_index=1, name="AuthoredA")]
+            with patch(
+                "export_static_collision.serialized_class_record", side_effect=read
+            ), self.assertRaises(ValueError):
+                ActorBooleanDefaults(self.layout(), SimpleNamespace(sources={})).read(
+                    "Authored.Child"
+                )
+
+    def test_saved_actor_retains_native_tail_and_bounds_tags_to_its_export(self):
+        body = b"FF\x01\x83\0TAIL"
+        pkg = SimpleNamespace(
+            data=b"pad" + body + b"NEXT",
+            path="authored.unr",
+            name=lambda n: ["None", "AuthoredB"][n],
+        )
+        ex = SimpleNamespace(serial_offset=3, serial_size=len(body), class_index=-1)
+        defaults = dict(
+            sourceClass="Authored.Child",
+            actorBooleans=dict(groups={"0x40": dict(mask=3, value=1)}),
+        )
+        with patch(
+            "export_static_collision.qualified_ref", return_value="Authored.Child"
+        ), patch(
+            "export_static_collision.saved_actor_frame", return_value={"sourceBytes": 2}
+        ):
+            result = saved_actor_booleans(pkg, ex, defaults, self.layout())
+            self.assertEqual(result["groups"], {"0x40": dict(mask=3, value=3)})
+            self.assertEqual(
+                result["propertyStream"]["sourceSHA256"],
+                hashlib.sha256(b"\x01\x83\0").hexdigest(),
+            )
+            self.assertEqual(result["nativeTail"]["sourceBytes"], 4)
+            self.assertEqual(
+                result["nativeTail"]["sourceSHA256"],
+                hashlib.sha256(b"TAIL").hexdigest(),
+            )
+            self.assertNotIn("currentGroups", result)
+            ex.serial_size = 4
+            with self.assertRaises(L2Error):
+                saved_actor_booleans(pkg, ex, defaults, self.layout())
+
+
 class WorldSourceOutputTest(unittest.TestCase):
     def fixture(self):
         audit = Audit.__new__(Audit)
@@ -818,6 +978,7 @@ class WorldSourceOutputTest(unittest.TestCase):
             "actorArrays": [{"nativeField": "0x38", "references": [1, 2, 0, 3, 2]}]
         }
         audit.sources, audit.defaults = {}, []
+        audit.boolean_layout = []
         audit.actor_class_loading = {"scope": "authored"}
         audit.level_mode_defaults, audit.level_mode = {}, {}
         audit.geometry = {"Fixture.Mesh": {"scope": "authored"}}
@@ -837,8 +998,13 @@ class WorldSourceOutputTest(unittest.TestCase):
 
     def test_world_bundle_keeps_rejected_static_exports_and_every_saved_slot(self):
         audit, rows = self.fixture()
-        with patch("export_static_collision.qualified_ref", side_effect=self.names):
+        with patch("export_static_collision.qualified_ref", side_effect=self.names), patch(
+                "export_static_collision.ActorBooleanDefaults") as classes, patch(
+                "export_static_collision.saved_actor_booleans", return_value={'scope': 'authored'}) as booleans:
+            classes.return_value.records = {'authored': {'scope': 'authored'}}
+            classes.return_value.catalog.sources = {}
             result = audit.world_source_output(rows)
+            self.assertEqual(booleans.call_count, 4)
         self.assertEqual(result["actors"], rows)
         self.assertEqual(result["savedActorSlots"], [1, 2, 0, 3, 2])
         self.assertEqual(set(result["savedActorSources"]), {"1", "2", "3", "4"})
@@ -850,6 +1016,7 @@ class WorldSourceOutputTest(unittest.TestCase):
             hashlib.sha256(b"D").hexdigest(),
         )
         self.assertNotIn("currentMode", result)
+        self.assertEqual(set(result['savedActorBooleans']['actors']), {'1', '2', '3', '4'})
 
     def test_world_bundle_rejects_omitted_or_repeated_static_exports_and_nonlocal_slots(
         self,

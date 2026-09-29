@@ -493,6 +493,189 @@ def actor_boolean_layout(pkg):
     return groups
 
 
+def serialized_class_record(catalog, qualified):
+    """Read one exact class and retain its ordered, source-bound default tags."""
+    types = catalog.property_types(qualified, set())
+    source, name = qualified.split(".")
+    pkg = catalog.packages[catalog.files[source.casefold()].stem]
+    matches = [
+        e
+        for e in pkg.exports
+        if pkg.class_name_of(e) == "Class"
+        and pkg.export_name(e).casefold() == name.casefold()
+    ]
+    if len(matches) != 1:
+        raise ValueError("ambiguous original class")
+    ex = matches[0]
+    values, proof = serialized_defaults(pkg, ex, types)
+    tags, consumed = read_props_ordered(
+        pkg,
+        ex.serial_offset + proof["defaultsOffset"],
+        end=ex.serial_offset + ex.serial_size,
+    )
+    if consumed != ex.serial_offset + ex.serial_size or [t["name"] for t in tags] != [
+        v[0] for v in values
+    ]:
+        raise ValueError("class default tag census differs from value reader")
+    return (
+        pkg,
+        ex,
+        dict(
+            sourceClass=qualified_ref(pkg, ex.index + 1),
+            parent=qualified_ref(pkg, ex.super_index) if ex.super_index else None,
+            defaults=proof,
+            tags=tags,
+        ),
+    )
+
+
+def saved_boolean_overrides(layout, groups, properties):
+    """Apply ordered saved Boolean tags to only the declared known-bit subset.
+
+    This describes serialized values, not native property admission or current
+    actor state. Repeated tags retain order; unrelated bits remain unknown.
+    """
+    fields = {
+        field["name"].casefold(): (group["offset"], field)
+        for group in layout
+        for field in group["fields"]
+    }
+    if len(fields) != sum(len(group["fields"]) for group in layout):
+        raise ValueError("duplicate Boolean declaration name")
+    result = {key: dict(value) for key, value in groups.items()}
+    if set(result) != {group["offset"] for group in layout}:
+        raise ValueError("Boolean default groups differ from declaration layout")
+    for group in layout:
+        word = result[group["offset"]]
+        if (
+            type(word.get("value")) is not int
+            or word.get("mask") != group["mask"]
+            or not 0 <= word["value"] <= 0xFFFFFFFF
+            or word["value"] & ~word["mask"]
+        ):
+            raise ValueError("Boolean defaults contain unknown or malformed bits")
+    tags, overrides = [], {}
+    for prop in properties:
+        field = fields.get(prop["name"].casefold())
+        if field is None:
+            continue
+        offset, declaration = field
+        if prop["type"] != 3 or prop["index"] != 0 or type(prop["boolval"]) is not bool:
+            raise ValueError("malformed declared Boolean property")
+        name, mask, value = declaration["name"], declaration["mask"], prop["boolval"]
+        word = result[offset]
+        word["value"] = (word["value"] & ~mask) | (mask if value else 0)
+        tags.append(dict(name=name, value=value))
+        overrides[name] = value
+    return dict(groups=result, tags=tags, overrides=overrides)
+
+
+class ActorBooleanDefaults:
+    """Shared original Actor fields through exact class ancestors, cached once.
+
+    No subclass constructor or PostLoad is substituted for AActor. These are
+    source defaults only, ready for a separately qualified lifecycle consumer.
+    """
+
+    def __init__(self, layout, catalog=None):
+        self.layout = layout
+        self.catalog = catalog if catalog is not None else OriginalClasses()
+        self.records = {}
+
+    def read(self, qualified, seen=frozenset()):
+        key = qualified.casefold()
+        if key in seen:
+            raise ValueError("cyclic original Actor ancestry")
+        if key in self.records:
+            return self.records[key]
+        pkg, ex, source = serialized_class_record(self.catalog, qualified)
+        parent = self.read(source["parent"], seen | {key}) if source["parent"] else None
+        if key == "core.object":
+            if parent is not None:
+                raise ValueError("unexpected Core.Object ancestor")
+            inherited = None
+        elif key == "engine.actor":
+            if source["parent"] != "Core.Object":
+                raise ValueError("unexpected Actor ancestor")
+            inherited = {
+                g["offset"]: dict(mask=g["mask"], value=0) for g in self.layout
+            }
+        else:
+            inherited = (
+                parent["actorBooleans"]["groups"]
+                if parent and parent["actorBooleans"]
+                else None
+            )
+            if inherited is None:
+                raise ValueError("class is outside the original Actor ancestry")
+            names = {f["name"].casefold() for g in self.layout for f in g["fields"]}
+            if any(
+                e.package_index == ex.index + 1
+                and pkg.export_name(e).casefold() in names
+                for e in pkg.exports
+            ):
+                raise ValueError("subclass redeclares a consumed Actor field")
+        booleans = (
+            saved_boolean_overrides(self.layout, inherited, source["tags"])
+            if inherited is not None
+            else None
+        )
+        if booleans is not None:
+            origins = (
+                dict(parent["actorBooleans"]["origins"])
+                if key != "engine.actor"
+                else {
+                    f["name"]: "zero-initialized-class-default"
+                    for g in self.layout
+                    for f in g["fields"]
+                }
+            )
+            origins.update(
+                {name: source["sourceClass"] for name in booleans["overrides"]}
+            )
+            booleans["origins"] = origins
+        record = dict(
+            source,
+            tags=[dict(t, raw=t["raw"].hex()) for t in source["tags"]],
+            actorBooleans=booleans,
+        )
+        self.records[key] = record
+        return record
+
+
+def saved_actor_booleans(pkg, ex, defaults, layout):
+    """Recover one actor's saved Boolean subset without running its lifecycle."""
+    identity = qualified_ref(pkg, ex.class_index)
+    if (
+        identity.casefold() != defaults["sourceClass"].casefold()
+        or defaults["actorBooleans"] is None
+    ):
+        raise ValueError("actor Boolean defaults differ from saved class")
+    frame = saved_actor_frame(pkg, ex)
+    start, end = (
+        ex.serial_offset + frame["sourceBytes"],
+        ex.serial_offset + ex.serial_size,
+    )
+    tags, consumed = read_props_ordered(pkg, start, end=end)
+    values = saved_boolean_overrides(layout, defaults["actorBooleans"]["groups"], tags)
+    return dict(
+        scope="saved-actor-declared-booleans",
+        sourceClass=identity,
+        savedStateFrame=frame,
+        propertyStream=dict(
+            sourceOffset=start,
+            sourceBytes=consumed - start,
+            sourceSHA256=sha(pkg.data[start:consumed]),
+        ),
+        nativeTail=dict(
+            sourceOffset=consumed,
+            sourceBytes=end - consumed,
+            sourceSHA256=sha(pkg.data[consumed:end]),
+        ),
+        **values
+    )
+
+
 def level_collision_layout(pkg):
     """Read the LevelInfo Boolean word consumed by collision admission.
 
@@ -1212,6 +1395,13 @@ class Audit:
                 classIdentity=qualified_ref(self.pkg, ex.class_index),
                 exportSHA256=sha(self.pkg.data[start:end]),
             )
+        defaults = ActorBooleanDefaults(self.boolean_layout)
+        boolean_records = {}
+        for key, identity in identities.items():
+            ex = self.pkg.exports[int(key) - 1]
+            boolean_records[key] = saved_actor_booleans(
+                self.pkg, ex, defaults.read(identity['classIdentity']), self.boolean_layout)
+        self.sources.update(defaults.catalog.sources)
         return dict(
             format="l2-static-world-source-v1",
             tile=self.tile,
@@ -1221,6 +1411,11 @@ class Audit:
             savedLevelBinding=self.level_binding,
             savedActorSlots=slots,
             savedActorSources=identities,
+            savedActorBooleans=dict(
+                scope='saved-actor-declared-booleans',
+                classes=defaults.records, actors=boolean_records,
+                sources=defaults.catalog.sources,
+            ),
             levelCollisionDefaults=self.level_mode_defaults,
             savedLevelCollisionMode=self.level_mode,
             savedReferenceBindings=self.reference_bindings(rows),
@@ -1230,6 +1425,7 @@ class Audit:
                 "All static source records retained, including actors rejected by legacy ray gates and exports absent from the saved level array.",
                 "Every saved slot retains its source identity, including unimplemented nonstatic classes. Missing actor/resource preparation is not clear space.",
                 "Saved order and LevelInfo mode are not current level startup. This is resource preparation, not collision population or live query acceptance.",
+                "Saved Actor Boolean records cover class ancestry and ordered map tags, including nonstatic classes. Constructors, subclass PostLoad and native tail data are not executed or inferred.",
                 "Private original-derived data; exclude from public source and tool bundles.",
             ],
         )

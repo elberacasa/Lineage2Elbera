@@ -181,6 +181,18 @@ export function prepareStaticWorldSource(data, tile) {
     savedSlots = [],
     missing = new Map();
   try {
+    const booleans = data.savedActorBooleans;
+    const booleanLayout = data.classDefaults.at(-1)?.collisionBooleans?.layout;
+    if (
+      booleans !== undefined &&
+      (booleans?.scope !== "saved-actor-declared-booleans" ||
+        !dense(booleanLayout) ||
+        !record(booleans.classes) ||
+        !record(booleans.actors) ||
+        Object.keys(booleans.actors).length !==
+          Object.keys(data.savedActorSources).length)
+    )
+      throw Error("invalid saved actor Boolean bundle");
     for (const [key, source] of Object.entries(data.savedActorSources)) {
       const ref = Number(key);
       if (
@@ -195,11 +207,49 @@ export function prepareStaticWorldSource(data, tile) {
       const existing = prepared.objects.get(sourceKey(source));
       if (existing && !sameBinding(existing.binding, source))
         throw Error("saved actor binding differs");
+      let savedGroups;
+      if (booleans !== undefined) {
+        const saved = booleans.actors[key];
+        const defaults = booleans.classes[source.classIdentity.toLowerCase()];
+        if (
+          saved?.scope !== "saved-actor-declared-booleans" ||
+          saved.sourceClass !== source.classIdentity ||
+          defaults?.sourceClass?.toLowerCase() !==
+            source.classIdentity.toLowerCase()
+        )
+          throw Error("saved actor Boolean class differs from source");
+        const loaded = applyActorBooleanTags({
+          layout: booleanLayout,
+          words: defaults.actorBooleans?.groups,
+          tags: saved.tags,
+          archive: { loading: true, saving: false, persistent: true },
+        });
+        if (
+          loaded.status !== "ready" ||
+          !record(saved.groups) ||
+          Object.keys(saved.groups).length !== booleanLayout.length
+        )
+          throw Error("saved actor Boolean tags cannot be verified");
+        for (const { offset } of booleanLayout) {
+          const actual = loaded.groups[offset],
+            expected = saved.groups[offset];
+          if (
+            !expected ||
+            actual.mask !== expected.mask ||
+            actual.value !== expected.value
+          )
+            throw Error("saved actor Boolean groups differ from retained tags");
+        }
+        savedGroups = loaded.groups;
+      }
       byRef.set(
         ref,
         freeze({
           identity: source.identity,
           source,
+          // Kept separate from constructed/PostLoad state, especially for movers
+          // and volumes whose subclass lifecycle is not prepared here.
+          savedGroups,
           prepared: prepared.actors.get(ref),
         }),
       );
@@ -270,6 +320,9 @@ export function prepareStaticWorldSource(data, tile) {
         (v) => v.status === "ready",
       ).length,
       unpreparedSavedActors: missing.size,
+      actorsWithSavedBooleans: [...byRef.values()].filter(
+        (v) => v.savedGroups !== undefined,
+      ).length,
       collisionStatus: "unavailable",
       reason:
         "current level startup, actor providers and world query integration are unfinished",

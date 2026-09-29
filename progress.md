@@ -2,6 +2,37 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Saved actor flags through exact class ancestry — 28 September 2026
+
+Continued from merged PR59 and the published standalone Core0.2.0 preview.
+The source exporter now caches exact default ancestry and retains the 82 shared
+Actor Boolean fields for every saved class. Cycles, unrelated parents and field
+shadowing are rejected; ordered overrides and per-field origins survive. Native
+padding remains unknown. The existing class census reuses the same source reader.
+
+Both complete source bundles now include 3,643 Boolean records: 1,237 Talking
+Island (three static exports outside its saved array) and 2,406 Giran. This covers
+all 3,640 saved actors and the ten Giran movers. TerrainInfo's 262,773-byte native
+tail in each map remains opaque with exact spans/hashes. The record checker uses
+a second property decoder for final bits, checks ancestors/origins/tag order,
+and exercises the actual complete browser source loader. Seven deliberate
+original-receipt corruptions are rejected. Source geometry/transforms are
+unchanged when the private scene bundles are refreshed.
+
+The browser keeps these as savedGroups, separate from prepared actors. Both maps
+load them, and the actual offline Giran page exposes 2,406 saved Boolean records
+while retaining 470 unprepared actors and collision unavailable. A browser
+capture was visually inspected; inherited broken geometry remains visible.
+Portable validation: 77 collision-record cases and 68 affected browser cases
+pass. The source qualifier now checks 32 virtual slots across eight original
+native actor classes; this binds method identities, not subclass execution.
+
+Public docs link the released Core preview and previously published BSP kit;
+all README images remain. No original inputs, generated assets or raw receipts
+are publication inputs. Next: native mover/brush post-load and concrete model
+primitive providers, then current startup/world queries. The full port remains
+active and incomplete; this is no Online movement or map-repair claim.
+
 ## Source-bound class default streams — 28 September 2026
 
 Resumed from merged PR58. The file-123 UClass reader now follows original

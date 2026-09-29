@@ -28,8 +28,10 @@ systems below remain part of the full port.
 The source decoder now resolves an ambiguous mover default-property boundary
 by following original class serialization. The two-map census retains exact
 prefixes and ordered default tags for 26 distinct classes/ancestors. This
-provides reliable inputs for the remaining providers; it does not construct
-their live state. [Class-default evidence](native-class-defaults-evidence.md).
+now feeds per-class saved Boolean records into the actual source loader. All
+3,640 saved actors are covered, plus three retained static exports outside the
+saved array. These inputs do not construct their live state; mover and brush
+PostLoad/primitive dispatch remain separate source paths. [Class-default evidence](native-class-defaults-evidence.md).
 
 Public branches start from the reviewed public main. Original client inputs,
 generated assets, accounts and raw local receipts remain private; the older

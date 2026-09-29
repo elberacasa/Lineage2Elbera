@@ -55,10 +55,10 @@ multiplayer, NPCs, dungeons and interface views.*
 **September 2026** — work now follows original inputs through decoding,
 browser behavior and focused verification.
 
-The latest data-recovery correction follows original class serialization to
-locate default properties, resolving a mover field that could previously be
-misread from the wrong byte. The world exporter uses it, and the reusable reader
-is included in current Elbera Tools Core source builds.
+Source loading now retains inherited collision flags and ordered map overrides
+for every saved actor in Talking Island and Giran, including movers and volumes.
+These remain separate from current actor state. The class-prefix decoder that
+resolved a mover field ambiguity is also available in the standalone Core preview.
 [Source evidence, supported scope and commands](docs/native-class-defaults-evidence.md).
 
 | Area | What advanced | Follow the work |
@@ -208,13 +208,14 @@ full rendering and native random-history parity remain unfinished.
 
 ### Download the standalone toolkits
 
-Two source-only prereleases run independently of the browser project. Each ZIP
-has an explicit file manifest and portable checks; neither contains game assets.
+These source-only prereleases run independently of the browser project. Each ZIP
+has an explicit file manifest and portable checks; none contains game assets.
 
 | Toolkit | Included | Start here |
 | --- | --- | --- |
-| **[Core 0.1.0](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.1.0)** | Python package/texture library, UTX editor, embedded-script extractor and XDAT decoder. | [Core guide](tools/release/CORE-README.md) |
+| **[Core 0.2.0 preview](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-core-v0.2.0-preview)** | Python package/texture library, source-bound class-prefix reader, UTX editor, embedded-script extractor and XDAT decoder. Eighteen selected files; 36 portable smoke cases. | [Core guide](tools/release/CORE-README.md) |
 | **[NPC Source 0.1.0](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-npc-source-v0.1.0)** | Qualified NPC selectors, original sparse-key bundles, optional GPU weights, and the bounded initial-animation/GPU evidence checks. | [NPC Source guide](tools/release/NPC-SOURCE-README.md) |
+| **[BSP Inspector 0.1.0](https://github.com/elberacasa/Lineage2Elbera/releases/tag/elbera-tools-bsp-inspector-v0.1.0)** | Standalone browser inspection of world BSP queries, with the shared query module and portable synthetic fixtures. | [BSP guide](tools/release/BSP-README.md) |
 
 NPC Source includes 43 text files and a hash manifest. Its portable checks need
 only Python; the optional native-analysis checks require pinned Capstone and
@@ -223,7 +224,7 @@ matching converted model data. It supplies inspection data; the graphical
 inspectors shown above remain part of the full repository.
 
 Core 0.1.0 retains its original contents. Each kit documents its supported
-commands and limits; neither includes every tool in the repository.
+commands and limits; no individual kit includes every tool in the repository.
 
 [Complete tool catalog](tools/README.md) ·
 [Reproduce Core](tools/release/CORE-README.md#reproduce-a-source-release) ·
