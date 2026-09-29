@@ -13,6 +13,10 @@ from static_mesh_class_source import read_root_class_flags, read_zero_script_cla
 from convert import read_map_actor_frame, actor_prop_offset
 from export_static_collision import saved_actor_frame, level_collision_layout, saved_level_collision_mode
 from check_static_collision_records import check_actor_frame, check_actor_loading, check_level_collision_mode
+from check_static_collision_records import check_class_prefix
+from export_npc_visuals import serialized_defaults, terminal_defaults
+from l2lib.tests.test_classdata import class_fixture
+from l2lib.classdata import read_class_default_prefix
 
 
 def compact(n):
@@ -49,6 +53,44 @@ def body(*, index=3, collision_model=0, nodes=True, lazy=False, origin=0, planes
 
 
 class StaticCollisionTest(unittest.TestCase):
+    def test_source_boundary_resolves_an_authored_ambiguous_default_stream(self):
+        # Both offsets decode a declared float and reach the same export end.
+        # Source prefix framing must identify the real name, with no search.
+        tags = compact(131) + b'\x24' + struct.pack('<f', 7.5) + b'\0'
+        package, export, expected = class_fixture(defaults=tags)
+        types = {'correctfield': 'float', 'falsealias': 'float'}
+        _, provisional = terminal_defaults(package, export, types)
+        self.assertEqual(provisional['defaultsBoundary'], 'ambiguous-visual-consensus')
+        props, evidence = serialized_defaults(package, export, types)
+        self.assertEqual(props, [('CorrectField', 'float', 7.5)])
+        self.assertEqual(evidence['defaultsOffset'], expected['defaultsOffset'])
+        self.assertEqual(evidence['defaultsBoundary'], 'serialized-class-prefix')
+        with self.assertRaisesRegex(ValueError, 'declared properties'):
+            serialized_defaults(package, export, {'falsealias': 'float'})
+        export.serial_size += 1
+        with self.assertRaisesRegex(ValueError, 'export end'):
+            serialized_defaults(package, export, types)
+
+    def test_class_prefix_round_trip_rejects_changed_fields_tokens_and_spans(self):
+        package, export, _ = class_fixture(b'\x77\x39\x04\x01\xc1\x01\x16', 9)
+        prefix = read_class_default_prefix(package, export)
+        self.assertEqual(check_class_prefix(package, export, prefix)['sourceBytes'], prefix['defaultsOffset'])
+        for change in [
+            lambda p: p['references'].__setitem__(2, 1),
+            lambda p: p['fields']['0x4dc'][0].__setitem__('word8', 1),
+            lambda p: p['state'].__setitem__('probeMask', 1),
+            lambda p: p['script']['tokens'][2].__setitem__('reference', 1),
+            lambda p: p['script']['tokens'][0].__setitem__('offset', 0),
+            lambda p: p.__setitem__('defaultsOffset', p['defaultsOffset'] + 1),
+            lambda p: p.__setitem__('sourceSHA256', '0' * 64),
+            lambda p: p.__setitem__('flagsOffset', 0),
+            lambda p: p['script'].__setitem__('sourceBytes', 0),
+        ]:
+            altered = deepcopy(prefix)
+            change(altered)
+            with self.assertRaises(ValueError):
+                check_class_prefix(package, export, altered)
+
     def test_ordered_mesh_census_keeps_duplicate_names_indices_and_saved_flags(self):
         # Repeated Materials and explicit header tag remain visible in this
         # census. No dictionary collapse may turn it into initialization proof.

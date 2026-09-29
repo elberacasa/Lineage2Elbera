@@ -36,6 +36,32 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def serialized_defaults(pkg, export, property_types):
+    """Read defaults at a source-bound UClass boundary; never search or fallback.
+
+    The existing value decoder retains property order but not array indices.
+    Array consumers must read the ordered original tags at this exact boundary.
+    Other callers may still explicitly use the provisional terminal search.
+    """
+    from l2lib.classdata import read_class_default_prefix
+
+    prefix = read_class_default_prefix(pkg, export)
+    body = pkg.data[export.serial_offset:export.serial_offset + export.serial_size]
+    start = prefix['defaultsOffset']
+    props, end = defaults._parse_packed(pkg, body, start)
+    if end != len(body) or not all(property_types.get(name.casefold()) == kind
+            or (property_types.get(name.casefold()) == 'class' and kind == 'object')
+            for name, kind, _ in props):
+        raise ValueError('serialized class defaults differ from declared properties or export end')
+    return props, dict(
+        exportOffset=export.serial_offset, exportLength=export.serial_size,
+        exportSHA256=sha(body), propertyCount=len(props),
+        defaultsBoundary='serialized-class-prefix', defaultsOffset=start,
+        defaultsLength=len(body)-start, defaultsSHA256=sha(body[start:]),
+        classPrefix=prefix,
+    )
+
+
 def terminal_defaults(pkg, export, property_types):
     body = pkg.data[export.serial_offset:export.serial_offset + export.serial_size]
     candidates = []

@@ -30,6 +30,138 @@ def read_root_class_flags(package):
     return read_zero_script_class_flags(package, "Object", None)
 
 
+def qualify_class_default_prefix(core, comparison_core):
+    """Bind the supported class-prefix reader to original Core serialization.
+
+    Code correspondence and field/dispatch bindings; native linking, archive
+    factories and class-default construction are not executed by this check.
+    """
+    from l2lib.classdata import (
+        NO_OPERAND_TOKENS,
+        REFERENCE_TOKENS,
+        REFERENCE_EXPRESSION_TOKENS,
+        WORD_EXPRESSION_TOKENS,
+        BYTE_TOKENS,
+    )
+
+    assert (core.sha, comparison_core.sha) == (CORE_SHA, CANDIDATE_CORE_SHA)
+    blocks = []
+    for label, start, end in [
+        ("UObject.Serialize", 0x1015E820, 0x1015EA8F),
+        ("UField.Serialize", 0x10131210, 0x10131287),
+        ("UStruct.Serialize", 0x10131450, 0x1013158B),
+        ("UState.Serialize", 0x101316E0, 0x1013176D),
+        ("UClass.Serialize", 0x101351C0, 0x10135425),
+        ("UStruct.SerializeExpr normal path", 0x10131B90, 0x10132108),
+        ("four-word field serializer", 0x10130DC0, 0x10130E30),
+        ("dependency array serializer", 0x101342F0, 0x101343A6),
+        ("FDependency serializer", 0x10131B40, 0x10131B77),
+        ("name array serializer", 0x10132470, 0x10132526),
+        ("object archive wrapper", 0x1012A9F0, 0x1012AA01),
+        ("script reference archive wrapper", 0x10130F10, 0x10130F21),
+    ]:
+        raw = bytes(core.data[core.offset(start) : core.offset(end)])
+        assert raw == comparison_core.read(start, end - start)
+        rows = list(core.dis.disasm(raw, start))
+        assert sum(i.size for i in rows) == len(raw)
+        blocks.append(
+            dict(
+                label=label,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(raw).hexdigest(),
+            )
+        )
+    symbols = {
+        "?SerializeExpr@UStruct@@UAE?AW4EExprToken@@AAHAAVFArchive@@@Z": 0x10131B90,
+        "??6@YAAAVFArchive@@AAV0@AAVFDependency@@@Z": 0x10131B40,
+    }
+    for symbol, address in symbols.items():
+        assert core.exported(symbol, True) == comparison_core.body(symbol) == address
+    for thunk, target in [
+        (0x101045FC, 0x10130DC0),
+        (0x101015C3, 0x101342F0),
+        (0x10103D91, 0x10131B40),
+        (0x101033B4, 0x10132470),
+        (0x10102EB4, 0x1012A9F0),
+        (0x10103B8E, 0x10130F10),
+        (0x10102248, 0x10131B90),
+    ]:
+        core.instruction(thunk, "jmp", hex(target))
+        assert bytes(
+            core.data[core.offset(thunk) : core.offset(thunk) + 5]
+        ) == comparison_core.read(thunk, 5)
+    table_start, table_end = 0x10132148, 0x10132212
+    table = bytes(core.data[core.offset(table_start) : core.offset(table_end)])
+    assert table == comparison_core.read(table_start, len(table))
+    groups = {}
+    for token in range(0x46):
+        index = core.data[core.offset(0x101321CC + token)]
+        assert index < 33
+        groups.setdefault(core.u32(table_start + index * 4), set()).add(token)
+    supported = {}
+    for target, tokens in [
+        (0x101320F2, NO_OPERAND_TOKENS),
+        (0x10131CA4, REFERENCE_TOKENS),
+        (0x10131F84, REFERENCE_EXPRESSION_TOKENS),
+        (0x10131FF8, WORD_EXPRESSION_TOKENS),
+        (0x10131F72, BYTE_TOKENS),
+        (0x10131C63, {0x39}),
+    ]:
+        assert groups[target] == set(tokens)
+        supported[hex(target)] = sorted(tokens)
+    anchors = [
+        (0x1013152D, "jge", "0x10131545"),
+        (0x10131545, "je", "0x1013155c"),
+        (0x10131BD6, "add", "dword ptr [esi], 1"),
+        (0x10131BEA, "cmp", "edx, 0x70"),
+        (0x10131BFE, "cmp", "eax, 0x16"),
+        (0x10131C4C, "cmp", "edx, 0x45"),
+        (0x10131C55, "movzx", "edx, byte ptr [edx + 0x101321cc]"),
+        (0x10131C5C, "jmp", "dword ptr [edx*4 + 0x10132148]"),
+        (0x10131C6D, "add", "dword ptr [esi], 1"),
+        (0x10131CAE, "add", "dword ptr [esi], 4"),
+        (0x10131F7C, "add", "dword ptr [esi], 1"),
+        (0x10131F8E, "add", "dword ptr [esi], 4"),
+        (0x10132002, "add", "dword ptr [esi], 2"),
+        (0x1013521A, "lea", "edx, [esi + 0x4a4]"),
+        (0x10135213, "lea", "ecx, [esi + 0x4ac]"),
+        (0x10135233, "lea", "eax, [esi + 0x4e8]"),
+        (0x1013523A, "lea", "ecx, [esi + 0x4dc]"),
+        (0x10135259, "lea", "edx, [esi + 0x4bc]"),
+        (0x1013526B, "lea", "ecx, [esi + 0x4c0]"),
+        (0x10135298, "lea", "ecx, [esi + 0x500]"),
+        (0x10134331, "call", "0x10102315"),
+        (0x10134358, "call", "0x10103d91"),
+        (0x10131B59, "push", "4"),
+        (0x10131B5B, "lea", "ecx, [edi + 4]"),
+        (0x10131B68, "push", "4"),
+        (0x10131B6A, "add", "edi, 8"),
+        (0x101324B1, "call", "0x10102315"),
+        (0x101324DE, "mov", "eax, dword ptr [edx + 0x1c]"),
+    ]
+    for row in anchors:
+        core.instruction(*row)
+    return dict(
+        coreSHA256=core.sha,
+        comparisonCoreSHA256=comparison_core.sha,
+        blocks=blocks,
+        symbols=symbols,
+        anchors=anchors,
+        dispatch=dict(
+            start=hex(table_start),
+            end=hex(table_end),
+            SHA256=hashlib.sha256(table).hexdigest(),
+            supportedCases=supported,
+        ),
+        limits=[
+            "Original file-version123 loading structure; class linking, binding, archive factories and default construction are not executed.",
+            "Only listed expression shapes and native-call argument serialization are decoded. Unknown tokens remain unsupported; no script execution or condition meaning is inferred.",
+            "A serialized default boundary is not a current actor or collision-state claim.",
+        ],
+    )
+
+
 def read_zero_script_class_flags(package, name, superclass):
     """Read a named zero-script class prefix, checking both superclass records.
 
@@ -431,6 +563,7 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
         engineBlocks=blocks,
         coreBlocks=core_blocks,
         rootPrefixAnchors=anchors,
+        classDefaultPrefix=qualify_class_default_prefix(core, comparison_core),
         limits=[
             "Native registration and pinned original packages; external class mutation and custom descriptors are excluded.",
             "Source correspondence, not execution of the full class registry. Class defaults/configuration target separate object storage.",

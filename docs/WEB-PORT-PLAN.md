@@ -25,6 +25,12 @@ bridges, interiors and tile transitions in Online mode before claiming map repai
 UI, class-specific animation, skills, effects, mobs, progression and the remaining
 systems below remain part of the full port.
 
+The source decoder now resolves an ambiguous mover default-property boundary
+by following original class serialization. The two-map census retains exact
+prefixes and ordered default tags for 26 distinct classes/ancestors. This
+provides reliable inputs for the remaining providers; it does not construct
+their live state. [Class-default evidence](native-class-defaults-evidence.md).
+
 Public branches start from the reviewed public main. Original client inputs,
 generated assets, accounts and raw local receipts remain private; the older
 local research branch is preserved separately.

@@ -8,6 +8,13 @@ separate allowlisted Python source kit: l2lib, the UTX editor, script extractor
 and XDAT decoder, with portable checks and no game/app assets. Its release
 builder tests the actual archive in an isolated directory before writing it.
 
+The current Core source build includes a bounded UClass prefix reader and
+portable fixtures. It resolves a real mover default-boundary ambiguity by
+following original serialization, with no fallback search. The world exporter
+uses it; its original-record checker also retains ordered defaults for saved
+actor classes and ancestors. [Evidence and commands](../docs/native-class-defaults-evidence.md).
+The existing published Core 0.1.0 archive is unchanged.
+
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
 kit for qualified NPC selectors, original sparse-key bundles and optional GPU
 weight inputs, plus the bounded initial-animation and GPU native verifiers.

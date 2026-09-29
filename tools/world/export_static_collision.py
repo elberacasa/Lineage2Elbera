@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / 'tools'), str(ROOT / 'tools/dat'), str(ROOT / 'tools/ui')]
 from l2lib import L2Error, Reader, load_package, read_properties, encode_compact, qualified_ref
 from convert import actor_prop_offset, read_props_ordered, read_map_actor_frame
-from export_npc_visuals import OriginalClasses, terminal_defaults
+from export_npc_visuals import OriginalClasses, serialized_defaults
 
 FORMAT = 'l2-static-collision-v1'
 LIMIT = 1_000_000
@@ -236,9 +236,7 @@ def class_defaults(*, retain_collision_fields=False):
         expected_parent = 'Core.Object' if qualified == 'Engine.Actor' else 'Engine.Actor'
         if qualified_ref(pkg, ex.super_index) != expected_parent:
             raise ValueError('unsupported collision class inheritance')
-        props, ev = terminal_defaults(pkg, ex, types)
-        if ev['defaultsBoundary'] != 'unique-validated-candidate':
-            raise ValueError('ambiguous collision class defaults')
+        props, ev = serialized_defaults(pkg, ex, types)
         values.update({name: value for name, _, value in props})
         evidence.append({'class': qualified, **ev})
     fields = actor_field_evidence(pkg)
@@ -539,7 +537,7 @@ def level_collision_layout(pkg):
 def level_collision_defaults():
     """Recover the declared mode bits through every original class ancestor.
 
-    Uses the existing bounded terminal-default reader. Ambiguous streams remain
+    Uses the source-bound serialized class prefix. Unsupported bytecode remains
     unsupported. The qualified UClass zero-plus-parent path supplies absent
     declared bits; this result is a default buffer, not a live level mode.
     """
@@ -567,9 +565,7 @@ def level_collision_defaults():
         parent = qualified_ref(pkg, ex.super_index) if ex.super_index else None
         if parent != (chain[index - 1] if index else None):
             raise ValueError("unsupported LevelInfo inheritance")
-        props, proof = terminal_defaults(pkg, ex, types)
-        if proof["defaultsBoundary"] != "unique-validated-candidate":
-            raise ValueError("ambiguous LevelInfo defaults")
+        props, proof = serialized_defaults(pkg, ex, types)
         values.update({name: value for name, _, value in props})
         evidence.append(dict(sourceClass=qualified, parent=parent, **proof))
     layout = level_collision_layout(pkg)

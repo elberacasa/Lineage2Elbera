@@ -2,6 +2,37 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Source-bound class default streams — 28 September 2026
+
+Resumed from merged PR58. The file-123 UClass reader now follows original
+serializers and supported expression paths to the exact default-property start.
+It separates serialized script bytes from native memory size and rejects
+unsupported tokens. This resolves Engine.Mover's two plausible starts: 738 is
+the source boundary; 739 misreads a continuation byte as another field name.
+World Actor/StaticMeshActor and LevelInfo extraction now uses this reader.
+
+The existing record checker retains a class/default census with ordered tags,
+including array indices, and reconstructs every prefix byte for comparison.
+Talking Island and Giran each cover 25 classes/ancestors, 26 distinct overall.
+Both source checks still pass for 2,922 static actors and 480 mesh records.
+The existing native bounds suite passes with the new Core qualification:
+12 matched serializer ranges, dispatch tables and 28 instruction anchors.
+Source correspondence is not execution of the complete archive/class registry.
+
+Portable validation: eight class-prefix cases, 72 collision-record cases and
+36 standalone Core smoke cases pass. The 20 kit-boundary cases check separate
+profiles; removed two stale assertions freezing Core's old total file count.
+Core source builds now include the reader, authored fixtures and evidence guide
+in an 18-file allowlist. Published Core 0.1.0 remains unchanged. Corrected the
+legacy parser's claim that plausible terminal tags prove the boundary; its
+remaining NPC/character callers still need migration and original verification.
+No runtime/UI changes or map-repair claims; all 17 README images remain.
+
+Next: use the exact defaults to recover saved mover/brush/volume collision
+inputs, then source-bound startup/providers and actual world queries. Keep
+serialized defaults separate from current state; mover motion, Online walking
+and the full browser client are still unfinished. Goal active, not paused.
+
 ## Source resources connected to scene loading — 28 September 2026
 
 PR57 is merged; source, PR and merged-head checks pass. The new source-world

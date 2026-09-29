@@ -55,6 +55,12 @@ multiplayer, NPCs, dungeons and interface views.*
 **September 2026** — work now follows original inputs through decoding,
 browser behavior and focused verification.
 
+The latest data-recovery correction follows original class serialization to
+locate default properties, resolving a mover field that could previously be
+misread from the wrong byte. The world exporter uses it, and the reusable reader
+is included in current Elbera Tools Core source builds.
+[Source evidence, supported scope and commands](docs/native-class-defaults-evidence.md).
+
 | Area | What advanced | Follow the work |
 | --- | --- | --- |
 | **Original tutorial audio** | Five quest/tutorial cues retain exact PCM; Elbera Tools compares all **702,848 stereo samples** at the original rate. **42 English voice recordings** are preserved unchanged, with original controller delays and replacement fades. A fresh character receives the opening narration and movement tutorial through normal server events. Full quest delivery, native streaming and the shared music mixer remain open. | [Audio tool, capture and evidence](docs/native-playsound-evidence.md#tutorial-speech) |
