@@ -84,6 +84,32 @@ def read_field_chain(package, owner, head):
     return dict(fields=rows, stoppedAt=head)
 
 
+def read_struct_children(package, export):
+    """Read through UStruct's saved child reference, leaving its body untouched.
+
+    A Struct has UObject's empty tagged stream; unlike a Class prefix it does
+    not bypass that stream. The saved SuperField must match the export table.
+    No script length, script contents or current PropertiesSize is inferred.
+    """
+    if package.class_name_of(export) != "Struct":
+        raise L2Error("structure child prefix requires a Struct export")
+    field = read_field_link(package, export)
+    if field["super"] != export.super_index:
+        raise L2Error("structure superclass differs from export")
+    start, end = export.serial_offset, export.serial_offset + export.serial_size
+    reader = Reader(
+        memoryview(package.data)[:end], start + field["sourceBytes"], package.path
+    )
+    script_text, children = _reference(package, reader), _reference(package, reader)
+    return dict(
+        **{key: field[key] for key in ("exportRef", "super", "next")},
+        scriptText=script_text,
+        children=children,
+        sourceBytes=reader.pos - start,
+        sourceSHA256=hashlib.sha256(package.data[start : reader.pos]).hexdigest(),
+    )
+
+
 def read_property_declaration(package, export):
     """Read one exact export, retaining dimensions and the optional network word.
 

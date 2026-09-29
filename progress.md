@@ -2,6 +2,29 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original nested structure offsets — 29 September 2026
+
+Extended the existing declaration/layout tools through Struct child prefixes,
+saved inheritance and nested references. No named size table or export-order
+fallback is used. Complete chain checks reject missing, duplicate, cyclic and
+inconsistent records. The inspector's optional --structure-layouts output now
+resolves all thirteen nested structures in the volume corpus.
+
+The existing native verifier binds and interprets UStructProperty.Link and
+UStruct parent/packing dispatch. 420 authored cases pass (227,311 instructions,
+432 addresses). Five original volume-class cases pass (5,281 instructions,
+398 addresses), including PhysicsVolume whose total agrees with its independent
+native registration. Thirteen original structure cases also pass (3,757
+instructions, 391 addresses). Preload and current class parent sizes remain
+explicit providers; the check still stops before full property-list linking.
+
+The portable source kit remains 23 allowlisted files and now passes 58 checks,
+including eleven declaration and seven layout cases. No new browser UI, live
+volume admission, map geometry or private bundle changed. Published archives
+and all 17 README image URLs remain unchanged. Next: source/default string
+storage, configuration/current class initialization and the actual volume/world
+startup join. The full browser-client goal remains ACTIVE and incomplete.
+
 ## Original linked scalar-property offsets — 29 September 2026
 
 The declaration inspector now keeps saved child/Next order separately from

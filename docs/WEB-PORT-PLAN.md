@@ -53,10 +53,10 @@ traversal and optional language fallback now have 145 native comparisons and
 an asset-free Elbera inspection page. Another 145 cases join the original
 string importer to browser storage; 76 direct cases check its UTF-16 behavior.
 Saved child/Next chains now retain original field order separately from export
-order. The scalar offset stage matches 224 authored native cases and original
-Volume, BlockingVolume, MusicVolume and WaterVolume own-field layouts, using
-qualified native parent sizes. PhysicsVolume's nested structures remain
-unsupported; this does not complete their parent reflection or class startup.
+order. The offset stage matches 420 authored native cases, five original volume
+classes and all thirteen nested structures. PhysicsVolume's derived layout now
+matches its native registered size. Class parent sizes remain explicit qualified
+inputs; this does not complete parent reflection or class startup.
 Configuration parsing, other property importers, current linked metadata,
 source string/default storage, script-class construction and the full
 world startup join remain unfinished. A volume's saved localized class bit must not be replaced by

@@ -188,7 +188,9 @@ Core preview includes the class-prefix decoder, not the world exporter. Complete
 subclass construction, PostLoad, primitive providers, startup and live queries
 are still required. No map rendering or Online movement repair is claimed.
 
-## Linked scalar-property offsets
+<a id="linked-scalar-property-offsets"></a>
+
+## Linked property offsets
 
 The saved export table is not property iteration order. The declaration
 inspector now reports `fieldChain` separately from its existing `fields` array.
@@ -196,16 +198,28 @@ It starts at the class's serialized child reference, follows each UField's
 `Next`, includes intervening functions/states and stops before a foreign owner.
 Cycles, imported links, nonempty tagged headers and unknown kinds are explicit
 errors. Each bounded prefix has its own source hash; reading a function link
-does not decode or execute that function's remaining body.
+does not decode or execute that function's remaining body. Nested structures
+now retain the same separate chain. Their bounded child-prefix reader consumes
+the empty tagged terminator that Classes bypass and checks the saved superclass
+against the export table; it does not interpret the rest of the structure body.
 
-`l2lib.propertylayout.property_offsets` implements only the original class
-scalar-offset stage. Inputs are properties in that linked order and a supplied
+`l2lib.propertylayout.property_offsets` implements only the original class/struct
+offset stage. Inputs are properties in that linked order and a supplied
 parent `PropertiesSize`. It preserves byte packing, four-byte scalar alignment,
 twelve-byte string headers and packed Boolean offsets/masks. A Boolean after
 another Boolean can reuse its word even when a static array dimension exceeds
 one; the native branch does not test `ArrayDim == 1`. After bit 31, the next
 Boolean starts a new word. Unknown kinds, nonpositive dimensions and arithmetic
 outside the admitted nonwrapping signed range fail without a guessed layout.
+
+StructProperty requires the referenced structure's prepared size. The original
+alignment is two for size two, one for sizes below four otherwise, and four for
+larger sizes. It is not inferred from a field or structure name.
+`structure_layouts` resolves a complete decoded graph, following both structure
+inheritance and nested-property references. It rejects cycles, missing targets,
+duplicate identities and incomplete/inconsistent field chains. The thirteen
+structures reached by the current volume declaration corpus resolve this way;
+there is no hardcoded Vector/Color/Matrix size table.
 
 The original Core comparison binds these ranges (exclusive ends):
 
@@ -219,8 +233,10 @@ The original Core comparison binds these ranges (exclusive ends):
 | `UObjectProperty.Link` | `10171630..101716b6` | Complete ordinary body; ClassProperty shares its dispatch |
 | `UNameProperty.Link` | `101719f0..10171a51` | Complete ordinary body |
 | `UStrProperty.Link` | `10171c10..10171c83` | Complete ordinary body |
+| `UStructProperty.Link` | `10172690..1017273d` | Complete ordinary body with supplied completed Preload |
 | Property and Boolean casts | `10132a00..10132a22`, `101329d0..101329f2` | Complete bodies over supplied reflection |
 | Size, parent and packing getters | `1010b310..1010b314`, `10115a20..10115a24`, `1010b570..1010b576` | Complete bound UClass dispatch bodies |
+| Structure parent and packing getters | `10115950..10115954`, `101305d0..101305d6` | Complete bound UStruct dispatch bodies |
 
 The existing class-prefix and property-declaration qualifiers bind saved
 child/Next serialization. Additional nonproperty serializer prefixes establish
@@ -229,23 +245,26 @@ receipt. Loading `UStruct.Serialize` passes `1` to virtual Link; the bound
 UClass → UState → UStruct calls forward that argument. This source comparison
 does not execute the complete serializer, UState/UClass Link or archive I/O.
 
-The interpreter executes **224 authored cases: 153,363 instructions across 374
+The interpreter executes **420 authored cases: 227,311 instructions across 432
 addresses**, including padding, scalar/static-array sizes, skipped nonproperty
-fields, Boolean rollover and static Boolean arrays. Archive Preload is an
+fields, Boolean rollover, static Boolean arrays, nested alignment and root
+structures with no superclass. Archive Preload is an
 explicit successful, already-completed provider. Current parent size and
 reflection are supplied; original casts and property virtual calls execute.
 Python compares offsets, element sizes, masks and final size, not property-flag
 changes or cleanup/reference lists. The interpreter stops mid-method at the
 documented boundary and does not report a full Link return.
 
-The optional original-input check adds **four cases: 1,610 instructions across
-312 addresses** using the pinned Engine/Core/GamePlay packages. Volume,
-BlockingVolume and MusicVolume totals match their separately qualified native
-registration sizes. Volume's `LocationName` offset agrees with the original
-constructor's string no-init call. WaterVolume's own fields use the explicitly
-supplied native PhysicsVolume parent size; PhysicsVolume's nested-structure
-layout remains **unsupported**. This does not certify that parent's complete
-reflection or admit any saved volume to live world startup.
+The optional original-input check adds **five class cases: 5,281 instructions
+across 398 addresses**, and **thirteen structure cases: 3,757 instructions across
+391 addresses**, using the pinned Engine/Core/GamePlay packages. Volume,
+BlockingVolume, MusicVolume and PhysicsVolume totals match their separately
+qualified native registration sizes. Volume's `LocationName` offset agrees with
+the original constructor's string no-init call. WaterVolume's own fields use the
+explicitly supplied native PhysicsVolume parent size. Nested sizes are derived
+from the saved graph and each structure's offset stage is also compared with
+original instructions. This does not certify complete parent reflection or
+admit any saved volume to live world startup.
 
 Inputs use the Core fingerprints documented above and the Engine/package
 fingerprints in [the volume evidence](native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations).
@@ -253,7 +272,7 @@ No client bytes or original declaration payloads are bundled with the tool.
 Private-data reproduction from the full repository:
 
 ```sh
-python3 tools/world/inspect_actor_declarations.py --check
+python3 tools/world/inspect_actor_declarations.py --structure-layouts --check
 python3 tools/ui/check_property_layout_native.py \
   --comparison-core /local/reference/system/Core.dll \
   --comparison-engine /local/reference/system/engine.dll \
@@ -271,7 +290,7 @@ python3 tools/release/build_core.py --check
 ```
 
 Current standalone Core source builds include the reader/helper and portable
-fixtures: **23 selected files / 53 checks**. The full native verifier and world
+fixtures: **23 selected files / 58 checks**. The full native verifier and world
 inspector remain full-repository tools. Existing published ZIPs are unchanged.
-Source/default string storage, configuration, nested fields, complete class
+Source/default string storage, configuration, array fields, complete class
 loading and volume/world startup remain outstanding; no map repair is claimed.
