@@ -2,6 +2,32 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original localization control flow — 29 September 2026
+
+Added the source-bound object localization module and a reusable Elbera native
+verifier. The latter reuses the existing admission interpreter and compares
+145 cases: 444,224 instructions/446 addresses, 1,014 configuration requests and
+923 property-import calls. Complete ordinary ranges include Localize's later
+startup/config-absent return. Nested structs are visited before the localized
+field flag; current class/default/outer context and language fallback follow
+the original. Both missing configuration and missing text remain distinct.
+
+CRT formatting/comparison, configuration and ImportText remain explicit
+providers. Current metadata and names are supplied; export order is not used as
+linked field order. Actual volume startup, string assignment and world collision
+are still unfinished. The new module is not enabled on saved volume actors.
+No scene geometry or private map bundle changed.
+
+Ten portable browser boundary cases, three interpreter cases and the related
+loader/bounds suites pass (63 browser cases combined). The Elbera page uses
+authored names/offsets/text and needs no private assets. Its 30 control
+combinations and return to the initial scenario pass with no captured errors.
+The existing game-test runner and full page capture were visually inspected;
+the curated screenshot contains synthetic inputs only. README galleries and
+standalone release ZIPs remain unchanged. Next: source string ImportText and
+assignment, current class linking, then actual volume/world startup. Full goal
+ACTIVE and incomplete.
+
 ## Volume constructors and saved declarations — 29 September 2026
 
 The Elbera native verifier now executes all four native volume constructors

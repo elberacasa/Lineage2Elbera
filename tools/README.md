@@ -66,6 +66,14 @@ complete volume startup remain unfinished. Current standalone Core source builds
 include the declaration reader and fixtures (21 files/47 checks); existing ZIPs
 are unchanged. [Commands, fingerprints and limits](../docs/native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations).
 
+The [object-localization inspector](../editor/world/test/actor-localization.html)
+shows current-object section selection, nested keys and language fallback using
+authored inputs and the browser module. It needs no game files. Its native
+verifier compares 145 cases against pinned Core instructions, with explicit
+configuration, CRT and text-import providers. Thirty browser control
+combinations pass. This does not yet localize actual volume storage or enable
+world collision. [Screenshot, reproduction and scope](../docs/native-actor-localization-evidence.md).
+
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
 kit for qualified NPC selectors, original sparse-key bundles and optional GPU
 weight inputs, plus the bounded initial-animation and GPU native verifiers.
