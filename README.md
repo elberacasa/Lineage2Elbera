@@ -70,6 +70,10 @@ four native volume constructors and reads
 **360 original property declarations**, including nested structures and the
 conditional replication word. Volume startup and live world collision remain
 unfinished. The class-prefix decoder is available in the standalone Core preview.
+The declaration inspector now follows original child links, and a scalar-field
+layout decoder matches **224 original-code comparisons** plus four original
+volume-class cases. Nested PhysicsVolume layouts and full class loading remain open.
+[Recovered field order and offsets](docs/native-class-defaults-evidence.md#linked-scalar-property-offsets).
 
 The new **Elbera object-localization inspector** shows original section
 selection, nested property keys and English fallback using clearly labeled

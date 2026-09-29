@@ -2,6 +2,34 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original linked scalar-property offsets — 29 September 2026
+
+The declaration inspector now keeps saved child/Next order separately from
+export order, including intervening functions/states and ownership stops.
+The bounded reader hashes each prefix and rejects cycles/unresolved imports.
+A portable scalar offset helper follows the original recompute stage: byte
+packing, aligned scalar/string headers and Boolean masks, including word
+rollover and the original static-array packing behavior.
+
+The Elbera verifier compares 224 authored cases against 153,363 original
+instructions/374 addresses. Four original volume-class cases add 1,610
+instructions/312 addresses. Volume, BlockingVolume and MusicVolume totals match
+their independent native registrations. WaterVolume own fields use the explicit
+native PhysicsVolume parent size; PhysicsVolume's nested field layout remains
+unsupported. LocationName's linked offset agrees with the native constructor.
+
+This executes only the offset prefix of UStruct.Link and complete admitted
+scalar-property Link bodies, with supplied reflection/parent size/completed
+Preload. Later property lists, alternate linking mode and full archive/class
+startup are excluded. No live volume, private bundle or scene geometry changed.
+The full browser-client goal remains ACTIVE. Next: nested structure metadata,
+source/default string storage/configuration, then volume/world startup.
+
+The source-only Core build now includes 23 allowlisted files and passes 53
+portable checks; existing published archives and all 17 README image URLs stay
+unchanged. The full local l2lib corpus passes 52 tests. No new UI was introduced;
+the existing localization inspector and its verified screenshot remain current.
+
 ## Original localized string storage — 29 September 2026
 
 The existing localization module now stores unquoted string-property text.

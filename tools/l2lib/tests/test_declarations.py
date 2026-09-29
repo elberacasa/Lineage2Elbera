@@ -8,7 +8,13 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from l2lib import L2Error, encode_compact
-from l2lib.declarations import read_property_declaration, SCALAR_KINDS, REFERENCE_KINDS
+from l2lib.declarations import (
+    read_property_declaration,
+    read_field_link,
+    read_field_chain,
+    SCALAR_KINDS,
+    REFERENCE_KINDS,
+)
 
 
 def fixture(
@@ -57,6 +63,49 @@ def fixture(
 
 
 class PropertyDeclarationTest(unittest.TestCase):
+    def test_field_prefix_does_not_consume_or_claim_the_function_body(self):
+        pkg, ex = fixture()
+        pkg.class_name_of = lambda _: "Function"
+        ex.serial_size = 3
+        row = read_field_link(pkg, ex)
+        self.assertEqual((row["super"], row["next"], row["sourceBytes"]), (0, 0, 3))
+        for length in (0, 1, 2):
+            ex.serial_size = length
+            with self.assertRaises(L2Error):
+                read_field_link(pkg, ex)
+
+    def test_field_chain_follows_links_not_export_order_and_stops_at_foreign_owner(
+        self,
+    ):
+        pkg, ex = fixture()
+        owner = SimpleNamespace(index=3)
+        pkg.data = b"guard" + b"\0\0\3" + b"\0\0\0" + b"\0\0\2"
+        pkg.exports = [
+            SimpleNamespace(
+                index=i,
+                serial_offset=5 + i * 3,
+                serial_size=3,
+                object_flags=0,
+                package_index=4,
+                label=str(i),
+            )
+            for i in range(3)
+        ]
+        pkg.class_name_of = lambda e: "Function" if e.index == 2 else "IntProperty"
+        result = read_field_chain(pkg, owner, 1)
+        self.assertEqual([r["exportRef"] for r in result["fields"]], [1, 3, 2])
+        self.assertEqual(result["stoppedAt"], 0)
+        pkg.exports[2].package_index = 9
+        result = read_field_chain(pkg, owner, 1)
+        self.assertEqual([r["exportRef"] for r in result["fields"]], [1])
+        self.assertEqual(result["stoppedAt"], 3)
+        pkg.exports[2].package_index = 4
+        pkg.data = pkg.data[:-1] + b"\1"
+        with self.assertRaisesRegex(L2Error, "cyclic"):
+            read_field_chain(pkg, owner, 1)
+        with self.assertRaises(L2Error):
+            read_field_chain(pkg, owner, -1)
+
     def test_network_word_precedes_type_reference_and_retains_nonzero_value(self):
         pkg, ex = fixture()
         row = read_property_declaration(pkg, ex)
