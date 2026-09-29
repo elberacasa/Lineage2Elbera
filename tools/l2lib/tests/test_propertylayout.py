@@ -44,6 +44,76 @@ def structure(name, fields, parent=None):
 
 
 class PropertyLayoutTest(unittest.TestCase):
+    def test_array_inner_has_independent_origin_and_boolean_mask(self):
+        array = dict(field("Array", 3), inner=field("Bool", 2))
+        result = property_offsets([field("Bool"), array, field("Bool")], 7)
+        self.assertEqual(result["propertiesSize"], 52)
+        self.assertEqual(
+            result["fields"][1],
+            dict(
+                offset=12,
+                elementSize=12,
+                inner=dict(offset=0, elementSize=4, boolMask=1),
+            ),
+        )
+        self.assertEqual(
+            result["fields"][2], dict(offset=48, elementSize=4, boolMask=1)
+        )
+        self.assertNotIn("offset", array["inner"])
+
+    def test_nested_array_flags_require_inner_dependencies_and_preserve_each_level(
+        self,
+    ):
+        leaf = dict(field("Object"), propertyFlags=0, referenceFlags=0x200000)
+        inner = dict(field("Array"), propertyFlags=0x1000, inner=leaf)
+        outer = dict(field("Array"), propertyFlags=0, inner=inner)
+        self.assertEqual(property_link_flags(outer), 0x400000)
+        self.assertEqual(property_link_flags(inner), 0x1000)
+        self.assertEqual(property_link_flags(leaf), 0x400000)
+        self.assertEqual(
+            property_offsets([outer], 0)["fields"][0]["inner"],
+            dict(offset=0, elementSize=12, inner=dict(offset=0, elementSize=4)),
+        )
+        del leaf["referenceFlags"]
+        with self.assertRaises(L2Error):
+            property_link_flags(outer)
+        inner["inner"] = outer
+        for check in (
+            lambda: property_link_flags(outer),
+            lambda: property_offsets([outer], 0),
+        ):
+            with self.assertRaisesRegex(L2Error, "cyclic"):
+                check()
+
+    def test_structure_array_keeps_inner_metadata_out_of_owner_lists(self):
+        leaf = structure("Example.Leaf", [dict(field("Str"), propertyFlags=0)])
+        outer = structure(
+            "Example.Outer",
+            [
+                dict(
+                    field("Array"),
+                    propertyFlags=0x1000,
+                    inner=dict(
+                        field("Struct"),
+                        name="Value",
+                        propertyFlags=0,
+                        reference="Example.Leaf",
+                    ),
+                )
+            ],
+        )
+        linked = structure_links([outer, leaf])["example.outer"]
+        self.assertEqual(linked["status"], "ready")
+        value = linked["ownFields"][0]
+        self.assertEqual(
+            (value["propertyFlags"], value["inner"]["propertyFlags"]),
+            (0x1000, 0x400000),
+        )
+        self.assertEqual(value["inner"]["elementSize"], 12)
+        self.assertEqual(linked["lists"]["0x70"], ["Example.Outer.Field0"])
+        self.assertEqual(linked["lists"]["0x78"], [])
+        self.assertNotIn("structSize", outer["fields"][0]["inner"])
+
     def test_replication_uses_last_equal_loaded_expression_across_owners(self):
         package = SimpleNamespace(imports=[None] * 2, exports=[None] * 2)
         scripts = {

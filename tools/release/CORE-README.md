@@ -13,13 +13,14 @@ fails explicitly; native class construction and gameplay are outside its scope.
 The existing published 0.1.0 ZIP retains its original contents.
 
 Current source builds also include bounded Polys decoding and four synthetic
-framing cases. The property-declaration reader includes eleven authored cases,
+framing cases. The property-declaration reader includes thirteen authored cases,
 covering the conditional two-byte replication word and class/structure child
-links. The property-layout and flag/list helpers add eighteen portable cases; the bounded string
+links and exact ownership of array inner declarations. The property-layout and flag/list helpers add twenty-one portable cases; the bounded string
 loader adds five, preserving UTF-16 code units and original count-one clearing:
-**25 selected files and 76 portable checks** in total. The layout helper requires original field order and explicit
+**25 selected files and 81 portable checks** in total. The layout helper requires original field order and explicit
 parent/nested sizes, or a complete decoded structure graph from which to resolve
-them. Separate helpers retain original load-time property flags and four lists;
+them. Array inners retain their own zero-origin layout, Boolean masks and
+consumed flag dependencies; unknown inners fail explicitly. Separate helpers retain original load-time property flags and four lists;
 unknown referenced-class state is not replaced with zero. A consumed-bit mask
 can supply a proven bit without inventing the rest of a class word; source
 variants must agree. The DLL-backed source reader remains a repository tool.

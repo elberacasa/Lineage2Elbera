@@ -1152,6 +1152,7 @@ def qualify_property_offsets(core, comparison_core):
         "ClassProperty": (0x1010278E, 0x10171630, 0x101716B6),
         "NameProperty": (0x1010428C, 0x101719F0, 0x10171A51),
         "StrProperty": (0x101010D2, 0x10171C10, 0x10171C83),
+        "ArrayProperty": (0x1010196A, 0x101721D0, 0x10172263),
         "StructProperty": (0x10101DE3, 0x10172690, 0x1017273D),
     }
     targets, blocks = {}, []
@@ -1163,6 +1164,7 @@ def qualify_property_offsets(core, comparison_core):
         ("UClass virtual slot 0x6c", 0x10101FC3, 0x1010B570, 0x1010B576),
         ("UStruct.GetInheritanceSuper", 0x10101ABE, 0x10115950, 0x10115954),
         ("UStruct virtual slot 0x6c", 0x10101A23, 0x101305D0, 0x101305D6),
+        ("UField.GetPropertiesSize", 0x10101014, 0x101305C0, 0x101305C3),
     )
     ranges = [
         ("UStruct.Link recompute-offset prefix", 0x10135E30, 0x10135F12),
@@ -1282,6 +1284,7 @@ def qualify_property_offsets(core, comparison_core):
             )
         )
     for cls, targets_by_slot in (
+        ("UArrayProperty", ((0x6C, 0x10101A23), (0x78, 0x10101014))),
         (
             "UClass",
             (
@@ -1322,7 +1325,7 @@ def qualify_property_offsets(core, comparison_core):
             "Only the recompute-offset prefix, ending before UStruct.Link's property lists; alternate preserve-offset mode is excluded.",
             "Current reflection, parent PropertiesSize and successful completed Preload are explicit inputs. No full class/archive execution.",
             "Complete admitted property Link bodies execute; Python compares only offsets, element sizes, Boolean masks and final PropertiesSize.",
-            "Nested structure sizes are supplied after Preload; array properties, property-flag changes and cleanup/reference lists are outside the portable output.",
+            "Nested structure sizes are supplied after Preload. Array inners execute their original Link with a null previous property and the array's zero-size owner dispatch. Property-flag changes and cleanup/reference lists are outside the default portable output.",
         ],
     )
 
@@ -1364,7 +1367,7 @@ def qualify_property_lists(core, comparison_core):
     proof["thunkTargets"].update(
         {k: v for k, v in localization["thunkTargets"].items() if int(v, 16) in reused}
     )
-    kinds = (*proof["propertyMethods"], "ArrayProperty", "DelegateProperty")
+    kinds = (*proof["propertyMethods"], "DelegateProperty")
     descriptors = {}
     for kind in ("Property", *kinds):
         symbol = "?PrivateStaticClass@U" + kind + "@@0VUClass@@A"

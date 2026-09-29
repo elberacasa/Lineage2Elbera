@@ -2,6 +2,33 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original array inner linking — 29 September 2026
+
+The declaration inspector now follows all twelve Actor array inners with exact
+local ownership checks, revealing three previously missed structures. The
+corpus has eight classes, sixteen structures, 364 own declarations and twelve
+inners. The portable layout retains each inner's independent origin/mask and
+flags; missing dependencies/cycles fail. Inner records never enter owner lists.
+
+The original UArrayProperty.Link and inherited zero-size dispatch are qualified
+against the same Core pair. Inner Preload/Link runs before outer layout. 552
+array cases pass at the offset boundary (225,824 instructions / 484 addresses)
+and full-list return (717,104 / 891 with native temporary-map lifecycle).
+The narrower profile passes too. Twelve source arrays have 42 offset comparisons
+in authored owner contexts (7,990 / 277); ten with known dependencies have 30
+full-list comparisons (22,952 / 658). Material/NSkillProjectile bits remain
+unknown for two arrays. These are not actual Actor offsets or live admission.
+
+Existing 420 scalar/structure and five original volume offset cases remain
+unchanged. All sixteen original structures pass (4,163 / 391 offsets,
+17,786 / 793 full lists). Replication/script checks retain prior results.
+Core source builds contain 25 allowlisted files / 81 portable tests, including
+thirteen declaration and twenty-one layout/metadata tests. No browser/runtime
+changes; screenshots and all seventeen README image URLs retained. Published
+ZIPs unchanged. Next: missing consumed class bits and native/saved parent
+reflection lifecycle/preserve-offset mode, then CDO and world-startup joins.
+All 53 live volumes remain unsupported. Full browser-client goal ACTIVE.
+
 ## Original replication grouping — 29 September 2026
 
 Extended the existing bounded script reader with native memory offsets and

@@ -25,6 +25,34 @@ REFERENCE_KINDS = frozenset(
 )
 
 
+def read_property_tree(package, export):
+    """Retain an array's local inner declarations with exact owner checks.
+
+    The single-record reader remains usable for unresolved/imported inners.
+    This helper admits only a complete locally owned chain; it does not load
+    imported objects or equate a saved reference with current reflection.
+    """
+    root, current, seen = None, None, set()
+    while True:
+        if export.index in seen:
+            raise L2Error("cyclic array inner declarations")
+        seen.add(export.index)
+        record = read_property_declaration(package, export)
+        if current is None:
+            root = record
+        else:
+            current["inner"] = record
+        if record["kind"] != "ArrayProperty":
+            return root
+        reference = record["referenceIndex"]
+        if not 0 < reference <= len(package.exports):
+            raise L2Error("array inner requires a local property export")
+        inner = package.exports[reference - 1]
+        if inner.package_index != export.index + 1:
+            raise L2Error("array inner has a different owner")
+        current, export = record, inner
+
+
 def read_field_link(package, export):
     """Read the bounded UField prefix, without interpreting its remaining body.
 

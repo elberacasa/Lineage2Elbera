@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from l2lib import L2Error, encode_compact
 from l2lib.declarations import (
     read_property_declaration,
+    read_property_tree,
     read_field_link,
     read_field_chain,
     read_struct_children,
@@ -64,6 +65,45 @@ def fixture(
 
 
 class PropertyDeclarationTest(unittest.TestCase):
+    def array_fixture(self):
+        package, outer = fixture("ArrayProperty", flags=0, reference=2)
+        inner_package, inner = fixture("BoolProperty", flags=0)
+        outer.kind, inner.kind = "ArrayProperty", "BoolProperty"
+        inner.index, inner.package_index = 1, 1
+        inner.serial_offset = len(package.data)
+        package.data += inner_package.data[5 : 5 + inner.serial_size]
+        package.exports.append(inner)
+        package.class_name_of = lambda ex: ex.kind
+        package.resolve_ref = lambda ref: package.exports[ref - 1]
+        return package, outer, inner
+
+    def test_array_tree_retains_inner_without_changing_the_single_record_reader(self):
+        pkg, outer, inner = self.array_fixture()
+        self.assertNotIn("inner", read_property_declaration(pkg, outer))
+        row = read_property_tree(pkg, outer)
+        self.assertEqual(row["referenceIndex"], 2)
+        self.assertEqual(row["inner"]["kind"], "BoolProperty")
+        self.assertEqual(row["inner"]["exportRef"], 2)
+        self.assertEqual(
+            row["inner"]["exportSHA256"],
+            read_property_declaration(pkg, inner)["exportSHA256"],
+        )
+
+    def test_array_tree_rejects_unresolved_foreign_and_truncated_inners(self):
+        for reference in (-1, 0):
+            pkg, ex = fixture("ArrayProperty", flags=0, reference=reference)
+            with self.assertRaisesRegex(L2Error, "local property export"):
+                read_property_tree(pkg, ex)
+        for mutate in (
+            lambda ex: setattr(ex, "package_index", 0),
+            lambda ex: setattr(ex, "serial_size", ex.serial_size - 1),
+            lambda ex: setattr(ex, "kind", "Function"),
+        ):
+            pkg, outer, inner = self.array_fixture()
+            mutate(inner)
+            with self.assertRaises(L2Error):
+                read_property_tree(pkg, outer)
+
     def test_structure_child_prefix_has_its_own_tag_terminator(self):
         pkg, ex = fixture()
         pkg.class_name_of = lambda _: "Struct"
