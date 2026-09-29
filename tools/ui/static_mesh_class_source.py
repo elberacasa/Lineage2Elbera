@@ -948,6 +948,180 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
     )
 
 
+def qualify_property_offsets(core, comparison_core):
+    """Bind the recomputed UClass scalar-property offset stage, not full Link.
+
+    Parent/current reflection and completed archive Preload are supplied. The
+    prefix stops before cleanup/reference lists and never claims to return
+    from UStruct.Link. Individual admitted property Link bodies are complete.
+    """
+    assert (core.sha, comparison_core.sha) == (CORE_SHA, CANDIDATE_CORE_SHA)
+    methods = {
+        "ByteProperty": (0x101044A8, 0x10170AF0, 0x10170B4B),
+        "IntProperty": (0x101024F0, 0x10170D40, 0x10170DA1),
+        "BoolProperty": (0x10102D74, 0x10173250, 0x101732F1),
+        "FloatProperty": (0x10104340, 0x10171510, 0x10171571),
+        "ObjectProperty": (0x1010278E, 0x10171630, 0x101716B6),
+        "ClassProperty": (0x1010278E, 0x10171630, 0x101716B6),
+        "NameProperty": (0x1010428C, 0x101719F0, 0x10171A51),
+        "StrProperty": (0x101010D2, 0x10171C10, 0x10171C83),
+    }
+    targets, blocks = {}, []
+    helpers = (
+        ("property cast", 0x10103936, 0x10132A00, 0x10132A22),
+        ("Boolean cast", 0x10102EFA, 0x101329D0, 0x101329F2),
+        ("UStruct.GetPropertiesSize", 0x10102199, 0x1010B310, 0x1010B314),
+        ("UClass.GetInheritanceSuper", 0x10104890, 0x10115A20, 0x10115A24),
+        ("UClass virtual slot 0x6c", 0x10101FC3, 0x1010B570, 0x1010B576),
+    )
+    ranges = [
+        ("UStruct.Link recompute-offset prefix", 0x10135E30, 0x10135F12),
+    ]
+    for name, (thunk, start, end) in methods.items():
+        cls = "U" + ("ObjectProperty" if name == "ClassProperty" else name)
+        symbol = "?Link@" + cls + "@@UAEXAAVFArchive@@PAVUProperty@@@Z"
+        assert core.exported(symbol, True) == comparison_core.body(symbol) == start
+        table = "??_7U" + name + "@@6B@"
+        assert core.u32(core.exported(table) + 0x80) == thunk
+        assert comparison_core.u32(comparison_core.exports[table] + 0x80) == thunk
+        helpers += ((name + ".Link", thunk, start, end),)
+    for name, thunk, start, end in helpers:
+        core.instruction(thunk, "jmp", hex(start))
+        assert bytes(
+            core.data[core.offset(thunk) : core.offset(thunk) + 5]
+        ) == comparison_core.read(thunk, 5)
+        targets[hex(thunk)] = hex(start)
+        if (name, start, end) not in ranges:
+            ranges.append((name, start, end))
+    for name, start, end in ranges:
+        data = bytes(core.data[core.offset(start) : core.offset(end)])
+        assert data == comparison_core.read(start, end - start)
+        rows = list(core.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data)
+        blocks.append(
+            dict(
+                label=name,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    # The serializer binding and caller prefixes establish the load-time
+    # recomputation path without claiming complete UClass/UState Link execution.
+    for address, mnemonic, operands in (
+        (0x1013155C, "cmp", "dword ptr [edi + 0x10], 0"),
+        (0x10131564, "push", "1"),
+        (0x10131569, "mov", "eax, dword ptr [edx + 0x80]"),
+        (0x10136587, "call", "0x10103fc1"),
+        (0x10103FC1, "jmp", "0x10136400"),
+        (0x10136434, "call", "0x10103364"),
+        (0x10103364, "jmp", "0x10135e30"),
+    ):
+        core.instruction(address, mnemonic, operands)
+        row = next(
+            core.dis.disasm(
+                bytes(core.data[core.offset(address) : core.offset(address) + 15]),
+                address,
+            )
+        )
+        assert bytes(row.bytes) == comparison_core.read(address, row.size)
+    caller_prefixes = []
+    for cls, start, end in (
+        ("UClass", 0x10136550, 0x1013658C),
+        ("UState", 0x10136400, 0x10136439),
+    ):
+        symbol = "?Link@" + cls + "@@UAEXAAVFArchive@@H@Z"
+        assert core.exported(symbol, True) == comparison_core.body(symbol) == start
+        thunk = core.exported(symbol)
+        assert thunk == comparison_core.exports[symbol]
+        core.instruction(thunk, "jmp", hex(start))
+        assert bytes(
+            core.data[core.offset(thunk) : core.offset(thunk) + 5]
+        ) == comparison_core.read(thunk, 5)
+        data = bytes(core.data[core.offset(start) : core.offset(end)])
+        assert data == comparison_core.read(start, len(data))
+        caller_prefixes.append(
+            dict(
+                symbol=symbol,
+                start=hex(start),
+                end=hex(end),
+                scope="prefix through inherited Link call",
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    field_serializers = []
+    for cls, parent in (
+        ("UConst", "UField"),
+        ("UEnum", "UField"),
+        ("UStruct", "UField"),
+        ("UState", "UStruct"),
+        ("UFunction", "UStruct"),
+    ):
+        symbol = "?Serialize@" + cls + "@@UAEXAAVFArchive@@@Z"
+        inherited = "?Serialize@" + parent + "@@UAEXAAVFArchive@@@Z"
+        start = core.exported(symbol, True)
+        assert start == comparison_core.body(symbol)
+        rows = list(
+            core.dis.disasm(
+                bytes(core.data[core.offset(start) : core.offset(start) + 128]), start
+            )
+        )
+        call = next(row for row in rows if row.mnemonic == "call")
+        assert (
+            int(call.op_str, 16)
+            == core.exported(inherited)
+            == comparison_core.exports[inherited]
+        )
+        end = call.address + call.size
+        data = bytes(core.data[core.offset(start) : core.offset(end)])
+        assert data == comparison_core.read(start, len(data))
+        table = "??_7" + cls + "@@6B@"
+        assert core.u32(core.exported(table) + 0x2C) == core.exported(symbol)
+        assert (
+            comparison_core.u32(comparison_core.exports[table] + 0x2C)
+            == comparison_core.exports[symbol]
+        )
+        field_serializers.append(
+            dict(
+                symbol=symbol,
+                calls=inherited,
+                start=hex(start),
+                end=hex(end),
+                scope="prefix through first inherited serializer call",
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    table = "??_7UClass@@6B@"
+    for slot, target in (
+        (0x6C, 0x10101FC3),
+        (0x78, 0x10102199),
+        (0x7C, 0x10104890),
+        (0x80, 0x1010452A),
+    ):
+        assert core.u32(core.exported(table) + slot) == target
+        assert comparison_core.u32(comparison_core.exports[table] + slot) == target
+    for symbol, at in (
+        ("?PrivateStaticClass@UProperty@@0VUClass@@A", 0x10336D80),
+        ("?PrivateStaticClass@UBoolProperty@@0VUClass@@A", 0x10338240),
+    ):
+        assert core.exported(symbol) == comparison_core.exports[symbol] == at
+    return dict(
+        coreSHA256=core.sha,
+        comparisonCoreSHA256=comparison_core.sha,
+        blocks=blocks,
+        thunkTargets=targets,
+        fieldSerializerPrefixes=field_serializers,
+        callerPrefixes=caller_prefixes,
+        propertyMethods={kind: hex(values[0]) for kind, values in methods.items()},
+        limits=[
+            "Only the recompute-offset prefix, ending before UStruct.Link's property lists; alternate preserve-offset mode is excluded.",
+            "Current reflection, parent PropertiesSize and successful completed Preload are explicit inputs. No full class/archive execution.",
+            "Complete admitted scalar-property Link bodies execute; Python compares only offsets, element sizes, Boolean masks and final PropertiesSize.",
+            "Nested structures/arrays remain unsupported by the offset port. Property-flag changes and cleanup/reference lists are outside its output.",
+        ],
+    )
+
+
 def read_owned_loading_bits(*, actor=False, model=False, polys=False, brush=False):
     """Read this edition's owned inputs; no supplemental lookup or downloads."""
     from pathlib import Path

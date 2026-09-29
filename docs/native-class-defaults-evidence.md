@@ -187,3 +187,91 @@ This world extraction/verification remains a full-repository tool; the standalon
 Core preview includes the class-prefix decoder, not the world exporter. Complete
 subclass construction, PostLoad, primitive providers, startup and live queries
 are still required. No map rendering or Online movement repair is claimed.
+
+## Linked scalar-property offsets
+
+The saved export table is not property iteration order. The declaration
+inspector now reports `fieldChain` separately from its existing `fields` array.
+It starts at the class's serialized child reference, follows each UField's
+`Next`, includes intervening functions/states and stops before a foreign owner.
+Cycles, imported links, nonempty tagged headers and unknown kinds are explicit
+errors. Each bounded prefix has its own source hash; reading a function link
+does not decode or execute that function's remaining body.
+
+`l2lib.propertylayout.property_offsets` implements only the original class
+scalar-offset stage. Inputs are properties in that linked order and a supplied
+parent `PropertiesSize`. It preserves byte packing, four-byte scalar alignment,
+twelve-byte string headers and packed Boolean offsets/masks. A Boolean after
+another Boolean can reuse its word even when a static array dimension exceeds
+one; the native branch does not test `ArrayDim == 1`. After bit 31, the next
+Boolean starts a new word. Unknown kinds, nonpositive dimensions and arithmetic
+outside the admitted nonwrapping signed range fail without a guessed layout.
+
+The original Core comparison binds these ranges (exclusive ends):
+
+| Routine | Range | Scope |
+| --- | --- | --- |
+| `UStruct.Link` | `10135e30..10135f12` | Recompute-offset prefix; deliberately stops before property lists |
+| `UByteProperty.Link` | `10170af0..10170b4b` | Complete ordinary body |
+| `UIntProperty.Link` | `10170d40..10170da1` | Complete ordinary body |
+| `UBoolProperty.Link` | `10173250..101732f1` | Complete ordinary body |
+| `UFloatProperty.Link` | `10171510..10171571` | Complete ordinary body |
+| `UObjectProperty.Link` | `10171630..101716b6` | Complete ordinary body; ClassProperty shares its dispatch |
+| `UNameProperty.Link` | `101719f0..10171a51` | Complete ordinary body |
+| `UStrProperty.Link` | `10171c10..10171c83` | Complete ordinary body |
+| Property and Boolean casts | `10132a00..10132a22`, `101329d0..101329f2` | Complete bodies over supplied reflection |
+| Size, parent and packing getters | `1010b310..1010b314`, `10115a20..10115a24`, `1010b570..1010b576` | Complete bound UClass dispatch bodies |
+
+The existing class-prefix and property-declaration qualifiers bind saved
+child/Next serialization. Additional nonproperty serializer prefixes establish
+their first inherited call, with exact ranges/hashes retained in the local
+receipt. Loading `UStruct.Serialize` passes `1` to virtual Link; the bound
+UClass → UState → UStruct calls forward that argument. This source comparison
+does not execute the complete serializer, UState/UClass Link or archive I/O.
+
+The interpreter executes **224 authored cases: 153,363 instructions across 374
+addresses**, including padding, scalar/static-array sizes, skipped nonproperty
+fields, Boolean rollover and static Boolean arrays. Archive Preload is an
+explicit successful, already-completed provider. Current parent size and
+reflection are supplied; original casts and property virtual calls execute.
+Python compares offsets, element sizes, masks and final size, not property-flag
+changes or cleanup/reference lists. The interpreter stops mid-method at the
+documented boundary and does not report a full Link return.
+
+The optional original-input check adds **four cases: 1,610 instructions across
+312 addresses** using the pinned Engine/Core/GamePlay packages. Volume,
+BlockingVolume and MusicVolume totals match their separately qualified native
+registration sizes. Volume's `LocationName` offset agrees with the original
+constructor's string no-init call. WaterVolume's own fields use the explicitly
+supplied native PhysicsVolume parent size; PhysicsVolume's nested-structure
+layout remains **unsupported**. This does not certify that parent's complete
+reflection or admit any saved volume to live world startup.
+
+Inputs use the Core fingerprints documented above and the Engine/package
+fingerprints in [the volume evidence](native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations).
+No client bytes or original declaration payloads are bundled with the tool.
+Private-data reproduction from the full repository:
+
+```sh
+python3 tools/world/inspect_actor_declarations.py --check
+python3 tools/ui/check_property_layout_native.py \
+  --comparison-core /local/reference/system/Core.dll \
+  --comparison-engine /local/reference/system/engine.dll \
+  --original-volumes --output tmp/local-property-offsets.json
+```
+
+Omit `--original-volumes` and `--comparison-engine` for only the authored
+native cases; those still need the two pinned Core images and Capstone.
+The portable fixtures require neither original files nor Capstone:
+
+```sh
+python3 tools/l2lib/tests/test_declarations.py
+python3 tools/l2lib/tests/test_propertylayout.py
+python3 tools/release/build_core.py --check
+```
+
+Current standalone Core source builds include the reader/helper and portable
+fixtures: **23 selected files / 53 checks**. The full native verifier and world
+inspector remain full-repository tools. Existing published ZIPs are unchanged.
+Source/default string storage, configuration, nested fields, complete class
+loading and volume/world startup remain outstanding; no map repair is claimed.

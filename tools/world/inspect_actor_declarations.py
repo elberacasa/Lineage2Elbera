@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / "tools"), str(ROOT / "tools/world")]
 from export_static_collision import OriginalClasses, serialized_class_record
 from l2lib import load_package, qualified_ref
-from l2lib.declarations import read_property_declaration
+from l2lib.declarations import read_property_declaration, read_field_chain
 
 
 DEFAULT_CLASSES = (
@@ -103,6 +103,9 @@ def inspect_declarations(names):
             savedSuper=source["parent"],
             classPrefix=source["defaults"]["classPrefix"],
             fields=fields(pkg, ex),
+            fieldChain=read_field_chain(
+                pkg, ex, source["defaults"]["classPrefix"]["references"][3]
+            ),
         )
         visiting.remove(key)
 
@@ -114,6 +117,9 @@ def inspect_declarations(names):
         classes=len(classes),
         structures=len(structures),
         declarations=len(declarations),
+        linkedClassFields=sum(
+            len(row["fieldChain"]["fields"]) for row in classes.values()
+        ),
         networkedDeclarations=sum(
             field["replicationOffset"] is not None for field in declarations
         ),
@@ -134,7 +140,7 @@ def inspect_declarations(names):
         structures=structures,
         limits=[
             "Caller-supplied file-123 packages. Recorded fingerprints identify inputs, not authenticated edition provenance.",
-            "Fields are retained in export order, not inferred native iteration order. Script/default parsing does not execute gameplay.",
+            "fields retains export order; fieldChain separately follows saved child/Next links, including nonproperties and the ownership stop. Neither executes archive preloading or gameplay.",
             "Source flags, dimensions and reference identities do not establish native offsets, aliasing, localization effects or current actor state.",
         ],
     )

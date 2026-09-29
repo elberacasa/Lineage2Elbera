@@ -44,7 +44,7 @@ The existing checker executes 128 header-loading cases; an independent record
 walker verifies all 2,447 saved polygons in both maps. This establishes header
 flags and source framing, not complete polygon geometry or owning actor startup.
 The corrected file-123 decoder and four synthetic cases are also included in
-current standalone Core source builds (19 files/40 checks); published ZIPs are
+current standalone Core source builds; published ZIPs are
 unchanged. See [Polys evidence and commands](../docs/native-static-actor-bounds-evidence.md#source-loaded-polys-headers).
 
 The original-record checker now also compares the loaded collision fields of
@@ -63,8 +63,17 @@ A conditional replication word correctly preserves Gravity's Vector reference.
 The native verifier also checks 256 cases across four native volume constructors,
 including preservation of existing name/string storage. Localization effects and
 complete volume startup remain unfinished. Current standalone Core source builds
-include the declaration reader and fixtures (21 files/47 checks); existing ZIPs
+include the declaration and scalar-layout readers and fixtures (23 files/53 checks); existing ZIPs
 are unchanged. [Commands, fingerprints and limits](../docs/native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations).
+
+The declaration inspector now returns `fieldChain` separately from export-order
+`fields`, following saved child/Next references through functions and states.
+The [original property-offset verifier](ui/check_property_layout_native.py)
+compares the scalar offset stage with 224 authored cases and four original
+volume-class cases. It recovers alignment, twelve-byte string headers and packed
+Boolean masks without substituting export order. Nested PhysicsVolume layouts,
+full class linking and live volume startup remain open.
+[Inputs, reproducible commands and exact limits](../docs/native-class-defaults-evidence.md#linked-scalar-property-offsets).
 
 The [object-localization inspector](../editor/world/test/actor-localization.html)
 shows current-object section selection, nested keys and language fallback using
