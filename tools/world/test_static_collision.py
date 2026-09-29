@@ -977,7 +977,7 @@ class WorldSourceOutputTest(unittest.TestCase):
         audit.level_binding = {
             "actorArrays": [{"nativeField": "0x38", "references": [1, 2, 0, 3, 2]}]
         }
-        audit.sources, audit.defaults = {}, []
+        audit.sources, audit.defaults = {}, [{}]
         audit.boolean_layout = []
         audit.actor_class_loading = {"scope": "authored"}
         audit.level_mode_defaults, audit.level_mode = {}, {}
@@ -1001,6 +1001,7 @@ class WorldSourceOutputTest(unittest.TestCase):
         with patch("export_static_collision.qualified_ref", side_effect=self.names), patch(
                 "export_static_collision.ActorBooleanDefaults") as classes, patch(
                 "export_static_collision.saved_actor_booleans", return_value={'scope': 'authored'}) as booleans, patch(
+                "export_static_collision.brush_actor_fields", return_value={'classes': {}, 'actors': {}}), patch(
                 "export_static_collision.saved_brush_models", return_value={'actors': {}, 'models': {}}), patch(
                 "static_mesh_class_source.read_owned_loading_bits", return_value={'scope': 'authored'}):
             classes.return_value.records = {'authored': {'scope': 'authored'}}
@@ -1688,6 +1689,171 @@ class SavedPolysResourceTest(unittest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 saved_polys_resource(package, export)
+
+class BrushActorFieldsTest(unittest.TestCase):
+    def fixture(self):
+        from export_static_collision import saved_brush_models, TRANSFORM_TYPES
+
+        pkg, identities, defaults = SavedBrushModelTest().fixture()
+        groups = {"0x64": {"mask": 1, "value": 1}}
+        for row in defaults.records.values():
+            row["actorBooleans"] = {"groups": deepcopy(groups)}
+        defaults.records["engine.actor"]["tags"] = [
+            dict(
+                name="DrawScale",
+                type=4,
+                index=0,
+                struct=None,
+                raw=struct.pack("<f", 1.25).hex(),
+            )
+        ]
+        defaults.records["engine.brush"]["tags"] = [
+            dict(
+                name="Rotation",
+                type=10,
+                index=0,
+                struct="Rotator",
+                raw=struct.pack("<3i", 7, -8, 9).hex(),
+            )
+        ]
+        packages = {}
+        for name, names in [("Core", ["Object"]), ("Engine", ["Actor", "Brush"])]:
+            exports = [
+                SimpleNamespace(index=i, package_index=0, label=n, kind="Class")
+                for i, n in enumerate(names)
+            ]
+            source = SimpleNamespace(
+                path=Path(name + ".u"),
+                exports=exports,
+                class_name_of=lambda e: e.kind,
+                export_name=lambda e: e.label,
+            )
+            source.resolve_ref = lambda ref, source=source: source.exports[ref - 1]
+            packages[name] = source
+        defaults.catalog = SimpleNamespace(packages=packages)
+        for key, identity in identities.items():
+            ex = pkg.exports[int(key) - 1]
+            identity["exportSHA256"] = hashlib.sha256(
+                pkg.data[ex.serial_offset : ex.serial_offset + ex.serial_size]
+            ).hexdigest()
+        declarations = {
+            "collisionTransforms": {
+                "layout": [{"name": name} for name in TRANSFORM_TYPES]
+            },
+            "collisionReferences": {
+                "layout": [
+                    {"name": name}
+                    for name in (
+                        "StaticMesh",
+                        "Owner",
+                        "Level",
+                        "XLevel",
+                        "Mesh",
+                        "Brush",
+                        "AntiPortal",
+                    )
+                ]
+            },
+            "collisionBooleans": {"layout": []},
+            "collisionAttached": {
+                "layout": {"name": "Attached"},
+                "inner": {"kind": "ObjectProperty"},
+            },
+        }
+        brushes = saved_brush_models(pkg, identities, defaults)
+        booleans = {key: {"tags": []} for key in identities}
+        return pkg, identities, defaults, brushes, booleans, declarations
+
+    def test_class_defaults_are_inherited_and_shared_without_static_actor_values(self):
+        from export_static_collision import brush_actor_fields
+
+        args = self.fixture()
+        result = brush_actor_fields(*args)
+        self.assertEqual(len(result["classes"]), 1)
+        cls = result["classes"]["engine.brush"]
+        self.assertEqual(cls["collisionTransforms"]["defaults"]["DrawScale"], 1.25)
+        self.assertEqual(cls["collisionTransforms"]["defaults"]["Rotation"], [7, -8, 9])
+        self.assertEqual(cls["collisionTransforms"]["defaults"]["Location"], [0, 0, 0])
+        self.assertEqual(
+            cls["collisionTransforms"]["origins"]["DrawScale"], "Engine.Actor"
+        )
+        self.assertEqual(
+            cls["collisionTransforms"]["origins"]["Rotation"], "Engine.Brush"
+        )
+        for row in result["actors"].values():
+            self.assertEqual(row["savedReferences"]["tags"][0]["reference"], 1)
+            self.assertEqual(row["savedReferences"]["fields"]["Owner"]["reference"], 0)
+            self.assertEqual(row["savedActorLoading"]["attachedOverrideCount"], 0)
+        self.assertEqual(len(result["actors"]), 2)
+
+    def test_shadowed_fields_and_unknown_attached_defaults_are_not_inferred(self):
+        from export_static_collision import brush_actor_fields
+
+        args = self.fixture()
+        engine = args[2].catalog.packages["Engine"]
+        engine.exports.append(
+            SimpleNamespace(
+                index=2, package_index=2, label="Location", kind="StructProperty"
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "redeclares"):
+            brush_actor_fields(*args)
+        args = self.fixture()
+        args[2].records["engine.brush"]["tags"].append(
+            dict(name="Attached", raw="", type=9, index=0, struct=None)
+        )
+        with self.assertRaisesRegex(ValueError, "Attached"):
+            brush_actor_fields(*args)
+
+    def test_transform_tags_preserve_order_bits_and_validate_each_occurrence(self):
+        from export_static_collision import decoded_transform_tags
+
+        tags = [
+            dict(
+                name="Location",
+                type=10,
+                index=0,
+                struct="Vector",
+                raw=struct.pack("<3f", -0.0, 2, 3),
+            ),
+            dict(
+                name="location",
+                type=10,
+                index=0,
+                struct="Vector",
+                raw=struct.pack("<3f", 4, 5, 6),
+            ),
+        ]
+        result = decoded_transform_tags(tags)
+        self.assertEqual([r["name"] for r in result], ["Location", "Location"])
+        self.assertEqual(
+            struct.pack("<f", result[0]["value"][0]), struct.pack("<f", -0.0)
+        )
+        self.assertEqual(result[1]["value"], [4, 5, 6])
+        for bad in [
+            dict(tags[0], type=4),
+            dict(tags[0], index=1),
+            dict(tags[0], struct="Rotator"),
+            dict(tags[0], raw=struct.pack("<3f", float("nan"), 2, 3)),
+        ]:
+            with self.assertRaises(ValueError):
+                decoded_transform_tags([bad, tags[1]])
+
+    def test_repeated_reference_tags_keep_nulls_and_source_identity(self):
+        from export_static_collision import decoded_reference_tags
+
+        pkg, *_ = SavedBrushModelTest().fixture()
+        tags = [
+            dict(name="brush", type=5, index=0, struct=None, raw=compact(ref))
+            for ref in (1, 0, 1)
+        ]
+        result = decoded_reference_tags(pkg, tags, ["Brush"])
+        self.assertEqual([r["reference"] for r in result], [1, 0, 1])
+        self.assertEqual([r["name"] for r in result], ["Brush"] * 3)
+        self.assertIsNone(result[1]["qualified"])
+        tags[1]["raw"] = b"\x40\0"
+        with self.assertRaises(ValueError):
+            decoded_reference_tags(pkg, tags, ["Brush"])
 
 if __name__ == "__main__":
     unittest.main()

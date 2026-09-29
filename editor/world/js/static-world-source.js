@@ -4,6 +4,7 @@
  */
 import {
   prepareFreshStaticActor,
+  prepareFreshBrushActor,
   resolvePackageReference,
   applyActorBooleanTags,
   prepareSourceModel,
@@ -325,6 +326,117 @@ export function prepareStaticWorldSource(data, tile) {
       if ([...models.keys()].some((ref) => !used.has(ref)))
         throw Error("saved Model has no Brush reference");
     }
+    const brushFields = data.savedBrushActors;
+    const brushPrepared = new Map();
+    if (brushFields !== undefined) {
+      if (
+        brushFields?.scope !== "saved-brush-actor-fields" ||
+        !record(brushFields.classes) ||
+        !record(brushFields.actors) ||
+        !record(brushFields.classLoading) ||
+        !brushes ||
+        Object.keys(brushFields.actors).length !==
+          Object.keys(brushes.actors).length
+      )
+        throw Error("invalid saved Brush actor fields");
+      const headers = new Map();
+      const headerIdentities = new Set();
+      for (const resource of [...models.values(), ...polys.values()]) {
+        if (headerIdentities.has(resource.identity))
+          throw Error("ambiguous shared resource header identity");
+        headerIdentities.add(resource.identity);
+      }
+      for (const model of models.values()) {
+        if (model.resource.status === "ready")
+          headers.set(model.identity, {
+            objectFlags: model.resource.objectFlags,
+            polysReference: model.polys === null ? null : model.polys?.identity,
+          });
+      }
+      for (const poly of polys.values()) {
+        if (poly.resource.status === "ready")
+          headers.set(poly.identity, {
+            objectFlags: poly.resource.objectFlags,
+          });
+      }
+      const resolve = (pkg, reference) => {
+        const table = data.savedReferenceBindings[pkg];
+        const factory = (ref) => {
+          const binding = table?.references[ref];
+          if (!validBinding(binding))
+            return fail("missing Brush reference binding");
+          const model =
+            binding.sourcePackage === tile && models.get(binding.exportRef);
+          if (model)
+            return sameBinding(model.binding, binding)
+              ? { status: "ready", value: model }
+              : fail("conflicting Brush Model identity");
+          const object = prepared.objects.get(sourceKey(binding));
+          return object && sameBinding(object.binding, binding)
+            ? { status: "ready", value: object }
+            : fail("unprepared Brush reference identity");
+        };
+        return resolvePackageReference(
+          table && {
+            exportCount: table.exportCount,
+            importCount: table.importCount,
+            createExport: (index, flags) =>
+              flags === 0
+                ? factory(index + 1)
+                : fail("unsupported export flags"),
+            createImport: (index) => factory(-1 - index),
+          },
+          reference,
+        );
+      };
+      for (const [key, source] of Object.entries(brushFields.actors)) {
+        const binding = data.savedActorSources[key],
+          brush = brushes.actors[key];
+        if (
+          !brush ||
+          !binding ||
+          source.exportRef !== binding.exportRef ||
+          source.exportSHA256 !== binding.exportSHA256 ||
+          source.sourceClass !== binding.classIdentity
+        )
+          throw Error("Brush fields differ from saved actor identity");
+        const defaults = brushFields.classes[source.sourceClass.toLowerCase()];
+        if (
+          defaults?.scope !== "saved-brush-actor-defaults" ||
+          defaults.sourceClass !== source.sourceClass
+        )
+          throw Error("Brush field default class differs");
+        const resolved = {};
+        let result;
+        if (!record(defaults.collisionReferences?.defaults))
+          throw Error("Brush reference defaults required");
+        for (const [name, value] of Object.entries(
+          defaults.collisionReferences.defaults,
+        )) {
+          const reply = resolve(value.package, value.reference);
+          if (reply.status !== "ready") {
+            result = reply;
+            break;
+          }
+          resolved[name] = reply.value;
+        }
+        result ??= prepareFreshBrushActor({
+          defaults,
+          source,
+          classLoading: brushFields.classLoading[source.sourceClass],
+          resolvedReferenceDefaults: resolved,
+          resolveReference: resolve,
+          resourceHeaders: headers,
+        });
+        if (
+          result.status === "ready" &&
+          result.references.Brush !==
+            (brush.modelRef === 0 ? null : models.get(brush.modelRef))
+        )
+          throw Error("loaded Brush differs from saved Model reference");
+        brushPrepared.set(Number(key), result);
+      }
+    }
     const booleans = data.savedActorBooleans;
     const booleanLayout = data.classDefaults.at(-1)?.collisionBooleans?.layout;
     if (
@@ -400,7 +512,7 @@ export function prepareStaticWorldSource(data, tile) {
               : brushes.actors[key].modelRef === 0
                 ? null
                 : models.get(brushes.actors[key].modelRef),
-          prepared: prepared.actors.get(ref),
+          prepared: prepared.actors.get(ref) ?? brushPrepared.get(ref),
         }),
       );
     }
@@ -464,6 +576,10 @@ export function prepareStaticWorldSource(data, tile) {
       staticActors: prepared.actors.size,
       preparedActors: [...prepared.actors.values()].filter(
         (v) => v.status === "ready",
+      ).length,
+      brushActors: brushPrepared.size,
+      preparedBrushActors: [...brushPrepared.values()].filter(
+        (actor) => actor.status === "ready",
       ).length,
       meshes: prepared.resources.size,
       preparedMeshes: [...prepared.resources.values()].filter(

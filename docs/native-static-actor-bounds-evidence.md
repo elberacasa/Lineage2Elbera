@@ -1383,10 +1383,11 @@ cases. Two deliberate local mutations—using the wrong resource flag and
 reversing the write order—are rejected by the native comparison. The offline
 Giran startup regression retains 328 prepared Models and 1,936 static actors;
 the rendered terrain defects remain visible.
-Source-loaded Polys headers are covered below; brush transforms, volume
-construction/localization and the final world startup/query join remain
-unfinished. The scene loader does not yet call this new entry for saved actors; it makes no additional live
-collision, Online movement or map-repair claim. This source verifier remains
+Source-loaded Polys headers and plain Brush transforms are covered below.
+Volume construction/localization and the final world startup/query join remain
+unfinished. The later saved-Brush field integration now calls this entry
+for plain Brush actors; it makes no live collision, Online movement or
+map-repair claim. This source verifier remains
 in the repository toolkit; existing standalone release archives are unchanged.
 
 ## Source-loaded Polys headers
@@ -1470,11 +1471,105 @@ The existing private `--world-source-output` export command includes these
 records. Previously retained scene fields are unchanged. Current Core source
 builds carry the decoder and portable fixtures in 19 selected files with 40
 checks; existing published archives remain immutable. The native world checker
-still belongs to the full repository toolkit. Owning brush/volume transforms,
-constructor/localization paths, ordered shared-header updates and the final
-world startup/query join remain unfinished.
+still belongs to the full repository toolkit. The later section below covers
+plain Brush collision fields. Volume constructor/localization paths, applying
+ordered shared-header updates and the final world startup/query join remain
+unfinished.
 
 The completed offline Giran capture was visually inspected with 328 ready Polys
 headers, 328 prepared Models and 1,936 static actors. No browser errors were
 captured. The terrain defects and unavailable world collision remain visible;
 this is startup regression evidence, not Online movement acceptance.
+
+## Saved Brush actor fields
+
+The scene loader now prepares **442 plain Brush collision field sets** from
+original class and map records: 151 in Talking Island and 291 in Giran. It
+retains source records for the other 53 volume actors, but refuses to substitute
+Brush or StaticMeshActor startup for their distinct class paths.
+
+The exporter reuses the original class cache and Actor declarations. Each
+Brush subclass receives its own inherited defaults and map overrides for five
+transforms, seven references and the declared Boolean groups. It preserves
+Float32 bits, signed rotations, independent scale operands and ordered repeated
+tags. Class-default values are recovered through the qualified zero/parent/tag
+path; no StaticMeshActor default values are borrowed. Shadowed fields, unknown
+Attached defaults, malformed values and nonempty native tails are rejected.
+Reference tables include every retained tag, including earlier overwritten
+references. Original package/export identity remains separate from a display
+name. Variable-width saved execution frames retain their actual source spans.
+
+Native Brush registration is qualified at `1083d970..1083d9e4` using the same
+pinned Engine/Core comparisons and package fingerprints above. Brush's own
+native and saved class flags agree across the recovered Actor/root inheritance
+alternatives: consumed mask `0x428`, value zero. Volume class localization is
+not cleared to force agreement. Class registration correspondence remains
+separate from execution of a complete native class registry.
+
+`prepareFreshBrushActor` and the existing static entry share one internal
+fresh-loading implementation. The Brush entry requires its own class identity,
+original frame/tag census, empty Attached default and explicit prepared
+Model/Polys headers. It reuses the common transform, Boolean and reference
+loading gates before the qualified Brush PostLoad component. Returned objects
+are immutable; referenced resources are shared with `savedBrush` and
+`modelForReference`.
+
+The native checker adds **128 fresh Brush cases**, interpreting **71,844
+instructions at 505 addresses**. It executes original flag stages, InitProperties
+with a supplied default buffer and reduced Attached-copy list, the actual
+ABrush constructor and ConditionalPostLoad. Comparisons cover null Model,
+Model-only and Model/Polys references, ordered header writes, rotation copying,
+masked actor flags, default-buffer preservation and unrelated storage. Archive
+payloads and current resource headers are explicit inputs; full archive I/O,
+class construction and script execution are not simulated as successful calls.
+The existing static-actor and resource suites remain separate passing checks.
+
+The original-record verifier independently reads final class/map field bytes
+with the generic property reader, then runs the complete browser scene loader.
+For all 442 admitted brushes it compares exact transform words, reference
+identities, Boolean groups, PostLoad flags and ordered Model/Polys writes.
+Original class names preserve source spelling: for example, the package's
+`GamePlay` spelling and an import's `Gameplay` spelling must not be mistaken
+for two different Unreal names.
+
+| Source map | Prepared static actors | Prepared Brush field sets | Remaining unprepared saved actors |
+| --- | --- | --- | --- |
+| Talking Island `17_25` | 986 | 151 | 100 |
+| Giran `22_22` | 1,936 | 291 | 179 |
+
+Static-export counts include three Talking Island actors outside its saved
+level array. Remaining actors include lights and cameras as well as collision
+participants; these counts are not counts of blocking obstacles. Earlier table
+counts in this document describe the preceding static-only integration stage.
+
+```sh
+# Portable authored inputs, no private game files.
+node --test editor/world/test/actor-loading.test.mjs \
+  editor/world/test/static-world-source.test.mjs
+python3 -m unittest discover -s tools/world -p test_static_collision.py
+python3 -m unittest discover -s tools/ui -p test_static_actor_bounds_native.py
+
+# Private originals and the pinned comparison inputs are required.
+python3 tools/world/check_static_collision_records.py 17_25 22_22 --check
+python3 tools/ui/check_static_actor_bounds_native.py \
+  --comparison-engine /local/comparison/engine.dll \
+  --comparison-core /local/comparison/Core.dll --check
+```
+
+Both private bundles were adopted after confirming that all previous source
+fields and reference bindings are unchanged. The completed offline Giran
+capture was visually inspected: 291 prepared Brush field sets, 179 remaining
+unprepared actors and the new Elbera inspection label. No browser errors were
+captured. Existing terrain defects remain visible. This checks scene startup,
+not Online movement or map repair.
+
+**Preparation is still separate from current world startup.** Each Brush result
+retains `postLoadWrites.resourceFlags`; those write intents have not yet been
+applied to shared current headers by the owning world lifecycle. The loader
+reports collision unavailable and does not invent a global export-order
+PostLoad schedule. `summary.preparedActors` retains its static-actor count;
+`summary.preparedBrushActors` separately counts this new field subset.
+The Elbera world-picking panel labels that distinction. Volume construction and
+localization, current level assignment/population, primitive hit dispatch and
+walking/camera integration remain unfinished. Existing standalone archives are
+unchanged; this checker continues in the full Elbera repository toolkit.

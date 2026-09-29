@@ -2,6 +2,34 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Source Brush collision fields — 29 September 2026
+
+The actual scene loader now prepares 151 plain Brush field sets in Talking
+Island and 291 in Giran. The exporter reads each subclass's own original
+defaults and ordered map tags, reusing existing class, property and reference
+helpers. Shared Model identities are preserved. All 53 volume actors retain
+explicit unsupported startup rather than receiving a static or Brush profile.
+
+Native Brush registration and package flags agree on consumed mask 0x428/value 0.
+A further 128 native cases execute fresh flag stages, supplied CDO copying,
+ABrush construction and ConditionalPostLoad: 71,844 instructions/505 addresses.
+The original-record checker independently compares the 442 admitted actors'
+transform words, references, Boolean groups and ordered resource write intents.
+Full archive/script execution, volume startup and current world population are
+outside these checks. PostLoad resource writes remain explicit intents for
+world startup to apply; scene collision is still unavailable.
+
+52 loader/lifecycle, 48 related bounds/tree and 88 portable exporter cases pass,
+along with 19 portable interpreter cases and the existing native suite. Both
+private bundles are adopted with their previous fields and references unchanged.
+The completed offline Giran capture was visually inspected: 291 prepared Brush
+actors, 179 remaining unprepared actors, and the new Elbera inspection label.
+No browser errors were captured. Existing terrain defects remain visible; this
+is a startup regression check, not Online movement or map-repair acceptance.
+Standalone archives and all 17 README image URLs remain unchanged. Next: volume
+construction/localization and the current world startup/query join. The full
+client goal stays active.
+
 ## Shared source Polys headers — 28 September 2026
 
 The scene loader now links each saved brush Model to its original Polys export,

@@ -25,6 +25,7 @@ MODEL_CLASS = "?PrivateStaticClass@UModel@@0VUClass@@A"
 POLYS_CLASS = "?PrivateStaticClass@UPolys@@0VUClass@@A"
 ACTOR_CLASS = "?PrivateStaticClass@AActor@@0VUClass@@A"
 STATIC_ACTOR_CLASS = "?PrivateStaticClass@AStaticMeshActor@@0VUClass@@A"
+BRUSH_CLASS = "?PrivateStaticClass@ABrush@@0VUClass@@A"
 
 
 def read_root_class_flags(package):
@@ -342,6 +343,54 @@ def static_actor_loading_bits(engine, core, engine_package, core_package):
     )
 
 
+def brush_loading_bits(engine, core, engine_package, core_package):
+    """Derive Brush bits from its own registration/package and Actor ancestry."""
+    parent = static_actor_loading_bits(engine, core, engine_package, core_package)
+    saved = read_zero_script_class_flags(engine_package, "Brush", "Engine.Actor")
+    assert engine.exported(BRUSH_CLASS) == 0x10C2D2C8
+    for row in [
+        (0x1083D9CB, "push", "0x10c1c4c8"),
+        (0x1083D9D0, "push", "0"),
+        (0x1083D9D2, "push", "0x418"),
+        (0x1083D9D9, "mov", "ecx, 0x10c2d2c8"),
+    ]:
+        engine.instruction(*row)
+    native = (
+        engine.data[engine.offset(0x1083D9D0) + 1]
+        | core.data[core.offset(0x101358C5) + 2]
+    )
+    evidence = parent["evidence"]
+    variants = {native, saved["flags"]}
+    variants |= {
+        flags | (ancestor & evidence["inheritanceMask"])
+        for flags in list(variants)
+        for ancestor in evidence["actorVariants"]
+    }
+    mask = 0x428
+    values = {flags & mask for flags in variants}
+    if len(values) != 1:
+        raise ValueError("class loading alternatives disagree on consumed Brush bits")
+    return dict(
+        sourceClass="Engine.Brush",
+        scope="ordinary-native-registration-and-package",
+        mask=mask,
+        value=values.pop(),
+        sources=parent["sources"],
+        evidence={
+            key: evidence[key]
+            for key in (
+                "root",
+                "actor",
+                "nativeRootFlags",
+                "nativeActorFlags",
+                "inheritanceMask",
+                "actorVariants",
+            )
+        }
+        | dict(brush=saved, nativeBrushFlags=native, brushVariants=sorted(variants)),
+    )
+
+
 def model_loading_bits(engine, core, engine_package, core_package):
     """The same qualified root/Primitive inheritance, with native Model flags."""
     mesh = loading_bits(engine, core, engine_package, core_package)
@@ -532,6 +581,29 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
                 (0x1083B604, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
                 (0x1083B60B, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
                 (0x1083B623, CLASS_CTOR),
+            ],
+        ),
+        (
+            "Brush",
+            0x1083D970,
+            0x1083D9E4,
+            [
+                (
+                    0x1083D989,
+                    0x11D8D790,
+                    0x11D8D78C,
+                    "import",
+                    "?StaticConstructor@UObject@@QAEXXZ",
+                ),
+                (0x1083D9A5, 0x10A72EAC, 0x10A72E98, "export", "GPackage"),
+                (0x1083D9CC, 0x10C1C4C8, 0x10C1C4D8, "export", ACTOR_CLASS),
+                (0x1083D9DA, 0x10C2D2C8, 0x10C2D2D8, "export", BRUSH_CLASS),
+            ],
+            [
+                (0x1083D980, "??0FGuid@@QAE@KKKK@Z"),
+                (0x1083D998, "?StaticConfigName@UObject@@SAPBGXZ"),
+                (0x1083D9C4, "?StaticClass@UObject@@SAPAVUClass@@XZ"),
+                (0x1083D9DE, CLASS_CTOR),
             ],
         ),
         (
@@ -780,22 +852,26 @@ def qualify_registration(engine, core, comparison_engine, comparison_core):
     )
 
 
-def read_owned_loading_bits(*, actor=False, model=False, polys=False):
+def read_owned_loading_bits(*, actor=False, model=False, polys=False, brush=False):
     """Read this edition's owned inputs; no supplemental lookup or downloads."""
     from pathlib import Path
     from check_tutorial_quest_native import Image
     from l2lib import load_package
 
     root = Path(__file__).resolve().parents[2] / "assets/interlude/system"
-    if sum((actor, model, polys)) > 1:
+    if sum((actor, model, polys, brush)) > 1:
         raise ValueError("choose one source class")
     derive = (
-        static_actor_loading_bits
-        if actor
+        brush_loading_bits
+        if brush
         else (
-            model_loading_bits
-            if model
-            else polys_loading_bits if polys else loading_bits
+            static_actor_loading_bits
+            if actor
+            else (
+                model_loading_bits
+                if model
+                else polys_loading_bits if polys else loading_bits
+            )
         )
     )
     return derive(

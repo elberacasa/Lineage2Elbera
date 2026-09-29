@@ -444,3 +444,114 @@ test("Polys source completeness and shared references cannot become implicit nul
     undefined,
   );
 });
+
+function withBrushFields() {
+  const s = withPolys();
+  const defaults = s.savedActorBooleans.classes["engine.brush"];
+  defaults.actorBooleans = structuredClone(
+    s.savedActorBooleans.classes["engine.blockingvolume"].actorBooleans,
+  );
+  s.savedActorSources[3].classIdentity =
+    s.savedBrushModels.actors[3].sourceClass =
+    s.savedActorBooleans.actors[3].sourceClass =
+      "Engine.Brush";
+  const classes = {};
+  for (const name of ["Engine.Brush", "Engine.BlockingVolume"]) {
+    classes[name.toLowerCase()] = {
+      ...structuredClone(s.classDefaults[0]),
+      sourceClass: name,
+      scope: "saved-brush-actor-defaults",
+    };
+    classes[name.toLowerCase()].collisionBooleans.defaultGroups =
+      structuredClone(
+        s.savedActorBooleans.classes[name.toLowerCase()].actorBooleans.groups,
+      );
+  }
+  const actors = {};
+  for (const ref of [3, 6]) {
+    const source = structuredClone(s.actors[0]),
+      binding = s.savedActorSources[ref];
+    source.exportRef = ref;
+    source.exportSHA256 = binding.exportSHA256;
+    source.sourceClass = binding.classIdentity;
+    source.savedStateFrame.classIdentity = binding.classIdentity;
+    source.savedReferences.tags = [
+      { name: "Brush", package: "Map", reference: 5 },
+    ];
+    source.savedCollisionFlags.tags = [];
+    actors[ref] = source;
+  }
+  s.savedBrushActors = {
+    scope: "saved-brush-actor-fields",
+    classes,
+    actors,
+    classLoading: {
+      "Engine.Brush": { ...s.actorClassLoading, sourceClass: "Engine.Brush" },
+    },
+  };
+  const model = s.savedBrushModels.models[5];
+  s.savedReferenceBindings.Map.exportCount = 7;
+  s.savedReferenceBindings.Map.references[5] = Object.fromEntries(
+    [
+      "identity",
+      "sourcePackage",
+      "exportRef",
+      "classIdentity",
+      "exportSHA256",
+    ].map((k) => [k, model[k]]),
+  );
+  return s;
+}
+
+test("scene loader prepares original Brush fields and preserves shared resource write intents", () => {
+  const s = withBrushFields(),
+    before = structuredClone(s);
+  const w = prepareStaticWorldSource(s, "Map");
+  assert.equal(w.status, "ready", w.reason);
+  assert.equal(w.summary.brushActors, 2);
+  assert.equal(w.summary.preparedBrushActors, 1);
+  const actor = w.actorForReference(3).prepared,
+    model = w.modelForReference(5);
+  assert.equal(actor.status, "ready", actor.reason);
+  assert.equal(actor.references.Brush, model);
+  assert.equal(w.actorForReference(6).prepared.status, "unsupported");
+  assert.deepEqual(
+    actor.postLoadWrites.resourceFlags.map((row) => row.identity),
+    [model.identity, model.polys.identity],
+  );
+  assert.equal(model.resource.objectFlags, 0x60000000);
+  assert.equal(w.summary.collisionStatus, "unavailable");
+  assert.deepEqual(s, before);
+  assert.equal(
+    w.unpreparedActors.some((row) => row.reference === 3),
+    false,
+  );
+  assert.equal(
+    w.unpreparedActors.some((row) => row.reference === 6),
+    true,
+  );
+});
+
+test("Brush source field completeness cannot substitute another class or Model identity", () => {
+  for (const corrupt of [
+    (s) => delete s.savedBrushActors.actors[3],
+    (s) => (s.savedBrushActors.actors[3].exportRef = 4),
+    (s) => (s.savedBrushActors.actors[3].exportSHA256 = "0".repeat(64)),
+    (s) =>
+      (s.savedBrushActors.classes["engine.brush"].sourceClass =
+        "Engine.StaticMeshActor"),
+    (s) => (s.savedBrushActors.actors[3].savedReferences.tags = []),
+    (s) =>
+      (s.savedBrushModels.polys[7].identity =
+        s.savedBrushModels.models[5].identity),
+  ]) {
+    const s = withBrushFields();
+    corrupt(s);
+    assert.equal(prepareStaticWorldSource(s, "Map").status, "unsupported");
+  }
+  const s = withBrushFields();
+  delete s.savedBrushActors.classLoading["Engine.Brush"];
+  const w = prepareStaticWorldSource(s, "Map");
+  assert.equal(w.status, "ready");
+  assert.equal(w.summary.preparedBrushActors, 0);
+});

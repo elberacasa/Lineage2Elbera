@@ -37,6 +37,7 @@ from static_mesh_class_source import (
     static_actor_loading_bits,
     model_loading_bits,
     polys_loading_bits,
+    brush_loading_bits,
 )
 from model_loading_source import qualify_model_loading, qualify_polys_loading
 from actor_transform_source import (
@@ -298,6 +299,7 @@ def qualify(program, core, candidate, candidate_core):
     )
     model_class_loading = model_loading_bits(e, core, engine_package, core_package)
     polys_class_loading = polys_loading_bits(e, core, engine_package, core_package)
+    brush_class_loading = brush_loading_bits(e, core, engine_package, core_package)
     actor_state_frames = qualify_actor_state_frames(core, candidate_core)
     actor_reference_loading = qualify_actor_reference_loading(core, candidate_core)
     for block in actor_reference_loading["coreBlocks"]:
@@ -481,6 +483,7 @@ def qualify(program, core, candidate, candidate_core):
         modelClassLoading=model_class_loading,
         polysLoading=polys_loading,
         polysClassLoading=polys_class_loading,
+        brushClassLoading=brush_class_loading,
         staticPostLoad=postload,
         staticConstructor=constructor,
         actorLoading=actor_loading,
@@ -2346,7 +2349,8 @@ const rows=JSON.parse(fs.readFileSync(0,'utf8'));
 process.stdout.write(JSON.stringify(rows.map(row=>{
  const loading=api.freshObjectLoadingFlags(row.savedFlags,row.classFlags);
  if(loading.status!=='ready')throw Error(JSON.stringify(loading));
- const result=api.postLoadStaticActor({...row.postLoad,
+ const result=(row.brush?api.postLoadBrushActor:api.postLoadStaticActor)({...row.postLoad,
+   ...(row.brush?{objects:new Map(row.objects)}:{}),
    objectFlags:loading.flags.beforePostLoad,classFlags:row.classFlags});
  if(result.status!=='ready')throw Error(JSON.stringify(result));
  return {loadingFlags:loading.flags,writes:result.writes};
@@ -2354,7 +2358,7 @@ process.stdout.write(JSON.stringify(rows.map(row=>{
 """
 
 
-def fresh_actor_loading_cases(program, runtime):
+def fresh_actor_loading_cases(program, runtime, *, brush=False):
     """Join flag stages, default copy, ctor and bounded actor PostLoad.
 
     This executes InitProperties with a supplied class-default buffer and a
@@ -2373,7 +2377,9 @@ def fresh_actor_loading_cases(program, runtime):
         0x610000,
     )
     array = program.receipt["actorLoading"]["attached"]
-    class_bits = program.receipt["actorClassLoading"]
+    class_bits = program.receipt["brushClassLoading" if brush else "actorClassLoading"]
+    size = 0x418 if brush else 0x3F8
+    model, polys = 0x700000, 0x800000
     counters = program.receipt["actorLoading"]["actorCounters"]
     for n in range(128):
         saved_flags = (
@@ -2381,8 +2387,8 @@ def fresh_actor_loading_cases(program, runtime):
         )
         class_flags = (rng.getrandbits(32) & ~class_bits["mask"]) | class_bits["value"]
         m = StaticBoundsMachine(program)
-        storage = {actor + off: rng.getrandbits(32) for off in range(0, 0x3F8, 4)}
-        defaults = {template + off: rng.getrandbits(32) for off in range(0, 0x3F8, 4)}
+        storage = {actor + off: rng.getrandbits(32) for off in range(0, size, 4)}
+        defaults = {template + off: rng.getrandbits(32) for off in range(0, size, 4)}
         defaults.update({template + 0x1F0 + off: 0 for off in (0, 4, 8)})
         m.memory.update(
             storage
@@ -2392,7 +2398,7 @@ def fresh_actor_loading_cases(program, runtime):
                 cls + 0x4A4: class_flags,
                 actor + 0x24: cls,
                 cls + 0x4F4: template,
-                cls + 0x4F8: 0x3F8,
+                cls + 0x4F8: size,
                 cls + 0x78: prop,
                 prop: int(array["vtable"], 16),
                 prop + 0x40: 1,
@@ -2419,7 +2425,7 @@ def fresh_actor_loading_cases(program, runtime):
         saved_registers = {
             name: m.registers[name] for name in ("ebx", "esi", "edi", "ebp")
         }
-        for value in reversed([actor, 0x3F8, cls, 0, 0, actor, 0]):
+        for value in reversed([actor, size, cls, 0, 0, actor, 0]):
             m.push(value)
         m.push(0)
         m.execute_until(0x1015FB00)
@@ -2433,14 +2439,14 @@ def fresh_actor_loading_cases(program, runtime):
         assert {at: m.memory[at] for at in header} == header
         assert all(
             m.memory[actor + off] == defaults[template + off]
-            for off in range(0x34, 0x3F8, 4)
+            for off in range(0x34, size, 4)
         )
         assert m.array(actor + 0x1F0) == []
         for iat, address in counters.items():
             m.memory[int(iat, 16)] = address
             m.memory[address] = 0
         m.memory.update({0x103307E8: 0, 0x103307EC: 0, 0x103307F0: 0})
-        m.invoke(0x103C2A40, actor)
+        m.invoke(0x103D3640 if brush else 0x103C2A40, actor)
         assert m.memory[actor + 0x1C] == allocated and m.array(actor + 0x1F0) == []
         # Explicit decoded collision payload boundary. The separate property
         # differentials exercise ordered tag admission and source value copies.
@@ -2451,7 +2457,31 @@ def fresh_actor_loading_cases(program, runtime):
                 for i, value in enumerate(rotation)
             }
         )
-        m.memory[actor + 0x278] = 0
+        brush_ref = model if brush and n % 3 else 0
+        poly_ref = polys if n % 3 == 2 else 0
+        m.memory[actor + 0x278] = brush_ref
+        resource_headers = (
+            [
+                [
+                    model,
+                    dict(
+                        objectFlags=rng.getrandbits(32), polysReference=poly_ref or None
+                    ),
+                ],
+                [polys, dict(objectFlags=rng.getrandbits(32))],
+            ]
+            if brush
+            else []
+        )
+        if brush:
+            m.memory.update(
+                {
+                    model + 0x1C: resource_headers[0][1]["objectFlags"],
+                    model + 0x60: poly_ref,
+                    polys + 0x1C: resource_headers[1][1]["objectFlags"],
+                }
+            )
+            m.resource_flag_writes = []
         word, mask = m.memory[actor + 0x5C], rng.getrandbits(32) if n else 0
         m.registers["esi"] = actor
         m.execute_until(0x10148C70, 0x10148C82)
@@ -2461,7 +2491,7 @@ def fresh_actor_loading_cases(program, runtime):
         serialized = m.memory[actor + 0x1C]
         before = {at: m.memory[at] for at in storage}
         m.memory[m.memory[actor] + 0x24] = program.engine.exported(
-            "?PostLoad@AActor@@UAEXXZ"
+            "?PostLoad@ABrush@@UAEXXZ" if brush else "?PostLoad@AActor@@UAEXXZ"
         )
         m.invoke(0x1015E650, actor)
         changed = {
@@ -2481,9 +2511,11 @@ def fresh_actor_loading_cases(program, runtime):
         rows.append(
             dict(
                 savedFlags=saved_flags,
+                brush=brush,
+                objects=resource_headers,
                 classFlags=class_flags,
                 postLoad=dict(
-                    brushReference=None,
+                    brushReference=brush_ref or None,
                     attachedCount=0,
                     rotation=rotation,
                     flags5c=dict(mask=mask, value=word & mask),
@@ -2501,6 +2533,7 @@ def fresh_actor_loading_cases(program, runtime):
                 ),
                 writes=dict(
                     objectFlags=m.memory[actor + 0x1C],
+                    **(dict(resourceFlags=m.resource_flag_writes) if brush else {}),
                     swayRotationOrig=sway,
                     flags5c=dict(
                         mask=mask | 0x40, value=m.memory[actor + 0x5C] & (mask | 0x40)
@@ -2521,7 +2554,11 @@ def fresh_actor_loading_cases(program, runtime):
         browserStateCompared=True,
         defaultBufferPreserved=True,
         unknownFlagBitsPreserved=True,
-        scope="fresh collision-state stages with supplied CDO/payload, empty Attached and null Brush",
+        scope=(
+            "fresh Brush collision-state stages with supplied CDO/payload and resource headers"
+            if brush
+            else "fresh collision-state stages with supplied CDO/payload, empty Attached and null Brush"
+        ),
         limits=[
             "Reduced specialized default-copy list; full class construction, archive application, script frame and world population are not executed.",
             "Memory copy/zero/allocation use the explicitly supplied memory provider.",
@@ -3146,6 +3183,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
     construction = constructor_cases(program)
     fresh_loading = fresh_loading_cases(program, runtime)
     fresh_actor_loading = fresh_actor_loading_cases(program, runtime)
+    fresh_brush_loading = fresh_actor_loading_cases(program, runtime, brush=True)
     rows = fixture_rows()
     expected = []
     visited = set()
@@ -3219,6 +3257,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         levelLoading=level_loading,
         freshLoading=fresh_loading,
         freshActorLoading=fresh_actor_loading,
+        freshBrushLoading=fresh_brush_loading,
         postLoad=dict(
             cases=len(rows),
             instructions=postload_steps,
@@ -3312,6 +3351,7 @@ def main():
                         "levelLoading",
                         "freshLoading",
                         "freshActorLoading",
+                        "freshBrushLoading",
                         "actorTransformLoading",
                         "postLoad",
                         "modelBounds",

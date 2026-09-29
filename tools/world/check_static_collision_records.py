@@ -585,6 +585,211 @@ def check_saved_polys_resource(pkg, source):
     return dict(reference=ref, polygons=count, bytes=end - start)
 
 
+def check_brush_actor_fields(audit, world, loaded):
+    """Independently decode final original field bytes and compare loaded views.
+
+    The generic property reader gives final saved/default values. Ordered tag
+    framing and the shared native property gates have their separate checks.
+    This does not execute whole archives, Volume startup or world population.
+    """
+    from static_mesh_class_source import read_owned_loading_bits
+
+    source = world["savedBrushActors"]
+    if source["scope"] != "saved-brush-actor-fields" or source["classLoading"] != {
+        "Engine.Brush": read_owned_loading_bits(brush=True)
+    }:
+        raise ValueError("Brush field scope or class bits differ")
+    if set(source["actors"]) != set(world["savedBrushModels"]["actors"]) or set(
+        loaded
+    ) != set(source["actors"]):
+        raise ValueError("Brush field actor set differs")
+    catalog, cached, visiting = OriginalClasses(), {}, set()
+
+    def inherited(name):
+        if name in cached:
+            return cached[name]
+        if name in visiting:
+            raise ValueError("cyclic Brush field ancestry")
+        visiting.add(name)
+        pkg, ex, row = serialized_class_record(catalog, name)
+        prior, ancestry = inherited(row["parent"]) if row["parent"] else ({}, [])
+        values = dict(prior)
+        end = ex.serial_offset + ex.serial_size
+        reader = Reader(
+            memoryview(pkg.data)[:end],
+            ex.serial_offset + row["defaults"]["defaultsOffset"],
+            pkg.path,
+        )
+        for field, raw in read_properties(pkg, reader, fmt="packed").items():
+            values[field.casefold()] = (raw, pkg)
+        if reader.pos != end:
+            raise ValueError("Brush class field extent differs")
+        cached[name] = values, [row["sourceClass"], *ancestry]
+        visiting.remove(name)
+        return cached[name]
+
+    specs = [
+        ("Location", "location", "<3f"),
+        ("Rotation", "rotation", "<3i"),
+        ("DrawScale", "drawScale", "<f"),
+        ("DrawScale3D", "drawScale3D", "<3f"),
+        ("PrePivot", "prePivot", "<3f"),
+    ]
+
+    def transform(raws):
+        result, words = {}, []
+        for name, key, fmt in specs:
+            raw = (
+                raws[name.casefold()][0]
+                if name.casefold() in raws
+                else bytes(struct.calcsize(fmt))
+            )
+            values = list(struct.unpack(fmt, raw))
+            result[name] = values if len(values) > 1 else values[0]
+            words.extend(struct.unpack("<" + "I" * (len(raw) // 4), raw))
+        return result, words
+
+    def reference(raws, name):
+        if name.casefold() not in raws:
+            return None
+        raw, pkg = raws[name.casefold()]
+        reader = Reader(raw)
+        ref = reader.compact()
+        if reader.pos != len(raw) or encode_compact(ref) != raw:
+            raise ValueError("Brush reference bytes differ")
+        return qualified_ref(pkg, ref) if ref else None
+
+    ready, unsupported = 0, Counter()
+    used_classes = set()
+    for key, record in source["actors"].items():
+        identity = world["savedActorSources"][key]
+        if (
+            record["sourceClass"] != identity["classIdentity"]
+            or record["exportSHA256"] != identity["exportSHA256"]
+        ):
+            raise ValueError("Brush field source identity differs")
+        ex = audit.pkg.exports[int(key) - 1]
+        check_actor_frame(audit.pkg, ex, record["savedStateFrame"])
+        check_actor_loading(audit.pkg, ex, record["savedActorLoading"])
+        inherited_values, ancestry = inherited(record["sourceClass"])
+        cls = source["classes"][record["sourceClass"].casefold()]
+        used_classes.add(record["sourceClass"].casefold())
+        if cls["sourceClass"] != record["sourceClass"] or cls["ancestry"] != ancestry:
+            raise ValueError("Brush field default ancestry differs")
+        if "attached" in inherited_values:
+            raise ValueError("unsupported Attached source default")
+        declarations = audit.defaults[-1]
+        for group in (
+            "collisionTransforms",
+            "collisionReferences",
+            "collisionBooleans",
+        ):
+            if cls[group]["layout"] != declarations[group]["layout"]:
+                raise ValueError("Brush declaration layout differs")
+        if cls["collisionAttached"] != {
+            k: declarations["collisionAttached"][k]
+            for k in ("layout", "inner", "defaultCount", "defaultOrigin")
+        }:
+            raise ValueError("Brush Attached declaration/default differs")
+        default_transforms, default_words = transform(inherited_values)
+        for name, _, fmt in specs:
+            v = cls["collisionTransforms"]["defaults"][name]
+            actual = struct.pack(fmt, *(v if isinstance(v, list) else [v]))
+            expected = struct.pack(
+                fmt,
+                *(
+                    default_transforms[name]
+                    if isinstance(default_transforms[name], list)
+                    else [default_transforms[name]]
+                )
+            )
+            if actual != expected:
+                raise ValueError("Brush transform default bytes differ")
+        refs_layout = cls["collisionReferences"]["layout"]
+        for field in refs_layout:
+            supplied = cls["collisionReferences"]["defaults"][field["name"]]
+            if supplied["qualified"] != reference(inherited_values, field["name"]):
+                raise ValueError("Brush reference default differs")
+        if (
+            cls["collisionBooleans"]["defaultGroups"]
+            != world["savedActorBooleans"]["classes"][record["sourceClass"].casefold()][
+                "actorBooleans"
+            ]["groups"]
+        ):
+            raise ValueError("Brush Boolean class defaults differ")
+        start = ex.serial_offset + record["savedStateFrame"]["sourceBytes"]
+        end = ex.serial_offset + ex.serial_size
+        reader = Reader(memoryview(audit.pkg.data)[:end], start, audit.pkg.path)
+        saved = {
+            name.casefold(): (raw, audit.pkg)
+            for name, raw in read_properties(audit.pkg, reader, fmt="packed").items()
+        }
+        if reader.pos != end:
+            raise ValueError("Brush map property extent differs")
+        actual = loaded[key]
+        if record["sourceClass"] != "Engine.Brush":
+            if actual["status"] != "unsupported":
+                raise ValueError("unimplemented Volume startup became ready")
+            unsupported[record["sourceClass"]] += 1
+            continue
+        current = dict(inherited_values)
+        for field in [*cls["collisionTransforms"]["layout"], *refs_layout]:
+            name = field["name"].casefold()
+            if not field["propertyFlags"] & 0x3000 and name in saved:
+                current[name] = saved[name]
+        _, words = transform(current)
+        references = {
+            field["name"]: reference(current, field["name"]) for field in refs_layout
+        }
+        flags = record["savedStateFrame"]["savedExportFlags"]
+        expected_flags = (
+            (((flags & 0x067F01A5) | 0x01000200) & ~0x200) | 0x40000000
+        ) & 0xDEFFFFFF | 0x20000000
+        if (
+            actual["status"] != "ready"
+            or actual["transformWords"] != words
+            or actual["references"] != references
+            or actual["groups"] != world["savedActorBooleans"]["actors"][key]["groups"]
+            or actual["postLoad"]["objectFlags"] != expected_flags
+            or actual["postLoad"]["flags5c"] != {"mask": 64, "value": 64}
+            or actual["postLoad"]["swayRotationOrig"]
+            != transform(current)[0]["Rotation"]
+        ):
+            raise ValueError(
+                "loaded Brush collision fields differ from original values"
+            )
+        writes = []
+        model_ref = world["savedBrushModels"]["actors"][key]["modelRef"]
+        if model_ref:
+            model = world["savedBrushModels"]["models"][str(model_ref)]
+            for resource in [
+                model,
+                *(
+                    [world["savedBrushModels"]["polys"][str(model["polysReference"])]]
+                    if model["polysReference"]
+                    else []
+                ),
+            ]:
+                flags = resource["savedExportFlags"]
+                loaded_flags = (
+                    (((flags & 0x067F01A5) | 0x01000200) & ~0x200) | 0x40000000
+                ) & 0xDEFFFFFF | 0x20000000
+                writes.append(
+                    dict(identity=resource["identity"], objectFlags=loaded_flags | 1)
+                )
+        if actual["postLoad"]["resourceFlags"] != writes:
+            raise ValueError("Brush shared-resource writes differ")
+        ready += 1
+    if used_classes != set(source["classes"]):
+        raise ValueError("unused Brush field defaults")
+    return dict(
+        sourceActors=len(loaded),
+        preparedBrushActors=ready,
+        unresolvedClasses=dict(unsupported),
+        scope="original class/map fields through bounded plain Brush loading; resource write intents not applied to world",
+    )
+
+
 def check_saved_brush_records(audit, world):
     proof = world["savedBrushModels"]
     from static_mesh_class_source import read_owned_loading_bits
@@ -731,7 +936,21 @@ const polys=Object.keys(input.savedBrushModels.polys).map(key=>{
  if(p.resource.status!=='ready')throw Error(p.resource.reason);
  return {reference:Number(key),objectFlags:p.resource.objectFlags};
 });
-process.stdout.write(JSON.stringify({summary:world.summary,records,polys}));
+const brushActors=Object.fromEntries(Object.keys(input.savedBrushActors.actors).map(key=>{
+ const actor=world.actorForReference(Number(key)),p=actor.prepared;
+ if(p.status!=='ready')return [key,{status:p.status,reason:p.reason}];
+ if(p.references.Brush!==actor.savedBrush)throw Error('prepared Brush Model sharing differs');
+ const values=p.transform,words=[]; const bytes=new DataView(new ArrayBuffer(4));
+ for(const key of ['location','rotation','drawScale','drawScale3D','prePivot']) {
+  for(const value of (Array.isArray(values[key])?values[key]:[values[key]])) {
+   if(key==='rotation')bytes.setInt32(0,value,true);else bytes.setFloat32(0,value,true);
+   words.push(bytes.getUint32(0,true));
+  }
+ }
+ return [key,{status:p.status,transformWords:words,groups:p.groups,
+  references:Object.fromEntries(Object.entries(p.references).map(([key,value])=>[key,value?.identity??null])),postLoad:p.postLoadWrites}];
+}));
+process.stdout.write(JSON.stringify({summary:world.summary,records,polys,brushActors}));
 """
     result = subprocess.run(
         ["node", "--input-type=module", "-e", script, str(runtime)],
@@ -775,6 +994,7 @@ process.stdout.write(JSON.stringify({summary:world.summary,records,polys}));
         nodes=sum(r["nodes"] for r in records),
         surfaces=sum(r["surfaces"] for r in records),
         browserSummary=loaded["summary"],
+        actorFields=check_brush_actor_fields(audit, world, loaded["brushActors"]),
         records=records,
     )
 

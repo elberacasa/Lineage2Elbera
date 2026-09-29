@@ -205,6 +205,7 @@ export function installPickingInspection(search) {
     panel.textContent = ['Elbera Tools — World picking',
       collision ? `Collision: ${collision.tile} · ${collision.surfaces.length} actors · ${collision.triangleCount} triangles` : 'Collision: no audited static surfaces loaded',
       sourceWorld ? `Source preparation: ${sourceWorld.preparedActors}/${sourceWorld.staticActors} actors · ${sourceWorld.preparedMeshes}/${sourceWorld.meshes} meshes\n${sourceWorld.savedSlots} saved slots · ${sourceWorld.unpreparedSavedActors} actors awaiting preparation\nCurrent source collision: ${sourceWorld.collisionStatus}` : '',
+      sourceWorld?.brushActors ? `Brush fields: ${sourceWorld.preparedBrushActors}/${sourceWorld.brushActors} actors · resource writes pending startup` : '',
       pick ? `Pixel: ${pick.pixel.join(', ')} · ${pick.surface || 'no world hit'}` : 'World pick: none',
       pick?.actor ? `${pick.actor} · triangle ${pick.triangle}\n${pick.mesh}` : '',
       p ? `L2: ${p.x}, ${p.y}, ${p.z}` : '',
