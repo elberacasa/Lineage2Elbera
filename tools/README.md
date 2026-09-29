@@ -122,8 +122,8 @@ decoder and five synthetic tests are included in current Core source builds.
 
 The [object-localization inspector](../editor/world/test/actor-localization.html)
 shows default copying, current-object section selection, repeated localization
-and ordered Model/Polys writes using the browser modules. Its three loading
-paths and **90 control combinations** need no game files. All inputs are authored.
+and ordered Model/Polys writes using the browser modules. Its four loading
+paths and **96 control combinations** need no game files. All inputs are authored.
 The native verifier retains 145 control-flow comparisons, 145 joined original
 string-import cases and 76 direct UTF-16 assignment cases. Its new
 `--actor-startup --comparison-engine PATH` mode adds **192 comparisons** of
@@ -131,6 +131,18 @@ original InitProperties, Volume construction and localized Brush/Actor/Object
 PostLoad. Class metadata, the string-only copy list, defaults and configuration
 are explicit providers. This does not yet initialize actual map volumes or
 enable world collision. [Screenshot, reproduction and scope](../docs/native-actor-localization-evidence.md).
+
+The same verifier now covers **192 mixed class-default copy cases** without
+adding private inputs to its default Core-only mode. `--default-copies` adds
+**96 cases** using the eight recovered class layouts, with pinned owned packages
+and DLLs required locally. The browser helper copies strings and raw-array
+bytes while preserving references under an explicit null-instancing contract.
+The inspector's Class default copying path displays inherited fields and the
+cleared new tail. Payloads are authored; complete tagged/localized CDO loading
+is still pending. Ten portable interpreter checks and 60 browser loading /
+localization tests cover the helpers. This full-repository tool does not change
+the standalone Core archive.
+[Inputs, original routines and exact limits](../docs/native-actor-localization-evidence.md#complete-specialized-default-copies).
 
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
 kit for qualified NPC selectors, original sparse-key bundles and optional GPU

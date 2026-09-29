@@ -18,6 +18,11 @@ from check_hair_attachment_native import compare_call_block
 ROOT = Path(__file__).resolve().parents[2]
 COMPARISON_SHA = CANDIDATE_ENGINE_SHA
 COMPARISON_CORE_SHA = CANDIDATE_CORE_SHA
+ARRAY_PROPERTY_COPY = (
+    "?CopyCompleteValue@UArrayProperty@@UBEXPAX0PAVUObject@@@Z",
+    0x1016FE90,
+    0x1016FF66,
+)
 
 
 def raw(image, a, b):
@@ -1117,10 +1122,7 @@ def qualify_static_actor_loading(engine, core, comparison_engine, comparison_cor
         "?PostLoad@UObject@@UAEXXZ": (0x10163C60, 0x10163CB8),
         "?GetClass@UObject@@QBEPAVUClass@@XZ": (0x1010A1E0, 0x1010A1E4),
         "?SetFlags@UObject@@QAEXK@Z": (0x1010A210, 0x1010A21A),
-        "?CopyCompleteValue@UArrayProperty@@UBEXPAX0PAVUObject@@@Z": (
-            0x1016FE90,
-            0x1016FF66,
-        ),
+        ARRAY_PROPERTY_COPY[0]: ARRAY_PROPERTY_COPY[1:],
     }
     ctor_imports = {
         0x10328B4F: "??0UObject@@QAE@XZ",

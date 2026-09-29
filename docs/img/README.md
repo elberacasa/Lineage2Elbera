@@ -30,6 +30,17 @@ Original client files and generated assets used to render these views are not
 part of the public source or Elbera Tools Core archive. The screenshots are
 selected illustrations of development output, not redistributable asset packs.
 
+## Elbera Tools · September 29, 2026
+
+`elbera-tools-object-localization.png` is a direct, complete 1280 × 1671 browser
+capture of `test/actor-localization.html?path=defaults`, with partial parent
+storage and nonempty authored payloads. It shows independent raw-array copies,
+retained object references and cleared new fields. Every value and offset is a
+synthetic inspection input. No original assets, game values, compositing or
+replacement artwork appear in this capture. It does not show a live map or
+complete class initialization. The tool's 96 scenarios passed with no captured
+page/console errors. [Evidence and limits](../native-actor-localization-evidence.md).
+
 ## Retained game gallery
 
 The original hero (`hero-armor-shield-giran.jpg`) and all twelve earlier showcase

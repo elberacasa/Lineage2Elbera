@@ -312,13 +312,35 @@ export function postLoadBrushActor(input) {
  * class defaults and clears fields in the new tail. Other object fields and
  * construction remain separate. Outputs retain embedded NUL storage content.
  */
-export function initializeActorStringProperties({
-  size,
-  defaultSize,
-  fields,
-  defaults,
-} = {}) {
-  const scope = "original-actor-string-defaults";
+export function initializeActorStringProperties(input = {}) {
+  return initializeSpecialPropertyValues(input, false);
+}
+
+/** Specialized values of original CDO InitProperties, with no instancing object.
+ * fields is the complete current specialized-copy list, including known new
+ * fields beyond the parent buffer. Strings retain UTF-16 units, raw arrays use
+ * byte arrays, and resolved object references retain their identity (null=zero).
+ * Array inner flags must establish the original raw-copy branch. This does not
+ * interpret raw array elements, initialize scalar/header storage, apply saved
+ * tags, or construct a class. No caller storage is mutated on unsupported input.
+ */
+export function initializeClassDefaultProperties(input = {}) {
+  if (input?.instancingObject !== null)
+    return freeze({
+      status: "unsupported",
+      scope: "original-class-default-specialized-values",
+      reason: "explicit null CDO instancing object required",
+    });
+  return initializeSpecialPropertyValues(input, true);
+}
+
+function initializeSpecialPropertyValues(
+  { size, defaultSize, fields, defaults },
+  classDefaults,
+) {
+  const scope = classDefaults
+    ? "original-class-default-specialized-values"
+    : "original-actor-string-defaults";
   const fail = (reason) => freeze({ status: "unsupported", scope, reason });
   if (
     !sint(size) ||
@@ -330,35 +352,76 @@ export function initializeActorStringProperties({
     !(defaults instanceof Map)
   )
     return fail(
-      "current class sizes, string copy list and default storage required",
+      "current class sizes, specialized copy list and default storage required",
     );
-  const storage = new Map();
+  const storage = new Map(),
+    ranges = [];
   for (const field of fields) {
+    const string = field?.kind === "StrProperty",
+      array = classDefaults && field?.kind === "ArrayProperty",
+      reference = classDefaults && field?.kind === "ObjectProperty";
     if (
-      field?.kind !== "StrProperty" ||
-      field.elementSize !== 12 ||
+      !(string || array || reference) ||
+      field.elementSize !== (reference ? 4 : 12) ||
+      (classDefaults &&
+        (!uint(field.propertyFlags) || !(field.propertyFlags & 0x400000))) ||
       !uint(field.offset) ||
       field.offset < 0x34 ||
       !sint(field.arrayDim) ||
       field.arrayDim <= 0
     )
-      return fail("qualified current string property layout required");
+      return fail("qualified current specialized property layout required");
     const end = field.offset + field.arrayDim * field.elementSize;
     if (end > size || (field.offset < defaultSize && end > defaultSize))
       return fail(
-        "string property crosses the admitted object/default boundary",
+        "specialized property crosses the admitted object/default boundary",
       );
+    if (ranges.some(([start, stop]) => field.offset < stop && end > start))
+      return fail("specialized property storage overlaps");
+    ranges.push([field.offset, end]);
+    if (
+      array &&
+      (field.arrayDim !== 1 ||
+        field.inner?.arrayDim !== 1 ||
+        !sint(field.inner.elementSize) ||
+        field.inner.elementSize <= 0 ||
+        !uint(field.inner.propertyFlags) ||
+        field.inner.propertyFlags & 0x400000)
+    )
+      return fail("qualified raw-copy array inner required");
     for (let i = 0; i < field.arrayDim; i++) {
       const offset = field.offset + i * field.elementSize;
-      for (const other of storage.keys())
-        if (Math.abs(other - offset) < 12)
-          return fail("string property headers overlap");
-      storage.set(offset, "");
+      if (string) storage.set(offset, "");
+      else if (reference) {
+        if (
+          offset < defaultSize &&
+          (!defaults.has(offset) || defaults.get(offset) === undefined)
+        )
+          return fail("resolved parent reference required");
+        storage.set(offset, offset < defaultSize ? defaults.get(offset) : null);
+      } else {
+        const value = offset < defaultSize ? defaults.get(offset) : [];
+        if (
+          !dense(value) ||
+          value.length % field.inner.elementSize !== 0 ||
+          value.some((byte) => !uint(byte) || byte > 255)
+        )
+          return fail("complete raw parent array bytes required");
+        storage.set(offset, freeze([...value]));
+      }
     }
-    if (field.offset < defaultSize) {
+    if (string && field.offset < defaultSize) {
+      const target = classDefaults ? new Map() : storage,
+        source = classDefaults ? new Map() : defaults;
+      if (classDefaults)
+        for (let i = 0; i < field.arrayDim; i++) {
+          const offset = field.offset + i * field.elementSize;
+          target.set(offset, "");
+          source.set(offset, defaults.get(offset));
+        }
       const result = copyStringPropertyValues({
-        storage,
-        source: defaults,
+        storage: target,
+        source,
         destinationOffset: field.offset,
         sourceOffset: field.offset,
         arrayDim: field.arrayDim,
@@ -366,6 +429,8 @@ export function initializeActorStringProperties({
         propertyKind: field.kind,
       });
       if (result.status !== "ready") return fail(result.reason);
+      if (classDefaults)
+        for (const [offset, value] of target) storage.set(offset, value);
     }
   }
   return freeze({

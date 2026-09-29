@@ -19,6 +19,7 @@ from actor_localization_source import (
     qualify_string_property_text,
     qualify_string_property_loading,
     qualify_class_default_initialization,
+    qualify_class_default_copies,
 )
 from actor_octree_admission_machine import AdmissionMachine, PartialWord
 from actor_octree_machine import MembershipMachine
@@ -41,6 +42,7 @@ def source_program(core, comparison, engine=None, comparison_engine=None):
     proof["classDefaultInitialization"] = qualify_class_default_initialization(
         core, comparison
     )
+    proof["classDefaultCopies"] = qualify_class_default_copies(core, comparison)
     program = SimpleNamespace(
         engine=core,
         rows=[],
@@ -96,6 +98,19 @@ def source_program(core, comparison, engine=None, comparison_engine=None):
         )
     program.membership_targets.update(
         {int(k, 16): int(v, 16) for k, v in defaults["thunkTargets"].items()}
+    )
+    copies = proof["classDefaultCopies"]
+    for block in copies["coreBlocks"]:
+        start, end = int(block["start"], 16), int(block["end"], 16)
+        PreparationProgram.add(
+            program,
+            core,
+            start,
+            end,
+            bytes(core.data[core.offset(start) : core.offset(end)]),
+        )
+    program.membership_targets.update(
+        {int(k, 16): int(v, 16) for k, v in copies["thunkTargets"].items()}
     )
     if engine is not None:
         from actor_transform_source import qualify_static_actor_loading
@@ -542,6 +557,7 @@ class StringLoadingMachine(StringLocalizationMachine):
         self.initialization_copies, self.initialization_zeros = [], []
         self.resource_flag_writes, self.localization_entries = [], []
         self.default_initialization_calls = []
+        self.specialized_copy_calls = []
 
     def initialize(self, template, size, template_size):
         cls = self.memory[self.actor + 0x24]
@@ -596,6 +612,14 @@ class StringLoadingMachine(StringLocalizationMachine):
             self.default_initialization_calls.append(
                 [self.memory[sp + 4 + n * 4] for n in range(7)]
             )
+        if i.address in (0x1016FE90, 0x10171740, 0x1016E050):
+            self.specialized_copy_calls.append(
+                [
+                    i.address,
+                    self.registers["ecx"],
+                    *[self.memory[sp + 4 + n * 4] for n in range(3)],
+                ]
+            )
         if i.address == 0x1012DA20:
             assert i.op_str == "0x1017b980"
             dest, value, size = [self.memory[sp + 4 + n * 4] for n in range(3)]
@@ -620,12 +644,14 @@ class StringLoadingMachine(StringLocalizationMachine):
                 dict(identity=target, objectFlags=self.memory[target + 0x1C])
             )
             return nxt
-        if i.address == 0x1015FBFF:
+        if i.address in (0x1015FBFF, 0x1016FF56):
             assert i.op_str == "0x1017ac60"
             dest, source, size = [self.memory[sp + n * 4] for n in range(3)]
             assert 0 <= size <= 0x10000 and (
                 dest + size <= source or source + size <= dest
             )
+            if i.address == 0x1016FF56 and size:
+                assert size <= self.blocks[dest] and size <= self.blocks[source]
             values = [self.byte(source + n) for n in range(size)]
             for n, value in enumerate(values):
                 self.write(f"byte ptr [{dest + n:#x}]", value)
@@ -1248,6 +1274,324 @@ process.stdout.write(JSON.stringify(JSON.parse(raw).map(row=>{
     )
 
 
+def class_default_copy_case(
+    program, fields, parent_order, size, parent_size, mode, editor, ucc
+):
+    """Run a complete supplied specialized list through the original CDO call.
+
+    Field metadata may come from the source graph; payloads remain authored.
+    The actual saved values/tags and class lifecycle are not substituted here.
+    """
+    row = dict(
+        object=dict(index=7, flags=0, name="Authored", outer=None),
+        classInfo=dict(
+            flags=0x32,
+            name="Example",
+            outer=dict(name="ExamplePackage", outer=None),
+            structure=dict(
+                fields=[dict(f, isProperty=True, struct=None) for f in fields],
+                super=None,
+            ),
+        ),
+        isEditor=editor,
+        environment=dict(started=True, configAbsent=False, language="int"),
+        policy="missing",
+        scratchCounter=0,
+    )
+    m = StringLoadingMachine(program, row)
+    cls, parent, template = (
+        m.memory[m.actor + 0x24],
+        m.allocate(0x500) if parent_size else 0,
+        0xE10000,
+    )
+    m.memory[0x1023E8CC] = int(ucc)
+    m.memory.update(
+        {cls + 0x34: parent, cls + 0x4C: size, m.memory[cls] + 0x78: 0x10102199}
+    )
+    for offset in range(0, size, 4):
+        m.memory[m.actor + offset] = 0xA5A5A5A5
+        if offset < parent_size:
+            m.memory[template + offset] = 0x5A5A5A5A
+    if parent:
+        m.memory.update({parent + 0x4F4: template, parent + 0x4F8: parent_size})
+    pointers = {identity: ptr for ptr, identity in m.fields.items()}
+    tables = {
+        "ArrayProperty": int(program.receipt["classDefaultCopies"]["arrayVtable"], 16),
+        "ObjectProperty": int(
+            program.receipt["classDefaultCopies"]["objectVtable"], 16
+        ),
+        "StrProperty": program.engine.exported("??_7UStrProperty@@6B@"),
+    }
+    dispatch = {
+        "ArrayProperty": (0x101041D8, 0x1016FE90),
+        "ObjectProperty": (0x101044C6, 0x10171740),
+        "StrProperty": (0x1010311B, 0x1016E050),
+    }
+    values, dynamic_bytes = [], set()
+    for index, field in enumerate(fields):
+        prop, kind, offset = pointers[field["identity"]], field["kind"], field["offset"]
+        m.memory[prop] = tables[kind]
+        m.memory[tables[kind] + 0xA8] = dispatch[kind][0]
+        if kind == "StrProperty":
+            m.memory[tables[kind] + 0xA4] = 0x10102A6D
+        if kind == "ArrayProperty":
+            assert (
+                field["arrayDim"] == 1
+                and not field["inner"]["propertyFlags"] & 0x400000
+            )
+            inner = m.allocate(0x80)
+            m.memory.update(
+                {
+                    prop + 0x78: inner,
+                    inner + 0x44: field["inner"]["elementSize"],
+                    inner + 0x48: field["inner"]["propertyFlags"],
+                }
+            )
+        for slot in range(field["arrayDim"]):
+            off = offset + slot * field["elementSize"]
+            dynamic_bytes.update(range(off, off + field["elementSize"]))
+            if off >= parent_size:
+                continue
+            if kind == "StrProperty":
+                value = ["", "original\0tail / 水", "\ud800"][mode % 3]
+                m.seed_string(template + off, value, spare=3)
+            elif kind == "ObjectProperty":
+                value = None if mode == 0 else 0xDA0000 + index * 16 + slot * 4
+                m.memory[template + off] = value or 0
+            else:
+                stride = field["inner"]["elementSize"]
+                count = (0, 1, 3)[mode % 3]
+                value = [(n * 31 + index * 17) & 255 for n in range(count * stride)]
+                data = m.allocate((count + 2) * stride)
+                for n, byte in enumerate(value):
+                    m.write(f"byte ptr [{data + n:#x}]", byte)
+                m.memory.update(
+                    {
+                        template + off: data,
+                        template + off + 4: count,
+                        template + off + 8: count + 2,
+                    }
+                )
+            values.append([off, value])
+    if parent:
+        m.memory[parent + 0x78] = pointers[parent_order[0]] if parent_order else 0
+        for index, identity in enumerate(parent_order):
+            m.memory[pointers[identity] + 0x60] = (
+                pointers[parent_order[index + 1]]
+                if index + 1 < len(parent_order)
+                else 0
+            )
+    sp = m.registers["esp"]
+    before = {
+        at: v
+        for at, v in m.memory.items()
+        if not (m.actor <= at < m.actor + size or sp - 0x10000 <= at <= sp)
+    }
+    allocations = dict(m.blocks)
+    preserved = {r: m.registers[r] for r in ("ebx", "esi", "edi", "ebp")}
+    m.invoke(0x1015FE10, m.actor, (cls, 0))
+    assert {r: m.registers[r] for r in preserved} == preserved
+    assert {at: m.memory[at] for at in before} == before
+    assert {at: m.blocks[at] for at in allocations} == allocations
+    assert m.default_initialization_calls == [[m.actor, size, parent, 0, 0, 0, 0]]
+    by_identity = {f["identity"]: f for f in fields}
+    assert m.specialized_copy_calls == [
+        [
+            dispatch[by_identity[identity]["kind"]][1],
+            pointers[identity],
+            m.actor + by_identity[identity]["offset"],
+            template + by_identity[identity]["offset"],
+            0,
+        ]
+        for identity in parent_order
+    ]
+    for off in range(0x34, size):
+        if off not in dynamic_bytes:
+            assert m.byte(m.actor + off) == (0x5A if off < parent_size else 0)
+    actual = []
+    for field in fields:
+        for slot in range(field["arrayDim"]):
+            off = field["offset"] + slot * field["elementSize"]
+            at = m.actor + off
+            if field["kind"] == "StrProperty":
+                value = b"".join(
+                    n.to_bytes(2, "little") for n in m.stored_units(at)[:-1]
+                ).decode("utf-16le", errors="surrogatepass")
+            elif field["kind"] == "ObjectProperty":
+                value = m.memory[at] or None
+            else:
+                data, count, capacity = [m.memory[at + n * 4] for n in range(3)]
+                assert count == capacity and (bool(data) == bool(count))
+                value = [
+                    m.byte(data + n)
+                    for n in range(count * field["inner"]["elementSize"])
+                ]
+            if field["kind"] != "ObjectProperty" and off < parent_size and m.memory[at]:
+                assert m.memory[at] != m.memory[template + off]
+            actual.append([off, value])
+    return (
+        dict(
+            size=size,
+            defaultSize=parent_size,
+            fields=fields,
+            defaults=values,
+            instancingObject=None,
+        ),
+        actual,
+        m.visited,
+        len(m.specialized_copy_calls),
+    )
+
+
+def class_default_copy_cases(program, runtime, original=False):
+    fields = [
+        dict(
+            identity="Refs",
+            name="Refs",
+            kind="ObjectProperty",
+            offset=0x34,
+            arrayDim=3,
+            elementSize=4,
+            propertyFlags=0x4400009,
+        ),
+        dict(
+            identity="Text",
+            name="Text",
+            kind="StrProperty",
+            offset=0x40,
+            arrayDim=2,
+            elementSize=12,
+            propertyFlags=0x400000,
+        ),
+        dict(
+            identity="Bytes",
+            name="Bytes",
+            kind="ArrayProperty",
+            offset=0x58,
+            arrayDim=1,
+            elementSize=12,
+            propertyFlags=0x400000,
+            inner=dict(kind="ByteProperty", arrayDim=1, elementSize=1, propertyFlags=0),
+        ),
+        dict(
+            identity="Tail",
+            name="Tail",
+            kind="StrProperty",
+            offset=0x70,
+            arrayDim=1,
+            elementSize=12,
+            propertyFlags=0x400000,
+        ),
+    ]
+    profiles = []
+    if original:
+        sys.path.insert(0, str(ROOT / "tools/world"))
+        from inspect_actor_declarations import inspect_declarations, DEFAULT_CLASSES
+
+        report = inspect_declarations(
+            DEFAULT_CLASSES, include_class_links=True, include_reference_flags=True
+        )
+        assert report["sources"] == {
+            "Engine.u": "9b04ff5cb4258e84dfa8efbdd85d9121f3bdcb5822a9a21ca69d200d05a69761",
+            "Core.u": "de5f0ee0a773327bce13c96622fd3c654cff7db88b9be065d1232590c140fda0",
+            "GamePlay.u": "714639cdad265a7caeaf0f91ce76bb50492390eaa3faea15ed5a28a3e830b64a",
+            "Core.dll": CORE_SHA,
+            "engine.dll": "07b24af4ab55e4230d0a7949df5b07565319e62a1b20f38fefb16ebe54821ad0",
+        }
+        for identity, layout in report["classLinks"].items():
+            assert layout["status"] == "ready"
+            parent_name = report["classes"][identity]["savedSuper"]
+            parent = (
+                report["classLinks"][parent_name.casefold()] if parent_name else None
+            )
+            selected = {f["identity"]: f for f in layout["fields"]}
+            profiles.append(
+                (
+                    identity,
+                    [selected[k] for k in layout["lists"]["0x78"]],
+                    parent["lists"]["0x78"] if parent else [],
+                    layout["propertiesSize"],
+                    parent["propertiesSize"] if parent else 0,
+                )
+            )
+    else:
+        # Byte/non-DWORD and whole-DWORD element sizes exercise the byte heap;
+        # reordered lists check actual traversal rather than memory order.
+        for stride in (1, 3, 4, 8):
+            layout = [
+                (
+                    dict(f, inner=dict(f["inner"], elementSize=stride))
+                    if f["kind"] == "ArrayProperty"
+                    else f
+                )
+                for f in fields
+            ]
+            for parent_size in (0, 0x34, 0x64, 0x80):
+                order = [
+                    f["identity"] for f in reversed(layout) if f["offset"] < parent_size
+                ]
+                profiles.append(
+                    (
+                        str(stride) + ":" + str(parent_size),
+                        layout,
+                        order,
+                        0x80,
+                        parent_size,
+                    )
+                )
+    rows, expected, visited = [], [], set()
+    steps = copies = 0
+    for identity, layout, order, size, parent_size in profiles:
+        for mode in range(3):
+            for editor, ucc in (
+                (False, False),
+                (False, True),
+                (True, False),
+                (True, True),
+            ):
+                row, value, trace, copied = class_default_copy_case(
+                    program, layout, order, size, parent_size, mode, editor, ucc
+                )
+                rows.append(row)
+                expected.append(value)
+                steps += len(trace)
+                copies += copied
+                visited.update(trace)
+    script = r"""
+const {initializeClassDefaultProperties}=await import(new URL('./actor-loading.js',process.argv[1]));
+let raw='';for await(const part of process.stdin)raw+=part;
+process.stdout.write(JSON.stringify(JSON.parse(raw).map(row=>{
+ const result=initializeClassDefaultProperties({...row,defaults:new Map(row.defaults)});
+ if(result.status!=='ready')throw Error(JSON.stringify(result));return result.values;
+})));
+"""
+    actual = browser_outputs(script, rows, runtime)
+    assert len(actual) == len(expected)
+    for index, (a, b) in enumerate(zip(actual, expected)):
+        assert a == b, ("CDO specialized copies", index, a, b)
+    result = dict(
+        cases=len(rows),
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        specializedCopies=copies,
+        browserCompared=True,
+        parentStoragePreserved=True,
+        scope="Original InitClassDefaultObject with strings, raw-copy arrays and noninstancing object references. Complete supplied copy-list order and scalar copy/zero bytes checked; payloads are authored, not original CDO values. No tagged defaults, live registry or localization execution.",
+    )
+    if original:
+        result.update(
+            classes=len(profiles),
+            sources=report["sources"],
+            metadataEvidence="Recomputed class lists/sizes are separately checked by check_property_layout_native.py --original-volumes. This suite compares their complete specialized-copy lists, with authored payloads.",
+        )
+        program.receipt["classDefaultCopyMetadata"] = dict(
+            sources=report["sources"],
+            classLinks=report["classLinks"],
+            referenceClassBits=report["referenceClassBits"],
+        )
+    return result
+
+
 def original_default_config_cases(program, core, comparison, engine, comparison_engine):
     from l2lib import load_package
     from static_mesh_class_source import class_default_config_bits, qualify_registration
@@ -1590,6 +1934,7 @@ def verify(
     *,
     original_strings=False,
     original_config=False,
+    original_copies=False,
     engine=None,
     comparison_engine=None,
 ):
@@ -1667,6 +2012,12 @@ def verify(
         actorStringStartup=startup,
         configGate=config_gate_cases(program),
         classDefaultStrings=class_default_string_cases(program, runtime),
+        classDefaultCopies=class_default_copy_cases(program, runtime),
+        originalDefaultCopies=(
+            class_default_copy_cases(program, runtime, original=True)
+            if original_copies
+            else None
+        ),
         originalDefaultConfig=source_config,
         source=program.receipt,
         sourceSHA256={
@@ -1674,11 +2025,14 @@ def verify(
             for path in (
                 Path(__file__).resolve(),
                 Path(__file__).with_name("actor_localization_source.py").resolve(),
+                Path(__file__).with_name("actor_transform_source.py").resolve(),
                 runtime.resolve(),
                 runtime.resolve().with_name("actor-loading.js"),
                 ROOT / "tools/l2lib/stringproperty.py",
                 ROOT / "tools/world/inspect_actor_declarations.py",
                 ROOT / "tools/ui/static_mesh_class_source.py",
+                ROOT / "tools/l2lib/propertylayout.py",
+                ROOT / "tools/l2lib/declarations.py",
             )
         },
     )
@@ -1710,6 +2064,11 @@ def main():
         help="with --actor-startup, also check the volume-family config gate from pinned owned packages",
     )
     parser.add_argument(
+        "--default-copies",
+        action="store_true",
+        help="also copy complete recovered volume-family lists; requires pinned owned Engine/Core/GamePlay packages and Engine/Core DLLs at their local paths",
+    )
+    parser.add_argument(
         "--engine", type=Path, default=ROOT / "assets/interlude/system/engine.dll"
     )
     parser.add_argument("--comparison-engine", type=Path)
@@ -1729,6 +2088,7 @@ def main():
         args.runtime,
         original_strings=args.original_strings,
         original_config=args.default_config,
+        original_copies=args.default_copies,
         engine=Image(args.engine, ENGINE_SHA, True) if args.actor_startup else None,
         comparison_engine=(
             PEImage(args.comparison_engine, CANDIDATE_ENGINE_SHA)

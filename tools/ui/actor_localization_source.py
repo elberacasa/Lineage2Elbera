@@ -10,6 +10,66 @@ from actor_transform_source import raw
 from check_supplemental_engine import CORE_SHA, CANDIDATE_CORE_SHA
 
 
+def qualify_class_default_copies(core, comparison):
+    """Reuse the reference/array bindings for noninstancing CDO copies."""
+    from actor_transform_source import (
+        ARRAY_PROPERTY_COPY,
+        qualify_actor_reference_loading,
+    )
+    from actor_octree_membership_source import MEMBERSHIP_CORE
+
+    references = qualify_actor_reference_loading(core, comparison)
+    methods = [
+        ARRAY_PROPERTY_COPY,
+        *[row for row in MEMBERSHIP_CORE if row[0] == "?Realloc@FArray@@IAEXH@Z"],
+    ]
+    assert len(methods) == 2
+    blocks, targets = [], dict(references["thunkTargets"])
+    for symbol, start, end in methods:
+        assert core.exported(symbol, True) == comparison.body(symbol) == start
+        thunk = core.exported(symbol)
+        assert comparison.exports[symbol] == thunk
+        core.instruction(thunk, "jmp", hex(start))
+        assert raw(core, thunk, thunk + 5) == comparison.read(thunk, 5)
+        data = raw(core, start, end)
+        assert data == comparison.read(start, len(data))
+        rows = list(core.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data) and rows[-1].mnemonic == "ret"
+        blocks.append(
+            dict(
+                symbol=symbol,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+        targets[hex(thunk)] = hex(start)
+    table = "??_7UArrayProperty@@6B@"
+    thunk = core.exported(ARRAY_PROPERTY_COPY[0])
+    assert (
+        core.u32(core.exported(table) + 0xA8)
+        == comparison.u32(comparison.exports[table] + 0xA8)
+        == thunk
+    )
+    for name, address in (
+        ("?GMalloc@@3PAVFMalloc@@A", 0x10235034),
+        ("?GIsUCC@@3HA", 0x1023E8CC),
+    ):
+        assert core.exported(name) == comparison.exports[name] == address
+    return dict(
+        coreBlocks=blocks + references["coreBlocks"],
+        thunkTargets=targets,
+        references=references,
+        arrayVtable=hex(core.exported(table)),
+        objectVtable=hex(core.exported("??_7UObjectProperty@@6B@")),
+        limits=[
+            "Array raw-copy branch only: current inner flag0x400000 clear. Element bytes and reference identities are retained, not interpreted or resolved.",
+            "Object CopyCompleteValue receives a null instancing object from the original CDO initializer; subobject construction is not replaced for nonnull callers.",
+            "Array allocation and CRT memcpy use explicit successful providers with distinct source/destination storage; DLLs do not execute.",
+        ],
+    )
+
+
 def qualify_class_default_initialization(core, comparison):
     """Bind CDO header/parent initialization and LoadConfig's nonconfig return.
 

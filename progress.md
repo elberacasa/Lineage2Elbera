@@ -2,6 +2,39 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Complete specialized class-default copies — 29 September 2026
+
+The browser now projects the original CDO specialized values for strings,
+raw-copy arrays and object references under the verified null-instancing call.
+Unknown slots, malformed bytes, unsupported inner flags and overlapping fields
+remain unsupported before a result is exposed. Parent data stays unchanged;
+arrays copy independently, object identities remain shared and new fields clear.
+The prior string-only API shares the validation/copy implementation.
+
+The existing native verifier reuses reference/array bindings and the same
+interpreter. 192 mixed authored cases pass (63,544 instructions / 319 addresses,
+336 specialized calls). Optional --default-copies reads explicitly pinned local
+inputs and checks the complete specialized lists of all eight recovered classes:
+96 cases, 97,046 instructions / 319 addresses, 840 calls. Payloads are authored,
+not original game defaults. Copy order, scalar bytes, parent allocations and
+register preservation are checked against interpreted original code. All ten
+Actor arrays on the recovered list take the raw-copy branch; the object call
+retains identity across editor/UCC modes because its instancing argument is null.
+
+All existing native localization/string/config/startup suites still pass.
+Ten portable interpreter tests include a new odd-byte copy boundary regression;
+60 browser module tests include mixed adjacent fields and unsupported inputs.
+The existing inspector adds Class default copying, with parent/payload controls;
+all 96 scenarios and return to the initial view pass without page/console errors.
+The game action runner also captured the page; screenshots were visually checked.
+The curated screenshot now shows the actual mixed-copy layout. All 17 README
+image URLs remain in place. Core standalone archive sources are unchanged.
+
+Next: join actual saved default tags and localized default lookup to the class
+initialization path, then class binding and actual world startup. No live volume
+has been enabled by this component; all 53 remain unsupported. The full browser
+client goal remains ACTIVE and incomplete. Private receipts stay under tmp.
+
 ## Class-default initialization and configuration gate — 29 September 2026
 
 The existing localization verifier now binds eleven Core ranges and six named
