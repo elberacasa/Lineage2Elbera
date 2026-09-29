@@ -29,6 +29,17 @@ def call_at(address):
 
 
 class StaticBoundsBoundaryTest(unittest.TestCase):
+    def test_model_cleanup_flag_reads_low_ebx_without_changing_its_value(self):
+        instruction = next(
+            Cs(CS_ARCH_X86, CS_MODE_32).disasm(bytes.fromhex("f6c301"), 0x9000)
+        )
+        for value in (0, 1, 0xFFFFFF00, 0xABCDEF01):
+            m = machine()
+            m.registers["ebx"] = value
+            m.step(instruction)
+            self.assertEqual(m.zero, not bool(value & 1))
+            self.assertEqual(m.registers["ebx"], value)
+
     def test_default_copy_provider_preserves_headers_sources_and_caller_stack(self):
         for at, size in ((0x1015FBFF, 12), (0x1016FF56, 0)):
             target = 0x1017AC60

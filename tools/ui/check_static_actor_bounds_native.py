@@ -63,6 +63,80 @@ IMPORTS = {
 }
 
 
+def qualify_model_bounds(program, candidate):
+    """Bind brush selection and Model bounds to full ordinary method ranges.
+
+    The Core transform/destructor bodies are qualified by the existing static
+    bounds check. Owner LocalToWorld remains an explicit virtual response.
+    """
+    e = program.engine
+    brush = "?GetPrimitive@ABrush@@UAEPAVUPrimitive@@XZ"
+    model = "?GetCollisionBoundingBox@UModel@@UBE?AVFBox@@PBVAActor@@@Z"
+    assert e.exported(brush, True) == candidate.body(brush) == 0x1052DFF0
+    assert e.exported(model, True) == 0x10744EE0
+    assert candidate.body(model) == 0x10744EA0
+    blocks = []
+    for start, end in [(0x1052DFF0, 0x1052E00E), (0x10744EE0, 0x10744F7C)]:
+        raw = bytes(e.data[e.offset(start) : e.offset(end)])
+        blocks.append(PreparationProgram.add(program, e, start, end, raw))
+    assert bytes(e.data[e.offset(0x1052DFF0) : e.offset(0x1052E00E)]) == candidate.read(
+        0x1052DFF0, 0x1E
+    )
+    start, end = 0x10744EF8, 0x10744F7C
+    imports = {
+        0x10744F34: ("?TransformBy@FBox@@QBE?AV1@ABVFMatrix@@@Z", 0x10117DD0),
+        0x10744F60: ("??1FMatrix@@QAE@XZ", 0x101111E0),
+    }
+    comparison = compare_call_block(
+        bytes(e.data[e.offset(start) : e.offset(end)]),
+        candidate.read(start - 64, end - start),
+        owned_va=start,
+        candidate_va=start - 64,
+        sites=[
+            (at - start, ("core.dll", symbol)) for at, (symbol, _) in imports.items()
+        ],
+        direct_calls=[],
+        imports=candidate.imports,
+    )
+    vtables = []
+    for cls, slot, symbol in [
+        *[
+            (cls, 0x164, brush)
+            for cls in (
+                "ABrush",
+                "AVolume",
+                "ABlockingVolume",
+                "APhysicsVolume",
+                "AMusicVolume",
+            )
+        ],
+        ("UModel", 0x78, model),
+    ]:
+        table = "??_7" + cls + "@@6B@"
+        assert e.u32(e.exported(table) + slot) == e.exported(symbol)
+        assert (
+            candidate.u32(candidate.exports[table] + slot) == candidate.exports[symbol]
+        )
+        vtables.append(dict(table=table, slot=hex(slot), method=symbol))
+    program.import_targets.update({at: target for at, (_, target) in imports.items()})
+    program.membership_targets.update(
+        {
+            e.exported(brush): 0x1052DFF0,
+            e.exported(model): 0x10744EE0,
+        }
+    )
+    program.model_bounds_thunk = e.exported(model)
+    return dict(
+        blocks=blocks,
+        normalComparison=comparison,
+        vtables=vtables,
+        limits=[
+            "Model SEH prefix retained for ordinary stack effects; exception handlers are not executed.",
+            "Current owner matrix is a supplied virtual response; construction, Model PostLoad and live membership remain separate.",
+        ],
+    )
+
+
 def qualify(program, core, candidate, candidate_core):
     e = program.engine
     prior = program.receipt
@@ -122,6 +196,7 @@ def qualify(program, core, candidate, candidate_core):
         e.instruction(*anchor)
     program.static_bounds_thunk = e.exported(METHOD)
     program.local_thunk = e.exported(LOCAL)
+    model_bounds = qualify_model_bounds(program, candidate)
     postload = qualify_static_postload(e, core, candidate, candidate_core)
     for image, blocks in [
         (e, postload["engineBlocks"]),
@@ -358,6 +433,7 @@ def qualify(program, core, candidate, candidate_core):
                 "Supplemental correspondence does not authenticate archive origin.",
             ],
         ),
+        modelBounds=model_bounds,
         staticPostLoad=postload,
         staticConstructor=constructor,
         actorLoading=actor_loading,
@@ -385,13 +461,15 @@ class StaticBoundsMachine(AdmissionMachine):
         self.current = None
 
     def read(self, operand):
-        if operand in ("al", "cl"):
-            return self.registers[{"al": "eax", "cl": "ecx"}[operand]] & 255
+        if operand in ("al", "cl", "bl"):
+            return (
+                self.registers[{"al": "eax", "cl": "ecx", "bl": "ebx"}[operand]] & 255
+            )
         return super().read(operand)
 
     def write(self, operand, value, floating=False):
-        if operand in ("al", "cl"):
-            register = {"al": "eax", "cl": "ecx"}[operand]
+        if operand in ("al", "cl", "bl"):
+            register = {"al": "eax", "cl": "ecx", "bl": "ebx"}[operand]
             self.registers[register] = (self.registers[register] & 0xFFFFFF00) | (
                 value & 255
             )
@@ -591,11 +669,12 @@ class StaticBoundsMachine(AdmissionMachine):
             self.registers["ecx"] = 0
             self.visited.append(i.address)
             return i.address + i.size
-        if i.address in (0x106FE764, 0x106FE7BB):
+        if i.address in (0x106FE764, 0x106FE7BB, 0x10744F1E):
             sp = self.registers["esp"]
             dest = self.memory[sp]
-            if i.address == 0x106FE764:
-                assert self.registers["edx"] == self.source.local_thunk
+            if i.address != 0x106FE7BB:
+                register = "eax" if i.address == 0x10744F1E else "edx"
+                assert self.registers[register] == self.source.local_thunk
                 owner = self.registers["ecx"]
                 self.bound_events.append(["local", owner])
                 self.memory.update(
@@ -603,10 +682,15 @@ class StaticBoundsMachine(AdmissionMachine):
                 )
                 self.registers["esp"] += 4
             else:
-                assert self.registers["edx"] == 0xA60000
+                concrete = getattr(self, "concrete_model_bounds", False)
+                assert self.registers["edx"] == (
+                    self.source.model_bounds_thunk if concrete else 0xA60000
+                )
                 self.bound_events.append(
                     ["model", self.registers["ecx"], self.memory[sp + 4]]
                 )
+                if concrete:
+                    return MembershipMachine.step(self, i)
                 self.put_box(dest, self.current["auxiliary"])
                 self.registers["esp"] += 8
             self.registers["eax"] = dest
@@ -708,6 +792,98 @@ def native_one(program, row):
     m.invoke(0x106FE700, 0x300000, [0x600000, 0x200000])
     assert m.registers["eax"] == 0x600000
     return dict(bounds=hexes(m.box(0x600000)), events=m.bound_events), m
+
+
+def model_bounds_cases(program, runtime):
+    """Compare real Model bodies, also called from the real static wrapper."""
+    rows, expected, steps, visited = fixture_rows(), [], 0, set()
+    for index, row in enumerate(rows):
+        results = []
+        for joined in (False, True):
+            m = StaticBoundsMachine(program)
+            setup_actor(m, row)
+            if joined:
+                m.concrete_model_bounds = True
+                m.memory[0xA50078] = program.model_bounds_thunk
+                if row["auxiliary"] is not None:
+                    m.put_box(0x400000 + 0x34, row["auxiliary"])
+                m.invoke(0x106FE700, 0x300000, [0x600000, 0x200000])
+            else:
+                m.invoke(
+                    0x10744EE0, 0x300000, [0x600000, 0 if index % 3 == 0 else 0x200000]
+                )
+            assert m.registers["eax"] == 0x600000
+            results.append(dict(bounds=hexes(m.box(0x600000)), events=m.bound_events))
+            steps += len(m.visited)
+            visited.update(m.visited)
+        expected.append(results)
+    script = r"""
+import fs from 'node:fs';
+const api=await import(process.argv[1]);
+const val=h=>Buffer.from(h,'hex').readFloatLE();
+const bits=v=>{const b=Buffer.alloc(4);b.writeFloatLE(v);return b.toString('hex');};
+const decode=v=>Array.isArray(v)?v.map(decode):v&&typeof v==='object'?Object.fromEntries(Object.entries(v).map(([k,x])=>[k,decode(x)])):typeof v==='string'&&/^[0-9a-f]{8}$/.test(v)?val(v):v;
+const box=b=>({min:b.min.map(bits),max:b.max.map(bits),valid:b.valid});
+process.stdout.write(JSON.stringify(decode(JSON.parse(fs.readFileSync(0,'utf8'))).map((row,index)=>[false,true].map(joined=>{
+ const events=[],profile={arithmeticProfile:'pc53-rne'};
+ const local=owner=>{events.push(['local',owner]);return {status:'ready',matrix:row.matrix};};
+ const r=joined?api.prepareStaticMeshBounds({...row,...profile,ownerIdentity:0x200000,
+  collisionModel:row.auxiliary===null?null:0x400000,readLocalToWorld:local,
+  getCollisionModelBounds:(model,owner)=>{
+   events.push(['model',model,owner]);
+   return api.prepareModelBounds({...profile,ownerIdentity:owner,localBounds:row.auxiliary,readLocalToWorld:local});
+  }
+ }):api.prepareModelBounds({...profile,ownerIdentity:index%3===0?null:0x200000,localBounds:row.localBounds,readLocalToWorld:local});
+ if(r.status!=='ready')throw Error(JSON.stringify(r));
+ return {bounds:box(r.bounds),events};
+}))));
+"""
+    actual = browser_outputs(script, hexes(rows), Path(runtime))
+    assert len(actual) == len(expected)
+    for index, (a, b) in enumerate(zip(actual, expected)):
+        assert a == b, ("Model bounds", index, a, b)
+    selections, selected = [], []
+    for brush, engine, primitive in [
+        (0x410000, None, None),
+        (0, 0, None),
+        (0, 0x420000, 0),
+        (0, 0x420000, 0x430000),
+    ]:
+        m = StaticBoundsMachine(program)
+        actor, level = 0x200000, 0x400000
+        m.memory[actor + 0x278] = brush
+        row = dict(primitive278=brush or None)
+        if not brush:
+            m.memory.update({actor + 0xE4: level, level + 0x74: engine})
+            row.update(levelIdentity=level, engineIdentity=engine or None)
+            if engine:
+                m.memory[engine + 0x50] = primitive
+                row["enginePrimitive50"] = primitive or None
+        m.invoke(0x1052DFF0, actor)
+        selected.append(m.registers["eax"] or None)
+        selections.append(row)
+        steps += len(m.visited)
+        visited.update(m.visited)
+    script = r"""
+import fs from 'node:fs';
+const api=await import(process.argv[1]);
+process.stdout.write(JSON.stringify(JSON.parse(fs.readFileSync(0,'utf8')).map(row=>{
+ const result=api.selectBrushPrimitive(row);
+ if(result.status!=='ready')throw Error(JSON.stringify(result));
+ return result.primitiveIdentity;
+})));
+"""
+    assert browser_outputs(script, selections, Path(runtime)) == selected
+    return dict(
+        cases=len(rows),
+        joinedStaticCases=len(rows),
+        brushSelectionCases=len(selections),
+        nullOwnerCases=sum(index % 3 == 0 for index in range(len(rows))),
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        browserStateCompared=True,
+        scope="supplied current local boxes and owner matrix responses; original Model bounds and static auxiliary dispatch, not lifecycle or live queries",
+    )
 
 
 def level_population_cases(program):
@@ -2537,6 +2713,7 @@ process.stdout.write(JSON.stringify(results));
 
 def verify(engine, core, comparison_engine, comparison_core, runtime):
     program = load_program(engine, core, comparison_engine, comparison_core)
+    model_bounds = model_bounds_cases(program, runtime)
     actor_loading = actor_loading_cases(program)
     actor_fields = actor_field_cases(program)
     actor_boolean_loading = actor_boolean_loading_cases(program, runtime)
@@ -2629,6 +2806,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
             browserStateCompared=True,
             directionFlag="clear",
         ),
+        modelBounds=model_bounds,
         source=program.receipt,
         runtimeSHA256=hashlib.sha256(Path(runtime).read_bytes()).hexdigest(),
         verifierSHA256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
@@ -2709,6 +2887,7 @@ def main():
                         "freshActorLoading",
                         "actorTransformLoading",
                         "postLoad",
+                        "modelBounds",
                     ]
                 }
                 if a.check

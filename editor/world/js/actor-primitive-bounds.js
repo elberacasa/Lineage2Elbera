@@ -55,6 +55,35 @@ export function transformOriginalBox(input) {
   return freeze({ status: "ready", scope, bounds: ownBox(lower, upper, 1) });
 }
 
+/** UModel.GetCollisionBoundingBox (10744ee0). A null owner copies the local
+ * box, including its validity byte. With an owner, LocalToWorld runs before
+ * the local box is read. The native record's three padding bytes stay unknown.
+ */
+export function prepareModelBounds(input) {
+  if (input?.ownerIdentity === undefined)
+    return fail("explicit Model owner identity or null required");
+  if (input.ownerIdentity !== null) {
+    if (typeof input.readLocalToWorld !== "function")
+      return fail("current Model owner LocalToWorld method required");
+    const transform = input.readLocalToWorld(input.ownerIdentity);
+    if (transform?.status !== "ready")
+      return fail("unknown current Model owner LocalToWorld response");
+    return transformOriginalBox({
+      arithmeticProfile: input.arithmeticProfile,
+      bounds: input.localBounds,
+      matrix: transform.matrix,
+    });
+  }
+  const local = input.localBounds;
+  if (!box(local) || !uint(local.valid) || local.valid > 255)
+    return fail("explicit finite local Model box and validity byte required");
+  return freeze({
+    status: "ready",
+    scope,
+    bounds: ownBox([...local.min], [...local.max], local.valid),
+  });
+}
+
 /** UStaticMesh.GetCollisionBoundingBox (106fe700), nonnull owner. The cylinder
  * branch bypasses mesh geometry, transforms and the auxiliary collision model.
  * LocalToWorld and collision-model bounds retain explicit virtual dispatch.
@@ -126,8 +155,28 @@ export function selectActorPrimitive(input) {
     if (input[key] !== null)
       return freeze({ status: "ready", scope, primitiveIdentity: input[key] });
   }
+  return selectEnginePrimitive(input);
+}
+
+/** 1052dff0..1052e00e, ABrush.GetPrimitive, also bound by original volume
+ * vtables. It reads Brush (+278), then the level engine fallback; ordinary
+ * actor Mesh/StaticMesh fields are not part of this method.
+ */
+export function selectBrushPrimitive(input) {
+  if (input?.primitive278 === undefined)
+    return fail("explicit current Brush reference required");
+  if (input.primitive278 !== null)
+    return freeze({
+      status: "ready",
+      scope,
+      primitiveIdentity: input.primitive278,
+    });
+  return selectEnginePrimitive(input);
+}
+
+function selectEnginePrimitive(input) {
   if (input.levelIdentity == null)
-    return fail("ordinary primitive fallback requires the current level");
+    return fail("primitive fallback requires the current level");
   if (input.engineIdentity === undefined)
     return fail("unknown current level engine");
   if (input.engineIdentity === null)

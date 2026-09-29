@@ -23,6 +23,11 @@ remain unprepared. Both original-map checks include the complete source bundle,
 known-bit groups, provenance and opaque native tails. See the
 [world-loader evidence](../docs/native-class-defaults-evidence.md#saved-actor-flags-in-the-world-loader).
 
+The existing native bounds checker also executes concrete Model bounds through
+direct and static-mesh auxiliary calls, and verifies the distinct brush selector.
+It reuses the browser's shared box transform. Current resource loading and live
+world collision remain separate; see [scope and reproduction](../docs/native-static-actor-bounds-evidence.md#brush-selection-and-concrete-model-bounds).
+
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
 kit for qualified NPC selectors, original sparse-key bundles and optional GPU
 weight inputs, plus the bounded initial-animation and GPU native verifiers.

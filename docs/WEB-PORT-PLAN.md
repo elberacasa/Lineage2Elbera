@@ -31,7 +31,11 @@ prefixes and ordered default tags for 26 distinct classes/ancestors. This
 now feeds per-class saved Boolean records into the actual source loader. All
 3,640 saved actors are covered, plus three retained static exports outside the
 saved array. These inputs do not construct their live state; mover and brush
-PostLoad/primitive dispatch remain separate source paths. [Class-default evidence](native-class-defaults-evidence.md).
+PostLoad remain separate source paths. Brush primitive selection and concrete
+Model bounds now have original-instruction comparisons, including calls from
+static-mesh auxiliary bounds. Their current resources and lifecycle still need
+to enter the scene loader. [Class-default evidence](native-class-defaults-evidence.md)
+and [Model bounds evidence](native-static-actor-bounds-evidence.md#brush-selection-and-concrete-model-bounds).
 
 Public branches start from the reviewed public main. Original client inputs,
 generated assets, accounts and raw local receipts remain private; the older

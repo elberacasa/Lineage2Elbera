@@ -2,6 +2,32 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Concrete brush selection and Model bounds — 28 September 2026
+
+PR60 published the saved-actor records, preserved all 17 README images, and
+passed source/PR/merged checks. Continued on a fresh branch from public main.
+The shared primitive module now implements ABrush selection and UModel bounds,
+including null-owner copies and repeated owner-transform dispatch when called
+from static-mesh auxiliary bounds. It reuses the existing Core box transform
+and engine fallback instead of introducing a second geometry implementation.
+
+The original-instruction checker now executes the concrete Model body through
+600 direct and 600 joined static cases, plus all four brush-selection branches.
+The source comparison binds six vtable slots and both erased Core imports;
+Model SEH handlers and current LocalToWorld bodies remain excluded. Native box
+padding stays opaque. Portable checks include null-owner validity/signed zero,
+lazy reads, unresolved references and two distinct current transform replies.
+
+The final original-input suite passes, as do 48 related browser-module checks
+and 19 interpreter checks. An offline Giran startup capture reached the rendered
+world with no captured errors and was visually inspected. Existing map issues
+remain; this regression run does not exercise Online collision.
+
+Next: recover the saved brush Model resources and bind their construction and
+PostLoad before integrating these functions into current world membership and
+queries. Mover follows its own class path. No live collision or repaired maps
+are claimed; the full faithful browser-client goal remains active.
+
 ## Saved actor flags through exact class ancestry — 28 September 2026
 
 Continued from merged PR59 and the published standalone Core0.2.0 preview.
