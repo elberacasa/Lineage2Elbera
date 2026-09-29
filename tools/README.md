@@ -32,6 +32,13 @@ consumed original bytes, and the native checker executes surface construction
 and repeated Model PostLoad. Actor startup and live world collision remain
 unresolved. See [Model resource scope and commands](../docs/native-static-actor-bounds-evidence.md#saved-brush-model-resources).
 
+The same checker now executes the original Brush constructor and PostLoad
+wrapper. Its 192 browser comparisons cover null, separate and shared
+Model/Polys headers, ordered flag writes and unrelated storage preservation.
+Portable API cases also check partial writes on unsupported inputs. These
+checks require explicit current state; they do not prepare saved map brushes
+or bypass volume localization. See [Brush inputs, source ranges and limits](../docs/native-static-actor-bounds-evidence.md#brush-construction-and-postload).
+
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
 kit for qualified NPC selectors, original sparse-key bundles and optional GPU
 weight inputs, plus the bounded initial-animation and GPU native verifiers.

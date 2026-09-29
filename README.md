@@ -59,10 +59,13 @@ Source loading now retains inherited collision flags and ordered map overrides
 for every saved actor in Talking Island and Giran, including movers and volumes.
 These remain separate from current actor state. The loader also binds **495 original
 brush Models** to their saved actors, preparing bounds and surface-node lists
-through recovered loading rules. Brush/volume startup and live collision remain
+through recovered loading rules. A separate brush PostLoad implementation now
+matches **192 original-code cases**, preserving ordered Model/Polys flag writes.
+Connecting it to saved actors, volume localization and live collision remains
 unfinished. The class-prefix decoder is available in the standalone Core preview.
 [Actor source evidence](docs/native-class-defaults-evidence.md) ·
-[Model loading and verification](docs/native-static-actor-bounds-evidence.md#saved-brush-model-resources).
+[Model loading and verification](docs/native-static-actor-bounds-evidence.md#saved-brush-model-resources) ·
+[Brush lifecycle evidence](docs/native-static-actor-bounds-evidence.md#brush-construction-and-postload).
 
 | Area | What advanced | Follow the work |
 | --- | --- | --- |

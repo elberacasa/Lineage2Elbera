@@ -2,6 +2,34 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Brush construction and ordered PostLoad writes — 28 September 2026
+
+The browser's new postLoadBrushActor entry reuses the common actor path and
+retains Model/Polys object-flag writes in native order, including repeated writes
+to a shared header. Missing later inputs expose only earlier reached writes;
+saved export flags are never substituted for current resource flags. Static
+actor preparation keeps its existing separate admission contract.
+
+Elbera Tools now qualifies the full ordinary Brush constructor and PostLoad
+wrapper, the no-init FScale helper and the inherited PostLoad vtable bindings
+for Brush and four native volume classes. The existing bounds checker adds
+192 constructor cases (47,424 instructions/189 addresses) and 192 browser
+PostLoad comparisons (20,160 instructions/107 addresses). Every other supplied
+actor word survives. These are authored current-state cases, not map startup.
+
+Validation also passes 92 related browser-module tests and 19 portable
+interpreter tests. Deliberately changing the resource bit or reversing resource
+writes is rejected by the original-instruction comparison. The offline Giran
+startup regression retains 328 prepared Models and 1,936 prepared static actors;
+the existing terrain defects and unavailable world collision remain visible.
+
+Original class data shows that volumes carry a localized class bit; private
+native investigation found recursive structure traversal and a property-flag
+gate before text import. That path remains unported. Source-loaded Model/Polys
+headers, per-class transforms, volume construction/localization and the final
+world startup/query join remain next work. No live collision or map-repair
+claim is added. The full browser-client goal remains active and incomplete.
+
 ## Saved brush Models in actual scene loading — 28 September 2026
 
 The source world now binds exact inherited/saved Brush references to 495 Model
