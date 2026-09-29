@@ -28,6 +28,16 @@ def machine(cls=LocalizationMachine):
 
 
 class LocalizationMemoryTest(unittest.TestCase):
+    def test_qualified_erased_import_dispatch_precedes_ordinary_nop(self):
+        m = machine(StringLoadingMachine)
+        m.source.import_targets[0x9000] = 0x12345678
+        instruction = next(Cs(CS_ARCH_X86, CS_MODE_32).disasm(b"\x90", 0x9000))
+        sp = m.registers["esp"]
+        self.assertEqual(m.step(instruction), 0x12345678)
+        self.assertEqual(m.registers["esp"], sp - 4)
+        self.assertEqual(m.memory[sp - 4], 0x9006)
+        self.assertEqual(m.visited, [0x9000])
+
     def test_compact_byte_sign_and_word_comparison_use_operand_width(self):
         m = machine(StringLoadingMachine)
         dis = Cs(CS_ARCH_X86, CS_MODE_32)

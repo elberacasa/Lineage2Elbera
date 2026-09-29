@@ -33,7 +33,7 @@ from l2lib import encode_compact
 from l2lib.stringproperty import decode_string_property
 
 
-def source_program(core, comparison):
+def source_program(core, comparison, engine=None, comparison_engine=None):
     proof = qualify_actor_localization(core, comparison)
     proof["stringImport"] = qualify_string_property_text(core, comparison)
     proof["stringLoading"] = qualify_string_property_loading(core, comparison)
@@ -80,6 +80,54 @@ def source_program(core, comparison):
     program.membership_targets.update(
         {int(k, 16): int(v, 16) for k, v in loading["thunkTargets"].items()}
     )
+    if engine is not None:
+        from actor_transform_source import qualify_static_actor_loading
+        from static_collision_source import qualify_static_mesh_fresh_load
+
+        fresh = qualify_static_mesh_fresh_load(
+            engine, core, comparison_engine, comparison
+        )
+        actor = qualify_static_actor_loading(
+            engine, core, comparison_engine, comparison
+        )
+        proof["actorStartup"] = dict(fresh=fresh, actor=actor)
+        for image, blocks in (
+            (core, fresh["coreBlocks"]),
+            (core, actor["coreBlocks"]),
+            (engine, actor["engineBlocks"]),
+        ):
+            for block in blocks:
+                start, end = int(block["start"], 16), int(block["end"], 16)
+                PreparationProgram.add(
+                    program,
+                    image,
+                    start,
+                    end,
+                    bytes(image.data[image.offset(start) : image.offset(end)]),
+                )
+        program.import_targets.update(
+            {int(k, 16): int(v, 16) for k, v in actor["importTargets"].items()}
+        )
+        program.membership_targets.update(
+            {int(k, 16): int(v, 16) for k, v in actor["thunkTargets"].items()}
+        )
+        # The actor qualifier binds this erased named import; the localization
+        # qualifier above supplies the complete matching Core implementation.
+        assert any(
+            d.get("ownedVA") == "0x1052f5b3"
+            and d.get("binding") == ["core.dll", "?LoadLocalized@UObject@@QAEXXZ"]
+            for block in actor["engineBlocks"]
+            for d in block.get("comparison", {}).get("differences", [])
+        )
+        program.import_targets[0x1052F5B3] = 0x1015F5E0
+        for block in actor["coreBlocks"]:
+            symbol = block["symbol"]
+            thunk, start = core.exported(symbol), int(block["start"], 16)
+            core.instruction(thunk, "jmp", hex(start))
+            assert bytes(
+                core.data[core.offset(thunk) : core.offset(thunk) + 5]
+            ) == comparison.read(thunk, 5)
+            program.membership_targets[thunk] = start
     return program
 
 
@@ -455,8 +503,8 @@ class StringLoadingMachine(StringLocalizationMachine):
     Stable source storage and a successful, relocating allocator are explicit.
     """
 
-    def __init__(self, program):
-        super().__init__(program, next(fixture_rows()))
+    def __init__(self, program, row=None):
+        super().__init__(program, next(fixture_rows()) if row is None else row)
         self.archive, self.cursor, self.payload = 0xD20000, 0, b""
         self.accounting, self.reads = [], []
         self.memory.update(
@@ -469,6 +517,31 @@ class StringLoadingMachine(StringLocalizationMachine):
             }
         )
         self.write("word ptr [0x101cdd44]", 0)
+        self.initialization_copies, self.initialization_zeros = [], []
+        self.resource_flag_writes, self.localization_entries = [], []
+
+    def initialize(self, template, size, template_size):
+        cls = self.memory[self.actor + 0x24]
+        self.memory.update({cls + 0x4F4: template, cls + 0x4F8: template_size})
+        props = list(self.fields)
+        self.memory[cls + 0x78] = props[0] if props else 0
+        for index, prop in enumerate(props):
+            self.memory[prop + 0x60] = props[index + 1] if index + 1 < len(props) else 0
+            table = self.memory[prop]
+            self.memory[table + 0xA8] = 0x1010311B
+            self.memory[table + 0xA4] = 0x10102A6D
+        # Original cdecl entry; its caller owns these seven arguments.
+        sp, link = self.registers["esp"], self.memory[0]
+        for value in reversed((self.actor, size, cls, 0, 0, self.actor, 0)):
+            self.push(value)
+        self.push(0)
+        self.execute_until(0x1015FB00)
+        assert (
+            self.registers["esp"] == sp - 28
+            and self.memory[0] == link
+            and not self.stack
+        )
+        self.registers["esp"] = sp
 
     def read(self, operand):
         if operand in ("al", "bl", "cl", "dl"):
@@ -496,6 +569,41 @@ class StringLoadingMachine(StringLocalizationMachine):
     def step(self, i):
         sp = self.registers["esp"]
         op, args = i.mnemonic, i.op_str.split(", ")
+        if i.address in self.source.import_targets:
+            # Dispatch qualified erased imports before the localization-only
+            # interpreter's ordinary NOP handler can consume their first byte.
+            return AdmissionMachine.step(self, i)
+        if i.address == 0x1015F5E0:
+            self.localization_entries.append(self.memory[self.actor + 0x1C])
+        if i.address == 0x1010A214:
+            target = self.registers["ecx"]
+            nxt = super().step(i)
+            self.resource_flag_writes.append(
+                dict(identity=target, objectFlags=self.memory[target + 0x1C])
+            )
+            return nxt
+        if i.address == 0x1015FBFF:
+            assert i.op_str == "0x1017ac60"
+            dest, source, size = [self.memory[sp + n * 4] for n in range(3)]
+            assert 0 <= size <= 0x10000 and (
+                dest + size <= source or source + size <= dest
+            )
+            values = [self.byte(source + n) for n in range(size)]
+            for n, value in enumerate(values):
+                self.write(f"byte ptr [{dest + n:#x}]", value)
+            self.initialization_copies.append(size)
+            self.registers["eax"] = dest
+            self.visited.append(i.address)
+            return i.address + i.size
+        if i.address in (0x1015FB8A, 0x1015FC32):
+            assert i.op_str == "0x101022e3"
+            dest, size = self.memory[sp], self.memory[sp + 4]
+            assert 0 <= size <= 0x10000
+            for n in range(size):
+                self.write(f"byte ptr [{dest + n:#x}]", 0)
+            self.initialization_zeros.append(size)
+            self.visited.append(i.address)
+            return i.address + i.size
         if i.address == 0x101137F8:
             assert (
                 self.registers["ecx"] == self.archive
@@ -674,6 +782,213 @@ def original_string_loading_cases(program):
         uniqueInstructions=len(set(m.visited)),
         sources=report["sources"],
         scope="Known saved string overlays compared with original SerializeItem and CopySingleValue. Supplied ordering/headers; untagged initial values, native property acceptance and the complete class lifecycle remain unknown.",
+    )
+
+
+def actor_string_startup_cases(program, runtime):
+    """Join original default copy, Volume construction and localized PostLoad.
+
+    Current class/reflection/CDO/configuration are explicit authored providers.
+    This neither builds full reflection lists nor chooses live class flags.
+    """
+    rows, expected, visited = [], [], set()
+    steps = deep_copies = invocations = 0
+    native_fields = [
+        dict(identity="Title", name="Title", offset=0x424, arrayDim=1),
+        dict(identity="Captions", name="Captions", offset=0x430, arrayDim=2),
+        dict(identity="NewTail", name="NewTail", offset=0x450, arrayDim=1),
+    ]
+    fields = [
+        dict(f, isProperty=True, propertyFlags=0x8000, elementSize=12, struct=None)
+        for f in native_fields
+    ]
+    layout = [dict(f, kind="StrProperty", elementSize=12) for f in native_fields]
+    values = [
+        [0x424, "default / 水"],
+        [0x430, "embedded\0retained"],
+        [0x43C, "\ud800"],
+        [0x450, "tail default"],
+    ]
+    for index in range(192):
+        object_flags = 0x100 if index % 2 else 0
+        class_flags = 0x32 if index % 4 < 2 else 0x12
+        row = dict(
+            object=dict(
+                index=3,
+                flags=object_flags,
+                name="Placed",
+                outer=dict(name="Outer", outer=dict(name="Map", outer=None)),
+            ),
+            classInfo=dict(
+                flags=class_flags,
+                name="ExampleVolume",
+                outer=dict(name="Engine", outer=None),
+                structure=dict(fields=fields, super=None),
+            ),
+            isEditor=index % 8 >= 4,
+            environment=dict(started=True, configAbsent=False, language="es"),
+            policy=["hit", "missing", "empty", "english", "write-on-miss", "unicode"][
+                (index // 8) % 6
+            ],
+            scratchCounter=254,
+        )
+        m = StringLoadingMachine(program, row)
+        actor, template, size = m.actor, 0xE10000, 0x480
+        default_size = [0, 0x450, size][(index // 48) % 3]
+        header = {
+            at: value for at, value in m.memory.items() if actor <= at < actor + 0x34
+        }
+        for off in range(0x34, size, 4):
+            m.memory[actor + off] = 0xA5A5A5A5
+            m.memory[template + off] = 0x5A5A5A5A
+        for offset, value in values:
+            m.seed_string(template + offset, value, spare=3)
+        before = {
+            at: value
+            for at, value in m.memory.items()
+            if template + 0x34 <= at < template + size
+        }
+        preserved = {reg: m.registers[reg] for reg in ("ebx", "esi", "edi", "ebp")}
+        m.initialize(template if default_size else 0, size, default_size)
+        assert {reg: m.registers[reg] for reg in preserved} == preserved
+        assert {at: m.memory[at] for at in header} == header
+
+        # Initialization itself installs the explicitly supplied copy-list links;
+        # only template bytes/allocations are compared below, not that metadata.
+        def stored():
+            return [
+                [
+                    off,
+                    b"".join(
+                        n.to_bytes(2, "little")
+                        for n in m.stored_units(actor + off)[:-1]
+                    ).decode("utf-16le", errors="surrogatepass"),
+                ]
+                for off, _ in values
+            ]
+
+        initialized = stored()
+        for iat, address in program.receipt["actorStartup"]["actor"][
+            "actorCounters"
+        ].items():
+            m.memory[int(iat, 16)] = address
+            m.memory[address] = 0
+        m.memory.update({0x103307E8: 0, 0x103307EC: 0, 0x103307F0: 0})
+        m.invoke(0x103D3B50, actor)
+        assert stored() == initialized
+        # Current non-string payload fields are explicit supplied state; this
+        # join does not execute all actor tags, arrays or reference resolution.
+        model, polys = 0xD80000, 0xD90000
+        reference_mode = (index // 8) % 4
+        brush = model if reference_mode else 0
+        poly = (0, 0, polys, model)[reference_mode]
+        rotation = [index, -index, 32768]
+        word = 0xA5A50000 | index
+        m.memory.update(
+            {
+                actor + 0x278: brush,
+                actor + 0x1F4: 0,
+                actor + 0x5C: word,
+                model + 0x1C: 0x40,
+                model + 0x60: poly,
+                polys + 0x1C: 0x80,
+            }
+        )
+        for n, value in enumerate(rotation):
+            m.memory[actor + 0x1C8 + n * 4] = value & 0xFFFFFFFF
+        m.invoke(0x1052FDD0, actor)
+        assert {reg: m.registers[reg] for reg in preserved} == preserved
+        assert {
+            at: m.memory[at] for at in before if template + 0x34 <= at < template + size
+        } == {
+            at: v for at, v in before.items() if template + 0x34 <= at < template + size
+        }
+        for off, value in values:
+            units = m.stored_units(template + off)
+            assert (
+                b"".join(n.to_bytes(2, "little") for n in units[:-1]).decode(
+                    "utf-16le", errors="surrogatepass"
+                )
+                == value
+            )
+        calls = int(bool(object_flags & 0x100)) + int(bool(class_flags & 0x20))
+        assert len(m.localization_entries) == calls
+        assert m.localization_entries == [object_flags | 0x20000000] * calls
+        rows.append(
+            row
+            | dict(
+                initialization=dict(
+                    size=size, defaultSize=default_size, fields=layout, defaults=values
+                ),
+                objectFlags=object_flags,
+                classFlags=class_flags,
+                brushReference=brush or None,
+                attachedCount=0,
+                rotation=rotation,
+                flags5c=dict(mask=0xFFFFFFFF, value=word),
+                objects=[
+                    [model, dict(objectFlags=0x40, polysReference=poly or None)],
+                    [polys, dict(objectFlags=0x80)],
+                ],
+            )
+        )
+        expected.append(
+            dict(
+                status="ready",
+                initialized=initialized,
+                storage=stored(),
+                localizationCalls=calls,
+                contexts=m.contexts,
+                imports=m.imports,
+                lookups=m.lookups,
+                writes=dict(
+                    objectFlags=m.memory[actor + 0x1C],
+                    resourceFlags=m.resource_flag_writes,
+                    swayRotationOrig=rotation,
+                    flags5c=dict(mask=0xFFFFFFFF, value=word | 0x40),
+                ),
+            )
+        )
+        steps += len(m.visited)
+        visited.update(m.visited)
+        deep_copies += len(m.copy_sizes)
+        invocations += calls
+    script = r"""
+const {importStringPropertyText}=await import(process.argv[1]);
+const {initializeActorStringProperties,postLoadBrushActor}=await import(new URL('./actor-loading.js',process.argv[1]));
+const freeze=value=>{if(value&&typeof value==='object'){for(const v of Object.values(value))freeze(v);Object.freeze(value);}return value;};
+let raw='';for await(const part of process.stdin)raw+=part;
+process.stdout.write(JSON.stringify(JSON.parse(raw).map(row=>{
+ const initialized=initializeActorStringProperties({...row.initialization,defaults:new Map(row.initialization.defaults)});
+ if(initialized.status!=='ready')throw Error(JSON.stringify(initialized));
+ const storage=new Map(initialized.values),lookups=[];
+ const readConfig=call=>{lookups.push(call);let found=false,value=null;
+ switch(row.policy){case 'hit':found=true;value='text:'+call.key;break;case 'empty':found=true;value='';break;
+ case 'english':found=call.filename.endsWith('.int');value=found?'fallback':null;break;
+ case 'write-on-miss':value=call.filename.endsWith('.int')?null:'partial';break;
+ case 'unicode':found=true;value='Café / 水 / 🌊';break;}return {status:'ready',found,value};};
+ const result=postLoadBrushActor({...row,objects:new Map(row.objects),localization:{...row,
+ classInfo:{...row.classInfo,structure:freeze(row.classInfo.structure)},environment:{...row.environment,readConfig},
+ importText:call=>importStringPropertyText({...call,storage,propertyKind:'StrProperty'})}});
+ const runs=result.localizationRuns??[];
+ return {status:result.status,initialized:initialized.values,storage:[...storage],localizationCalls:runs.length,
+ contexts:runs.filter(r=>!r.context.skipped).map(r=>{const{status,skipped,...c}=r.context;return c;}),
+ imports:runs.flatMap(r=>r.imports),lookups,writes:result.writes};
+})));
+"""
+    actual = browser_outputs(script, rows, runtime)
+    for index, (a, b) in enumerate(zip(actual, expected)):
+        assert a == b, ("localized actor startup", index, a, b)
+    assert len(actual) == len(expected)
+    return dict(
+        cases=len(rows),
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        deepCopies=deep_copies,
+        localizationInvocations=invocations,
+        defaultStoragePreserved=True,
+        browserCompared=True,
+        scope="Original InitProperties with a supplied string-only copy list, Volume construction and Brush/Actor/Object PostLoad joined to original localization. Current class/CDO/configuration and non-string payload fields remain explicit providers; not live map startup.",
     )
 
 
@@ -976,8 +1291,16 @@ process.stdout.write(JSON.stringify(JSON.parse(raw).map(row=>{
     )
 
 
-def verify(core, comparison, runtime, *, original_strings=False):
-    program = source_program(core, comparison)
+def verify(
+    core,
+    comparison,
+    runtime,
+    *,
+    original_strings=False,
+    engine=None,
+    comparison_engine=None,
+):
+    program = source_program(core, comparison, engine, comparison_engine)
     rows, expected, visited, steps = [], [], set(), 0
     for row in fixture_rows():
         machine = LocalizationMachine(program, row)
@@ -1020,6 +1343,9 @@ def verify(core, comparison, runtime, *, original_strings=False):
     joined_strings = string_localization_cases(program, runtime)
     loading = string_loading_cases(program)
     original = original_string_loading_cases(program) if original_strings else None
+    startup = (
+        actor_string_startup_cases(program, runtime) if engine is not None else None
+    )
     return dict(
         tool="Elbera Tools",
         status="pass",
@@ -1036,6 +1362,7 @@ def verify(core, comparison, runtime, *, original_strings=False):
         localizedStringStorage=joined_strings,
         savedStringLoading=loading,
         originalSavedStrings=original,
+        actorStringStartup=startup,
         source=program.receipt,
         sourceSHA256={
             str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -1043,6 +1370,7 @@ def verify(core, comparison, runtime, *, original_strings=False):
                 Path(__file__).resolve(),
                 Path(__file__).with_name("actor_localization_source.py").resolve(),
                 runtime.resolve(),
+                runtime.resolve().with_name("actor-loading.js"),
                 ROOT / "tools/l2lib/stringproperty.py",
                 ROOT / "tools/world/inspect_actor_declarations.py",
             )
@@ -1065,12 +1393,34 @@ def main():
         action="store_true",
         help="also compare saved volume strings from caller-owned local packages",
     )
+    parser.add_argument(
+        "--actor-startup",
+        action="store_true",
+        help="also join default copying, Volume construction and localized actor PostLoad",
+    )
+    parser.add_argument(
+        "--engine", type=Path, default=ROOT / "assets/interlude/system/engine.dll"
+    )
+    parser.add_argument("--comparison-engine", type=Path)
     args = parser.parse_args()
+    if args.actor_startup != bool(args.comparison_engine):
+        parser.error(
+            "--actor-startup and --comparison-engine must be supplied together"
+        )
+    from check_tutorial_quest_native import ENGINE_SHA
+    from check_supplemental_engine import CANDIDATE_ENGINE_SHA
+
     result = verify(
         Image(args.core, CORE_SHA),
         PEImage(args.comparison_core, CANDIDATE_CORE_SHA),
         args.runtime,
         original_strings=args.original_strings,
+        engine=Image(args.engine, ENGINE_SHA, True) if args.actor_startup else None,
+        comparison_engine=(
+            PEImage(args.comparison_engine, CANDIDATE_ENGINE_SHA)
+            if args.actor_startup
+            else None
+        ),
     )
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

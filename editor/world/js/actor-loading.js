@@ -3,6 +3,11 @@
  * Saved exports alone do not establish those inputs. No class-name guessing or
  * missing-reference fallback. See docs/native-static-actor-bounds-evidence.md.
  */
+import {
+  loadActorLocalized,
+  copyStringPropertyValues,
+} from "./actor-localization.js";
+
 const scope = "original-level-actor-assignment";
 const freeze = Object.freeze;
 const uint = (value) =>
@@ -284,7 +289,8 @@ export function prepareSourcePolys(source, declared) {
 /** Ordinary StaticMeshActor PostLoad with no Brush or attachments.
  * Preserve unknown flag bits as a mask/value pair. The native method writes
  * SwayRotationOrig from Rotation, even if the archive saved a different value.
- * Localization and the separate Brush/attached-object branches stay explicit.
+ * Localization uses explicit current metadata/configuration and ImportText.
+ * The separate Brush/attached-object branches retain their own admission.
  */
 export function postLoadStaticActor(input) {
   return postLoadActor(input, "original-static-actor-postload", false);
@@ -300,10 +306,80 @@ export function postLoadBrushActor(input) {
   return postLoadActor(input, "original-brush-actor-postload", true);
 }
 
+/** Consumed string slots of UObject.InitProperties with a supplied class CDO.
+ * fields is the current specialized-copy list restricted to qualified strings,
+ * not an export-order list. The original copy/zero/copy sequence preserves the
+ * class defaults and clears fields in the new tail. Other object fields and
+ * construction remain separate. Outputs retain embedded NUL storage content.
+ */
+export function initializeActorStringProperties({
+  size,
+  defaultSize,
+  fields,
+  defaults,
+} = {}) {
+  const scope = "original-actor-string-defaults";
+  const fail = (reason) => freeze({ status: "unsupported", scope, reason });
+  if (
+    !sint(size) ||
+    size < 0x34 ||
+    !sint(defaultSize) ||
+    (defaultSize !== 0 && defaultSize < 0x34) ||
+    defaultSize > size ||
+    !dense(fields) ||
+    !(defaults instanceof Map)
+  )
+    return fail(
+      "current class sizes, string copy list and default storage required",
+    );
+  const storage = new Map();
+  for (const field of fields) {
+    if (
+      field?.kind !== "StrProperty" ||
+      field.elementSize !== 12 ||
+      !uint(field.offset) ||
+      field.offset < 0x34 ||
+      !sint(field.arrayDim) ||
+      field.arrayDim <= 0
+    )
+      return fail("qualified current string property layout required");
+    const end = field.offset + field.arrayDim * field.elementSize;
+    if (end > size || (field.offset < defaultSize && end > defaultSize))
+      return fail(
+        "string property crosses the admitted object/default boundary",
+      );
+    for (let i = 0; i < field.arrayDim; i++) {
+      const offset = field.offset + i * field.elementSize;
+      for (const other of storage.keys())
+        if (Math.abs(other - offset) < 12)
+          return fail("string property headers overlap");
+      storage.set(offset, "");
+    }
+    if (field.offset < defaultSize) {
+      const result = copyStringPropertyValues({
+        storage,
+        source: defaults,
+        destinationOffset: field.offset,
+        sourceOffset: field.offset,
+        arrayDim: field.arrayDim,
+        elementSize: field.elementSize,
+        propertyKind: field.kind,
+      });
+      if (result.status !== "ready") return fail(result.reason);
+    }
+  }
+  return freeze({
+    status: "ready",
+    scope,
+    values: freeze([...storage].map(freeze)),
+  });
+}
+
 function postLoadActor(input, resultScope, includeBrush) {
   const writes = {},
     resourceFlags = new Map(),
-    resourceWrites = [];
+    resourceWrites = [],
+    localizationRuns = [];
   const result = (status, reason) =>
     freeze({
       status,
@@ -317,17 +393,35 @@ function postLoadActor(input, resultScope, includeBrush) {
           : {}),
       }),
       ...(reason ? { reason } : {}),
+      ...(localizationRuns.length
+        ? { localizationRuns: freeze([...localizationRuns]) }
+        : {}),
     });
   if (!uint(input?.objectFlags))
     return result("unsupported", "current object flags required");
   writes.objectFlags = (input.objectFlags | 0x20000000) >>> 0;
-  if (input.objectFlags & 0x100)
-    return result("unsupported", "UObject localized loading is unresolved");
-  if (!uint(input.classFlags) || input.classFlags & 0x20)
-    return result(
-      "unsupported",
-      "current actor class without localized loading required",
-    );
+  const localize = (stage) => {
+    const supplied = input.localization;
+    const localized = loadActorLocalized({
+      ...supplied,
+      object: { ...supplied?.object, flags: writes.objectFlags },
+      classInfo: { ...supplied?.classInfo, flags: input.classFlags },
+    });
+    localizationRuns.push(freeze({ stage, ...localized }));
+    return localized;
+  };
+  if (input.objectFlags & 0x100) {
+    const localized = localize("UObject.PostLoad");
+    if (localized.status !== "ready")
+      return result("unsupported", localized.reason);
+  }
+  if (!uint(input.classFlags))
+    return result("unsupported", "current actor class flags required");
+  if (input.classFlags & 0x20) {
+    const localized = localize("AActor.PostLoad");
+    if (localized.status !== "ready")
+      return result("unsupported", localized.reason);
+  }
   if (input.brushReference !== null) {
     if (!includeBrush || input.brushReference === undefined)
       return result(

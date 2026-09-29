@@ -342,9 +342,14 @@ The original corpus has two own string tags and four inherited copies through
 five volume classes. Both tags are nonempty; the water class overrides its
 inherited value. The optional native comparison checks these saved overlays
 using original load/copy routines, with explicit headers and ordering. Untagged
-values remain unknown. This does **not** execute complete CDO initialization,
-`CopyCompleteValue`, tagged-property acceptance, configuration or localization.
-It does not admit the 53 currently unsupported live volumes.
+values remain unknown. This source-overlay check does **not** execute complete
+CDO initialization, tagged-property acceptance or configuration. A separate
+composed check now executes inherited `UProperty.CopyCompleteValue`
+(`1016e050–1016e092`, string virtual slot `+a8`) within original InitProperties,
+then Volume construction and localized PostLoad. Its 192 cases supply a
+string-only specialized-copy list, current class/default state and configuration;
+they preserve the source allocations and compare complete browser string values.
+Neither check admits the 53 currently unsupported live volumes.
 
 The Core and package fingerprints above apply. Reproduce with the full
 repository and caller-owned inputs:
@@ -366,6 +371,8 @@ python3 tools/l2lib/tests/test_stringproperty.py
 python3 tools/release/build_core.py --check
 ```
 
-No browser runtime or UI changes accompany this decoder. The existing
-localization tool screenshot remains current; live class setup, configuration
-and world startup are still the next integration work.
+The repository's object-localization inspector now shows default copying and
+localized PostLoad. Full inputs, Engine fingerprints, command and limits are
+documented in the [composed startup evidence](https://github.com/elberacasa/Lineage2Elbera/blob/main/docs/native-actor-localization-evidence.md#default-copying-and-localized-actor-startup).
+That verifier and browser page are repository tools, separate from the Core
+source kit. Live class setup, configuration and world startup remain open.

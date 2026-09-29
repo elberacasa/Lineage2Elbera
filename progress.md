@@ -2,6 +2,37 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original default copying and localized actor startup — 29 September 2026
+
+The browser now copies complete string arrays and initializes known string
+slots from explicit current class defaults. Embedded-NUL tails and unmatched
+UTF-16 units survive copying. The PostLoad component retains both original
+object/actor localization calls and performs resource writes afterwards;
+earlier imports remain visible when a later provider is unsupported. A flagged
+object in a nonlocalized class follows the original skip path. Fresh volume
+admission is still unavailable; no localization bit was cleared to bypass it.
+
+The existing native interpreter now joins original InitProperties, inherited
+CopyCompleteValue, Volume construction and Brush/Actor/Object PostLoad with
+original localization/string import. Its 192 authored cases pass: 260,384
+instructions, 1,002 addresses, 528 deep copies and 192 localization invocations.
+Current reflection/CDO/configuration and non-string payload fields are explicit
+providers. Source default storage is preserved. Existing native control,
+string import, saved loading and original tag comparisons continue to pass.
+
+The Elbera object-localization inspector exposes three loading paths, ordered
+stages and actual before/after values. All 90 control combinations pass without
+captured errors; the runner and full-page screenshots were VIEWED. The curated
+public screenshot contains only authored data. All 17 README image URLs remain.
+Related browser regression: 84 tests; interpreter: seven; standalone Core:
+25 allowlisted files / 63 checks; packaging: three. Published ZIPs are unchanged.
+
+Next: current class/reflection initialization and configuration, then the actual
+volume/world startup join. All 53 live volumes remain unsupported. Shared
+resource startup order, live collision and inherited terrain defects remain
+open. No map repair or complete client parity is claimed. The full faithful
+browser-client goal remains ACTIVE.
+
 ## Original saved string loading — 29 September 2026
 
 The reusable string-property decoder now preserves byte-widened and UTF-16

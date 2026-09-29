@@ -61,8 +61,9 @@ original volume corpus contains 360 declarations in eight classes and thirteen
 structures; `LocationName` is the only localized declaration in that corpus.
 A conditional replication word correctly preserves Gravity's Vector reference.
 The native verifier also checks 256 cases across four native volume constructors,
-including preservation of existing name/string storage. Localization effects and
-complete volume startup remain unfinished. Current standalone Core source builds
+including preservation of existing name/string storage. Localized PostLoad now
+has a composed comparison below; complete volume startup remains unfinished.
+Current standalone Core source builds
 include the declaration, nested-layout and string readers and fixtures (25 files/63 checks); existing ZIPs
 are unchanged. [Commands, fingerprints and limits](../docs/native-static-actor-bounds-evidence.md#volume-construction-and-property-declarations).
 
@@ -86,15 +87,16 @@ decoder and five synthetic tests are included in current Core source builds.
 [String inputs, reproduction and limits](../docs/native-class-defaults-evidence.md#saved-string-loading-and-copying).
 
 The [object-localization inspector](../editor/world/test/actor-localization.html)
-shows current-object section selection, nested keys and language fallback using
-authored inputs and the browser module. It needs no game files. Its native
-verifier compares 145 cases against pinned Core instructions, with explicit
-configuration and CRT providers. A joined suite now executes the original
-string importer and compares stored browser values; 76 further direct cases
-check UTF-16 assignment. The tool shows before/after storage and all thirty
-browser control combinations pass. This does not yet localize actual volume
-storage or enable
-world collision. [Screenshot, reproduction and scope](../docs/native-actor-localization-evidence.md).
+shows default copying, current-object section selection, repeated localization
+and ordered Model/Polys writes using the browser modules. Its three loading
+paths and **90 control combinations** need no game files. All inputs are authored.
+The native verifier retains 145 control-flow comparisons, 145 joined original
+string-import cases and 76 direct UTF-16 assignment cases. Its new
+`--actor-startup --comparison-engine PATH` mode adds **192 comparisons** of
+original InitProperties, Volume construction and localized Brush/Actor/Object
+PostLoad. Class metadata, the string-only copy list, defaults and configuration
+are explicit providers. This does not yet initialize actual map volumes or
+enable world collision. [Screenshot, reproduction and scope](../docs/native-actor-localization-evidence.md).
 
 [Elbera Tools NPC Source](release/NPC-SOURCE-README.md) is a second standalone
 kit for qualified NPC selectors, original sparse-key bundles and optional GPU

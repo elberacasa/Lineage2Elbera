@@ -15,6 +15,7 @@ import {
   prepareFreshBrushActor,
   collectLevelActorAssignments,
   resolvePackageReference,
+  initializeActorStringProperties,
 } from "../js/actor-loading.js";
 
 test("known flag reads require consumed bits and masked writes retain unknown padding", () => {
@@ -349,7 +350,6 @@ test("fresh actor admission rejects unknown lifecycle state before exposing prop
       (input.resolvedReferenceDefaults.Brush = {
         identity: "unresolved-brush",
       }),
-    (input) => (input.source.savedStateFrame.savedExportFlags |= 0x100),
   ]) {
     const input = freshFixture();
     corrupt(input);
@@ -390,7 +390,7 @@ test("unsupported PostLoad branches retain only writes reached before the missin
     flags5c: { mask: 0, value: 0 },
   };
   for (const extra of [
-    { objectFlags: 0x100 },
+    { objectFlags: 0x100, classFlags: 0x20 },
     { classFlags: 0x20 },
     { brushReference: {} },
     { attachedCount: undefined },
@@ -1035,7 +1035,11 @@ test("brush PostLoad distinguishes null references and retains repeated writes t
 
 test("brush PostLoad stops before missing or unsupported work while retaining earlier writes", () => {
   for (const [mutate, count, sway] of [
-    [(input) => (input.objectFlags = 0x100), 0, false],
+    [
+      (input) => Object.assign(input, { objectFlags: 0x100, classFlags: 0x20 }),
+      0,
+      false,
+    ],
     [(input) => (input.classFlags = 0x32), 0, false],
     [(input) => delete input.classFlags, 0, false],
     [(input) => delete input.brushReference, 0, false],
@@ -1156,7 +1160,6 @@ test("fresh Brush preparation rejects unresolved subclass and lifecycle inputs",
     (i) => (i.classLoading.sourceClass = "Engine.Volume"),
     (i) => (i.source.savedStateFrame.classIdentity = "Engine.Volume"),
     (i) => (i.classLoading.value = 0x20),
-    (i) => (i.source.savedStateFrame.savedExportFlags |= 0x100),
     (i) => (i.source.savedActorLoading.attachedOverrideCount = 1),
     (i) => delete i.resourceHeaders,
     (i) => i.resourceHeaders.delete("polys"),
@@ -1166,4 +1169,145 @@ test("fresh Brush preparation rejects unresolved subclass and lifecycle inputs",
     corrupt(input);
     assert.equal(prepareFreshBrushActor(input).status, "unsupported");
   }
+});
+
+test("string defaults copy complete arrays and clear only the known new tail", () => {
+  const fields = [
+    { kind: "StrProperty", offset: 0x40, arrayDim: 2, elementSize: 12 },
+    { kind: "StrProperty", offset: 0x58, arrayDim: 1, elementSize: 12 },
+  ];
+  const defaults = new Map([
+    [0x40, "a\0tail"],
+    [0x4c, "\ud800"],
+  ]);
+  const args = { size: 0x70, defaultSize: 0x58, fields, defaults };
+  const result = initializeActorStringProperties(args);
+  assert.deepEqual(result.values, [
+    [0x40, "a\0tail"],
+    [0x4c, "\ud800"],
+    [0x58, ""],
+  ]);
+  assert.ok(
+    Object.isFrozen(result.values) && Object.isFrozen(result.values[0]),
+  );
+  assert.deepEqual(
+    [...defaults],
+    [
+      [0x40, "a\0tail"],
+      [0x4c, "\ud800"],
+    ],
+  );
+  for (const change of [
+    { defaultSize: 0x41 },
+    { size: 0x60 },
+    { defaults: new Map() },
+    { fields: [fields[0], fields[0]] },
+    { fields: [{ ...fields[0], offset: 0x20 }] },
+  ])
+    assert.equal(
+      initializeActorStringProperties({ ...args, ...change }).status,
+      "unsupported",
+    );
+  assert.deepEqual(
+    initializeActorStringProperties({ ...args, defaultSize: 0 }).values,
+    [
+      [0x40, ""],
+      [0x4c, ""],
+      [0x58, ""],
+    ],
+  );
+});
+
+test("localized PostLoad preserves both calls, current flags and earlier imports on failure", () => {
+  const imports = [],
+    lookups = [];
+  const field = Object.freeze({
+    identity: "Title",
+    name: "Title",
+    isProperty: true,
+    arrayDim: 1,
+    elementSize: 12,
+    offset: 0x424,
+    propertyFlags: 0x8000,
+    struct: null,
+  });
+  const input = {
+    ...brushPostLoadFixture(),
+    objectFlags: 0x100,
+    classFlags: 0x32,
+    localization: {
+      object: {
+        index: 3,
+        name: "Object",
+        outer: { name: "Outer", outer: { name: "Package" } },
+      },
+      classInfo: {
+        structure: Object.freeze({
+          fields: Object.freeze([field]),
+          super: null,
+        }),
+      },
+      isEditor: false,
+      environment: {
+        started: true,
+        language: "int",
+        readConfig: (call) => {
+          lookups.push(call);
+          return { status: "ready", found: true, value: "localized" };
+        },
+      },
+      importText: (call) => {
+        imports.push(call);
+        return { status: "ready" };
+      },
+    },
+  };
+  const result = postLoadBrushActor(input);
+  assert.equal(result.status, "ready");
+  assert.deepEqual(
+    result.localizationRuns.map((r) => r.stage),
+    ["UObject.PostLoad", "AActor.PostLoad"],
+  );
+  assert.equal(imports.length, 2);
+  assert.ok(
+    lookups.every(
+      (r) =>
+        r.filename === "Package.int" &&
+        r.section === "Outer" &&
+        r.key === "Object.Title",
+    ),
+  );
+  imports.length = lookups.length = 0;
+  input.localization.environment.readConfig = (call) => {
+    lookups.push(call);
+    return lookups.length === 1
+      ? { status: "ready", found: true, value: "first" }
+      : { status: "unsupported" };
+  };
+  const failed = postLoadBrushActor(input);
+  assert.equal(failed.status, "unsupported");
+  assert.equal(imports.length, 1);
+  assert.equal(failed.localizationRuns.length, 2);
+  assert.deepEqual(failed.writes, {
+    objectFlags: 0x20000100,
+    resourceFlags: [],
+  });
+});
+
+test("nonlocalized classes skip flagged-object localization without consuming providers", () => {
+  for (const [fixture, prepare] of [
+    [freshFixture, prepareFreshStaticActor],
+    [freshBrushFixture, prepareFreshBrushActor],
+  ]) {
+    const input = fixture();
+    input.source.savedStateFrame.savedExportFlags |= 0x100;
+    assert.equal(prepare(input).status, "ready");
+  }
+  const result = postLoadBrushActor({
+    ...brushPostLoadFixture(),
+    objectFlags: 0x100,
+  });
+  assert.equal(result.status, "ready");
+  assert.equal(result.localizationRuns.length, 1);
+  assert.equal(result.localizationRuns[0].context.skipped, true);
 });
