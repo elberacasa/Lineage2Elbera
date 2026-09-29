@@ -2,6 +2,31 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## Original property flags and inherited lists — 29 September 2026
+
+Extended the existing property-layout library with explicit post-Link flags and
+the four UStruct lists. Saved flags remain distinct. Referenced-class state and
+nested constructor-list presence are required where the original reads them;
+missing data is never zero-filled. The structure graph reuses decoded child
+order, offsets and inheritance. Same-named inherited fields keep their identities.
+
+The original verifier now has an optional property-lists mode. It compares the
+full ordinary UStruct.Link body and executes its return with explicit current
+metadata, completed Preload and an empty temporary-map lifecycle provider.
+147 authored cases pass: 399,348 instructions / 632 addresses. Twelve original
+structures add 10,789 instructions / 545 addresses. PointRegion remains
+unsupported until current referenced-class flags are established. Existing
+offset checks still cover 420 authored cases, five volume classes and all
+thirteen original structures. Game-mode replication grouping is not implemented;
+the editor skip is tested but not used to admit game-mode volumes.
+
+Portable property/layout coverage is twelve cases, five new. Core source builds
+retain 25 allowlisted files and now pass 68 portable checks. No browser/UI/map
+change or new capture was needed; existing screenshots and all 17 README image
+URLs are retained. Published ZIPs are unchanged. Next: referenced-class state,
+replication dependencies, CDO configuration/localization and the volume/world
+startup join. All 53 live volumes remain unsupported; the full goal stays ACTIVE.
+
 ## Original default copying and localized actor startup — 29 September 2026
 
 The browser now copies complete string arrays and initializes known string

@@ -20,7 +20,7 @@ from l2lib.declarations import (
     read_field_chain,
     read_struct_children,
 )
-from l2lib.propertylayout import structure_layouts
+from l2lib.propertylayout import structure_layouts, structure_links
 from l2lib.stringproperty import decode_string_property
 
 
@@ -34,7 +34,11 @@ DEFAULT_CLASSES = (
 
 
 def inspect_declarations(
-    names, *, include_structure_layouts=False, include_string_defaults=False
+    names,
+    *,
+    include_structure_layouts=False,
+    include_string_defaults=False,
+    include_structure_links=False,
 ):
     catalog = OriginalClasses()
     classes, structures, visiting = {}, {}, set()
@@ -149,7 +153,7 @@ def inspect_declarations(
                     sourceClass=row["identity"],
                     payloadHex=tag["raw"].hex(),
                     payloadSHA256=hashlib.sha256(tag["raw"]).hexdigest(),
-                    **decode_string_property(tag["raw"])
+                    **decode_string_property(tag["raw"]),
                 )
                 own.append(record)
                 known[field["name"].casefold() + ":" + str(tag["index"])] = record
@@ -209,6 +213,17 @@ def inspect_declarations(
         report["limits"].append(
             "Optional savedStringDefaults overlays decoded tags through saved ancestry only. Untagged values remain unknown; native initialization, property acceptance, configuration/localization and current object storage are not inferred. Full output contains decoded private input values and payloads."
         )
+    if include_structure_links:
+        report["structureLinks"] = structure_links(structures.values())
+        report["summary"]["structureLinks"] = {
+            status: sum(
+                row["status"] == status for row in report["structureLinks"].values()
+            )
+            for status in ("ready", "unsupported")
+        }
+        report["limits"].append(
+            "Optional structureLinks retains property Link flag changes and four lists, with own fields before inherited fields. Missing current referenced-class flags remain unsupported. No full class/reflection lifecycle or replication grouping is claimed."
+        )
     return report
 
 
@@ -224,6 +239,11 @@ def main():
         help="also compute the admitted nested-structure offset graph",
     )
     parser.add_argument(
+        "--structure-links",
+        action="store_true",
+        help="also prepare supported structure flags/lists; unresolved class dependencies stay explicit",
+    )
+    parser.add_argument(
         "--string-defaults",
         action="store_true",
         help="also decode and overlay saved string tags; full JSON contains private input values",
@@ -233,6 +253,7 @@ def main():
         args.classes,
         include_structure_layouts=args.structure_layouts,
         include_string_defaults=args.string_defaults,
+        include_structure_links=args.structure_links,
     )
     if args.check:
         report = {

@@ -1,12 +1,101 @@
 """Elbera Tools: original class/structure property offset-linking stage.
 
 Inputs are declarations already placed in original linked order and a supplied
-parent PropertiesSize. This is not full UClass.Link, registration or archive
-preloading. Reference/cleanup lists and property-flag changes are outside scope.
+parent PropertiesSize. Separate helpers retain consumed property-flag changes
+and linked lists from explicit current metadata. This is not full UClass.Link,
+registration, replication grouping or archive preloading.
 See docs/native-class-defaults-evidence.md for source qualification and limits.
 """
 
 from .ue2package import L2Error
+
+
+def property_link_flags(field):
+    """Flags after the qualified scalar/string/structure Link methods.
+
+    Reference-class flags and nested constructor-list presence must be current
+    supplied inputs, not inferred from the property's name or saved defaults.
+    """
+    flags = field.get("propertyFlags")
+    if type(flags) is not int or not 0 <= flags <= 0xFFFFFFFF:
+        raise L2Error("current property flags required")
+    kind = field["kind"]
+    if kind == "StrProperty":
+        if not flags & 0x1000:
+            flags |= 0x400000
+    elif kind in ("ObjectProperty", "ClassProperty"):
+        if flags & 0x4000008 == 0x4000008:
+            flags |= 0x400000
+        else:
+            referenced = field.get("referenceFlags")
+            if type(referenced) is not int or not 0 <= referenced <= 0xFFFFFFFF:
+                raise L2Error("current referenced-class flags required")
+            if referenced & 0x200000:
+                flags |= 0x400000
+    elif kind == "StructProperty":
+        linked = field.get("structConstructorLink")
+        if type(linked) is not bool:
+            raise L2Error("current nested constructor-list presence required")
+        if linked and not flags & 0x1000:
+            flags |= 0x400000
+    elif kind not in (
+        "ByteProperty",
+        "IntProperty",
+        "BoolProperty",
+        "FloatProperty",
+        "NameProperty",
+    ):
+        raise L2Error("unsupported property Link kind: " + str(kind))
+    return flags
+
+
+def property_lists(fields):
+    """UStruct.Link's four lists in supplied inherited property-iterator order.
+
+    Identity and current flags are explicit. This consumes already-linked
+    fields; it does not run offset linking or replication-condition grouping.
+    Keys name original head offsets, avoiding unproved consumer semantics.
+    """
+    result = {head: [] for head in ("0x6c", "0x70", "0x74", "0x78")}
+    seen = set()
+    kinds = {
+        "ByteProperty",
+        "IntProperty",
+        "BoolProperty",
+        "FloatProperty",
+        "NameProperty",
+        "StrProperty",
+        "ObjectProperty",
+        "ClassProperty",
+        "StructProperty",
+        "ArrayProperty",
+        "DelegateProperty",
+    }
+    for field in fields:
+        identity, kind, flags = (
+            field.get("identity"),
+            field.get("kind"),
+            field.get("propertyFlags"),
+        )
+        if not isinstance(identity, str) or not identity or identity in seen:
+            raise L2Error("unique current property identity required")
+        if kind not in kinds or type(flags) is not int or not 0 <= flags <= 0xFFFFFFFF:
+            raise L2Error("qualified current property kind and flags required")
+        seen.add(identity)
+        result["0x70"].append(identity)
+        if kind in (
+            "ObjectProperty",
+            "ClassProperty",
+            "StructProperty",
+            "ArrayProperty",
+            "DelegateProperty",
+        ):
+            result["0x6c"].append(identity)
+        if flags & 0x4000:
+            result["0x74"].append(identity)
+        if flags & 0x400000:
+            result["0x78"].append(identity)
+    return result
 
 
 def property_offsets(fields, parent_size):
@@ -135,3 +224,80 @@ def structure_layouts(structures):
     for row in records.values():
         visit(row["identity"])
     return layouts
+
+
+def structure_links(structures, reference_class_flags=None):
+    """Prepare structure fields/lists where every consumed dependency is known.
+
+    Saved declaration order and offset layouts come from the shared helpers.
+    Referenced-class flags are optional explicit current inputs, never a zero
+    fallback. Missing dependencies produce an unsupported record. This does not
+    prepare class reflection or execute replication-condition grouping.
+    """
+    structures = list(structures)
+    layouts = structure_layouts(structures)
+    records = {row["identity"].casefold(): row for row in structures}
+    if reference_class_flags is not None and not isinstance(
+        reference_class_flags, dict
+    ):
+        raise L2Error("current referenced-class flag mapping required")
+    reference_flags = {}
+    for name, flags in (reference_class_flags or {}).items():
+        if not isinstance(name, str) or not name:
+            raise L2Error("referenced-class identity required")
+        if name.casefold() in reference_flags:
+            raise L2Error("duplicate referenced-class identity")
+        reference_flags[name.casefold()] = flags
+    results, visiting = {}, set()
+
+    def visit(key):
+        if key in visiting:
+            raise L2Error("cyclic structure metadata")
+        if key in results:
+            if results[key]["status"] != "ready":
+                raise L2Error(
+                    "unresolved structure metadata: " + records[key]["identity"]
+                )
+            return results[key]
+        visiting.add(key)
+        row, layout = records[key], layouts[key]
+        try:
+            parent = visit(row["savedSuper"].casefold()) if row["savedSuper"] else None
+            own = []
+            for declared, offset in zip(layout["declarations"], layout["fields"]):
+                field = dict(declared, **offset)
+                field["identity"] = row["identity"] + "." + field["name"]
+                if field["kind"] == "StructProperty":
+                    nested = visit(field["reference"].casefold())
+                    field["structConstructorLink"] = bool(nested["lists"]["0x78"])
+                elif field["kind"] in ("ObjectProperty", "ClassProperty"):
+                    field["referenceFlags"] = reference_flags.get(
+                        (field["reference"] or "").casefold()
+                    )
+                field["savedPropertyFlags"] = field["propertyFlags"]
+                field["propertyFlags"] = property_link_flags(field)
+                own.append(field)
+            fields = own + (parent["fields"] if parent else [])
+            result = dict(
+                status="ready",
+                identity=row["identity"],
+                propertiesSize=layout["propertiesSize"],
+                ownFields=own,
+                fields=fields,
+                lists=property_lists(fields),
+            )
+            results[key] = result
+            return result
+        finally:
+            visiting.remove(key)
+
+    for key in records:
+        try:
+            visit(key)
+        except L2Error as error:
+            results[key] = dict(
+                status="unsupported",
+                identity=records[key]["identity"],
+                reason=str(error),
+            )
+    return results
