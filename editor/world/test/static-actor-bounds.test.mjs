@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import {
   transformOriginalBox,
   prepareStaticMeshBounds,
+  prepareModelBounds,
   selectActorPrimitive,
+  selectBrushPrimitive,
 } from "../js/actor-primitive-bounds.js";
 import {
   createActorOctree,
@@ -26,6 +28,130 @@ const input = (extra = {}) => ({
 const unused = () => {
   throw Error("unconsumed field");
 };
+
+test("brush selection consumes only its own model before the shared engine fallback", () => {
+  assert.equal(
+    selectBrushPrimitive({
+      primitive278: "brush-model",
+      get primitive104() {
+        unused();
+      },
+      get levelIdentity() {
+        unused();
+      },
+    }).primitiveIdentity,
+    "brush-model",
+  );
+  assert.equal(
+    selectBrushPrimitive({
+      primitive278: null,
+      levelIdentity: "level",
+      engineIdentity: null,
+    }).primitiveIdentity,
+    null,
+  );
+  assert.equal(
+    selectBrushPrimitive({
+      primitive278: null,
+      levelIdentity: "level",
+      engineIdentity: "engine",
+      enginePrimitive50: "fallback",
+    }).primitiveIdentity,
+    "fallback",
+  );
+  for (const source of [
+    {},
+    { primitive278: null },
+    { primitive278: null, levelIdentity: "level" },
+    { primitive278: null, levelIdentity: "level", engineIdentity: "engine" },
+  ])
+    assert.equal(selectBrushPrimitive(source).status, "unsupported");
+});
+
+test("null-owner Model bounds copy validity and signed zeros without calling LocalToWorld", () => {
+  for (const valid of [0, 1, 255]) {
+    const local = { min: [-0, -2, -3], max: [4, 5, 6], valid };
+    const r = prepareModelBounds({
+      ownerIdentity: null,
+      localBounds: local,
+      get readLocalToWorld() {
+        unused();
+      },
+    });
+    assert.deepEqual(r.bounds, local);
+    assert.notEqual(r.bounds.min, local.min);
+    assert.ok(Object.isFrozen(r.bounds.min));
+  }
+  for (const valid of [undefined, -1, 256, 1.5])
+    assert.equal(
+      prepareModelBounds({
+        ownerIdentity: null,
+        localBounds: { ...bounds, valid },
+      }).status,
+      "unsupported",
+    );
+});
+
+test("owned Model reads its box after LocalToWorld and does not consume source validity", () => {
+  const source = {
+    ...profile,
+    ownerIdentity: "owner",
+    localBounds: undefined,
+    readLocalToWorld(owner) {
+      assert.equal(owner, "owner");
+      source.localBounds = {
+        min: [-1, -2, -3],
+        max: [4, 5, 6],
+        get valid() {
+          unused();
+        },
+      };
+      return { status: "ready", matrix: identity };
+    },
+  };
+  assert.deepEqual(prepareModelBounds(source).bounds, bounds);
+  assert.equal(
+    prepareModelBounds({ ...source, ownerIdentity: undefined }).status,
+    "unsupported",
+  );
+  assert.equal(
+    prepareModelBounds({
+      ownerIdentity: "owner",
+      readLocalToWorld: () => ({ status: "unsupported" }),
+      get localBounds() {
+        unused();
+      },
+    }).status,
+    "unsupported",
+  );
+});
+
+test("static auxiliary Model repeats current owner dispatch and transforms its own local box", () => {
+  const events = [];
+  const matrix = [...identity];
+  matrix[12] = 100;
+  const local = (owner) => {
+    events.push(owner);
+    return { status: "ready", matrix: events.length === 1 ? identity : matrix };
+  };
+  const r = prepareStaticMeshBounds(
+    input({
+      collisionModel: "model",
+      readLocalToWorld: local,
+      getCollisionModelBounds(model, owner) {
+        assert.equal(model, "model");
+        return prepareModelBounds({
+          ...profile,
+          ownerIdentity: owner,
+          readLocalToWorld: local,
+          localBounds: { ...bounds, valid: 0 },
+        });
+      },
+    }),
+  );
+  assert.deepEqual(events, ["actor", "actor"]);
+  assert.deepEqual(r.bounds, { min: [-1, -2, -3], max: [104, 5, 6], valid: 1 });
+});
 
 test("source box transform ignores validity, visits all corners and returns an owned box", () => {
   const source = {

@@ -123,9 +123,10 @@ cover the six coordinates and validity byte; unknown padding reads fail.
 
 The joined run reuses the [actor-admission interpreter](native-actor-admission-evidence.md)
 and its explicit null GLog, non-editor, successful-storage and finite PC53/RNE
-conditions. Native LocalToWorld and auxiliary subclass bodies are **supplied
-method responses** in this checker, not executed internals. Those boundaries,
-exception behavior and other FPU profiles remain outside its evidence.
+conditions. Native LocalToWorld remains a **supplied method response**. The
+original static-only cases also supply auxiliary bounds; the additional Model
+cases below execute the concrete UModel body at that boundary. Other subclass
+bodies, exception behavior and other FPU profiles remain outside its evidence.
 
 Portable checks require no original files:
 
@@ -134,12 +135,13 @@ node --test editor/world/test/static-actor-bounds.test.mjs
 python3 -m unittest discover -s tools/ui -p test_static_actor_bounds_native.py
 ```
 
-Ten browser-module tests cover rounding, corner extrema, validity, signed-zero
-ties, lazy field reads, unknown inputs, and actor removal/reentry. Ten
-interpreter tests cover method arguments, return buffers, stack cleanup,
+Fourteen browser-module tests cover rounding, corner extrema, validity,
+signed-zero ties, lazy field reads, unknown inputs, actor removal/reentry,
+brush selection and concrete Model composition. Nineteen interpreter tests
+cover method arguments, return buffers, stack cleanup,
 unknown targets, opaque padding, repeated stores, unsigned multiplication,
 carry/overflow and PostLoad admission guards.
-The related 89 browser-module tests pass.
+The related bounds, mesh-tree and actor-octree run passes 48 browser-module tests.
 Local deliberate mutations of the invalid-box rule, cylinder flag, intermediate
 rounding and equal-maximum comparison are rejected by the original comparison.
 
@@ -148,6 +150,46 @@ the resulting screenshot was inspected. This is a startup regression check,
 not an Online world-collision acceptance run. No new interface screenshot is
 claimed for this headless component. This Elbera tool is repository source and
 is not yet included in the existing standalone release archives.
+
+## Brush selection and concrete Model bounds
+
+The same checker now compares **600 Model bounds cases**, including 200 with
+an explicit null owner, plus **600 static-mesh cases using the original UModel
+body whenever auxiliary dispatch selects it**. Four brush-selection cases exercise every
+branch. These add 1,637,238 interpreted instructions at 577 addresses; the
+ordered method events and Float32 coordinates/validity match the browser.
+Authored probes include signed zero, invalid source boxes, nonuniform matrices,
+large translations, cancellation and the cylinder branch that bypasses Models.
+
+`selectBrushPrimitive` reads the current `primitive278` (the declared Actor
+`Brush` reference). A nonnull reference wins immediately. Otherwise the method
+uses the same current level/engine fallback as ordinary actor selection. It
+does not inspect the ordinary Mesh/StaticMesh references. Missing references
+remain unsupported, rather than becoming an invented null.
+
+`prepareModelBounds({ownerIdentity, localBounds, readLocalToWorld,
+arithmeticProfile})` supplies the concrete bounding-box response. With a null
+owner it copies the six local coordinates and original validity byte without
+calling a transform. With an owner it calls that owner's current LocalToWorld,
+then reads the local box and invokes the shared original Core transform under
+the finite PC53/RNE contract. The input validity is not consumed in this branch.
+A static mesh invoking an auxiliary Model makes a second owner-transform call;
+the browser preserves that order instead of reusing an earlier response.
+
+The source qualifier checks the complete ABrush selector
+`1052dff0..1052e00e`, including both returns. It retains the UModel ordinary body
+`10744ee0..10744f7c` and compares `10744ef8..10744f7c` with the supplemental
+body shifted by -64. The two erased imports bind to the already checked Core
+FBox.TransformBy and FMatrix destructor. Original vtables bind the selector for
+Brush, Volume, BlockingVolume, PhysicsVolume and MusicVolume, and the bounds
+method for UModel. This does not substitute brush behavior for Mover.
+
+The native box copy includes three padding bytes whose contents remain opaque;
+only the six coordinates and validity byte are exposed. These functions still
+require current resources and owner responses. Model construction/PostLoad,
+actor subclass lifecycle, owned-brush hit traversal and live world membership
+remain unfinished. The scene loader does not yet use these functions for live
+collision, and this checkpoint makes no map-repair or Online walking claim.
 
 ## Bounded PostLoad path
 
