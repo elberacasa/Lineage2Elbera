@@ -40,6 +40,7 @@ from actor_transform_source import (
     qualify_static_actor_loading,
     qualify_actor_collision_fields,
     qualify_level_actor_population,
+    qualify_level_collision_mode,
     qualify_level_actor_loading,
     qualify_actor_state_frames,
     qualify_actor_reference_loading,
@@ -248,6 +249,33 @@ def qualify(program, core, candidate, candidate_core):
             for at, target in transform_loading["thunkTargets"].items()
         }
     )
+    level_mode = qualify_level_collision_mode(
+        e, core, candidate, candidate_core, engine_package
+    )
+    for image, blocks in [
+        (
+            e,
+            level_mode["engineBlocks"]
+            + [level_mode["copyBlock"]]
+            + level_mode["startup"],
+        ),
+        (core, level_mode["coreBlocks"]),
+    ]:
+        for block in blocks:
+            start, end = int(block["start"], 16), int(block["end"], 16)
+            PreparationProgram.add(
+                program,
+                image,
+                start,
+                end,
+                bytes(image.data[image.offset(start) : image.offset(end)]),
+            )
+    program.import_targets.update(
+        {int(a, 16): int(b, 16) for a, b in level_mode["importTargets"].items()}
+    )
+    program.membership_targets.update(
+        {int(a, 16): int(b, 16) for a, b in level_mode["thunkTargets"].items()}
+    )
     level_population = qualify_level_actor_population(e, candidate)
     level_loading = qualify_level_actor_loading(e, core, candidate, candidate_core)
     for image, blocks in [
@@ -334,6 +362,7 @@ def qualify(program, core, candidate, candidate_core):
         staticConstructor=constructor,
         actorLoading=actor_loading,
         actorFields=actor_fields,
+        levelCollisionMode=level_mode,
         levelPopulation=level_population,
         levelLoading=level_loading,
     )
@@ -919,6 +948,104 @@ def joined_level_population_cases(program, runtime):
         unknownBitsPreserved=True,
         sourceArrayPreserved=True,
         scope="current level loop through AddActor, static bounds and membership; supplied current fields/matrix/model replies, not map startup",
+    )
+
+
+def level_collision_mode_cases(program, runtime):
+    """Compare declared mode copying, original construction and startup writes.
+
+    Default words, allocation/counters and the point after successful actor
+    execution initialization are supplied boundaries. No whole LoadMap claim.
+    """
+    rng = random.Random(0x4C455645)
+    proof = program.receipt["levelCollisionMode"]
+    actor, template = 0x200000, 0x300000
+    table = program.engine.exported("??_7ALevelInfo@@6B@")
+    rows, expected, visited, steps = [], [], set(), 0
+    counters = program.receipt["actorLoading"]["actorCounters"]
+    for case in range(128):
+        m = StaticBoundsMachine(program)
+        initial = {actor + off: rng.getrandbits(32) for off in range(0, 0x660, 4)}
+        m.memory.update(initial)
+        source = rng.getrandbits(32)
+        m.memory[template + 0x554] = source
+        known, later_known = rng.getrandbits(32), rng.getrandbits(32)
+        if case % 4 == 0:
+            known = later_known = 0
+        row = dict(
+            before=dict(mask=known, value=initial[actor + 0x554] & known),
+            defaults=dict(mask=7, value=source & 7),
+            later=dict(mask=later_known, value=initial[actor + 0x55C] & later_known),
+        )
+        m.registers.update(esi=actor, edi=template)
+        m.execute_until(
+            int(proof["copyBlock"]["start"], 16), int(proof["copyBlock"]["end"], 16)
+        )
+        after_copy = initial | {
+            actor + 0x554: (initial[actor + 0x554] & ~7) | (source & 7)
+        }
+        assert {at: m.memory[at] for at in initial} == after_copy
+        assert m.memory[template + 0x554] == source
+        for iat, address in counters.items():
+            m.memory[int(iat, 16)] = address
+            m.memory[address] = rng.randrange(100000)
+        m.memory.update(
+            {
+                address: rng.randrange(100000)
+                for address in (0x103307E8, 0x103307EC, 0x103307F0)
+            }
+        )
+        m.invoke(0x103BF970, actor)
+        constructed = after_copy | {
+            actor: table,
+            actor + 0x3A0: initial[actor + 0x3A0] & 0xFFFFFFF8,
+            actor + 0x3A4: 0xFFFFFFFF,
+            actor + 0x3A8: 1,
+            actor + 0x3AC: 1,
+        }
+        assert {at: m.memory[at] for at in initial} == constructed, (
+            "LevelInfo constructor",
+            case,
+        )
+        loaded_word = m.memory[actor + 0x554]
+        # This is precisely the later write slice, not a simulated completion
+        # of the intervening map/actor initialization callbacks.
+        m.registers["esi"] = actor
+        m.execute_until(0x10595FB1, 0x10595FBF)
+        final = constructed | {
+            actor + 0x554: loaded_word | 2,
+            actor + 0x55C: constructed[actor + 0x55C] | 4,
+        }
+        assert {at: m.memory[at] for at in initial} == final
+        rows.append(row)
+        expected.append(
+            dict(
+                loaded=dict(mask=known | 7, value=loaded_word & (known | 7)),
+                started=dict(mask=known | 7, value=final[actor + 0x554] & (known | 7)),
+                later=dict(
+                    mask=later_known | 4, value=final[actor + 0x55C] & (later_known | 4)
+                ),
+            )
+        )
+        visited.update(m.visited)
+        steps += len(m.visited)
+    script = r"""
+const {writeKnownFlagBits}=await import(new URL('./actor-loading.js',process.argv[1]));
+let raw='';for await(const part of process.stdin)raw+=part;
+process.stdout.write(JSON.stringify(JSON.parse(raw).map(row=>{
+ const loaded=writeKnownFlagBits(row.before,7,row.defaults.value);
+ return {loaded,started:writeKnownFlagBits(loaded,2,2),later:writeKnownFlagBits(row.later,4,4)};
+})));
+"""
+    actual = browser_outputs(script, rows, Path(runtime))
+    assert actual == expected, "LevelInfo mode words differ from original stores"
+    return dict(
+        cases=len(rows),
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        declaredModeConstructorPreserved=True,
+        unknownBitsPreserved=True,
+        scope="supplied default words and successful constructor; later startup writes are a separate supplied stage",
     )
 
 
@@ -2415,6 +2542,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
     actor_boolean_loading = actor_boolean_loading_cases(program, runtime)
     actor_reference_loading = actor_reference_loading_cases(program, runtime)
     actor_transform_loading = actor_transform_loading_cases(program, runtime)
+    level_mode = level_collision_mode_cases(program, runtime)
     level_population = level_population_cases(program)
     joined_population = joined_level_population_cases(program, runtime)
     level_loading = level_loading_cases(program, runtime)
@@ -2489,6 +2617,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         actorTransformLoading=actor_transform_loading,
         levelPopulation=level_population,
         joinedLevelPopulation=joined_population,
+        levelCollisionMode=level_mode,
         levelLoading=level_loading,
         freshLoading=fresh_loading,
         freshActorLoading=fresh_actor_loading,
@@ -2574,6 +2703,7 @@ def main():
                         "actorReferenceLoading",
                         "levelPopulation",
                         "joinedLevelPopulation",
+                        "levelCollisionMode",
                         "levelLoading",
                         "freshLoading",
                         "freshActorLoading",

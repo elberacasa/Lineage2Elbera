@@ -73,6 +73,101 @@ def check_actor_frame(package, export, saved):
     )
 
 
+def check_level_collision_mode(package, binding, saved, defaults):
+    """Check the first actor's mode record against original bytes, then load it.
+
+    Declaration/default construction is qualified separately. This check does
+    not turn a saved property into a later live startup value.
+    """
+    array = next(row for row in binding["actorArrays"] if row["nativeField"] == "0x38")
+    ref = array["references"][0]
+    if (
+        type(ref) is not int
+        or not 0 < ref <= len(package.exports)
+        or saved.get("reference") != ref
+        or saved.get("scope") != "saved-level-info-collision-mode"
+    ):
+        raise ValueError("LevelInfo mode identity differs from first actor slot")
+    export = package.exports[ref - 1]
+    if (
+        qualified_ref(package, export.class_index) != "Engine.LevelInfo"
+        or saved.get("sourceClass") != "Engine.LevelInfo"
+        or saved.get("identity") != qualified_ref(package, ref)
+        or saved.get("savedExportFlags") != export.object_flags
+    ):
+        raise ValueError("LevelInfo mode class or export identity differs")
+    frame = check_actor_frame(package, export, saved["savedStateFrame"])
+    start, end = (
+        export.serial_offset + frame["bytes"],
+        export.serial_offset + export.serial_size,
+    )
+    if (
+        saved.get("exportOffset") != export.serial_offset
+        or saved.get("exportLength") != export.serial_size
+        or saved.get("exportSHA256")
+        != hashlib.sha256(package.data[export.serial_offset : end]).hexdigest()
+        or saved.get("propertiesOffset") != start
+        or saved.get("propertiesLength") != end - start
+        or saved.get("propertiesSHA256")
+        != hashlib.sha256(package.data[start:end]).hexdigest()
+    ):
+        raise ValueError("LevelInfo mode source span or hash differs")
+    layout, words = defaults["layout"], defaults["defaultGroups"]
+    if (
+        len(layout) != 1
+        or layout[0]["offset"] != "0x554"
+        or layout[0]["mask"] != 7
+        or words["0x554"]["mask"] != 7
+    ):
+        raise ValueError("LevelInfo mode declaration mask differs")
+    fields = {field["name"]: field for field in layout[0]["fields"]}
+    tags, actual = read_props_ordered(package, start, end=end)
+    reader = Reader(memoryview(package.data)[:end], start, package.path)
+    values = read_properties(package, reader)
+    if actual != end or reader.pos != end:
+        raise ValueError("LevelInfo mode properties do not end at export boundary")
+    ordered = []
+    for tag in tags:
+        if tag["name"] not in fields:
+            continue
+        if tag["type"] != 3 or tag["index"] != 0 or type(tag["boolval"]) is not bool:
+            raise ValueError("malformed LevelInfo Boolean property")
+        ordered.append(dict(name=tag["name"], value=tag["boolval"]))
+    expected = words["0x554"]["value"]
+    for name, field in fields.items():
+        if name not in values:
+            continue
+        if type(values[name]) is not bool:
+            raise ValueError("LevelInfo mode value is not Boolean")
+        expected = (
+            expected | field["mask"] if values[name] else expected & ~field["mask"]
+        )
+    if saved.get("tags") != ordered or saved.get("groups") != {
+        "0x554": dict(mask=7, value=expected)
+    }:
+        raise ValueError("LevelInfo mode record differs from original defaults or tags")
+    loaded = check_boolean_preparation(
+        [
+            dict(
+                name=saved["identity"],
+                savedCollisionFlags=dict(tags=ordered, groups=saved["groups"]),
+            )
+        ],
+        layout,
+        words,
+    )
+    if loaded["differsFromSaved"] or loaded["skippedTags"]:
+        raise ValueError("LevelInfo mode property loading differs from saved values")
+    return dict(
+        identity=saved["identity"],
+        declaredBits=saved["groups"],
+        tags=len(ordered),
+        frame=frame,
+        persistentBooleanPreparation=loaded,
+        scope="source defaults and original saved first actor; later startup mode is separate",
+    )
+
+
 def check_level_actor_order(package, binding, actors):
     """Round-trip both saved arrays and each audited export's slot membership."""
     arrays = binding["actorArrays"]
@@ -603,7 +698,7 @@ const { applyActorBooleanTags } = await import(pathToFileURL(process.argv[1]));
 let raw=''; for await (const part of process.stdin) raw+=part;
 const input=JSON.parse(raw);
 const results=input.actors.map(actor=>{
-  const tags=Object.entries(actor.savedCollisionFlags.overrides).map(([name,value])=>({name,value}));
+  const tags=actor.savedCollisionFlags.tags;
   const result=applyActorBooleanTags({layout:input.layout,words:input.defaults,tags,
     archive:{loading:true,saving:false,persistent:true}});
   if(result.status!=='ready') throw Error(actor.name+': '+result.reason);
@@ -920,6 +1015,9 @@ def verify(tile, *, fresh_class_flags=None):
         actorReferences=actor_references,
         actorStateFrames=actor_frames,
         levelActorOrder=level_order,
+        levelCollisionMode=check_level_collision_mode(
+            audit.pkg, audit.level_binding, audit.level_mode, audit.level_mode_defaults
+        ),
         classDefaults=audit.defaults,
         actorClassLoading=audit.actor_class_loading,
         persistentBooleanPreparation=check_boolean_preparation(
@@ -1001,6 +1099,7 @@ def main():
                     "meshDuplicateTagRecords",
                     "selection",
                     "levelActorOrder",
+                    "levelCollisionMode",
                     "actorClassLoading",
                 ]
             }

@@ -1041,3 +1041,66 @@ Giran startup was visually inspected with no captured errors; it still reports
 no audited static surfaces loaded. Online movement and map repair remain open.
 This adds repository Elbera Tools checks; the existing standalone archives and
 public screenshot set are unchanged. Original inputs and raw receipts stay private.
+
+## LevelInfo collision mode
+
+The admission input at LevelInfo `+0x554`, bit `2`, is `bBegunPlay`. The existing
+source exporter follows the original declaration links, rather than export order:
+`SelectedGroups` (String) → `bLonePlayer` → `bBegunPlay` → `bPlayersOnly` →
+`DetailMode` (Byte). The Boolean masks are `1`, `2` and `4`. Original typed-copy
+instructions and the previously qualified Core Boolean packing bind this layout;
+the declaration flags are respectively `1`, `0` and `0`.
+
+Default extraction checks the complete `Core.Object` → `Engine.Actor` →
+`Engine.Info` → `Engine.ZoneInfo` → `Engine.LevelInfo` ancestry. Each class must
+have one validated terminal default stream. The qualified zero-plus-parent
+default path supplies absent declared bits; ambiguous streams remain unsupported.
+The sweep record retains this evidence as `levelCollisionDefaults`.
+
+`savedLevelCollisionMode` identifies the first reference of the saved `+0x38`
+actor array and requires that exact local export to be `Engine.LevelInfo`. It
+retains the original frame, ordered Boolean tags, source spans and hashes.
+Repeated tags remain ordered. The independent record check re-encodes the frame,
+checks the exact property boundary and feeds those tags through the actual
+browser property loader. For both Talking Island and Giran, the three declared
+bits have **mask `7`, value `0`**, with no saved overrides. This establishes the
+saved/default subset, not the value at a later point in a running map.
+
+Original normal constructors for Info, ZoneInfo and LevelInfo preserve that word.
+Qualification includes their erased imports, four named Core no-init helpers
+and virtual-method identities: these classes inherit Actor PostLoad at slot
+`+0x24` and Actor Serialize at `+0x2c`. Slot `+0x18` is ProcessState, not Serialize.
+The source check executes the LevelInfo constructor through ZoneInfo and Actor;
+incoming storage and counters are explicit inputs, not a reconstructed allocator.
+
+Separate matched LoadMap slices bind the collision-enable call site and the
+ordered actor InitExecution block followed by `OR [+0x554], 2` and
+`OR [+0x55c], 4`. The comparison executes the final two writes only under an
+explicit supplied successful-initialization stage. **It does not execute the
+intervening LoadMap control flow or callbacks.** The later `bBegunPlay` value must
+not be substituted into earlier population, and the write alone does not rebuild
+existing actor membership.
+
+The bounds verifier adds **128 cases, 67,974 instructions and 297 addresses**.
+It checks typed copying, constructor preservation, separate later writes and
+unchanged unrelated storage. The comparison uses the existing shared browser
+known-bit writer, including partially known and empty-mask words; it does not
+add a second runtime loader. All inputs use the edition and image/package
+fingerprints documented above. Reproduce with:
+
+```sh
+python3 tools/ui/check_static_actor_bounds_native.py \
+  --comparison-engine /local/comparison/engine.dll \
+  --comparison-core /local/comparison/Core.dll --check
+python3 tools/world/check_static_collision_records.py 17_25 22_22 --check
+python3 -m unittest discover -s tools/world -p test_static_collision.py
+python3 -m unittest discover -s tools/ui -p test_static_actor_bounds_native.py
+```
+
+The first two commands require private original inputs; the last two run 68
+record and 18 interpreter cases without game files (the interpreter requires
+Capstone). Both original-map checks still cover 2,922 static actor records and
+480 prepared mesh records. This checkpoint changes source tools only, with no
+new browser appearance or Online acceptance claim. Complete current startup,
+brush/volume/mover participation and actual world-query integration remain open.
+Existing standalone archives and README screenshots are unchanged.

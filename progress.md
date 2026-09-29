@@ -2,6 +2,29 @@ Original prompt: Sounds good do you want to make a branch and work there reusing
 
 # Browser port restart
 
+## LevelInfo collision mode evidence — 28 September 2026
+
+Continued from merged PR56. The existing source exporter now recovers the
+LevelInfo mode declaration chain, all five class-default ancestors and each
+map's actual first actor, with exact state-frame/property boundaries and hashes.
+Both Talking Island and Giran preserve known mask7/value0 and no saved overrides
+for these three bits. Unknown padding stays unknown; saved mode is not live mode.
+
+The original constructor preserves this word. Separate qualified LoadMap slices
+identify the collision-enable call site and later bBegunPlay write, without
+claiming to execute intervening control flow or initialization callbacks.
+128 comparisons execute 67,974 original instructions across 297 addresses and
+check actual shared browser bit writes. Corrected the source virtual slot:
+Serialize is +0x2c; +0x18 is ProcessState. No runtime/UI code changed here.
+
+Validation: 68 portable collision-record cases, 18 interpreter cases and the
+full original bounds/loading suite pass. Both maps' source checks still cover
+2,922 actor records and 480 prepared mesh records. Original inputs and raw
+receipts remain private; all 17 README images are preserved. Next: join the
+source level/actor resources into the actual world-query path, keeping brushes,
+volumes, movers and unexecuted startup stages explicit. Online map repair and
+full client parity remain unfinished; the full goal stays active.
+
 ## Ordered collision population and partial flags — 28 September 2026
 
 PR55 is merged. The shared actor-loading module now preserves original current

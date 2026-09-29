@@ -63,9 +63,13 @@ and bounded PostLoad, checked against 128 original-instruction cases and all
 static-mesh bounds and membership in 64 original-code scenarios covering 959
 AddActor calls. The shared consumers accept only the known flag bits they read;
 unknown padding stays unknown. Original reversed box endpoints are preserved.
-Whole default-object/archive execution, script initialization, the actual current
-level array and LevelInfo collision mode still need the lifecycle join before
-world queries can use these records.
+LevelInfo mode declarations, inherited defaults and both maps' first-actor
+records are recovered. Another 128 original-code comparisons check constructor
+preservation and separate later startup writes. Saved mode is not current mode:
+whole default-object/archive execution, script initialization and the actual
+current level array still need the lifecycle join before world queries can use
+these records. Brushes, volumes and movers must remain visible as coverage gaps
+until their collision providers are ready.
 
 Next: feed these prepared mesh resources and original actor fields into the
 existing world-query components, preserving unresolved lifecycle boundaries. Validate

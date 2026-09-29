@@ -584,6 +584,153 @@ def qualify_level_actor_loading(engine, core, comparison, comparison_core):
     )
 
 
+def qualify_level_collision_mode(engine, core, comparison, comparison_core, package):
+    """Bind LevelInfo's declared mode, preserving construction and startup order.
+
+    This extends the existing actor loading evidence. Saved/default values,
+    successful construction and LoadMap's later writes are separate stages;
+    selected LoadMap slices do not certify the entire method or its callbacks.
+    """
+    from check_supplemental_engine import compare_method
+    from export_static_collision import level_collision_layout
+
+    assert (engine.sha, core.sha, comparison.sha, comparison_core.sha) == (
+        ENGINE_SHA,
+        CORE_SHA,
+        COMPARISON_SHA,
+        COMPARISON_CORE_SHA,
+    )
+    assert hashlib.sha256(package.path.read_bytes()).hexdigest() == PACKAGE_SHA
+    layout = level_collision_layout(package)
+    symbol = "??0ALevelInfo@@QAE@ABV0@@Z"
+    assert engine.exported(symbol, True) == comparison.body(symbol) == 0x103BFB30
+    start, end = 0x103BFD15, 0x103BFD5C
+    data = raw(engine, start, end)
+    assert data == comparison.read(start, len(data))
+    rows = list(engine.dis.disasm(data, start))
+    assert sum(row.size for row in rows) == len(data)
+    masks = [int(row.op_str.split(", ")[1], 0) for row in rows if row.mnemonic == "and"]
+    assert masks == [field["mask"] for field in layout[0]["fields"]] == [1, 2, 4]
+    copy = dict(start=hex(start), end=hex(end), SHA256=hashlib.sha256(data).hexdigest())
+    helpers = {
+        "??0FName@@QAE@XZ": (0x10109D90, 0x10109D93),
+        "??0FRotator@@QAE@XZ": (0x1010DED0, 0x1010DED3),
+        "??0FArray@@QAE@W4ENoInit@@@Z": (0x10109200, 0x10109205),
+        "??0FStringNoInit@@QAE@XZ": (0x1011B4A0, 0x1011B4D2),
+    }
+    core_blocks, blocks, imports, thunks = [], [], {}, {}
+    for name, (start, end) in helpers.items():
+        assert core.exported(name, True) == comparison_core.body(name) == start
+        data = raw(core, start, end)
+        assert data == comparison_core.read(start, len(data))
+        rows = list(core.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data) and rows[-1].mnemonic == "ret"
+        core_blocks.append(
+            dict(
+                symbol=name,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    for name, start, end, handler in [
+        ("??0AInfo@@IAE@XZ", 0x10328F40, 0x10328F8A, 0x107F07B8),
+        ("??0AZoneInfo@@QAE@XZ", 0x103BEA50, 0x103BEAF0, 0x10803BFD),
+        ("??0ALevelInfo@@QAE@XZ", 0x103BF970, 0x103BFACE, 0x10804009),
+    ]:
+        assert engine.exported(name, True) == comparison.body(name) == start
+        assert engine.exported(name) == comparison.exports[name]
+        thunks[hex(engine.exported(name))] = hex(start)
+        data = raw(engine, start, end)
+        rows = list(engine.dis.disasm(data, start))
+        assert sum(row.size for row in rows) == len(data) and rows[-1].mnemonic == "ret"
+        compared = compare_method(
+            data,
+            comparison.read(start, len(data)),
+            start,
+            start,
+            comparison.imported_call,
+            lambda va, size: raw(engine, va, va + size),
+            comparison.read,
+            (handler, handler - 0x40),
+        )
+        for row in compared["differences"]:
+            if row["kind"] == "named-import":
+                assert row["binding"][0] == "core.dll" and row["binding"][1] in helpers
+                imports[row["ownedVA"]] = hex(helpers[row["binding"][1]][0])
+        blocks.append(
+            dict(symbol=name, start=hex(start), end=hex(end), comparison=compared)
+        )
+    tables = []
+    for cls in ("AInfo", "AZoneInfo", "ALevelInfo"):
+        table = f"??_7{cls}@@6B@"
+        for slot, method in [
+            (0x24, "?PostLoad@AActor@@UAEXXZ"),
+            (0x2C, "?Serialize@AActor@@UAEXAAVFArchive@@@Z"),
+        ]:
+            assert engine.u32(engine.exported(table) + slot) == engine.exported(method)
+            assert (
+                comparison.u32(comparison.exports[table] + slot)
+                == comparison.exports[method]
+            )
+            tables.append(dict(table=table, slot=hex(slot), method=method))
+    load = "?LoadMap@UGameEngine@@UAEPAVULevel@@ABVFURL@@PAVUPendingLevel@@PBV?$TMap@VFString@@V1@@@AAVFString@@@Z"
+    assert engine.exported(load, True) == 0x105948D0
+    assert comparison.body(load) == 0x10594890
+    startup = []
+    for name, start, end in [
+        ("collision enable call site", 0x10595800, 0x10595810),
+        (
+            "ordered actor execution initialization and later mode writes",
+            0x10595F81,
+            0x10595FBF,
+        ),
+    ]:
+        data = raw(engine, start, end)
+        assert data == comparison.read(start - 0x40, len(data))
+        startup.append(
+            dict(
+                name=name,
+                start=hex(start),
+                end=hex(end),
+                SHA256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    for at, op, args in [
+        (0x103BFD15, "mov", "eax, dword ptr [esi + 0x554]"),
+        (0x103BFD2A, "mov", "eax, dword ptr [edi + 0x554]"),
+        (0x103BFD38, "and", "eax, 2"),
+        (0x103BFD3D, "mov", "dword ptr [esi + 0x554], eax"),
+        (0x10595809, "push", "1"),
+        (0x1059580B, "mov", "eax, dword ptr [edx + 0x6c]"),
+        (0x10595F93, "mov", "edx, dword ptr [eax + 0x38]"),
+        (0x10595FA4, "mov", "eax, dword ptr [edx + 0x3c]"),
+        (0x10595FB1, "or", "dword ptr [esi + 0x554], 2"),
+        (0x10595FB8, "or", "dword ptr [esi + 0x55c], 4"),
+    ]:
+        engine.instruction(at, op, args)
+    table, method = "??_7ULevel@@6BUObject@@@", "?SetActorCollision@ULevel@@UAEXHH@Z"
+    assert engine.u32(engine.exported(table) + 0x6C) == engine.exported(method)
+    assert (
+        comparison.u32(comparison.exports[table] + 0x6C) == comparison.exports[method]
+    )
+    return dict(
+        layout=layout,
+        copyBlock=copy,
+        engineBlocks=blocks,
+        coreBlocks=core_blocks,
+        importTargets=imports,
+        thunkTargets=thunks,
+        vtables=tables,
+        startup=startup,
+        limits=[
+            "Declared class/default/map mode is not current live state; unconsumed bits remain unknown.",
+            "Constructors use supplied incoming storage/counters; ordinary SEH stack effects only, no exception handling.",
+            "Separate LoadMap slices bind collision enablement and the initialization/write block; intervening control flow and callbacks are not executed.",
+        ],
+    )
+
+
 def qualify_level_actor_population(engine, comparison):
     """Bind the normal fresh-hash population loop; allocation is not executed."""
     assert (engine.sha, comparison.sha) == (ENGINE_SHA, COMPARISON_SHA)
