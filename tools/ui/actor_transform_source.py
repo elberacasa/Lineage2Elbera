@@ -1011,6 +1011,7 @@ def qualify_static_actor_loading(engine, core, comparison_engine, comparison_cor
         rotator: (0x1010DED0, 0x1010DED3),
         array: (0x10109200, 0x10109205),
         "??0FBox@@QAE@XZ": (0x1010EF70, 0x1010EF73),
+        "??0FScale@@QAE@XZ": (0x1010DCA0, 0x1010DCA3),
         "?PostLoad@UObject@@UAEXXZ": (0x10163C60, 0x10163CB8),
         "?GetClass@UObject@@QBEPAVUClass@@XZ": (0x1010A1E0, 0x1010A1E4),
         "?SetFlags@UObject@@QAEXK@Z": (0x1010A210, 0x1010A21A),
@@ -1106,6 +1107,20 @@ def qualify_static_actor_loading(engine, core, comparison_engine, comparison_cor
             0x1052F65D,
             (0x1081A830, 0x1081A7F0),
             postload_imports,
+        ),
+        (
+            "??0ABrush@@QAE@XZ",
+            0x103D3640,
+            0x103D36AE,
+            (0x10806418, 0x108063D8),
+            dict.fromkeys((0x103D3676, 0x103D3682, 0x103D368E), "??0FScale@@QAE@XZ"),
+        ),
+        (
+            "?PostLoad@ABrush@@UAEXXZ",
+            0x1052FDD0,
+            0x1052FE15,
+            (0x1081A880, 0x1081A840),
+            {},
         ),
         (
             "?Serialize@AActor@@UAEXAAVFArchive@@@Z",
@@ -1206,6 +1221,24 @@ def qualify_static_actor_loading(engine, core, comparison_engine, comparison_cor
             )
             vtables.append(dict(table=table, slot=hex(slot), method=method))
     engine.instruction(0x103062C1, "jmp", "0x10328b30")
+    engine.instruction(0x103D365D, "call", "0x103062c1")
+    engine.instruction(0x1052FDF8, "call", "0x103092d2")
+    engine.instruction(0x103092D2, "jmp", "0x1052f570")
+    assert raw(engine, 0x103092D2, 0x103092D7) == comparison_engine.read(0x103092D2, 5)
+    for table in (
+        "??_7ABrush@@6B@",
+        "??_7AVolume@@6B@",
+        "??_7ABlockingVolume@@6B@",
+        "??_7APhysicsVolume@@6B@",
+        "??_7AMusicVolume@@6B@",
+    ):
+        method = "?PostLoad@ABrush@@UAEXXZ"
+        assert engine.u32(engine.exported(table) + 0x24) == engine.exported(method)
+        assert (
+            comparison_engine.u32(comparison_engine.exports[table] + 0x24)
+            == comparison_engine.exports[method]
+        )
+        vtables.append(dict(table=table, slot=hex(0x24), method=method))
     engine.instruction(0x1030B9A1, "jmp", "0x106773b0")
     array_table = core.exported("??_7UArrayProperty@@6B@")
     array_copy = core.exported(
@@ -1287,6 +1320,7 @@ def qualify_static_actor_loading(engine, core, comparison_engine, comparison_cor
             "0x103062c1": "0x10328b30",
             "0x1030b9a1": "0x106773b0",
             hex(engine.exported("?PostLoad@AActor@@UAEXXZ")): "0x1052f570",
+            hex(engine.exported("?PostLoad@ABrush@@UAEXXZ")): "0x1052fdd0",
             hex(array_copy): "0x1016fe90",
         },
         attached=attached_proof,

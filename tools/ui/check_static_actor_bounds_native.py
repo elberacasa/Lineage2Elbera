@@ -534,6 +534,13 @@ class StaticBoundsMachine(AdmissionMachine):
         self.invoke(0x106F5CC0, mesh)
 
     def step(self, i):
+        if i.address == 0x1010A214 and hasattr(self, "resource_flag_writes"):
+            identity = self.registers["ecx"]
+            nxt = super().step(i)
+            self.resource_flag_writes.append(
+                dict(identity=identity, objectFlags=self.memory[identity + 0x1C])
+            )
+            return nxt
         if i.address in (0x1015FBFF, 0x1016FF56):
             # Qualified InitProperties/array-copy memory-provider boundary.
             # Fixtures are nonoverlapping, aligned ordinary source buffers.
@@ -1552,6 +1559,144 @@ def actor_loading_cases(program):
         limits=[
             "Incoming storage/counters/object flags remain authored. Only class mask0x428 comes from original loading metadata; no allocation/CDO/archive or live actor state is derived.",
             "Object 0x100 and class 0x20 clear, empty attached array, nonaliasing references; SEH ordinary stack effects only.",
+        ],
+    )
+
+
+def brush_actor_loading_cases(program, runtime):
+    """Original ABrush constructor/PostLoad against the browser's ordered writes.
+
+    Storage, current class flags and reference headers are explicit inputs.
+    This is not a fresh map load or a volume constructor substitution.
+    """
+    rng = random.Random(0x42525553)
+    rows, expected, visited = [], [], set()
+    steps = constructor_steps = 0
+    constructor_visited = set()
+    actor, model, polys, cls = 0x200000, 0x300000, 0x400000, 0x900000
+    table = program.engine.exported("??_7ABrush@@6B@")
+    counters = program.receipt["actorLoading"]["actorCounters"]
+    for index in range(192):
+        m = StaticBoundsMachine(program)
+        initial = {actor + off: rng.getrandbits(32) for off in range(0, 0x418, 4)}
+        m.memory.update(initial)
+        for iat, address in counters.items():
+            m.memory[int(iat, 16)] = address
+            m.memory[address] = 0
+        m.memory.update({0x103307E8: 0, 0x103307EC: 0, 0x103307F0: 0})
+        registers = {name: rng.getrandbits(32) for name in ("ebx", "esi", "edi", "ebp")}
+        m.registers.update(registers)
+        m.invoke(0x103D3640, actor)
+        assert {at: m.memory[at] for at in initial} == initial | {
+            actor: table,
+            actor + 0x3A0: initial[actor + 0x3A0] & 0xFFFFFFF8,
+            actor + 0x3A4: 0xFFFFFFFF,
+            actor + 0x3A8: 1,
+            actor + 0x3AC: 1,
+        }
+        assert {name: m.registers[name] for name in registers} == registers
+        assert m.registers["eax"] == actor
+        constructor_steps += len(m.visited)
+        constructor_visited.update(m.visited)
+        m.visited.clear()
+
+        # Four reference forms, including Model/Polys sharing an object header.
+        brush = model if index % 4 else 0
+        poly_ref = (0, 0, polys, model)[index % 4]
+        class_flags = rng.getrandbits(32) & ~0x20
+        m.memory.update(
+            {
+                actor + 0x1C: rng.getrandbits(32) & ~0x100,
+                actor + 0x24: cls,
+                cls + 0x4A4: class_flags,
+                actor + 0x278: brush,
+                actor + 0x1F4: 0,
+                model + 0x1C: rng.getrandbits(32),
+                model + 0x60: poly_ref,
+                polys + 0x1C: rng.getrandbits(32),
+            }
+        )
+        before = {at: m.memory[at] for at in initial}
+        resource_before = {
+            at: m.memory[at] for at in (model + 0x1C, model + 0x60, polys + 0x1C)
+        }
+        mask = rng.getrandbits(32) if index else 0
+        signed = lambda value: value - 0x100000000 if value & 0x80000000 else value
+        row = dict(
+            objectFlags=before[actor + 0x1C],
+            classFlags=class_flags,
+            brushReference=brush or None,
+            attachedCount=0,
+            rotation=[signed(before[actor + 0x1C8 + i * 4]) for i in range(3)],
+            flags5c=dict(mask=mask, value=before[actor + 0x5C] & mask),
+            objects=[
+                [
+                    model,
+                    dict(
+                        objectFlags=resource_before[model + 0x1C],
+                        polysReference=poly_ref or None,
+                    ),
+                ],
+                [polys, dict(objectFlags=resource_before[polys + 0x1C])],
+            ],
+        )
+        m.resource_flag_writes = []
+        m.invoke(0x1052FDD0, actor)
+        changed = before | {
+            actor + 0x1C: before[actor + 0x1C] | 0x20000000,
+            actor + 0x5C: before[actor + 0x5C] | 0x40,
+            **{actor + 0x2D0 + i * 4: before[actor + 0x1C8 + i * 4] for i in range(3)},
+        }
+        assert {at: m.memory[at] for at in initial} == changed
+        assert {name: m.registers[name] for name in registers} == registers
+        assert m.memory[model + 0x60] == poly_ref
+        assert m.memory[model + 0x1C] == resource_before[model + 0x1C] | bool(brush)
+        assert m.memory[polys + 0x1C] == resource_before[polys + 0x1C] | (
+            poly_ref == polys
+        )
+        rows.append(row)
+        expected.append(
+            dict(
+                status="ready",
+                scope="original-brush-actor-postload",
+                writes=dict(
+                    objectFlags=m.memory[actor + 0x1C],
+                    resourceFlags=m.resource_flag_writes,
+                    swayRotationOrig=[
+                        signed(m.memory[actor + 0x2D0 + i * 4]) for i in range(3)
+                    ],
+                    flags5c=dict(
+                        mask=mask | 0x40, value=m.memory[actor + 0x5C] & (mask | 0x40)
+                    ),
+                ),
+            )
+        )
+        steps += len(m.visited)
+        visited.update(m.visited)
+    script = r"""
+import fs from 'node:fs';
+const {postLoadBrushActor}=await import(new URL('./actor-loading.js',process.argv[1]));
+process.stdout.write(JSON.stringify(JSON.parse(fs.readFileSync(0,'utf8')).map(row=>
+ postLoadBrushActor({...row,objects:new Map(row.objects)}))));
+"""
+    actual = browser_outputs(script, rows, Path(runtime))
+    assert len(actual) == len(expected)
+    for index, (a, b) in enumerate(zip(actual, expected)):
+        assert a == b, ("brush PostLoad", index, rows[index], a, b)
+    return dict(
+        cases=len(rows),
+        instructions=steps,
+        uniqueInstructions=len(visited),
+        construction=dict(
+            instructions=constructor_steps, uniqueInstructions=len(constructor_visited)
+        ),
+        allOtherActorWordsPreserved=True,
+        orderedResourceWritesCompared=True,
+        referenceForms=["null", "Model only", "Model and Polys", "aliased Model/Polys"],
+        limits=[
+            "Supplied current storage and flags, empty Attached, object 0x100/class 0x20 clear; not a saved-map startup.",
+            "Only ABrush construction is executed. Volume constructors and localization are not substituted.",
+            "Model/Polys aliasing is tested; actor/resource aliasing and exception paths are excluded.",
         ],
     )
 
@@ -2859,6 +3004,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
     model_bounds = model_bounds_cases(program, runtime)
     model_loading = model_loading_cases(program, runtime)
     actor_loading = actor_loading_cases(program)
+    brush_actor_loading = brush_actor_loading_cases(program, runtime)
     actor_fields = actor_field_cases(program)
     actor_boolean_loading = actor_boolean_loading_cases(program, runtime)
     actor_reference_loading = actor_reference_loading_cases(program, runtime)
@@ -2932,6 +3078,7 @@ def verify(engine, core, comparison_engine, comparison_core, runtime):
         uniqueInstructions=len(visited),
         construction=construction,
         actorLoading=actor_loading,
+        brushActorLoading=brush_actor_loading,
         actorFields=actor_fields,
         actorBooleanLoading=actor_boolean_loading,
         actorReferenceLoading=actor_reference_loading,
@@ -3024,6 +3171,7 @@ def main():
                         "uniqueInstructions",
                         "construction",
                         "actorLoading",
+                        "brushActorLoading",
                         "actorFields",
                         "actorBooleanLoading",
                         "actorReferenceLoading",

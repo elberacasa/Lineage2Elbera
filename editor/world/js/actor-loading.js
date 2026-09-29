@@ -247,13 +247,35 @@ export function prepareSourceModel(source, declared) {
  * Localization and the separate Brush/attached-object branches stay explicit.
  */
 export function postLoadStaticActor(input) {
-  const resultScope = "original-static-actor-postload",
-    writes = {};
+  return postLoadActor(input, "original-static-actor-postload", false);
+}
+
+/** ABrush.PostLoad delegates to AActor.PostLoad. Current resource headers are
+ * explicit inputs, separate from saved export flags. Referenced writes retain
+ * native order and remain visible if a later unsupported input stops the call.
+ * The caller owns applying them to shared objects; resource aliases use the
+ * latest returned flag value. Actor/resource aliasing is outside this contract.
+ */
+export function postLoadBrushActor(input) {
+  return postLoadActor(input, "original-brush-actor-postload", true);
+}
+
+function postLoadActor(input, resultScope, includeBrush) {
+  const writes = {},
+    resourceFlags = new Map(),
+    resourceWrites = [];
   const result = (status, reason) =>
     freeze({
       status,
       scope: resultScope,
-      writes: freeze({ ...writes }),
+      writes: freeze({
+        ...writes,
+        ...(includeBrush
+          ? {
+              resourceFlags: freeze([...resourceWrites]),
+            }
+          : {}),
+      }),
       ...(reason ? { reason } : {}),
     });
   if (!uint(input?.objectFlags))
@@ -266,11 +288,37 @@ export function postLoadStaticActor(input) {
       "unsupported",
       "current actor class without localized loading required",
     );
-  if (input.brushReference !== null)
-    return result(
-      "unsupported",
-      "Brush PostLoad reference writes require their own path",
-    );
+  if (input.brushReference !== null) {
+    if (!includeBrush || input.brushReference === undefined)
+      return result(
+        "unsupported",
+        "Brush PostLoad reference writes require their own path",
+      );
+    if (!(input.objects instanceof Map))
+      return result(
+        "unsupported",
+        "current referenced object headers required",
+      );
+    const setFlag = (identity) => {
+      const before =
+        resourceFlags.get(identity) ?? input.objects.get(identity)?.objectFlags;
+      if (!uint(before)) return false;
+      const objectFlags = (before | 1) >>> 0;
+      resourceFlags.set(identity, objectFlags);
+      resourceWrites.push(freeze({ identity, objectFlags }));
+      return true;
+    };
+    if (!setFlag(input.brushReference))
+      return result("unsupported", "current Brush Model object flags required");
+    const polys = input.objects.get(input.brushReference)?.polysReference;
+    if (polys === undefined)
+      return result(
+        "unsupported",
+        "current Model Polys reference or null required",
+      );
+    if (polys !== null && !setFlag(polys))
+      return result("unsupported", "current Polys object flags required");
+  }
   if (input.attachedCount !== 0)
     return result(
       "unsupported",

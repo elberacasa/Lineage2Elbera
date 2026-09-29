@@ -10,6 +10,7 @@ import {
   prepareStaticActorProperties,
   freshObjectLoadingFlags,
   postLoadStaticActor,
+  postLoadBrushActor,
   prepareFreshStaticActor,
   collectLevelActorAssignments,
   resolvePackageReference,
@@ -973,4 +974,95 @@ test("unknown Model lifecycle branches and malformed resource inputs stay unsupp
     assert.equal(result.status, "unsupported");
     assert.equal(result.writes, undefined);
   }
+});
+
+function brushPostLoadFixture() {
+  return {
+    objectFlags: 0x42070001,
+    classFlags: 0x12,
+    brushReference: "model",
+    attachedCount: 0,
+    rotation: [-2147483648, 0, 2147483647],
+    flags5c: { mask: 0x80000001, value: 0x80000000 },
+    objects: new Map([
+      ["model", { objectFlags: 0x20000000, polysReference: "polys" }],
+      ["polys", { objectFlags: 0xffffffff }],
+    ]),
+  };
+}
+
+test("brush PostLoad returns ordered shared-header writes without changing its inputs", () => {
+  const input = brushPostLoadFixture(),
+    before = structuredClone(input);
+  const result = postLoadBrushActor(input);
+  assert.equal(result.status, "ready");
+  assert.deepEqual(result.writes, {
+    objectFlags: 0x62070001,
+    resourceFlags: [
+      { identity: "model", objectFlags: 0x20000001 },
+      { identity: "polys", objectFlags: 0xffffffff },
+    ],
+    swayRotationOrig: [-2147483648, 0, 2147483647],
+    flags5c: { mask: 0x80000041, value: 0x80000040 },
+  });
+  assert.deepEqual(input, before);
+  assert.ok(Object.isFrozen(result.writes.resourceFlags));
+  assert.ok(result.writes.resourceFlags.every(Object.isFrozen));
+  assert.equal(postLoadStaticActor(input).status, "unsupported");
+});
+
+test("brush PostLoad distinguishes null references and retains repeated writes to aliased headers", () => {
+  const input = brushPostLoadFixture();
+  input.brushReference = null;
+  delete input.objects;
+  assert.deepEqual(postLoadBrushActor(input).writes.resourceFlags, []);
+  input.brushReference = "model";
+  input.objects = new Map([
+    ["model", { objectFlags: 0x80000000, polysReference: null }],
+  ]);
+  assert.deepEqual(postLoadBrushActor(input).writes.resourceFlags, [
+    { identity: "model", objectFlags: 0x80000001 },
+  ]);
+  input.objects.get("model").polysReference = "model";
+  const result = postLoadBrushActor(input);
+  assert.equal(result.status, "ready");
+  assert.deepEqual(result.writes.resourceFlags, [
+    { identity: "model", objectFlags: 0x80000001 },
+    { identity: "model", objectFlags: 0x80000001 },
+  ]);
+});
+
+test("brush PostLoad stops before missing or unsupported work while retaining earlier writes", () => {
+  for (const [mutate, count, sway] of [
+    [(input) => (input.objectFlags = 0x100), 0, false],
+    [(input) => (input.classFlags = 0x32), 0, false],
+    [(input) => delete input.classFlags, 0, false],
+    [(input) => delete input.brushReference, 0, false],
+    [(input) => delete input.objects, 0, false],
+    [(input) => input.objects.delete("model"), 0, false],
+    [(input) => (input.objects.get("model").objectFlags = -1), 0, false],
+    [(input) => delete input.objects.get("model").polysReference, 1, false],
+    [(input) => input.objects.delete("polys"), 1, false],
+    [
+      (input) => (input.objects.get("polys").objectFlags = 0x100000000),
+      1,
+      false,
+    ],
+    [(input) => (input.attachedCount = 1), 2, false],
+    [(input) => (input.rotation = [0, 0, 2147483648]), 2, false],
+    [(input) => (input.flags5c = { mask: 0, value: 1 }), 2, true],
+  ]) {
+    const input = brushPostLoadFixture();
+    mutate(input);
+    const result = postLoadBrushActor(input);
+    assert.equal(result.status, "unsupported");
+    assert.equal(
+      result.writes.objectFlags,
+      (input.objectFlags | 0x20000000) >>> 0,
+    );
+    assert.equal(result.writes.resourceFlags.length, count);
+    assert.equal(Object.hasOwn(result.writes, "swayRotationOrig"), sway);
+    assert.equal(result.writes.flags5c, undefined);
+  }
+  assert.deepEqual(postLoadBrushActor().writes, { resourceFlags: [] });
 });

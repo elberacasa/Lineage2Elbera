@@ -186,9 +186,9 @@ method for UModel. This does not substitute brush behavior for Mover.
 
 The native box copy includes three padding bytes whose contents remain opaque;
 only the six coordinates and validity byte are exposed. These functions still
-require current resources and owner responses. Model construction/PostLoad,
-actor subclass lifecycle, owned-brush hit traversal and live world membership
-remain unfinished. The scene loader does not yet use these functions for live
+require current resources and owner responses. Later sections cover bounded
+Model and Brush PostLoad; complete resource/actor startup, owned-brush hit
+traversal and live world membership remain unfinished. The scene loader does not yet use these functions for live
 collision, and this checkpoint makes no map-repair or Online walking claim.
 
 ## Bounded PostLoad path
@@ -468,13 +468,13 @@ with object bit `0x100` clear, class bit `0x20` clear, an empty attached-actor
 array and explicit nonaliasing references. UObject sets object flag `0x20000000`;
 Actor copies the three rotation words from `+1c8` to `+2d0` and sets `+5c` bit
 `0x40`. Nonnull `+278` and its nonnull `+60` reference receive object flag `1`.
-The check does not infer further meanings for those referenced objects. All
-other supplied actor words survive. Unsupported localization and attached-array
+The later Model/Brush checks below bind those references to Model and Polys.
+All other supplied actor words survive. Unsupported localization and attached-array
 paths stop the interpreter rather than treating erased calls as no-ops.
 
 The run adds **46,080 constructor instructions at 185 addresses** and
 **15,424 PostLoad instructions at 84 addresses**. Source qualification adds
-five Engine regions and eight exact Core bodies, with 41 named imports,
+ordinary Engine regions and exact Core helper bodies, named erased imports,
 four counter-operand bindings and Actor/StaticMeshActor vtable bindings.
 `AActor.Serialize` is compared as source correspondence only: its loading
 branch delegates tagged property application to UObject; no archive is executed
@@ -538,8 +538,8 @@ must not be conflated during world integration:
 | Brush | `+278` | `Engine.Model` |
 | AntiPortal | `+2b8` | `Engine.ConvexVolume` |
 
-Thus the prior PostLoad `+278` object is Brush; its `+60` reference still has
-no further meaning assigned here. XLevel is transient in its declaration.
+Thus the prior PostLoad `+278` object is Brush; the Model work below binds its
+`+60` reference to Polys. XLevel is transient in its declaration.
 An absent saved XLevel is not proof of a null current world. The checker
 records exact property flags and declaration fingerprints with the bindings.
 
@@ -1299,3 +1299,92 @@ standalone archives remain immutable and do not include this world pipeline.
 The final offline Giran startup capture reached the rendered world with all
 328 Models prepared and no captured errors. Its terrain defects remain visible;
 this is a loading regression check, not Online movement or map-repair acceptance.
+
+## Brush construction and PostLoad
+
+`postLoadBrushActor` in `actor-loading.js` now exposes the ordinary Brush
+PostLoad component. It shares the already verified Actor implementation;
+`postLoadStaticActor` retains its separate null-Brush contract. This entry does
+not construct an actor from saved map records.
+
+```js
+const result = postLoadBrushActor({
+  objectFlags, classFlags,
+  brushReference, // Current Model identity, or explicit null.
+  objects: new Map([
+    [modelIdentity, { objectFlags: modelFlags, polysReference }],
+    [polysIdentity, { objectFlags: polysFlags }],
+  ]),
+  attachedCount: 0,
+  rotation, // Three current int32 components, in original order.
+  flags5c: { mask, value }, // Known bits only; padding can remain unknown.
+});
+```
+
+Object/resource flags are current unsigned DWORDs, not saved export flags.
+Object bit `0x100` and class bit `0x20` must be clear. The object map is needed
+only for a nonnull Brush; Polys may itself be null. Undefined references or
+missing headers stop the call. Actor/resource aliasing is outside the contract;
+Model and Polys may share an identity.
+
+The result retains the existing object flag, rotation copy and masked actor
+flag writes. Its additional `writes.resourceFlags` array records each reached
+`SetFlags(1)` in order: first Model, then its nonnull Polys. It preserves repeated
+writes to a shared identity and unsigned high bits. Inputs are unchanged; the
+caller must apply the returned writes to shared current objects. An unsupported
+later input retains earlier writes, without claiming a completed PostLoad.
+The helper does not perform localization or nonempty Attached-array cleanup.
+
+The qualifier extends the existing `actor_transform_source.py` and the same
+pinned Engine/Core sources and command documented above:
+
+| Source method | Ordinary body, exclusive end |
+| --- | --- |
+| ABrush constructor | `103d3640..103d36ae` |
+| ABrush.PostLoad | `1052fdd0..1052fe15` |
+| FScale no-init constructor | `1010dca0..1010dca3` |
+| Shared UObject.SetFlags | `1010a210..1010a21a` |
+
+ABrush construction delegates to AActor, installs the Brush vtable and invokes
+three no-init FScale constructors. It preserves the incoming transform/scale
+storage. Its PostLoad wrapper delegates to AActor through the qualified thunk;
+there are no additional ordinary property writes. Original vtable slot `+24`
+binds that wrapper for Brush, Volume, BlockingVolume, PhysicsVolume and
+MusicVolume. This does **not** establish equivalent constructors or class flags
+for those subclasses. SEH setup is interpreted for ordinary stack effects;
+exception and unwind execution remain excluded.
+
+**192 constructor cases** interpret **47,424 instructions at 189 addresses**,
+checking every supplied actor word and callee-saved register. **192 PostLoad
+comparisons** interpret **20,160 instructions at 107 addresses**, comparing
+browser results with actual original writes. Cases include null Brush, null
+Polys, separate headers and aliased Model/Polys headers. The check observes
+writes at the original SetFlags instruction, so ordering is independently
+verified. All other supplied actor words and the Model's Polys reference survive.
+This is supplied current storage, not a substitute for source loading.
+
+```sh
+# Portable authored cases: no original files.
+node --test editor/world/test/actor-loading.test.mjs
+python3 -m unittest discover -s tools/ui -p test_static_actor_bounds_native.py
+
+# Original images and pinned comparison copies are required.
+python3 tools/ui/check_static_actor_bounds_native.py \
+  --comparison-engine /local/comparison/engine.dll \
+  --comparison-core /local/comparison/Core.dll --check
+```
+
+The portable API checks cover input preservation, immutable write lists,
+unsigned values, null/unknown distinctions, aliases and partial effects before
+missing resource data, localization, Attached or rotation/flag inputs. Existing
+static-actor, Model, bounds and world-loader cases remain separate regressions.
+The related run passes 92 browser-module cases and 19 portable interpreter
+cases. Two deliberate local mutations—using the wrong resource flag and
+reversing the write order—are rejected by the native comparison. The offline
+Giran startup regression retains 328 prepared Models and 1,936 static actors;
+the rendered terrain defects remain visible.
+Source-loaded Polys headers, brush transforms, volume construction/localization
+and the final world startup/query join remain unfinished. The scene loader does
+not yet call this new entry for saved actors; it makes no additional live
+collision, Online movement or map-repair claim. This source verifier remains
+in the repository toolkit; existing standalone release archives are unchanged.
